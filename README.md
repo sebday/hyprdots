@@ -36,11 +36,6 @@ git clone https://github.com/zsh-users/zsh-autosuggestions ~/.oh-my-zsh/plugins/
 git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ~/.oh-my-zsh/plugins/zsh-syntax-highlighting
 ```
 
-## Software
- Install into `~/.local/bin`  [Obsidian](https://obsidian.md/) and [Cursor](https://www.cursor.com/). Grab [Insync](https://www.insynchq.com/) for Google Drive and OneDrive.
-
- Activate the Obsidian snippet custom-background.css in settings to change the background.
-
 ## GTK Theme
 Set the theme, icons and font in nwg-look.
 
