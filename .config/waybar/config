@@ -1,10 +1,10 @@
 {
 "include": "~/.config/waybar/modules", 
 "layer": "top",
-"output": "DP-2",
+"output": "HDMI-A-1",
 "exclusive": true,
 "passthrough": false,
-"position": "top",
+"position": "bottom",
 "height": 32,
 "spacing": 3,
 "fixed-center": true,
