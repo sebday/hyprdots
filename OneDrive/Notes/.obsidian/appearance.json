@@ -4,5 +4,6 @@
     "custom-background"
   ],
   "textFontFamily": "CaskaydiaMono Nerd Font Mono",
-  "interfaceFontFamily": "CaskaydiaMono Nerd Font Mono"
+  "interfaceFontFamily": "CaskaydiaMono Nerd Font Mono",
+  "theme": "obsidian"
 }
