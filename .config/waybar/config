@@ -6,13 +6,9 @@
 "passthrough": false,
 "position": "bottom",
 "height": 35,
-"spacing": 3,
+"spacing": 4,
 "fixed-center": true,
 "ipc": true,
-"margin-top": 0,
-"margin-bottom": 0,
-"margin-left": 0,
-"margin-right": 0,
 
 "modules-left": [
 	"cpu",
