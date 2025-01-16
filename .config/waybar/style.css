@@ -42,7 +42,7 @@ window#waybar {
   	transition-duration: 0.5s;
   	background: @base;
 	padding: 2px;
-	border-radius: 0 0 10px 10px;
+	border-radius: 0;
 	border-top: none;
 }
 
