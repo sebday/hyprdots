@@ -252,5 +252,53 @@
     "_rev": 1734802287112,
     "id": 6,
     "customName": "ads.google.com"
+  },
+  {
+    "enabled": true,
+    "installDate": 1737028474432,
+    "sections": [
+      {
+        "code": ""
+      }
+    ],
+    "sourceCode": "/* ==UserStyle==\n@name           diybuildingsupplies.co.uk\n@namespace      github.com/openstyles/stylus\n@version        1.0.0\n@description    A new userstyle\n@author         Me\n==/UserStyle== */\n\n@-moz-document url-prefix(\"https://diybuildingsupplies.co.uk/\") {\n    #admin-bar-iframe { display:none!important; }\n}",
+    "usercssData": {
+      "name": "diybuildingsupplies.co.uk",
+      "namespace": "github.com/openstyles/stylus",
+      "version": "1.0.0",
+      "description": "A new userstyle",
+      "author": "Me"
+    },
+    "author": "Me",
+    "description": "A new userstyle",
+    "name": "diybuildingsupplies.co.uk",
+    "updateDate": 1737028474432,
+    "_id": "79b211b1-7925-4257-a076-318f5c5514ee",
+    "_rev": 1737028474433,
+    "id": 7
+  },
+  {
+    "enabled": true,
+    "installDate": 1737075292380,
+    "sections": [
+      {
+        "code": ""
+      }
+    ],
+    "sourceCode": "/* ==UserStyle==\n@name           scrapy.pricemonitor.pro\n@namespace      github.com/openstyles/stylus\n@version        1.0.0\n@description    A new userstyle\n@author         Me\n==/UserStyle== */\n@-moz-document domain(\"scrapy.pricemonitor.pro\") {\n    body {\n        background: #0a0e19;\n        color: #c0caf5;\n        font-family: sans-serif;\n        margin: 20px;\n    }\n\n    table#jobs {\n        border-collapse: collapse;\n        margin: 20px 0;\n        background: #15161E;\n        border: 1px solid #414868;\n    }\n\n    #jobs th,\n    #jobs td {\n        padding: 12px;\n        border: 1px solid #414868;\n    }\n\n    #jobs thead td {\n        background: #414868;\n        color: #c0caf5;\n        font-weight: bold;\n        text-align: center;\n    }\n\n    #jobs tbody th {\n        background: #414868;\n        color: #c0caf5;\n        text-align: left;\n    }\n\n    #jobs tbody tr:hover {\n        background: #1a1b26;\n    }\n\n    a {\n        color: #7dcfff;\n        text-decoration: none;\n    }\n\n    a:hover {\n        color: #bb9af7;\n        text-decoration: underline;\n    }\n\n    input[type=\"submit\"] {\n        background: #414868;\n        color: #c0caf5;\n        border: none;\n        padding: 5px 10px;\n        cursor: pointer;\n        border-radius: 3px;\n    }\n\n    input[type=\"submit\"]:hover {\n        background: #565f89;\n    }\n\n    h1 {\n        color: #bb9af7;\n    }\n}",
+    "usercssData": {
+      "name": "scrapy.pricemonitor.pro",
+      "namespace": "github.com/openstyles/stylus",
+      "version": "1.0.0",
+      "description": "A new userstyle",
+      "author": "Me"
+    },
+    "author": "Me",
+    "description": "A new userstyle",
+    "name": "scrapy.pricemonitor.pro",
+    "updateDate": 1737075488578,
+    "_id": "46759b9f-d750-4f5c-a7b8-fe8d12ea5a6a",
+    "_rev": 1737075488578,
+    "id": 8
   }
 ]
