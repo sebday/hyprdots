@@ -8,7 +8,7 @@
 ## Install Hyprland
 Install a base system with no desktop environment, add `contrib` and `non-free` and dist-update to sid. (I like to install the ssh-server from tasksel and then remote in to install the rest)
 
-`sudo apt install hyprland hyprland-protocols hyprwayland-scanner xwayland waybar fuzzel grim slurp cliphist swayidle swaylock hyprpaper mako-notifier libnotify-bin nwg-look libglib2.0-bin bibata-cursor-theme`
+`sudo apt install hyprland hyprland-protocols hyprwayland-scanner xwayland waybar fuzzel grim slurp cliphist swayidle swaylock hyprpaper mako-notifier libnotify-bin nwg-look libglib2.0-bin bibata-cursor-theme fonts-noto-color-emoji`
 
 - Fuzzel is a nice menu with icons
 - Waybar is the taskbar
