@@ -1,7 +1,5 @@
 {
-    "window.commandCenter": 1,
     "workbench.colorTheme": "Tokyo Night",
-    "editor.fontSize": 16,
     "editor.fontFamily": "'CaskaydiaMono Nerd Font', 'monospace', monospace",
     "editor.fontLigatures": true,
     "editor.fontVariations": false,
@@ -27,5 +25,12 @@
     "javascript.updateImportsOnFileMove.enabled": "never",
     "explorer.confirmDelete": false,
     "html.autoClosingTags": false,
-    "workbench.editor.enablePreview":false,
+    "workbench.editor.enablePreview": false,
+    "github.branchProtection": false,
+    "github.gitAuthentication": false,
+    "cursor.general.gitGraphIndexing": "enabled",
+    "cursor.general.enableShadowWorkspace": true,
+    "editor.tabSize": 2,
+    "chat.editor.fontSize": 16,
+    "editor.fontSize": 18,
 }

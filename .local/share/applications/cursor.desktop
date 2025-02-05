@@ -7,3 +7,5 @@ Type=Application
 Icon=/home/seb/.local/share/applications/cursor.png
 Categories=Dev;
 StartupNotify=true
+Path=
+Terminal=false
