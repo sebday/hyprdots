@@ -35,4 +35,5 @@
     "editor.fontSize": 18,
     "files.autoSave": "afterDelay",
     "cursor.composer.agentLoopOnLints": false,
+    "git.confirmSync": false,
 }
