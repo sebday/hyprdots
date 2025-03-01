@@ -36,6 +36,7 @@
 			"title<.*Picture-in-Picture.*>": " ",
 			"title<.*soundcloud.*>": "󰎆 ",
 			"class<firefox>": " ",
+			"class<brave-browser>": " ",
 			"class<foot|konsole|kitty>": " ",
 			"class<thunar>": "󰝰 ",
 			"class<discord>": " ",
