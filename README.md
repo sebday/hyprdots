@@ -8,7 +8,7 @@
 ## Install Hyprland
 Install a base system with no desktop environment, add `contrib` and `non-free` and dist-update to sid. (I like to install the ssh-server from tasksel and then remote in to install the rest)
 
-`sudo apt install hyprland hyprland-protocols hyprwayland-scanner xwayland waybar fuzzel grim slurp swappy cliphist swayidle swaylock hyprpaper mako-notifier libnotify-bin nwg-look libglib2.0-bin bibata-cursor-theme fonts-noto-color-emoji`
+`sudo apt install hyprland hyprland-protocols hyprwayland-scanner xwayland waybar fuzzel grim slurp swappy cliphist swayidle swaylock hyprpaper mako-notifier libnotify-bin nwg-look libglib2.0-bin bibata-cursor-theme fonts-noto-color-emoji `
 
 - Fuzzel is a nice menu with icons
 - Waybar is the taskbar
@@ -21,7 +21,7 @@ Install a base system with no desktop environment, add `contrib` and `non-free` 
 - Swayidle for auto locking the screen
 
 ## Install required apps
-`sudo apt install zsh foot git firefox eza fzf duf sshfs btop fastfetch pipewire alsa-utils playerctl pamixer pavucontrol imv mpv qalc cava thunar thunar-archive-plugin thunar-media-tags-plugin gvfs-backends transmission libfuse2`
+`sudo apt install zsh foot git firefox eza fzf duf sshfs btop fastfetch pipewire alsa-utils playerctl pamixer pavucontrol imv mpv qalc cava thunar thunar-archive-plugin thunar-media-tags-plugin gvfs-backends webp-pixbuf-loader transmission libfuse2`
 
 ## Clone the dots and start hyprland
 `git clone git@github.com:sebday/debian-hyprtokyo.git ~/`
