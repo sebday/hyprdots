@@ -21,7 +21,7 @@ Install a base system with no desktop environment, add `contrib` and `non-free` 
 - Swayidle for auto locking the screen
 
 ## Install required apps
-`sudo apt install zsh foot git firefox eza fzf duf sshfs btop fastfetch pipewire alsa-utils playerctl pamixer pavucontrol imv mpv qalc cava thunar thunar-archive-plugin thunar-media-tags-plugin gvfs-backends webp-pixbuf-loader transmission libfuse2`
+`sudo apt install zsh foot git firefox eza fzf duf sshfs btop htop nvtop fastfetch pipewire alsa-utils playerctl pamixer pavucontrol imv mpv qalc cava thunar thunar-archive-plugin thunar-media-tags-plugin gvfs-backends webp-pixbuf-loader transmission libfuse2`
 
 ## Clone the dots and start hyprland
 `git clone git@github.com:sebday/debian-hyprtokyo.git ~/`
