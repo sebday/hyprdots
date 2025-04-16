@@ -117,7 +117,7 @@
         "code": ""
       }
     ],
-    "sourceCode": "/* ==UserStyle==\n@name           soundcloud.com\n@namespace      github.com/openstyles/stylus\n@version        0.4.1\n@description    A Nord theme for Soundcloud\n@author         Seb day\n==/UserStyle== */\n@-moz-document domain(\"soundcloud.com\") {\n\n    .theme-dark,\n    .theme-light {\n        --surface-color: #78c6f5;\n        --background-surface-color: #0a0e19;\n        --highlight-color: #0a0e19;\n        --button-secondary-background-color: #0a0e19;\n        --button-secondary-selected-background-color: #0a0e19;\n    }\n    \n    .header__upsellWrapper,\n    .header__forArtistsButton,\n    .header__soundInput,\n    .l-sidebar-right {display: none!important;}\n    \n    .l-fluid-fixed .l-main { margin: 0; }\n    \n    .queue { background-color: #0a0e19; }\n    \n}",
+    "sourceCode": "/* ==UserStyle==\n@name           soundcloud.com\n@namespace      github.com/openstyles/stylus\n@version        0.4.1\n@description    A Nord theme for Soundcloud\n@author         Seb day\n==/UserStyle== */\n@-moz-document domain(\"soundcloud.com\") {\n\n    .theme-dark,\n    .theme-light {\n        --surface-color: #78c6f5;\n        --background-surface-color: #0a0e19;\n        --highlight-color: #0a0e19;\n        --button-secondary-background-color: #0a0e19;\n        --button-secondary-selected-background-color: #0a0e19;\n    }\n    \n    .header__upsellWrapper,\n    .header__forArtistsButton,\n    .header__soundInput,\n    .l-sidebar-right {display: none!important;}\n    \n    .l-fluid-fixed .l-main { margin: 0; }\n    \n    .queue { background-color: #0a0e19; }\n    \n    .l-listen-wrapper .l-about-main { margin: 0; }\n    \n}",
     "usercssData": {
       "name": "soundcloud.com",
       "namespace": "github.com/openstyles/stylus",
@@ -128,9 +128,9 @@
     "author": "Seb day",
     "description": "A Nord theme for Soundcloud",
     "name": "soundcloud.com",
-    "updateDate": 1744737954764,
+    "updateDate": 1744812264619,
     "_id": "36280913-df3f-4b1a-a096-41814f5219ef",
-    "_rev": 1744737954764,
+    "_rev": 1744812264619,
     "id": 1
   },
   {
