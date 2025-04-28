@@ -50,4 +50,7 @@
         "*.sdb": "${capture}.${extname}-*",
         "*.s3db": "${capture}.${extname}-*"
     },
+    "files.associations": {
+        "*.ds": "java"
+    },
 }
