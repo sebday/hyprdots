@@ -118,7 +118,7 @@
         "code": ""
       }
     ],
-    "sourceCode": "/* ==UserStyle==\n@name           soundcloud.com\n@namespace      github.com/openstyles/stylus\n@version        0.4.1\n@description    A Nord theme for Soundcloud\n@author         Seb day\n==/UserStyle== */\n@-moz-document domain(\"soundcloud.com\") {\n\n    .theme-dark,\n    .theme-light {\n        --surface-color: #78c6f5;\n        --background-surface-color: #0a0e19;\n        --highlight-color: #0a0e19;\n        --button-secondary-background-color: #0a0e19;\n        --button-secondary-selected-background-color: #0a0e19;\n    }\n\n    .header__upsellWrapper,\n    .header__forArtistsButton,\n    .header__soundInput,\n    .l-sidebar-right,\n    .queue__fallback {\n        display: none!important;\n    }\n\n    .l-fluid-fixed .l-main {\n        margin: 0;\n    }\n\n    .queue {\n        background-color: #0a0e19;\n    }\n\n    .l-listen-wrapper .l-about-main {\n        margin: 0;\n    }\n\n    .queue__itemWrapper,\n    .queue__itemsHeight {\n        background: #0a0e19!important;\n    }\n\n    .queue__itemWrapper .m-playing,\n    .queue__itemWrapper .m-active {\n        background-color: #78c6f5;\n    }\n}",
+    "sourceCode": "/* ==UserStyle==\n@name           soundcloud.com\n@namespace      github.com/openstyles/stylus\n@version        0.4.1\n@description    A Nord theme for Soundcloud\n@author         Seb day\n==/UserStyle== */\n@-moz-document domain(\"soundcloud.com\") {\n\n    * {\n    font-family: monospace!important;\n    }\n    .theme-dark,\n    .theme-light {\n        --surface-color: #78c6f5;\n        --background-surface-color: #0a0e19;\n        --highlight-color: #0a0e19;\n        --button-secondary-background-color: #0a0e19;\n        --button-secondary-selected-background-color: #0a0e19;\n    }\n\n    .header__upsellWrapper,\n    .header__forArtistsButton,\n    .header__soundInput,\n    .l-sidebar-right,\n    .queue__fallback {\n        display: none!important;\n    }\n\n    .l-fluid-fixed .l-main {\n        margin: 0;\n    }\n\n    .queue {\n        background-color: #0a0e19;\n    }\n\n    .l-listen-wrapper .l-about-main {\n        margin: 0;\n    }\n\n    .queue__itemWrapper,\n    .queue__itemsHeight {\n        background: #0a0e19!important;\n    }\n\n    .queue__itemWrapper .m-playing,\n    .queue__itemWrapper .m-active {\n        background-color: #78c6f5;\n    }\n}",
     "usercssData": {
       "name": "soundcloud.com",
       "namespace": "github.com/openstyles/stylus",
@@ -129,9 +129,9 @@
     "author": "Seb day",
     "description": "A Nord theme for Soundcloud",
     "name": "soundcloud.com",
-    "updateDate": 1745855506204,
+    "updateDate": 1746031096531,
     "_id": "36280913-df3f-4b1a-a096-41814f5219ef",
-    "_rev": 1745978419978,
+    "_rev": 1746031096531,
     "id": 1
   },
   {
@@ -152,7 +152,7 @@
     "name": "Whatsapp TokyoNight",
     "originalDigest": "2e84326ebf93013d3275e8d9a36fe0b48c82e272",
     "_id": "149a23ea-7eae-4f0a-9652-d78f7d8eb4de",
-    "_rev": 1745978420029,
+    "_rev": 1746030898512,
     "id": 2,
     "url": "https://userstyles.world/style/13721",
     "installationUrl": "https://userstyles.world/style/13721",
@@ -182,7 +182,7 @@
     "name": "github",
     "updateDate": 1733959446041,
     "_id": "0a291c9e-6f8c-4628-83bf-40d84b29b030",
-    "_rev": 1745978420030,
+    "_rev": 1746030898514,
     "id": 3
   },
   {
@@ -206,7 +206,7 @@
     "name": "home.google.com",
     "updateDate": 1727623453478,
     "_id": "095f7778-2948-4b64-a93a-687bb948ea84",
-    "_rev": 1745978420032,
+    "_rev": 1746030898516,
     "id": 4
   },
   {
@@ -231,7 +231,7 @@
     "name": "x.com/home",
     "updateDate": 1733490084647,
     "_id": "82de8cad-5205-4d23-b650-f1f368bbc301",
-    "_rev": 1745978420032,
+    "_rev": 1746030898517,
     "id": 5
   },
   {
@@ -255,7 +255,7 @@
     "name": "ads.google.com/",
     "updateDate": 1733678082282,
     "_id": "7e4042c4-1a53-45cb-becf-1845054ee25b",
-    "_rev": 1745978420033,
+    "_rev": 1746030898518,
     "id": 6,
     "customName": "ads.google.com"
   },
@@ -280,7 +280,7 @@
     "name": "diybuildingsupplies.co.uk",
     "updateDate": 1737028474432,
     "_id": "79b211b1-7925-4257-a076-318f5c5514ee",
-    "_rev": 1745978420033,
+    "_rev": 1746030898519,
     "id": 7
   },
   {
@@ -304,7 +304,7 @@
     "name": "scrapy.pricemonitor.pro",
     "updateDate": 1737075488578,
     "_id": "46759b9f-d750-4f5c-a7b8-fe8d12ea5a6a",
-    "_rev": 1745978420033,
+    "_rev": 1746030898519,
     "id": 8
   },
   {
@@ -328,7 +328,7 @@
     "name": "sebday.dev/ghost/",
     "updateDate": 1746030242228,
     "_id": "94e960e5-3c30-4392-9489-0648d1dc5fed",
-    "_rev": 1746030242228,
+    "_rev": 1746030898520,
     "id": 9
   }
 ]
