@@ -1,5 +1,4 @@
 {
-    "workbench.colorTheme": "Tokyo Night",
     "editor.fontFamily": "'CaskaydiaMono Nerd Font', 'monospace', monospace",
     "editor.fontLigatures": true,
     "editor.fontVariations": false,
@@ -53,4 +52,6 @@
     "files.associations": {
         "*.ds": "java"
     },
+    "window.commandCenter": true,
+    "workbench.colorTheme": "Tokyo Night",
 }
