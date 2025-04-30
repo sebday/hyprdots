@@ -111,7 +111,7 @@
     }
   },
   {
-    "enabled": true,
+    "enabled": false,
     "installDate": 1727614894446,
     "sections": [
       {
@@ -131,7 +131,7 @@
     "name": "soundcloud.com",
     "updateDate": 1746031096531,
     "_id": "36280913-df3f-4b1a-a096-41814f5219ef",
-    "_rev": 1746031096531,
+    "_rev": 1746031643469,
     "id": 1
   },
   {
@@ -142,22 +142,22 @@
         "code": ""
       }
     ],
-    "sourceCode": "/* ==UserStyle==\n@name         Whatsapp TokyoNight\n@version      1.1\n@namespace    ?\n==/UserStyle== */\n@-moz-document domain(\"web.whatsapp.com\") {\n    .dark {\n        --drawer-background-deep: #0a0e19;\n        --drawer-background: #0a0e19;\n        --drawer-section-background: #0a0e19;\n        --drawer-gallery-background: #0a0e19;\n        --incoming-background: #1a1b26;\n        --panel-header-background: #0a0e19;\n        --conversation-panel-background: #0a0e19;\n        --incoming-background-deeper: #0a0e19;\n        --rich-text-panel-background: #0a0e19;\n        --compose-input-border: #0a0e19;\n        --compose-input-background: #1a1b26;\n        --background-default: #0a0e19;\n        --background-default-hover: #24283b;\n        --background-lighter-hover: #2f334d;\n        --background-lightest-hover: #414868;\n        --background-default-active: #1a1b26;\n        --search-input-background: #1a1b26;\n        --search-input-background-active: #1a1b26;\n        --border-default: #414868;\n        --unread-marker-background: #9ece6a;\n        --unread-marker-timestamp: #9ece6a;\n        --unread-timestamp: #9ece6a;\n        --input-placeholder-rgb: 169, 177, 214;\n        --intro-background: #1a1b26;\n        --intro-border: #24283b;\n        --button-secondary: #9ece6a;\n        --border-list: #0a0e19;\n        --panel-input-background: #1a1b26;\n        --panel-background-lighter: #1a1b26;\n        --outgoing-background: #557543;\n        --outgoing-background-rgb: 85, 117, 67;\n        --outgoing-background-deeper: rgb(56, 77, 44);\n        --dropdown-background: #1a1b26;\n        --dropdown-background-hover: #24283b;\n        --search-container-background: #0a0e19;\n        --startup-background: #1a1b26;\n        --panel-background-deeper: #1a1b26;\n        --incoming-background-rgb: 26, 27, 38;\n        --typing: #9ece6a;\n        --unread-background: #1a1b26;\n        --sticker-button-background: #24283b;\n        --media-editor-image-caption-input-background: #1a1b26;\n        --media-editor-video-caption-input-background: #1a1b26;\n        --button-round-background: #668042;\n        --modal-background: #1a1b26;\n        --modal-backdrop: #0a0e1988;\n        --button-primary-background: #668042;\n        --button-primary-background-hover: #9ece6a;\n        --button-secondary-hover: #9ece6a;\n        --popup-panel-background: #0a0e19;\n        --search-input-container-background: #0a0e19;\n        --search-input-container-background-active: #0a0e19;\n        --system-message-background: #1a1b26;\n        --media-viewer-background: rgb(26 27 38 / 98%);\n        --button-plain-background: #24283b;\n        --notification-e2e-background: #1a1b26;\n        --panel-background-colored: #0a0e19;\n        --panel-background-colored-deeper: #0a0e19;\n        --avatar-background: #0a0e19;\n        --reactions-panel-background-color: #1a1b26;\n        --reactions-panel-search-background-color: #0a0e19;\n        --filters-container-background: #0a0e19;\n        --filters-item-background: #0a0e19;\n        --filters-item-background-hover: #414868;\n        --filters-item-active-background: #9ece6a;\n        --filters-item-active-color: #0a0e19;\n        --filters-item-color: #a9b1d6;\n    }\n\n    svg {\n        filter: saturate(0.7) brightness(1.2) hue-rotate(195deg);\n    }\n\n    #app {\n        background-color: #1a1b26;\n    }\n\n    .dark .color-1 {\n        color: #9ece6a !important;\n    }\n\n    .dark .color-2 {\n        color: #7dcfff !important;\n    }\n\n    html[dir] .app-wrapper-web ._1jJ70 {\n        box-shadow: none;\n    }\n\n    ._aigs {\n        max-width: 3000px!important;\n        top: 0!important;\n        width: 100%!important;\n        height: 100%!important;\n    }\n    header {\n        display: none!important\n    }\n}",
+    "sourceCode": "/* ==UserStyle==\n@name         Whatsapp TokyoNight\n@version      1.2\n@namespace    ?\n==/UserStyle== */\n@-moz-document domain(\"web.whatsapp.com\") {\n    .dark {\n        --drawer-background-deep: #0a0e19;\n        --drawer-background: #0a0e19;\n        --drawer-section-background: #0a0e19;\n        --drawer-gallery-background: #0a0e19;\n        --incoming-background: #1a1b26;\n        --panel-header-background: #0a0e19;\n        --conversation-panel-background: #0a0e19;\n        --incoming-background-deeper: #0a0e19;\n        --rich-text-panel-background: #0a0e19;\n        --compose-input-border: #0a0e19;\n        --compose-input-background: #1a1b26;\n        --background-default: #0a0e19;\n        --background-default-hover: #24283b;\n        --background-lighter-hover: #2f334d;\n        --background-lightest-hover: #414868;\n        --background-default-active: #1a1b26;\n        --search-input-background: #1a1b26;\n        --search-input-background-active: #1a1b26;\n        --border-default: #414868;\n        --unread-marker-background: #9ece6a;\n        --unread-marker-timestamp: #9ece6a;\n        --unread-timestamp: #9ece6a;\n        --input-placeholder-rgb: 169, 177, 214;\n        --intro-background: #1a1b26;\n        --intro-border: #24283b;\n        --button-secondary: #9ece6a;\n        --border-list: #0a0e19;\n        --panel-input-background: #1a1b26;\n        --panel-background-lighter: #1a1b26;\n        --outgoing-background: #557543;\n        --outgoing-background-rgb: 85, 117, 67;\n        --outgoing-background-deeper: rgb(56, 77, 44);\n        --dropdown-background: #1a1b26;\n        --dropdown-background-hover: #24283b;\n        --search-container-background: #0a0e19;\n        --startup-background: #1a1b26;\n        --panel-background-deeper: #1a1b26;\n        --incoming-background-rgb: 26, 27, 38;\n        --typing: #9ece6a;\n        --unread-background: #1a1b26;\n        --sticker-button-background: #24283b;\n        --media-editor-image-caption-input-background: #1a1b26;\n        --media-editor-video-caption-input-background: #1a1b26;\n        --button-round-background: #668042;\n        --modal-background: #1a1b26;\n        --modal-backdrop: #0a0e1988;\n        --button-primary-background: #668042;\n        --button-primary-background-hover: #9ece6a;\n        --button-secondary-hover: #9ece6a;\n        --popup-panel-background: #0a0e19;\n        --search-input-container-background: #0a0e19;\n        --search-input-container-background-active: #0a0e19;\n        --system-message-background: #1a1b26;\n        --media-viewer-background: rgb(26 27 38 / 98%);\n        --button-plain-background: #24283b;\n        --notification-e2e-background: #1a1b26;\n        --panel-background-colored: #0a0e19;\n        --panel-background-colored-deeper: #0a0e19;\n        --avatar-background: #0a0e19;\n        --reactions-panel-background-color: #1a1b26;\n        --reactions-panel-search-background-color: #0a0e19;\n        --filters-container-background: #0a0e19;\n        --filters-item-background: #0a0e19;\n        --filters-item-background-hover: #414868;\n        --filters-item-active-background: #9ece6a;\n        --filters-item-active-color: #0a0e19;\n        --filters-item-color: #a9b1d6;\n        --font-family-monospace: monospace!important;\n    }\n\n    body{ \n        font-family: monospace;\n    }\n    svg {\n        filter: saturate(0.7) brightness(1.2) hue-rotate(195deg);\n    }\n\n    #app {\n        background-color: #1a1b26;\n    }\n\n    .dark .color-1 {\n        color: #9ece6a !important;\n    }\n\n    .dark .color-2 {\n        color: #7dcfff !important;\n    }\n\n    html[dir] .app-wrapper-web ._1jJ70 {\n        box-shadow: none;\n    }\n\n    ._aigs {\n        max-width: 3000px!important;\n        top: 0!important;\n        width: 100%!important;\n        height: 100%!important;\n    }\n    header {\n        display: none!important\n    }\n}",
     "updateUrl": "https://userstyles.world/api/style/13721.user.css",
     "usercssData": {
       "name": "Whatsapp TokyoNight",
-      "version": "1.1",
+      "version": "1.2",
       "namespace": "?"
     },
     "name": "Whatsapp TokyoNight",
     "originalDigest": "2e84326ebf93013d3275e8d9a36fe0b48c82e272",
     "_id": "149a23ea-7eae-4f0a-9652-d78f7d8eb4de",
-    "_rev": 1746030898512,
+    "_rev": 1746044827438,
     "id": 2,
     "url": "https://userstyles.world/style/13721",
     "installationUrl": "https://userstyles.world/style/13721",
     "customName": "whatsapp",
-    "updateDate": 1733962575186
+    "updateDate": 1746044827438
   },
   {
     "enabled": true,
@@ -182,11 +182,11 @@
     "name": "github",
     "updateDate": 1733959446041,
     "_id": "0a291c9e-6f8c-4628-83bf-40d84b29b030",
-    "_rev": 1746030898514,
+    "_rev": 1746031581362,
     "id": 3
   },
   {
-    "enabled": true,
+    "enabled": false,
     "installDate": 1727615559501,
     "sections": [
       {
@@ -206,7 +206,7 @@
     "name": "home.google.com",
     "updateDate": 1727623453478,
     "_id": "095f7778-2948-4b64-a93a-687bb948ea84",
-    "_rev": 1746030898516,
+    "_rev": 1746031636709,
     "id": 4
   },
   {
@@ -231,7 +231,7 @@
     "name": "x.com/home",
     "updateDate": 1733490084647,
     "_id": "82de8cad-5205-4d23-b650-f1f368bbc301",
-    "_rev": 1746030898517,
+    "_rev": 1746031581364,
     "id": 5
   },
   {
@@ -255,33 +255,9 @@
     "name": "ads.google.com/",
     "updateDate": 1733678082282,
     "_id": "7e4042c4-1a53-45cb-becf-1845054ee25b",
-    "_rev": 1746030898518,
+    "_rev": 1746031581364,
     "id": 6,
     "customName": "ads.google.com"
-  },
-  {
-    "enabled": true,
-    "installDate": 1737028474432,
-    "sections": [
-      {
-        "code": ""
-      }
-    ],
-    "sourceCode": "/* ==UserStyle==\n@name           diybuildingsupplies.co.uk\n@namespace      github.com/openstyles/stylus\n@version        1.0.0\n@description    A new userstyle\n@author         Me\n==/UserStyle== */\n\n@-moz-document url-prefix(\"https://diybuildingsupplies.co.uk/\") {\n    #admin-bar-iframe { display:none!important; }\n}",
-    "usercssData": {
-      "name": "diybuildingsupplies.co.uk",
-      "namespace": "github.com/openstyles/stylus",
-      "version": "1.0.0",
-      "description": "A new userstyle",
-      "author": "Me"
-    },
-    "author": "Me",
-    "description": "A new userstyle",
-    "name": "diybuildingsupplies.co.uk",
-    "updateDate": 1737028474432,
-    "_id": "79b211b1-7925-4257-a076-318f5c5514ee",
-    "_rev": 1746030898519,
-    "id": 7
   },
   {
     "enabled": true,
@@ -304,7 +280,7 @@
     "name": "scrapy.pricemonitor.pro",
     "updateDate": 1737075488578,
     "_id": "46759b9f-d750-4f5c-a7b8-fe8d12ea5a6a",
-    "_rev": 1746030898519,
+    "_rev": 1746031581365,
     "id": 8
   },
   {
@@ -328,7 +304,7 @@
     "name": "sebday.dev/ghost/",
     "updateDate": 1746030242228,
     "_id": "94e960e5-3c30-4392-9489-0648d1dc5fed",
-    "_rev": 1746030898520,
+    "_rev": 1746031581365,
     "id": 9
   }
 ]
