@@ -102,7 +102,8 @@
       "popupWidth": 246,
       "popupWidthMax": 280,
       "updateInterval": 24,
-      "updateOnlyEnabled": false
+      "updateOnlyEnabled": false,
+      "undefined": null
     },
     "order": {
       "main": [],
@@ -130,7 +131,7 @@
     "name": "soundcloud.com",
     "updateDate": 1745855506204,
     "_id": "36280913-df3f-4b1a-a096-41814f5219ef",
-    "_rev": 1745855506204,
+    "_rev": 1745978419978,
     "id": 1
   },
   {
@@ -151,7 +152,7 @@
     "name": "Whatsapp TokyoNight",
     "originalDigest": "2e84326ebf93013d3275e8d9a36fe0b48c82e272",
     "_id": "149a23ea-7eae-4f0a-9652-d78f7d8eb4de",
-    "_rev": 1737836797422,
+    "_rev": 1745978420029,
     "id": 2,
     "url": "https://userstyles.world/style/13721",
     "installationUrl": "https://userstyles.world/style/13721",
@@ -181,7 +182,7 @@
     "name": "github",
     "updateDate": 1733959446041,
     "_id": "0a291c9e-6f8c-4628-83bf-40d84b29b030",
-    "_rev": 1737836796375,
+    "_rev": 1745978420030,
     "id": 3
   },
   {
@@ -205,7 +206,7 @@
     "name": "home.google.com",
     "updateDate": 1727623453478,
     "_id": "095f7778-2948-4b64-a93a-687bb948ea84",
-    "_rev": 1737836770662,
+    "_rev": 1745978420032,
     "id": 4
   },
   {
@@ -230,7 +231,7 @@
     "name": "x.com/home",
     "updateDate": 1733490084647,
     "_id": "82de8cad-5205-4d23-b650-f1f368bbc301",
-    "_rev": 1737836800177,
+    "_rev": 1745978420032,
     "id": 5
   },
   {
@@ -254,7 +255,7 @@
     "name": "ads.google.com/",
     "updateDate": 1733678082282,
     "_id": "7e4042c4-1a53-45cb-becf-1845054ee25b",
-    "_rev": 1737836795435,
+    "_rev": 1745978420033,
     "id": 6,
     "customName": "ads.google.com"
   },
@@ -279,7 +280,7 @@
     "name": "diybuildingsupplies.co.uk",
     "updateDate": 1737028474432,
     "_id": "79b211b1-7925-4257-a076-318f5c5514ee",
-    "_rev": 1737836795975,
+    "_rev": 1745978420033,
     "id": 7
   },
   {
@@ -303,7 +304,31 @@
     "name": "scrapy.pricemonitor.pro",
     "updateDate": 1737075488578,
     "_id": "46759b9f-d750-4f5c-a7b8-fe8d12ea5a6a",
-    "_rev": 1737836796917,
+    "_rev": 1745978420033,
     "id": 8
+  },
+  {
+    "enabled": true,
+    "installDate": 1746030242228,
+    "sections": [
+      {
+        "code": ""
+      }
+    ],
+    "sourceCode": "/* ==UserStyle==\n@name           sebday.dev/ghost/\n@namespace      github.com/openstyles/stylus\n@version        1.0.0\n@description    A new userstyle\n@author         Me\n==/UserStyle== */\n\n@-moz-document url-prefix(\"https://sebday.dev/ghost/\") {\n    .gh-main-white, .settings-menu-header {\n        background: #0a0f19;\n    }\n}",
+    "usercssData": {
+      "name": "sebday.dev/ghost/",
+      "namespace": "github.com/openstyles/stylus",
+      "version": "1.0.0",
+      "description": "A new userstyle",
+      "author": "Me"
+    },
+    "author": "Me",
+    "description": "A new userstyle",
+    "name": "sebday.dev/ghost/",
+    "updateDate": 1746030242228,
+    "_id": "94e960e5-3c30-4392-9489-0648d1dc5fed",
+    "_rev": 1746030242228,
+    "id": 9
   }
 ]
