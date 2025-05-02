@@ -1,4 +1,7 @@
 {
   "cssTheme": "Tokyo Night",
-  "theme": "obsidian"
+  "theme": "obsidian",
+  "interfaceFontFamily": "CaskaydiaMono Nerd Font",
+  "textFontFamily": "CaskaydiaMono Nerd Font",
+  "monospaceFontFamily": "CaskaydiaMono Nerd Font"
 }
