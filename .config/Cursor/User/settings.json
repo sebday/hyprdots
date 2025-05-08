@@ -54,4 +54,7 @@
     },
     "window.commandCenter": true,
     "workbench.colorTheme": "Tokyo Night",
+    "[vue]": {
+        "editor.defaultFormatter": "Vue.volar"
+    },
 }
