@@ -57,4 +57,5 @@
     "[vue]": {
         "editor.defaultFormatter": "Vue.volar"
     },
+    "editor.mouseWheelScrollSensitivity": 2,
 }
