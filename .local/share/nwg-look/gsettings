@@ -11,5 +11,5 @@ font-antialiasing=grayscale
 font-rgba-order=rgb
 text-scaling-factor=1.0
 color-scheme=default
-event-sounds=true
+event-sounds=false
 input-feedback-sounds=false
