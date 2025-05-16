@@ -20,16 +20,6 @@
               "icon": "lucide-file",
               "title": "notes"
             }
-          },
-          {
-            "id": "3ffe2549001065cd",
-            "type": "leaf",
-            "state": {
-              "type": "empty",
-              "state": {},
-              "icon": "lucide-file",
-              "title": "New tab"
-            }
           }
         ],
         "stacked": true
@@ -89,7 +79,8 @@
       }
     ],
     "direction": "horizontal",
-    "width": 300
+    "width": 300,
+    "collapsed": true
   },
   "right": {
     "id": "a6b0c5b77cfe60ae",

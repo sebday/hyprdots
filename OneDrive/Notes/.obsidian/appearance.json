@@ -3,5 +3,8 @@
   "theme": "obsidian",
   "interfaceFontFamily": "CaskaydiaMono Nerd Font",
   "textFontFamily": "CaskaydiaMono Nerd Font",
-  "monospaceFontFamily": "CaskaydiaMono Nerd Font"
+  "monospaceFontFamily": "CaskaydiaMono Nerd Font",
+  "enabledCssSnippets": [
+    "custom-background"
+  ]
 }
