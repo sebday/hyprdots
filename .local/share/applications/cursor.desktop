@@ -2,7 +2,7 @@
 Name=Cursor
 Comment=AI assisted editor
 GenericName=Code Editor
-Exec=/home/seb/.local/bin/cursor.AppImage
+Exec=/home/seb/.local/bin/cursor.AppImage --enable-features=UseOzonePlatform --ozone-platform-hint=auto
 Type=Application
 Icon=/home/seb/.local/share/applications/cursor.png
 Categories=Dev;

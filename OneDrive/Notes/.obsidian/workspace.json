@@ -79,7 +79,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 300,
+    "width": 200,
     "collapsed": true
   },
   "right": {
@@ -163,7 +163,12 @@
   },
   "active": "1c901b7ba01965ee",
   "lastOpenFiles": [
-    "diy.md",
-    "notes.md"
+    "rules.png",
+    "pricemonitor/app listing.md",
+    "app listing.md",
+    "pricemonitor/scrapy.md",
+    "pricemonitor/rules.png",
+    "notes.md",
+    "diy.md"
   ]
 }
