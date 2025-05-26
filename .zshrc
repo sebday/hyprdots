@@ -19,13 +19,14 @@ plugins=(
 source $ZSH/oh-my-zsh.sh
 export PATH="$HOME/.local/bin:$PATH"
 
-# Set-up icons for files/folders in terminal using eza
+# Icons for files/folders in terminal using eza
 alias ls='eza -l --icons'
 alias ll='eza -al --icons'
 alias lt='eza -alr --sort=mod --tree --level=1 --icons'
 alias ff='fastfetch'
+alias df='df -hT -xtmpfs -xdevtmpfs -xefivarfs'
 
-# NVM as we love js 
+# NVM 
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
