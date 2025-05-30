@@ -11,13 +11,7 @@
 "ipc": true,
 
 "modules-left": [
-	"custom/cava_mviz",
-	"pulseaudio",
-	"network#speed",
-	"cpu",
-	"temperature",
-  "memory",
-  "disk"
+	"custom/shopify"
 	],
 
 "modules-center": [
@@ -25,8 +19,9 @@
 	], 
 
 "modules-right": [
-	"custom/shopify_sales",
+	"custom/cava_mviz",
+	"pulseaudio",
 	"clock",
-    "tray"
+  "tray"
 	]
 }
