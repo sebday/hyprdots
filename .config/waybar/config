@@ -11,7 +11,8 @@
 "ipc": true,
 
 "modules-left": [
-	"custom/shopify"
+	"custom/shopify_zk",
+	"custom/shopify_diy"
 	],
 
 "modules-center": [

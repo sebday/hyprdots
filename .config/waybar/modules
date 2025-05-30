@@ -93,7 +93,7 @@
 			]
 		},
 		"scroll-step": 5.0,
-		"on-click": "pavucontrol -t 3",
+		"on-click": "foot -e alsamixer",
 		"smooth-scrolling-threshold": 1
 	},
 	"temperature": {
@@ -114,13 +114,21 @@
 		"icon-size": 20,
 		"spacing": 4
 	},
-	"custom/shopify": {
-		"format": "{}",
-		"exec": "bash -c 'source /home/seb/Projects/shopify-dash/bin/activate && /home/seb/Projects/shopify-dash/waybar.py'",
+	"custom/shopify_zk": {
+		"format": "{text}",
+		"exec": "bash -c 'source /home/seb/Projects/shopify-dash/bin/activate && /home/seb/Projects/shopify-dash/waybar.py ZK'",
+		"on-click": "xdg-open https://admin.shopify.com/store/zidar-kid/analytics/live",
 		"return-type": "json",
 		"interval": 300,
-		"tooltip": true,
-		"tooltip-format": "Shopify Sales Data"
+		"tooltip": true
+	},
+	"custom/shopify_diy": {
+		"format": "{text}",
+		"exec": "bash -c 'source /home/seb/Projects/shopify-dash/bin/activate && /home/seb/Projects/shopify-dash/waybar.py DIY'",
+		"on-click": "xdg-open https://admin.shopify.com/store/diy-buildingsupplies/analytics/live",
+		"return-type": "json",
+		"interval": 300,
+		"tooltip": true
 	},
 	"custom/cava_mviz": {
 		"exec": "~/.config/waybar/scripts/WaybarCava.sh",
