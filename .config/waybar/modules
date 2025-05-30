@@ -1,24 +1,4 @@
 {
-	"hyprland/workspaces": {
-		"active-only": false,
-		"all-outputs": true,
-		"format": "{icon}",
-		"show-special": false,
-		"on-click": "activate",
-		"on-scroll-up": "hyprctl dispatch workspace e+1",
-		"on-scroll-down": "hyprctl dispatch workspace e-1",
-		"persistent-workspaces": {
-			"1": [],
-			"2": [],
-			"3": [],
-			"4": [],
-			"5": []
-		},
-		"format-icons": {
-			"active": "",
-			"default": ""
-		}
-	},
 	"hyprland/workspaces#rw": {
 		"disable-scroll": true,
 		"all-outputs": true,
@@ -51,97 +31,6 @@
 			"class<com.obsproject.Studio>": " "
 		}
 	},
-	"group/mobo_drawer": {
-		"orientation": "inherit",
-		"drawer": {
-			"transition-duration": 500,
-			"children-class": "cpu",
-			"transition-left-to-right": true
-		},
-		"modules": [
-			"temperature",
-			"cpu",
-			"memory",
-			"disk"
-		]
-	},
-	"backlight": {
-		"interval": 2,
-		"align": 0,
-		"rotate": 0,
-		"format-icons": [
-			" ",
-			" ",
-			" ",
-			"󰃝 ",
-			"󰃞 ",
-			"󰃟 ",
-			"󰃠 "
-		],
-		"format": "{icon}",
-		"tooltip-format": "backlight {percent}%",
-		"icon-size": 10,
-		"on-click": "",
-		"on-click-middle": "",
-		"on-click-right": "",
-		"on-update": "",
-		"on-scroll-up": "~/.config/waybar/scripts/Brightness.sh --inc",
-		"on-scroll-down": "~/.config/waybar/scripts/Brightness.sh --dec",
-		"smooth-scrolling-threshold": 1
-	},
-	"backlight#2": {
-		"device": "intel_backlight",
-		"format": "{icon} {percent}%",
-		"format-icons": [
-			"",
-			""
-		]
-	},
-	"battery": {
-		"align": 0,
-		"rotate": 0,
-		"full-at": 100,
-		"design-capacity": false,
-		"states": {
-			"good": 95,
-			"warning": 30,
-			"critical": 15
-		},
-		"format": "{icon} {capacity}%",
-		"format-charging": " {capacity}%",
-		"format-plugged": "󱘖 {capacity}%",
-		"format-alt-click": "click",
-		"format-full": "{icon} Full",
-		"format-alt": "{icon} {time}",
-		"format-icons": [
-			"󰂎",
-			"󰁺",
-			"󰁻",
-			"󰁼",
-			"󰁽",
-			"󰁾",
-			"󰁿",
-			"󰂀",
-			"󰂁",
-			"󰂂",
-			"󰁹"
-		],
-		"format-time": "{H}h {M}min",
-		"tooltip": true,
-		"tooltip-format": "{timeTo} {power}w",
-		"on-click-middle": "~/.config/waybar/scripts/ChangeBlur.sh",
-		"on-click-right": "~/.config/waybar/scripts/Wlogout.sh"
-	},
-	"bluetooth": {
-		"format": "",
-		"format-disabled": "󰂳",
-		"format-connected": "󰂱 {num_connections}",
-		"tooltip-format": " {device_alias}",
-		"tooltip-format-connected": "{device_enumerate}",
-		"tooltip-format-enumerate-connected": " {device_alias} 󰂄 {device_battery_percentage}%",
-		"tooltip": true,
-		"on-click": "blueman-manager"
-	},
 	"clock": {
 		"interval": 1,
 		"format": "  {:%H:%M    %A %d %B %Y }",
@@ -173,88 +62,9 @@
 		"tooltip": true,
 		"tooltip-format": "{used} used out of {total} on {path} ({percentage_used}%)"
 	},
-	"hyprland/window": {
-		"format": "{}",
-		"max-length": 20,
-		"separate-outputs": true,
-		"offscreen-css": true,
-		"offscreen-css-text": "(inactive)",
-		"rewrite": {
-			"(.*) — Mozilla Firefox": " $1",
-			"(.*) - fish": "> [$1]",
-			"(.*) - zsh": "> [$1]",
-			"(.*) - $term": "> [$1]"
-		}
-	},
-	"idle_inhibitor": {
-		"format": "{icon}",
-		"format-icons": {
-			"activated": " ",
-			"deactivated": " "
-		}
-	},
-	"keyboard-state": {
-		"numlock": true,
-		"capslock": true,
-		"format": {
-			"numlock": "N {icon}",
-			"capslock": "󰪛 {icon}"
-		},
-		"format-icons": {
-			"locked": "",
-			"unlocked": ""
-		}
-	},
 	"memory": {
 		"interval": 10,
 		"format": "{used:0.1f}G 󰾆"
-	},
-	"mpris": {
-		"interval": 10,
-		"format": "{player_icon} <i>{dynamic}</i>",
-		"format-paused": "{status_icon} <i>{dynamic}</i>",
-		"on-click-middle": "playerctl next",
-		"on-click": "playerctl play-pause",
-		"on-click-right": "playerctl previous",
-		"scroll-step": 5.0,
-		"on-scroll-up": "~/.config/waybar/scripts/Volume.sh --inc",
-		"on-scroll-down": "~/.config/waybar/scripts/Volume.sh --dec",
-		"smooth-scrolling-threshold": 1,
-		"player-icons": {
-			"chromium": "",
-			"default": "",
-			"firefox": "",
-			"kdeconnect": "",
-			"mopidy": "",
-			"mpv": "󰐹",
-			"spotify": "",
-			"vlc": "󰕼"
-		},
-		"status-icons": {
-			"paused": "󰐎",
-			"playing": "",
-			"stopped": ""
-		}
-	},
-	"network": {
-		"format": "{ifname}",
-		"format-wifi": "{icon}",
-		"format-ethernet": "󰌘",
-		"format-disconnected": "󰌙",
-		"tooltip-format": "{ipaddr}  {bandwidthUpBits}  {bandwidthDownBits}",
-		"format-linked": "󰈁 {ifname} (No IP)",
-		"tooltip-format-wifi": "{essid} {icon} {signalStrength}%",
-		"tooltip-format-ethernet": "{ifname} 󰌘",
-		"tooltip-format-disconnected": "󰌙 Disconnected",
-		"max-length": 30,
-		"format-icons": [
-			"󰤯",
-			"󰤟",
-			"󰤢",
-			"󰤥",
-			"󰤨"
-		],
-		"on-click-right": "foot nmtui"
 	},
 	"network#speed": {
 		"interval": 1,
@@ -275,17 +85,6 @@
 			"󰤥",
 			"󰤨"
 		]
-	},
-	"power-profiles-daemon": {
-		"format": "{icon}",
-		"tooltip-format": "Power profile: {profile}\nDriver: {driver}",
-		"tooltip": true,
-		"format-icons": {
-			"default": "",
-			"performance": "",
-			"balanced": "",
-			"power-saver": ""
-		}
 	},
 	"pulseaudio": {
 		"format": "{icon}  {volume}% ",
@@ -312,14 +111,6 @@
 		"on-click": "pavucontrol -t 3",
 		"smooth-scrolling-threshold": 1
 	},
-	"pulseaudio#microphone": {
-		"format": "{format_source}",
-		"format-source": " {volume}%",
-		"format-source-muted": "",
-		"on-click": "pavucontrol -t 4",
-		"tooltip-format": "{source_desc} | {source_volume}%",
-		"scroll-step": 5
-	},
 	"temperature": {
 		"interval": 10,
 		"tooltip": true,
@@ -338,75 +129,6 @@
 		"icon-size": 20,
 		"spacing": 4
 	},
-	"wireplumber": {
-		"format": "{icon} {volume} %",
-		"format-muted": " Mute",
-		"on-click": "~/.config/waybar/scripts/Volume.sh --toggle",
-		"on-click-right": "pavucontrol -t 3",
-		"on-scroll-up": "~/.config/waybar/scripts/Volume.sh --inc",
-		"on-scroll-down": "~/.config/waybar/scripts/Volume.sh --dec",
-		"format-icons": [
-			"",
-			"",
-			"󰕾",
-			""
-		]
-	},
-	"wlr/taskbar": {
-		"format": "{icon} {name}",
-		"icon-size": 16,
-		"all-outputs": false,
-		"tooltip-format": "{title}",
-		"on-click": "activate",
-		"on-click-middle": "close",
-		"ignore-list": [
-			"wofi",
-			"rofi",
-			"foot"
-		]
-	},
-	"custom/cycle_wall": {
-		"format": " ",
-		"on-click": "~/.config/hypr/UserScripts/WallpaperSelect.sh",
-		"on-click-right": "~/.config/hypr/UserScripts/WallpaperRandom.sh",
-		"on-click-middle": "~/.config/waybar/scripts/WaybarStyles.sh",
-		"tooltip": true,
-		"tooltip-format": "Left Click: Wallpaper Menu\nMiddle Click: Random wallpaper\nRight Click: Waybar Styles Menu"
-	},
-	"custom/hint": {
-		"format": "󰺁 HINT!",
-		"on-click": "~/.config/waybar/scripts/KeyHints.sh",
-		"tooltip": true,
-		"tooltip-format": "󱧣 Quick Tips"
-	},
-	"custom/keyboard": {
-		"exec": "cat ~/.cache/kb_layout",
-		"interval": 1,
-		"format": " {}",
-		"on-click": "~/.config/waybar/scripts/SwitchKeyboardLayout.sh"
-	},
-	"custom/light_dark": {
-		"format": "󰔎",
-		"on-click": "~/.config/waybar/scripts/DarkLight.sh",
-		"on-click-right": "~/.config/waybar/scripts/WaybarStyles.sh",
-		"on-click-middle": "~/.config/hypr/UserScripts/WallpaperSelect.sh",
-		"tooltip": true,
-		"tooltip-format": "Left Click: Switch Dark-Light Themes\nMiddle Click: Wallpaper Menu\nRight Click: Waybar Styles Menu"
-	},
-	"custom/lock": {
-		"format": "󰌾",
-		"on-click": "~/.config/waybar/scripts/LockScreen.sh",
-		"tooltip": true,
-		"tooltip-format": "󰷛 Screen Lock"
-	},
-	"custom/menu": {
-		"format": "",
-		"on-click": "pkill fuzzel || fuzzel",
-		"on-click-middle": "~/.config/hypr/UserScripts/WallpaperSelect.sh",
-		"on-click-right": "~/.config/waybar/scripts/WaybarLayout.sh",
-		"tooltip": true,
-		"tooltip-format": "Left Click: Rofi Menu\nMiddle Click: Wallpaper Menu\nRight Click: Waybar Layout Menu"
-	},
 	"custom/shopify_sales": {
 		"format": "{}",
 		"exec": "bash -c 'source /home/seb/Projects/shopify-dash/bin/activate && /home/seb/Projects/shopify-dash/waybar.py'",
@@ -418,86 +140,5 @@
 	"custom/cava_mviz": {
 		"exec": "~/.config/waybar/scripts/WaybarCava.sh",
 		"format": "{}"
-	},
-	"custom/playerctl": {
-		"format": "<span>{}</span>",
-		"return-type": "json",
-		"max-length": 35,
-		"exec": "playerctl -a metadata --format '{\"text\": \"{{artist}} ~ {{markup_escape(title)}}\", \"tooltip\": \"{{playerName}} : {{markup_escape(title)}}\", \"alt\": \"{{status}}\", \"class\": \"{{status}}\"}' -F",
-		"on-click-middle": "playerctl play-pause",
-		"on-click": "playerctl previous",
-		"on-click-right": "playerctl next",
-		"scroll-step": 5.0,
-		"on-scroll-up": "~/.config/waybar/scripts/Volume.sh --inc",
-		"on-scroll-down": "~/.config/waybar/scripts/Volume.sh --dec",
-		"smooth-scrolling-threshold": 1
-	},
-	"custom/power": {
-		"format": "⏻ ",
-		"on-click": "~/.config/waybar/scripts/Wlogout.sh",
-		"on-click-right": "~/.config/waybar/scripts/ChangeBlur.sh",
-		"tooltip": true,
-		"tooltip-format": "Left Click: Logout Menu\nRight Click: Change Blur"
-	},
-	"custom/swaync": {
-		"tooltip": true,
-		"tooltip-format": "Left Click: Launch Notification Center\nRight Click: Do not Disturb",
-		"format": "{icon} {}",
-		"format-icons": {
-			"notification": "<span foreground='red'><sup></sup></span>",
-			"none": "",
-			"dnd-notification": "<span foreground='red'><sup></sup></span>",
-			"dnd-none": "",
-			"inhibited-notification": "<span foreground='red'><sup></sup></span>",
-			"inhibited-none": "",
-			"dnd-inhibited-notification": "<span foreground='red'><sup></sup></span>",
-			"dnd-inhibited-none": ""
-		},
-		"return-type": "json",
-		"exec-if": "which swaync-client",
-		"exec": "swaync-client -swb",
-		"on-click": "sleep 0.1 && swaync-client -t -sw",
-		"on-click-right": "swaync-client -d -sw",
-		"escape": true
-	},
-	"custom/weather": {
-		"format": "{}",
-		"format-alt": "{alt}: {}",
-		"format-alt-click": "click",
-		"interval": 3600,
-		"return-type": "json",
-		"exec": "~/.config/waybar/scripts/Weather.sh",
-		"exec-if": "ping wttr.in -c1",
-		"tooltip": true
-	},
-	"custom/separator#dot": {
-		"format": "",
-		"interval": "once",
-		"tooltip": false
-	},
-	"custom/separator#dot-line": {
-		"format": "",
-		"interval": "once",
-		"tooltip": false
-	},
-	"custom/separator#line": {
-		"format": "|",
-		"interval": "once",
-		"tooltip": false
-	},
-	"custom/separator#blank": {
-		"format": "",
-		"interval": "once",
-		"tooltip": false
-	},
-	"custom/separator#blank_2": {
-		"format": "  ",
-		"interval": "once",
-		"tooltip": false
-	},
-	"custom/separator#blank_3": {
-		"format": "   ",
-		"interval": "once",
-		"tooltip": false
 	}
 }
