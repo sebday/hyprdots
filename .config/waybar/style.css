@@ -198,7 +198,7 @@ window#waybar.empty #window {
 }
 
 #cpu {
-  color: @green;
+  color: @red;
 }
 
 #custom-keyboard,

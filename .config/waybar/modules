@@ -407,6 +407,14 @@
 		"tooltip": true,
 		"tooltip-format": "Left Click: Rofi Menu\nMiddle Click: Wallpaper Menu\nRight Click: Waybar Layout Menu"
 	},
+	"custom/shopify_sales": {
+		"format": "{}",
+		"exec": "bash -c 'source /home/seb/Projects/shopify-dash/bin/activate && /home/seb/Projects/shopify-dash/waybar.py'",
+		"return-type": "text",
+		"interval": 300,
+		"tooltip": true,
+		"tooltip-format": "Shopify Sales Data"
+	},
 	"custom/cava_mviz": {
 		"exec": "~/.config/waybar/scripts/WaybarCava.sh",
 		"format": "{}"
