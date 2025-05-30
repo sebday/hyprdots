@@ -117,7 +117,7 @@
 	"custom/shopify": {
 		"format": "{}",
 		"exec": "bash -c 'source /home/seb/Projects/shopify-dash/bin/activate && /home/seb/Projects/shopify-dash/waybar.py'",
-		"return-type": "text",
+		"return-type": "json",
 		"interval": 300,
 		"tooltip": true,
 		"tooltip-format": "Shopify Sales Data"
