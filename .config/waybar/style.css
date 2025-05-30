@@ -123,6 +123,10 @@ window#waybar.empty #window {
 	padding: 0 10px;
 }
 
+#custom-shopify {
+	color: @blue;
+}
+
 #pulseaudio {
   color: @blue;
 }
