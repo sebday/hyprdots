@@ -6,23 +6,10 @@
 	font-feature-settings: '"zero", "ss01", "ss02", "ss03", "ss04", "ss05", "cv31"';
 }
 
-@define-color base   #0a0e19;
-@define-color crust  #0a0e19;
-
-@define-color surface1 #45475a;
-
-@define-color overlay1 #7f849c;
-
-@define-color blue      #7dcfff;
-@define-color sapphire  #b4f9f8;
-@define-color green     #c3e88d;
-@define-color red       #ff757f;
-@define-color orange    #ffc777;
-
 window#waybar {
   	transition-property: background-color;
   	transition-duration: 0.5s;
-  	background: @base;
+  	background: #0a0e19;
 	padding: 2px;
 	border-radius: 0;
 	border-top: none;
@@ -34,13 +21,13 @@ window#waybar.hidden {
 
 window#waybar.empty,
 window#waybar.empty #window {
-    background-color: @base;
+    background-color: #0a0e19;
     padding: 0px;
     border: 0px;
 }
 
 #workspaces button {
-	color: @overlay1;
+	color: #7f849c;
     box-shadow: none;
 	text-shadow: none;
     padding: 0px;
@@ -52,25 +39,25 @@ window#waybar.empty #window {
 #workspaces button:hover,
 #workspaces button.active:hover {
 	border-radius: 5px;
-	color: @green;
+	color: #c3e88d;
  	padding-left: 2px;
     padding-right: 2px;
 }
 
 #workspaces button.persistent {
-	color: @surface1;
+	color: #7f849c;
 	border-radius: 0;
 }
 
 #workspaces button.active {
-	color: @green;
+	color: #c3e88d;
   	border-radius: 10px;
     padding-left: 8px;
     padding-right: 8px;
 }
 
 #workspaces button.urgent {
-	color: @red;
+	color: #ff757f;
  	border-radius: 0px;
 }
 
@@ -105,7 +92,7 @@ window#waybar.empty #window {
 }
 
 #clock {
-  color: @green;
+  color: #c3e88d;
 }
 
 #tray {
@@ -119,23 +106,23 @@ window#waybar.empty #window {
 }
 
 #custom-cava_mviz {
-	color: @orange;
+	color: #ffc777;
 	padding: 0 10px;
 }
 
 #custom-shopify {
-	color: @blue;
+	color: #7dcfff;
 }
 
 #pulseaudio {
-  color: @blue;
+  color: #7dcfff;
 }
 
 #pulseaudio.bluetooth {
-  color: @green;
+  color: #c3e88d;
 }
 #pulseaudio.muted {
-  color: @red;
+  color: #ff757f;
 }
 
 #pulseaudio-slider slider {
@@ -163,6 +150,6 @@ window#waybar.empty #window {
 #tray,
 #workspaces,
 #custom-cava_mviz {
-	background-color: @crust;
+	background-color: #0a0e19;
 	border-radius: 0 0 5px 5px;
 }
