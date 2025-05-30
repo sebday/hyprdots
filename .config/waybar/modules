@@ -33,22 +33,7 @@
 	},
 	"clock": {
 		"interval": 1,
-		"format": "  {:%H:%M    %A %d %B %Y }",
-		"tooltip": true,
-		"tooltip-format": "<tt>{calendar}</tt>",
-		"calendar": {
-			"mode": "month",
-			"mode-mon-col": 1,
-			"weeks-pos": "left",
-			"on-scroll": 1,
-			"format": {
-				"months": "<span color='#ffead3'><b>{}</b></span>",
-				"days": "<span color='#ecc6d9'><b>{}</b></span>",
-				"weeks": "<span color='#99ffdd'><b>W{}</b></span>",
-				"weekdays": "<span color='#ffcc66'><b>{}</b></span>",
-				"today": "<span color='#ff6699'><b><u>{}</u></b></span>"
-			}
-		}
+		"format": "  {:%H:%M    %a %d %B }"
 	},
 	"cpu": {
 		"interval": 1,
@@ -129,7 +114,7 @@
 		"icon-size": 20,
 		"spacing": 4
 	},
-	"custom/shopify_sales": {
+	"custom/shopify": {
 		"format": "{}",
 		"exec": "bash -c 'source /home/seb/Projects/shopify-dash/bin/activate && /home/seb/Projects/shopify-dash/waybar.py'",
 		"return-type": "text",

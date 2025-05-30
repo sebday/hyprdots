@@ -7,35 +7,17 @@
 }
 
 @define-color base   #0a0e19;
-@define-color mantle #24283b;
 @define-color crust  #0a0e19;
 
-@define-color text     #cdd6f4;
-@define-color subtext0 #a6adc8;
-@define-color subtext1 #bac2de;
-
-@define-color surface0 #313244;
 @define-color surface1 #45475a;
-@define-color surface2 #585b70;
 
-@define-color overlay0 #6c7086;
 @define-color overlay1 #7f849c;
-@define-color overlay2 #9399b2;
 
-@define-color blue      #3d59a1;
-@define-color lavender  #7aa2f7;
-@define-color sapphire  #7dcfff;
-@define-color sky       #81a1c1;
-@define-color teal      #b4f9f8;
-@define-color green     #9ece6a;
-@define-color yellow    #ffc777;
-@define-color peach     #ff9e64;
-@define-color maroon    #ff757f;
-@define-color red       #c53b53;
-@define-color mauve     #cba6f7;
-@define-color pink      #ff757f;
-@define-color flamingo  #d08770;
-@define-color rosewater #b48ead;
+@define-color blue      #7dcfff;
+@define-color sapphire  #b4f9f8;
+@define-color green     #c3e88d;
+@define-color red       #ff757f;
+@define-color orange    #ffc777;
 
 window#waybar {
   	transition-property: background-color;
@@ -57,7 +39,6 @@ window#waybar.empty #window {
     border: 0px;
 }
 
-#taskbar button,
 #workspaces button {
 	color: @overlay1;
     box-shadow: none;
@@ -68,7 +49,6 @@ window#waybar.empty #window {
     padding-right: 4px;
 }
 
-#taskbar button:hover,
 #workspaces button:hover,
 #workspaces button.active:hover {
 	border-radius: 5px;
@@ -82,7 +62,6 @@ window#waybar.empty #window {
 	border-radius: 0;
 }
 
-#taskbar button.active,
 #workspaces button.active {
 	color: @green;
   	border-radius: 10px;
@@ -112,110 +91,21 @@ window#waybar.empty #window {
 	padding-left: 4px;
 } 
 
-#backlight,
-#backlight-slider,
-#battery,
-#bluetooth,
 #clock,
-#cpu,
-#disk,
-#idle_inhibitor,
-#keyboard-state,
-#memory,
-#mode,
-#mpris,
-#network,
-#power-profiles-daemon,
 #pulseaudio,
 #pulseaudio-slider,
-#taskbar button,
-#taskbar,
-#temperature,
 #tray,
-#window,
-#wireplumber,
 #workspaces,
-#custom-backlight,
-#custom-cycle_wall,
-#custom-hint,
-#custom-keyboard,
-#custom-light_dark,
-#custom-lock,
-#custom-menu,
-#custom-power_vertical,
-#custom-power,
-#custom-swaync,
-#custom-updater,
-#custom-weather,
-#custom-weather.clearNight,
-#custom-weather.cloudyFoggyDay,
-#custom-weather.cloudyFoggyNight,
-#custom-weather.default, 
-#custom-weather.rainyDay,
-#custom-weather.rainyNight,
-#custom-weather.severe,
-#custom-weather.showyIcyDay,
-#custom-weather.snowyIcyNight,
-#custom-weather.sunnyDay {
+#custom-shopify,
+#custom-cava_mviz {
 	padding-top: 4px;
 	padding-bottom: 4px;
 	padding-right: 6px;
 	padding-left: 6px;
 }
 
-#idle_inhibitor {
-  color: @blue;
-}
-
-#bluetooth,
-#backlight {
-  color: @blue;
-}
-
-#battery {
-  color: @green;
-}
-
-@keyframes blink {
-  to {
-    color: @surface0;
-  }
-}
-
-#battery.critical:not(.charging) {
-  background-color: @red;
-  color: @theme_text_color;
-  animation-name: blink;
-  animation-duration: 0.5s;
-  animation-timing-function: linear;
-  animation-iteration-count: infinite;
-  animation-direction: alternate;
-  box-shadow: inset 0 -3px transparent;
-}
-
 #clock {
   color: @green;
-}
-
-#cpu {
-  color: @red;
-}
-
-#custom-keyboard,
-#memory {
-  color: @sky;
-}
-
-#disk {
-  color: @sapphire;
-}
-
-#temperature {
-  color: @teal;
-}
-
-#temperature.critical {
-  background-color: @red;
 }
 
 #tray {
@@ -228,66 +118,22 @@ window#waybar.empty #window {
   -gtk-icon-effect: highlight;
 }
 
-#keyboard-state {
-  color: @flamingo;
-}
-
 #custom-cava_mviz {
-	color: @pink;
+	color: @orange;
 	padding: 0 10px;
 }
 
-#custom-menu {
-  color: @rosewater;
-}
-
-#custom-power {
-  color: @red;
-}
-
-#custom-updater {
-  color: @red;
-}
-
-#custom-light_dark {
+#pulseaudio {
   color: @blue;
 }
 
-#custom-weather {
-  color: @lavender;
-}
-
-#custom-lock {
-  color: @maroon;
-}
-
-#pulseaudio {
-  color: @sapphire;
-}
-
 #pulseaudio.bluetooth {
-  color: @pink;
+  color: @green;
 }
 #pulseaudio.muted {
   color: @red;
 }
 
-#window {
-  color: @mauve;
-}
-
-#mpris {
-  color:@lavender;
-}
-
-#network {
-  color: @teal;
-}
-#network.disconnected,
-#network.disabled {
-  background-color: @surface0;
-  color: @text;
-}
 #pulseaudio-slider slider {
 	min-width: 0px;
 	min-height: 0px;
@@ -308,31 +154,6 @@ window#waybar.empty #window {
 	border-radius: 5px;
 }
 
-#backlight-slider slider {
-	min-width: 0px;
-	min-height: 0px;
-	opacity: 0;
-	background-image: none;
-	border: none;
-	box-shadow: none;
-}
-
-#backlight-slider trough {
-	min-width: 80px;
-	min-height: 10px;
-	border-radius: 5px;
-}
-
-#backlight-slider highlight {
-	min-width: 10px;
-	border-radius: 5px;
-}
-
-#cpu, 
-#temperature, 
-#memory, 
-#disk, 
-#network,
 #pulseaudio,
 #clock,
 #tray,
