@@ -31,51 +31,19 @@
 			"class<com.obsproject.Studio>": " "
 		}
 	},
+	"tray": {
+		"icon-size": 20,
+		"spacing": 4
+	},
 	"clock": {
 		"interval": 1,
 		"format": "  {:%H:%M    %a %d %B }",
 		"on-click": "/home/seb/.config/waybar/scripts/ToggleCalendar.sh"
 	},
-	"cpu": {
-		"interval": 1,
-		"min-length": 5,
-		"format": "{usage:>2}% 󰍛"
-	},
-	"disk": {
-		"interval": 30,
-		"path": "/",
-		"format": "{percentage_used}% 󰋊",
-		"tooltip": true,
-		"tooltip-format": "{used} used out of {total} on {path} ({percentage_used}%)"
-	},
-	"memory": {
-		"interval": 10,
-		"format": "{used:0.1f}G 󰾆"
-	},
-	"network#speed": {
-		"interval": 1,
-		"format": "{ifname}",
-		"format-wifi": "{icon}   {bandwidthUpBytes}   {bandwidthDownBytes}",
-		"format-ethernet": "󰌘   {bandwidthUpBytes}   {bandwidthDownBytes}",
-		"format-disconnected": "󰌙",
-		"tooltip-format": "{ipaddr}",
-		"format-linked": "󰈁 {ifname} (No IP)",
-		"tooltip-format-wifi": "{essid} {icon} {signalStrength}%",
-		"tooltip-format-ethernet": "{ifname} 󰌘",
-		"tooltip-format-disconnected": "󰌙 Disconnected",
-		"max-length": 30,
-		"format-icons": [
-			"󰤯",
-			"󰤟",
-			"󰤢",
-			"󰤥",
-			"󰤨"
-		]
-	},
 	"pulseaudio": {
 		"format": "{icon}  {volume}% ",
 		"format-bluetooth": "{icon} 󰂰 {volume}%",
-		"format-muted": "󰖁",
+		"format-muted": "󰖁   0% ",
 		"format-icons": {
 			"default": [
 				"",
@@ -88,27 +56,9 @@
 			]
 		},
 		"scroll-step": 5.0,
-		"on-click": "",
-		"on-click-middle": "hyprctl dispatch exec '[floating; monitor DP-2; size 1280 720] foot -e alsamixer'",
-		"smooth-scrolling-threshold": 1
-	},
-	"temperature": {
-		"interval": 10,
-		"tooltip": true,
-		"hwmon-path": [
-			"/sys/class/hwmon/hwmon1/temp1_input",
-			"/sys/class/thermal/thermal_zone0/temp"
-		],
-		"critical-threshold": 82,
-		"format-critical": "{temperatureC}°C {icon}",
-		"format": "{temperatureC}°C {icon}",
-		"format-icons": [
-			"󰈸"
-		]
-	},
-	"tray": {
-		"icon-size": 20,
-		"spacing": 4
+		"smooth-scrolling-threshold": 1,
+		"on-click-right": "hyprctl dispatch exec '[floating; monitor DP-2; size 1280 720] foot -e alsamixer'",
+		"on-click": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle && (wpctl get-volume @DEFAULT_AUDIO_SINK@ | grep -q MUTED && notify-send -r 9993 \"Volume\" \"Muted\" -t 1500) || (volume=$(wpctl get-volume @DEFAULT_AUDIO_SINK@ | awk '{print int($2*100)}') && notify-send -r 9993 -h int:value:\"$volume\" \"Volume\" \"Unmuted: $volume%\" -t 1500)"
 	},
 	"custom/shopify_zk": {
 		"format": "{text}",
@@ -149,14 +99,14 @@
 		"interval": "once"
 	},
 	"custom/github": {
-    "format": "{}",
-    "return-type": "json",
-    "exec": "~/.config/waybar/scripts/GitHub.sh",
-    "interval": 300,
-    "on-click": "xdg-open https://github.com/sebday"
+		"format": "{}",
+		"return-type": "json",
+		"exec": "~/.config/waybar/scripts/GitHub.sh",
+		"interval": 300,
+		"on-click": "xdg-open https://github.com/sebday"
 	},
 	"custom/calculator": {
-		"format": "",
+		"format": " ",
 		"tooltip": "Calculator",
 		"on-click": "hyprctl dispatch exec '[floating; monitor DP-2; size 640 720] qalculate'"
 	}

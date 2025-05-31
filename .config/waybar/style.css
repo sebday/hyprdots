@@ -83,10 +83,6 @@ window#waybar.empty #window {
 #custom-github .contrib-level-3 { color: #87C346; }
 #custom-github .contrib-level-4 { color: #689A32; }
 
-#custom-calculator { 
-	min-width: 12px; 
-}
-
 #workspaces button {
 	color: #1f2335;
 	box-shadow: none;
