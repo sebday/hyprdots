@@ -20,10 +20,11 @@
 	], 
 
 "modules-right": [
-	"custom/wallpaper_prev",
-	"custom/wallpaper_next",
 	"custom/cava_mviz",
 	"pulseaudio",
+	"custom/wallpaper_prev",
+	"custom/wallpaper_random",
+	"custom/wallpaper_next",
 	"clock",
   "tray"
 	]

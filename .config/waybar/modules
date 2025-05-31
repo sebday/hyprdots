@@ -145,5 +145,11 @@
 		"tooltip": "Next Wallpaper",
 		"on-click": "~/.config/waybar/scripts/CycleWallpaper.sh next",
 		"interval": "once"
+	},
+	"custom/wallpaper_random": {
+		"format": " ? ",
+		"tooltip": "Random Wallpaper",
+		"on-click": "~/.config/waybar/scripts/CycleWallpaper.sh random",
+		"interval": "once"
 	}
 }
