@@ -17,7 +17,7 @@
 			"title<.*soundcloud.*>": "󰎆 ",
 			"class<firefox>": " ",
 			"class<brave-browser>": " ",
-			"class<foot|konsole|kitty>": " ",
+			"class<foot|kitty>": " ",
 			"class<thunar>": "󰝰 ",
 			"class<discord>": " ",
 			"class<steam>": " ",
@@ -33,7 +33,8 @@
 	},
 	"clock": {
 		"interval": 1,
-		"format": "  {:%H:%M    %a %d %B }"
+		"format": "  {:%H:%M    %a %d %B }",
+		"on-click": "/home/seb/.config/waybar/scripts/ToggleCalendar.sh"
 	},
 	"cpu": {
 		"interval": 1,
@@ -76,12 +77,6 @@
 		"format-bluetooth": "{icon} 󰂰 {volume}%",
 		"format-muted": "󰖁",
 		"format-icons": {
-			"headphone": "",
-			"hands-free": "",
-			"headset": "",
-			"phone": "",
-			"portable": "",
-			"car": "",
 			"default": [
 				"",
 				"",
@@ -93,7 +88,8 @@
 			]
 		},
 		"scroll-step": 5.0,
-		"on-click": "hyprctl dispatch exec '[floating; monitor DP-2; size 1280 720] foot -e alsamixer'",
+		"on-click": "",
+		"on-click-middle": "hyprctl dispatch exec '[floating; monitor DP-2; size 1280 720] foot -e alsamixer'",
 		"smooth-scrolling-threshold": 1
 	},
 	"temperature": {
@@ -162,6 +158,6 @@
 	"custom/calculator": {
 		"format": "",
 		"tooltip": "Calculator",
-		"on-click": "hyprctl dispatch exec '[floating; monitor DP-2; size 1280 720] qalculate'"
+		"on-click": "hyprctl dispatch exec '[floating; monitor DP-2; size 640 720] qalculate'"
 	}
 }

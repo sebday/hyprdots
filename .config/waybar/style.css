@@ -1,3 +1,22 @@
+/*
+	--tokyo-dark: #0a0e19;
+  --tokyo-night: #1f2335; 
+  --tokyo-foreground: #c0caf5; 
+  --tokyo-blue: #7dcfff; 
+  --tokyo-cyan: #b4f9f8;
+  --tokyo-green: #c3e88d; 
+  --tokyo-red: #ff757f; 
+  --tokyo-red-dark: #c53b53; 
+  --tokyo-orange: #ffc777; 
+  --tokyo-purple-grey: #737aa2; 
+  --tokyo-grey-light: #3b4261; 
+  --tokyo-grey-medium: #292e42; 
+  --tokyo-grey-dark: #24283b; 
+  --tokyo-blue-deep: #3d59a1; 
+  --tokyo-grey-blue: #414868; 
+  --tokyo-black-alt: #0e1322; 
+*/
+
 * {
 	font-family: "CaskaydiaMono Nerd Font";
 	font-weight: bold;
@@ -47,18 +66,14 @@ window#waybar.empty #window {
 
 #custom-shopify_zk,
 #custom-shopify_diy {
-	color: #7dcfff;
+	color: #b4f9f8;
 }
 
 #custom-wallpaper_random,
 #custom-wallpaper_prev,
-#custom-wallpaper_next {
-	color: #1f2335;
-}
-#custom-wallpaper_random:hover,
-#custom-wallpaper_prev:hover,
-#custom-wallpaper_next:hover {
-	color: #9ece6a;
+#custom-wallpaper_next,
+#custom-calculator {
+	color: #3b4261;
 }
 
 #custom-github { color: #9ece6a; }
@@ -70,7 +85,6 @@ window#waybar.empty #window {
 
 #custom-calculator { 
 	min-width: 12px; 
-	margin-left: 12px;
 }
 
 #workspaces button {
@@ -86,7 +100,7 @@ window#waybar.empty #window {
 #workspaces button:hover,
 #workspaces button.active:hover {
 	border-radius: 5px;
-	color: #9ece6a;
+	color: #ffc777;
 	padding-left: 2px;
 	padding-right: 2px;
 }
@@ -97,7 +111,7 @@ window#waybar.empty #window {
 }
 
 #workspaces button.active {
-	color: #7dcfff;
+	color: #b4f9f8;
 	border-radius: 10px;
 	padding-left: 8px;
 	padding-right: 8px;
@@ -109,7 +123,7 @@ window#waybar.empty #window {
 }
 
 #clock {
-	color: #9ece6a;
+	color: #b4f9f8;
 	margin-left: 8px;
 }
 
@@ -126,12 +140,12 @@ window#waybar.empty #window {
 }
 
 #custom-cava_mviz {
-	color: #c53b53;
+	color: #b4f9f8;
 	padding: 0 10px;
 }
 
 #pulseaudio {
-	color: #7dcfff;
+	color: #b4f9f8;
 }
 
 #pulseaudio.bluetooth {
@@ -160,4 +174,13 @@ window#waybar.empty #window {
 #pulseaudio-slider highlight {
 	min-height: 10px;
 	border-radius: 5px;
+}
+
+#custom-wallpaper_random:hover,
+#custom-wallpaper_prev:hover,
+#custom-wallpaper_next:hover,
+#custom-calculator:hover,
+#clock:hover,
+#pulseaudio:hover {
+	color: #ffc777;
 }
