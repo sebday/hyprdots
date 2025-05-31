@@ -8,7 +8,7 @@
 "height": 35,
 "spacing": 4,
 "fixed-center": true,
-"ipc": true,
+"ipc": false,
 
 "modules-left": [
 	"custom/shopify_zk",
@@ -20,6 +20,8 @@
 	], 
 
 "modules-right": [
+	"custom/wallpaper_prev",
+	"custom/wallpaper_next",
 	"custom/cava_mviz",
 	"pulseaudio",
 	"clock",

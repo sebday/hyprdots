@@ -133,5 +133,17 @@
 	"custom/cava_mviz": {
 		"exec": "~/.config/waybar/scripts/WaybarCava.sh",
 		"format": "{}"
+	},
+	"custom/wallpaper_prev": {
+		"format": "",
+		"tooltip": "Previous Wallpaper",
+		"on-click": "~/.config/waybar/scripts/CycleWallpaper.sh prev",
+		"interval": "once"
+	},
+	"custom/wallpaper_next": {
+		"format": "",
+		"tooltip": "Next Wallpaper",
+		"on-click": "~/.config/waybar/scripts/CycleWallpaper.sh next",
+		"interval": "once"
 	}
 }
