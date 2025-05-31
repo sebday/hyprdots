@@ -6,92 +6,89 @@ USERNAME="sebday"
 # Path to your GitHub personal access token
 TOKEN_PATH="${HOME}/.ssh/github"
 
+# --- Token Validation ---
 if [[ ! -f "${TOKEN_PATH}" ]]; then
-    echo '{"text": " Error", "tooltip": "GitHub token not found at '${TOKEN_PATH}'", "class": "error"}'
+    echo '{"text": " Error", "tooltip": "GitHub token file not found at '${TOKEN_PATH}'", "class": "error"}' >&2
+    echo '{"text": " Token File Err", "tooltip": "Token file missing."}'
     exit 1
 fi
 
 TOKEN=$(cat "${TOKEN_PATH}")
 
-# Fetch recent public activity (up to 100 events)
-# We fetch more to get a better view for the 7-day history
-API_URL="https://api.github.com/users/${USERNAME}/events/public?per_page=100"
-
-RESPONSE=$(curl -s -L -H "Authorization: token ${TOKEN}" -H "Accept: application/vnd.github.v3+json" "${API_URL}")
-
-if [[ -z "$RESPONSE" ]]; then
-    echo '{"text": " Error", "tooltip": "Failed to fetch GitHub activity or empty response", "class": "error"}'
+if [[ -z "$TOKEN" ]]; then
+    echo '{"text": " Error", "tooltip": "GitHub token is empty in '${TOKEN_PATH}'", "class": "error"}' >&2
+    echo '{"text": " Empty Token Err", "tooltip": "Token file is empty."}'
     exit 1
 fi
 
-# Extract just the created_at dates for easier processing
-EVENT_DATES_JSON=$(echo "${RESPONSE}" | jq -r '[.[] .created_at]')
+# --- Fetch Contribution Count for Today (UTC) using GraphQL ---
+TODAY_UTC_ISO=$(date -u +'%Y-%m-%d')
 
-if [[ -z "$EVENT_DATES_JSON" ]] || [[ "$EVENT_DATES_JSON" == "null" ]] || [[ "$EVENT_DATES_JSON" == "[]" ]]; then
-    # Handle case where no events are returned or jq fails to parse dates
-    TODAY_COUNT=0
-    ACTIVITY_BOXES="□□□□□□□" # 7 empty boxes
-    echo "{\"text\": \" Today: ${TODAY_COUNT} ${ACTIVITY_BOXES}\", \"tooltip\": \"No public GitHub activity found for ${USERNAME}\", \"class\": \"github-activity-none\"}"
-    exit 0
+# GraphQL query to get the contribution calendar for the last year
+GRAPHQL_QUERY_RAW='
+query GetUserContributionCalendar($username: String!) {
+  user(login: $username) {
+    contributionsCollection {
+      contributionCalendar {
+        weeks {
+          contributionDays {
+            contributionCount
+            date
+          }
+        }
+      }
+    }
+  }
+}
+'
+
+# Prepare JSON payload for curl
+# 1. Replace newlines with spaces, escape double quotes for the query string itself.
+# 2. Construct the JSON payload string.
+GRAPHQL_QUERY_ESCAPED=$(echo "$GRAPHQL_QUERY_RAW" | tr '\n' ' ' | sed 's/"/\\"/g')
+JSON_PAYLOAD=$(printf '{ "query": "%s", "variables": { "username": "%s" } }' "$GRAPHQL_QUERY_ESCAPED" "$USERNAME")
+
+# Make the GraphQL API call
+RESPONSE=$(curl -s -L \
+    -H "Authorization: bearer ${TOKEN}" \
+    -H "Content-Type: application/json" \
+    -X POST \
+    -d "${JSON_PAYLOAD}" \
+    "https://api.github.com/graphql")
+
+# --- Response Handling & Output ---
+# Check for empty curl response
+if [[ -z "$RESPONSE" ]]; then
+    echo '{"text": " Error", "tooltip": "Failed to fetch GitHub contributions (empty GraphQL response)", "class": "error"}' >&2
+    echo '{"text": " Curl Err", "tooltip": "GraphQL Curl returned empty."}'
+    exit 1
 fi
 
-# Calculate today's contribution count
-TODAY_ISO=$(date -u +'%Y-%m-%d')
-TODAY_COUNT=$(echo "${EVENT_DATES_JSON}" | jq --arg day_iso "${TODAY_ISO}" '[.[] | select(. | startswith($day_iso))] | length')
-
-# Check if jq failed for TODAY_COUNT (e.g. if EVENT_DATES_JSON was not valid array)
-if ! [[ "$TODAY_COUNT" =~ ^[0-9]+$ ]]; then
-    TODAY_COUNT=0 # Default to 0 on error
+# Check for errors in the GraphQL response (e.g., .errors array)
+if echo "$RESPONSE" | jq -e '.errors' > /dev/null 2>&1; then
+    ERROR_MESSAGE=$(echo "$RESPONSE" | jq -r '.errors[0].message // "Unknown GraphQL error"')
+    echo "{\"text\": \" GQL Err\", \"tooltip\": \"GraphQL Error: ${ERROR_MESSAGE}\", \"class\": \"error\"}" >&2
+    echo "{\"text\": \" GQL Err (${ERROR_MESSAGE:0:10})\", \"tooltip\": \"GraphQL Error: ${ERROR_MESSAGE}\"}"
+    exit 1
 fi
 
-# Generate 7-day activity boxes (rightmost is today)
-ACTIVITY_BOXES=""
-for i in {6..0}; do # Iterate from 6 days ago to today
-    DAY_ISO=$(date -u -d "${i} days ago" +'%Y-%m-%d')
-    HAS_ACTIVITY_ON_DAY=$(echo "${EVENT_DATES_JSON}" | jq --arg day_iso "${DAY_ISO}" 'map(select(. | startswith($day_iso))) | length > 0')
+# Extract today's contribution count from the calendar
+# If jq processing fails or path is not found, result might be null or empty string.
+TODAY_CONTRIBUTION_COUNT=$(echo "$RESPONSE" | jq --arg today_date "$TODAY_UTC_ISO" -r '
+  .data.user.contributionsCollection.contributionCalendar.weeks[].contributionDays[] |
+  select(.date == $today_date) |
+  .contributionCount
+')
 
-    if [[ "$HAS_ACTIVITY_ON_DAY" == "true" ]]; then
-        ACTIVITY_BOXES="■${ACTIVITY_BOXES}" # Prepend to reverse order for display
-    else
-        ACTIVITY_BOXES="□${ACTIVITY_BOXES}" # Prepend
-    fi
-done
-# The loop builds boxes in reverse, so Day6 Day5 ... Today. To make rightmost today, we need to build Today, Yesterday ... Day6
-# Corrected loop for rightmost is today:
-ACTIVITY_BOXES=""
-for i in {0..6}; do # Iterate from today (0) to 6 days ago
-    DAY_ISO=$(date -u -d "${i} days ago" +'%Y-%m-%d')
-    # Check if any event date string starts with DAY_ISO
-    MATCHING_EVENTS=$(echo "${EVENT_DATES_JSON}" | jq --arg day_iso "$DAY_ISO" '[.[] | select(. | startswith($day_iso))]')
-    if [[ $(echo "$MATCHING_EVENTS" | jq 'length') -gt 0 ]]; then
-        ACTIVITY_BOXES_TEMP="■"
-    else
-        ACTIVITY_BOXES_TEMP="□"
-    fi
-    # To make the rightmost box today, we build the string from left (6 days ago) to right (today)
-    # So, for i=0 (today), it's the last char. For i=6 (6 days ago), it's the first.
-    # Let's build it in order: Day6, Day5, ..., Day0 (Today)
-    if [[ $i -eq 0 ]]; then
-      TODAY_BOX=$ACTIVITY_BOXES_TEMP
-    elif [[ $i -eq 1 ]]; then
-      YESTERDAY_BOX=$ACTIVITY_BOXES_TEMP
-    elif [[ $i -eq 2 ]]; then
-      DAY2_BOX=$ACTIVITY_BOXES_TEMP
-    elif [[ $i -eq 3 ]]; then
-      DAY3_BOX=$ACTIVITY_BOXES_TEMP
-    elif [[ $i -eq 4 ]]; then
-      DAY4_BOX=$ACTIVITY_BOXES_TEMP
-    elif [[ $i -eq 5 ]]; then
-      DAY5_BOX=$ACTIVITY_BOXES_TEMP
-    elif [[ $i -eq 6 ]]; then
-      DAY6_BOX=$ACTIVITY_BOXES_TEMP
-    fi
-done
-ACTIVITY_BOXES="${DAY6_BOX}${DAY5_BOX}${DAY4_BOX}${DAY3_BOX}${DAY2_BOX}${YESTERDAY_BOX}${TODAY_BOX}"
+# Default to 0 if count is empty (no entry for today / user just created) or not a number
+if ! [[ "$TODAY_CONTRIBUTION_COUNT" =~ ^[0-9]+$ ]]; then
+    echo "DEBUG: Failed to parse today contribution count or no entry for today. Count set to 0. JQ Output: '$TODAY_CONTRIBUTION_COUNT'" >&2
+    TODAY_CONTRIBUTION_COUNT=0
+fi
 
+# --- Prepare Waybar Output ---
+TEXT_OUTPUT=" Today: ${TODAY_CONTRIBUTION_COUNT}"
+TOOLTIP_TEXT="${TODAY_CONTRIBUTION_COUNT} contributions today (as per GitHub graph, UTC ${TODAY_UTC_ISO}, by ${USERNAME})."
+CLASS="github-contributions"
 
-# Prepare output
-TEXT_OUTPUT=" Today: ${TODAY_COUNT} ${ACTIVITY_BOXES}"
-TOOLTIP_TEXT="${TODAY_COUNT} contributions today. 7-day activity for ${USERNAME} (oldest to newest)."
-
-echo "{\"text\": \"${TEXT_OUTPUT}\", \"tooltip\": \"${TOOLTIP_TEXT}\", \"class\": \"github-activity\"}" 
+echo "{\"text\": \"${TEXT_OUTPUT}\", \"tooltip\": \"${TOOLTIP_TEXT}\", \"class\": \"${CLASS}\"}" 
