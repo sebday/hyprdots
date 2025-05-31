@@ -58,15 +58,15 @@ window#waybar.empty #window {
 #custom-wallpaper_random:hover,
 #custom-wallpaper_prev:hover,
 #custom-wallpaper_next:hover {
-	color: #c3e88d;
+	color: #9ece6a;
 }
 
-#custom-github { color: #7dcfff; }
+#custom-github { color: #9ece6a; }
 #custom-github .contrib-level-0 { color: #1f2335; }
-#custom-github .contrib-level-1 { color: #0e4429; }
-#custom-github .contrib-level-2 { color: #006d32; }
-#custom-github .contrib-level-3 { color: #26a641; }
-#custom-github .contrib-level-4 { color: #39d353; }
+#custom-github .contrib-level-1 { color: #C3E1A3; }
+#custom-github .contrib-level-2 { color: #AFD784; }
+#custom-github .contrib-level-3 { color: #9ECE6A; }
+#custom-github .contrib-level-4 { color: #87C346; }
 
 #custom-calculator { 
 	min-width: 12px; 
@@ -86,7 +86,7 @@ window#waybar.empty #window {
 #workspaces button:hover,
 #workspaces button.active:hover {
 	border-radius: 5px;
-	color: #c3e88d;
+	color: #9ece6a;
 	padding-left: 2px;
 	padding-right: 2px;
 }
@@ -109,7 +109,7 @@ window#waybar.empty #window {
 }
 
 #clock {
-	color: #c3e88d;
+	color: #9ece6a;
 	margin-left: 8px;
 }
 
@@ -135,7 +135,7 @@ window#waybar.empty #window {
 }
 
 #pulseaudio.bluetooth {
-	color: #c3e88d;
+	color: #9ece6a;
 }
 
 #pulseaudio.muted {

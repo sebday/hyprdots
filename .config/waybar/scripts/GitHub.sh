@@ -23,11 +23,11 @@ fi
 
 # --- Define Contribution Colors (for Pango markup) ---
 declare -A CONTRIB_COLORS
-CONTRIB_COLORS[0]="#444444" # Dark Grey for 0 contributions
-CONTRIB_COLORS[1]="#0e4429" # Darkest Green
-CONTRIB_COLORS[2]="#006d32" # Medium-Dark Green
-CONTRIB_COLORS[3]="#26a641" # Medium-Light Green
-CONTRIB_COLORS[4]="#39d353" # Brightest Green
+CONTRIB_COLORS[0]="#1f2335"
+CONTRIB_COLORS[1]="#C3E1A3"
+CONTRIB_COLORS[2]="#AFD784"
+CONTRIB_COLORS[3]="#9ECE6A"
+CONTRIB_COLORS[4]="#87C346"
 
 # --- Fetch Contribution Data using GraphQL ---
 GRAPHQL_QUERY_RAW='
