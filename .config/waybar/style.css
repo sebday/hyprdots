@@ -1,5 +1,5 @@
 * {
-	font-family: "CaskaydiaMono Nerd Font"; 
+	font-family: "CaskaydiaMono Nerd Font";
 	font-weight: bold;
 	min-height: 0;
 	font-size: 100%;
@@ -7,41 +7,41 @@
 }
 
 window#waybar {
-  	transition-property: background-color;
-  	transition-duration: 0.5s;
-  	background: #0a0e19;
+	transition-property: background-color;
+	transition-duration: 0.5s;
+	background: #0a0e19;
 	padding: 2px;
 	border-radius: 0;
 	border-top: none;
 }
 
 window#waybar.hidden {
-  	opacity: 0.2;
+	opacity: 0.2;
 }
 
 window#waybar.empty,
 window#waybar.empty #window {
-    background-color: #0a0e19;
-    padding: 0px;
-    border: 0px;
+	background-color: #0a0e19;
+	padding: 0px;
+	border: 0px;
 }
 
 #workspaces button {
-	color: #7f849c;
-    box-shadow: none;
+	color: #1f2335;
+	box-shadow: none;
 	text-shadow: none;
-    padding: 0px;
-    border-radius: 0;
-    padding-left: 4px;
-    padding-right: 4px;
+	padding: 0px;
+	border-radius: 0;
+	padding-left: 4px;
+	padding-right: 4px;
 }
 
 #workspaces button:hover,
 #workspaces button.active:hover {
 	border-radius: 5px;
 	color: #c3e88d;
- 	padding-left: 2px;
-    padding-right: 2px;
+	padding-left: 2px;
+	padding-right: 2px;
 }
 
 #workspaces button.persistent {
@@ -50,33 +50,36 @@ window#waybar.empty #window {
 }
 
 #workspaces button.active {
-	color: #c3e88d;
-  	border-radius: 10px;
-    padding-left: 8px;
-    padding-right: 8px;
+	color: #7dcfff;
+	border-radius: 10px;
+	padding-left: 8px;
+	padding-right: 8px;
 }
 
 #workspaces button.urgent {
 	color: #ff757f;
- 	border-radius: 0px;
+	border-radius: 0px;
 }
 
 /* This section can be use if you want to separate waybar modules */
-.modules-left, .modules-center, .modules-right {	
+.modules-left,
+.modules-center,
+.modules-right {
 	padding-top: 2px;
 	padding-bottom: 2px;
 	padding-right: 4px;
 	padding-left: 4px;
 	border-radius: 0;
 
-} 
+}
 
-.modules-left, .modules-right {
+.modules-left,
+.modules-right {
 	padding-top: 2px;
 	padding-bottom: 2px;
 	padding-right: 4px;
 	padding-left: 4px;
-} 
+}
 
 #clock,
 #pulseaudio,
@@ -92,37 +95,41 @@ window#waybar.empty #window {
 }
 
 #clock {
-  color: #c3e88d;
+	color: #c3e88d;
 }
 
 #tray {
 	font-size: 97%;
 }
-#tray > .passive {
-  -gtk-icon-effect: dim;
+
+#tray>.passive {
+	-gtk-icon-effect: dim;
 }
-#tray > .needs-attention {
-  -gtk-icon-effect: highlight;
+
+#tray>.needs-attention {
+	-gtk-icon-effect: highlight;
 }
 
 #custom-cava_mviz {
-	color: #ffffff;
+	color: #c53b53;
 	padding: 0 10px;
 }
 
-#custom-shopify {
+#custom-shopify_zk,
+#custom-shopify_diy {
 	color: #7dcfff;
 }
 
 #pulseaudio {
-  color: #7dcfff;
+	color: #7dcfff;
 }
 
 #pulseaudio.bluetooth {
-  color: #c3e88d;
+	color: #c3e88d;
 }
+
 #pulseaudio.muted {
-  color: #ff757f;
+	color: #ff757f;
 }
 
 #pulseaudio-slider slider {

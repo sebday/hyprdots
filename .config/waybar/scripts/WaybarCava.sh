@@ -4,7 +4,7 @@
 # Not my own work. This was added through Github PR. Credit to original author
 
 #----- Optimized bars animation without much CPU usage increase --------
-bar="▁▂▃▄▅▆▇█"
+bar="⠀⠁⠃⠇⡏⡟⡿⣿" # Changed to Braille characters
 dict="s/;//g"
 
 # Calculate the length of the bar outside the loop
@@ -36,4 +36,4 @@ EOF
 pkill -f "cava -p $config_file"
 
 # Read stdout from cava and perform substitution in a single sed command
-cava -p "$config_file" | sed -u "$dict"
+cava -p "$config_file" | sed -u -e "$dict"
