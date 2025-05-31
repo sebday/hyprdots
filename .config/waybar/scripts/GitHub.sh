@@ -88,7 +88,7 @@ else
     done <<< "$ALL_DAYS_DATA"
 
     TEMP_BOXES_STRING=""
-    for i in {13..0}; do # Iterate from 13 days ago to today
+    for i in {6..0}; do # Iterate from 6 days ago to today
         DAY_ISO=$(date -u -d "${i} days ago" +'%Y-%m-%d')
         COUNT_FOR_DAY=${contribs_by_date["$DAY_ISO"]:-0}
 
