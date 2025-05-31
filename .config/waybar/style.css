@@ -26,6 +26,49 @@ window#waybar.empty #window {
 	border: 0px;
 }
 
+.modules-left,
+.modules-center,
+.modules-right {
+	padding-top: 2px;
+	padding-bottom: 2px;
+	padding-right: 8px;
+	padding-left: 8px;
+	border-radius: 0;
+}
+
+#custom-shopify_diy,
+#custom-github,
+#custom-cava_mviz,
+#clock,
+#pulseaudio,
+#clock {
+	padding-right: 16px;
+	padding-left: 16px;
+}
+
+#custom-shopify_zk,
+#custom-shopify_diy {
+	color: #7dcfff;
+}
+
+#custom-wallpaper_random,
+#custom-wallpaper_prev,
+#custom-wallpaper_next {
+	color: #1f2335;
+}
+#custom-wallpaper_random:hover,
+#custom-wallpaper_prev:hover,
+#custom-wallpaper_next:hover {
+	color: #c3e88d;
+}
+
+#custom-github { color: #7dcfff; }
+#custom-github .contrib-level-0 { color: #1f2335; }
+#custom-github .contrib-level-1 { color: #0e4429; }
+#custom-github .contrib-level-2 { color: #006d32; }
+#custom-github .contrib-level-3 { color: #26a641; }
+#custom-github .contrib-level-4 { color: #39d353; }
+
 #workspaces button {
 	color: #1f2335;
 	box-shadow: none;
@@ -61,27 +104,6 @@ window#waybar.empty #window {
 	border-radius: 0px;
 }
 
-/* This section can be use if you want to separate waybar modules */
-.modules-left,
-.modules-center,
-.modules-right {
-	padding-top: 2px;
-	padding-bottom: 2px;
-	padding-right: 8px;
-	padding-left: 8px;
-	border-radius: 0;
-}
-
-#custom-shopify_diy,
-#custom-github,
-#custom-cava_mviz,
-#clock,
-#pulseaudio,
-#clock {
-	padding-right: 16px;
-	padding-left: 16px;
-}
-
 #clock {
 	color: #c3e88d;
 	margin-left: 8px;
@@ -102,22 +124,6 @@ window#waybar.empty #window {
 #custom-cava_mviz {
 	color: #c53b53;
 	padding: 0 10px;
-}
-
-#custom-shopify_zk,
-#custom-shopify_diy {
-	color: #7dcfff;
-}
-
-#custom-wallpaper_random,
-#custom-wallpaper_prev,
-#custom-wallpaper_next {
-	color: #1f2335;
-}
-#custom-wallpaper_random:hover,
-#custom-wallpaper_prev:hover,
-#custom-wallpaper_next:hover {
-	color: #c3e88d;
 }
 
 #pulseaudio {
