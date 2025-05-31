@@ -158,5 +158,10 @@
     "exec": "~/.config/waybar/scripts/GitHub.sh",
     "interval": 300,
     "on-click": "xdg-open https://github.com/sebday"
+	},
+	"custom/calculator": {
+		"format": "",
+		"tooltip": "Calculator",
+		"on-click": "hyprctl dispatch exec '[floating; monitor DP-2; size 1280 720] qalculate'"
 	}
 }
