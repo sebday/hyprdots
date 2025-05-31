@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 WALLPAPER_DIR="$HOME/OneDrive/Pictures/Wallpapers"
-STATE_FILE="$HOME/.cache/current_wallpaper_path.txt" # Stores the path of the current wallpaper
+STATE_FILE="$HOME/.cache/current_wallpaper_path" # Stores the path of the current wallpaper
 DIRECTION=${1:-next} # Default to 'next' if no argument is provided
 
 # Ensure the wallpaper directory exists

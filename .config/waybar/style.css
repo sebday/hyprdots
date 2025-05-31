@@ -72,21 +72,19 @@ window#waybar.empty #window {
 	border-radius: 0;
 }
 
+#custom-shopify_diy,
+#custom-github,
+#custom-cava_mviz,
 #clock,
 #pulseaudio,
-#pulseaudio-slider,
-#tray,
-#workspaces,
-#custom-shopify,
-#custom-cava_mviz {
-	padding-top: 4px;
-	padding-bottom: 4px;
-	padding-right: 6px;
-	padding-left: 6px;
+#clock {
+	padding-right: 16px;
+	padding-left: 16px;
 }
 
 #clock {
 	color: #c3e88d;
+	margin-left: 8px;
 }
 
 #tray {

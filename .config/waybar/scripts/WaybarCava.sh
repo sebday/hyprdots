@@ -24,6 +24,7 @@ bars = 10
 [input]
 method = pulse
 source = auto
+monstercat = true
 
 [output]
 method = raw

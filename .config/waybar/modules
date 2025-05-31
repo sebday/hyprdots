@@ -93,7 +93,7 @@
 			]
 		},
 		"scroll-step": 5.0,
-		"on-click": "foot -e alsamixer",
+		"on-click": "hyprctl dispatch exec '[floating; monitor DP-2; size 1280 720] pavucontrol'",
 		"smooth-scrolling-threshold": 1
 	},
 	"temperature": {
@@ -157,7 +157,7 @@
     "tooltip": true,
     "return-type": "json",
     "exec": "~/.config/waybar/scripts/GitHub.sh",
-    "interval": 300,
-    "on-click": "xdg-open https://github.com/sebday?tab=repositories"
+    "interval": 300, 
+    "on-click": "xdg-open https://github.com/sebday?tab=overview"
 	}
 }
