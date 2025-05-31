@@ -12,7 +12,8 @@
 
 "modules-left": [
 	"custom/shopify_zk",
-	"custom/shopify_diy"
+	"custom/shopify_diy",
+	"custom/github"
 	],
 
 "modules-center": [
@@ -25,6 +26,7 @@
 	"custom/wallpaper_prev",
 	"custom/wallpaper_random",
 	"custom/wallpaper_next",
+	"custom/github",
 	"clock",
   "tray"
 	]

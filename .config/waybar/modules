@@ -151,5 +151,13 @@
 		"tooltip": "Random Wallpaper",
 		"on-click": "~/.config/waybar/scripts/CycleWallpaper.sh random",
 		"interval": "once"
+	},
+	"custom/github": {
+    "format": "{}",
+    "tooltip": true,
+    "return-type": "json",
+    "exec": "~/.config/waybar/scripts/GitHub.sh",
+    "interval": 300,
+    "on-click": "xdg-open https://github.com/sebday?tab=repositories"
 	}
 }
