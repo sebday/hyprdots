@@ -5,7 +5,7 @@
 theme[main_bg]="#0a0e19"
 
 # Main text color
-theme[main_fg]="#c0caf5"
+theme[main_fg]="#cdd5f4"
 
 # Title color for boxes
 theme[title]="#c3e88d"
