@@ -77,11 +77,6 @@ window#waybar.empty #window {
 }
 
 #custom-github { color: #9ece6a; }
-#custom-github .contrib-level-0 { color: #1f2335; }
-#custom-github .contrib-level-1 { color: #AFD784; }
-#custom-github .contrib-level-2 { color: #9ECE6A; }
-#custom-github .contrib-level-3 { color: #87C346; }
-#custom-github .contrib-level-4 { color: #689A32; }
 
 #workspaces button {
 	color: #1f2335;
