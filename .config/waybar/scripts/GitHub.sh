@@ -87,9 +87,12 @@ else
         contribs_by_date["$date_val"]=$count_val
     done <<< "$ALL_DAYS_DATA"
 
+    LOCAL_TODAY_ISO=$(date +'%Y-%m-%d') # Determine today based on local timezone
+
     TEMP_BOXES_STRING=""
-    for i in {6..0}; do # Iterate from 6 days ago to today
-        DAY_ISO=$(date -u -d "${i} days ago" +'%Y-%m-%d')
+    # Iterate from 6 days prior to local today, up to local today
+    for i in {6..0}; do
+        DAY_ISO=$(date -d "${LOCAL_TODAY_ISO} - ${i} days" +'%Y-%m-%d') # Calculate date relative to local today
         COUNT_FOR_DAY=${contribs_by_date["$DAY_ISO"]:-0}
 
         LEVEL=0 # Default for 0 contributions
@@ -107,8 +110,7 @@ else
     done
     ACTIVITY_BOXES_STRING_FOR_JSON=$TEMP_BOXES_STRING
 
-    TODAY_UTC_ISO=$(date -u +'%Y-%m-%d')
-    TODAY_CONTRIBUTION_COUNT=${contribs_by_date["$TODAY_UTC_ISO"]:-0}
+    TODAY_CONTRIBUTION_COUNT=${contribs_by_date["$LOCAL_TODAY_ISO"]:-0} # Use local today's date to get count
 fi
 
 # --- Prepare Waybar Output ---
