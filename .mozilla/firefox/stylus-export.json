@@ -86,7 +86,7 @@
       "editor.colorpicker": true,
       "editor.colorpicker.hexUppercase": false,
       "editor.colorpicker.hotkey": "",
-      "editor.colorpicker.color": "#797979",
+      "editor.colorpicker.color": "#b4f9f8",
       "editor.colorpicker.maxHeight": 300,
       "hotkey._execute_browser_action": "",
       "hotkey.openManage": "",
@@ -118,7 +118,7 @@
         "code": ""
       }
     ],
-    "sourceCode": "/* ==UserStyle==\n@name           soundcloud.com\n@namespace      github.com/openstyles/stylus\n@version        0.4.1\n@description    A Nord theme for Soundcloud\n@author         Seb day\n==/UserStyle== */\n@-moz-document domain(\"soundcloud.com\") {\n\n    * {\n        font-family: monospace!important;\n    }\n    .theme-dark {\n        --surface-color: #b4f9f8;\n        --background-surface-color: #0a0e19;\n        --highlight-color: #0a0e19;\n        --button-secondary-background-color: #0a0e19;\n        --button-secondary-selected-background-color: #0a0e19;\n    }\n\n    .header__upsellWrapper,\n    .header__forArtistsButton,\n    .header__soundInput,\n    .l-sidebar-right,\n    .queue__fallback,\n    .backgroundGradient,\n    .imageChooser {\n        display: none!important;\n    }\n\n    .l-container {\n        width: 955px;\n    }\n    .l-search .l-fixed-left {\n        width: 300px;\n    }\n    .l-fluid-fixed .l-main {\n        margin: 0;\n    }\n\n    .l-search .l-main {\n        margin: 0 0 0 300px;\n    }\n\n    .searchOptions__scrollable {\n        width: 300px;\n    }\n\n    .queue {\n        background-color: #0a0e19;\n    }\n\n    .l-listen-wrapper .l-about-main {\n        margin: 0;\n    }\n\n    .queue__itemWrapper,\n    .queue__itemsHeight {\n        background: #0a0e19!important;\n    }\n\n    .queue__itemWrapper .m-playing,\n    .queue__itemWrapper .m-active {\n        background-color: #b4f9f8;\n    }\n\n    h1 {\n        color: #0a0e19!important;\n    }\n\n    .sc-button.sc-button-secondary.sc-button-selected {\n        color: #b4f9f8;\n    }\n}",
+    "sourceCode": "/* ==UserStyle==\n@name           soundcloud.com\n@namespace      github.com/openstyles/stylus\n@version        0.4.1\n@description    A Nord theme for Soundcloud\n@author         Seb day\n==/UserStyle== */\n@-moz-document domain(\"soundcloud.com\") {\n\n    * {\n        font-family: monospace!important;\n    }\n    .theme-dark {\n        --surface-color: #b2f8f8;\n        --background-surface-color: #0a0e19;\n        --highlight-color: #0a0e19;\n        --button-secondary-background-color: #0a0e19;\n        --button-secondary-selected-background-color: #0a0e19;\n    }\n\n    .header__upsellWrapper,\n    .header__forArtistsButton,\n    .header__soundInput,\n    .l-sidebar-right,\n    .queue__fallback,\n    .backgroundGradient,\n    .imageChooser,\n    a[data-menu-name=\"home\"] {\n        display: none!important;\n    }\n\n    .l-container {\n        width: 955px;\n    }\n    .l-search .l-fixed-left {\n        width: 300px;\n    }\n    .l-fluid-fixed .l-main {\n        margin: 0;\n    }\n\n    .l-search .l-main {\n        margin: 0 0 0 300px;\n    }\n\n    .searchOptions__scrollable {\n        width: 300px;\n    }\n\n    .queue {\n        background-color: #0a0e19;\n    }\n\n    .l-listen-wrapper .l-about-main {\n        margin: 0;\n    }\n\n    .queue__itemWrapper,\n    .queue__itemsHeight,\n    .sc-button-like {\n        background: #0a0e19!important;\n    }\n\n    .queue__itemWrapper .m-playing,\n    .queue__itemWrapper .m-active {\n        background-color: #b4f8f8;\n    }\n\n    h1 {\n        color: #0a0e19!important;\n    }\n}",
     "usercssData": {
       "name": "soundcloud.com",
       "namespace": "github.com/openstyles/stylus",
@@ -129,9 +129,9 @@
     "author": "Seb day",
     "description": "A Nord theme for Soundcloud",
     "name": "soundcloud.com",
-    "updateDate": 1748710688900,
+    "updateDate": 1748822131294,
     "_id": "36280913-df3f-4b1a-a096-41814f5219ef",
-    "_rev": 1748710688900,
+    "_rev": 1748822131295,
     "id": 1
   },
   {
