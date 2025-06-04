@@ -26,6 +26,15 @@ alias lt='eza -alr --sort=mod --tree --level=1 --icons'
 alias ff='fastfetch'
 alias df='df -hT -xtmpfs -xdevtmpfs -xefivarfs'
 
+function git() {
+  if [[ "$1" == "add" && "$2" == "," ]]; then
+    echo "fixed another typo dumdum"
+    command git add .
+  else
+    command git "$@"
+  fi
+}
+
 # NVM 
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
