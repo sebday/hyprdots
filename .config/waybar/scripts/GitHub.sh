@@ -98,9 +98,9 @@ else
         LEVEL=0 # Default for 0 contributions
         if [[ "$COUNT_FOR_DAY" -ge 1 && "$COUNT_FOR_DAY" -le 9 ]]; then
             LEVEL=1
-        elif [[ "$COUNT_FOR_DAY" -ge 10 && "$COUNT_FOR_DAY" -le 19 ]]; then
+        elif [[ "$COUNT_FOR_DAY" -ge 10 && "$COUNT_FOR_DAY" -le 17 ]]; then
             LEVEL=2
-        elif [[ "$COUNT_FOR_DAY" -ge 20 && "$COUNT_FOR_DAY" -le 29 ]]; then
+        elif [[ "$COUNT_FOR_DAY" -ge 18 && "$COUNT_FOR_DAY" -le 29 ]]; then
             LEVEL=3
         elif [[ "$COUNT_FOR_DAY" -ge 30 ]]; then
             LEVEL=4
