@@ -24,10 +24,10 @@ fi
 # --- Define Contribution Colors (for Pango markup) ---
 declare -A CONTRIB_COLORS
 CONTRIB_COLORS[0]="#1f2335"
-CONTRIB_COLORS[1]="#677a4a"
-CONTRIB_COLORS[2]="#839c5f"
-CONTRIB_COLORS[3]="#c3e88d"
-CONTRIB_COLORS[4]="#e8e88e"
+CONTRIB_COLORS[1]="#033a16"
+CONTRIB_COLORS[2]="#196c2e"
+CONTRIB_COLORS[3]="#2ea043"
+CONTRIB_COLORS[4]="#56d364"
 
 # --- Fetch Contribution Data using GraphQL ---
 GRAPHQL_QUERY_RAW='
@@ -113,9 +113,21 @@ else
     TODAY_CONTRIBUTION_COUNT=${contribs_by_date["$LOCAL_TODAY_ISO"]:-0} # Use local today's date to get count
 fi
 
+# Determine level for today's contribution count
+TODAY_LEVEL=0 # Default for 0 contributions
+if [[ "$TODAY_CONTRIBUTION_COUNT" -ge 1 && "$TODAY_CONTRIBUTION_COUNT" -le 9 ]]; then
+    TODAY_LEVEL=1
+elif [[ "$TODAY_CONTRIBUTION_COUNT" -ge 10 && "$TODAY_CONTRIBUTION_COUNT" -le 17 ]]; then
+    TODAY_LEVEL=2
+elif [[ "$TODAY_CONTRIBUTION_COUNT" -ge 18 && "$TODAY_CONTRIBUTION_COUNT" -le 29 ]]; then
+    TODAY_LEVEL=3
+elif [[ "$TODAY_CONTRIBUTION_COUNT" -ge 30 ]]; then
+    TODAY_LEVEL=4
+fi
+
 # --- Prepare Waybar Output ---
 TEXT_OUTPUT="  ${TODAY_CONTRIBUTION_COUNT} ${ACTIVITY_BOXES_STRING_FOR_JSON}"
-CLASS="github-contributions" # Class on the main module label, not individual spans
+CLASS="github-level-${TODAY_LEVEL}"
 
 # Escape double quotes from Pango markup for final JSON output
 ESCAPED_TEXT_OUTPUT=$(echo "$TEXT_OUTPUT" | sed 's/"/\\"/g')
