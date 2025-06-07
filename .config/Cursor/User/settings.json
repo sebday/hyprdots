@@ -52,10 +52,12 @@
     "files.associations": {
         "*.ds": "java"
     },
-    "window.commandCenter": true,
     "workbench.colorTheme": "Tokyo Night",
     "[vue]": {
         "editor.defaultFormatter": "Vue.volar"
     },
     "diffEditor.maxComputationTime": 0,
+    "window.menuBarVisibility": "compact",
+    "workbench.layoutControl.enabled": false,
+    "window.titleBarStyle": "native",
 }
