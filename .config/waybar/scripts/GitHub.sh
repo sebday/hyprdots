@@ -100,9 +100,9 @@ else
             LEVEL=1
         elif [[ "$COUNT_FOR_DAY" -ge 10 && "$COUNT_FOR_DAY" -le 17 ]]; then
             LEVEL=2
-        elif [[ "$COUNT_FOR_DAY" -ge 18 && "$COUNT_FOR_DAY" -le 29 ]]; then
+        elif [[ "$COUNT_FOR_DAY" -ge 18 && "$COUNT_FOR_DAY" -le 30 ]]; then
             LEVEL=3
-        elif [[ "$COUNT_FOR_DAY" -ge 30 ]]; then
+        elif [[ "$COUNT_FOR_DAY" -ge 31 ]]; then
             LEVEL=4
         fi
         COLOR=${CONTRIB_COLORS[$LEVEL]}
