@@ -13,9 +13,8 @@ Install a base system with no desktop environment, add `contrib` and `non-free` 
 - Cliphist stores the clipboard to push into fuzzel
 - Grim and slurp are for taking screenshots
 - Hyprshot is not a package and is included in the repo
-- Hyprpaper is enough but simple - I want waypaper as well
-- Nwg-look is a gtk themer
-- Swaylock is the lock screen
+- Hyprpaper with scripts to set random or select using imv
+- Swaylock is the lock screen - waiting for hyprlock in the repo
 - Swayidle for auto locking the screen
 
 ## Install Apps
