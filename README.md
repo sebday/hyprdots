@@ -4,6 +4,7 @@
 [![screenshot](https://raw.githubusercontent.com/sebday/debian-hyprdots/refs/heads/tokyo/.config/hypr/hypr_tokyo_screenshot1.png)](https://raw.githubusercontent.com/sebday/debian-hyprdots/refs/heads/tokyo/.config/hypr/hypr_tokyo_screenshot1.png)
 
 ## Install Hyprland
+
 Install a base system with no desktop environment, add `contrib` and `non-free` and dist-update to sid.
 
 `sudo apt install hyprland hyprland-protocols hyprwayland-scanner xwayland waybar fuzzel grim slurp swappy cliphist greetd tuigreet gtklock hyprpaper mako-notifier libnotify-bin nwg-look libglib2.0-bin bibata-cursor-theme fonts-noto-color-emoji`
@@ -18,32 +19,57 @@ Install a base system with no desktop environment, add `contrib` and `non-free` 
 - Gtklock while we wait for hyprlock to come into the repo
 
 ## Install Apps
+
 `sudo apt install zsh foot git firefox eza fzf sshfs btop nvtop fastfetch pipewire alsa-utils playerctl imv mpv calcurse qalculate-gtk cava thunar thunar-archive-plugin gvfs-backends webp-pixbuf-loader transmission libfuse2`
 
 ## Clone the dots and start hyprland
+
 `git clone git@github.com:sebday/debian-hyprtokyo.git`
 
 Copy the folder over home, reboot and run `hyprland`
 
-## Oh my zsh
-Install with auto suggestions and syntax highlighting.
-```
-sh -c "$(wget -O- https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" 
-git clone https://github.com/zsh-users/zsh-autosuggestions ~/.oh-my-zsh/plugins/zsh-autosuggestions
-git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ~/.oh-my-zsh/plugins/zsh-syntax-highlighting
+## Set console
+
+`sudo nano /etc/default/console-setup`
+
+```bash
+FONTSIZE="16x32"
 ```
 
-## GTK Theme
-Set the theme, icons and font in nwg-look.
+`sudo nano /etc/default/grub`
+
+```bash
+GRUB_CMDLINE_LINUX_DEFAULT="quiet video=card0-DP-2:3840x2160@60e video=card0-HDMI-A-1:2560x1440@60e video=card0-HDMI-A-2:2560x1440@60e video=card0-DP-1:2560x1440@60e"
+GRUB_GFXMODE=3840x2160,2560x1440,auto
+```
+
+`sudo grub-mkfont --output=/boot/grub/fonts/Caskaydia.pf2 /home/seb/.local/share/fonts/CascadiaMono/CaskaydiaMonoNerdFontMono-Regular.ttf`
+
+`sudo update-grub`
 
 ## Set greetd
+
 Edit `/etc/greetd/config.toml`
+
 `command = "tuigreet --cmd hyprland"`
 
+## Oh my zsh
+
+Install with auto suggestions and syntax highlighting.  
+`sh -c "$(wget -O- https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"`  
+`git clone https://github.com/zsh-users/zsh-autosuggestions ~/.oh-my-zsh/plugins/zsh-autosuggestions`  
+`git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ~/.oh-my-zsh/plugins/zsh-syntax-highlighting`  
+
+## GTK Theme
+
+Set the theme, icons and font in **nwg-look**.
+
 ## Brave
-Chromium disabled "custom stylesheets" in dev tools.
+
+Chromium disabled "custom stylesheets" in dev tools so unable to style that now :(
 
 ## Firefox
+
 Copy ~/.firefox/userContent.css to the ~/.mozilla/firefox/profile/chrome directory \
 In `about:config` set "toolkit.legacyUserProfileCustomizations.stylesheets" to `true` \
 
