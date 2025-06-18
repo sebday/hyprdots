@@ -1,4 +1,9 @@
-# For Swaylock
-
-swaylock -i ~/Pictures/Wallpaper/girls/overwatch2.jpg || swaylock -q 
-
+#!/bin/bash
+IDLE_TIMEOUT=900000  # 15 minutes in milliseconds
+while true; do
+    IDLE_TIME=$(hyprctl -j activewindow | jq '.at[0] | .idle')
+    if [ "$IDLE_TIME" -ge "$IDLE_TIMEOUT" ]; then
+        gtklock
+    fi
+    sleep 60
+done

@@ -31,7 +31,7 @@
     "cursor.general.enableShadowWorkspace": true,
     "editor.tabSize": 2,
     "chat.editor.fontSize": 16,
-    "editor.fontSize": 19,
+    "editor.fontSize": 18,
     "files.autoSave": "afterDelay",
     "cursor.composer.agentLoopOnLints": false,
     "git.confirmSync": false,

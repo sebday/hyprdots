@@ -6,7 +6,7 @@
 ## Install Hyprland
 Install a base system with no desktop environment, add `contrib` and `non-free` and dist-update to sid.
 
-`sudo apt install hyprland hyprland-protocols hyprwayland-scanner xwayland waybar fuzzel grim slurp swappy cliphist swayidle swaylock hyprpaper mako-notifier libnotify-bin nwg-look libglib2.0-bin bibata-cursor-theme fonts-noto-color-emoji`
+`sudo apt install hyprland hyprland-protocols hyprwayland-scanner xwayland waybar fuzzel grim slurp swappy cliphist greetd tuigreet gtklock hyprpaper mako-notifier libnotify-bin nwg-look libglib2.0-bin bibata-cursor-theme fonts-noto-color-emoji`
 
 - Fuzzel is a nice menu with icons
 - Waybar is the taskbar
@@ -14,8 +14,8 @@ Install a base system with no desktop environment, add `contrib` and `non-free` 
 - Grim and slurp are for taking screenshots
 - Hyprshot is not a package and is included in the repo
 - Hyprpaper with scripts to set random or select using imv
-- Swaylock is the lock screen - waiting for hyprlock in the repo
-- Swayidle for auto locking the screen
+- Tuigreet is a nice frontend to greetd
+- Gtklock while we wait for hyprlock to come into the repo
 
 ## Install Apps
 `sudo apt install zsh foot git firefox eza fzf sshfs btop nvtop fastfetch pipewire alsa-utils playerctl imv mpv calcurse qalculate-gtk cava thunar thunar-archive-plugin gvfs-backends webp-pixbuf-loader transmission libfuse2`
@@ -35,6 +35,10 @@ git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ~/.oh-my-zsh/
 
 ## GTK Theme
 Set the theme, icons and font in nwg-look.
+
+## Set greetd
+Edit `/etc/greetd/config.toml`
+`command = "tuigreet --cmd hyprland"`
 
 ## Brave
 Chromium disabled "custom stylesheets" in dev tools.
