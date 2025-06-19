@@ -20,7 +20,7 @@ Install a base system with no desktop environment, add `contrib` and `non-free` 
 
 ## Install Apps
 
-`sudo apt install zsh foot git firefox eza fzf sshfs btop nvtop fastfetch pipewire alsa-utils playerctl imv mpv calcurse qalculate-gtk cava thunar thunar-archive-plugin gvfs-backends webp-pixbuf-loader transmission libfuse2`
+`sudo apt install zsh foot git firefox gimp eza fzf sshfs btop nvtop fastfetch pipewire alsa-utils playerctl imv mpv calcurse qalculate-gtk cava thunar thunar-archive-plugin gvfs-backends webp-pixbuf-loader transmission libfuse2`
 
 ## Clone the dots and start hyprland
 
@@ -28,7 +28,7 @@ Install a base system with no desktop environment, add `contrib` and `non-free` 
 
 Copy the folder over home, reboot and run `hyprland`
 
-## Set console
+## Setup console
 
 `sudo nano /etc/default/console-setup`
 
@@ -36,18 +36,15 @@ Copy the folder over home, reboot and run `hyprland`
 FONTSIZE="16x32"
 ```
 
+`sudo apt install grub-theme-breeze`  
+`sudo cp -R /usr/share/grub/themes/breeze /boot/grub/themes/breeze`  
 `sudo nano /etc/default/grub`
 
 ```bash
-GRUB_CMDLINE_LINUX_DEFAULT="quiet video=card0-DP-2:3840x2160@60e video=card0-HDMI-A-1:2560x1440@60e video=card0-HDMI-A-2:2560x1440@60e video=card0-DP-1:2560x1440@60e"
-GRUB_GFXMODE=3840x2160,2560x1440,auto
+GRUB_THEME="/boot/grub/themes/breeze/theme.txt"
 ```
 
-`sudo grub-mkfont --output=/boot/grub/fonts/Caskaydia.pf2 /home/seb/.local/share/fonts/CascadiaMono/CaskaydiaMonoNerdFontMono-Regular.ttf`
-
-`sudo update-grub`
-
-## Set greetd
+## Setup greetd login
 
 Edit `/etc/greetd/config.toml`
 
@@ -70,8 +67,11 @@ Chromium disabled "custom stylesheets" in dev tools so unable to style that now 
 
 ## Firefox
 
-Copy ~/.firefox/userContent.css to the ~/.mozilla/firefox/profile/chrome directory \
-In `about:config` set "toolkit.legacyUserProfileCustomizations.stylesheets" to `true` \
+Copy ~/.firefox/userContent.css to the ~/.mozilla/firefox/profile/chrome directory  
+In `about:config` set "toolkit.legacyUserProfileCustomizations.stylesheets" to `true`  
+
+## Unused packages
+`sudo apt purge tasksel apt-listchanges yt-dlp iamerican wamerican pocketsphinx-en-us laptop-detect mysql-common vim-common build-essential dpkg-dev cpp-14-x86-64-linux-gnu cpp-14 cpp-x86-64-linux-gnu cpp libcrypt-dev libexpat1-dev linux-libc-dev make zlib1g-dev fakeroot emacsen-common inetutils-telnet manpages-dev installation-report debian-faq doc-debian reportbug python3-reportbug gnuplot-x11 wsdd ifupdown libmailtools-perl firmware-ath9k-htc firmware-carl9170 util-linux-locales`
 
 *Firefox and dev tools*
 [![screenshot](https://raw.githubusercontent.com/sebday/debian-hyprdots/refs/heads/tokyo/.config/hypr/hypr_tokyo_screenshot2.png)](https://raw.githubusercontent.com/sebday/debian-hyprdots/refs/heads/tokyo/.config/hypr/hypr_tokyo_screenshot2.png)
