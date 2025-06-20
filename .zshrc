@@ -8,11 +8,24 @@ fi
 source ~/.zsh/powerlevel10k/powerlevel10k.zsh-theme
 ZSH_THEME="powerlevel10k/powerlevel10k"
 
+# Add completions to fpath
+fpath=($HOME/.zsh/zsh-completions/src $fpath)
+autoload -U compinit && compinit
+
 source ~/.zsh/zsh-autosuggestions/zsh-autosuggestions.zsh
 source ~/.zsh/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 source ~/.zsh/zsh-interactive-cd/zsh-interactive-cd.plugin.zsh
-#source ~/.zsh/zsh-autocomplete/zsh-autocomplete.plugin.zsh
-#zstyle ':autocomplete:*' delay 2
+source ~/.zsh/zsh-autocomplete/zsh-autocomplete.plugin.zsh
+zstyle ':autocomplete:*' delay 3
+zstyle ':autocomplete:*' min-input 3
+
+# History settings
+HISTFILE=~/.zsh_history
+HISTSIZE=10000
+SAVEHIST=10000
+setopt APPEND_HISTORY
+setopt INC_APPEND_HISTORY
+setopt SHARE_HISTORY
 
 export PATH="$HOME/.local/bin:$PATH"
 
