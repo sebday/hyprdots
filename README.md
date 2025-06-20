@@ -67,9 +67,7 @@ Edit `/etc/greetd/config.toml`
 
 The modules are now included as git modules so nothing needs to be done
 
-- Completions
 - Autocomplete
-- Autosuggestions
 - Interative cd
 - Syntax highlighting
 
