@@ -1,3 +1,12 @@
-[submodule ".config/nvim"]
-	path = .config/nvim
-	url = https://github.com/nvim-lua/kickstart.nvim.git
+[submodule ".zsh/powerlevel10k"]
+	path = .zsh/powerlevel10k
+	url = https://github.com/romkatv/powerlevel10k.git
+[submodule ".zsh/zsh-autosuggestions"]
+	path = .zsh/zsh-autosuggestions
+	url = https://github.com/zsh-users/zsh-autosuggestions.git
+[submodule ".zsh/zsh-interactive-cd"]
+	path = .zsh/zsh-interactive-cd
+	url = https://github.com/changyuheng/zsh-interactive-cd.git
+[submodule ".zsh/zsh-syntax-highlighting"]
+	path = .zsh/zsh-syntax-highlighting
+	url = https://github.com/zsh-users/zsh-syntax-highlighting.git
