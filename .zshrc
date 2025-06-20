@@ -24,6 +24,10 @@ setopt APPEND_HISTORY
 setopt INC_APPEND_HISTORY
 setopt SHARE_HISTORY
 
+# Key bindings for history search
+bindkey "${terminfo[kcuu1]}" history-beginning-search-backward
+bindkey "${terminfo[kcud1]}" history-beginning-search-forward
+
 export PATH="$HOME/.local/bin:$PATH"
 
 # Icons for files/folders in terminal using eza
