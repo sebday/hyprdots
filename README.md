@@ -3,9 +3,13 @@
 *Tokyo Night with a dark blue background for Soundcloud, btop, fastfetch and vs code*
 [![screenshot](https://raw.githubusercontent.com/sebday/debian-hyprdots/refs/heads/tokyo/.config/hypr/hypr_tokyo_screenshot1.png)](https://raw.githubusercontent.com/sebday/debian-hyprdots/refs/heads/tokyo/.config/hypr/hypr_tokyo_screenshot1.png)
 
-## Install Hyprland
+## Install 
 
-Install a base system with no desktop environment, add `contrib` and `non-free` and dist-update to sid.
+### Debian Sid
+
+Install a base system with no desktop environment, add `contrib` and `non-free` and dist-upgrade to sid.
+
+### Hyprland
 
 `sudo apt install hyprland hyprland-protocols hyprwayland-scanner xwayland waybar fuzzel grim slurp swappy cliphist greetd tuigreet gtklock hyprpaper mako-notifier libnotify-bin nwg-look libglib2.0-bin bibata-cursor-theme fonts-noto-color-emoji`
 
@@ -18,15 +22,18 @@ Install a base system with no desktop environment, add `contrib` and `non-free` 
 - Tuigreet is a nice frontend to greetd
 - Gtklock while we wait for hyprlock to come into the repo
 
-## Install Apps
+### Apps
 
-`sudo apt install foot git firefox gimp eza fzf sshfs btop nvtop fastfetch bash-completion bat pipewire alsa-utils playerctl imv mpv calcurse qalculate-gtk cava thunar thunar-archive-plugin gvfs-backends webp-pixbuf-loader transmission libfuse2`
+`sudo apt install zsh foot git eza fzf bat sshfs btop nvtop fastfetch pipewire alsa-utils playerctl imv mpv calcurse qalculate-gtk cava thunar thunar-archive-plugin gvfs-backends webp-pixbuf-loader libfuse2 firefox gimp transmission`
 
 Also useful:
 
 `sudo apt install multitail tree trash-cli`
 
-## Clone the dots and start hyprland
+### Unused packages
+`sudo apt purge tasksel apt-listchanges yt-dlp iamerican wamerican pocketsphinx-en-us laptop-detect mysql-common vim-common build-essential dpkg-dev cpp-14-x86-64-linux-gnu cpp-14 cpp-x86-64-linux-gnu cpp libcrypt-dev libexpat1-dev linux-libc-dev make zlib1g-dev fakeroot emacsen-common inetutils-telnet manpages-dev installation-report debian-faq doc-debian reportbug python3-reportbug gnuplot-x11 wsdd ifupdown libmailtools-perl firmware-ath9k-htc firmware-carl9170 util-linux-locales`
+
+## Clone the dots
 
 `git clone git@github.com:sebday/debian-hyprtokyo.git`
 
@@ -54,28 +61,33 @@ Edit `/etc/greetd/config.toml`
 
 `command = "tuigreet --cmd hyprland"`
 
-## Bash
+## Notes
 
-Install the starship prompt
+### ZSH
 
-Starship `curl -sS https://starship.rs/install.sh | sh`
-Zoxide `curl -sSfL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | sh`
+The modules are now included as git modules so nothing needs to be done
 
-## GTK Theme
+Autocomplete (love this!)
+Autosuggestions
+Interative cd
+Syntax highlighting
 
-Set the theme, icons and font in **nwg-look**.
+### GTK Theme
 
-## Brave
+Set the theme, icons and font in **nwg-look**
+
+### Brave
 
 Chromium disabled "custom stylesheets" in dev tools so unable to style that now :(
 
-## Firefox
+### Firefox
 
 Copy ~/.firefox/userContent.css to the ~/.mozilla/firefox/profile/chrome directory  
 In `about:config` set "toolkit.legacyUserProfileCustomizations.stylesheets" to `true`  
 
-## Unused packages
-`sudo apt purge tasksel apt-listchanges yt-dlp iamerican wamerican pocketsphinx-en-us laptop-detect mysql-common vim-common build-essential dpkg-dev cpp-14-x86-64-linux-gnu cpp-14 cpp-x86-64-linux-gnu cpp libcrypt-dev libexpat1-dev linux-libc-dev make zlib1g-dev fakeroot emacsen-common inetutils-telnet manpages-dev installation-report debian-faq doc-debian reportbug python3-reportbug gnuplot-x11 wsdd ifupdown libmailtools-perl firmware-ath9k-htc firmware-carl9170 util-linux-locales`
-
 *Firefox and dev tools*
 [![screenshot](https://raw.githubusercontent.com/sebday/debian-hyprdots/refs/heads/tokyo/.config/hypr/hypr_tokyo_screenshot2.png)](https://raw.githubusercontent.com/sebday/debian-hyprdots/refs/heads/tokyo/.config/hypr/hypr_tokyo_screenshot2.png)
+
+  
+   
+  
