@@ -8,16 +8,13 @@ fi
 source ~/.zsh/powerlevel10k/powerlevel10k.zsh-theme
 ZSH_THEME="powerlevel10k/powerlevel10k"
 
-# Add completions to fpath
-fpath=($HOME/.zsh/zsh-completions/src $fpath)
-autoload -U compinit && compinit
-
 source ~/.zsh/zsh-autosuggestions/zsh-autosuggestions.zsh
 source ~/.zsh/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 source ~/.zsh/zsh-interactive-cd/zsh-interactive-cd.plugin.zsh
 source ~/.zsh/zsh-autocomplete/zsh-autocomplete.plugin.zsh
 zstyle ':autocomplete:*' delay 3
 zstyle ':autocomplete:*' min-input 3
+zstyle ':autocomplete:*:*' list-lines 3
 
 # History settings
 HISTFILE=~/.zsh_history
@@ -37,6 +34,7 @@ alias df='df -hT -xtmpfs -xdevtmpfs -xefivarfs'
 alias ff='fastfetch'
 alias cat='batcat'
 
+# Git typos
 function git() {
   if [[ "$1" == "add" && "$2" == "," ]]; then
     echo "fixed another typo dumdum"
