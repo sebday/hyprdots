@@ -20,7 +20,11 @@ Install a base system with no desktop environment, add `contrib` and `non-free` 
 
 ## Install Apps
 
-`sudo apt install zsh foot git firefox gimp eza fzf sshfs btop nvtop fastfetch pipewire alsa-utils playerctl imv mpv calcurse qalculate-gtk cava thunar thunar-archive-plugin gvfs-backends webp-pixbuf-loader transmission libfuse2`
+`sudo apt install foot git firefox gimp eza fzf sshfs btop nvtop fastfetch bash-completion bat pipewire alsa-utils playerctl imv mpv calcurse qalculate-gtk cava thunar thunar-archive-plugin gvfs-backends webp-pixbuf-loader transmission libfuse2`
+
+Also useful:
+
+`sudo apt install multitail tree trash-cli`
 
 ## Clone the dots and start hyprland
 
@@ -50,12 +54,12 @@ Edit `/etc/greetd/config.toml`
 
 `command = "tuigreet --cmd hyprland"`
 
-## Oh my zsh
+## Bash
 
-Install with auto suggestions and syntax highlighting.  
-`sh -c "$(wget -O- https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"`  
-`git clone https://github.com/zsh-users/zsh-autosuggestions ~/.oh-my-zsh/plugins/zsh-autosuggestions`  
-`git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ~/.oh-my-zsh/plugins/zsh-syntax-highlighting`  
+Install the starship prompt
+
+Starship `curl -sS https://starship.rs/install.sh | sh`
+Zoxide `curl -sSfL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | sh`
 
 ## GTK Theme
 
