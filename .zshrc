@@ -10,6 +10,8 @@ source ~/.zsh/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 source ~/.zsh/zsh-interactive-cd/zsh-interactive-cd.plugin.zsh
 source ~/.zsh/zsh-autocomplete/zsh-autocomplete.plugin.zsh
 zstyle ':autocomplete:*' delay 2
+zstyle ':autocomplete:*' ignored-input 'git*'
+bindkey -M menuselect '\r' .accept-line
 
 # History settings
 HISTFILE=~/.zsh_history
@@ -18,6 +20,8 @@ SAVEHIST=10000
 setopt APPEND_HISTORY
 setopt INC_APPEND_HISTORY
 setopt SHARE_HISTORY
+setopt HIST_IGNORE_ALL_DUPS
+setopt HIST_SAVE_NO_DUPS
 
 export PATH="$HOME/.local/bin:$PATH"
 
