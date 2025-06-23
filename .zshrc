@@ -9,6 +9,11 @@ ZSH_THEME="powerlevel10k/powerlevel10k"
 source ~/.zsh/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 source ~/.zsh/zsh-interactive-cd/zsh-interactive-cd.plugin.zsh
 source ~/.zsh/zsh-autosuggestions/zsh-autosuggestions.zsh
+source ~/.zsh/zsh-history-substring-search/zsh-history-substring-search.zsh
+
+# Bind up and down arrow to history search
+bindkey "$terminfo[kcuu1]" history-substring-search-up
+bindkey "$terminfo[kcud1]" history-substring-search-down
 
 # History settings
 HISTFILE=~/.zsh_history
