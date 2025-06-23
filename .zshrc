@@ -8,10 +8,7 @@ ZSH_THEME="powerlevel10k/powerlevel10k"
 
 source ~/.zsh/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 source ~/.zsh/zsh-interactive-cd/zsh-interactive-cd.plugin.zsh
-source ~/.zsh/zsh-autocomplete/zsh-autocomplete.plugin.zsh
-zstyle ':autocomplete:*' delay 2
-zstyle ':autocomplete:*' ignored-input 'git*'
-bindkey -M menuselect '\r' .accept-line
+source ~/.zsh/zsh-autosuggestions/zsh-autosuggestions.zsh
 
 # History settings
 HISTFILE=~/.zsh_history
