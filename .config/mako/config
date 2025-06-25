@@ -1,7 +1,11 @@
-background-color=#b4f9f8
-text-color=#24283b
-border-color=#0a0e19
+background-color=#0a0e19
+text-color=#ffffff
+border-color=#b4f9f8
 default-timeout=3000
+border-radius=8
+icon-path=/home/seb/.local/share/icons/Tokyonight-Dark-Cyan
+max-icon-size=32
+output=DP-2
 
 [urgency=high]
 text-color=#ffc777
