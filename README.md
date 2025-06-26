@@ -1,7 +1,7 @@
 # Hyprland on Debian Sid
 
-*Tokyo Night with a dark blue background for Soundcloud, btop, fastfetch and vs code*
-[![screenshot](https://raw.githubusercontent.com/sebday/debian-hyprdots/refs/heads/tokyo/.config/hypr/hypr_tokyo_screenshot1.png)](https://raw.githubusercontent.com/sebday/debian-hyprdots/refs/heads/tokyo/.config/hypr/hypr_tokyo_screenshot1.png)
+*Dracula with a dark blue background for Soundcloud, btop, fastfetch and vs code*
+[![screenshot](https://raw.githubusercontent.com/sebday/debian-hyprdots/refs/heads/dracula/.config/hypr/hypr_dracula_screenshot1.png)](https://raw.githubusercontent.com/sebday/debian-hyprdots/refs/heads/dracula/.config/hypr/hypr_dracula_screenshot1.png)
 
 ## Install 
 
@@ -77,16 +77,15 @@ Set the theme, icons and font in **nwg-look**
 
 ### Brave
 
-Chromium disabled "custom stylesheets" in dev tools so unable to style that now :(
+Chromium disabled "custom stylesheets" in dev tools so unable to style that now :(  
+[Chrome Dracula Theme](https://chromewebstore.google.com/detail/dracula-chrome-theme/gfapcejdoghpoidkfodoiiffaaibpaem?hl=en-GB)
 
 ### Firefox
 
-Copy ~/.firefox/userContent.css to the ~/.mozilla/firefox/profile/chrome directory  
+Copy `~/.firefox/userContent.css` to the `~/.mozilla/firefox/profile/chrome` directory  
 In `about:config` set "toolkit.legacyUserProfileCustomizations.stylesheets" to `true`  
 
-*Firefox and dev tools*
-[![screenshot](https://raw.githubusercontent.com/sebday/debian-hyprdots/refs/heads/tokyo/.config/hypr/hypr_tokyo_screenshot2.png)](https://raw.githubusercontent.com/sebday/debian-hyprdots/refs/heads/tokyo/.config/hypr/hypr_tokyo_screenshot2.png)
+### VS Code
 
-  
-   
-  
+`.config/Cursor/User/settings.json` has the overrides for the background color  
+[VS Code Dracula Theme](https://draculatheme.com/visual-studio-code)

@@ -4,7 +4,7 @@
     "editor.fontVariations": false,
     "git.openRepositoryInParentFolders": "always",
     "workbench.colorCustomizations": {
-        "[Tokyo Night]": {
+        "[Dracula Theme]": {
             "editor.background": "#0a0e19",
             "sideBar.background": "#0a0e19",
             "activityBar.background": "#0a0e19",
@@ -52,7 +52,7 @@
     "files.associations": {
         "*.ds": "java"
     },
-    "workbench.colorTheme": "Tokyo Night",
+    "workbench.colorTheme": "Dracula Theme",
     "[vue]": {
         "editor.defaultFormatter": "Vue.volar"
     },

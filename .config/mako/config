@@ -1,6 +1,6 @@
 background-color=#0a0e19
-text-color=#ffffff
-border-color=#b4f9f8
+text-color=#f8f8f2
+border-color=#ff79c6
 default-timeout=3000
 border-radius=8
 icon-path=/home/seb/.local/share/icons/Tokyonight-Dark-Cyan
