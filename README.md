@@ -58,7 +58,6 @@ GRUB_THEME="/boot/grub/themes/breeze/theme.txt"
 ## Setup greetd login
 
 Edit `/etc/greetd/config.toml`
-
 `command = "tuigreet --cmd hyprland"`
 
 ## Notes
