@@ -11,7 +11,7 @@ Install a base system with no desktop environment, add `contrib` and `non-free` 
 
 ### Hyprland
 
-`sudo apt install hyprland hyprland-protocols hyprwayland-scanner xwayland waybar fuzzel grim slurp swappy cliphist greetd tuigreet gtklock hyprpaper mako-notifier libnotify-bin nwg-look libglib2.0-bin bibata-cursor-theme fonts-noto-color-emoji`
+`sudo apt install hyprland hyprland-protocols hyprwayland-scanner xwayland waybar fuzzel grim slurp swappy cliphist greetd tuigreet gtklock hyprpaper mako-notifier libnotify-bin nwg-look libglib2.0-bin bibata-cursor-theme fonts-noto-color-emoji grub-theme-breeze`
 
 - Fuzzel is a nice menu with icons
 - Waybar is the taskbar
@@ -46,8 +46,7 @@ Copy the folder over home, reboot and run `hyprland`
 ```bash
 FONTSIZE="16x32"
 ```
-
-`sudo apt install grub-theme-breeze`  
+ 
 `sudo cp -R /usr/share/grub/themes/breeze /boot/grub/themes/breeze`  
 `sudo nano /etc/default/grub`
 
