@@ -1,7 +1,7 @@
 # Hyprland on Arch
 
 *Dracula with a dark blue background for Soundcloud, btop, fastfetch and vs code*
-[![screenshot](https://raw.githubusercontent.com/sebday/debian-hyprdots/refs/heads/dracula/.config/hypr/hypr_dracula_screenshot1.png)](https://raw.githubusercontent.com/sebday/debian-hyprdots/refs/heads/dracula/.config/hypr/hypr_dracula_screenshot1.png)
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/dracula/.config/hypr/hypr_dracula_screenshot2.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/dracula/.config/hypr/hypr_dracula_screenshot2.png)
 
 ## Install 
 
@@ -17,7 +17,7 @@ sudo pacman -S hyprland hyprland-protocols hyprwayland-scanner xorg-xwayland way
 
 #### Apps
 ```
-sudo pacman -S zsh foot git lazygit neovim ripgrep fd eza fzf bat sshfs btop nvtop fastfetch pipewire alsa-utils playerctl imv mpv qalculate-gtk cava thunar thunar-archive-plugin tumbler ffmpegthumbnailer xarchiver gvfs zip ebp-pixbuf-loader firefox transmission-gtk noto-fonts-emoji
+sudo pacman -S zsh foot foot-terminfo git lazygit neovim ripgrep fd eza fzf bat sshfs btop nvtop fastfetch pipewire alsa-utils playerctl imv mpv qalculate-gtk cava thunar thunar-archive-plugin tumbler ffmpegthumbnailer xarchiver gvfs zip ebp-pixbuf-loader firefox transmission-gtk noto-fonts-emoji
 ```
 
 #### Dev
