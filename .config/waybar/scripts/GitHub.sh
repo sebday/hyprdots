@@ -1,10 +1,5 @@
 #!/bin/bash
 
-# --- Logging Setup ---
-# To debug, check this log file. It is cleared on each run.
-LOG_FILE="/tmp/github-waybar.log"
-echo "--- GitHub Waybar Script Execution --- $(date)" > "${LOG_FILE}"
-
 # GitHub username
 USERNAME="sebday"
 
@@ -19,7 +14,6 @@ if [[ ! -f "${TOKEN_PATH}" ]]; then
 fi
 
 TOKEN=$(cat "${TOKEN_PATH}")
-echo "Token loaded, length: ${#TOKEN}" >> "${LOG_FILE}"
 
 if [[ -z "$TOKEN" ]]; then
     echo '{"text": " Error", "tooltip": "GitHub token is empty in '${TOKEN_PATH}'", "class": "error"}' >&2
@@ -54,7 +48,6 @@ query GetUserContributionCalendar($username: String!) {
 '
 GRAPHQL_QUERY_ESCAPED=$(echo "$GRAPHQL_QUERY_RAW" | tr '\n' ' ' | sed 's/"/\\"/g')
 JSON_PAYLOAD=$(printf '{ "query": "%s", "variables": { "username": "%s" } }' "$GRAPHQL_QUERY_ESCAPED" "$USERNAME")
-echo "GraphQL Payload: ${JSON_PAYLOAD}" >> "${LOG_FILE}"
 
 RESPONSE=$(curl -s -L \
     -H "Authorization: bearer ${TOKEN}" \
@@ -63,20 +56,14 @@ RESPONSE=$(curl -s -L \
     -d "${JSON_PAYLOAD}" \
     "https://api.github.com/graphql")
 
-echo "--- Full API Response ---" >> "${LOG_FILE}"
-echo "${RESPONSE}" >> "${LOG_FILE}"
-echo "-------------------------" >> "${LOG_FILE}"
-
 # --- Response Handling & Initial Parsing ---
 if [[ -z "$RESPONSE" ]]; then
-    echo "Error: curl returned an empty response." >> "${LOG_FILE}"
     echo '{"text": " Curl Err", "tooltip": "GraphQL Curl returned empty."}'
     exit 1
 fi
 
 if echo "$RESPONSE" | jq -e '.errors' > /dev/null 2>&1; then
     ERROR_MESSAGE=$(echo "$RESPONSE" | jq -r '.errors[0].message // "Unknown GraphQL error"')
-    echo "GraphQL Error: ${ERROR_MESSAGE}" >> "${LOG_FILE}"
     echo "{\"text\": \" GQL Err (${ERROR_MESSAGE:0:10})\", \"tooltip\": \"GraphQL Error: ${ERROR_MESSAGE}\"}"
     exit 1
 fi
@@ -89,14 +76,9 @@ ALL_DAYS_DATA=$(echo "$RESPONSE" | jq -r '
     "\(.date)_\(.contributionCount)"
 ')
 
-echo "--- Extracted Contribution Data (ALL_DAYS_DATA) ---" >> "${LOG_FILE}"
-echo "${ALL_DAYS_DATA}" >> "${LOG_FILE}"
-echo "----------------------------------------------------" >> "${LOG_FILE}"
-
 ACTIVITY_BOXES_STRING_FOR_JSON=""
 
 if [[ -z "$ALL_DAYS_DATA" ]]; then
-    echo "No contribution data extracted from response. Generating empty graph." >> "${LOG_FILE}"
     TODAY_CONTRIBUTION_COUNT=0
     COLOR_LEVEL_0=${CONTRIB_COLORS[0]}
     for i in {1..14}; do ACTIVITY_BOXES_STRING_FOR_JSON+="<span fgcolor='${COLOR_LEVEL_0}'>■</span>"; done
@@ -109,7 +91,7 @@ else
 
     TEMP_BOXES_STRING=""
     # Iterate from 6 days prior to local today, up to local today
-    for i in {6..0}; do
+    for i in {13..0}; do
         DAY_ISO=$(date -d "${LOCAL_TODAY_ISO} - ${i} days" +'%Y-%m-%d') # Calculate date relative to local today
         COUNT_FOR_DAY=${contribs_by_date["$DAY_ISO"]:-0}
 
