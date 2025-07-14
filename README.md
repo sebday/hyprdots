@@ -1,31 +1,28 @@
 # Hyprland on Arch
 
-*Dracula with a dark blue background for Soundcloud, btop, fastfetch and vs code*
 [![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/dracula/.config/hypr/hypr_dracula_screenshot2.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/dracula/.config/hypr/hypr_dracula_screenshot2.png)
+*Dracula with a dark blue background for Soundcloud, btop, fastfetch and neovim*
 
-## Install 
+## Install Arch
 
-### Arch btw
+Install a base system
 
-Install a base system.
-
-### Install
-#### Hyprland
+### Hyprland
 ```
 sudo pacman -S hyprland hyprland-protocols hyprwayland-scanner xorg-xwayland waybar fuzzel greetd-tuigreet hyprlock hypridle hyprpaper hyprshot swappy cliphist mako nwg-look 
 ```
 
-#### Apps
+### Apps
 ```
-sudo pacman -S zsh foot foot-terminfo git lazygit neovim ripgrep fd eza fzf bat sshfs btop nvtop fastfetch pipewire alsa-utils playerctl imv mpv qalculate-gtk cava thunar thunar-archive-plugin tumbler ffmpegthumbnailer xarchiver gvfs zip ebp-pixbuf-loader firefox transmission-gtk noto-fonts-emoji
+sudo pacman -S zsh foot foot-terminfo git lazygit neovim ripgrep fd eza fzf bat sshfs btop nvtop fastfetch pipewire alsa-utils playerctl imv mpv cava thunar thunar-archive-plugin tumbler ffmpegthumbnailer xarchiver gvfs zip ebp-pixbuf-loader firefox transmission-gtk qalculate-gtk  noto-fonts-emoji
 ```
 
-#### Dev
+### Dev
 ```
 sudo pacman -S python python-pip python-virtual-env nvm ruby luarocks ast-grep
 ```
 
-### Setup greetd login
+## Setup greetd login
 
 Edit `/etc/greetd/config.toml`
 `command = "tuigreet --cmd hyprland"`
@@ -49,14 +46,6 @@ makepkg -si
 
 ## Notes
 
-### ZSH
-
-The modules are now included as git modules so nothing needs to be done
-
-- Autocomplete
-- Interative cd
-- Syntax highlighting
-
 ### GTK Theme
 
 Set the theme, icons and font in **nwg-look**
@@ -67,14 +56,11 @@ In `brave://flags/` search for "ozone" and set to Wayland
 
 In settings search for "fonts" and set the default to Caskaydia
 
-Chromium disabled "custom stylesheets" in dev tools so unable to style  
-
 [Chrome Dracula Theme](https://chromewebstore.google.com/detail/dracula-chrome-theme/gfapcejdoghpoidkfodoiiffaaibpaem?hl=en-GB)
 
 ### Firefox
 
-Copy `~/.firefox/userContent.css` to the `~/.mozilla/firefox/profile/chrome` directory  
-In `about:config` set "toolkit.legacyUserProfileCustomizations.stylesheets" to `true`  
+Install [Stylus](https://addons.mozilla.org/en-GB/firefox/addon/styl-us/), [PopupWindow](https://addons.mozilla.org/en-GB/firefox/addon/popup-window/) and [uBlock](https://github.com/gorhill/uBlock#ublock-origin)
 
 ### VS Code
 
