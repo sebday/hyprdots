@@ -11,7 +11,7 @@ Install a base system.
 
 ### Install hyprland & apps
 ```
-sudo pacman -S hyprland hyprland-protocols hyprwayland-scanner xorg-xwayland waybar fuzzel greetd-tuigreet hyprlock hypridle hyprpaper hyprshot swappy grim slurp cliphist mako nwg-look zsh foot git neovim eza fzf bat sshfs btop nvtop fastfetch pipewire alsa-utils playerctl imv mpv qalculate-gtk cava thunar thunar-archive-plugin tumbler ffmpegthumbnailer xarchiver gvfs wzip ebp-pixbuf-loader firefox transmission-gtk
+sudo pacman -S hyprland hyprland-protocols hyprwayland-scanner xorg-xwayland waybar fuzzel greetd-tuigreet hyprlock hypridle hyprpaper hyprshot swappy grim slurp cliphist mako nwg-look zsh foot git neovim eza fzf bat sshfs btop nvtop fastfetch pipewire alsa-utils playerctl imv mpv qalculate-gtk cava thunar thunar-archive-plugin tumbler ffmpegthumbnailer xarchiver gvfs wzip ebp-pixbuf-loader firefox transmission-gtk noto-fonts-emoji
 ```
 
 ### Setup greetd login
