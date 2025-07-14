@@ -17,12 +17,12 @@ sudo pacman -S hyprland hyprland-protocols hyprwayland-scanner xorg-xwayland way
 
 #### Apps
 ```
-sudo pacman -S zsh foot git neovim eza fzf bat sshfs btop nvtop fastfetch pipewire alsa-utils playerctl imv mpv qalculate-gtk cava thunar thunar-archive-plugin tumbler ffmpegthumbnailer xarchiver gvfs wzip ebp-pixbuf-loader firefox transmission-gtk noto-fonts-emoji
+sudo pacman -S zsh foot git lazygit neovim ripgrep fd eza fzf bat sshfs btop nvtop fastfetch pipewire alsa-utils playerctl imv mpv qalculate-gtk cava thunar thunar-archive-plugin tumbler ffmpegthumbnailer xarchiver gvfs zip ebp-pixbuf-loader firefox transmission-gtk noto-fonts-emoji
 ```
 
 #### Dev
 ```
-sudo pacman -S python python-pip python-virtual-env nvm ruby
+sudo pacman -S python python-pip python-virtual-env nvm ruby luarocks ast-grep
 ```
 
 ### Setup greetd login
