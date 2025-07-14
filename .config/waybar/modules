@@ -108,6 +108,6 @@
 	"custom/calculator": {
 		"format": " ",
 		"tooltip": "Calculator",
-		"on-click": "hyprctl dispatch exec '[floating; monitor DP-2; size 640 720] qalculate'"
+		"on-click": "hyprctl dispatch exec '[floating; monitor DP-2; size 640 720] qalculate-gtk'"
 	}
 }
