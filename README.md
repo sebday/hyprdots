@@ -9,9 +9,20 @@
 
 Install a base system.
 
-### Install hyprland & apps
+### Install
+#### Hyprland
 ```
-sudo pacman -S hyprland hyprland-protocols hyprwayland-scanner xorg-xwayland waybar fuzzel greetd-tuigreet hyprlock hypridle hyprpaper hyprshot swappy grim slurp cliphist mako nwg-look zsh foot git neovim eza fzf bat sshfs btop nvtop fastfetch pipewire alsa-utils playerctl imv mpv qalculate-gtk cava thunar thunar-archive-plugin tumbler ffmpegthumbnailer xarchiver gvfs wzip ebp-pixbuf-loader firefox transmission-gtk noto-fonts-emoji
+sudo pacman -S hyprland hyprland-protocols hyprwayland-scanner xorg-xwayland waybar fuzzel greetd-tuigreet hyprlock hypridle hyprpaper hyprshot swappy grim slurp cliphist mako nwg-look 
+```
+
+#### Apps
+```
+sudo pacman -S zsh foot git neovim eza fzf bat sshfs btop nvtop fastfetch pipewire alsa-utils playerctl imv mpv qalculate-gtk cava thunar thunar-archive-plugin tumbler ffmpegthumbnailer xarchiver gvfs wzip ebp-pixbuf-loader firefox transmission-gtk noto-fonts-emoji
+```
+
+#### Dev
+```
+sudo pacman -S python python-pip python-virtual-env nvm ruby
 ```
 
 ### Setup greetd login
@@ -52,9 +63,12 @@ Set the theme, icons and font in **nwg-look**
 
 ### Brave
 
-In `brave://flags/` search for "ozone" and set to Wayland.
+In `brave://flags/` search for "ozone" and set to Wayland
+
+In settings search for "fonts" and set the default to Caskaydia
 
 Chromium disabled "custom stylesheets" in dev tools so unable to style  
+
 [Chrome Dracula Theme](https://chromewebstore.google.com/detail/dracula-chrome-theme/gfapcejdoghpoidkfodoiiffaaibpaem?hl=en-GB)
 
 ### Firefox
@@ -65,4 +79,5 @@ In `about:config` set "toolkit.legacyUserProfileCustomizations.stylesheets" to `
 ### VS Code
 
 `.config/Cursor/User/settings.json` has the overrides for the background color  
+
 [VS Code Dracula Theme](https://draculatheme.com/visual-studio-code)
