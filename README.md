@@ -12,7 +12,7 @@ Install a base system.
 ### Install
 #### Hyprland
 ```
-sudo pacman -S hyprland hyprland-protocols hyprwayland-scanner xorg-xwayland waybar fuzzel greetd-tuigreet hyprlock hypridle hyprpaper hyprshot swappy grim slurp cliphist mako nwg-look 
+sudo pacman -S hyprland hyprland-protocols hyprwayland-scanner xorg-xwayland waybar fuzzel greetd-tuigreet hyprlock hypridle hyprpaper hyprshot swappy cliphist mako nwg-look 
 ```
 
 #### Apps
