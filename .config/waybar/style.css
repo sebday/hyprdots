@@ -5,11 +5,7 @@
 }
 
 window#waybar {
-	background-color: transparent;
-}
-
-window#waybar.hidden {
-	opacity: 0.2;
+	padding-top: 1px;
 }
 
 #workspaces,
@@ -18,28 +14,12 @@ window#waybar.hidden {
 #custom-github,
 #custom-cava_mviz,
 #pulseaudio,
-#tray {
-	background-color: #0a0e19;
-	border-radius: 8px;
-	padding: 0 16px;
-	margin: 0 8px 4px;
-}
-
+#tray,
 #custom-calculator,
 #clock {
 	background-color: #0a0e19;
-	padding: 4px 8px;
-}
-
-#custom-calculator {
-	border-radius: 8px 0 0 8px;
-	margin: 0 0 4px 16px;
-	padding-left: 16px;
-}
-
-#clock {
-	border-radius: 0 8px 8px 0;
-	margin: 0 8px 4px 0;
+	padding: 0 16px;
+	margin: 0 8px;
 }
 
 #custom-wallpaper_prev,
@@ -47,17 +27,7 @@ window#waybar.hidden {
 #custom-wallpaper_next {
 	background-color: #0a0e19;
 	padding: 4px 8px;
-	margin-bottom: 4px;
 }
-
-#custom-wallpaper_prev {
-	border-radius: 8px 0 0 8px;
-}
-
-#custom-wallpaper_next {
-	border-radius: 0 8px 8px 0;
-}
-
 
 #custom-shopify_zk,
 #custom-shopify_diy {
