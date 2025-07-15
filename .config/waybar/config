@@ -6,7 +6,7 @@
 "passthrough": false,
 "position": "bottom",
 "height": 35,
-"spacing": 4,
+"spacing": 0,
 "fixed-center": true,
 "ipc": false,
 

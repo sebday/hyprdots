@@ -2,48 +2,62 @@
 	font-family: "CaskaydiaMono Nerd Font";
 	font-weight: bold;
 	min-height: 0;
-	font-size: 100%;
-	font-feature-settings: '"zero", "ss01", "ss02", "ss03", "ss04", "ss05", "cv31"';
 }
 
 window#waybar {
-	transition-property: background-color;
-	transition-duration: 0.5s;
-	background: #0a0e19;
-	padding: 2px;
-	border-radius: 0;
-	border-top: none;
+	background-color: transparent;
 }
 
 window#waybar.hidden {
 	opacity: 0.2;
 }
 
-window#waybar.empty,
-window#waybar.empty #window {
-	background-color: #0a0e19;
-	padding: 0px;
-	border: 0px;
-}
-
-.modules-left,
-.modules-center,
-.modules-right {
-	padding-top: 2px;
-	padding-bottom: 2px;
-	padding-right: 8px;
-	padding-left: 8px;
-	border-radius: 0;
-}
-
+#workspaces,
+#custom-shopify_zk,
 #custom-shopify_diy,
 #custom-github,
 #custom-cava_mviz,
 #pulseaudio,
+#tray {
+	background-color: #0a0e19;
+	border-radius: 8px;
+	padding: 0 16px;
+	margin: 0 8px 4px;
+}
+
+#custom-calculator,
+#clock {
+	background-color: #0a0e19;
+	padding: 4px 8px;
+}
+
 #custom-calculator {
-	padding-right: 16px;
+	border-radius: 8px 0 0 8px;
+	margin: 0 0 4px 16px;
 	padding-left: 16px;
 }
+
+#clock {
+	border-radius: 0 8px 8px 0;
+	margin: 0 8px 4px 0;
+}
+
+#custom-wallpaper_prev,
+#custom-wallpaper_random,
+#custom-wallpaper_next {
+	background-color: #0a0e19;
+	padding: 4px 8px;
+	margin-bottom: 4px;
+}
+
+#custom-wallpaper_prev {
+	border-radius: 8px 0 0 8px;
+}
+
+#custom-wallpaper_next {
+	border-radius: 0 8px 8px 0;
+}
+
 
 #custom-shopify_zk,
 #custom-shopify_diy {
@@ -110,7 +124,6 @@ window#waybar.empty #window {
 
 #clock {
 	color: #8be9fd;
-	margin-left: 8px;
 }
 
 #tray {
@@ -127,7 +140,6 @@ window#waybar.empty #window {
 
 #custom-cava_mviz {
 	color: #ff92df;
-	padding: 0 10px;
 }
 
 #pulseaudio {
@@ -142,30 +154,13 @@ window#waybar.empty #window {
 	color: #ff79c6;
 }
 
-#pulseaudio-slider slider {
-	min-width: 0px;
-	min-height: 0px;
-	opacity: 0;
-	background-image: none;
-	border: none;
-	box-shadow: none;
-}
-
-#pulseaudio-slider trough {
-	min-width: 80px;
-	min-height: 5px;
-	border-radius: 5px;
-}
-
-#pulseaudio-slider highlight {
-	min-height: 10px;
-	border-radius: 5px;
-}
-
 #custom-wallpaper_random:hover,
 #custom-wallpaper_prev:hover,
 #custom-wallpaper_next:hover,
 #custom-calculator:hover,
+#custom-shopify_zk:hover,
+#custom-shopify_diy:hover,
+#custom-github:hover,
 #clock:hover,
 #pulseaudio:hover {
 	color: #ffc777;
