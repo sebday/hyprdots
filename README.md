@@ -3,10 +3,6 @@
 [![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/dracula/.config/hypr/hypr_dracula_screenshot2.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/dracula/.config/hypr/hypr_dracula_screenshot2.png)
 *Dracula with a dark blue background for Soundcloud, btop, fastfetch and neovim*
 
-## Install Arch
-
-Install a base system
-
 ### Hyprland
 ```
 sudo pacman -S hyprland hyprland-protocols hyprwayland-scanner xorg-xwayland waybar fuzzel greetd-tuigreet hyprlock hypridle hyprpaper hyprshot swappy cliphist mako nwg-look 

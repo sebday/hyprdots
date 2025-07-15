@@ -7,7 +7,7 @@
 window#waybar {
 	padding-top: 1px;
 }
-
+f
 #workspaces,
 #custom-shopify_zk,
 #custom-shopify_diy,
@@ -20,6 +20,15 @@ window#waybar {
 	background-color: #0a0e19;
 	padding: 0 16px;
 	margin: 0 8px;
+}
+
+#clock {
+	margin-right: 0;
+	padding-right: 0;
+}
+
+#tray {
+	margin-left: 0;
 }
 
 #custom-wallpaper_prev,

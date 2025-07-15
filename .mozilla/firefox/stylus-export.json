@@ -102,8 +102,7 @@
       "popupWidth": 246,
       "popupWidthMax": 280,
       "updateInterval": 24,
-      "updateOnlyEnabled": false,
-      "undefined": null
+      "updateOnlyEnabled": false
     },
     "order": {
       "main": [],
@@ -118,7 +117,7 @@
         "code": ""
       }
     ],
-    "sourceCode": "/* ==UserStyle==\n@name           soundcloud.com\n@namespace      github.com/openstyles/stylus\n@version        0.4.1\n@description    A Nord theme for Soundcloud\n@author         Seb day\n==/UserStyle== */\n@-moz-document domain(\"soundcloud.com\") {\n\n    * {\n        font-family: monospace!important;\n    }\n    .theme-dark {\n        --surface-color: #292e42;\n        --background-surface-color: #0a0e19;\n        --highlight-color: #0a0e19;\n        --button-secondary-background-color: #0a0e19;\n        --button-secondary-selected-background-color: #0a0e19;\n    }\n\n    .header__upsellWrapper,\n    .header__forArtistsButton,\n    .header__soundInput,\n    .l-sidebar-right,\n    .queue__fallback,\n    .backgroundGradient,\n    .imageChooser,\n    a[data-menu-name=\"home\"] {\n        display: none!important;\n    }\n\n    .l-container {\n        width: 955px;\n    }\n    .l-search .l-fixed-left {\n        width: 300px;\n    }\n    .l-fluid-fixed .l-main {\n        margin: 0;\n    }\n\n    .l-search .l-main {\n        margin: 0 0 0 300px;\n    }\n\n    .searchOptions__scrollable {\n        width: 300px;\n    }\n\n    .l-listen-wrapper .l-about-main {\n        margin: 0;\n    }\n\n    .l-about-main {\n        padding-top: 0!important;\n    }\n\n    .playControls__queue {\n        bottom: 48px;\n    }\n\n    .queue__itemsHeight {\n        background-size: auto!important;\n    }\n\n    h1 {\n        color: #0a0e19!important;\n    }\n\n    .queue__itemWrapper,\n    .theme-dark .queue__itemsHeight,\n    .queue,\n    .sc-button-like,\n    .g-type-shrinkwrap-inline {\n        background-color: #0a0e19!important;\n    }\n\n    .g-type-shrinkwrap-block {\n        background: transparent;\n        color: #b2f8f8!important;\n    }\n    .g-type-shrinkwrap-inline {\n        color: #b2f8f8!important;\n        margin-top: 5px;\n    }\n    .sc-button-xxlarge {\n        background-color: #b2f8f8!important;\n    }\n    .queue__itemWrapper .m-playing,\n    .queue__itemWrapper .m-active,\n    .sc-input {\n        background-color: #292e42!important;\n    }\n    .sc-button-like {\n        background: transparent!important;\n    }\n}",
+    "sourceCode": "/* ==UserStyle==\n@name           soundcloud.com\n@namespace      github.com/openstyles/stylus\n@version        0.4.1\n@description    A Nord theme for Soundcloud\n@author         Seb day\n==/UserStyle== */\n@-moz-document domain(\"soundcloud.com\") {\n\n    * {\n        font-family: monospace!important;\n    }\n    .theme-dark {\n        --surface-color: #292e42;\n        --background-surface-color: #0a0e19;\n        --highlight-color: #0a0e19;\n        --button-secondary-background-color: #0a0e19;\n        --button-secondary-selected-background-color: #0a0e19;\n    }\n\n    .header__upsellWrapper,\n    .header__forArtistsButton,\n    .header__soundInput,\n    .l-sidebar-right,\n    .queue__fallback,\n    .backgroundGradient,\n    .imageChooser,\n    a[data-menu-name=\"home\"] {\n        display: none!important;\n    }\n\n    .l-container {\n        width: 935px;\n    }\n    .l-search .l-fixed-left {\n        width: 300px;\n    }\n    .l-fluid-fixed .l-main {\n        margin: 0;\n    }\n\n    .l-search .l-main {\n        margin: 0 0 0 300px;\n    }\n\n    .searchOptions__scrollable {\n        width: 300px;\n    }\n\n    .l-listen-wrapper .l-about-main {\n        margin: 0;\n    }\n\n    .l-about-main {\n        padding-top: 0!important;\n    }\n\n    .playControls__queue {\n        bottom: 48px;\n    }\n\n    .queue__itemsHeight {\n        background-size: auto!important;\n    }\n\n    h1 {\n        color: #0a0e19!important;\n    }\n\n    .queue__itemWrapper,\n    .theme-dark .queue__itemsHeight,\n    .queue,\n    .sc-button-like,\n    .g-type-shrinkwrap-inline {\n        background-color: #0a0e19!important;\n    }\n\n    .g-type-shrinkwrap-block {\n        background: transparent;\n        color: #b2f8f8!important;\n    }\n    .g-type-shrinkwrap-inline {\n        color: #b2f8f8!important;\n        margin-top: 5px;\n    }\n    .sc-button-xxlarge {\n        background-color: #b2f8f8!important;\n    }\n    .queue__itemWrapper .m-playing,\n    .queue__itemWrapper .m-active,\n    .sc-input {\n        background-color: #292e42!important;\n    }\n    .sc-button-like {\n        background: transparent!important;\n    }\n}",
     "usercssData": {
       "name": "soundcloud.com",
       "namespace": "github.com/openstyles/stylus",
@@ -129,13 +128,13 @@
     "author": "Seb day",
     "description": "A Nord theme for Soundcloud",
     "name": "soundcloud.com",
-    "updateDate": 1749158676806,
+    "updateDate": 1752579367996,
     "_id": "36280913-df3f-4b1a-a096-41814f5219ef",
-    "_rev": 1749158676806,
+    "_rev": 1752579367996,
     "id": 1
   },
   {
-    "enabled": true,
+    "enabled": false,
     "installDate": 1727615199805,
     "sections": [
       {
@@ -152,7 +151,7 @@
     "name": "Whatsapp TokyoNight",
     "originalDigest": "2e84326ebf93013d3275e8d9a36fe0b48c82e272",
     "_id": "149a23ea-7eae-4f0a-9652-d78f7d8eb4de",
-    "_rev": 1746030898512,
+    "_rev": 1752440401201,
     "id": 2,
     "url": "https://userstyles.world/style/13721",
     "installationUrl": "https://userstyles.world/style/13721",
@@ -160,7 +159,7 @@
     "updateDate": 1733962575186
   },
   {
-    "enabled": true,
+    "enabled": false,
     "installDate": 1727615429584,
     "sections": [
       {
@@ -182,7 +181,7 @@
     "name": "github",
     "updateDate": 1733959446041,
     "_id": "0a291c9e-6f8c-4628-83bf-40d84b29b030",
-    "_rev": 1746030898514,
+    "_rev": 1752440398655,
     "id": 3
   },
   {
@@ -206,11 +205,11 @@
     "name": "home.google.com",
     "updateDate": 1727623453478,
     "_id": "095f7778-2948-4b64-a93a-687bb948ea84",
-    "_rev": 1746030898516,
+    "_rev": 1752440390974,
     "id": 4
   },
   {
-    "enabled": true,
+    "enabled": false,
     "installDate": 1733489629628,
     "sections": [
       {
@@ -231,11 +230,11 @@
     "name": "x.com/home",
     "updateDate": 1733490084647,
     "_id": "82de8cad-5205-4d23-b650-f1f368bbc301",
-    "_rev": 1746030898517,
+    "_rev": 1752440401705,
     "id": 5
   },
   {
-    "enabled": true,
+    "enabled": false,
     "installDate": 1733677262691,
     "sections": [
       {
@@ -255,12 +254,12 @@
     "name": "ads.google.com/",
     "updateDate": 1733678082282,
     "_id": "7e4042c4-1a53-45cb-becf-1845054ee25b",
-    "_rev": 1746030898518,
+    "_rev": 1752440397037,
     "id": 6,
     "customName": "ads.google.com"
   },
   {
-    "enabled": true,
+    "enabled": false,
     "installDate": 1737028474432,
     "sections": [
       {
@@ -280,11 +279,11 @@
     "name": "diybuildingsupplies.co.uk",
     "updateDate": 1737028474432,
     "_id": "79b211b1-7925-4257-a076-318f5c5514ee",
-    "_rev": 1746030898519,
+    "_rev": 1752440397879,
     "id": 7
   },
   {
-    "enabled": true,
+    "enabled": false,
     "installDate": 1737075292380,
     "sections": [
       {
@@ -304,11 +303,11 @@
     "name": "scrapy.pricemonitor.pro",
     "updateDate": 1737075488578,
     "_id": "46759b9f-d750-4f5c-a7b8-fe8d12ea5a6a",
-    "_rev": 1746030898519,
+    "_rev": 1752440399591,
     "id": 8
   },
   {
-    "enabled": true,
+    "enabled": false,
     "installDate": 1746030242228,
     "sections": [
       {
@@ -328,7 +327,7 @@
     "name": "sebday.dev/ghost/",
     "updateDate": 1746030242228,
     "_id": "94e960e5-3c30-4392-9489-0648d1dc5fed",
-    "_rev": 1746030898520,
+    "_rev": 1752440400310,
     "id": 9
   }
 ]
