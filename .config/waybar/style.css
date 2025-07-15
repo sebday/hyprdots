@@ -119,14 +119,11 @@ f
 
 #custom-cava_mviz {
 	color: #ff92df;
+	padding-right: 0;
 }
 
 #pulseaudio {
 	color: #ff9e64;
-}
-
-#pulseaudio.bluetooth {
-	color: #9ece6a;
 }
 
 #pulseaudio.muted {
