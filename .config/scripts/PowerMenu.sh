@@ -6,7 +6,7 @@
 # Function to show power menu.
 show_power_menu() {
   local menu_options=" Lock\n Relaunch\n󰜉 Restart\n󰐥 Shutdown"
-  local selection=$(echo -e "$menu_options" | fuzzel --dmenu --prompt "" --lines=4 --width=12)
+  local selection=$(echo -e "$menu_options" | fuzzel --dmenu --lines=4 --width=12)
 
   case "$selection" in
   " Lock") hyprlock ;;
