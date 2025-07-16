@@ -1,0 +1,21 @@
+#!/bin/bash
+
+# Power menu for Hyprland using fuzzel
+# Provides power off, restart, and sleep options
+
+# Function to show power menu.
+show_power_menu() {
+  local menu_options=" Lock\n󰤄 Suspend\n Relaunch\n󰜉 Restart\n󰐥 Shutdown"
+  local selection=$(echo -e "$menu_options" | fuzzel --dmenu --prompt "Power Options: ")
+
+  case "$selection" in
+  " Lock") hyprlock ;;
+  "󰤄 Susneed") systemctl suspend ;;
+  " Relaunch") hyprctl dispatch exit ;;
+  "󰜉 Restart") systemctl reboot ;;
+  "󰐥 Shutdown") systemctl poweroff ;;
+  esac
+}
+
+# Main execution
+show_power_menu 
