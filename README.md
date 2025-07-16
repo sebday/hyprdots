@@ -5,12 +5,12 @@
 
 ### Hyprland
 ```
-sudo pacman -S hyprland hyprland-protocols hyprwayland-scanner xorg-xwayland greetd-tuigreet plymouth waybar fuzzel hyprlock hypridle hyprpaper hyprshot swappy cliphist mako nwg-look 
+sudo pacman -S hyprland hyprland-protocols hyprwayland-scanner xorg-xwayland greetd plymouth waybar fuzzel hyprlock hypridle hyprpaper hyprshot swappy cliphist mako nwg-look 
 ```
 
 ### Apps
 ```
-sudo pacman -S zsh foot foot-terminfo git lazygit neovim ripgrep fd eza fzf bat sshfs btop nvtop fastfetch pipewire alsa-utils playerctl imv mpv cava thunar thunar-archive-plugin tumbler ffmpegthumbnailer imagemagick xarchiver gvfs zip ebp-pixbuf-loader firefox transmission-gtk qalculate-gtk  noto-fonts-emoji
+sudo pacman -S zsh foot foot-terminfo git lazygit neovim ripgrep fd eza fzf bat sshfs btop nvtop fastfetch pipewire alsa-utils playerctl imv mpv cava thunar thunar-archive-plugin tumbler ffmpegthumbnailer imagemagick xarchiver gvfs zip ebp-pixbuf-loader firefox transmission-gtk qalculate-gtk noto-fonts-emoji
 ```
 
 ### Dev
@@ -18,10 +18,15 @@ sudo pacman -S zsh foot foot-terminfo git lazygit neovim ripgrep fd eza fzf bat 
 sudo pacman -S python python-pip python-virtual-env nvm ruby luarocks ast-grep
 ```
 
-## Setup greetd login
+## Setup greetd autologin
 
 Edit `/etc/greetd/config.toml`
-`command = "tuigreet --cmd hyprland"`
+
+```
+[initial_session]
+command = "hyprland"
+user = "seb"
+```
 
 ### Clone the dots
 ```
