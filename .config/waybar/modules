@@ -38,7 +38,7 @@
 	"clock": {
 		"interval": 1,
 		"format": "  {:%H:%M    %a %d %B }",
-		"on-click": "/home/seb/.config/waybar/scripts/ToggleCalendar.sh"
+		"on-click": "/home/seb/.config/scripts/ToggleCalendar.sh"
 	},
 	"pulseaudio": {
 		"format": "{icon}  {volume}% ",
@@ -77,31 +77,31 @@
 		"tooltip": true
 	},
 	"custom/cava_mviz": {
-		"exec": "~/.config/waybar/scripts/WaybarCava.sh",
+		"exec": "~/.config/scripts/WaybarCava.sh",
 		"format": "{}"
 	},
 	"custom/wallpaper_prev": {
 		"format": "",
 		"tooltip": "Previous Wallpaper",
-		"on-click": "~/.config/waybar/scripts/CycleWallpaper.sh prev",
+		"on-click": "~/.config/scripts/CycleWallpaper.sh prev",
 		"interval": "once"
 	},
 	"custom/wallpaper_next": {
 		"format": "",
 		"tooltip": "Next Wallpaper",
-		"on-click": "~/.config/waybar/scripts/CycleWallpaper.sh next",
+		"on-click": "~/.config/scripts/CycleWallpaper.sh next",
 		"interval": "once"
 	},
 	"custom/wallpaper_random": {
 		"format": " ? ",
 		"tooltip": "Random Wallpaper",
-		"on-click": "~/.config/waybar/scripts/CycleWallpaper.sh random",
+		"on-click": "~/.config/scripts/CycleWallpaper.sh random",
 		"interval": "once"
 	},
 	"custom/github": {
 		"format": "{}",
 		"return-type": "json",
-		"exec": "~/.config/waybar/scripts/GitHub.sh",
+		"exec": "~/.config/scripts/GitHub.sh",
 		"interval": 300,
 		"on-click": "xdg-open https://github.com/sebday"
 	},

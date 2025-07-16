@@ -50,14 +50,11 @@ makepkg -si
 
 Set the prettier boot screen `sudo plymouth-set-default-theme -R spinner`
 
-### Other Software
+## Other Software
+
+
 `yay -Sy brave-bin cursor-bin insync obsidian`
 
-## Notes
-
-### GTK Theme
-
-Set the theme, icons and font in **nwg-look**
 
 ### Brave
 
