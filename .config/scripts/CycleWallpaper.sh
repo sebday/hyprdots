@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
 WALLPAPER_DIR="$HOME/OneDrive/Pictures/Wallpapers"
-STATE_FILE="$HOME/.cache/current_wallpaper_path" # Stores the path of the current wallpaper
 DIRECTION=${1:-next} # Default to 'next' if no argument is provided
 
 # Ensure the wallpaper directory exists
@@ -33,10 +32,15 @@ if [ ${#wallpapers[@]} -eq 0 ]; then
     exit 0 # Not an error, just nothing to do
 fi
 
-# Read the path of the previously set wallpaper
-current_wallpaper_path=""
-if [ -f "$STATE_FILE" ]; then
-    current_wallpaper_path=$(cat "$STATE_FILE")
+# Get the path of the current wallpaper from the active list. This is more reliable.
+# It might look like: "Wallpaper /path/to/foo.jpg is active on monitor DP-1"
+# We parse the path from it.
+current_wallpaper_path=$(hyprctl hyprpaper listactive | head -n 1 | sed -n 's/^Wallpaper \(.*\) is active on monitor.*$/\1/p')
+
+# Fallback to listloaded if listactive is empty (e.g., on initial run)
+if [ -z "$current_wallpaper_path" ]; then
+    echo "Info: hyprctl listactive was empty. Falling back to listloaded." >&2
+    current_wallpaper_path=$(hyprctl hyprpaper listloaded | head -n 1)
 fi
 
 # Find the index of the current wallpaper in the list
@@ -83,10 +87,10 @@ if [ "$target_idx" -lt 0 ]; then # Should not happen with modulo if array not em
     target_idx=$(( ${#wallpapers[@]} - 1 ))
 fi
 
-next_wallpaper="${wallpapers[$target_idx]}"
+target_wallpaper="${wallpapers[$target_idx]}"
 
 # Ensure next_wallpaper is not empty
-if [ -z "$next_wallpaper" ]; then
+if [ -z "$target_wallpaper" ]; then
     echo "Error: Failed to determine target wallpaper." >&2
     if command -v notify-send &> /dev/null; then
         notify-send "Wallpaper Cycler Error" "Failed to determine target wallpaper."
@@ -94,39 +98,33 @@ if [ -z "$next_wallpaper" ]; then
     exit 1
 fi
 
-# Preload the selected wallpaper
-echo "Preloading: $next_wallpaper"
-if ! hyprctl hyprpaper preload "$next_wallpaper"; then
-    echo "Warning: Failed to preload wallpaper. 'hyprctl hyprpaper preload \"$next_wallpaper\"' command failed." >&2
-    # Continue regardless, as wallpaper setting might still work
+# Preload the target wallpaper
+if ! hyprctl hyprpaper preload "$target_wallpaper"; then
+    err_msg="Error: Failed to preload wallpaper: $target_wallpaper"
+    echo "$err_msg" >&2
+    if command -v notify-send &> /dev/null; then
+        notify-send "Wallpaper Cycler Error" "$err_msg"
+    fi
+    exit 1
 fi
 
-# Get monitor names
+# Get monitor names from hyprctl
 mapfile -t monitors < <(hyprctl monitors | grep "Monitor " | awk '{print $2}')
 
 wallpaper_set_successfully=false
+# Set the wallpaper for each monitor. Fallback to global if no monitors found.
 if [ ${#monitors[@]} -eq 0 ]; then
-    echo "Warning: No monitors found by hyprctl. Attempting to set wallpaper globally using ',PATH'." >&2
-    echo "Attempting global: hyprctl hyprpaper wallpaper \",$next_wallpaper\"" # DEBUG
-    if hyprctl hyprpaper wallpaper ",$next_wallpaper"; then
+    echo "Warning: No monitors found by hyprctl. Attempting to set wallpaper globally." >&2
+    if hyprctl hyprpaper wallpaper ",$target_wallpaper"; then
         wallpaper_set_successfully=true
-    else
-        error_code=$?
-        err_msg="Error setting wallpaper globally. 'hyprctl hyprpaper wallpaper \",$next_wallpaper\"' failed with exit code $error_code. Ensure hyprpaper is running."
-        echo "$err_msg" >&2
-        if command -v notify-send &> /dev/null; then
-            notify-send "Wallpaper Cycler Error" "Could not set wallpaper globally. Exit code: $error_code"
-        fi
     fi
 else
-    # Set the wallpaper for each monitor
     all_monitors_succeeded=true
     for monitor_name in "${monitors[@]}"; do
-        echo "Setting wallpaper for $monitor_name to $next_wallpaper"
-        echo "Attempting: hyprctl hyprpaper wallpaper \"$monitor_name,$next_wallpaper\"" # DEBUG
-        if ! hyprctl hyprpaper wallpaper "$monitor_name,$next_wallpaper"; then
+        echo "Setting wallpaper for $monitor_name to $target_wallpaper"
+        if ! hyprctl hyprpaper wallpaper "$monitor_name,$target_wallpaper"; then
             error_code=$?
-            err_msg="Error setting wallpaper for $monitor_name. 'hyprctl hyprpaper wallpaper \"$monitor_name,$next_wallpaper\"' failed with exit code $error_code."
+            err_msg="Error setting wallpaper for $monitor_name. Exit code: $error_code"
             echo "$err_msg" >&2
             if command -v notify-send &> /dev/null; then
                 notify-send "Wallpaper Cycler Error" "Could not set wallpaper for $monitor_name. Exit code: $error_code"
@@ -139,11 +137,14 @@ else
     fi
 fi
 
-# Save the path of the new wallpaper to the state file only if successfully set
 if $wallpaper_set_successfully; then
-    echo -n "$next_wallpaper" > "$STATE_FILE"
-    exit 0
+    echo "Wallpaper set successfully."
 else
-    echo "Wallpaper was not set successfully on any monitor." >&2
-    exit 1
+    echo "Error: Failed to set wallpaper on any monitor." >&2
+    # Even if setting wallpaper fails, we should still try to unload
+fi
+
+# Unload unused wallpapers to free up memory
+if ! hyprctl hyprpaper unload unused; then
+    echo "Warning: Failed to unload unused wallpapers." >&2
 fi 
