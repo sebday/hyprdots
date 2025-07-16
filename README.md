@@ -23,6 +23,10 @@ sudo pacman -S python python-pip python-virtual-env nvm ruby luarocks ast-grep
 Edit `/etc/greetd/config.toml`
 
 ```
+[default_session]
+command = "hyprland"
+user = "seb"
+
 [initial_session]
 command = "hyprland"
 user = "seb"
