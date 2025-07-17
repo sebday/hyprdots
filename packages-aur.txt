@@ -1,0 +1,4 @@
+brave-bin
+cursor-bin
+opencode-ai-bin
+insync 
