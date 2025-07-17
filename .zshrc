@@ -25,6 +25,7 @@ setopt HIST_IGNORE_ALL_DUPS
 setopt HIST_SAVE_NO_DUPS
 
 export PATH="$HOME/.local/bin:$PATH"
+export EDITOR=nvim
 
 # Icons for files/folders in terminal using eza
 alias ls='eza -l --icons'
@@ -32,8 +33,6 @@ alias ll='eza -al --icons'
 alias lt='eza -alr --sort=mod --tree --level=1 --icons'
 alias df='df -hT -xtmpfs -xdevtmpfs -xefivarfs'
 alias ff='fastfetch'
-alias vi='nvim'
-alias vim='nvim'
 
 # Git typos
 function git() {
