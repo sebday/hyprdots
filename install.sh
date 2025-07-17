@@ -54,12 +54,11 @@ fi
 
 # Install packages from the official Arch repositories using pacman.
 install_pacman_packages() {
-    log "Updating system and installing pacman packages..."
-    # The --noconfirm flag is used to bypass interactive prompts.
-    sudo pacman -Syu --noconfirm \
-        hyprland hyprland-protocols hyprwayland-scanner xorg-xwayland greetd plymouth mkinitcpio waybar fuzzel hyprlock hypridle hyprpaper hyprshot swappy cliphist mako nwg-look \
-        zsh foot foot-terminfo git lazygit neovim ripgrep fd eza fzf viu bat sshfs btop nvtop fastfetch pipewire alsa-utils playerctl imv mpv cava thunar thunar-archive-plugin tumbler ffmpegthumbnailer imagemagick xarchiver gvfs zip webp-pixbuf-loader firefox transmission-gtk qalculate-gtk noto-fonts noto-fonts-emoji ttf-cascadia-mono-nerd \
-        python python-pip python-virtualenv nvm ruby luarocks ast-grep rsync
+    log "Updating system and installing pacman packages from packages.txt..."
+    # Read packages from packages.txt, filter out comments and empty lines
+    local packages
+    packages=$(grep -v '^#' packages.txt | grep -v '^$' | tr '\n' ' ')
+    sudo pacman -Syu --noconfirm $packages
 }
 
 # Configure greetd for automatic login.
@@ -72,6 +71,9 @@ configure_greetd() {
     # Create the greetd configuration file.
     # This will overwrite any existing configuration.
     cat <<EOT | sudo tee /etc/greetd/config.toml > /dev/null
+[terminal]
+vt = 1
+
 [default_session]
 command = "hyprland"
 user = "$user"
@@ -80,6 +82,28 @@ user = "$user"
 command = "hyprland"
 user = "$user"
 EOT
+}
+
+# Configure the virtual console font for TTY.
+configure_vconsole() {
+    log "Configuring TTY font..."
+    # Check if mkinitcpio presets exist. This avoids errors in environments
+    # without a kernel installed (e.g., Docker containers).
+    if [ -n "$(ls /etc/mkinitcpio.d/*.preset 2>/dev/null)" ]; then
+        local vconsole_conf="/etc/vconsole.conf"
+        local font="ter-u16n"
+
+        # This ensures that p10k glyphs render correctly in the TTY.
+        # We check if the FONT is already set and update it, otherwise add it.
+        if sudo grep -q "^FONT=" "$vconsole_conf" 2>/dev/null; then
+            sudo sed -i "s/^FONT=.*/FONT=$font/" "$vconsole_conf"
+        else
+            echo "FONT=$font" | sudo tee -a "$vconsole_conf" > /dev/null
+        fi
+    else
+        log "WARNING: No mkinitcpio presets found. Skipping TTY font setup."
+        log "This is expected in a containerized environment like Docker."
+    fi
 }
 
 # Clone the dotfiles repository and set it up.
@@ -125,9 +149,11 @@ install_yay() {
 
 # Install packages from the AUR using yay.
 install_aur_packages() {
-    log "Installing AUR packages..."
-    # --noconfirm is used to avoid prompts during installation.
-    yay -Sy --noconfirm brave-bin cursor-bin insync obsidian
+    log "Installing AUR packages from packages-aur.txt..."
+    # Read packages from packages-aur.txt
+    local aur_packages
+    aur_packages=$(grep -v '^#' packages-aur.txt | grep -v '^$' | tr '\n' ' ')
+    yay -Sy --noconfirm $aur_packages
 }
 
 # Set the Plymouth boot screen theme.
@@ -150,6 +176,7 @@ main() {
 
     install_pacman_packages
     configure_greetd
+    configure_vconsole
     clone_dotfiles
     install_yay
     install_aur_packages
