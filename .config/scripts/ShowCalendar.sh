@@ -20,13 +20,22 @@ is_initial_display=1
 # Function to ensure cursor is shown on exit
 trap 'echo -ne "\033[?25h"' EXIT
 
+# Function to check for command existence
+command_exists() {
+    command -v "$1" &> /dev/null
+}
+
 # Function to display calendar
 display_cal() {
     clear
     echo -ne '\033[?25l' # Hide cursor
     local cal_output
     # Get calendar output, NO ncal highlighting (-h), 3 months, bare format (-b)
-    cal_output=$(ncal -h -b "$1" "$2" -3)
+    if command_exists ncal; then
+        cal_output=$(ncal -h -b -3 "$1" "$2")
+    else
+        cal_output=$(cal -3 "$1" "$2")
+    fi
 
     # Use awk to colorize the output, add separators, and highlight current date
     echo "$cal_output" | awk \
@@ -44,6 +53,7 @@ display_cal() {
     BEGIN { processed_line_nr = 0 }
 
     initial_load == "1" && NR == 1 {next} # Skip the overall year line from ncal on initial script load
+    /^\s*$/ {next} # Skip any empty lines from cal/ncal
 
     { 
     
@@ -115,7 +125,7 @@ while true; do
     fi
 
     case "$key" in
-        $'\x1b[D') # Left arrow
+        $'\x1b[D' | 'h') # Left arrow or h
             base_date_for_calc="$view_year-$view_month-01"
             new_m_temp=$(date -d "$base_date_for_calc -1 month" +%m 2>/dev/null)
             new_y_temp=$(date -d "$base_date_for_calc -1 month" +%Y 2>/dev/null)
@@ -126,7 +136,7 @@ while true; do
                 display_cal "$view_month" "$view_year"
             fi
             ;;
-        $'\x1b[C') # Right arrow
+        $'\x1b[C' | 'l') # Right arrow or l
             base_date_for_calc="$view_year-$view_month-01"
             new_m_temp=$(date -d "$base_date_for_calc +1 month" +%m 2>/dev/null)
             new_y_temp=$(date -d "$base_date_for_calc +1 month" +%Y 2>/dev/null)

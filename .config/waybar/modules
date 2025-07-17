@@ -38,7 +38,7 @@
 	"clock": {
 		"interval": 1,
 		"format": "  {:%H:%M    %a %d %B }",
-		"on-click": "/home/seb/.config/scripts/ToggleCalendar.sh"
+		"on-click": "foot --font=monospace:size=18 --app-id=floating-calendar -e bash /home/seb/.config/scripts/ShowCalendar.sh"
 	},
 	"pulseaudio": {
 		"format": "{icon}  {volume}% ",
@@ -108,6 +108,6 @@
 	"custom/calculator": {
 		"format": " ",
 		"tooltip": "Calculator",
-		"on-click": "hyprctl dispatch exec '[floating; monitor DP-2; size 640 720] qalculate-gtk'"
+		"on-click": "qalculate-gtk'"
 	}
 }
