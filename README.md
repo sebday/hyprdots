@@ -1,7 +1,7 @@
 # Hyprland on Arch
 
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/dracula/.config/hypr/hypr_dracula_screenshot2.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/dracula/.config/hypr/hypr_dracula_screenshot2.png)
-*Dracula with a dark blue background for Soundcloud, btop, fastfetch and neovim*
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/dracula/.config/hypr/hypr_dracula_screenshot1.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/dracula/.config/hypr/hypr_dracula_screenshot1.png)
+*fzf wallpaper selection, thunar and obsidian*
 
 ## Install 
 
@@ -25,5 +25,14 @@ Install [Stylus](https://addons.mozilla.org/en-GB/firefox/addon/styl-us/), [Popu
 
 [VS Code Dracula Theme](https://draculatheme.com/visual-studio-code)
 
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/dracula/.config/hypr/hypr_dracula_screenshot2.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/dracula/.config/hypr/hypr_dracula_screenshot2.png)
+*btop, neovim and fastfetch*
+
 [![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/dracula/.config/hypr/hypr_dracula_screenshot3.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/dracula/.config/hypr/hypr_dracula_screenshot3.png)
-*fzf wallpaper selection, thunar and obsidian*
+*soundcloud*
+
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/dracula/.config/hypr/hypr_dracula_screenshot4.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/dracula/.config/hypr/hypr_dracula_screenshot4.png)
+*fuzzel menu*
+
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/dracula/.config/hypr/hypr_dracula_screenshot5.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/dracula/.config/hypr/hypr_dracula_screenshot5.png)
+*fuzzel keybinds*

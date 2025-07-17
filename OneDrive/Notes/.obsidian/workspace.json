@@ -54,7 +54,7 @@
             "state": {
               "type": "search",
               "state": {
-                "query": "tag:#pm",
+                "query": "",
                 "matchingCase": false,
                 "explainSearch": false,
                 "collapseAll": false,
@@ -75,12 +75,12 @@
               "title": "Bookmarks"
             }
           }
-        ],
-        "currentTab": 1
+        ]
       }
     ],
     "direction": "horizontal",
-    "width": 200
+    "width": 200,
+    "collapsed": true
   },
   "right": {
     "id": "a6b0c5b77cfe60ae",
@@ -163,12 +163,13 @@
   },
   "active": "1c901b7ba01965ee",
   "lastOpenFiles": [
+    "2025-07-17.md",
+    "notes.md",
     "rules.png",
     "pricemonitor/app listing.md",
     "app listing.md",
     "pricemonitor/scrapy.md",
     "pricemonitor/rules.png",
-    "notes.md",
     "diy.md"
   ]
 }
