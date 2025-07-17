@@ -2,14 +2,6 @@
 # To install, run: wget -qO- https://raw.githubusercontent.com/sebday/hyprdots/dracula/install.sh | bash
 # To test without making changes, run: ./install.sh --test
 #
-# This script automates the setup of a Hyprland environment on a new Arch Linux installation.
-# It installs packages, configures display manager, clones dotfiles, and sets up AUR.
-#
-# Usage:
-# wget https://raw.githubusercontent.com/sebday/hyprdots/dracula/install.sh
-# chmod +x install.sh
-# ./install.sh
-#
 
 # Exit immediately if a command exits with a non-zero status.
 set -e
@@ -65,9 +57,9 @@ install_pacman_packages() {
     log "Updating system and installing pacman packages..."
     # The --noconfirm flag is used to bypass interactive prompts.
     sudo pacman -Syu --noconfirm \
-        hyprland hyprland-protocols hyprwayland-scanner xorg-xwayland greetd plymouth waybar fuzzel hyprlock hypridle hyprpaper hyprshot swappy cliphist mako nwg-look \
-        zsh foot foot-terminfo git lazygit neovim ripgrep fd eza fzf viu bat sshfs btop nvtop fastfetch pipewire alsa-utils playerctl imv mpv cava thunar thunar-archive-plugin tumbler ffmpegthumbnailer imagemagick xarchiver gvfs zip ebp-pixbuf-loader firefox transmission-gtk qalculate-gtk noto-fonts noto-fonts-emoji ttf-cascadia-mono-nerd \
-        python python-pip python-virtual-env nvm ruby luarocks ast-grep rsync
+        hyprland hyprland-protocols hyprwayland-scanner xorg-xwayland greetd plymouth mkinitcpio waybar fuzzel hyprlock hypridle hyprpaper hyprshot swappy cliphist mako nwg-look \
+        zsh foot foot-terminfo git lazygit neovim ripgrep fd eza fzf viu bat sshfs btop nvtop fastfetch pipewire alsa-utils playerctl imv mpv cava thunar thunar-archive-plugin tumbler ffmpegthumbnailer imagemagick xarchiver gvfs zip webp-pixbuf-loader firefox transmission-gtk qalculate-gtk noto-fonts noto-fonts-emoji ttf-cascadia-mono-nerd \
+        python python-pip python-virtualenv nvm ruby luarocks ast-grep rsync
 }
 
 # Configure greetd for automatic login.
