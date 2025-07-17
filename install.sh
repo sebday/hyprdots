@@ -133,7 +133,14 @@ install_aur_packages() {
 # Set the Plymouth boot screen theme.
 set_boot_screen() {
     log "Setting Plymouth boot screen theme..."
-    sudo plymouth-set-default-theme -R spinner
+    # Check if mkinitcpio presets exist. This avoids errors in environments
+    # without a kernel installed (e.g., Docker containers).
+    if [ -n "$(ls /etc/mkinitcpio.d/*.preset 2>/dev/null)" ]; then
+        sudo plymouth-set-default-theme -R spinner
+    else
+        log "WARNING: No mkinitcpio presets found. Skipping Plymouth theme setup."
+        log "This is expected in a containerized environment like Docker."
+    fi
 }
 
 # --- Main Execution ---
