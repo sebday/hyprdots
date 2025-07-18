@@ -35,23 +35,6 @@ user = "$user"
 EOT
 }
 
-# Configure the virtual console font for TTY.
-configure_vconsole() {
-    log "Configuring TTY font..."
-    if [ -n "$(ls /etc/mkinitcpio.d/*.preset 2>/dev/null)" ]; then
-        local vconsole_conf="/etc/vconsole.conf"
-        local font="ter-u16n"
-        if sudo grep -q "^FONT=" "$vconsole_conf" 2>/dev/null; then
-            sudo sed -i "s/^FONT=.*/FONT=$font/" "$vconsole_conf"
-        else
-            echo "FONT=$font" | sudo tee -a "$vconsole_conf" > /dev/null
-        fi
-    else
-        log "WARNING: No mkinitcpio presets found. Skipping TTY font setup."
-        log "This is expected in a containerized environment like Docker."
-    fi
-}
-
 # Clone the dotfiles repository and set it up.
 clone_dotfiles() {
     log "Cloning and setting up dotfiles..."
@@ -100,7 +83,6 @@ main() {
 
     install_pacman_packages
     configure_greetd
-    configure_vconsole
     clone_dotfiles
     install_yay
     install_aur_packages

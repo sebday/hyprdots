@@ -18,7 +18,6 @@ mako
 nwg-look
 
 # Fonts #####################
-terminus-font
 noto-fonts
 noto-fonts-emoji
 ttf-cascadia-mono-nerd
@@ -26,7 +25,6 @@ ttf-cascadia-mono-nerd
 # Base ######################
 zsh
 foot
-foot-terminfo
 git
 neovim
 eza
@@ -49,9 +47,9 @@ tumbler
 ffmpegthumbnailer
 poppler
 webp-pixbuf-loader
-gvfs
 xarchiver
 7-zip
+gvfs
 
 # Media #####################
 pipewire
@@ -73,6 +71,5 @@ python-pip
 python-virtualenv
 nvm
 ruby
-go
 luarocks
 ast-grep 
