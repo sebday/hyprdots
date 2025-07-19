@@ -10,9 +10,7 @@
 ### Brave
 
 In `brave://flags/` search for "ozone" and set to Wayland
-
 In settings search for "fonts" and set the default to Caskaydia
-
 [Chrome Dracula Theme](https://chromewebstore.google.com/detail/dracula-chrome-theme/gfapcejdoghpoidkfodoiiffaaibpaem?hl=en-GB)
 
 ### Firefox
