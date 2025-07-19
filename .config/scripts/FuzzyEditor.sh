@@ -10,6 +10,10 @@ FILE=$(find ~ \( \
     -path '*/target' -o \
     -path '*/__pycache__' -o \
     -path '*/.local/share' -o \
+    -path '*/globalStorage' -o \
+    -path '*/workspaceStorage' -o \
+    -path '*/Cursor' -o \
+    -path '*/Brave-Browser' -o \
     -path '*/.var/app' \
     \) -prune -o -type f -print 2>/dev/null | fuzzel -d --width=80 -p "Search file: ")
 
