@@ -77,7 +77,7 @@ select_wallpaper_tui() {
     ) | fzf --multi --height=100% --layout=reverse \
             --delimiter='\t' --with-nth=1 \
             --preview-window="right:70%" \
-            --preview='viu -w 110 {2}' |
+            --preview='viu -w 163 {2}' |
     # Get the full path (second column) from the selected line
     awk -F'\t' '{print $2}' |
     while read -r selected_wallpaper; do
