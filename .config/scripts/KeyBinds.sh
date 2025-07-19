@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # A script to display Hyprland keybindings defined in your configuration
-# using wofi for an interactive search menu.
+# using fuzzel for an interactive search menu.
 
 USER_HYPRLAND_CONF="$HOME/.config/hypr/hyprland.conf"
 
