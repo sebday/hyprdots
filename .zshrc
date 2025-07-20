@@ -34,6 +34,7 @@ alias lt='eza -alr --sort=mod --tree --level=1 --icons'
 alias df='df -hT -xtmpfs -xdevtmpfs -xefivarfs'
 alias ff='fastfetch'
 alias vim='nvim'
+alias lg='lazygit'
 
 # Git typos
 function git() {
