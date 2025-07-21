@@ -38,7 +38,7 @@
 	"clock": {
 		"interval": 1,
 		"format": "  {:%H:%M    %a %d %B }",
-		"on-click": "foot --font=monospace:size=18 --app-id=floating-calendar -e bash /home/seb/.config/scripts/ShowCalendar.sh"
+		"on-click": "brave --app=\"https://calendar.google.com/calendar/u/0/r/year\""
 	},
 	"pulseaudio": {
 		"format": "{icon}  {volume}% ",
