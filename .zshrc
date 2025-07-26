@@ -14,6 +14,9 @@ source ~/.zsh/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 # Bind up and down arrow to history search
 bindkey '^[[A' history-substring-search-up
 bindkey '^[[B' history-substring-search-down
+bindkey '^[[3~' delete-char
+bindkey '^[[F' end-of-line
+bindkey '^[[H' beginning-of-line
 
 # History settings
 HISTFILE=~/.zsh_history
@@ -24,6 +27,7 @@ setopt INC_APPEND_HISTORY
 setopt HIST_IGNORE_ALL_DUPS
 setopt HIST_SAVE_NO_DUPS
 
+# Paths
 export PATH="$HOME/.local/bin:$PATH"
 export EDITOR=nvim
 
@@ -46,7 +50,7 @@ function git() {
   fi
 }
 
-# NVM 
+# NVM
 source /usr/share/nvm/init-nvm.sh
 
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.

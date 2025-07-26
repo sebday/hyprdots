@@ -61,4 +61,7 @@
     "workbench.layoutControl.enabled": false,
     "window.titleBarStyle": "native",
     "cursor.composer.textSizeScale": 1.15,
+    "remote.SSH.remotePlatform": {
+        "192.168.2.200": "linux"
+    },
 }
