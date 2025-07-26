@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "notes.md",
+                "file": "to do.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "notes"
+              "title": "to do"
             }
           }
         ],
@@ -79,8 +79,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 200,
-    "collapsed": true
+    "width": 200
   },
   "right": {
     "id": "a6b0c5b77cfe60ae",
@@ -164,13 +163,14 @@
   },
   "active": "1c901b7ba01965ee",
   "lastOpenFiles": [
-    "2025-07-17.md",
-    "notes.md",
-    "rules.png",
     "pricemonitor/app listing.md",
-    "app listing.md",
-    "pricemonitor/scrapy.md",
+    "systems.md",
+    "to do.md",
+    "pricemonitor/stage 2.md",
     "pricemonitor/rules.png",
+    "pricemonitor",
+    "2025-07-17.md",
+    "pricemonitor/scrapy.md",
     "diy.md"
   ]
 }
