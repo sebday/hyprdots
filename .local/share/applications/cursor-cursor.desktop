@@ -1,0 +1,14 @@
+[Desktop Entry]
+Name=Cursor
+Exec=/usr/bin/cursor --enable-features=UseOzonePlatform --ozone-platform-hint=wayland --no-sandbox %U
+Terminal=false
+Type=Application
+Icon=/home/seb/.local/share/applications/cursor.png
+# Change the class below to "Cursor" when on X11
+StartupWMClass=cursor
+X-AppImage-Version=1.2.4
+MimeType=x-scheme-handler/cursor;
+Categories=Utility;TextEditor;Development;IDE
+Comment=
+Path=
+StartupNotify=false
