@@ -5,6 +5,17 @@
 
 ACTION=$1
 
+if [[ "$ACTION" == "reboot" || "$ACTION" == "shutdown" ]]; then
+    # Gracefully close Brave before continuing
+    if pgrep -i "brave" &>/dev/null; then
+        pkill -TERM -i "brave"
+        # Wait for Brave to close
+        while pgrep -i "brave" &>/dev/null; do
+            sleep 0.1
+        done
+    fi
+fi
+
 # Exit Hyprland
 hyprctl dispatch exit
 
