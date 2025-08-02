@@ -89,12 +89,21 @@ fi
 
 # Set the theme for ghostty
 if [ -n "$ghostty_theme" ]; then
+    # Remove any existing custom background line first
+    sed -i '/^background =/d' "$GHOSTTY_CONFIG_FILE"
+    
     # Update the theme line in the config file
     sed -i "s|^theme =.*|theme = $ghostty_theme|" "$GHOSTTY_CONFIG_FILE"
     
     # If no theme line exists, add it
     if ! grep -q "^theme =" "$GHOSTTY_CONFIG_FILE"; then
         echo "theme = $ghostty_theme" >> "$GHOSTTY_CONFIG_FILE"
+    fi
+    
+    # Add custom background if specified
+    if [ -n "$ghostty_background" ]; then
+        # Add the custom background after the theme line
+        sed -i "/^theme = $ghostty_theme/a background = $ghostty_background" "$GHOSTTY_CONFIG_FILE"
     fi
     
     # Reload ghostty windows using keyboard shortcut instead of signal

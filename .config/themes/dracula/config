@@ -4,5 +4,8 @@
 # Ghostty theme name (built-in)
 ghostty_theme=Dracula
 
+# Custom background color (optional - will override theme background)
+ghostty_background=#0a0e19
+
 # Btop theme name (if using built-in, otherwise file path)
 btop_theme=dracula
