@@ -1,13 +1,18 @@
 #!/bin/bash
 
 # Define directories
-THEME_DIR="$HOME/.config/themes"
-CURRENT_THEME_LINK="$THEME_DIR/current"
+THEME_DIR="$HOME/.themes"
+GTK3_CONFIG_FILE="$HOME/.config/gtk-3.0/settings.ini"
+GTK2_CONFIG_FILE="$HOME/.gtkrc-2.0"
+XSETTINGS_CONFIG_FILE="$HOME/.config/xsettingsd/xsettingsd.conf"
+BTOP_CONFIG_FILE="$HOME/.config/btop/btop.conf"
+CURRENT_THEME_LINK="$HOME/.themes/current"
+
 
 # Get theme options from the theme directory
 themes=()
 for theme_dir in "$THEME_DIR"/*; do
-    if [ -d "$theme_dir" ] && [[ "$(basename "$theme_dir")" != "current" ]]; then
+    if [ -d "$theme_dir" ] && [ "$(basename "$theme_dir")" != "current" ]; then
         themes+=("$(basename "$theme_dir")")
     fi
 done
@@ -20,8 +25,27 @@ if [ -z "$selected_theme" ]; then
     exit 0
 fi
 
-# Update the symbolic link
-ln -sfn "$THEME_DIR/$selected_theme" "$CURRENT_THEME_LINK"
+# --- Update GTK theme ---
+if [ -f "$GTK3_CONFIG_FILE" ]; then
+    sed -i "s|^gtk-theme-name=.*|gtk-theme-name=$selected_theme|" "$GTK3_CONFIG_FILE"
+fi
+
+if [ -f "$GTK2_CONFIG_FILE" ]; then
+    sed -i "s|^gtk-theme-name=.*|gtk-theme-name=\"$selected_theme\"|" "$GTK2_CONFIG_FILE"
+fi
+
+if [ -f "$XSETTINGS_CONFIG_FILE" ]; then
+    sed -i "s|^Net/ThemeName.*|Net/ThemeName \"$selected_theme\"|" "$XSETTINGS_CONFIG_FILE"
+fi
+
+# Reload xsettingsd to apply the new theme
+pkill -HUP xsettingsd
+
+notify-send "Theme Switcher" "Switched GTK theme to $selected_theme."
+
+
+# Update the symbolic link for other configs
+ln -sfn "$HOME/.themes/$selected_theme" "$CURRENT_THEME_LINK"
 
 # --- Update btop theme ---
 BTHEME_CONFIG_FILE="$CURRENT_THEME_LINK/btop.conf"
@@ -31,7 +55,8 @@ if [ -f "$BTHEME_CONFIG_FILE" ]; then
     
     if [ -n "$btop_theme" ]; then
         # Update the color_theme line in btop config
-        sed -i "s|^color_theme =.*|color_theme = \"$btop_theme\"|" "$HOME/.config/btop/btop.conf"
+        sed -i "s|^color_theme =.*|color_theme = \"$btop_theme\"|" "$BTOP_CONFIG_FILE"
+        pkill -SIGUSR2 btop
         notify-send "Theme Switcher" "Switched btop to $(basename "$btop_theme" .theme)."
     else
         notify-send "Theme Switcher" "No btop theme configured for $selected_theme."
