@@ -1,12 +1,12 @@
-background-color=#0a0e19
-text-color=#f8f8f2
-border-color=#ff79c6
+# Load theme-specific colors from current theme
+@import "~/.themes/current/mako.conf"
+
 outer-margin=10
 default-timeout=3000
 border-radius=8
 icon-path=/home/seb/.local/share/icons/Tokyonight-Dark-Cyan
 max-icon-size=32
-output=DP-2
+output=DP-1
 
 [urgency=high]
 text-color=#ffc777
