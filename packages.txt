@@ -29,7 +29,6 @@ git
 neovim
 eza
 fzf
-viu
 bat
 ripgrep
 fd

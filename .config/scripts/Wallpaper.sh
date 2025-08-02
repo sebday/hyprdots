@@ -12,6 +12,48 @@
 WALLPAPER_DIR_PRIMARY="$HOME/OneDrive/Pictures/Wallpapers"
 WALLPAPER_DIR_WIDE="$HOME/OneDrive/Pictures/Widescreen"
 STATE_FILE="/tmp/current_wallpaper"
+HYPRPAPER_CONFIG="$HOME/.config/hypr/hyprpaper.conf"
+
+# --- FUNCTION: UPDATE HYPRPAPER CONFIG ---
+update_hyprpaper_config() {
+    local wallpaper_path="$1"
+    if [ -z "$wallpaper_path" ]; then
+        echo "Error: No wallpaper path provided to update_hyprpaper_config." >&2
+        return 1
+    fi
+    
+    if [ ! -f "$HYPRPAPER_CONFIG" ]; then
+        echo "Warning: hyprpaper.conf not found at $HYPRPAPER_CONFIG" >&2
+        return 1
+    fi
+    
+    # Create a temporary file for the updated config
+    local temp_config
+    temp_config=$(mktemp) || {
+        echo "Error: Failed to create temporary file for hyprpaper config update." >&2
+        return 1
+    }
+    
+    # Read the existing config and update the preload and wallpaper lines
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^preload[[:space:]]*= ]]; then
+            echo "preload = $wallpaper_path"
+        elif [[ "$line" =~ ^wallpaper[[:space:]]*= ]]; then
+            echo "wallpaper = ,$wallpaper_path"
+        else
+            echo "$line"
+        fi
+    done < "$HYPRPAPER_CONFIG" > "$temp_config"
+    
+    # Replace the original config with the updated one
+    if mv "$temp_config" "$HYPRPAPER_CONFIG"; then
+        echo "Updated hyprpaper.conf with new wallpaper: $wallpaper_path"
+    else
+        echo "Error: Failed to update hyprpaper.conf" >&2
+        rm -f "$temp_config"
+        return 1
+    fi
+}
 
 # --- CORE FUNCTION: SET WALLPAPER ---
 set_wallpaper() {
@@ -40,49 +82,59 @@ set_wallpaper() {
     # Save the path of the successfully set wallpaper
     mkdir -p "$(dirname "$STATE_FILE")"
     echo "$target_wallpaper" > "$STATE_FILE"
+    
+    # Update hyprpaper.conf with the new wallpaper for persistence across reboots
+    update_hyprpaper_config "$target_wallpaper"
 }
 
 # --- TUI FUNCTION: SELECT WALLPAPER ---
 select_wallpaper_tui() {
-    # Check for dependencies
-    if ! command -v fzf &> /dev/null || ! command -v viu &> /dev/null; then
-        notify-send "Wallpaper Selector Error" "fzf and/or viu is not installed."
-        exit 1
-    fi
-
     # Set the search directory for the TUI
-    local search_dir="$WALLPAPER_DIR_PRIMARY"
+    export WALLPAPER_DIR="$WALLPAPER_DIR_PRIMARY"
 
-    local files=()
-    if [ -d "$search_dir" ]; then
-        while IFS= read -r -d $'\0' file; do files+=("$file"); done < <(
-            find "$search_dir" -type f \( \
-            -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o \
-            -iname "*.gif" -o -iname "*.bmp" -o -iname "*.webp" \
-            \) -print0 | sort -z
-        )
+    # Python script to generate thumbnail paths for fuzzel
+    FUZZEL_INPUT_GENERATOR='
+import sys, os, hashlib, pathlib
+
+THUNAR_THUMBNAIL_DIR = os.path.expanduser("~/.cache/thumbnails/normal")
+DEFAULT_ICON = "image-x-generic"
+WALLPAPER_DIR = os.environ.get("WALLPAPER_DIR", ".")
+
+for line in sys.stdin:
+    file_path = line.strip()
+    if not file_path:
+        continue
+
+    uri = pathlib.Path(file_path).resolve().as_uri()
+    relative_path = os.path.relpath(file_path, WALLPAPER_DIR)
+
+    uris_to_try = [
+        uri,
+        uri.replace("file:///", "file://localhost/", 1)
+    ]
+
+    found_path = None
+    for u in uris_to_try:
+        md5_hash = hashlib.md5(u.encode("utf-8")).hexdigest()
+        thumbnail_path = os.path.join(THUNAR_THUMBNAIL_DIR, f"{md5_hash}.png")
+        if os.path.exists(thumbnail_path):
+            found_path = thumbnail_path
+            break
+            
+    if found_path:
+        print(f" {relative_path}\x00icon\x1f{found_path}")
+    else:
+        print(f" {relative_path}\x00icon\x1f{DEFAULT_ICON}")
+'
+
+    # Find wallpaper files, process with Python, and pipe to fuzzel
+    selected_entry=$(find "$WALLPAPER_DIR" -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.gif" -o -iname "*.bmp" -o -iname "*.webp" \) | sort | python3 -c "$FUZZEL_INPUT_GENERATOR" | fuzzel -d -p "Select Wallpaper: ")
+
+    # If an entry was selected, reconstruct the full path and set the wallpaper
+    if [ -n "$selected_entry" ]; then
+        full_path="$WALLPAPER_DIR/$selected_entry"
+        set_wallpaper "$full_path"
     fi
-
-    if [ ${#files[@]} -eq 0 ]; then
-        notify-send "Wallpaper Selector" "No wallpapers found."
-        exit 0
-    fi
-
-    # Prepare file list for fzf (basename + full path)
-    # This allows displaying only the basename while retaining the full path for selection.
-    (
-        for file in "${files[@]}"; do
-            printf "%s\t%s\n" "$(basename "$file")" "$file"
-        done
-    ) | fzf --multi --height=100% --layout=reverse \
-            --delimiter='\t' --with-nth=1 \
-            --preview-window="right:70%" \
-            --preview='viu -w 163 {2}' |
-    # Get the full path (second column) from the selected line
-    awk -F'\t' '{print $2}' |
-    while read -r selected_wallpaper; do
-        [ -n "$selected_wallpaper" ] && set_wallpaper "$selected_wallpaper"
-    done
 }
 
 
