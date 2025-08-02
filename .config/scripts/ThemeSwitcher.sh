@@ -69,20 +69,9 @@ fi
 
 # Set the theme for btop
 if [ -n "$btop_theme" ]; then
-    # Check if it's a file path or theme name
-    if [[ "$btop_theme" == /* ]] || [ -f "$THEME_DIR/$selected_theme/$btop_theme" ]; then
-        # It's a file path
-        if [ -f "$THEME_DIR/$selected_theme/$btop_theme" ]; then
-            btop_theme_file="$THEME_DIR/$selected_theme/$btop_theme"
-        else
-            btop_theme_file="$btop_theme"
-        fi
-        sed -i "s|^color_theme =.*|color_theme = \"$btop_theme_file\"|" "$BTOP_CONFIG_FILE"
-    else
-        # It's a built-in theme name
-        sed -i "s|^color_theme =.*|color_theme = \"$btop_theme\"|" "$BTOP_CONFIG_FILE"
-    fi
-    notify-send "Theme Switcher" "Switched btop to $btop_theme."
+    # Update the color_theme line in btop config
+    sed -i "s|^color_theme =.*|color_theme = \"$btop_theme\"|" "$BTOP_CONFIG_FILE"
+    notify-send "Theme Switcher" "Switched btop to $(basename "$btop_theme" .theme)."
 else
     notify-send "Theme Switcher" "No btop theme configured for $selected_theme."
 fi

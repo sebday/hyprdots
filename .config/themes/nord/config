@@ -5,4 +5,4 @@
 ghostty_theme=nord
 
 # Btop theme name (if using built-in, otherwise file path)
-btop_theme=nord
+btop_theme=/usr/share/btop/themes/nord.theme

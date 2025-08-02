@@ -8,4 +8,4 @@ ghostty_theme=Dracula
 ghostty_background=#0a0e19
 
 # Btop theme name (if using built-in, otherwise file path)
-btop_theme=dracula
+btop_theme=/usr/share/btop/themes/dracula.theme
