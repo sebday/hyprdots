@@ -1,11 +1,11 @@
 # Hyprland on Arch
 
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/dracula/.config/hypr/screens/hypr_dracula_screenshot1.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/dracula/.config/hypr/screens/hypr_dracula_screenshot1.png)
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screens/hypr_dracula_screenshot1.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screens/hypr_dracula_screenshot1.png)
 *fzf wallpaper selection, thunar and obsidian*
 
 ## Install 
 
-`wget -qO- https://raw.githubusercontent.com/sebday/hyprdots/dracula/install.sh | bash`
+`wget -qO- https://raw.githubusercontent.com/sebday/hyprdots/master/install.sh | bash`
 
 ### Brave
 
@@ -23,14 +23,14 @@ Install [Stylus](https://addons.mozilla.org/en-GB/firefox/addon/styl-us/), [Popu
 
 [VS Code Dracula Theme](https://draculatheme.com/visual-studio-code)
 
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/dracula/.config/hypr/screens/hypr_dracula_screenshot2.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/dracula/.config/hypr/screens/hypr_dracula_screenshot2.png)
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screens/hypr_dracula_screenshot2.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screens/hypr_dracula_screenshot2.png)
 *btop, neovim and fastfetch*
 
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/dracula/.config/hypr/screens/hypr_dracula_screenshot3.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/dracula/.config/hypr/screens/hypr_dracula_screenshot3.png)
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screens/hypr_dracula_screenshot3.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screens/hypr_dracula_screenshot3.png)
 *soundcloud*
 
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/dracula/.config/hypr/screens/hypr_dracula_screenshot4.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/dracula/.config/hypr/screens/hypr_dracula_screenshot4.png)
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screens/hypr_dracula_screenshot4.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screens/hypr_dracula_screenshot4.png)
 *fuzzel menu*
 
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/dracula/.config/hypr/screens/hypr_dracula_screenshot5.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/dracula/.config/hypr/screens/hypr_dracula_screenshot5.png)
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screens/hypr_dracula_screenshot5.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screens/hypr_dracula_screenshot5.png)
 *fuzzel keybinds*
