@@ -8,7 +8,9 @@ GTK4_CONFIG_DIR="$HOME/.config/gtk-4.0"
 GTK4_CONFIG_FILE="$HOME/.config/gtk-4.0/settings.ini"
 XSETTINGS_CONFIG_FILE="$HOME/.config/xsettingsd/xsettingsd.conf"
 BTOP_CONFIG_FILE="$HOME/.config/btop/btop.conf"
+MAKO_CONFIG_FILE="$HOME/.config/mako/config"
 CURRENT_THEME_LINK="$HOME/.themes/current"
+
 
 # Get theme options from the theme directory
 themes=()
@@ -53,13 +55,11 @@ fi
 # Apply the theme using gsettings (the nwg-look way)
 gsettings set org.gnome.desktop.interface gtk-theme "$selected_theme"
 
-notify-send "Theme Switcher" "Switched GTK theme to $selected_theme."
-
 
 # Update the symbolic link for other configs
 ln -sfn "$HOME/.themes/$selected_theme" "$CURRENT_THEME_LINK"
 
-# --- Update btop theme ---
+# Update btop theme
 BTHEME_CONFIG_FILE="$CURRENT_THEME_LINK/btop.conf"
 if [ -f "$BTHEME_CONFIG_FILE" ]; then
     # Source the config file to get the btop_theme variable
@@ -68,14 +68,20 @@ if [ -f "$BTHEME_CONFIG_FILE" ]; then
     if [ -n "$btop_theme" ]; then
         # Update the color_theme line in btop config
         sed -i "s|^color_theme =.*|color_theme = \"$btop_theme\"|" "$BTOP_CONFIG_FILE"
-        notify-send "Theme Switcher" "Switched btop to $(basename "$btop_theme" .theme)."
-    else
-        notify-send "Theme Switcher" "No btop theme configured for $selected_theme."
     fi
-else
-    notify-send "Theme Switcher" "No btop.conf file found for $selected_theme."
 fi
 
+# Update mako theme
+MAKO_THEME_FILE="$CURRENT_THEME_LINK/mako.conf"
+if [ -f "$MAKO_THEME_FILE" ]; then
+    # Source the mako theme file to get color variables
+    source "$MAKO_THEME_FILE"
+    
+    # Update mako config with theme colors
+    sed -i "s|^background-color=.*|background-color=$background_color|" "$MAKO_CONFIG_FILE"
+    sed -i "s|^text-color=.*|text-color=$text_color|" "$MAKO_CONFIG_FILE"
+    sed -i "s|^border-color=.*|border-color=$border_color|" "$MAKO_CONFIG_FILE"
+fi
 
 # Function to reload ghostty windows
 reload_ghostty_windows() {
@@ -108,4 +114,4 @@ reload_ghostty_windows
 pkill -SIGUSR2 btop
 makoctl reload
 
-notify-send "Theme Switcher" "Switched to $selected_theme theme."
+notify-send "Theme Switcher" "Set to $selected_theme"

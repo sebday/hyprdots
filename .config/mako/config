@@ -1,5 +1,8 @@
-# Load theme-specific colors from current theme
-@import "~/.themes/current/mako.conf"
+# Mako notification configuration
+# Theme colors will be updated by ThemeSwitcher.sh
+background-color=#282a36
+text-color=#f8f8f2
+border-color=#bd93f9
 
 outer-margin=10
 default-timeout=3000
@@ -9,4 +12,4 @@ max-icon-size=32
 output=DP-1
 
 [urgency=high]
-text-color=#ffc777
+text-color=#f8f8f2
