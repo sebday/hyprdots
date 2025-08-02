@@ -1,0 +1,8 @@
+# Theme configuration for Dracula
+# This file maps theme folder name to actual theme names used by applications
+
+# Ghostty theme name (built-in)
+ghostty_theme=Dracula
+
+# Btop theme name (if using built-in, otherwise file path)
+btop_theme=dracula

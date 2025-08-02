@@ -1,0 +1,8 @@
+# Theme configuration for Tokyo Night
+# This file maps theme folder name to actual theme names used by applications
+
+# Ghostty theme name (built-in)
+ghostty_theme=tokyonight
+
+# Btop theme name (if using built-in, otherwise file path)
+btop_theme=tokyo-night
