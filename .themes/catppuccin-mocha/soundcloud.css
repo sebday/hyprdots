@@ -1,5 +1,5 @@
 /* Catppuccin-Mocha Theme for SoundCloud */
-@import url("http://localhost:8008/shared/soundcloud.css");
+@import url("http://localhost:8008/shared/soundcloud.shared.css");
 
 :root {
     --bg-primary: #1e1e2e;

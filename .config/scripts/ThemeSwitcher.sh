@@ -139,7 +139,7 @@ reload_ghostty_windows() {
 }
 
 # Reload all applications
-    reload_ghostty_windows
+reload_ghostty_windows
 makoctl reload
 pkill -SIGUSR2 btop
 pkill -SIGUSR2 waybar

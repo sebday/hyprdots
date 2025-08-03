@@ -11,6 +11,7 @@
 
 In `brave://flags/` search for "ozone" and set to Wayland  
 In settings search for "fonts" and set the default to Caskaydia  
+Import Stylus theme  
 [Chrome Dracula](https://chromewebstore.google.com/detail/dracula-chrome-theme/gfapcejdoghpoidkfodoiiffaaibpaem)  
 [Chrome Catppuccin](https://chromewebstore.google.com/detail/catppuccin-chrome-theme-m/bkkmolkhemgaeaeggcmfbghljjjoofoh)
 
