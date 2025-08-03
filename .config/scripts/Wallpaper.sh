@@ -132,6 +132,8 @@ for line in sys.stdin:
 
     # If an entry was selected, reconstruct the full path and set the wallpaper
     if [ -n "$selected_entry" ]; then
+        # Strip leading space that was added for fuzzel padding
+        selected_entry=$(echo "$selected_entry" | sed 's/^ //')
         full_path="$WALLPAPER_DIR/$selected_entry"
         set_wallpaper "$full_path"
     fi

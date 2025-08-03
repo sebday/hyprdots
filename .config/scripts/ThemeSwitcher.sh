@@ -10,6 +10,8 @@ XSETTINGS_CONFIG_FILE="$HOME/.config/xsettingsd/xsettingsd.conf"
 BTOP_CONFIG_FILE="$HOME/.config/btop/btop.conf"
 MAKO_CONFIG_FILE="$HOME/.config/mako/config"
 CURRENT_THEME_LINK="$HOME/.themes/current"
+WALLPAPER_DIR="$HOME/OneDrive/Pictures/Wallpapers"
+WALLPAPER_SCRIPT="$HOME/.config/scripts/Wallpaper.sh"
 
 
 # Get theme options from the theme directory
@@ -81,6 +83,20 @@ if [ -f "$MAKO_THEME_FILE" ]; then
     sed -i "s|^background-color=.*|background-color=$background_color|" "$MAKO_CONFIG_FILE"
     sed -i "s|^text-color=.*|text-color=$text_color|" "$MAKO_CONFIG_FILE"
     sed -i "s|^border-color=.*|border-color=$border_color|" "$MAKO_CONFIG_FILE"
+fi
+
+# --- Update wallpaper ---
+if [ -f "$WALLPAPER_SCRIPT" ] && [ -d "$WALLPAPER_DIR" ]; then
+    # Convert theme name for searching (replace - with _)
+    wallpaper_name=$(echo "$selected_theme" | tr '[:upper:]' '[:lower:]' | tr '-' '_')
+    
+    # Use fzf to find wallpaper matching theme name, take first match
+    wallpaper_file=$(find "$WALLPAPER_DIR" -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.webp" -o -iname "*.bmp" -o -iname "*.gif" \) | fzf --filter="$wallpaper_name" | head -1)
+    
+    # Set the wallpaper if found
+    if [ -n "$wallpaper_file" ] && [ -f "$wallpaper_file" ]; then
+        "$WALLPAPER_SCRIPT" "$wallpaper_file"
+    fi
 fi
 
 # Function to reload ghostty windows
