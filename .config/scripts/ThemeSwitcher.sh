@@ -2,6 +2,7 @@
 
 # Define directories
 THEME_DIR="$HOME/.themes"
+CURRENT_THEME_LINK="$HOME/.themes/current"
 GTK2_CONFIG_FILE="$HOME/.gtkrc-2.0"
 GTK3_CONFIG_FILE="$HOME/.config/gtk-3.0/settings.ini"
 GTK4_CONFIG_DIR="$HOME/.config/gtk-4.0"
@@ -9,8 +10,8 @@ GTK4_CONFIG_FILE="$HOME/.config/gtk-4.0/settings.ini"
 XSETTINGS_CONFIG_FILE="$HOME/.config/xsettingsd/xsettingsd.conf"
 BTOP_CONFIG_FILE="$HOME/.config/btop/btop.conf"
 MAKO_CONFIG_FILE="$HOME/.config/mako/config"
+FUZZEL_CONFIG_FILE="$HOME/.config/fuzzel/fuzzel.ini"
 CURSOR_CONFIG_FILE="$HOME/.config/Cursor/User/settings.json"
-CURRENT_THEME_LINK="$HOME/.themes/current"
 WALLPAPER_DIR="$HOME/OneDrive/Pictures/Wallpapers"
 WALLPAPER_SCRIPT="$HOME/.config/scripts/Wallpaper.sh"
 
@@ -96,6 +97,22 @@ if [ -f "$CURSOR_THEME_FILE" ] && [ -f "$CURSOR_CONFIG_FILE" ]; then
         # Update the workbench.colorTheme line in Cursor settings
         sed -i "s|\"workbench.colorTheme\":.*|\"workbench.colorTheme\": \"$cursor_theme\",|" "$CURSOR_CONFIG_FILE"
     fi
+fi
+
+# Update fuzzel theme
+FUZZEL_THEME_FILE="$CURRENT_THEME_LINK/fuzzel.conf"
+if [ -f "$FUZZEL_THEME_FILE" ]; then
+    # Source the fuzzel theme file to get color variables
+    source "$FUZZEL_THEME_FILE"
+    
+    # Update fuzzel config with theme colors
+    sed -i "s|^background=.*|background=$fuzzel_background|" "$FUZZEL_CONFIG_FILE"
+    sed -i "s|^text=.*|text=$fuzzel_text|" "$FUZZEL_CONFIG_FILE"
+    sed -i "s|^match=.*|match=$fuzzel_match|" "$FUZZEL_CONFIG_FILE"
+    sed -i "s|^selection=.*|selection=$fuzzel_selection|" "$FUZZEL_CONFIG_FILE"
+    sed -i "s|^selection-match=.*|selection-match=$fuzzel_selection_match|" "$FUZZEL_CONFIG_FILE"
+    sed -i "s|^selection-text=.*|selection-text=$fuzzel_selection_text|" "$FUZZEL_CONFIG_FILE"
+    sed -i "s|^border=.*|border=$fuzzel_border|" "$FUZZEL_CONFIG_FILE"
 fi
 
 # Update wallpaper
