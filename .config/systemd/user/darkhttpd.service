@@ -1,0 +1,8 @@
+[Unit]
+Description=darkhttpd user web server for stylus themes
+
+[Service]
+ExecStart=/usr/bin/darkhttpd %h/.themes --port 8008 --no-listing --no-cache
+
+[Install]
+WantedBy=default.target

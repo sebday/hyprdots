@@ -59,7 +59,7 @@ install_yay() {
     rm -rf "$temp_build_dir"
 }
 
-# Install packages from the AUR using yay.
+# Install packages from the AUR using yay
 install_aur_packages() {
     log "Installing AUR packages from packages-aur.txt..."
     local aur_packages
@@ -78,37 +78,17 @@ set_boot_screen() {
     fi
 }
 
-# Configure darkhttpd for stylus theme hot-reloading.
+# Configure darkhttpd for stylus theme hot-reloading
 configure_stylus_theming() {
-    log "Configuring darkhttpd for Stylus theming..."
-    local user
-    user=$(whoami) || { echo "Failed to get username"; exit 1; }
-
     # Enable lingering for the user to run services at boot without login.
     log "Enabling user lingering for $user..."
     sudo loginctl enable-linger "$user"
-
-    # Create the systemd user service file.
-    log "Creating systemd user service for darkhttpd..."
-    local user_systemd_dir="$HOME/.config/systemd/user"
-    mkdir -p "$user_systemd_dir"
-    cat <<EOT > "$user_systemd_dir/darkhttpd.service"
-[Unit]
-Description=darkhttpd user web server for stylus themes
-
-[Service]
-ExecStart=/usr/bin/darkhttpd %h/.themes --port 8008 --no-listing
-
-[Install]
-WantedBy=default.target
-EOT
 
     # Enable the user service.
     log "Enabling darkhttpd user service..."
     systemctl --user daemon-reload
     systemctl --user enable --now darkhttpd
 }
-
 
 main() {
     log "Starting Hyprland setup on Arch Linux"

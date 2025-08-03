@@ -1,30 +1,32 @@
 # Hyprland on Arch
 
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screens/hypr_dracula_screenshot1.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screens/hypr_dracula_screenshot1.png)
-*fzf wallpaper selection, thunar and obsidian*
-
 ## Install 
 
 `wget -qO- https://raw.githubusercontent.com/sebday/hyprdots/master/install.sh | bash`
 
-### Brave
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screens/hypr_dracula_screenshot1.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screens/hypr_dracula_screenshot1.png)
+*fzf wallpaper selection, thunar and obsidian*
 
-In `brave://flags/` search for "ozone" and set to Wayland
-In settings search for "fonts" and set the default to Caskaydia
-[Chrome Dracula Theme](https://chromewebstore.google.com/detail/dracula-chrome-theme/gfapcejdoghpoidkfodoiiffaaibpaem)
-[Chrome Catppuccin Theme](https://chromewebstore.google.com/detail/catppuccin-chrome-theme-m/bkkmolkhemgaeaeggcmfbghljjjoofoh)
+## Brave
 
-### Firefox
+In `brave://flags/` search for "ozone" and set to Wayland  
+In settings search for "fonts" and set the default to Caskaydia  
+[Chrome Dracula](https://chromewebstore.google.com/detail/dracula-chrome-theme/gfapcejdoghpoidkfodoiiffaaibpaem)  
+[Chrome Catppuccin](https://chromewebstore.google.com/detail/catppuccin-chrome-theme-m/bkkmolkhemgaeaeggcmfbghljjjoofoh)
 
-Install [Stylus](https://addons.mozilla.org/en-GB/firefox/addon/styl-us/), [PopupWindow](https://addons.mozilla.org/en-GB/firefox/addon/popup-window/) and [uBlock](https://github.com/gorhill/uBlock#ublock-origin)
+## Firefox
 
-### VS Code
+[Stylus](https://addons.mozilla.org/en-GB/firefox/addon/styl-us/)  
+[PopupWindow](https://addons.mozilla.org/en-GB/firefox/addon/popup-window/)  
+[uBlock](https://github.com/gorhill/uBlock#ublock-origin)  
+
+## VS Code
 
 `.config/Cursor/User/settings.json` has the overrides for the background color  
-
-[VS Code Dracula Theme](https://draculatheme.com/visual-studio-code)
-[VS Code Catppuccin Theme](https://marketplace.visualstudio.com/items?itemName=Catppuccin.catppuccin-vsc)
-[VS Code Tokyo Night](https://marketplace.visualstudio.com/items?itemName=enkia.tokyo-night)
+[VS Code Dracula](https://draculatheme.com/visual-studio-code)  
+[VS Code Catppuccin](https://marketplace.visualstudio.com/items?itemName=Catppuccin.catppuccin-vsc)  
+[VS Code Tokyo Night](https://marketplace.visualstudio.com/items?itemName=enkia.tokyo-night)  
+[VS Code Nord](https://marketplace.visualstudio.com/items?itemName=arcticicestudio.nord-visual-studio-code)
 
 [![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screens/hypr_dracula_screenshot2.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screens/hypr_dracula_screenshot2.png)
 *btop, neovim and fastfetch*
