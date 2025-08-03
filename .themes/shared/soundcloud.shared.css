@@ -1,0 +1,90 @@
+/* Shared SoundCloud Styles */
+
+* {
+    font-family: monospace!important;
+}
+
+.theme-dark {
+    --surface-color: var(--bg-secondary);
+    --background-surface-color: var(--bg-primary);
+    --highlight-color: var(--bg-primary);
+    --button-secondary-background-color: var(--bg-primary);
+    --button-secondary-selected-background-color: var(--bg-primary);
+}
+
+.header__upsellWrapper,
+.header__forArtistsButton,
+.header__soundInput,
+.l-sidebar-right,
+.queue__fallback,
+.backgroundGradient,
+.imageChooser,
+a[data-menu-name="home"] {
+    display: none!important;
+}
+
+.l-container {
+    width: 935px;
+}
+.l-search .l-fixed-left {
+    width: 300px;
+}
+.l-fluid-fixed .l-main {
+    margin: 0;
+}
+
+.l-search .l-main {
+    margin: 0 0 0 300px;
+}
+
+.searchOptions__scrollable {
+    width: 300px;
+}
+
+.l-listen-wrapper .l-about-main {
+    margin: 0!important;
+}
+
+.l-about-main {
+    padding-top: 0!important;
+}
+
+.playControls__queue {
+    bottom: 48px;
+}
+
+.queue__itemsHeight {
+    background-size: auto!important;
+}
+
+h1 {
+    color: var(--bg-primary)!important;
+}
+
+.queue__itemWrapper,
+.theme-dark .queue__itemsHeight,
+.queue,
+.sc-button-like,
+.g-type-shrinkwrap-inline {
+    background-color: var(--bg-primary)!important;
+}
+
+.g-type-shrinkwrap-block {
+    background: transparent;
+    color: var(--text-accent)!important;
+}
+.g-type-shrinkwrap-inline {
+    color: var(--text-accent)!important;
+    margin-top: 5px;
+}
+.sc-button-xxlarge {
+    background-color: var(--accent-cyan)!important;
+}
+.queue__itemWrapper .m-playing,
+.queue__itemWrapper .m-active,
+.sc-input {
+    background-color: var(--bg-secondary)!important;
+}
+.sc-button-like {
+    background: transparent!important;
+}
