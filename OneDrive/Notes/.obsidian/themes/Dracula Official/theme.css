@@ -54,7 +54,7 @@
   /* Actual Dracula colors*/
   --background-primary: #282a36;
   --background-primary-alt: #44475a;
-  --background-secondary: #1a1e24;
+  --background-secondary: #20212B;
   --background-secondary-alt: #282a36;
   --text-normal: #f8f8f2;
   --text-on-accent: #282a36;
@@ -82,10 +82,11 @@
   --accent-h: 135;
   --accent-s: 94%;
   --accent-l: 65%;
+  --titlebar-background-focused: var(--titlebar-background);
 
   /* Dracula Code view*/
   --code-normal: #F8F8F2;
-  --code-background: #282a36;
+  --code-background: #20212B;
   --dracula-foreground: #F8F8F2;
   --dracula-Comment: #6272A4;
   --dracula-keyword: #FF79C6;
@@ -354,7 +355,7 @@ blockquote {
 
 img {
   display: block;
-  margin-left: 20pt;
+  margin-left: auto;
   margin-right: auto;
 }
 
@@ -464,18 +465,9 @@ button.mod-cta {
   background-color: var(--background-secondary);
 }
 
-.nav-file-title {
-  color: var(--text-muted) !important;
-  background-color: var(--background-secondary);
-}
 
 .is-translucent .nav-file-title:not(.is-active) {
   background-color: transparent;
-}
-
-.nav-folder-title {
-  color: var(--text-muted) !important;
-  background-color: var(--background-secondary);
 }
 
 .is-translucent .nav-folder-title {
@@ -752,7 +744,6 @@ mark {
   background-color: var(--background-primary-alt);
   border-radius: 14px;
   display: inline-block;
-  height: 22px;
   position: relative;
   top: 4px;
   user-select: none;
