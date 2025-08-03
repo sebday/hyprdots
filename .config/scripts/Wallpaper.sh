@@ -93,15 +93,42 @@ set_wallpaper() {
 
 # --- TUI FUNCTION: SELECT WALLPAPER ---
 select_wallpaper_tui() {
-    # Find wallpaper files, process with shared thumbnail utility, and pipe to fuzzel
-    selected_entry=$(find "$WALLPAPER_DIR_PRIMARY" -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.webp" \) | sort | generate_fuzzel_thumbnails "wallpaper" "$WALLPAPER_DIR_PRIMARY" | fuzzel -d -p "Select Wallpaper: ")
+    # Get current theme wallpapers folder
+    CURRENT_THEME_LINK="$HOME/.themes/current"
+    CURRENT_THEME_WALLPAPERS=""
+    if [ -L "$CURRENT_THEME_LINK" ] && [ -d "$CURRENT_THEME_LINK/wallpapers" ]; then
+        CURRENT_THEME_WALLPAPERS="$CURRENT_THEME_LINK/wallpapers"
+    fi
+    
+    # Find wallpaper files from both directories, put current theme first, sorted alphabetically
+    selected_entry=$(
+        (
+            # Current theme wallpapers first (if available) - sorted
+            if [ -n "$CURRENT_THEME_WALLPAPERS" ]; then
+                find "$CURRENT_THEME_WALLPAPERS" -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.webp" \) | sort
+            fi
+            
+            # Main wallpaper directory - sorted
+            find "$WALLPAPER_DIR_PRIMARY" -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.webp" \) | sort
+        ) | generate_fuzzel_thumbnails "wallpaper" "$WALLPAPER_DIR_PRIMARY" | fuzzel -d -p "Select Wallpaper: "
+    )
 
     # If an entry was selected, reconstruct the full path and set the wallpaper
     if [ -n "$selected_entry" ]; then
         # Strip leading space that was added for fuzzel padding
         selected_entry=$(echo "$selected_entry" | sed 's/^ //')
-        full_path="$WALLPAPER_DIR/$selected_entry"
-        set_wallpaper "$full_path"
+        
+        # Try main directory first, then theme directory
+        full_path="$WALLPAPER_DIR_PRIMARY/$selected_entry"
+        if [ ! -f "$full_path" ] && [ -n "$CURRENT_THEME_WALLPAPERS" ]; then
+            full_path="$CURRENT_THEME_WALLPAPERS/$selected_entry"
+        fi
+        
+        if [ -f "$full_path" ]; then
+            set_wallpaper "$full_path"
+        else
+            notify-send "Wallpaper Error" "Selected wallpaper file not found: $selected_entry"
+        fi
     fi
 }
 

@@ -27,11 +27,11 @@ selected_entry=$(
             if [ -d "$theme_dir" ] && [ "$(basename "$theme_dir")" != "current" ] && [ "$(basename "$theme_dir")" != "shared" ]; then
                 theme_name=$(basename "$theme_dir")
                 
-                # Find any image file from the wallpapers subfolder
+                # Find any image file from the wallpapers subfolder (alphabetically sorted)
                 wallpaper_file=""
                 wallpapers_dir="$theme_dir/wallpapers"
                 if [ -d "$wallpapers_dir" ]; then
-                    wallpaper_file=$(find "$wallpapers_dir" -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.webp" \) | head -n 1)
+                    wallpaper_file=$(find "$wallpapers_dir" -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.webp" \) | sort | head -n 1)
                 fi
                 
                 printf "%s\t%s\n" "$theme_name" "$wallpaper_file"
@@ -154,11 +154,11 @@ if [ -f "$OBSIDIAN_THEME_FILE" ] && [ -f "$OBSIDIAN_CONFIG_FILE" ]; then
 fi
 
 
-# Update wallpaper using any image from the theme's wallpapers folder
+# Update wallpaper using any image from the theme's wallpapers folder (alphabetically sorted)
 if [ -f "$WALLPAPER_SCRIPT" ]; then
     wallpapers_dir="$THEME_DIR/$selected_theme/wallpapers"
     if [ -d "$wallpapers_dir" ]; then
-        theme_wallpaper=$(find "$wallpapers_dir" -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.webp" \) | head -n 1)
+        theme_wallpaper=$(find "$wallpapers_dir" -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.webp" \) | sort | head -n 1)
         if [ -n "$theme_wallpaper" ] && [ -f "$theme_wallpaper" ]; then
             "$WALLPAPER_SCRIPT" "$theme_wallpaper"
         fi
