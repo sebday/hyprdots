@@ -3,4 +3,5 @@
 config-file = ~/.themes/current/ghostty.conf
 
 confirm-close-surface = false
-
+window-padding-x = 12
+window-padding-y = 12
