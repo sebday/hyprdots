@@ -16,7 +16,8 @@ In settings search for "fonts" and set the default to Caskaydia
 
 ## Firefox
 
-[Stylus](https://addons.mozilla.org/en-GB/firefox/addon/styl-us/)  
+[Stylus](https://addons.mozilla.org/en-GB/firefox/addon/styl-us/)
+[ViolentMonkey](https://addons.mozilla.org/en-US/firefox/addon/violentmonkey/)  
 [PopupWindow](https://addons.mozilla.org/en-GB/firefox/addon/popup-window/)  
 [uBlock](https://github.com/gorhill/uBlock#ublock-origin)  
 

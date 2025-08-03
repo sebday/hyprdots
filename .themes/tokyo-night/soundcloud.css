@@ -1,0 +1,11 @@
+/* Tokyo-Night Theme for SoundCloud */
+@import url("http://localhost:8008/shared/soundcloud.css");
+
+:root {
+  --bg-primary: #1a1b26;
+  --bg-secondary: #24283b;
+  --text-primary: #a9b1d6;
+  --text-accent: #7aa2f7;
+  --accent-blue: #7aa2f7;
+  --accent-cyan: #2ac3de;
+}

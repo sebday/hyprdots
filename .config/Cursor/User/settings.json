@@ -52,7 +52,7 @@
     "files.associations": {
         "*.ds": "java"
     },
-    "workbench.colorTheme": "Dracula Theme",
+    "workbench.colorTheme": "Catppuccin Mocha",
     "[vue]": {
         "editor.defaultFormatter": "Vue.volar"
     },

@@ -18,7 +18,7 @@ WALLPAPER_SCRIPT="$HOME/.config/scripts/Wallpaper.sh"
 # Get theme options from the theme directory
 themes=()
 for theme_dir in "$THEME_DIR"/*; do
-    if [ -d "$theme_dir" ] && [ "$(basename "$theme_dir")" != "current" ]; then
+    if [ -d "$theme_dir" ] && [ "$(basename "$theme_dir")" != "current" ] && [ "$(basename "$theme_dir")" != "shared" ]; then
         themes+=("$(basename "$theme_dir")")
     fi
 done
@@ -139,7 +139,7 @@ reload_ghostty_windows() {
 }
 
 # Reload all applications
-reload_ghostty_windows
+    reload_ghostty_windows
 makoctl reload
 pkill -SIGUSR2 btop
 pkill -SIGUSR2 waybar
