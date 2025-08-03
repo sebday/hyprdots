@@ -29,6 +29,7 @@ Import Stylus theme
 [VS Code Catppuccin](https://marketplace.visualstudio.com/items?itemName=Catppuccin.catppuccin-vsc)  
 [VS Code Tokyo Night](https://marketplace.visualstudio.com/items?itemName=enkia.tokyo-night)  
 [VS Code Nord](https://marketplace.visualstudio.com/items?itemName=arcticicestudio.nord-visual-studio-code)
+[VS Code Gruvbox](https://github.com/sainnhe/gruvbox-material-vscode)
 
 [![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screens/hypr_dracula_screenshot2.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screens/hypr_dracula_screenshot2.png)
 *btop, neovim and fastfetch*
