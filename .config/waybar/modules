@@ -83,19 +83,19 @@
 	"custom/wallpaper_prev": {
 		"format": "",
 		"tooltip": "Previous Wallpaper",
-		"on-click": "~/.config/scripts/Wallpaper.sh prev",
+		"on-click": "bash ~/.config/scripts/Wallpaper.sh prev",
 		"interval": "once"
 	},
 	"custom/wallpaper_next": {
 		"format": "",
 		"tooltip": "Next Wallpaper",
-		"on-click": "~/.config/scripts/Wallpaper.sh next",
+		"on-click": "bash ~/.config/scripts/Wallpaper.sh next",
 		"interval": "once"
 	},
 	"custom/wallpaper_random": {
 		"format": " ? ",
 		"tooltip": "Random Wallpaper",
-		"on-click": "~/.config/scripts/Wallpaper.sh random",
+		"on-click": "bash ~/.config/scripts/Wallpaper.sh random",
 		"interval": "once"
 	},
 	"custom/github": {
