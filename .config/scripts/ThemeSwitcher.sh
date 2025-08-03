@@ -12,6 +12,8 @@ BTOP_CONFIG_FILE="$HOME/.config/btop/btop.conf"
 MAKO_CONFIG_FILE="$HOME/.config/mako/config"
 FUZZEL_CONFIG_FILE="$HOME/.config/fuzzel/fuzzel.ini"
 CURSOR_CONFIG_FILE="$HOME/.config/Cursor/User/settings.json"
+OBSIDIAN_CONFIG_FILE="$HOME/OneDrive/Notes/.obsidian/appearance.json"
+OBSIDIAN_SNIPPET_FILE="$HOME/OneDrive/Notes/.obsidian/snippets/custom-background.css"
 WALLPAPER_DIR="$HOME/OneDrive/Pictures/Wallpapers"
 WALLPAPER_SCRIPT="$HOME/.config/scripts/Wallpaper.sh"
 
@@ -114,6 +116,27 @@ if [ -f "$FUZZEL_THEME_FILE" ]; then
     sed -i "s|^selection-text=.*|selection-text=$fuzzel_selection_text|" "$FUZZEL_CONFIG_FILE"
     sed -i "s|^border=.*|border=$fuzzel_border|" "$FUZZEL_CONFIG_FILE"
 fi
+
+# Update Obsidian theme
+OBSIDIAN_THEME_FILE="$CURRENT_THEME_LINK/obsidian.conf"
+if [ -f "$OBSIDIAN_THEME_FILE" ] && [ -f "$OBSIDIAN_CONFIG_FILE" ]; then
+    # Source the obsidian theme file to get the theme name
+    source "$OBSIDIAN_THEME_FILE"
+    
+    if [ -n "$obsidian_theme" ]; then
+        # Update the cssTheme line in Obsidian's appearance.json
+        sed -i "s|\"cssTheme\":.*|\"cssTheme\": \"$obsidian_theme\",|" "$OBSIDIAN_CONFIG_FILE"
+    fi
+
+    # Update the custom CSS snippet file
+    if [ -n "$obsidian_css" ]; then
+        echo "$obsidian_css" > "$OBSIDIAN_SNIPPET_FILE"
+    else
+        # Clear the file if no CSS is provided
+        > "$OBSIDIAN_SNIPPET_FILE"
+    fi
+fi
+
 
 # Update wallpaper
 if [ -f "$WALLPAPER_SCRIPT" ] && [ -d "$WALLPAPER_DIR" ]; then
