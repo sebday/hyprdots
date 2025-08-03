@@ -71,4 +71,5 @@ python-virtualenv
 nvm
 ruby
 luarocks
-ast-grep 
+ast-grep
+darkhttpd
