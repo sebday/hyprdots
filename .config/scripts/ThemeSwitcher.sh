@@ -125,9 +125,10 @@ reload_ghostty_windows() {
     fi
 }
 
-# Reload ghostty to apply the new theme
+# Reload all applications
 reload_ghostty_windows
 pkill -SIGUSR2 btop
 makoctl reload
+pkill -SIGUSR2 waybar
 
 notify-send "Theme Switcher" "Set to $selected_theme"

@@ -1,3 +1,5 @@
+@import "../../.themes/current/waybar.css";
+
 * {
 	font-family: "CaskaydiaMono Nerd Font";
 	font-weight: bold;
@@ -7,7 +9,7 @@
 window#waybar {
 	padding-top: 1px;
 }
-f
+
 #workspaces,
 #custom-shopify_zk,
 #custom-shopify_diy,
@@ -17,7 +19,7 @@ f
 #tray,
 #custom-calculator,
 #clock {
-	background-color: #0a0e19;
+	background-color: @background;
 	padding: 0 16px;
 	margin: 0 8px;
 }
@@ -34,40 +36,40 @@ f
 #custom-wallpaper_prev,
 #custom-wallpaper_random,
 #custom-wallpaper_next {
-	background-color: #0a0e19;
+	background-color: @background;
 	padding: 4px 8px;
 }
 
 #custom-shopify_zk,
 #custom-shopify_diy {
-	color: #8be9fd;
+	color: @accent-blue;
 }
 
 #custom-wallpaper_random,
 #custom-wallpaper_prev,
 #custom-wallpaper_next,
 #custom-calculator {
-	color: #3b4261;
+	color: @text-muted;
 }
 
 #custom-github.github-level-0 {
-	color: #1f2335;
+	color: @text-dark;
 }
 #custom-github.github-level-1 {
-	color: #033a16;
+	color: @github-1;
 }
 #custom-github.github-level-2 {
-	color: #196c2e;
+	color: @github-2;
 }
 #custom-github.github-level-3 {
-	color: #2ea043;
+	color: @github-3;
 }
 #custom-github.github-level-4 {
-	color: #56d364;
+	color: @github-4;
 }
 
 #workspaces button {
-	color: #1f2335;
+	color: @text-dark;
 	box-shadow: none;
 	text-shadow: none;
 	padding: 0px;
@@ -79,30 +81,30 @@ f
 #workspaces button:hover,
 #workspaces button.active:hover {
 	border-radius: 5px;
-	color: #ffc777;
+	color: @accent-yellow;
 	padding-left: 2px;
 	padding-right: 2px;
 }
 
 #workspaces button.persistent {
-	color: #7f849c;
+	color: @text-secondary;
 	border-radius: 0;
 }
 
 #workspaces button.active {
-	color: #8be9fd;
+	color: @accent-blue;
 	border-radius: 10px;
 	padding-left: 8px;
 	padding-right: 8px;
 }
 
 #workspaces button.urgent {
-	color: #ff79c6;
+	color: @accent-pink;
 	border-radius: 0px;
 }
 
 #clock {
-	color: #8be9fd;
+	color: @accent-blue;
 }
 
 #tray {
@@ -118,16 +120,16 @@ f
 }
 
 #custom-cava_mviz {
-	color: #ff92df;
+	color: @accent-pink;
 	padding-right: 0;
 }
 
 #pulseaudio {
-	color: #ff9e64;
+	color: @accent-orange;
 }
 
 #pulseaudio.muted {
-	color: #ff79c6;
+	color: @accent-pink;
 }
 
 #custom-wallpaper_random:hover,
@@ -139,5 +141,5 @@ f
 #custom-github:hover,
 #clock:hover,
 #pulseaudio:hover {
-	color: #ffc777;
+	color: @accent-yellow;
 }
