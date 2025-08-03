@@ -9,6 +9,7 @@ GTK4_CONFIG_FILE="$HOME/.config/gtk-4.0/settings.ini"
 XSETTINGS_CONFIG_FILE="$HOME/.config/xsettingsd/xsettingsd.conf"
 BTOP_CONFIG_FILE="$HOME/.config/btop/btop.conf"
 MAKO_CONFIG_FILE="$HOME/.config/mako/config"
+CURSOR_CONFIG_FILE="$HOME/.config/Cursor/User/settings.json"
 CURRENT_THEME_LINK="$HOME/.themes/current"
 WALLPAPER_DIR="$HOME/OneDrive/Pictures/Wallpapers"
 WALLPAPER_SCRIPT="$HOME/.config/scripts/Wallpaper.sh"
@@ -85,7 +86,19 @@ if [ -f "$MAKO_THEME_FILE" ]; then
     sed -i "s|^border-color=.*|border-color=$border_color|" "$MAKO_CONFIG_FILE"
 fi
 
-# --- Update wallpaper ---
+# Update Cursor theme
+CURSOR_THEME_FILE="$CURRENT_THEME_LINK/cursor.conf"
+if [ -f "$CURSOR_THEME_FILE" ] && [ -f "$CURSOR_CONFIG_FILE" ]; then
+    # Source the cursor theme file to get the theme name
+    source "$CURSOR_THEME_FILE"
+    
+    if [ -n "$cursor_theme" ]; then
+        # Update the workbench.colorTheme line in Cursor settings
+        sed -i "s|\"workbench.colorTheme\":.*|\"workbench.colorTheme\": \"$cursor_theme\",|" "$CURSOR_CONFIG_FILE"
+    fi
+fi
+
+# Update wallpaper
 if [ -f "$WALLPAPER_SCRIPT" ] && [ -d "$WALLPAPER_DIR" ]; then
     # Convert theme name for searching (replace - with _)
     wallpaper_name=$(echo "$selected_theme" | tr '[:upper:]' '[:lower:]' | tr '-' '_')
@@ -127,8 +140,8 @@ reload_ghostty_windows() {
 
 # Reload all applications
 reload_ghostty_windows
-pkill -SIGUSR2 btop
 makoctl reload
+pkill -SIGUSR2 btop
 pkill -SIGUSR2 waybar
 
 notify-send "Theme Switcher" "Set to $selected_theme"
