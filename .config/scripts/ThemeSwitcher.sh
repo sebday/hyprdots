@@ -14,25 +14,41 @@ FUZZEL_CONFIG_FILE="$HOME/.config/fuzzel/fuzzel.ini"
 CURSOR_CONFIG_FILE="$HOME/.config/Cursor/User/settings.json"
 OBSIDIAN_CONFIG_FILE="$HOME/OneDrive/Notes/.obsidian/appearance.json"
 OBSIDIAN_SNIPPET_FILE="$HOME/OneDrive/Notes/.obsidian/snippets/custom-background.css"
-WALLPAPER_DIR="$HOME/OneDrive/Pictures/Wallpapers"
 WALLPAPER_SCRIPT="$HOME/.config/scripts/Wallpaper.sh"
+THUMBNAILS_SCRIPT="$HOME/.config/scripts/Thumbnails.sh"
+
+# Source the shared thumbnail utilities
+source "$THUMBNAILS_SCRIPT"
+
+# Use fuzzel to select a theme, using thumbnails from wallpaper files
+selected_entry=$(
+    (
+        for theme_dir in "$THEME_DIR"/*; do
+            if [ -d "$theme_dir" ] && [ "$(basename "$theme_dir")" != "current" ] && [ "$(basename "$theme_dir")" != "shared" ]; then
+                theme_name=$(basename "$theme_dir")
+                
+                # Find any image file from the wallpapers subfolder
+                wallpaper_file=""
+                wallpapers_dir="$theme_dir/wallpapers"
+                if [ -d "$wallpapers_dir" ]; then
+                    wallpaper_file=$(find "$wallpapers_dir" -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.webp" \) | head -n 1)
+                fi
+                
+                printf "%s\t%s\n" "$theme_name" "$wallpaper_file"
+            fi
+        done
+    ) | generate_fuzzel_thumbnails "theme" | fuzzel -d -p "Select a theme: "
+)
 
 
-# Get theme options from the theme directory
-themes=()
-for theme_dir in "$THEME_DIR"/*; do
-    if [ -d "$theme_dir" ] && [ "$(basename "$theme_dir")" != "current" ] && [ "$(basename "$theme_dir")" != "shared" ]; then
-        themes+=("$(basename "$theme_dir")")
-    fi
-done
-
-# Use fuzzel to select a theme
-selected_theme=$(printf "%s\n" "${themes[@]}" | fuzzel -d -p "Select a theme: ")
 
 # Exit if no theme is selected
-if [ -z "$selected_theme" ]; then
+if [ -z "$selected_entry" ]; then
     exit 0
 fi
+
+# Trim leading spaces from selection to get the theme name
+selected_theme=$(echo "$selected_entry" | sed 's/^[[:space:]]*//')
 
 # --- Update GTK theme ---
 if [ -f "$GTK2_CONFIG_FILE" ]; then
@@ -138,17 +154,14 @@ if [ -f "$OBSIDIAN_THEME_FILE" ] && [ -f "$OBSIDIAN_CONFIG_FILE" ]; then
 fi
 
 
-# Update wallpaper
-if [ -f "$WALLPAPER_SCRIPT" ] && [ -d "$WALLPAPER_DIR" ]; then
-    # Convert theme name for searching (replace - with _)
-    wallpaper_name=$(echo "$selected_theme" | tr '[:upper:]' '[:lower:]' | tr '-' '_')
-    
-    # Use fzf to find wallpaper matching theme name, take first match
-    wallpaper_file=$(find "$WALLPAPER_DIR" -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.webp" -o -iname "*.bmp" -o -iname "*.gif" \) | fzf --filter="$wallpaper_name" | head -1)
-    
-    # Set the wallpaper if found
-    if [ -n "$wallpaper_file" ] && [ -f "$wallpaper_file" ]; then
-        "$WALLPAPER_SCRIPT" "$wallpaper_file"
+# Update wallpaper using any image from the theme's wallpapers folder
+if [ -f "$WALLPAPER_SCRIPT" ]; then
+    wallpapers_dir="$THEME_DIR/$selected_theme/wallpapers"
+    if [ -d "$wallpapers_dir" ]; then
+        theme_wallpaper=$(find "$wallpapers_dir" -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.webp" \) | head -n 1)
+        if [ -n "$theme_wallpaper" ] && [ -f "$theme_wallpaper" ]; then
+            "$WALLPAPER_SCRIPT" "$theme_wallpaper"
+        fi
     fi
 fi
 

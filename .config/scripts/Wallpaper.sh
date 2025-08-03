@@ -13,6 +13,10 @@ WALLPAPER_DIR_PRIMARY="$HOME/OneDrive/Pictures/Wallpapers"
 WALLPAPER_DIR_WIDE="$HOME/OneDrive/Pictures/Widescreen"
 STATE_FILE="/tmp/current_wallpaper"
 HYPRPAPER_CONFIG="$HOME/.config/hypr/hyprpaper.conf"
+THUMBNAILS_SCRIPT="$HOME/.config/scripts/Thumbnails.sh"
+
+# Source the shared thumbnail utilities
+source "$THUMBNAILS_SCRIPT"
 
 # --- FUNCTION: UPDATE HYPRPAPER CONFIG ---
 update_hyprpaper_config() {
@@ -89,46 +93,8 @@ set_wallpaper() {
 
 # --- TUI FUNCTION: SELECT WALLPAPER ---
 select_wallpaper_tui() {
-    # Set the search directory for the TUI
-    export WALLPAPER_DIR="$WALLPAPER_DIR_PRIMARY"
-
-    # Python script to generate thumbnail paths for fuzzel
-    FUZZEL_INPUT_GENERATOR='
-import sys, os, hashlib, pathlib
-
-THUNAR_THUMBNAIL_DIR = os.path.expanduser("~/.cache/thumbnails/normal")
-DEFAULT_ICON = "image-x-generic"
-WALLPAPER_DIR = os.environ.get("WALLPAPER_DIR", ".")
-
-for line in sys.stdin:
-    file_path = line.strip()
-    if not file_path:
-        continue
-
-    uri = pathlib.Path(file_path).resolve().as_uri()
-    relative_path = os.path.relpath(file_path, WALLPAPER_DIR)
-
-    uris_to_try = [
-        uri,
-        uri.replace("file:///", "file://localhost/", 1)
-    ]
-
-    found_path = None
-    for u in uris_to_try:
-        md5_hash = hashlib.md5(u.encode("utf-8")).hexdigest()
-        thumbnail_path = os.path.join(THUNAR_THUMBNAIL_DIR, f"{md5_hash}.png")
-        if os.path.exists(thumbnail_path):
-            found_path = thumbnail_path
-            break
-            
-    if found_path:
-        print(f" {relative_path}\x00icon\x1f{found_path}")
-    else:
-        print(f" {relative_path}\x00icon\x1f{DEFAULT_ICON}")
-'
-
-    # Find wallpaper files, process with Python, and pipe to fuzzel
-    selected_entry=$(find "$WALLPAPER_DIR" -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.gif" -o -iname "*.bmp" -o -iname "*.webp" \) | sort | python3 -c "$FUZZEL_INPUT_GENERATOR" | fuzzel -d -p "Select Wallpaper: ")
+    # Find wallpaper files, process with shared thumbnail utility, and pipe to fuzzel
+    selected_entry=$(find "$WALLPAPER_DIR_PRIMARY" -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.webp" \) | sort | generate_fuzzel_thumbnails "wallpaper" "$WALLPAPER_DIR_PRIMARY" | fuzzel -d -p "Select Wallpaper: ")
 
     # If an entry was selected, reconstruct the full path and set the wallpaper
     if [ -n "$selected_entry" ]; then

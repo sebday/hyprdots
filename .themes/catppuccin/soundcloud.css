@@ -1,0 +1,11 @@
+/* Catppuccin-Mocha Theme for SoundCloud */
+@import url("http://localhost:8008/shared/soundcloud.shared.css");
+
+:root {
+    --bg-primary: #1e1e2e;
+    --bg-secondary: #313244;
+    --text-primary: #cdd6f4;
+    --text-accent: #89b4fa;
+    --accent-blue: #89b4fa;
+    --accent-cyan: #94e2d5;
+}
