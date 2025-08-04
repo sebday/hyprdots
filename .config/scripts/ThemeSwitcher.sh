@@ -77,6 +77,16 @@ fi
 # Apply the theme using gsettings (the nwg-look way)
 gsettings set org.gnome.desktop.interface gtk-theme "$selected_theme"
 
+# Update icon theme from .conf file
+ICON_THEME_FILE="$CURRENT_THEME_LINK/icons.conf"
+if [ -f "$ICON_THEME_FILE" ]; then
+    # Source the icon theme file to get the variables
+    source "$ICON_THEME_FILE"
+    
+    # Apply via gsettings and update config file
+    [ -n "$icon_theme" ] && gsettings set org.gnome.desktop.interface icon-theme "$icon_theme"
+    [ -n "$icon_theme" ] && sed -i "s|^gtk-icon-theme-name=.*|gtk-icon-theme-name=$icon_theme|" "$GTK3_CONFIG_FILE"
+fi
 
 # Update the symbolic link for other configs
 ln -sfn "$HOME/.themes/$selected_theme" "$CURRENT_THEME_LINK"

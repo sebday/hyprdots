@@ -21,6 +21,7 @@ nwg-look
 noto-fonts
 noto-fonts-emoji
 ttf-cascadia-mono-nerd
+vimix-cursors
 
 # Base ######################
 zsh
