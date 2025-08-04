@@ -41,13 +41,14 @@ Extensions [Stylus](https://addons.mozilla.org/en-GB/firefox/addon/styl-us/),
 
 To add a new theme, download a GTK theme into the `.themes` directory and add the following files:
 
-- `gtk theme \ thunar`
+- `gtk theme`
 - `btop.conf`
 - `cursor.conf`
 - `fuzzel.conf`
 - `ghostty.conf`
 - `hyprlock.conf`
 - `mako.conf`
+- `icons.conf`
 - `obsidian.conf`
 - `soundcloud.css`
 - `waybar.css`

@@ -146,12 +146,13 @@ fi
 # Update Obsidian theme
 OBSIDIAN_THEME_FILE="$CURRENT_THEME_LINK/obsidian.conf"
 if [ -f "$OBSIDIAN_THEME_FILE" ] && [ -f "$OBSIDIAN_CONFIG_FILE" ]; then
-    # Source the obsidian theme file to get the theme name
+    # Source the obsidian theme file to get the theme name and css
     source "$OBSIDIAN_THEME_FILE"
     
     if [ -n "$obsidian_theme" ]; then
-        # Update the cssTheme line in Obsidian's appearance.json
+        # Update the cssTheme and theme lines in Obsidian's appearance.json
         sed -i "s|\"cssTheme\":.*|\"cssTheme\": \"$obsidian_theme\",|" "$OBSIDIAN_CONFIG_FILE"
+        sed -i "s|\"theme\":.*|\"theme\": \"$theme\",|" "$OBSIDIAN_CONFIG_FILE"
     fi
 
     # Update the custom CSS snippet file
@@ -201,8 +202,14 @@ reload_ghostty_windows() {
     fi
 }
 
+# Function to reload obsidian gracefully
+reload_obsidian() {
+    xdg-open "obsidian://command?id=app%3Areload"
+}
+
 # Reload all applications
 reload_ghostty_windows
+reload_obsidian
 makoctl reload
 pkill -SIGUSR2 btop
 pkill -SIGUSR2 waybar
