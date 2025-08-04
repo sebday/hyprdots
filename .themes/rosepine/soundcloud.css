@@ -1,0 +1,11 @@
+/* Rosé Pine Theme for SoundCloud */
+@import url("http://localhost:8008/shared/soundcloud.shared.css");
+
+:root {
+  --bg-primary: #faf4ed;
+  --bg-secondary: #fffaf3;
+  --text-primary: #575279;
+  --text-accent: #907aa9;
+  --accent-blue: #56949f;
+  --accent-cyan: #286983;
+}
