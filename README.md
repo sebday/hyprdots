@@ -2,7 +2,7 @@
 
 Hightly opinionated Arch & Hyprland desktop with a custom theme system and Stylus & ViolentMonkey scripts to extend themes to the web.
 
-Each theme styles terminals, btop, editor, file manager, app launcher, music player, notifications, lock screen, task bar, notes, icons, gtk theme and matched wallpaper.
+Each theme styles terminal (ghostty), btop, editor (cursor), file manager (thunar), app launcher (fuzzel), music player (soundcloud), notifications (mako), lock screen (hyprlock), taskbar (waybar), notes (obsidian), gtk theme, icons and matched wallpaper.
 
 Less than 650 [software packages](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/packages.txt) for a full dev desktop.
 
