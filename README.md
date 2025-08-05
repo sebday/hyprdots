@@ -23,6 +23,8 @@ Install extensions [Stylus](https://addons.mozilla.org/en-GB/firefox/addon/styl-
 [PopupWindow](https://addons.mozilla.org/en-GB/firefox/addon/popup-window/), 
 [uBlock](https://github.com/gorhill/uBlock#ublock-origin).
 
+Install violentmonkey scripts from `.themes/shared`
+
 ## Theming
 
 To add a new theme, download a GTK theme into the `.themes` directory and add the following:
