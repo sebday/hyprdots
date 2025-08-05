@@ -37,7 +37,7 @@ selected_entry=$(
                 printf "%s\t%s\n" "$theme_name" "$wallpaper_file"
             fi
         done
-    ) | generate_fuzzel_thumbnails "theme" | fuzzel -d -p "Select a theme: "
+    ) | generate_fuzzel_thumbnails "theme" | fuzzel -d -l 8 -p "Select a theme: "
 )
 
 
