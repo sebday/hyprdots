@@ -14,6 +14,7 @@ FUZZEL_CONFIG_FILE="$HOME/.config/fuzzel/fuzzel.ini"
 CURSOR_CONFIG_FILE="$HOME/.config/Cursor/User/settings.json"
 OBSIDIAN_CONFIG_FILE="$HOME/OneDrive/Notes/.obsidian/appearance.json"
 OBSIDIAN_SNIPPET_FILE="$HOME/OneDrive/Notes/.obsidian/snippets/custom-background.css"
+HYPR_CONFIG_FILE="$HOME/.config/hypr/hyprland.conf"
 WALLPAPER_SCRIPT="$HOME/.config/scripts/Wallpaper.sh"
 THUMBNAILS_SCRIPT="$HOME/.config/scripts/Thumbnails.sh"
 
@@ -164,6 +165,18 @@ if [ -f "$OBSIDIAN_THEME_FILE" ] && [ -f "$OBSIDIAN_CONFIG_FILE" ]; then
     fi
 fi
 
+# Update Hyprland border colors
+HYPR_THEME_FILE="$CURRENT_THEME_LINK/hypr.conf"
+if [ -f "$HYPR_THEME_FILE" ]; then
+    # Extract color variables without sourcing
+    col_active_border=$(grep "^\$col_active_border" "$HYPR_THEME_FILE" | cut -d '=' -f 2- | sed 's/^[[:space:]]*//')
+    col_inactive_border=$(grep "^\$col_inactive_border" "$HYPR_THEME_FILE" | cut -d '=' -f 2- | sed 's/^[[:space:]]*//')
+    
+    # Update hyprland config with theme colors
+    sed -i "s|^[[:space:]]*col\.active_border =.*|    col.active_border = $col_active_border|" "$HYPR_CONFIG_FILE"
+    sed -i "s|^[[:space:]]*col\.inactive_border =.*|    col.inactive_border = $col_inactive_border|" "$HYPR_CONFIG_FILE"
+fi
+
 
 # Update wallpaper using any image from the theme's wallpapers folder (alphabetically sorted)
 if [ -f "$WALLPAPER_SCRIPT" ]; then
@@ -211,6 +224,7 @@ reload_obsidian() {
 reload_ghostty_windows
 reload_obsidian
 makoctl reload
+hyprctl reload
 pkill -SIGUSR2 btop
 pkill -SIGUSR2 waybar
 
