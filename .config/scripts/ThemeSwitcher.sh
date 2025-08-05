@@ -178,6 +178,26 @@ if [ -f "$HYPR_THEME_FILE" ]; then
     sed -i "s|^[[:space:]]*col\.inactive_border =.*|    col.inactive_border = $col_inactive_border|" "$HYPR_CONFIG_FILE"
 fi
 
+# Update GitHub contribution colors
+WAYBAR_THEME_FILE="$CURRENT_THEME_LINK/waybar.css"
+GITHUB_COLORS_FILE="$HOME/.config/waybar/github_colors.sh"
+if [ -f "$WAYBAR_THEME_FILE" ]; then
+    # Extract github colors from waybar.css
+    github_0=$(grep "@define-color github-0" "$WAYBAR_THEME_FILE" | awk '{print $3}' | tr -d ';')
+    github_1=$(grep "@define-color github-1" "$WAYBAR_THEME_FILE" | awk '{print $3}' | tr -d ';')
+    github_2=$(grep "@define-color github-2" "$WAYBAR_THEME_FILE" | awk '{print $3}' | tr -d ';')
+    github_3=$(grep "@define-color github-3" "$WAYBAR_THEME_FILE" | awk '{print $3}' | tr -d ';')
+    github_4=$(grep "@define-color github-4" "$WAYBAR_THEME_FILE" | awk '{print $3}' | tr -d ';')
+
+    # Update github_colors.sh
+    echo "declare -A CONTRIB_COLORS" > "$GITHUB_COLORS_FILE"
+    echo "CONTRIB_COLORS[0]=\"$github_0\"" >> "$GITHUB_COLORS_FILE"
+    echo "CONTRIB_COLORS[1]=\"$github_1\"" >> "$GITHUB_COLORS_FILE"
+    echo "CONTRIB_COLORS[2]=\"$github_2\"" >> "$GITHUB_COLORS_FILE"
+    echo "CONTRIB_COLORS[3]=\"$github_3\"" >> "$GITHUB_COLORS_FILE"
+    echo "CONTRIB_COLORS[4]=\"$github_4\"" >> "$GITHUB_COLORS_FILE"
+fi
+
 
 # Update wallpaper using any image from the theme's wallpapers folder (alphabetically sorted)
 if [ -f "$WALLPAPER_SCRIPT" ]; then
