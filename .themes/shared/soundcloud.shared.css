@@ -4,12 +4,18 @@
     font-family: monospace!important;
 }
 
-.theme-dark {
+.theme-dark, .theme-light {
+    --primary-color: var(--text-primary);
+    --secondary-color: var(--text-accent);
+    --font-primary-color: var(--text-primary);
+    --font-secondary-color: var(--text-accent);
+    --link-primary-color: var(--accent-blue);
     --surface-color: var(--bg-secondary);
     --background-surface-color: var(--bg-primary);
-    --highlight-color: var(--bg-primary);
+    --highlight-color: var(--accent-cyan);
+    --button-secondary-font-color: var(--text-accent);
     --button-secondary-background-color: var(--bg-primary);
-    --button-secondary-selected-background-color: var(--bg-primary);
+    --special-color: var(--accent-cyan);
 }
 
 .header__upsellWrapper,
@@ -49,6 +55,9 @@ a[data-menu-name="home"] {
     padding-top: 0!important;
 }
 
+.playControls__bg, .playControls__inner {
+    background-color: var(--bg-primary)!important;
+}
 .playControls__queue {
     bottom: 48px;
 }
@@ -62,7 +71,7 @@ h1 {
 }
 
 .queue__itemWrapper,
-.theme-dark .queue__itemsHeight,
+.queue__itemsHeight,
 .queue,
 .sc-button-like,
 .g-type-shrinkwrap-inline {
@@ -75,8 +84,12 @@ h1 {
 }
 .g-type-shrinkwrap-inline {
     color: var(--text-accent)!important;
-    margin-top: 5px;
 }
+
+.g-type-shrinkwrap-large-secondary {
+    padding-top: 0!important;
+}
+
 .sc-button-xxlarge {
     background-color: var(--accent-cyan)!important;
 }
@@ -87,4 +100,8 @@ h1 {
 }
 .sc-button-like {
     background: transparent!important;
+}
+
+.sc-link-primary {
+    color: var(--text-accent)!important;
 }
