@@ -3,23 +3,22 @@
 # Define directories
 THEME_DIR="$HOME/.themes"
 CURRENT_THEME_LINK="$HOME/.themes/current"
+WALLPAPER_SCRIPT="$HOME/.config/scripts/Wallpaper.sh"
 GTK2_CONFIG_FILE="$HOME/.gtkrc-2.0"
 GTK3_CONFIG_FILE="$HOME/.config/gtk-3.0/settings.ini"
 GTK4_CONFIG_DIR="$HOME/.config/gtk-4.0"
 GTK4_CONFIG_FILE="$HOME/.config/gtk-4.0/settings.ini"
 XSETTINGS_CONFIG_FILE="$HOME/.config/xsettingsd/xsettingsd.conf"
+HYPR_CONFIG_FILE="$HOME/.config/hypr/hyprland.conf"
 BTOP_CONFIG_FILE="$HOME/.config/btop/btop.conf"
 MAKO_CONFIG_FILE="$HOME/.config/mako/config"
 FUZZEL_CONFIG_FILE="$HOME/.config/fuzzel/fuzzel.ini"
 CURSOR_CONFIG_FILE="$HOME/.config/Cursor/User/settings.json"
 OBSIDIAN_CONFIG_FILE="$HOME/OneDrive/Notes/.obsidian/appearance.json"
 OBSIDIAN_SNIPPET_FILE="$HOME/OneDrive/Notes/.obsidian/snippets/custom-background.css"
-HYPR_CONFIG_FILE="$HOME/.config/hypr/hyprland.conf"
-WALLPAPER_SCRIPT="$HOME/.config/scripts/Wallpaper.sh"
-THUMBNAILS_SCRIPT="$HOME/.config/scripts/Thumbnails.sh"
 
 # Source the shared thumbnail utilities
-source "$THUMBNAILS_SCRIPT"
+source "$HOME/.config/scripts/Thumbnails.sh"
 
 # Use fuzzel to select a theme, using thumbnails from wallpaper files
 selected_entry=$(
