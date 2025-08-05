@@ -1,10 +1,12 @@
 # Hyprland on Arch
 
-Opinionated Arch & Hyprland desktop seven themes.
+My Arch & Hyprland desktop with seven hot-swap themes.
 
 Each theme styles the terminal (ghostty), browser (brave), music player (soundcloud), system stats (btop), editor (cursor), file manager (thunar), app launcher (fuzzel), taskbar (waybar), notifications (mako), lock screen (hyprlock), notes (obsidian), icons and matched wallpapers.
 
 Less than 630 [software packages](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/packages.txt) for a full dev desktop.
+
+Massive thanks to [Vaxry](https://blog.vaxry.net/) for reigniting my long-time love for [tinkering](https://sebday.dev/desktop-appreciation/) with my desktop.
 
 ## Install 
 

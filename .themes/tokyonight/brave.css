@@ -1,0 +1,17 @@
+:root {
+    --bg-primary: #1a1b26;
+    --bg: #1a1b26;
+    --bg-light: #24283b;
+    --bg-lighter: #414868;
+    --bg-lightest: #565f89;
+    --bg-transparent: #24283bf1;
+    --accent: #7aa2f7;
+    --accent-light: #bb9af7;
+    --accent-lighter: #c0caf5;
+    --accent-lightest: #e0af68;
+    --text-color: #a9b1d6;
+    --white: #c0caf5;
+    --green: #9ece6a;
+    --orange: #ff9e64;
+    --red: #f7768e;
+}
