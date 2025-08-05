@@ -114,6 +114,7 @@ if [ -f "$MAKO_THEME_FILE" ]; then
     sed -i "s|^background-color=.*|background-color=$background_color|" "$MAKO_CONFIG_FILE"
     sed -i "s|^text-color=.*|text-color=$text_color|" "$MAKO_CONFIG_FILE"
     sed -i "s|^border-color=.*|border-color=$border_color|" "$MAKO_CONFIG_FILE"
+    sed -i "s|^progress-color=.*|progress-color=$progress_color|" "$MAKO_CONFIG_FILE"
 fi
 
 # Update Cursor theme
