@@ -410,6 +410,10 @@ a > .css-truncate, .follow-list .follow-list-info {
     background: var(--accent)
 }
 
+.filter-item:hover {
+    background: var(--bg-lightest) !important;
+}
+
 .subnav-item {
     border: none;
 }
@@ -853,4 +857,8 @@ a.rgh-highest-rated-comment, .rgh-highest-rated-comment {
 
 .SelectMenu-item, .SelectMenu-header {
     border: none;
-    }
+}
+
+.color-bg-default {
+    background: var(--bg-light) !important;
+}

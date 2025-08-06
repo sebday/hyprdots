@@ -1,13 +1,14 @@
 :root {
     --bg-primary: #1e1e2e;
-    --bg-secondary: #313244;
     --text-primary: #cdd6f4;
     --text-accent: #89b4fa;
     --accent-blue: #89b4fa;
     --accent-cyan: #94e2d5;
-    --bg: #1e1e2e;
+    --bg: var(--bg-primary);
+    --bg-muted: var(--bg-light);
+    --bg-secondary: var(--bg-lighter);
     --bg-light: #313244;
-    --bg-lighter: #45475a;
+    --bg-lighter: #1e1e2e;
     --bg-lightest: #585b70;
     --bg-transparent: #313244f1;
     --accent: #89b4fa;

@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name        Universal Theme Hot-Reloader
+// @name        Theme Hot-Reloader
 // @namespace   Violentmonkey Scripts
 // @match       https://x.com/*
 // @match       https://github.com/*

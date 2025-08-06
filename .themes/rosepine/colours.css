@@ -1,15 +1,16 @@
 :root {
     --bg-primary: #faf4ed;
-    --bg-secondary: #fffaf3;
-    --text-primary: #575279;
-    --text-accent: #907aa9;
-    --accent-blue: #56949f;
-    --accent-cyan: #286983;
-    --bg: #faf4ed;
     --bg-light: #f2e9e1;
     --bg-lighter: #f4ede8;
     --bg-lightest: #dfdad9;
     --bg-transparent: #f2e9e1f1;
+    --bg: var(--bg-primary);
+    --bg-muted: var(--bg-light);
+    --bg-secondary: var(--bg-lighter);
+    --text-primary: #575279;
+    --text-accent: #907aa9;
+    --accent-blue: #56949f;
+    --accent-cyan: #286983;
     --accent: #d7827e;
     --accent-light: #b4637a;
     --accent-lighter: #ea9d34;
