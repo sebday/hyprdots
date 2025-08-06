@@ -1,0 +1,11 @@
+ytd-app {
+    background-color: var(--bg-primary) !important;
+}
+
+#frosted-glass.with-chipbar.ytd-app {
+  background-color: var(--bg-primary) !important;
+}
+
+.ytSearchboxComponentInputBoxDark {
+  background-color: var(--bg-transparent) !important;
+}
