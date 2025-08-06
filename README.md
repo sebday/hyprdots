@@ -20,12 +20,12 @@ In appearance set the theme to `GTK`
 
 ## Firefox
 
-Install extensions [Stylus](https://addons.mozilla.org/en-GB/firefox/addon/styl-us/),
+Install extensions 
 [ViolentMonkey](https://addons.mozilla.org/en-US/firefox/addon/violentmonkey/), 
 [PopupWindow](https://addons.mozilla.org/en-GB/firefox/addon/popup-window/), 
 [uBlock](https://github.com/gorhill/uBlock#ublock-origin).
 
-Install violentmonkey scripts from `.themes/shared`
+Install violentmonkey script from `.themes/shared`
 
 ## Theming
 

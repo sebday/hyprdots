@@ -1,10 +1,6 @@
 // ==UserScript==
 // @name        Theme Hot-Reloader
 // @namespace   Violentmonkey Scripts
-// @match       https://x.com/*
-// @match       https://github.com/*
-// @match       https://soundcloud.com/*
-// @match       https://home.google.com/*
 // @grant       GM_addStyle
 // @grant       GM_xmlhttpRequest
 // @version     2.0
@@ -19,7 +15,8 @@
         'x.com': 'x.css',
         'github.com': 'github.css',
         'soundcloud.com': 'soundcloud.css',
-        'home.google.com': 'googlehome.css'
+        'home.google.com': 'googlehome.css',
+        'youtube.com': 'youtube.css'
     };
 
     const currentHost = window.location.hostname;
