@@ -1,11 +1,3 @@
-/* --- X/Twitter Styles --- */
-body,
-.r-kemksi,
-.r-5zmot {
-    background: var(--bg-primary) !important;
-}
-
-/* --- GitHub Styles --- */
 body {
     background: var(--bg);
     color: var(--text-color);

@@ -1,20 +1,35 @@
 // ==UserScript==
-// @name        SoundCloud Theme Hot-Reloader
+// @name        Universal Theme Hot-Reloader
 // @namespace   Violentmonkey Scripts
+// @match       https://x.com/*
+// @match       https://github.com/*
 // @match       https://soundcloud.com/*
+// @match       https://home.google.com/*
 // @grant       GM_addStyle
 // @grant       GM_xmlhttpRequest
-// @version     1.7
+// @version     2.0
 // @author      Seb Day
-// @description Hot-reloads themes for SoundCloud from a local server by polling the CSS file.
+// @description Hot-reloads themes for multiple sites from a local server by polling CSS files.
 // ==/UserScript==
 
 (function() {
     'use strict';
 
-    const STYLE_ID = 'soundcloud-hot-reload-style';
+    const SITES = {
+        'x.com': 'x.css',
+        'github.com': 'github.css',
+        'soundcloud.com': 'soundcloud.css',
+        'home.google.com': 'googlehome.css'
+    };
+
+    const currentHost = window.location.hostname;
+    const cssFile = SITES[currentHost];
+
+    if (!cssFile) return;
+
+    const STYLE_ID = `hot-reload-style-${currentHost}`;
     const COLORS_URL = 'http://localhost:8008/current/colours.css';
-    const SHARED_URL = 'http://localhost:8008/shared/soundcloud.shared.css';
+    const SHARED_URL = `http://localhost:8008/shared/${cssFile}`;
     let currentCombinedCSS = null;
 
     function fetchCSS(url) {
@@ -23,7 +38,7 @@
                 method: 'GET',
                 url: url,
                 onload: function(response) {
-                    if (response.status === 200) {
+                    if (response.status >= 200 && response.status < 300) {
                         resolve(response.responseText);
                     } else {
                         reject(new Error(`Failed to fetch ${url}: ${response.statusText}`));
@@ -49,11 +64,11 @@
                         document.head.appendChild(styleElement);
                     }
                     styleElement.textContent = newCombinedCSS;
-                    console.log('SoundCloud theme updated.');
+                    console.log(`Theme updated for ${currentHost}.`);
                 }
             })
             .catch(error => {
-                // Silently fail if the server is not running or a file is missing
+                // Fail silently if the server isn't running or a file is missing
             });
     }
 
