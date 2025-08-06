@@ -1,5 +1,10 @@
 :root {
     --bg-primary: #282828;
+    --bg-secondary: #3c3836;
+    --text-primary: #ebdbb2;
+    --text-accent: #fabd2f;
+    --accent-blue: #83a598;
+    --accent-cyan: #8ec07c;
     --bg: #282828;
     --bg-light: #3c3836;
     --bg-lighter: #504945;
@@ -13,5 +18,5 @@
     --white: #fbf1c7;
     --green: #b8bb26;
     --orange: #fe8019;
-    --red: #cc241d;
+    --red: #cc241d;  
 }

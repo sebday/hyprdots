@@ -14,7 +14,7 @@
     'use strict';
 
     const STYLE_ID = 'brave-hot-reload-style';
-    const COLORS_URL = 'http://localhost:8008/current/brave.css';
+    const COLORS_URL = 'http://localhost:8008/current/colours.css';
     const SHARED_URL = 'http://localhost:8008/shared/brave-shared.css';
     let currentCombinedCSS = null;
 
