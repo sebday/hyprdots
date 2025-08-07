@@ -1,0 +1,17 @@
+.bg-surface, .bg-surface-base {
+    background: var(--bg-primary) !important;
+    color: var(--text-primary);
+}
+
+.via-background {
+  --tw-gradient-stops: var(--bg-light),var(--bg-primary) var(--tw-gradient-via-position),var(--tw-gradient-to);
+}
+
+.bg-surface-l2,
+.bg-background {
+  background: var(--bg-light) !important;
+}
+
+.bg-surface-l1 {
+  background: var(--bg-lighter) !important;
+}

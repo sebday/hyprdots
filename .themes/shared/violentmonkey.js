@@ -6,6 +6,7 @@
 // @match       https://soundcloud.com/*
 // @match       https://home.google.com/*
 // @match       https://www.youtube.com/*
+// @match       https://grok.com/*
 // @grant       GM_addStyle
 // @grant       GM_xmlhttpRequest
 // @version     2.2
@@ -21,7 +22,8 @@
         'github.com': 'github.css',
         'soundcloud.com': 'soundcloud.css',
         'home.google.com': 'googlehome.css',
-        'www.youtube.com': 'youtube.css'
+        'www.youtube.com': 'youtube.css',
+        'grok.com': 'grok.css'
     };
 
     const currentHost = window.location.hostname;
