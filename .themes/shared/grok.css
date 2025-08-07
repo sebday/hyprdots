@@ -15,3 +15,7 @@
 .bg-surface-l1 {
   background: var(--bg-lighter) !important;
 }
+
+.border-border, .border-border-l1 {
+  border-color: var(--bg-light) !important;
+}

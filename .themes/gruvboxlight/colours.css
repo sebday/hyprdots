@@ -1,8 +1,8 @@
 :root {
     --bg-primary: #fbf1c7;
-    --bg-light: #ebdbb2;
+    --bg-light: #bdae93;
     --bg-lighter: #d5c4a1;
-    --bg-lightest: #bdae93;
+    --bg-lightest: #ebdbb2;
     --bg-transparent: #ebdbb2f1;
     --bg: var(--bg-primary);
     --bg-muted: var(--bg-light);

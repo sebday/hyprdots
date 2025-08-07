@@ -3,3 +3,17 @@ body,
 .r-5zmot {
     background: var(--bg-primary) !important;
 }
+
+
+
+@media (prefers-color-scheme: light) {
+    .r-14lw9ot,
+    .r-6026j {
+        background-color: var(--bg-primary) !important;
+    }
+    .r-6026j,
+    .r-jxzhtn,
+    .r-j5o65s {
+        border-color: var(--bg-lightest) !important;
+    }
+}
