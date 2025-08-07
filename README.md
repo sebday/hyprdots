@@ -1,23 +1,12 @@
 # Hyprland on Arch
 
-My Arch & Hyprland desktop with seven hot-swap themes.
-
-Each theme styles the terminal (ghostty), browser (brave), music player (soundcloud), system stats (btop), editor (cursor), file manager (thunar), app launcher (fuzzel), taskbar (waybar), notifications (mako), lock screen (hyprlock), notes (obsidian), icons and matched wallpapers.
-
-Violentmonkey and darkhttpd used to theme GitHub, Soundcloud, Google Home Cameras, Youtube, X in Brave.
+My Arch & Hyprland desktop with seven hot-swap themes. If you try this out you need to remove my quad monitor setup in hyprland.conf, and I doubt you want my gtk bookmarks.
 
 Less than 630 [software packages](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/packages.txt) for a full dev desktop.
 
 Massive thanks to [Vaxry](https://blog.vaxry.net/) for reigniting my long-time love for [tinkering](https://sebday.dev/desktop-appreciation/) with my desktop.
 
-There are a few highly specific things 
-
- - quad monitor config
- - gtk bookmarks
- - onedrive obsidian location
- - onedrive wallpaper location
-
-## Install 
+# Install 
 
 `wget -qO- https://raw.githubusercontent.com/sebday/hyprdots/master/install.sh | bash`
 
@@ -34,27 +23,34 @@ Install extensions
 [PopupWindow](https://addons.mozilla.org/en-GB/firefox/addon/popup-window/), 
 [uBlock](https://github.com/gorhill/uBlock#ublock-origin).
 
-Install violentmonkey script from `.themes/shared`
+## Violentmonkey
 
-## Theming
+Install and enable the darkttpd service `.config/systemd/`
 
-To add a new theme, download a GTK theme into the `.themes` directory and add the following:
+Load the violentmonkey script from `.themes/shared/` and set it to auto-update.
 
-- `btop.conf`
-- `cursor.conf`
-- `fuzzel.conf`
-- `ghostty.conf`
-- `hyprlock.conf`
-- `mako.conf`
-- `icons.conf`
-- `obsidian.conf`
-- `soundcloud.css`
-- `waybar.css`
-- VS Code Theme
-- Obsidian Theme
+# Themes
 
+To add a new theme, download a GTK theme into the `.themes/` directory, icons into `.local/share/icons/` and wallpapers into `.themes/new/wallpapers/`
 
-### Unixpr0n
+Install a VS Code and Obsidian theme, then edit create the theme files:
+
+- `btop.conf` - system stats
+- `cursor.conf` - editor
+- `fuzzel.conf` - app launcher
+- `ghostty.conf` - terminal
+- `hyprlock.conf` - lock screen
+- `mako.conf` - notifications
+- `icons.conf` - icon pack
+- `obsidian.conf` - notes
+- `soundcloud.css` - music player
+- `waybar.css` - taskbar
+
+Violentmonkey and darkhttpd are used to theme GitHub, Soundcloud, GoogleHome Cameras, Youtube and X in Brave.
+
+To style more websites add a new css in `.themes/shared` and edit `violentmonkey.js` to include the new site.
+
+# Unixpr0n
 
 [![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screens/hypr_dracula_screenshot1.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screens/hypr_dracula_screenshot1.png)
 *fzf wallpaper selection, thunar and obsidian*
