@@ -40,7 +40,6 @@ nvtop
 fastfetch
 
 # File Management ###########
-yazi
 thunar
 thunar-archive-plugin
 tumbler
