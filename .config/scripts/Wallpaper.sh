@@ -9,8 +9,6 @@
 #   cat /path/to/image.jpg | Wallpaper.sh - Set wallpaper from stdin.
 
 # --- CONFIGURATION ---
-WALLPAPER_DIR_PRIMARY="$HOME/OneDrive/Pictures/Wallpapers"
-WALLPAPER_DIR_WIDE="$HOME/OneDrive/Pictures/Widescreen"
 STATE_FILE="/tmp/current_wallpaper"
 HYPRPAPER_CONFIG="$HOME/.config/hypr/hyprpaper.conf"
 THUMBNAILS_SCRIPT="$HOME/.config/scripts/Thumbnails.sh"
@@ -92,38 +90,30 @@ set_wallpaper() {
 }
 
 # --- TUI FUNCTION: SELECT WALLPAPER ---
-select_wallpaper_tui() {
+select_wallpaper_menu() {
     # Get current theme wallpapers folder
     CURRENT_THEME_LINK="$HOME/.themes/current"
     CURRENT_THEME_WALLPAPERS=""
     if [ -L "$CURRENT_THEME_LINK" ] && [ -d "$CURRENT_THEME_LINK/wallpapers" ]; then
-        CURRENT_THEME_WALLPAPERS="$CURRENT_THEME_LINK/wallpapers"
+        CURRENT_THEME_WALLPAPERS=$(readlink -f "$CURRENT_THEME_LINK/wallpapers")
+    else
+        notify-send "Wallpaper Error" "No wallpaper directory found for the current theme."
+        exit 1
     fi
-    
-    # Find wallpaper files from both directories, put current theme first, sorted alphabetically
+
+    # Find wallpaper files from the theme directory, sorted alphabetically
     selected_entry=$(
-        (
-            # Current theme wallpapers first (if available) - sorted
-            if [ -n "$CURRENT_THEME_WALLPAPERS" ]; then
-                find "$CURRENT_THEME_WALLPAPERS" -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.webp" \) | sort
-            fi
-            
-            # Main wallpaper directory - sorted
-            find "$WALLPAPER_DIR_PRIMARY" -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.webp" \) | sort
-        ) | generate_fuzzel_thumbnails "wallpaper" "$WALLPAPER_DIR_PRIMARY" | fuzzel -d -p "Select Wallpaper: "
+        find "$CURRENT_THEME_WALLPAPERS" -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.webp" \) | sort \
+        | generate_fuzzel_thumbnails "wallpaper" "$CURRENT_THEME_WALLPAPERS" | fuzzel -d -p "Select Wallpaper: "
     )
 
     # If an entry was selected, reconstruct the full path and set the wallpaper
     if [ -n "$selected_entry" ]; then
         # Strip leading space that was added for fuzzel padding
         selected_entry=$(echo "$selected_entry" | sed 's/^ //')
-        
-        # Try main directory first, then theme directory
-        full_path="$WALLPAPER_DIR_PRIMARY/$selected_entry"
-        if [ ! -f "$full_path" ] && [ -n "$CURRENT_THEME_WALLPAPERS" ]; then
-            full_path="$CURRENT_THEME_WALLPAPERS/$selected_entry"
-        fi
-        
+
+        full_path="$CURRENT_THEME_WALLPAPERS/$selected_entry"
+
         if [ -f "$full_path" ]; then
             set_wallpaper "$full_path"
         else
@@ -152,17 +142,21 @@ COMMAND=${1:-next} # Default to 'next' if no argument is provided
 
 case "$COMMAND" in
     select)
-        select_wallpaper_tui
+        select_wallpaper_menu
         ;;
 
     next|prev|random)
-        WALLPAPER_DIR="$WALLPAPER_DIR_PRIMARY"
-        DIRECTION=$COMMAND
-
-        if [ ! -d "$WALLPAPER_DIR" ]; then
-            notify-send "Wallpaper Cycler Error" "Directory '$WALLPAPER_DIR' not found."
+        # Get current theme wallpapers folder
+        CURRENT_THEME_LINK="$HOME/.themes/current"
+        WALLPAPER_DIR=""
+        if [ -L "$CURRENT_THEME_LINK" ] && [ -d "$CURRENT_THEME_LINK/wallpapers" ]; then
+            WALLPAPER_DIR=$(readlink -f "$CURRENT_THEME_LINK/wallpapers")
+        else
+            notify-send "Wallpaper Cycler Error" "No wallpaper directory found for the current theme."
             exit 1
         fi
+
+        DIRECTION=$COMMAND
 
         mapfile -d $'\0' wallpapers < <(find "$WALLPAPER_DIR" -type f -print0 | sort -z)
         if [ ${#wallpapers[@]} -eq 0 ]; then
