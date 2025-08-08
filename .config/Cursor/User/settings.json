@@ -29,7 +29,6 @@
     "github.gitAuthentication": false,
     "cursor.general.gitGraphIndexing": "enabled",
     "cursor.general.enableShadowWorkspace": true,
-    "editor.tabSize": 2,
     "chat.editor.fontSize": 16,
     "editor.fontSize": 18,
     "files.autoSave": "afterDelay",
@@ -64,4 +63,7 @@
     "remote.SSH.remotePlatform": {
         "192.168.2.200": "linux"
     },
+    "workbench.tree.enableStickyScroll": false,
+    "editor.stickyScroll.enabled": false,
+    "editor.detectIndentation": false,
 }
