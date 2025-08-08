@@ -5,12 +5,14 @@ text-color=#f8f8f2
 border-color=#bd93f9
 progress-color=#ff79c6
 
-outer-margin=10
+outer-margin=20
 default-timeout=3000
 border-radius=8
+font=monospace 18
 icon-path=/home/seb/.local/share/icons/Tokyonight-Dark-Cyan
 max-icon-size=32
-output=DP-1
+output=HDMI-A-1
+anchor=bottom-center
 
 [urgency=high]
 text-color=#f8f8f2
