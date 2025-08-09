@@ -18,10 +18,18 @@ window#waybar {
 #pulseaudio,
 #tray,
 #custom-calculator,
+#custom-assistant,
+#custom-calendar,
 #clock {
 	background-color: @background;
 	padding: 0 16px;
 	margin: 0 8px;
+}
+
+#custom-calculator,
+#custom-assistant,
+#custom-calendar {
+    padding: 0;
 }
 
 #clock {
@@ -48,7 +56,9 @@ window#waybar {
 #custom-wallpaper_random,
 #custom-wallpaper_prev,
 #custom-wallpaper_next,
-#custom-calculator {
+#custom-calculator,
+#custom-assistant,
+#custom-calendar {
 	color: @text-muted;
 }
 
@@ -136,6 +146,8 @@ window#waybar {
 #custom-wallpaper_prev:hover,
 #custom-wallpaper_next:hover,
 #custom-calculator:hover,
+#custom-assistant:hover,
+#custom-calendar:hover,
 #custom-shopify_zk:hover,
 #custom-shopify_diy:hover,
 #custom-github:hover,

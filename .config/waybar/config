@@ -26,8 +26,10 @@
 	"custom/wallpaper_prev",
 	"custom/wallpaper_random",
 	"custom/wallpaper_next",
-	"custom/calculator",
+	"custom/assistant",
+    "custom/calculator",
+	"custom/calendar",
 	"clock",
-  "tray"
+    "tray"
 	]
 }

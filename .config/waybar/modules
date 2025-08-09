@@ -108,6 +108,16 @@
 	"custom/calculator": {
 		"format": " ",
 		"tooltip": "Calculator",
-		"on-click": "qalculate-gtk'"
+		"on-click": "qalculate-gtk"
+	},
+	"custom/assistant": {
+		"format": " ",
+		"tooltip": "Assistant",
+		"on-click": "brave --app=\"https://grok.com\""
+	},
+	"custom/calendar": {
+		"format": " ",
+		"tooltip": "Calendar",
+		"on-click": "brave --app=\"https://calendar.google.com/calendar/u/0/r/year\""
 	}
 }
