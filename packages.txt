@@ -73,3 +73,8 @@ ruby
 luarocks
 ast-grep
 darkhttpd
+
+# Theming ###################
+sassc
+librsvg
+bc

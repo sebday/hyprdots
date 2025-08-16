@@ -43,7 +43,7 @@ clone_dotfiles() {
     git clone https://github.com/sebday/debian-hyprdots.git "$temp_clone_dir"
     rsync -av "$temp_clone_dir/" "$HOME/"
     rm -rf "$temp_clone_dir"
-    (cd "$HOME" && git submodule update --init)
+    (cd "$HOME" && git submodule update --init --recursive)
 }
 
 # Install yay, an AUR helper.
