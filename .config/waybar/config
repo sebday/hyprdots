@@ -25,6 +25,7 @@
 	"pulseaudio",
 	"custom/wallpaper_prev",
 	"custom/wallpaper_random",
+	"custom/wallpaper_cycle",
 	"custom/wallpaper_next",
 	"custom/assistant",
     "custom/calculator",

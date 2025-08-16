@@ -98,6 +98,12 @@
 		"on-click": "bash ~/.config/scripts/Wallpaper.sh random",
 		"interval": "once"
 	},
+	"custom/wallpaper_cycle": {
+        "format": "C",
+        "tooltip": "Toggle Wallpaper Cycling",
+        "on-click": "~/.config/scripts/Wallpaper.sh cycle",
+		"interval": "once"
+    },
 	"custom/github": {
 		"format": "{}",
 		"return-type": "json",

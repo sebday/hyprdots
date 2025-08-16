@@ -43,6 +43,7 @@ window#waybar {
 
 #custom-wallpaper_prev,
 #custom-wallpaper_random,
+#custom-wallpaper_cycle,
 #custom-wallpaper_next {
 	background-color: @background;
 	padding: 4px 8px;
@@ -54,6 +55,7 @@ window#waybar {
 }
 
 #custom-wallpaper_random,
+#custom-wallpaper_cycle,
 #custom-wallpaper_prev,
 #custom-wallpaper_next,
 #custom-calculator,
@@ -143,6 +145,7 @@ window#waybar {
 }
 
 #custom-wallpaper_random:hover,
+#custom-wallpaper_cycle:hover,
 #custom-wallpaper_prev:hover,
 #custom-wallpaper_next:hover,
 #custom-calculator:hover,
