@@ -13,3 +13,6 @@
 [submodule ".zsh/zsh-history-substring-search"]
 	path = .zsh/zsh-history-substring-search
 	url = https://github.com/zsh-users/zsh-history-substring-search.git
+[submodule "/home/seb/.themes/shared/oomox"]
+	path = /home/seb/.themes/shared/oomox
+	url = https://github.com/themix-project/oomox-gtk-theme
