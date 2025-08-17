@@ -21,12 +21,13 @@ if [[ -n "$SSH_CONNECTION" ]]; then
   [[ -n "$terminfo[kend]"  ]] && bindkey "$terminfo[kend]"  end-of-line
   [[ -n "$terminfo[khome]" ]] && bindkey "$terminfo[khome]" beginning-of-line
 else
-  # Local session, use hardcoded keys
-  bindkey '^[[A' history-substring-search-up
-  bindkey '^[[B' history-substring-search-down
-  bindkey '^[[3~' delete-char
-  bindkey '^[[F' end-of-line
-  bindkey '^[[H' beginning-of-line
+  # Local session, use terminfo
+  zmodload zsh/terminfo
+  [[ -n "$terminfo[kcuu1]" ]] && bindkey "$terminfo[kcuu1]" history-substring-search-up
+  [[ -n "$terminfo[kcud1]" ]] && bindkey "$terminfo[kcud1]" history-substring-search-down
+  [[ -n "$terminfo[kdch1]" ]] && bindkey "$terminfo[kdch1]" delete-char
+  [[ -n "$terminfo[kend]"  ]] && bindkey "$terminfo[kend]"  end-of-line
+  [[ -n "$terminfo[khome]" ]] && bindkey "$terminfo[khome]" beginning-of-line
 fi
 
 # Set a compatible terminal type for Ghostty, which may not be known by the server

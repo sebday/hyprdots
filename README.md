@@ -1,8 +1,10 @@
 # Hyprland on Arch
 
-My Arch & Hyprland desktop with seven hot-swap themes. If you try this out you need to remove my quad monitor setup in hyprland.conf, and I doubt you want my gtk bookmarks.
+My Arch & Hyprland desktop with themes. 
 
-Less than 630 [software packages](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/packages.txt) for a full dev desktop.
+Highly specific with my [software](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/packages.txt) for a full dev desktop. 
+
+Quad monitor setup in hyprland.conf, and I doubt you want my gtk bookmarks.
 
 Massive thanks to [Vaxry](https://blog.vaxry.net/) for reigniting my long-time love for [tinkering](https://sebday.dev/desktop-appreciation/) with my desktop.
 
