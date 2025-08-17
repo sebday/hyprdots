@@ -24,7 +24,6 @@ ttf-cascadia-mono-nerd
 vimix-cursors
 
 # Base ######################
-zsh
 ghostty
 git
 neovim
