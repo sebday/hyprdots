@@ -1,11 +1,12 @@
-[Desktop Entry]
 Type=X-GNOME-Metatheme
-Name=dracula
-Comment=A partially sexual act; when a female (of any species; mostly humanoids) rubs the ears/lobes of a male Ferengi, creating sensual emotions and chemical reactions in the male (and sometimes in the female).
+[Desktop Entry]
+Name=Dracula-Darker
+Comment=An Flat Gtk+ theme based on Elegant Design
 Encoding=UTF-8
 
 [X-GNOME-Metatheme]
-Name=dracula
-GtkTheme=dracula
-IconTheme=dracula
-MetacityTheme=dracula
+GtkTheme=Dracula-Darker
+MetacityTheme=Dracula-Darker
+IconTheme=Tokyonight-Dark-Cyan
+CursorTheme=Bibata-Modern-Ice
+ButtonLayout=close,minimize,maximize:menu

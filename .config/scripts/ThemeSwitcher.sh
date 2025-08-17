@@ -25,6 +25,13 @@ source "$HOME/.config/scripts/Thumbnails.sh"
 generate_gtk_theme() {
     local theme_name="$1"
     local theme_path="$THEME_DIR/$theme_name"
+    
+    # Check if index.theme already exists
+    if [ -f "$theme_path/index.theme" ]; then
+        echo "GTK theme for '$theme_name' already exists, skipping generation."
+        return
+    fi
+    
     local colours_file="$theme_path/colours.css"
 
     if [ ! -f "$colours_file" ]; then
