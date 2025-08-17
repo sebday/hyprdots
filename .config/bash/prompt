@@ -2,6 +2,5 @@
 force_color_prompt=yes
 color_prompt=yes
 
-# Simple prompt with path in the window/pane title and caret for typing line
-PS1=$'\uf0a9 '
-PS1="\[\e]0;\w\a\]$PS1"
+# Prompt with user, host, path and caret
+PS1='\[\e[0;32m\]\u@\h\[\e[0m\]:\[\e[0;34m\]\w\[\e[0m\]'$' \uf0a9  '
