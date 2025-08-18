@@ -15,8 +15,10 @@ BTOP_CONFIG_FILE="$HOME/.config/btop/btop.conf"
 MAKO_CONFIG_FILE="$HOME/.config/mako/config"
 FUZZEL_CONFIG_FILE="$HOME/.config/fuzzel/fuzzel.ini"
 CURSOR_CONFIG_FILE="$HOME/.config/Cursor/User/settings.json"
-OBSIDIAN_CONFIG_FILE="$HOME/OneDrive/Notes/.obsidian/appearance.json"
-OBSIDIAN_SNIPPET_FILE="$HOME/OneDrive/Notes/.obsidian/snippets/custom-background.css"
+OBSIDIAN_VAULT_DIR="$HOME/OneDrive/Notes"
+
+OBSIDIAN_CONFIG_FILE="$OBSIDIAN_VAULT_DIR/.obsidian/appearance.json"
+OBSIDIAN_VAULT_THEMES_DIR="$OBSIDIAN_VAULT_DIR/.obsidian/themes"
 
 # Source the shared thumbnail utilities
 source "$HOME/.config/scripts/Thumbnails.sh"
@@ -139,6 +141,17 @@ gsettings set org.gnome.desktop.interface gtk-theme "$selected_theme"
 # Update the symbolic link for other configs
 ln -sfn "$HOME/.themes/$selected_theme" "$CURRENT_THEME_LINK"
 
+# Update wallpaper using any image from the theme's wallpapers folder (alphabetically sorted)
+if [ -f "$WALLPAPER_SCRIPT" ]; then
+    wallpapers_dir="$THEME_DIR/$selected_theme/wallpapers"
+    if [ -d "$wallpapers_dir" ]; then
+        theme_wallpaper=$(find "$wallpapers_dir" -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.webp" \) | sort | head -n 1)
+        if [ -n "$theme_wallpaper" ] && [ -f "$theme_wallpaper" ]; then
+            "$WALLPAPER_SCRIPT" "$theme_wallpaper"
+        fi
+    fi
+fi
+
 # Update icon theme from .conf file
 ICON_THEME_FILE="$CURRENT_THEME_LINK/icons.conf"
 if [ -f "$ICON_THEME_FILE" ]; then
@@ -204,39 +217,41 @@ if [ -f "$FUZZEL_THEME_FILE" ]; then
 fi
 
 # Update Obsidian theme
-OBSIDIAN_THEME_FILE="$CURRENT_THEME_LINK/obsidian.conf"
-if [ -f "$OBSIDIAN_THEME_FILE" ]; then
-    # Define directories and ensure they exist
-    OBSIDIAN_CONFIG_DIR=$(dirname "$OBSIDIAN_CONFIG_FILE")
-    OBSIDIAN_SNIPPET_DIR=$(dirname "$OBSIDIAN_SNIPPET_FILE")
-    mkdir -p "$OBSIDIAN_CONFIG_DIR"
-    mkdir -p "$OBSIDIAN_SNIPPET_DIR"
+THEME_CSS_FILE="$CURRENT_THEME_LINK/obsidian.css"
+if [ -f "$THEME_CSS_FILE" ]; then
+    # --- New Modular Theme Logic ---
+    MODULAR_THEME_NAME="Modular"
+    MODULAR_THEME_DIR="$OBSIDIAN_VAULT_THEMES_DIR/$MODULAR_THEME_NAME"
+    SHARED_CSS_FILE="$THEME_DIR/shared/obsidian.css"
 
-    # Source the obsidian theme file to get the theme name and css
-    source "$OBSIDIAN_THEME_FILE"
-    
-    # Read existing config or create a default one in a variable
+    # Ensure the modular theme directory exists
+    mkdir -p "$MODULAR_THEME_DIR"
+
+    # Create a manifest.json if it doesn't exist, by copying the shared one
+    SHARED_MANIFEST_FILE="$THEME_DIR/shared/obsidian.conf"
+    if [ ! -f "$MODULAR_THEME_DIR/manifest.json" ] && [ -f "$SHARED_MANIFEST_FILE" ]; then
+        cp "$SHARED_MANIFEST_FILE" "$MODULAR_THEME_DIR/manifest.json"
+    fi
+
+    # Combine theme-specific and shared CSS into the modular theme's css file
+    if [ -f "$SHARED_CSS_FILE" ] && [ -f "$THEME_CSS_FILE" ]; then
+        cat "$THEME_CSS_FILE" "$SHARED_CSS_FILE" > "$MODULAR_THEME_DIR/theme.css"
+    fi
+
+    # Ensure config file and directories exist
+    OBSIDIAN_CONFIG_DIR=$(dirname "$OBSIDIAN_CONFIG_FILE")
+    mkdir -p "$OBSIDIAN_CONFIG_DIR"
+
+    # Read existing config or create a default one
     local updated_json
     if [ -f "$OBSIDIAN_CONFIG_FILE" ]; then
         updated_json=$(cat "$OBSIDIAN_CONFIG_FILE")
     else
-        updated_json='{"theme": "obsidian", "cssTheme": "", "enabledCssSnippets": []}'
-    fi
-    
-    # Update theme properties using jq
-    if [ -n "$obsidian_theme" ]; then
-        updated_json=$(echo "$updated_json" | jq --arg theme "${theme:-obsidian}" '.theme = $theme' | jq --arg cssTheme "$obsidian_theme" '.cssTheme = $cssTheme')
+        updated_json='{}'
     fi
 
-    # Update the custom CSS snippet file and enable the snippet
-    if [ -n "$obsidian_css" ]; then
-        echo "$obsidian_css" > "$OBSIDIAN_SNIPPET_FILE"
-        updated_json=$(echo "$updated_json" | jq '.enabledCssSnippets |= (. + ["custom-background"] | unique)')
-    else
-        # Clear the file and disable the snippet if no CSS is provided
-        > "$OBSIDIAN_SNIPPET_FILE"
-        updated_json=$(echo "$updated_json" | jq '.enabledCssSnippets |= . - ["custom-background"]')
-    fi
+    # Set the theme to "Modular" and remove snippet settings
+    updated_json=$(echo "$updated_json" | jq --arg theme "obsidian" '.theme = $theme' | jq --arg cssTheme "$MODULAR_THEME_NAME" '.cssTheme = $cssTheme' | jq 'del(.enabledCssSnippets)')
 
     # Write the updated json to the config file
     echo "$updated_json" > "$OBSIDIAN_CONFIG_FILE"
@@ -272,18 +287,6 @@ if [ -f "$WAYBAR_THEME_FILE" ]; then
     echo "CONTRIB_COLORS[2]=\"$github_2\"" >> "$GITHUB_COLORS_FILE"
     echo "CONTRIB_COLORS[3]=\"$github_3\"" >> "$GITHUB_COLORS_FILE"
     echo "CONTRIB_COLORS[4]=\"$github_4\"" >> "$GITHUB_COLORS_FILE"
-fi
-
-
-# Update wallpaper using any image from the theme's wallpapers folder (alphabetically sorted)
-if [ -f "$WALLPAPER_SCRIPT" ]; then
-    wallpapers_dir="$THEME_DIR/$selected_theme/wallpapers"
-    if [ -d "$wallpapers_dir" ]; then
-        theme_wallpaper=$(find "$wallpapers_dir" -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.webp" \) | sort | head -n 1)
-        if [ -n "$theme_wallpaper" ] && [ -f "$theme_wallpaper" ]; then
-            "$WALLPAPER_SCRIPT" "$theme_wallpaper"
-        fi
-    fi
 fi
 
 # Function to reload ghostty windows
