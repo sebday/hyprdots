@@ -19,15 +19,15 @@
 <constant name="C_title_focused" value="gtk:custom(wm_title,gtk:fg[NORMAL])"/>
 <constant name="C_title_unfocused" value="gtk:custom(wm_unfocused_title,gtk:fg[INSENSITIVE])"/>
 <constant name="C_button_icon" value="gtk:custom(wm_button_icon,gtk:base[NORMAL])" />
-<constant name="C_button_close_focused_bg" value="#f7768e"/>
-<constant name="C_button_close_hover_bg" value="#c64343"/>
-<constant name="C_button_close_active_bg" value="#f7768e"/>
-<constant name="C_button_max_focused_bg" value="#9ece6a"/>
-<constant name="C_button_max_hover_bg" value="#587539"/>
-<constant name="C_button_max_active_bg" value="#9ece6a"/>
-<constant name="C_button_min_focused_bg" value="#ff9e64"/>
-<constant name="C_button_min_hover_bg" value="#8c6c3e"/>
-<constant name="C_button_min_active_bg" value="#ff9e64"/>
+<constant name="C_button_close_focused_bg" value="#c64343"/>
+<constant name="C_button_close_hover_bg" value="#f7768e"/>
+<constant name="C_button_close_active_bg" value="#c64343"/>
+<constant name="C_button_max_focused_bg" value="#587539"/>
+<constant name="C_button_max_hover_bg" value="#9ece6a"/>
+<constant name="C_button_max_active_bg" value="#587539"/>
+<constant name="C_button_min_focused_bg" value="#8c6c3e"/>
+<constant name="C_button_min_hover_bg" value="#ff9e64"/>
+<constant name="C_button_min_active_bg" value="#8c6c3e"/>
 
 <!-- geometries -->
 

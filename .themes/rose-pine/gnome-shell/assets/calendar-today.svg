@@ -23,7 +23,7 @@
      inkscape:deskcolor="#d1d1d1"
      showgrid="true"
      inkscape:zoom="6.9532167"
-     inkscape:cx="-13.087468"
+     inkscape:cx="0.35954582"
      inkscape:cy="15.676198"
      inkscape:window-width="1920"
      inkscape:window-height="1012"
@@ -37,8 +37,7 @@
   </sodipodi:namedview>
   <g
      transform="matrix(2,0,0,2,-939.14001,-1079.92)"
-     id="g4"
-     style="fill:#ffffff">
+     id="g4">
     <circle
        cx="481.57001"
        cy="559.46002"
@@ -49,7 +48,7 @@
        image-rendering="auto"
        shape-rendering="auto"
        solid-color="#000000"
-       style="isolation:auto;mix-blend-mode:normal;paint-order:normal;fill:#ffffff"
+       style="isolation:auto;mix-blend-mode:normal;paint-order:normal"
        id="circle2" />
   </g>
 </svg>
