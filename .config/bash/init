@@ -7,16 +7,8 @@ if command -v fzf &> /dev/null; then
   fi
 fi
 
-# Lazy-load NVM to speed up shell startup and fix init errors.
+# Load NVM
 export NVM_DIR="$HOME/.nvm"
 [ -d "$NVM_DIR" ] || mkdir -p "$NVM_DIR"
-
-nvm() {
-  # Unset this function so the real nvm command is found next time
-  unset -f nvm
-  # Source nvm scripts
-  [ -s "/usr/share/nvm/nvm.sh" ] && \. "/usr/share/nvm/nvm.sh"
-  [ -s "/usr/share/nvm/bash_completion" ] && \. "/usr/share/nvm/bash_completion"
-  # Call the real nvm command
-  nvm "$@"
-}
+[ -s "/usr/share/nvm/nvm.sh" ] && \. "/usr/share/nvm/nvm.sh" 2>/dev/null
+[ -s "/usr/share/nvm/bash_completion" ] && \. "/usr/share/nvm/bash_completion"

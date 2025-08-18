@@ -2,7 +2,7 @@
 
 My Arch & Hyprland desktop with themes. 
 
-Highly specific with my [software](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/packages.txt) for a full dev desktop. 
+With all [software](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/packages.txt) for a full dev desktop. 
 
 Quad monitor setup in hyprland.conf, and I doubt you want my gtk bookmarks.
 
@@ -26,8 +26,6 @@ Install extensions
 [uBlock](https://github.com/gorhill/uBlock#ublock-origin).
 
 ## Violentmonkey
-
-Install and enable the darkttpd service `.config/systemd/`
 
 Load the violentmonkey script from `.themes/shared/` and set it to auto-update.
 
