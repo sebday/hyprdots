@@ -1,0 +1,47 @@
+.theme-dark,
+.theme-light {
+  /* Catppuccin Mocha Colors */
+  --background-primary: #1e1e2e;
+  --background-primary-alt: #313244;
+  --background-secondary: var(--background-primary);
+  --background-secondary-alt: var(--background-primary-alt);
+  --text-normal: #cdd6f4;
+  --text-on-accent: #1e1e2e;
+  --text-title-h1: #cba6f7;    /* Mauve */
+  --text-title-h2: #fab387;    /* Peach */
+  --text-title-h3: #a6e3a1;    /* Green */
+  --text-title-h4: #f38ba8;    /* Red */
+  --text-title-h5: #f9e2af;    /* Yellow */
+  --text-title-h6: #cba6f7;    /* Mauve */
+  --canvas-color-1: 243, 139, 168; /* Red */
+  --canvas-color-2: 250, 179, 135; /* Peach */
+  --canvas-color-3: 249, 226, 175; /* Yellow */
+  --canvas-color-4: 166, 227, 161; /* Green */
+  --canvas-color-5: 148, 226, 213; /* Teal */
+  --canvas-color-6: 203, 166, 247; /* Mauve */
+  --text-link: #89b4fa;        /* Blue */
+  --markup-code: var(--text-title-h2);
+  --text-tag: var(--text-title-h3);
+  --text-a: #f5c2e7;           /* Pink */
+  --text-a-hover: #f5c2e7;      /* Pink */
+  --text-mark: var(--text-title-h5);
+  --interactive-accent: var(--text-title-h3);
+  --blockquote-border: #cba6f7; /* Mauve */
+  --interactive-accent-rgb: var(--text-title-h5);
+  --accent-h: 115;
+  --accent-s: 54%;
+  --accent-l: 76%;
+  --titlebar-background-focused: var(--titlebar-background);
+
+  /* Code view */
+  --code-normal: var(--text-normal);
+  --code-background: var(--background-primary);
+  --modular-foreground: var(--text-normal);
+  --modular-Comment: #a6adc8;  /* Subtext0 */
+  --modular-keyword: var(--text-a);
+  --modular-definition: var(--text-title-h3);
+  --modular-variable: var(--text-normal);
+  --modular-number: var(--text-title-h1);
+  --modular-function: #94e2d5; /* Teal */
+  --modular-string: var(--text-title-h5);
+}

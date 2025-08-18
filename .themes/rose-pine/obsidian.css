@@ -1,0 +1,47 @@
+.theme-dark,
+.theme-light {
+  /* Rose Pine Colors */
+  --background-primary: #faf4ed;
+  --background-primary-alt: #f2e9e1;
+  --background-secondary: var(--background-primary);
+  --background-secondary-alt: var(--background-primary-alt);
+  --text-normal: #575279;
+  --text-on-accent: #faf4ed;
+  --text-title-h1: #b4637a;    /* Rose */
+  --text-title-h2: #ea9d34;    /* Gold */
+  --text-title-h3: #286983;    /* Pine */
+  --text-title-h4: #eb6f92;    /* Love */
+  --text-title-h5: #56949f;    /* Foam */
+  --text-title-h6: #907aa9;    /* Iris */
+  --canvas-color-1: 235, 111, 146;/* Love */
+  --canvas-color-2: 234, 157, 52; /* Gold */
+  --canvas-color-3: 246, 193, 119;/* Muted Gold */
+  --canvas-color-4: 40, 105, 131; /* Pine */
+  --canvas-color-5: 86, 148, 159; /* Foam */
+  --canvas-color-6: 144, 122, 169;/* Iris */
+  --text-link: var(--text-title-h5);
+  --markup-code: var(--text-title-h2);
+  --text-tag: var(--text-title-h3);
+  --text-a: #d7827e;           /* Rose */
+  --text-a-hover: #d7827e;      /* Rose */
+  --text-mark: var(--text-title-h2);
+  --interactive-accent: var(--text-title-h3);
+  --blockquote-border: var(--text-title-h6);
+  --interactive-accent-rgb: var(--text-title-h2);
+  --accent-h: 351;
+  --accent-s: 58%;
+  --accent-l: 68%;
+  --titlebar-background-focused: var(--titlebar-background);
+
+  /* Code view */
+  --code-normal: var(--text-normal);
+  --code-background: var(--background-primary);
+  --modular-foreground: var(--text-normal);
+  --modular-Comment: #9893a5;
+  --modular-keyword: var(--text-a);
+  --modular-definition: var(--text-title-h3);
+  --modular-variable: var(--text-normal);
+  --modular-number: var(--text-title-h6);
+  --modular-function: var(--text-title-h5);
+  --modular-string: var(--text-title-h2);
+}

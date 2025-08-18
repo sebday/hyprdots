@@ -1,0 +1,47 @@
+.theme-dark,
+.theme-light {
+  /* Nord Colors */
+  --background-primary: #2e3440;
+  --background-primary-alt: #3b4252;
+  --background-secondary: var(--background-primary);
+  --background-secondary-alt: var(--background-primary-alt);
+  --text-normal: #d8dee9;
+  --text-on-accent: #2e3440;
+  --text-title-h1: #b48ead;    /* Purple */
+  --text-title-h2: #d08770;    /* Orange */
+  --text-title-h3: #a3be8c;    /* Green */
+  --text-title-h4: #bf616a;    /* Red */
+  --text-title-h5: #88c0d0;    /* Frost 3 */
+  --text-title-h6: #81a1c1;    /* Frost 2 */
+  --canvas-color-1: 191, 97, 106; /* Red */
+  --canvas-color-2: 208, 135, 112;/* Orange */
+  --canvas-color-3: 235, 203, 139;/* Yellow */
+  --canvas-color-4: 163, 190, 140;/* Green */
+  --canvas-color-5: 136, 192, 208;/* Frost 3 */
+  --canvas-color-6: 129, 161, 193;/* Frost 2 */
+  --text-link: var(--text-title-h6);
+  --markup-code: var(--text-title-h2);
+  --text-tag: var(--text-title-h3);
+  --text-a: #8fbcbb;           /* Frost 4 */
+  --text-a-hover: #8fbcbb;      /* Frost 4 */
+  --text-mark: #ebcb8b;        /* Yellow */
+  --interactive-accent: var(--text-title-h3);
+  --blockquote-border: var(--text-title-h1);
+  --interactive-accent-rgb: #ebcb8b; /* Yellow */
+  --accent-h: 196;
+  --accent-s: 38%;
+  --accent-l: 67%;
+  --titlebar-background-focused: var(--titlebar-background);
+
+  /* Code view */
+  --code-normal: var(--text-normal);
+  --code-background: var(--background-primary);
+  --modular-foreground: var(--text-normal);
+  --modular-Comment: #616e88;
+  --modular-keyword: var(--text-a);
+  --modular-definition: var(--text-title-h3);
+  --modular-variable: var(--text-normal);
+  --modular-number: var(--text-title-h1);
+  --modular-function: var(--text-title-h5);
+  --modular-string: #ebcb8b;     /* Yellow */
+}

@@ -1,8 +1,8 @@
 .theme-dark,
 .theme-light {
-  /* Actual Dracula colors*/
+  /* Colors*/
   --background-primary: #0a0e19;
-  --background-primary-alt: #282a36;
+  --background-primary-alt: #0a0e19;
   --background-secondary: var(--background-primary);
   --background-secondary-alt: var(--background-primary-alt);
   --text-normal: #f8f8f2;
@@ -33,15 +33,15 @@
   --accent-l: 65%;
   --titlebar-background-focused: var(--titlebar-background);
 
-  /* Dracula Code view*/
+  /* Code view*/
   --code-normal: var(--text-normal);
   --code-background: #20212B;
-  --dracula-foreground: var(--text-normal);
-  --dracula-Comment: #6272A4;
-  --dracula-keyword: var(--text-a);
-  --dracula-definition: var(--text-title-h3);
-  --dracula-variable: var(--text-normal);
-  --dracula-number: var(--text-title-h1);
-  --dracula-function: #8BE9FD;
-  --dracula-string: var(--text-title-h5);
+  --modular-foreground: var(--text-normal);
+  --modular-Comment: #6272A4;
+  --modular-keyword: var(--text-a);
+  --modular-definition: var(--text-title-h3);
+  --modular-variable: var(--text-normal);
+  --modular-number: var(--text-title-h1);
+  --modular-function: #8BE9FD;
+  --modular-string: var(--text-title-h5);
 }

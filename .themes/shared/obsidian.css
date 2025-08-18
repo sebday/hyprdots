@@ -161,7 +161,7 @@ hr {
 
 pre code {
   padding: 5px !important;
-  color: var(--dracula-foreground);
+  color: var(--modular-foreground);
   line-height: normal;
   display: block;
   background-color: var(--background-primary);
@@ -175,7 +175,7 @@ pre code {
 
 .cm-inline-code {
   background-color: var(--background-primary-alt) !important;
-  color: var(--dracula-foreground) !important;
+  color: var(--modular-foreground) !important;
   bottom: 0px !important;
 }
 
@@ -188,66 +188,66 @@ pre code {
 }
 
 .cm-hmd-codeblock {
-  color: var(--dracula-foreground);
+  color: var(--modular-foreground);
 }
 
 .cm-hmd-codeblock.cm-keyword {
-  color: var(--dracula-keyword);
+  color: var(--modular-keyword);
 }
 
 .cm-def.cm-hmd-codeblock {
-  color: var(--dracula-definition);
+  color: var(--modular-definition);
 }
 
 .cm-hmd-codeblock.cm-variable {
-  color: var(--dracula-variable);
+  color: var(--modular-variable);
 }
 
 .cm-hmd-codeblock.cm-operator{
-  color: var(--dracula-keyword);
+  color: var(--modular-keyword);
 }
 
 .cm-hmd-codeblock.cm-number {
-  color: var(--dracula-number);
+  color: var(--modular-number);
 }
 
 .cm-builtin.cm-hmd-codeblock {
-  color: var(--dracula-function);
+  color: var(--modular-function);
 }
 
 .cm-hmd-codeblock.cm-string {
-  color: var(--dracula-string);
+  color: var(--modular-string);
 }
 
 /* Preview */
 
 code {
   background-color: var(--background-primary);
-  color: var(--dracula-foreground);
+  color: var(--modular-foreground);
 }
 
 .token.function {
-  color: var(--dracula-definition);
+  color: var(--modular-definition);
 }
 
 .token.operator {
-  color: var(--dracula-keyword);
+  color: var(--modular-keyword);
 }
 
 .token.number {
-  color: var(--dracula-number);
+  color: var(--modular-number);
 }
 
 .token.builtin {
-  color: var(--dracula-function);
+  color: var(--modular-function);
 }
 
 .token.boolean {
-  color: var(--dracula-number);
+  color: var(--modular-number);
 }
 
 .token.string {
-  color: var(--dracula-string);
+  color: var(--modular-string);
 }
 
 /* Editor CodeBlock TEXT Appearance - */
