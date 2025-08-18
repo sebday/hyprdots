@@ -6,3 +6,4 @@
 [[ $- != *i* ]] && return
 
 source ~/.config/bash/rc
+eval "$(mise activate bash)"

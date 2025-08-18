@@ -62,7 +62,7 @@
 	},
 	"custom/shopify_zk": {
 		"format": "{text}",
-		"exec": "bash -c 'source /home/seb/Projects/shopify-dash/bin/activate && /home/seb/Projects/shopify-dash/waybar.py ZK'",
+		"exec": "cd /home/seb/Projects/shopify-dash && mise exec -- python waybar.py ZK",
 		"on-click": "xdg-open https://admin.shopify.com/store/zidar-kid/analytics/live",
 		"return-type": "json",
 		"interval": 300,
@@ -70,7 +70,7 @@
 	},
 	"custom/shopify_diy": {
 		"format": "{text}",
-		"exec": "bash -c 'source /home/seb/Projects/shopify-dash/bin/activate && /home/seb/Projects/shopify-dash/waybar.py DIY'",
+		"exec": "cd /home/seb/Projects/shopify-dash && mise exec -- python waybar.py DIY",
 		"on-click": "xdg-open https://admin.shopify.com/store/diy-buildingsupplies/analytics/live",
 		"return-type": "json",
 		"interval": 300,

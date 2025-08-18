@@ -63,13 +63,11 @@ qalculate-gtk
 obsidian
 
 # Dev #######################
-lazygit
+mise
 python
-python-pip
-python-virtualenv
-nvm
-ruby
+lazygit
 luarocks
+tree-sitter-cli
 ast-grep
 darkhttpd
 

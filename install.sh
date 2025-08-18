@@ -90,6 +90,19 @@ configure_stylus_theming() {
     systemctl --user enable --now darkhttpd
 }
 
+# Install and configure mise for managing dev tools.
+install_mise_tools() {
+    log "Installing mise and setting up global dev tools..."
+    
+    # Check if mise was installed successfully
+    if command -v mise &> /dev/null; then
+        log "Installing Node.js and Ruby with mise..."
+        mise use --global node@latest ruby@latest
+    else
+        log "ERROR: mise installation failed. Skipping dev tool setup."
+    fi
+}
+
 main() {
     log "Starting Hyprland setup on Arch Linux"
 
@@ -98,6 +111,7 @@ main() {
     clone_dotfiles
     install_yay
     install_aur_packages
+    install_mise_tools
     set_boot_screen
     configure_stylus_theming
 
