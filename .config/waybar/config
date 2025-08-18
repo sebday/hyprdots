@@ -21,6 +21,7 @@
 	], 
 
 "modules-right": [
+	"custom/recording",
 	"custom/cava_mviz",
 	"pulseaudio",
 	"custom/wallpaper_prev",

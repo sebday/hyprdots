@@ -16,6 +16,7 @@ swappy
 cliphist
 mako
 nwg-look
+wf-recorder
 
 # Fonts #####################
 noto-fonts

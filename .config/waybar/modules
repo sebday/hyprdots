@@ -125,5 +125,12 @@
 		"format": " ",
 		"tooltip": "Calendar",
 		"on-click": "brave --app=\"https://calendar.google.com/calendar/u/0/r/year\""
+	},
+	"custom/recording": {
+		"exec": "pgrep -x wf-recorder > /dev/null && echo '●' || echo ''",
+		"interval": 1,
+		"format": "{}",
+		"tooltip": false,
+		"on-click": "~/.config/scripts/Record.sh"
 	}
 }
