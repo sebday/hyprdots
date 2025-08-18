@@ -26,7 +26,6 @@ vimix-cursors
 # Base ######################
 ghostty
 git
-neovim
 eza
 fzf
 bat
@@ -66,12 +65,13 @@ obsidian
 mise
 python
 lazygit
+neovim
 luarocks
 tree-sitter-cli
 ast-grep
-darkhttpd
 
 # Theming ###################
+darkhttpd
 sassc
 librsvg
 bc

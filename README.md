@@ -2,7 +2,7 @@
 
 My Arch & Hyprland desktop with themes. 
 
-With all [software](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/packages.txt) for a full dev desktop. 
+Created so I can easily reinstall Arch to my exact liking, with all [software](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/packages.txt) for a full dev desktop. 
 
 Quad monitor setup in hyprland.conf, and I doubt you want my gtk bookmarks.
 

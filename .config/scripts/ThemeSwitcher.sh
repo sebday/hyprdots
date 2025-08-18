@@ -205,23 +205,41 @@ fi
 
 # Update Obsidian theme
 OBSIDIAN_THEME_FILE="$CURRENT_THEME_LINK/obsidian.conf"
-if [ -f "$OBSIDIAN_THEME_FILE" ] && [ -f "$OBSIDIAN_CONFIG_FILE" ]; then
+if [ -f "$OBSIDIAN_THEME_FILE" ]; then
+    # Define directories and ensure they exist
+    OBSIDIAN_CONFIG_DIR=$(dirname "$OBSIDIAN_CONFIG_FILE")
+    OBSIDIAN_SNIPPET_DIR=$(dirname "$OBSIDIAN_SNIPPET_FILE")
+    mkdir -p "$OBSIDIAN_CONFIG_DIR"
+    mkdir -p "$OBSIDIAN_SNIPPET_DIR"
+
     # Source the obsidian theme file to get the theme name and css
     source "$OBSIDIAN_THEME_FILE"
     
+    # Read existing config or create a default one in a variable
+    local updated_json
+    if [ -f "$OBSIDIAN_CONFIG_FILE" ]; then
+        updated_json=$(cat "$OBSIDIAN_CONFIG_FILE")
+    else
+        updated_json='{"theme": "obsidian", "cssTheme": "", "enabledCssSnippets": []}'
+    fi
+    
+    # Update theme properties using jq
     if [ -n "$obsidian_theme" ]; then
-        # Update the cssTheme and theme lines in Obsidian's appearance.json
-        sed -i "s|\"cssTheme\":.*|\"cssTheme\": \"$obsidian_theme\",|" "$OBSIDIAN_CONFIG_FILE"
-        sed -i "s|\"theme\":.*|\"theme\": \"$theme\",|" "$OBSIDIAN_CONFIG_FILE"
+        updated_json=$(echo "$updated_json" | jq --arg theme "${theme:-obsidian}" '.theme = $theme' | jq --arg cssTheme "$obsidian_theme" '.cssTheme = $cssTheme')
     fi
 
-    # Update the custom CSS snippet file
+    # Update the custom CSS snippet file and enable the snippet
     if [ -n "$obsidian_css" ]; then
         echo "$obsidian_css" > "$OBSIDIAN_SNIPPET_FILE"
+        updated_json=$(echo "$updated_json" | jq '.enabledCssSnippets |= (. + ["custom-background"] | unique)')
     else
-        # Clear the file if no CSS is provided
+        # Clear the file and disable the snippet if no CSS is provided
         > "$OBSIDIAN_SNIPPET_FILE"
+        updated_json=$(echo "$updated_json" | jq '.enabledCssSnippets |= . - ["custom-background"]')
     fi
+
+    # Write the updated json to the config file
+    echo "$updated_json" > "$OBSIDIAN_CONFIG_FILE"
 fi
 
 # Update Hyprland border colors
