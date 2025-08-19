@@ -1,0 +1,47 @@
+.theme-dark,
+.theme-light {
+  /* Catppuccin Latte Colors */
+  --background-primary: #eff1f5;
+  --background-primary-alt: #e6e9ef;
+  --background-secondary: var(--background-primary);
+  --background-secondary-alt: var(--background-primary-alt);
+  --text-normal: #4c4f69;
+  --text-on-accent: #eff1f5;
+  --text-title-h1: #8839ef;    /* Mauve */
+  --text-title-h2: #fe640b;    /* Peach */
+  --text-title-h3: #40a02b;    /* Green */
+  --text-title-h4: #d20f39;    /* Red */
+  --text-title-h5: #df8e1d;    /* Yellow */
+  --text-title-h6: #8839ef;    /* Mauve */
+  --canvas-color-1: 210, 15, 57;  /* Red */
+  --canvas-color-2: 254, 100, 11; /* Peach */
+  --canvas-color-3: 223, 142, 29; /* Yellow */
+  --canvas-color-4: 64, 160, 43;  /* Green */
+  --canvas-color-5: 23, 146, 153; /* Teal */
+  --canvas-color-6: 136, 57, 239; /* Mauve */
+  --text-link: #1e66f5;        /* Blue */
+  --markup-code: var(--text-title-h2);
+  --text-tag: var(--text-title-h3);
+  --text-a: #ea76cb;           /* Pink */
+  --text-a-hover: #ea76cb;      /* Pink */
+  --text-mark: var(--text-title-h5);
+  --interactive-accent: var(--text-title-h3);
+  --blockquote-border: #8839ef; /* Mauve */
+  --interactive-accent-rgb: var(--text-title-h5);
+  --accent-h: 221;
+  --accent-s: 91%;
+  --accent-l: 54%;
+  --titlebar-background-focused: var(--titlebar-background);
+
+  /* Code view */
+  --code-normal: var(--text-normal);
+  --code-background: var(--background-primary);
+  --modular-foreground: var(--text-normal);
+  --modular-Comment: #6c6f85;  /* Subtext0 */
+  --modular-keyword: var(--text-a);
+  --modular-definition: var(--text-title-h3);
+  --modular-variable: var(--text-normal);
+  --modular-number: var(--text-title-h1);
+  --modular-function: #179299; /* Teal */
+  --modular-string: var(--text-title-h5);
+}
