@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=iPlayer
+Comment=BBC iPlayer
+GenericName=Notes
+Exec=brave --app="https://www.bbc.co.uk/iplayer/episodes/b006mj59/top-gear"
+Type=Application
+Icon=bbc
+Categories=Office;
+StartupNotify=true
+MimeType=x-scheme-handler/obsidian;
+Path=
+Terminal=false

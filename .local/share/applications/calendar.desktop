@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=Google Calendar
+Comment=Google Calendar
+GenericName=Notes
+Exec=brave --app="https://calendar.google.com/calendar/u/0/r/year"
+Type=Application
+Icon=google
+Categories=Office;
+StartupNotify=true
+MimeType=x-scheme-handler/obsidian;
+Path=
+Terminal=false
