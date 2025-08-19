@@ -16,7 +16,7 @@
     --accent-light: #D2689C;
     --accent-lighter: #F6F5DD;
     --accent-lightest: #E5C736;
-    --text-color: #C1C497;
+    --text-color: var(--text-primary);
     --white: #F6F5DD;
     --green: #549e6a;
     --orange: #E5C736;
