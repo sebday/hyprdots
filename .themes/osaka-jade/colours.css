@@ -2,7 +2,7 @@
     --bg-primary: #111c18;
     --bg-light: #23372B;
     --bg-lighter: #53685B;
-    --bg-lightest: #ACD4CF;
+    --bg-lightest: #53685B;
     --bg-transparent: #23372Bf1;
     --bg: var(--bg-primary);
     --bg-muted: var(--bg-light);

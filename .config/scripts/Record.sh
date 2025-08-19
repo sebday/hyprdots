@@ -22,8 +22,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-SAVE_DIR="$HOME/OneDrive/Pictures/Recordings/"
-mkdir -p "$SAVE_DIR"
+SAVE_DIR="$HOME/"
+#mkdir -p "$SAVE_DIR"
 
 # ── Stop if already recording ──────────────────────────────────────────────
 if pgrep -x wf-recorder >/dev/null; then
