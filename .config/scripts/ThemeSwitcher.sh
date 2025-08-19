@@ -17,66 +17,8 @@ FUZZEL_CONFIG_FILE="$HOME/.config/fuzzel/fuzzel.ini"
 CURSOR_CONFIG_FILE="$HOME/.config/Cursor/User/settings.json"
 OBSIDIAN_VAULT_DIR="$HOME/OneDrive/Notes"
 
-OBSIDIAN_CONFIG_FILE="$OBSIDIAN_VAULT_DIR/.obsidian/appearance.json"
-OBSIDIAN_VAULT_THEMES_DIR="$OBSIDIAN_VAULT_DIR/.obsidian/themes"
-
 # Source the shared thumbnail utilities
 source "$HOME/.config/scripts/Thumbnails.sh"
-
-# --- Function to generate GTK theme using Oomox ---
-generate_gtk_theme() {
-    local theme_name="$1"
-    local theme_path="$THEME_DIR/$theme_name"
-    
-    # Check if index.theme already exists
-    if [ -f "$theme_path/index.theme" ]; then
-        echo "GTK theme for '$theme_name' already exists, skipping generation."
-        return
-    fi
-    
-    local colours_file="$theme_path/colours.css"
-
-    if [ ! -f "$colours_file" ]; then
-        echo "Colours.css not found for theme '$theme_name', skipping GTK generation."
-        return
-    fi
-
-    # Parse colours.css for hex values
-    local bg_primary=$(grep -oP '(?<=--bg-primary: ).*?(?=;)' "$colours_file" | sed 's/#//')
-    local text_primary=$(grep -oP '(?<=--text-primary: ).*?(?=;)' "$colours_file" | sed 's/#//')
-    local accent_cyan=$(grep -oP '(?<=--accent-cyan: ).*?(?=;)' "$colours_file" | sed 's/#//')
-    local white=$(grep -oP '(?<=--white: ).*?(?=;)' "$colours_file" | sed 's/#//')
-    local bg_light=$(grep -oP '(?<=--bg-light: ).*?(?=;)' "$colours_file" | sed 's/#//')
-
-    # Basic mapping from your colours.css to oomox variables
-    # This might need tweaking for optimal results.
-    local oomox_colors=$(cat <<-EOF
-BG=$bg_primary
-FG=$text_primary
-HDR_BG=$bg_primary
-HDR_FG=$text_primary
-SEL_BG=$accent_cyan
-SEL_FG=$bg_primary
-BTN_BG=$accent_cyan
-BTN_FG=$bg_primary
-TXT_BG=$bg_light
-TXT_FG=$text_primary
-WM_BORDER_FOCUS=$accent_cyan
-WM_BORDER_UNFOCUS=$bg_primary
-EOF
-)
-
-    echo "Generating GTK theme for '$theme_name'..."
-    "$OOMOX_THEME_DIR/change_color.sh" -o "$theme_name" <(echo "$oomox_colors")
-    
-    # After generating, oomox places the theme in ~/.themes/THEME_NAME
-    # The rest of the script will handle applying it.
-    if [ -d "$THEME_DIR/$theme_name" ]; then
-        echo "Theme '$theme_name' generated successfully."
-    else
-        echo "Error generating theme '$theme_name'."
-    fi
-}
 
 # Use fuzzel to select a theme, using thumbnails from wallpaper files
 selected_entry=$(
@@ -107,9 +49,6 @@ fi
 
 # Trim leading spaces from selection to get the theme name
 selected_theme=$(echo "$selected_entry" | sed 's/^[[:space:]]*//')
-
-# --- Generate and Update GTK & Icon themes ---
-generate_gtk_theme "$selected_theme"
 
 # --- Update GTK theme ---
 if [ -f "$GTK2_CONFIG_FILE" ]; then
@@ -217,7 +156,10 @@ if [ -f "$FUZZEL_THEME_FILE" ]; then
 fi
 
 # Update Obsidian theme
+OBSIDIAN_CONFIG_FILE="$OBSIDIAN_VAULT_DIR/.obsidian/appearance.json"
+OBSIDIAN_VAULT_THEMES_DIR="$OBSIDIAN_VAULT_DIR/.obsidian/themes"
 THEME_CSS_FILE="$CURRENT_THEME_LINK/obsidian.css"
+
 if [ -f "$THEME_CSS_FILE" ]; then
     # --- New Modular Theme Logic ---
     MODULAR_THEME_NAME="Modular"
