@@ -1,3 +1,7 @@
+html {
+    --yt-spec-base-background: var(--bg-primary) !important;
+}
+
 ytd-app {
     background-color: var(--bg-primary) !important;
 }
