@@ -31,7 +31,10 @@ Load the violentmonkey script from `.themes/shared/` and set it to auto-update.
 
 # Themes
 
-To add a new theme, download a GTK theme into the `.themes/` directory, icons into `.local/share/icons/` and wallpapers into `.themes/new/wallpapers/`
+To add a new theme
+ - Download a GTK theme into the `.themes/` directory
+ - Icons into `.local/share/icons/` 
+ - Wallpapers into `.themes/.../wallpapers/`
 
 Install a VS Code and Obsidian theme, then edit create the theme files:
 
