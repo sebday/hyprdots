@@ -1,13 +1,13 @@
  :root {
-    --bg-primary: #282828;
+    --bg-primary: #2c2c2b;
     --bg-secondary: #1d2021;
-    --text-primary: #ebdbb2;
+    --text-primary: #e3d4ad;
     --text-accent: #83a598;
-    --blue: #83a598;
-    --cyan: #8ec07c;
-    --purple: #fabd2f;
-    --pink: #fe8019;
-    --green: #b8bb26;
-    --orange: #fe8019;
-    --red: #cc241d;
+    --blue: #458284;
+    --cyan: #b3b628;
+    --purple: #ac6183;
+    --pink: #ce8599;
+    --green: #679969;
+    --orange: #d09522;
+    --red: #c82822;
 }

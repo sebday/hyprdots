@@ -12,7 +12,7 @@
     --surface-color: var(--bg-secondary);
     --background-surface-color: var(--bg-primary);
     --link-primary-color: var(--blue);
-    --highlight-color: var(--cyan);
+    --highlight-color: var(--bg-secondary);
     --special-color: var(--cyan);
     --button-secondary-font-color: var(--text-accent);
     --button-secondary-background-color: var(--bg-primary);
@@ -92,7 +92,7 @@ h1 {
 }
 
 .sc-button-xxlarge {
-    background-color: var(--accent-cyan)!important;
+    background-color: var(--text-accent)!important;
 }
 .queue__itemWrapper .m-playing,
 .queue__itemWrapper .m-active,
