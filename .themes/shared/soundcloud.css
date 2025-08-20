@@ -9,13 +9,13 @@
     --secondary-color: var(--text-accent);
     --font-primary-color: var(--text-primary);
     --font-secondary-color: var(--text-accent);
-    --link-primary-color: var(--accent-blue);
     --surface-color: var(--bg-secondary);
     --background-surface-color: var(--bg-primary);
-    --highlight-color: var(--accent-cyan);
+    --link-primary-color: var(--blue);
+    --highlight-color: var(--cyan);
+    --special-color: var(--cyan);
     --button-secondary-font-color: var(--text-accent);
     --button-secondary-background-color: var(--bg-primary);
-    --special-color: var(--accent-cyan);
     --tag-default-background-color: var(--bg-secondary);
 }
 
@@ -105,4 +105,11 @@ h1 {
 
 .sc-link-primary {
     color: var(--text-accent)!important;
+}
+
+.sc-button-next svg, 
+.sc-button-pause svg, 
+.sc-button-play svg, 
+.sc-button-prev svg {
+    color: var(--bg-secondary)!important;
 }
