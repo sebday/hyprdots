@@ -1,3 +1,4 @@
 brave-bin
 cursor-bin
+opencode-bin
 insync
