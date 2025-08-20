@@ -1,6 +1,8 @@
-:root {
+ :root {
     --bg-primary: #111c18;
+    --bg-secondary: #0d1511;
     --text-primary: #C1C497;
+    --text-accent: #509475;
     --blue: #509475;
     --cyan: #2DD5B7;
     --purple: #D2689C;
