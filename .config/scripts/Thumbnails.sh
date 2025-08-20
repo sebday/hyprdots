@@ -69,18 +69,46 @@ elif mode == "theme":
             icon_path = DEFAULT_ICON
         
         print(f"{entry_text}\x00icon\x1f{icon_path}")
+
+elif mode == "media":
+    # Media mode: for video/audio, with a generic fallback icon
+    MEDIA_DIR = os.environ.get("MEDIA_DIR", ".")
+    DEFAULT_ICON = "video-x-generic"
+
+    for line in sys.stdin:
+        file_path = line.strip()
+        if not file_path:
+            continue
+        
+        try:
+            relative_path = os.path.relpath(file_path, MEDIA_DIR)
+            if relative_path.startswith("../"):
+                relative_path = os.path.basename(file_path)
+        except ValueError:
+            relative_path = os.path.basename(file_path)
+
+        icon_path = get_thumbnail_for_file(file_path)
+        if icon_path == file_path: # Check if fallback to file_path occurred
+            icon_path = DEFAULT_ICON
+        
+        # Add two spaces for padding, consistent with the original FuzzyMpv.sh
+        print(f"  {relative_path}\x00icon\x1f{icon_path}")
 '
 
 # Function to generate fuzzel entries with thumbnails
-# Usage: generate_fuzzel_thumbnails <mode> [wallpaper_dir]
-# Mode: "wallpaper" or "theme"
+# Usage: generate_fuzzel_thumbnails <mode> [base_dir]
+# Mode: "wallpaper", "theme", or "media"
 generate_fuzzel_thumbnails() {
     local mode="$1"
-    local wallpaper_dir="$2"
+    local base_dir="$2"
     
     export THUMBNAIL_MODE="$mode"
-    if [ -n "$wallpaper_dir" ]; then
-        export WALLPAPER_DIR="$wallpaper_dir"
+    if [ -n "$base_dir" ]; then
+        if [ "$mode" == "wallpaper" ]; then
+            export WALLPAPER_DIR="$base_dir"
+        elif [ "$mode" == "media" ]; then
+            export MEDIA_DIR="$base_dir"
+        fi
     fi
     
     python3 -c "$FUZZEL_THUMBNAIL_GENERATOR"
