@@ -5,7 +5,6 @@
 # USAGE:
 #   Wallpaper.sh next|prev|random    - Cycle to the next, previous, or a random wallpaper.
 #   Wallpaper.sh select              - Open a menu to select a wallpaper.
-#   Wallpaper.sh cycle               - Toggle automatic wallpaper cycling every 5 minutes.
 #   Wallpaper.sh /path/to/image.jpg  - Set a specific image as the wallpaper.
 #   cat /path/to/image.jpg | Wallpaper.sh - Set wallpaper from stdin.
 
@@ -85,9 +84,6 @@ set_wallpaper() {
     # Save the path of the successfully set wallpaper
     mkdir -p "$(dirname "$STATE_FILE")"
     echo "$target_wallpaper" > "$STATE_FILE"
-    
-    # Send a notification
-    notify-send "Wallpaper Changed" "$(basename "$target_wallpaper")"
 
     # Update hyprpaper.conf with the new wallpaper for persistence across reboots
     update_hyprpaper_config "$target_wallpaper"
@@ -127,71 +123,6 @@ select_wallpaper_menu() {
 }
 
 
-# --- SYSTEMD TIMER MANAGEMENT: AUTO-CYCLE ---
-manage_cycle_toggle() {
-    local service_name="wallpaper-cycle"
-    local service_file="$HOME/.config/systemd/user/$service_name.service"
-    local timer_file="$HOME/.config/systemd/user/$service_name.timer"
-
-    # Check if the timer is active
-    if systemctl --user is-active --quiet "$service_name.timer"; then
-        # Timer is active, so stop and disable it
-        echo "Wallpaper cycling is active. Stopping it..."
-        systemctl --user stop "$service_name.timer"
-        systemctl --user disable "$service_name.timer"
-        rm -f "$service_file" "$timer_file"
-        systemctl --user daemon-reload
-        systemctl --user reset-failed
-        notify-send "Wallpaper Cycler" "Automatic cycling stopped."
-        echo "Wallpaper cycling stopped."
-    else
-        # Timer is not active, so create, start, and enable it
-        echo "Wallpaper cycling is not active. Starting it..."
-
-        mkdir -p "$HOME/.config/systemd/user"
-
-        # Create the service file
-        cat > "$service_file" << EOF
-[Unit]
-Description=Change wallpaper using Wallpaper.sh script
-
-[Service]
-Type=oneshot
-Environment="DISPLAY=:0"
-Environment="WAYLAND_DISPLAY=wayland-1"
-Environment="XDG_RUNTIME_DIR=/run/user/1000"
-ExecStartPre=/bin/bash -c 'systemctl --user import-environment HYPRLAND_INSTANCE_SIGNATURE'
-ExecStart=$HOME/.config/scripts/Wallpaper.sh next
-EOF
-
-        # Create the timer file
-        cat > "$timer_file" << EOF
-[Unit]
-Description=Run wallpaper cycler every 5 minutes
-
-[Timer]
-OnBootSec=1min
-OnUnitActiveSec=5min
-AccuracySec=1min
-
-[Install]
-WantedBy=timers.target
-EOF
-
-        systemctl --user daemon-reload
-        systemctl --user enable --now "$service_name.timer"
-
-        if systemctl --user is-active --quiet "$service_name.timer"; then
-            notify-send "Wallpaper Cycler" "Automatic cycling started (every 5 minutes)."
-            echo "Wallpaper cycling started."
-        else
-            notify-send "Wallpaper Cycler" "Error: Failed to start the cycling timer."
-            echo "Error: Failed to start cycling timer. Check with 'journalctl --user -u $service_name.timer'"
-        fi
-    fi
-}
-
-
 # --- MAIN LOGIC ---
 
 # Handle stdin for piping from other commands (e.g., imv)
@@ -212,10 +143,6 @@ COMMAND=${1:-next} # Default to 'next' if no argument is provided
 case "$COMMAND" in
     select)
         select_wallpaper_menu
-        ;;
-
-    cycle)
-        manage_cycle_toggle
         ;;
 
     next|prev|random)
@@ -269,7 +196,7 @@ case "$COMMAND" in
         ;;
 
     *)
-        echo "Usage: $0 [next|prev|random|select|cycle|<path_to_wallpaper>]"
+        echo "Usage: $0 [next|prev|random|select|<path_to_wallpaper>]"
         exit 1
         ;;
 esac
