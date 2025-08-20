@@ -1,7 +1,5 @@
 .theme-dark,
-.theme-light{
-
-  /* Obsidian "Dark" import so light mode looks the same*/
+.theme-light {
   --color-scheme: dark;
   --highlight-mix-blend-mode: lighten;
   --mono-rgb-0: 0, 0, 0;
@@ -53,10 +51,6 @@
 }
 
 /* LINKS & BRACKETS */
-
-/* link */
-
-/* url's */
 
 /* editor */
 
