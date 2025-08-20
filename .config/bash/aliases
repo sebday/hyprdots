@@ -16,6 +16,7 @@ function git() {
 
 # Tools
 alias ff='fastfetch'
+alias cat='cat'
 alias vim='nvim'
 alias lg='lazygit'
 alias g='git'

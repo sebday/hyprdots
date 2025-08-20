@@ -6,9 +6,3 @@ if command -v fzf &> /dev/null; then
     source /usr/share/fzf/key-bindings.bash
   fi
 fi
-
-# Load NVM
-export NVM_DIR="$HOME/.nvm"
-[ -d "$NVM_DIR" ] || mkdir -p "$NVM_DIR"
-[ -s "/usr/share/nvm/nvm.sh" ] && \. "/usr/share/nvm/nvm.sh" 2>/dev/null
-[ -s "/usr/share/nvm/bash_completion" ] && \. "/usr/share/nvm/bash_completion"

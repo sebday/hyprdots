@@ -7,3 +7,6 @@
 
 source ~/.config/bash/rc
 eval "$(mise activate bash)"
+
+# opencode
+export PATH=/home/seb/.opencode/bin:$PATH
