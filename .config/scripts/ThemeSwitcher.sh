@@ -40,8 +40,6 @@ selected_entry=$(
     ) | generate_fuzzel_thumbnails "theme" | fuzzel -d -l 8 -p "Select a theme: "
 )
 
-
-
 # Exit if no theme is selected
 if [ -z "$selected_entry" ]; then
     exit 0
