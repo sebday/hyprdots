@@ -17,28 +17,33 @@ FUZZEL_CONFIG_FILE="$HOME/.config/fuzzel/fuzzel.ini"
 CURSOR_CONFIG_FILE="$HOME/.config/Cursor/User/settings.json"
 OBSIDIAN_VAULT_DIR="$HOME/OneDrive/Notes"
 
-# Source the shared thumbnail utilities
-source "$HOME/.config/scripts/Thumbnails.sh"
+# Source the shared fuzzel utilities
+FUZZEL_HELPERS="$HOME/.config/scripts/thumbnails.sh"
+if [ -f "$FUZZEL_HELPERS" ]; then
+    source "$FUZZEL_HELPERS"
+fi
+
+# Function to generate the list of themes for fuzzel
+generate_theme_list() {
+    for theme_dir in "$THEME_DIR"/*; do
+        if [ -d "$theme_dir" ] && [ "$(basename "$theme_dir")" != "current" ] && [ "$(basename "$theme_dir")" != "shared" ]; then
+            theme_name=$(basename "$theme_dir")
+            
+            # Find the first wallpaper image to use as a thumbnail
+            wallpaper_file=""
+            wallpapers_dir="$theme_dir/wallpapers"
+            if [ -d "$wallpapers_dir" ]; then
+                wallpaper_file=$(find "$wallpapers_dir" -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.webp" \) -print -quit)
+            fi
+            
+            # Output in "theme_name<tab>wallpaper_path" format
+            printf "%s\t%s\n" "$theme_name" "$wallpaper_file"
+        fi
+    done
+}
 
 # Use fuzzel to select a theme, using thumbnails from wallpaper files
-selected_entry=$(
-    (
-        for theme_dir in "$THEME_DIR"/*; do
-            if [ -d "$theme_dir" ] && [ "$(basename "$theme_dir")" != "current" ] && [ "$(basename "$theme_dir")" != "shared" ] && [ "$(basename "$theme_dir")" != "oomox" ]; then
-                theme_name=$(basename "$theme_dir")
-                
-                # Find any image file from the wallpapers subfolder (alphabetically sorted)
-                wallpaper_file=""
-                wallpapers_dir="$theme_dir/wallpapers"
-                if [ -d "$wallpapers_dir" ]; then
-                    wallpaper_file=$(find "$wallpapers_dir" -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.webp" \) | sort | head -n 1)
-                fi
-                
-                printf "%s\t%s\n" "$theme_name" "$wallpaper_file"
-            fi
-        done
-    ) | generate_fuzzel_thumbnails "theme" | fuzzel -d -l 8 -p "Select a theme: "
-)
+selected_entry=$(generate_theme_list | generate_fuzzel_entries_with_thumbs "theme" | fuzzel -d -p "Select a theme: ")
 
 # Exit if no theme is selected
 if [ -z "$selected_entry" ]; then

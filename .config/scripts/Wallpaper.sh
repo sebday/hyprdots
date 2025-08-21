@@ -11,10 +11,12 @@
 # --- CONFIGURATION ---
 STATE_FILE="/tmp/current_wallpaper"
 HYPRPAPER_CONFIG="$HOME/.config/hypr/hyprpaper.conf"
-THUMBNAILS_SCRIPT="$HOME/.config/scripts/Thumbnails.sh"
+FUZZEL_HELPERS="$HOME/.config/scripts/thumbnails.sh"
 
-# Source the shared thumbnail utilities
-source "$THUMBNAILS_SCRIPT"
+# Source the shared fuzzel utilities
+if [ -f "$FUZZEL_HELPERS" ]; then
+    source "$FUZZEL_HELPERS"
+fi
 
 # --- FUNCTION: UPDATE HYPRPAPER CONFIG ---
 update_hyprpaper_config() {
@@ -104,7 +106,7 @@ select_wallpaper_menu() {
     # Find wallpaper files from the theme directory, sorted alphabetically
     selected_entry=$(
         find "$CURRENT_THEME_WALLPAPERS" -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.webp" \) | sort \
-        | generate_fuzzel_thumbnails "wallpaper" "$CURRENT_THEME_WALLPAPERS" | fuzzel -d -p "Select Wallpaper: "
+        | generate_fuzzel_entries_with_thumbs "wallpaper" "$CURRENT_THEME_WALLPAPERS" | fuzzel -d -p "Select Wallpaper: "
     )
 
     # If an entry was selected, reconstruct the full path and set the wallpaper
