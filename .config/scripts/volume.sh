@@ -1,5 +1,5 @@
 #!/bin/bash
-# ~/.config/waybar/scripts/Volume.sh
+# ~/.config/waybar/scripts/volume.sh
 
 # Usage: $0 {up|down|mute}
 

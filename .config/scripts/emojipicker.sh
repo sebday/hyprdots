@@ -1,6 +1,6 @@
 #!/bin/bash
 
-EMOJI_FILE="$HOME/.config/scripts/Emojis.txt"
+EMOJI_FILE="$HOME/.config/scripts/emojis.txt"
 
 # Check if the emoji file exists
 if [ ! -f "$EMOJI_FILE" ]; then

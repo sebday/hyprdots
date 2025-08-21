@@ -77,31 +77,31 @@
 		"tooltip": true
 	},
 	"custom/cava_mviz": {
-		"exec": "~/.config/scripts/WaybarCava.sh",
+		"exec": "~/.config/scripts/cava.sh",
 		"format": "{}"
 	},
 	"custom/wallpaper_prev": {
 		"format": "",
 		"tooltip": "Previous Wallpaper",
-		"on-click": "bash ~/.config/scripts/Wallpaper.sh prev",
+		"on-click": "bash ~/.config/scripts/wallpaper.sh prev",
 		"interval": "once"
 	},
 	"custom/wallpaper_next": {
 		"format": "",
 		"tooltip": "Next Wallpaper",
-		"on-click": "bash ~/.config/scripts/Wallpaper.sh next",
+		"on-click": "bash ~/.config/scripts/wallpaper.sh next",
 		"interval": "once"
 	},
 	"custom/wallpaper_random": {
 		"format": " ? ",
 		"tooltip": "Random Wallpaper",
-		"on-click": "bash ~/.config/scripts/Wallpaper.sh random",
+		"on-click": "bash ~/.config/scripts/wallpaper.sh random",
 		"interval": "once"
 	},
 	"custom/github": {
 		"format": "{}",
 		"return-type": "json",
-		"exec": "~/.config/scripts/GitHub.sh",
+		"exec": "~/.config/scripts/github.sh",
 		"interval": 300,
 		"on-click": "xdg-open https://github.com/sebday"
 	},
@@ -125,6 +125,6 @@
 		"interval": 1,
 		"format": "{}",
 		"tooltip": false,
-		"on-click": "~/.config/scripts/Record.sh"
+		"on-click": "~/.config/scripts/record.sh"
 	}
 }

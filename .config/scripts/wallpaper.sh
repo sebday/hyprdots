@@ -3,10 +3,10 @@
 # A unified script for managing wallpapers in Hyprland.
 #
 # USAGE:
-#   Wallpaper.sh next|prev|random    - Cycle to the next, previous, or a random wallpaper.
-#   Wallpaper.sh select              - Open a menu to select a wallpaper.
-#   Wallpaper.sh /path/to/image.jpg  - Set a specific image as the wallpaper.
-#   cat /path/to/image.jpg | Wallpaper.sh - Set wallpaper from stdin.
+#   wallpaper.sh next|prev|random    - Cycle to the next, previous, or a random wallpaper.
+#   wallpaper.sh select              - Open a menu to select a wallpaper.
+#   wallpaper.sh /path/to/image.jpg  - Set a specific image as the wallpaper.
+#   cat /path/to/image.jpg | wallpaper.sh - Set wallpaper from stdin.
 
 # --- CONFIGURATION ---
 STATE_FILE="/tmp/current_wallpaper"

@@ -11,8 +11,8 @@ show_power_menu() {
   case "$selection" in
   " Lock") hyprlock ;;
   " Relaunch") hyprctl dispatch exit ;;
-  "󰜉 Restart") ~/.config/scripts/Logout.sh reboot ;;
-  "󰐥 Shutdown") ~/.config/scripts/Logout.sh shutdown ;;
+  "󰜉 Restart") ~/.config/scripts/logout.sh reboot ;;
+  "󰐥 Shutdown") ~/.config/scripts/logout.sh shutdown ;;
   esac
 }
 

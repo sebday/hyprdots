@@ -4,7 +4,7 @@
 THEME_DIR="$HOME/.themes"
 OOMOX_THEME_DIR="$HOME/.themes/shared/oomox"
 CURRENT_THEME_LINK="$HOME/.themes/current"
-WALLPAPER_SCRIPT="$HOME/.config/scripts/Wallpaper.sh"
+WALLPAPER_SCRIPT="$HOME/.config/scripts/wallpaper.sh"
 GTK2_CONFIG_FILE="$HOME/.gtkrc-2.0"
 GTK3_CONFIG_FILE="$HOME/.config/gtk-3.0/settings.ini"
 GTK4_CONFIG_DIR="$HOME/.config/gtk-4.0"

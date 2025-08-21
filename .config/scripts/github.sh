@@ -25,14 +25,6 @@ fi
 GITHUB_COLORS_FILE="$HOME/.config/waybar/github_colors.sh"
 if [ -f "$GITHUB_COLORS_FILE" ]; then
     source "$GITHUB_COLORS_FILE"
-else
-    # Fallback colors if the file doesn't exist
-    declare -A CONTRIB_COLORS
-    CONTRIB_COLORS[0]="#1f2335" # text-dark
-    CONTRIB_COLORS[1]="#033a16"
-    CONTRIB_COLORS[2]="#196c2e"
-    CONTRIB_COLORS[3]="#2ea043"
-    CONTRIB_COLORS[4]="#56d364"
 fi
 
 # --- Fetch Contribution Data using GraphQL ---
