@@ -1,12 +1,10 @@
 [Desktop Entry]
 Name=GIMP
 Comment=Image editor
-GenericName=Notes
+GenericName=Image Editor
 Exec=/home/seb/.local/bin/gimp.AppImage
 Type=Application
 Icon=gimp
-Categories=Office;
+Categories=Graphics;2DGraphics;RasterGraphics;
 StartupNotify=true
-MimeType=x-scheme-handler/obsidian;
-Path=
 Terminal=false
