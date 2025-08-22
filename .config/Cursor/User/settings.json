@@ -18,7 +18,23 @@
             "breadcrumb.background": "#0a0e19",
             "statusBar.background": "#0a0e19",
             
+        },
+        "[Gruvbox Dark Soft]": {
+            "editor.background": "#111c18",
+            "sideBar.background": "#111c18",
+            "activityBar.background": "#111c18",
+            "panel.background": "#111c18",
+            "terminal.background": "#111c18",
+            "tab.activeBackground": "#111c18",
+            "tab.inactiveBackground": "#111c18",
+            "titleBar.activeBackground": "#111c18",
+            "titleBar.inactiveBackground": "#111c18",
+            "editorGroupHeader.tabsBackground": "#111c18",
+            "breadcrumb.background": "#111c18",
+            "statusBar.background": "#111c18",
+            
         }
+        
     },
     "workbench.settings.applyToAllProfiles": [],
     "javascript.updateImportsOnFileMove.enabled": "never",
