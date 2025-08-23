@@ -7,5 +7,5 @@ Encoding=UTF-8
 [X-GNOME-Metatheme]
 GtkTheme=Nordic-darker
 MetacityTheme=Nordic-darker
-IconTheme=Zafiro-icons
+IconTheme=Tokyonight-Moon
 ButtonLayout=:minimize,maximize,close

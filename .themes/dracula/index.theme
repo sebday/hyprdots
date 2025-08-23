@@ -8,5 +8,5 @@ Encoding=UTF-8
 GtkTheme=Dracula-Darker
 MetacityTheme=Dracula-Darker
 IconTheme=Tokyonight-Dark-Cyan
-CursorTheme=Bibata-Modern-Ice
+CursorTheme=Vimix-cursors
 ButtonLayout=close,minimize,maximize:menu

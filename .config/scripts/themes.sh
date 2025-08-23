@@ -94,15 +94,17 @@ if [ -f "$WALLPAPER_SCRIPT" ]; then
     fi
 fi
 
-# Update icon theme from .conf file
-ICON_THEME_FILE="$CURRENT_THEME_LINK/icons.conf"
-if [ -f "$ICON_THEME_FILE" ]; then
-    # Source the icon theme file to get the variables
-    source "$ICON_THEME_FILE"
+# Update icon theme from index.theme file
+INDEX_THEME_FILE="$CURRENT_THEME_LINK/index.theme"
+if [ -f "$INDEX_THEME_FILE" ]; then
+    # Parse the icon theme name from the index.theme file
+    icon_theme=$(grep -i '^IconTheme=' "$INDEX_THEME_FILE" | cut -d'=' -f2)
     
-    # Apply via gsettings and update config file
-    [ -n "$icon_theme" ] && gsettings set org.gnome.desktop.interface icon-theme "$icon_theme"
-    [ -n "$icon_theme" ] && sed -i "s|^gtk-icon-theme-name=.*|gtk-icon-theme-name=$icon_theme|" "$GTK3_CONFIG_FILE"
+    if [ -n "$icon_theme" ]; then
+        # Apply via gsettings and update config file
+        gsettings set org.gnome.desktop.interface icon-theme "$icon_theme"
+        sed -i "s|^gtk-icon-theme-name=.*|gtk-icon-theme-name=$icon_theme|" "$GTK3_CONFIG_FILE"
+    fi
 fi
 
 # Update btop theme

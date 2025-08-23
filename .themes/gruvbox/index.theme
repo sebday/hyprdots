@@ -7,6 +7,6 @@ Encoding=UTF-8
 [X-GNOME-Metatheme]
 GtkTheme=Gruvbox-Dark
 MetacityTheme=Gruvbox-Dark
-IconTheme=Tela-circle-Dark
-CursorTheme=Gruvbox-cursors
+IconTheme=Gruvbox-Dark
+CursorTheme=Vimix-cursors
 ButtonLayout=close,minimize,maximize:menu

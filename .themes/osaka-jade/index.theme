@@ -1,12 +1,12 @@
 Type=X-GNOME-Metatheme
 [Desktop Entry]
-Name=Osaka-Dark-Solarized
+Name=Osaka-Jade
 Comment=An Flat Gtk+ theme based on Elegant Design
 Encoding=UTF-8
 
 [X-GNOME-Metatheme]
-GtkTheme=Osaka-Dark-Solarized
-MetacityTheme=Osaka-Dark-Solarized
-IconTheme=Tela-circle-Dark
-CursorTheme=Osaka-cursors
+GtkTheme=Osaka-Jade
+MetacityTheme=Osaka-Jade
+IconTheme=Gruvbox-Dark
+CursorTheme=Vimix-cursors
 ButtonLayout=close,minimize,maximize:menu
