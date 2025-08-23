@@ -59,7 +59,7 @@ entry selection, label selection, textview text selection:focus, textview text s
 }
 
 treeview.view:selected, .view:selected {
-  color: rgba(0, 43, 54, 0.87);
+  color: #111c18d1;
   background-color: #f3efe2;
 }
 
@@ -284,19 +284,19 @@ window.background.csd > leaflet > box.vertical > scrolledwindow.view > viewport.
 window.background.csd > hdyleaflet > box.vertical > scrolledwindow.view > viewport.frame > stack entry,
 window.background.csd > box.horizontal > box.vertical > scrolledwindow.view > viewport.frame > stack entry {
   background-color: rgba(0, 43, 54, 0.04);
-  color: rgba(0, 43, 54, 0.87);
+  color: #111c18d1;
 }
 
 window.background.csd > leaflet > box.vertical > scrolledwindow.view > viewport.frame > stack entry:focus,
 window.background.csd > hdyleaflet > box.vertical > scrolledwindow.view > viewport.frame > stack entry:focus,
 window.background.csd > box.horizontal > box.vertical > scrolledwindow.view > viewport.frame > stack entry:focus {
-  color: rgba(0, 43, 54, 0.87);
+  color: #111c18d1;
 }
 
 window.background.csd > leaflet > box.vertical > scrolledwindow.view > viewport.frame > stack entry:drop(active),
 window.background.csd > hdyleaflet > box.vertical > scrolledwindow.view > viewport.frame > stack entry:drop(active),
 window.background.csd > box.horizontal > box.vertical > scrolledwindow.view > viewport.frame > stack entry:drop(active) {
-  color: rgba(0, 43, 54, 0.87);
+  color: #111c18d1;
 }
 
 window.background.csd > leaflet > box.vertical > scrolledwindow.view > viewport.frame > stack entry:disabled,
@@ -323,7 +323,7 @@ window.background.csd > hdyleaflet > box.vertical > scrolledwindow.view > viewpo
 window.background.csd > box.horizontal > box.vertical > scrolledwindow.view > viewport.frame > stack entry:hover image, window.background.csd > leaflet > box.vertical > scrolledwindow.view > viewport.frame > stack entry:focus image,
 window.background.csd > hdyleaflet > box.vertical > scrolledwindow.view > viewport.frame > stack entry:focus image,
 window.background.csd > box.horizontal > box.vertical > scrolledwindow.view > viewport.frame > stack entry:focus image {
-  color: rgba(0, 43, 54, 0.87);
+  color: #111c18d1;
 }
 
 spinbutton.vertical, spinbutton:not(.vertical),
@@ -469,7 +469,7 @@ entry progress {
 }
 
 treeview entry.flat, treeview entry {
-  background-color: #00313d;
+  background-color: #111c18;
 }
 
 treeview entry.flat, treeview entry.flat:focus, treeview entry, treeview entry:focus {
@@ -546,7 +546,7 @@ actionbar > revealer > box button:not(.suggested-action):not(.destructive-action
 }
 
 actionbar > revealer > box button:checked:not(.suggested-action):not(.destructive-action):not(.combo) {
-  background-color: rgba(0, 43, 54, 0.87);
+  background-color: #111c18d1;
   color: #f3efe2;
 }
 
@@ -555,11 +555,11 @@ window.background > box.vertical > box.horizontal > frame > scrolledwindow > vie
 }
 
 window.background > box.vertical > box.horizontal > frame > scrolledwindow > viewport.frame list button.flat:hover, terminal-window notebook > header > box button.flat:hover, notebook > header > button.flat:hover, notebook > header tab:not(:checked) button.flat:hover, window.background > box.vertical > box.horizontal > frame > scrolledwindow > viewport.frame list button.flat:active, terminal-window notebook > header > box button.flat:active, notebook > header > button.flat:active, notebook > header tab:not(:checked) button.flat:active, window.background > box.vertical > box.horizontal > frame > scrolledwindow > viewport.frame list button.flat:focus, terminal-window notebook > header > box button.flat:focus, notebook > header > button.flat:focus, notebook > header tab:not(:checked) button.flat:focus {
-  color: rgba(0, 43, 54, 0.87);
+  color: #111c18d1;
 }
 
 window.background > box.vertical > box.horizontal > frame > scrolledwindow > viewport.frame list button.flat:checked, terminal-window notebook > header > box button.flat:checked, notebook > header > button.flat:checked, notebook > header tab:not(:checked) button.flat:checked {
-  background-color: rgba(0, 43, 54, 0.87);
+  background-color: #111c18d1;
   color: #f3efe2;
 }
 
@@ -1310,16 +1310,16 @@ searchbar > revealer > box {
 
 .nemo-window .primary-toolbar button:checked:not(.text-button), .titlebar button:checked:not(.suggested-action):not(.destructive-action) {
   background-color: #268bd3;
-  color: rgba(0, 43, 54, 0.87);
+  color: #111c18d1;
 }
 
 .nemo-window .primary-toolbar button:checked:hover:not(.text-button), .titlebar button:checked:hover:not(.suggested-action):not(.destructive-action) {
   box-shadow: inset 0 0 0 9999px rgba(0, 43, 54, 0.04);
-  color: rgba(0, 43, 54, 0.87);
+  color: #111c18d1;
 }
 
 .nemo-window .primary-toolbar button:checked:focus:not(.text-button), .titlebar button:checked:focus:not(.suggested-action):not(.destructive-action) {
-  color: rgba(0, 43, 54, 0.87);
+  color: #111c18d1;
   box-shadow: none;
 }
 
@@ -1463,7 +1463,7 @@ searchbar > revealer > box {
 
 .titlebar stackswitcher:checked {
   background-color: #f3efe2;
-  color: rgba(0, 43, 54, 0.87);
+  color: #111c18d1;
 }
 
 .titlebar stackswitcher:checked:hover {
@@ -1574,7 +1574,7 @@ button:not(.suggested-action):not(.destructive-action).text-button {
 }
 
 .titlebar.default-decoration button.titlebutton.minimize:active, .titlebar.default-decoration button.titlebutton.maximize:active, .titlebar.default-decoration button.titlebutton.close:active {
-  color: rgba(0, 43, 54, 0.87);
+  color: #111c18d1;
   background-image: none;
   animation: none;
   box-shadow: none;
@@ -1808,7 +1808,7 @@ treeview.view.expander:selected {
 }
 
 treeview.view.expander:selected:hover, treeview.view.expander:selected:active {
-  color: rgba(0, 43, 54, 0.87);
+  color: #111c18d1;
 }
 
 treeview.view.expander:selected:disabled {
@@ -2281,7 +2281,7 @@ notebook > header > tabs > arrow {
 }
 
 notebook > header > tabs > arrow:hover, notebook > header > tabs > arrow:active {
-  color: rgba(0, 43, 54, 0.87);
+  color: #111c18d1;
 }
 
 notebook > header > tabs > arrow:disabled {
@@ -3143,7 +3143,7 @@ actionbar > revealer > box stackswitcher.linked:not(.vertical) > button:not(.sug
 }
 
 actionbar > revealer > box stackswitcher.linked:not(.vertical) > button:not(.suggested-action):not(.destructive-action):hover, actionbar > revealer > box stackswitcher.linked:not(.vertical) > button:not(.suggested-action):not(.destructive-action):active {
-  color: rgba(0, 43, 54, 0.87);
+  color: #111c18d1;
 }
 
 actionbar > revealer > box stackswitcher.linked:not(.vertical) > button:not(.suggested-action):not(.destructive-action):checked {
@@ -4058,7 +4058,7 @@ colorswatch.dark {
 }
 
 colorswatch.light {
-  color: rgba(0, 43, 54, 0.87);
+  color: #111c18d1;
 }
 
 colorswatch overlay {
@@ -4366,7 +4366,7 @@ stackswitcher.linked:not(.vertical) > button:not(.suggested-action):not(.destruc
 
 stackswitcher.linked:not(.vertical) > button:not(.suggested-action):not(.destructive-action):checked {
   background-color: #f3efe2;
-  color: rgba(0, 43, 54, 0.87);
+  color: #111c18d1;
 }
 
 stackswitcher.linked:not(.vertical) > button:not(.suggested-action):not(.destructive-action):checked:hover {
@@ -4851,7 +4851,7 @@ window.background.csd > box.horizontal > box.vertical > scrolledwindow.view scro
 window.background.csd > leaflet > box.vertical > scrolledwindow.view scrollbar slider:active,
 window.background.csd > hdyleaflet > box.vertical > scrolledwindow.view scrollbar slider:active,
 window.background.csd > box.horizontal > box.vertical > scrolledwindow.view scrollbar slider:active {
-  background-color: rgba(0, 43, 54, 0.87);
+  background-color: #111c18d1;
 }
 
 window.background.csd > leaflet > box.vertical > scrolledwindow.view scrollbar slider:disabled,
@@ -8475,8 +8475,8 @@ read if you used those and something break with a version upgrade you're on your
 @define-color wm_button_icon alpha(black, 0.5);
 @define-color wm_button_focused_bg #0e363f;
 @define-color wm_button_unfocused_bg #0e363f;
-@define-color wm_button_hover_fg rgba(0, 43, 54, 0.87);
-@define-color wm_button_active_fg rgba(0, 43, 54, 0.87);
+@define-color wm_button_hover_fg #111c18d1;
+@define-color wm_button_active_fg #111c18d1;
 @define-color wm_button_hover_bg #f3efe2;
 @define-color wm_button_active_bg #f2eee0;
 /* FIXME this is really an API */
