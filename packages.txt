@@ -48,6 +48,7 @@ webp-pixbuf-loader
 xarchiver
 7-zip
 gvfs
+caligula
 
 # Media #####################
 pipewire
