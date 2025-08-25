@@ -218,7 +218,7 @@ fi
 
 # Update GitHub contribution colors
 WAYBAR_THEME_FILE="$CURRENT_THEME_LINK/waybar.css"
-GITHUB_COLORS_FILE="$HOME/.config/waybar/github_colors.sh"
+GITHUB_COLORS_FILE="/tmp/waybar_github_colors"
 if [ -f "$WAYBAR_THEME_FILE" ]; then
     # Extract github colors from waybar.css
     github_0=$(grep "@define-color github-0" "$WAYBAR_THEME_FILE" | awk '{print $3}' | tr -d ';')
@@ -227,7 +227,7 @@ if [ -f "$WAYBAR_THEME_FILE" ]; then
     github_3=$(grep "@define-color github-3" "$WAYBAR_THEME_FILE" | awk '{print $3}' | tr -d ';')
     github_4=$(grep "@define-color github-4" "$WAYBAR_THEME_FILE" | awk '{print $3}' | tr -d ';')
 
-    # Update github_colors.sh
+    # Update waybar_github_colors.sh
     echo "declare -A CONTRIB_COLORS" > "$GITHUB_COLORS_FILE"
     echo "CONTRIB_COLORS[0]=\"$github_0\"" >> "$GITHUB_COLORS_FILE"
     echo "CONTRIB_COLORS[1]=\"$github_1\"" >> "$GITHUB_COLORS_FILE"

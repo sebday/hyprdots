@@ -15,77 +15,80 @@ window#waybar {
 #custom-shopify_zk,
 #custom-shopify_diy,
 #custom-github,
-#custom-cava_mviz,
 #pulseaudio,
-#tray,
-#clock {
+#clock,
+#tray-expander {
 	background-color: @background;
 	padding: 0 16px;
 	margin: 0 8px;
 }
 
-
-#custom-shopify_zk,
-#custom-shopify_diy {
-	color: @accent-blue;
-}
-
-
-#custom-github.github-level-0 {
-	color: @text-dark;
-}
-#custom-github.github-level-1 {
-	color: @github-1;
-}
-#custom-github.github-level-2 {
-	color: @github-2;
-}
-#custom-github.github-level-3 {
-	color: @github-3;
-}
-#custom-github.github-level-4 {
-	color: @github-4;
+#custom-cava,
+#bluetooth,
+#network,
+#cpu,
+#tray {
+	background-color: @background;
+	padding: 0 4px;
+	margin: 0 8px;
 }
 
 #workspaces button {
 	color: @text-dark;
-	box-shadow: none;
-	text-shadow: none;
-	padding: 0px;
-	border-radius: 0;
-	padding-left: 4px;
-	padding-right: 4px;
-}
-
-#workspaces button:hover,
-#workspaces button.active:hover {
-	border-radius: 5px;
-	color: @accent-yellow;
-	padding-left: 2px;
-	padding-right: 2px;
-}
-
-#workspaces button.persistent {
-	color: @text-secondary;
-	border-radius: 0;
-}
-
-#workspaces button.active {
-	color: @accent-blue;
-	border-radius: 10px;
 	padding-left: 8px;
 	padding-right: 8px;
 }
 
+#workspaces button.active {
+	color: @accent-blue;
+}
+
 #workspaces button.urgent {
 	color: @accent-pink;
-	border-radius: 0px;
+}
+
+#custom-recording {
+    color: @accent-orange;
+    font-size: 16px;
+    animation: blink 1s linear infinite;
+}
+  
+@keyframes blink {
+    0% { opacity: 1; }
+    50% { opacity: 1; }
+    51% { opacity: 0; }
+    100% { opacity: 0; }
 }
 
 #clock {
 	color: @accent-blue;
+    margin-left: 0;
+    padding-left: 0;
 }
 
+#custom-cava {
+	color: @accent-pink;
+	padding-right: 0;
+    margin-right: 0;
+}
+
+#pulseaudio {
+	color: @accent-pink;
+    margin-left: 0;
+}
+
+#pulseaudio.muted {
+	color: @accent-orange;
+}
+
+#tray-expander {
+    margin-left: 0;
+    padding-left: 0;
+}
+
+#tray {
+    margin-left: 0;
+}
 #tray>.passive {
 	-gtk-icon-effect: dim;
 }
@@ -94,37 +97,32 @@ window#waybar {
 	-gtk-icon-effect: highlight;
 }
 
-#custom-cava_mviz {
-	color: @accent-pink;
-	padding-right: 0;
-}
 
-#pulseaudio {
-	color: @accent-orange;
+#custom-shopify_zk,
+#custom-shopify_diy {
+    color: @accent-blue;
 }
-
-#pulseaudio.muted {
-	color: @accent-pink;
+#custom-github.github-level-0 {
+    color: @text-dark;
 }
-
-/* Recording indicator */
-#custom-recording {
-    color: #ff0000;
-    font-size: 16px;
-    animation: blink 1s linear infinite;
-  }
-  
-  @keyframes blink {
-    0% { opacity: 1; }
-    50% { opacity: 1; }
-    51% { opacity: 0; }
-    100% { opacity: 0; }
-  }
+#custom-github.github-level-1 {
+    color: @github-1;
+}
+#custom-github.github-level-2 {
+    color: @github-2;
+}
+#custom-github.github-level-3 {
+    color: @github-3;
+}
+#custom-github.github-level-4 {
+    color: @github-4;
+}
 
 #custom-shopify_zk:hover,
 #custom-shopify_diy:hover,
 #custom-github:hover,
 #clock:hover,
-#pulseaudio:hover {
-	color: @accent-yellow;
+#pulseaudio:hover,
+#tray-expander:hover {
+	color: @accent-pink;
 }

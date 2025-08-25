@@ -22,7 +22,7 @@ if [[ -z "$TOKEN" ]]; then
 fi
 
 # --- Source Contribution Colors ---
-GITHUB_COLORS_FILE="$HOME/.config/waybar/github_colors.sh"
+GITHUB_COLORS_FILE="/tmp/waybar_github_colors"
 if [ -f "$GITHUB_COLORS_FILE" ]; then
     source "$GITHUB_COLORS_FILE"
 fi
