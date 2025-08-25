@@ -3,6 +3,7 @@
 * {
 	font-family: "CaskaydiaMono Nerd Font";
 	font-weight: bold;
+    font-size: 13px;
 	min-height: 0;
 }
 
@@ -17,52 +18,18 @@ window#waybar {
 #custom-cava_mviz,
 #pulseaudio,
 #tray,
-#custom-calculator,
-#custom-assistant,
-#custom-calendar,
 #clock {
 	background-color: @background;
 	padding: 0 16px;
 	margin: 0 8px;
 }
 
-#custom-calculator,
-#custom-assistant,
-#custom-calendar {
-    padding: 0;
-}
-
-#clock {
-	margin-right: 0;
-	padding-right: 0;
-}
-
-#tray {
-	margin-left: 0;
-}
-
-#custom-wallpaper_prev,
-#custom-wallpaper_random,
-#custom-wallpaper_cycle,
-#custom-wallpaper_next {
-	background-color: @background;
-	padding: 4px 8px;
-}
 
 #custom-shopify_zk,
 #custom-shopify_diy {
 	color: @accent-blue;
 }
 
-#custom-wallpaper_random,
-#custom-wallpaper_cycle,
-#custom-wallpaper_prev,
-#custom-wallpaper_next,
-#custom-calculator,
-#custom-assistant,
-#custom-calendar {
-	color: @text-muted;
-}
 
 #custom-github.github-level-0 {
 	color: @text-dark;
@@ -119,10 +86,6 @@ window#waybar {
 	color: @accent-blue;
 }
 
-#tray {
-	font-size: 97%;
-}
-
 #tray>.passive {
 	-gtk-icon-effect: dim;
 }
@@ -148,7 +111,6 @@ window#waybar {
 #custom-recording {
     color: #ff0000;
     font-size: 16px;
-    margin-right: 8px;
     animation: blink 1s linear infinite;
   }
   
@@ -159,13 +121,6 @@ window#waybar {
     100% { opacity: 0; }
   }
 
-#custom-wallpaper_random:hover,
-#custom-wallpaper_cycle:hover,
-#custom-wallpaper_prev:hover,
-#custom-wallpaper_next:hover,
-#custom-calculator:hover,
-#custom-assistant:hover,
-#custom-calendar:hover,
 #custom-shopify_zk:hover,
 #custom-shopify_diy:hover,
 #custom-github:hover,
