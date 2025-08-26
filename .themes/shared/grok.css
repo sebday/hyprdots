@@ -4,18 +4,18 @@
 }
 
 .via-background {
-  --tw-gradient-stops: var(--bg-light),var(--bg-primary) var(--tw-gradient-via-position),var(--tw-gradient-to);
+  --tw-gradient-stops: var(--bg-secondary),var(--bg-primary) var(--tw-gradient-via-position),var(--tw-gradient-to);
 }
 
-.bg-surface-l2,
-.bg-background {
-  background: var(--bg-light) !important;
-}
-
+.bg-background ,
 .bg-surface-l1 {
-  background: var(--bg-lighter) !important;
+  background: var(--bg-primary) !important;
+}
+
+.bg-surface-l2 {
+  background: var(--bg-secondary) !important;
 }
 
 .border-border, .border-border-l1 {
-  border-color: var(--bg-light) !important;
+  border-color: var(--bg-primary) !important;
 }
