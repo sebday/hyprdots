@@ -54,6 +54,7 @@ caligula
 pipewire
 alsa-utils
 playerctl
+wiremix
 imv
 mpv
 cava
