@@ -10,7 +10,7 @@
 
 STATE_FILE="/tmp/current_wallpaper"
 HYPRPAPER_CONFIG="$HOME/.config/hypr/hyprpaper.conf"
-THUMBNAILS="$HOME/.config/scripts/thumbnails.sh"
+THUMBNAILS="$HOME/.local/bin/thumbnails.sh"
 
 # Source the shared fuzzel utilities
 if [ -f "$THUMBNAILS" ]; then

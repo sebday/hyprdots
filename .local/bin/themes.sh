@@ -4,7 +4,7 @@
 THEME_DIR="$HOME/.themes"
 OOMOX_THEME_DIR="$HOME/.themes/shared/oomox"
 CURRENT_THEME_LINK="$HOME/.themes/current"
-WALLPAPER_SCRIPT="$HOME/.config/scripts/wallpaper.sh"
+WALLPAPER_SCRIPT="$HOME/.local/bin//wallpaper.sh"
 GTK2_CONFIG_FILE="$HOME/.gtkrc-2.0"
 GTK3_CONFIG_FILE="$HOME/.config/gtk-3.0/settings.ini"
 GTK4_CONFIG_DIR="$HOME/.config/gtk-4.0"
@@ -18,7 +18,7 @@ CURSOR_CONFIG_FILE="$HOME/.config/Cursor/User/settings.json"
 OBSIDIAN_VAULT_DIR="$HOME/OneDrive/Notes"
 
 # Source the shared fuzzel utilities
-FUZZEL_HELPERS="$HOME/.config/scripts/thumbnails.sh"
+FUZZEL_HELPERS="$HOME/.local/bin//thumbnails.sh"
 if [ -f "$FUZZEL_HELPERS" ]; then
     source "$FUZZEL_HELPERS"
 fi
