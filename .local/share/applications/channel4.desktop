@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Channel 4
+Comment=Watch Channel 4
+Exec=firefox --new-window https://www.channel4.com/my4/watching
+Icon=svp-manager4
+Terminal=false
+Categories=AudioVideo;Video;Network;
+Path=
+StartupNotify=false

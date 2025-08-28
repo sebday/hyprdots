@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=iPlayer
+Comment=Watch BBC iPlayer
+Exec=brave --app=https://www.bbc.co.uk/iplayer/continue-watching
+Icon=bbc
+Terminal=false
+Categories=AudioVideo;Video;Network;
+Path=
+StartupNotify=false
