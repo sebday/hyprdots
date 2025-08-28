@@ -10,13 +10,13 @@ selected_option=$(echo -e "$options" | fuzzel -d -p "Select an action: ")
 # Execute the corresponding script based on the selection
 case "$selected_option" in
     "󰸘 Change Theme")
-        bash ~/.config/scripts/themes.sh
+        bash ~/.local/bin/themes.sh
         ;;
     "󰋪 Change Wallpaper")
-        bash ~/.config/scripts/wallpaper.sh select
+        bash ~/.local/bin/wallpaper.sh select
         ;;
     "󰌌 Show Keybinds")
-        bash ~/.config/scripts/keybinds.sh
+        bash ~/.local/bin/keybinds.sh
         ;;
     *)
         # Exit gracefully if nothing was selected

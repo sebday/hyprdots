@@ -70,7 +70,7 @@
     "custom/github": {
 		"format": "{}",
 		"return-type": "json",
-		"exec": "~/.config/scripts/github.sh",
+		"exec": "~/.local/bin/github.sh",
 		"interval": 300,
 		"on-click": "xdg-open https://github.com/sebday"
 	},
@@ -79,10 +79,10 @@
 		"interval": 1,
 		"format": "{}",
 		"tooltip": false,
-		"on-click": "~/.config/scripts/record.sh"
+		"on-click": "~/.local/bin/record.sh"
 	},
     "custom/cava": {
-        "exec": "~/.config/scripts/cava.sh",
+        "exec": "~/.local/bin/cava.sh",
         "format": "{}",
         "on-click": "ghostty --class=TUI.float -e wiremix",
         "on-click-right": "ghostty --class=TUI.float -e alsamixer"
