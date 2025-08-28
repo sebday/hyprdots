@@ -2,15 +2,12 @@
 # A simple fuzzel-based menu script inspired by omarchy-menu.
 
 # Define menu options with Nerd Font icons
-options="󰍜 Full menu\n󰸘 Change Theme\n󰋪 Change Wallpaper\n󰌌 Show Keybinds\n󰝚 Media Player\n󰟹 iPlayer\n󰗃 Channel 4"
+options="󰸘 Change Theme\n󰋪 Change Wallpaper\n󰌌 Show Keybinds\n󰝚 Media Player\n󰟹 iPlayer\n󰗃 Channel 4"
 
 # Use fuzzel to get the user's choice
 selected_option=$(echo -e "$options" | fuzzel -d -p "Select an action: ")
 
 case "$selected_option" in
-    "󰍜 Full menu")
-        fuzzel
-        ;;
     "󰸘 Change Theme")
         bash ~/.local/bin/themes.sh
         ;;
