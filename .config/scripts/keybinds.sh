@@ -1,62 +1,40 @@
 #!/bin/bash
 
-# A script to display Hyprland keybindings defined in your configuration
-# using fuzzel for an interactive search menu.
+# Display Hyprland keybindings using fuzzel
+# Uses hyprctl to get the active keybindings & temp files to avoid pipeline issues
 
-USER_HYPRLAND_CONF="$HOME/.config/hypr/hyprland.conf"
+# Create temp files
+HYPRCTL_OUTPUT=$(mktemp)
+AWK_OUTPUT=$(mktemp)
+SORTED_OUTPUT=$(mktemp)
 
-# Process the configuration file to extract and format keybindings
-# 1. `grep` finds all lines starting with 'bind' (allowing for leading spaces).
-# 2. The first `sed` removes comments (anything after a '#').
-# 3. `awk` does the heavy lifting of formatting the output.
-#    - It sets the field separator to a comma ','.
-#    - It removes the 'bind... =' part from the beginning of the line.
-#    - It joins the key combination (e.g., "SUPER + Q").
-#    - It joins the command that the key executes.
-#    - It prints everything in a nicely aligned format.
-# 4. The final `sed` cleans up any leftover commas from the end of lines.
-grep -h '^[[:space:]]*bind' $USER_HYPRLAND_CONF |
-  sed '/^[[:space:]]*$/d' |
-  sort -u |
-  awk -F, '
-{
-    # Extract friendly name from comment
-    friendly_name = "";
-    if (match($0, /#[ \t]*(.*)/, arr)) {
-        friendly_name = arr[1];
-        gsub(/^[ \t]+|[ \t]+$/, "", friendly_name);
+# Ensure temporary files are cleaned up on exit
+trap 'rm -f "$HYPRCTL_OUTPUT" "$AWK_OUTPUT" "$SORTED_OUTPUT"' EXIT
+
+hyprctl binds > "$HYPRCTL_OUTPUT"
+awk '
+    BEGIN { RS = "\n\n" }
+    {
+        mod_str = ""; key = ""; description = "";
+        split($0, lines, "\n");
+        for (i in lines) {
+            line = lines[i];
+            if (match(line, /modmask: ([0-9]+)/, m)) { mod_mask = m[1]; }
+            if (match(line, /key: (.*)/, m)) { key = m[1]; }
+            if (match(line, /description: (.*)/, m)) { description = m[1]; }
+        }
+        if (mod_mask > 0) {
+            if (mod_mask >= 64) { mod_str = mod_str "SUPER "; mod_mask -= 64; }
+            if (mod_mask >= 8)  { mod_str = mod_str "ALT ";   mod_mask -= 8;  }
+            if (mod_mask >= 4)  { mod_str = mod_str "CTRL ";  mod_mask -= 4;  }
+            if (mod_mask >= 1)  { mod_str = mod_str "SHIFT "; mod_mask -= 1;  }
+            sub(/ $/, "", mod_str);
+        }
+        key_combo = mod_str != "" ? mod_str " + " key : key;
+        if (key != "" && description != "") {
+            printf "%-25s → %s\n", key_combo, description;
+        }
     }
-
-    # Strip trailing comments from the line to not interfere with parsing
-    sub(/#.*/, "");
-
-    # Remove the "bind... =" part and surrounding whitespace
-    sub(/^[[:space:]]*bind[^=]*=(\+[[:space:]])?(exec, )?[[:space:]]*/, "", $1);
-
-    # Combine the modifier and key (first two fields)
-    key_combo = $1 " + " $2;
-
-    # Clean up: strip leading "+" if present, trim spaces
-    gsub(/^[ \t]*\+?[ \t]*/, "", key_combo);
-    gsub(/[ \t]+$/, "", key_combo);
-
-    # Reconstruct the command from the remaining fields
-    action = "";
-    for (i = 3; i <= NF; i++) {
-        action = action $i (i < NF ? "," : "");
-    }
-
-    # Clean up trailing commas, remove leading "exec, ", and trim
-    sub(/,$/, "", action);
-    gsub(/(^|,)[[:space:]]*exec[[:space:]]*,?/, "", action);
-    gsub(/^[ \t]+|[ \t]+$/, "", action);
-    gsub(/[ \t]+/, " ", key_combo);  # Collapse multiple spaces to one
-
-    # Use friendly name if available, otherwise use the action
-    display_action = friendly_name != "" ? friendly_name : action;
-
-    if (action != "") {
-        printf "%-25s → %s\n", key_combo, display_action;
-    }
-}' |
-  fuzzel --dmenu --width=80
+' "$HYPRCTL_OUTPUT" > "$AWK_OUTPUT"
+sort "$AWK_OUTPUT" > "$SORTED_OUTPUT"
+fuzzel --width=55 -d -p "󰌌 Keybinds: " < "$SORTED_OUTPUT"

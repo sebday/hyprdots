@@ -87,11 +87,6 @@
         "on-click": "ghostty --class=TUI.float -e wiremix",
         "on-click-right": "ghostty --class=TUI.float -e alsamixer"
     },
-    "custom/menu": {
-        "format": "<span>\ue900</span>",
-        "on-click": "custom-menu",
-        "tooltip-format": "Custom Menu\n\nSuper + Alt + D"
-    },
     "cpu": {
         "interval": 5,
         "format": "󰍛",

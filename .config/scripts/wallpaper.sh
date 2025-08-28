@@ -8,17 +8,15 @@
 #   wallpaper.sh /path/to/image.jpg  - Set a specific image as the wallpaper.
 #   cat /path/to/image.jpg | wallpaper.sh - Set wallpaper from stdin.
 
-# --- CONFIGURATION ---
 STATE_FILE="/tmp/current_wallpaper"
 HYPRPAPER_CONFIG="$HOME/.config/hypr/hyprpaper.conf"
-FUZZEL_HELPERS="$HOME/.config/scripts/thumbnails.sh"
+THUMBNAILS="$HOME/.config/scripts/thumbnails.sh"
 
 # Source the shared fuzzel utilities
-if [ -f "$FUZZEL_HELPERS" ]; then
-    source "$FUZZEL_HELPERS"
+if [ -f "$THUMBNAILS" ]; then
+    source "$THUMBNAILS"
 fi
 
-# --- FUNCTION: UPDATE HYPRPAPER CONFIG ---
 update_hyprpaper_config() {
     local wallpaper_path="$1"
     if [ -z "$wallpaper_path" ]; then
@@ -59,7 +57,6 @@ update_hyprpaper_config() {
     fi
 }
 
-# --- CORE FUNCTION: SET WALLPAPER ---
 set_wallpaper() {
     local target_wallpaper="$1"
     if [ -z "$target_wallpaper" ]; then
@@ -91,7 +88,6 @@ set_wallpaper() {
     update_hyprpaper_config "$target_wallpaper"
 }
 
-# --- TUI FUNCTION: SELECT WALLPAPER ---
 select_wallpaper_menu() {
     # Get current theme wallpapers folder
     CURRENT_THEME_LINK="$HOME/.themes/current"
@@ -123,9 +119,6 @@ select_wallpaper_menu() {
         fi
     fi
 }
-
-
-# --- MAIN LOGIC ---
 
 # Handle stdin for piping from other commands (e.g., imv)
 if [ ! -t 0 ]; then
