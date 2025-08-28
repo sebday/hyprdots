@@ -43,6 +43,12 @@ generate_fuzzel_entries_with_thumbs() {
             theme_name=$(echo -e "$line" | cut -f1)
             file_path=$(echo -e "$line" | cut -f2)
             display_text="$theme_name"
+        elif [[ "$mode" == "media_basename_only" ]]; then
+            file_path="$line"
+            if [ -z "$file_path" ]; then continue; fi
+            relative_path=$(realpath --relative-to="$base_dir" "$file_path" 2>/dev/null || basename "$file_path")
+            # Show only the filename without path or extension
+            display_text=$(basename "$relative_path" | sed 's/\.[^.]*$//')
         else
             # Input is a file path
             file_path="$line"
