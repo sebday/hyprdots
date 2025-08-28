@@ -83,7 +83,9 @@
 	},
     "custom/cava": {
         "exec": "~/.config/scripts/cava.sh",
-        "format": "{}"
+        "format": "{}",
+        "on-click": "ghostty --class=TUI.float -e wiremix",
+        "on-click-right": "ghostty --class=TUI.float -e alsamixer"
     },
     "custom/menu": {
         "format": "<span>\ue900</span>",
@@ -169,16 +171,16 @@
     },
     "pulseaudio": {
         "format": "{icon} {volume}%",
-        "on-click": "ghostty --class=Wiremix -e wiremix",
-        "on-click-right": "pamixer -t",
+        "on-click": "ghostty --class=TUI.float -e wiremix",
+        "on-click-right": "ghostty --class=TUI.float -e alsamixer",
         "tooltip-format": "Playing at {volume}%",
         "scroll-step": 5,
         "format-muted": "󰝟",
         "format-icons": {
             "default": [
-                "",
-                "",
-                ""
+                " ",
+                " ",
+                " "
             ]
         }
     },
