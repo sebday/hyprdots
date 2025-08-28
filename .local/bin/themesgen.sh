@@ -208,7 +208,7 @@ fuzzel_background=${bg_primary_no_hash}${ALPHA_HIGH}
 fuzzel_text=${text_primary_no_hash}${ALPHA_OPAQUE}
 fuzzel_match=${cyan_no_hash}${ALPHA_OPAQUE}
 fuzzel_selection=${blue_no_hash}${ALPHA_OPAQUE}
-fuzzel_selection_match=${purple_no_hash}${ALPHA_OPAQUE}
+fuzzel_selection_match=${text_primary_no_hash}${ALPHA_OPAQUE}
 fuzzel_selection_text=${bg_primary_no_hash}${ALPHA_OPAQUE}
 fuzzel_border=${blue_no_hash}${ALPHA_OPAQUE}
 EOF
