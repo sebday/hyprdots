@@ -56,4 +56,8 @@
     "workbench.tree.enableStickyScroll": false,
     "editor.stickyScroll.enabled": false,
     "editor.detectIndentation": false,
+    "editor.autoClosingBrackets": "never",
+    "editor.autoClosingComments": "never",
+    "editor.autoClosingDelete": "never",
+    "editor.autoClosingQuotes": "never",
 }
