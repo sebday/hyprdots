@@ -5,7 +5,7 @@
 
 ACTION=$1
 
-if [[ "$ACTION" == "reboot" || "$ACTION" == "shutdown" ]]; then
+if [[ "$ACTION" == "reboot" || "$ACTION" == "shutdown" || "$ACTION" == "relaunch" ]]; then
     # Gracefully close Brave before continuing
     if pgrep -i "brave" &>/dev/null; then
         pkill -TERM -i "brave"

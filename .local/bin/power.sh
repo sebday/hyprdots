@@ -10,7 +10,7 @@ show_power_menu() {
 
   case "$selection" in
   " Lock") hyprlock ;;
-  " Relaunch") hyprctl dispatch exit ;;
+  " Relaunch") ~/.local/bin/logout.sh relaunch ;;
   "󰜉 Restart") ~/.local/bin/logout.sh reboot ;;
   "󰐥 Shutdown") ~/.local/bin/logout.sh shutdown ;;
   esac
