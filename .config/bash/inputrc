@@ -13,6 +13,9 @@ set show-all-if-unmodified on
 "\e[C": forward-char
 "\e[D": backward-char
 
+# Make Ctrl-U clear the entire line
+"\C-u": kill-whole-line
+
 # Immediately add a trailing slash when autocompleting symlinks to directories
 set mark-symlinked-directories on
 
