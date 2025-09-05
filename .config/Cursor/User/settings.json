@@ -46,7 +46,7 @@
         "editor.defaultFormatter": "Vue.volar"
     },
     "diffEditor.maxComputationTime": 0,
-    "window.menuBarVisibility": "compact",
+    "window.menuBarVisibility": "toggle",
     "workbench.layoutControl.enabled": false,
     "window.titleBarStyle": "native",
     "cursor.composer.textSizeScale": 1.15,

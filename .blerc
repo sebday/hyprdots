@@ -12,10 +12,11 @@ ble-face -s cmdinfo_cd_cdpath fg=0,bg=10
 ble-face -s auto_complete fg=7
 ble-face -s command_directory fg=12,underline
 ble-face -s command_function fg=12
-ble-face -s command_suffix fg=15,bg=10
+ble-face -s command_suffix fg=7,bg=2
 ble-face -s command_suffix_new fg=15,bg=9
 ble-face -s disabled fg=8
 ble-face -s filename_character fg=7,bg=0
+ble-face -s filename_directory fg=7,underline
 ble-face -s filename_directory_sticky fg=15,bg=4
 ble-face -s filename_orphan fg=7,bg=1
 ble-face -s menu_filter_input fg=0,bg=11
@@ -30,3 +31,7 @@ ble-face -s syntax_document_begin fg=11,bold
 ble-face -s syntax_expr fg=12
 ble-face -s syntax_function_name fg=13,bold
 ble-face -s syntax_glob fg=9
+ble-face -s syntax_varname fg=6
+ble-face -s syntax_quoted fg=6
+ble-face -s varname_array fg=11,bold
+ble-face -s vbell_erase fg=9,bold,reverse
