@@ -59,7 +59,6 @@ imv
 mpv
 cava
 imagemagick
-firefox
 transmission-gtk
 qalculate-gtk
 obsidian
