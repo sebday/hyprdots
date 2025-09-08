@@ -1,7 +1,7 @@
 [Desktop Entry]
 Version=1.0
 Type=Application
-Name=iPlayer
+Name=BBC iPlayer
 Comment=Watch BBC iPlayer
 Exec=brave --app=https://www.bbc.co.uk/iplayer/continue-watching
 Icon=bbc
