@@ -114,6 +114,7 @@ main() {
     install_mise_tools
     set_boot_screen
     configure_stylus_theming
+    configure_login_logo
 
     log "Setup complete! Please reboot your system."
 }

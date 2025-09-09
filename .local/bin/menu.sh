@@ -2,7 +2,7 @@
 # A simple fuzzel-based menu script inspired by omarchy-menu.
 
 # Define menu options with Nerd Font icons
-options="󰸘 Change Theme\n󰋪 Change Wallpaper\n󰝚 Media Player\n󰌌 Show Keybinds\n󰑐 Restart Waybar"
+options="󰸘 Change Theme\n󰋪 Change Wallpaper\n󰌌 Show Keybinds\n󰑐 Restart Waybar"
 
 # Use fuzzel to get the user's choice
 selected_option=$(echo -e "$options" | fuzzel -d -p "Select an action: ")
@@ -16,9 +16,6 @@ case "$selected_option" in
         ;;
     "󰌌 Show Keybinds")
         bash ~/.local/bin/keybinds.sh
-        ;;
-    "󰝚 Media Player")
-        bash ~/.local/bin/mediamenu.sh
         ;;
     "󰑐 Restart Waybar")
         pkill waybar 2>/dev/null
