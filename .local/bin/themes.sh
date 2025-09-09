@@ -101,9 +101,21 @@ if [ -f "$INDEX_THEME_FILE" ]; then
     icon_theme=$(grep -i '^IconTheme=' "$INDEX_THEME_FILE" | cut -d'=' -f2)
     
     if [ -n "$icon_theme" ]; then
-        # Apply via gsettings and update config file
+        # Apply via gsettings and update config files for all GTK versions
         gsettings set org.gnome.desktop.interface icon-theme "$icon_theme"
+        
+        # Update GTK2 config
+        if [ -f "$GTK2_CONFIG_FILE" ]; then
+            sed -i "s|^gtk-icon-theme-name=.*|gtk-icon-theme-name=\"$icon_theme\"|" "$GTK2_CONFIG_FILE"
+        fi
+        
+        # Update GTK3 config
         sed -i "s|^gtk-icon-theme-name=.*|gtk-icon-theme-name=$icon_theme|" "$GTK3_CONFIG_FILE"
+        
+        # Update GTK4 config
+        if [ -f "$GTK4_CONFIG_FILE" ]; then
+            sed -i "s|^gtk-icon-theme-name=.*|gtk-icon-theme-name=$icon_theme|" "$GTK4_CONFIG_FILE"
+        fi
     fi
 fi
 
