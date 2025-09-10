@@ -33,5 +33,7 @@ ble-face -s syntax_function_name fg=13,bold
 ble-face -s syntax_glob fg=9
 ble-face -s syntax_varname fg=6
 ble-face -s syntax_quoted fg=6
+ble-face -s syntax_quotation fg=teal,bold
 ble-face -s varname_array fg=11,bold
 ble-face -s vbell_erase fg=9,bold,reverse
+ble-face -s syntax_error fg=203
