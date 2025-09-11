@@ -96,8 +96,8 @@ install_mise_tools() {
     
     # Check if mise was installed successfully
     if command -v mise &> /dev/null; then
-        log "Installing Node.js and Ruby with mise..."
-        mise use --global node@latest ruby@latest
+        log "Installing Node.js with mise..."
+        mise use --global node@latest
     else
         log "ERROR: mise installation failed. Skipping dev tool setup."
     fi
