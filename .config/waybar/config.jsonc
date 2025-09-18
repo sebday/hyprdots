@@ -7,7 +7,8 @@
     "height": 32,
     "modules-left": [
         "custom/shopify_zk",
-        "custom/shopify_diy"
+        "custom/shopify_diy",
+        "custom/shopify_tgs"
     ],
     "modules-center": [
         "hyprland/workspaces",
@@ -62,6 +63,14 @@
         "format": "{text}",
         "exec": "cd /home/seb/Projects/shopify-dash && mise exec -- /home/seb/.local/bin/waybarshopify.py DIY",
         "on-click": "xdg-open https://admin.shopify.com/store/diy-buildingsupplies/analytics/live",
+        "return-type": "json",
+        "interval": 300,
+        "tooltip": true
+    },
+    "custom/shopify_tgs": {
+        "format": "{text}",
+        "exec": "cd /home/seb/Projects/shopify-dash && mise exec -- /home/seb/.local/bin/waybarshopify.py TGS",
+        "on-click": "xdg-open https://admin.shopify.com/store/thegoodsheet-uk/analytics/live",
         "return-type": "json",
         "interval": 300,
         "tooltip": true

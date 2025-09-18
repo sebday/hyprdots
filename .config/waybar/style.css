@@ -14,6 +14,7 @@ window#waybar {
 #workspaces,
 #custom-shopify_zk,
 #custom-shopify_diy,
+#custom-shopify_tgs,
 #custom-github,
 #pulseaudio,
 #clock,
@@ -99,7 +100,8 @@ window#waybar {
 
 
 #custom-shopify_zk,
-#custom-shopify_diy {
+#custom-shopify_diy,
+#custom-shopify_tgs {
     color: @accent-blue;
 }
 #custom-github.github-level-0 {
@@ -120,6 +122,7 @@ window#waybar {
 
 #custom-shopify_zk:hover,
 #custom-shopify_diy:hover,
+#custom-shopify_tgs:hover,
 #custom-github:hover,
 #clock:hover,
 #pulseaudio:hover,

@@ -44,7 +44,8 @@ def load_github_colors():
 
 STORES_CONFIG = [
     {'prefix': 'ZK', 'display_name': ' ', 'db_name': 'ZK' },
-    {'prefix': 'DIY', 'display_name': ' ', 'db_name': 'DIY' }
+    {'prefix': 'DIY', 'display_name': ' ', 'db_name': 'DIY' },
+    {'prefix': 'TGS', 'display_name': ' ', 'db_name': 'TGS' }
 ]
 
 def initialize_environment(store_prefix):
