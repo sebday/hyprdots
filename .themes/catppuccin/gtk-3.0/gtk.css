@@ -6751,11 +6751,10 @@ window.background.csd > box.vertical > overlay > stack > box.vertical > box.hori
 }
 
 dialog-host > floating-sheet > sheet > widget.response-area {
-  padding: 6px !important;
+  padding: 6px;
 }
 
 window.background:not(.csd):not(.solid-csd) > button:not(:hover):not(:active):not(:checked):not(:disabled):not(.flat) {
-  /* background-color: if($variant == 'light', $grey-100, $grey-900); */
   background-color: #1e1e2e;
 }
 
