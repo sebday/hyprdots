@@ -21,20 +21,27 @@ if [[ -z "$TOKEN" ]]; then
     exit 1
 fi
 
-# --- Source Contribution Colors ---
-GITHUB_COLORS_FILE="/tmp/waybar_github_colors"
-if [ -f "$GITHUB_COLORS_FILE" ]; then
-    source "$GITHUB_COLORS_FILE"
+# --- Get Contribution Colors ---
+WAYBAR_CSS="$HOME/.themes/current/waybar.css"
+declare -A CONTRIB_COLORS
+
+if [ -f "$WAYBAR_CSS" ]; then
+    for i in {0..4}; do
+        color=$(grep "@define-color github-$i" "$WAYBAR_CSS" | awk '{print $3}' | tr -d ';')
+        if [ -n "$color" ]; then
+            CONTRIB_COLORS[$i]="$color"
+        fi
+    done
 fi
 
-# --- Set Default Contribution Colors if not Sourced ---
-if [ ${#CONTRIB_COLORS[@]} -eq 0 ]; then
+# If colors weren't loaded completely, use defaults
+if [ "${#CONTRIB_COLORS[@]}" -ne 5 ]; then
     CONTRIB_COLORS=(
-        "#ebedf0" # Level 0
-        "#9be9a8" # Level 1
-        "#40c463" # Level 2
-        "#30a14e" # Level 3
-        "#216e39" # Level 4
+        [0]="#ebedf0" # Level 0
+        [1]="#9be9a8" # Level 1
+        [2]="#40c463" # Level 2
+        [3]="#30a14e" # Level 3
+        [4]="#216e39" # Level 4
     )
 fi
 

@@ -6,7 +6,6 @@
     "spacing": 0,
     "height": 32,
     "modules-left": [
-        "custom/omarchy",
         "custom/shopify_zk",
         "custom/shopify_diy"
     ],
@@ -53,7 +52,7 @@
     },
     "custom/shopify_zk": {
         "format": "{text}",
-        "exec": "cd /home/seb/Projects/shopify-dash && mise exec -- python waybar.py ZK",
+        "exec": "cd /home/seb/Projects/shopify-dash && mise exec -- /home/seb/.local/bin/waybarshopify.py ZK",
         "on-click": "xdg-open https://admin.shopify.com/store/zidar-kid/analytics/live",
         "return-type": "json",
         "interval": 300,
@@ -61,7 +60,7 @@
     },
     "custom/shopify_diy": {
         "format": "{text}",
-        "exec": "cd /home/seb/Projects/shopify-dash && mise exec -- python waybar.py DIY",
+        "exec": "cd /home/seb/Projects/shopify-dash && mise exec -- /home/seb/.local/bin/waybarshopify.py DIY",
         "on-click": "xdg-open https://admin.shopify.com/store/diy-buildingsupplies/analytics/live",
         "return-type": "json",
         "interval": 300,
@@ -70,7 +69,7 @@
     "custom/github": {
 		"format": "{}",
 		"return-type": "json",
-		"exec": "~/.local/bin/github.sh",
+		"exec": "~/.local/bin/waybargithub.sh",
 		"interval": 300,
 		"on-click": "xdg-open https://github.com/sebday"
 	},
