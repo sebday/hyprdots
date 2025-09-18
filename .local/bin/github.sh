@@ -27,6 +27,17 @@ if [ -f "$GITHUB_COLORS_FILE" ]; then
     source "$GITHUB_COLORS_FILE"
 fi
 
+# --- Set Default Contribution Colors if not Sourced ---
+if [ ${#CONTRIB_COLORS[@]} -eq 0 ]; then
+    CONTRIB_COLORS=(
+        "#ebedf0" # Level 0
+        "#9be9a8" # Level 1
+        "#40c463" # Level 2
+        "#30a14e" # Level 3
+        "#216e39" # Level 4
+    )
+fi
+
 # --- Fetch Contribution Data using GraphQL ---
 GRAPHQL_QUERY_RAW='
 query GetUserContributionCalendar($username: String!) {

@@ -280,11 +280,11 @@ reload_obsidian() {
 }
 
 # Reload all applications
+pkill -SIGUSR2 waybar
 reload_ghostty_windows
 reload_obsidian
 makoctl reload
 hyprctl reload
 pkill -SIGUSR2 btop
-pkill -SIGUSR2 waybar
 
 notify-send "Theme Switcher" "Set to $selected_theme"
