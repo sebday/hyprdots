@@ -1,11 +1,35 @@
 #!/bin/bash
-# To install, run: wget -qO- https://raw.githubusercontent.com/sebday/hyprdots/dracula/install.sh | bash
+# To install, run: wget -qO- https://raw.githubusercontent.com/sebday/hyprdots/master/install.sh | bash
 
 # Exit immediately if a command exits with a non-zero status.
 set -e
 
 log() {
     echo "--- $1 ---"
+}
+
+# Clone the dotfiles repository and set it up.
+clone_dotfiles() {
+    log "Cloning and setting up dotfiles..."
+    local temp_clone_dir
+    temp_clone_dir=$(mktemp -d)
+    git clone https://github.com/sebday/hyprdots.git "$temp_clone_dir"
+    rsync -av "$temp_clone_dir/" "$HOME/"
+    rm -rf "$temp_clone_dir"
+    (cd "$HOME" && git submodule update --init --recursive)
+}
+
+# Install yay, an AUR helper.
+install_yay() {
+    log "Installing AUR helper (yay)..."
+    local original_dir=$PWD
+    local temp_build_dir
+    temp_build_dir=$(mktemp -d)
+    cd "$temp_build_dir"
+    git clone https://aur.archlinux.org/yay.git .
+    makepkg -si --noconfirm
+    cd "$original_dir"
+    rm -rf "$temp_build_dir"
 }
 
 # Install packages from the official Arch repositories using pacman.
@@ -34,31 +58,6 @@ command = "hyprland"
 user = "$user"
 EOT
 }
-
-# Clone the dotfiles repository and set it up.
-clone_dotfiles() {
-    log "Cloning and setting up dotfiles..."
-    local temp_clone_dir
-    temp_clone_dir=$(mktemp -d)
-    git clone https://github.com/sebday/debian-hyprdots.git "$temp_clone_dir"
-    rsync -av "$temp_clone_dir/" "$HOME/"
-    rm -rf "$temp_clone_dir"
-    (cd "$HOME" && git submodule update --init --recursive)
-}
-
-# Install yay, an AUR helper.
-install_yay() {
-    log "Installing AUR helper (yay)..."
-    local original_dir=$PWD
-    local temp_build_dir
-    temp_build_dir=$(mktemp -d)
-    cd "$temp_build_dir"
-    git clone https://aur.archlinux.org/yay.git .
-    makepkg -si --noconfirm
-    cd "$original_dir"
-    rm -rf "$temp_build_dir"
-}
-
 # Install packages from the AUR using yay
 install_aur_packages() {
     log "Installing AUR packages from packages-aur.txt..."
@@ -105,17 +104,15 @@ install_mise_tools() {
 
 main() {
     log "Starting Hyprland setup on Arch Linux"
-
-    install_pacman_packages
-    configure_greetd
     clone_dotfiles
+    cd "$HOME"
+    install_pacman_packages
     install_yay
     install_aur_packages
+    configure_greetd
     install_mise_tools
     set_boot_screen
     configure_stylus_theming
-    configure_login_logo
-
     log "Setup complete! Please reboot your system."
 }
 
