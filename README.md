@@ -10,7 +10,7 @@ Massive thanks to [Vaxry](https://blog.vaxry.net/) for reigniting my long-time l
 
 # Install 
 
-`wget -qO- https://raw.githubusercontent.com/sebday/hyprdots/master/install.sh | bash`
+`wget -qO- sebday.dev/install | bash`
 
 ## Brave
 

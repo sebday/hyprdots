@@ -1,5 +1,5 @@
 #!/bin/bash
-# To install, run: wget -qO- https://raw.githubusercontent.com/sebday/hyprdots/master/install.sh | bash
+# To install, run: wget -qO- sebday.dev/install | bash
 
 # Exit immediately if a command exits with a non-zero status.
 set -e
@@ -64,6 +64,7 @@ command = "hyprland"
 user = "$user"
 EOT
 }
+
 # Install packages from the AUR using yay
 install_aur_packages() {
     log "Installing AUR packages from packages-aur.txt..."
@@ -95,6 +96,12 @@ configure_stylus_theming() {
     systemctl --user enable --now darkhttpd
 }
 
+# Configure networking with systemd-networkd.
+configure_networking() {
+    log "Enabling systemd-networkd..."
+    sudo systemctl enable systemd-networkd
+}
+
 # Install and configure mise for managing dev tools.
 install_mise_tools() {
     log "Installing mise and setting up global dev tools..."
@@ -121,6 +128,8 @@ main() {
     install_mise_tools
     set_boot_screen
     configure_stylus_theming
+    configure_networking
+
     log "Setup complete! Please reboot your system."
 }
 
