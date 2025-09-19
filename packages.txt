@@ -47,7 +47,7 @@ ffmpegthumbnailer
 poppler
 webp-pixbuf-loader
 xarchiver
-7-zip
+7zip
 gvfs
 caligula
 

@@ -8,6 +8,12 @@ log() {
     echo "--- $1 ---"
 }
 
+# Install script dependencies
+install_dependencies() {
+    log "Installing script dependencies..."
+    sudo pacman -Syu --noconfirm git base-devel rsync
+}
+
 # Clone the dotfiles repository and set it up.
 clone_dotfiles() {
     log "Cloning and setting up dotfiles..."
@@ -104,6 +110,8 @@ install_mise_tools() {
 
 main() {
     log "Starting Hyprland setup on Arch Linux"
+
+    install_dependencies
     clone_dotfiles
     cd "$HOME"
     install_pacman_packages
