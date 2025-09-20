@@ -63,6 +63,7 @@ user = "$user"
 command = "hyprland"
 user = "$user"
 EOT
+    sudo systemctl enable greetd
 }
 
 # Install packages from the AUR using yay
@@ -76,16 +77,15 @@ install_aur_packages() {
 # Set the Plymouth boot screen theme.
 set_boot_screen() {
     log "Setting Plymouth boot screen theme..."
-    if [ -n "$(ls /etc/mkinitcpio.d/*.preset 2>/dev/null)" ]; then
-        sudo plymouth-set-default-theme -R spinner
-    else
-        log "WARNING: No mkinitcpio presets found. Skipping Plymouth theme setup."
-        log "This is expected in a containerized environment like Docker."
+    # Add plymouth to mkinitcpio hooks
+    if grep -q '^HOOKS=' /etc/mkinitcpio.conf && ! grep -q 'plymouth' /etc/mkinitcpio.conf; then
+        sudo sed -i '/^HOOKS=/s/\b\(udev\b\)/\1 plymouth/' /etc/mkinitcpio.conf
     fi
+    sudo plymouth-set-default-theme -R spinner
 }
 
 # Configure darkhttpd for stylus theme hot-reloading
-configure_stylus_theming() {
+configure_darkhttpd() {
     # Enable lingering for the user to run services at boot without login.
     log "Enabling user lingering for $user..."
     sudo loginctl enable-linger "$user"
@@ -100,6 +100,12 @@ configure_stylus_theming() {
 configure_networking() {
     log "Enabling systemd-networkd..."
     sudo systemctl enable systemd-networkd
+}
+
+# Configure network time synchronization.
+configure_timesync() {
+    log "Enabling systemd-timesyncd..."
+    sudo systemctl enable systemd-timesyncd
 }
 
 # Install and configure mise for managing dev tools.
@@ -127,8 +133,9 @@ main() {
     configure_greetd
     install_mise_tools
     set_boot_screen
-    configure_stylus_theming
+    configure_darkhttpd
     configure_networking
+    configure_timesync
 
     log "Setup complete! Please reboot your system."
 }
