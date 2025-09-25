@@ -15,10 +15,10 @@
         "custom/recording"
     ],
     "modules-right": [
-        "custom/cava",
-        "pulseaudio",
         "custom/github",
         "clock",
+        "custom/cava",
+        "pulseaudio",
         "group/tray-expander",
         "tray"
     ],

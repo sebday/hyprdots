@@ -14,6 +14,9 @@ fzf_args=(
   --color 'pointer:green,marker:green'
 )
 
+# Sync databases
+yay -Syy --quiet
+
 # List all repo and AUR packages for fzf.
 all_pkgs=$( (pacman -Slq; yay -Slqa) | sort -u )
 pkg_names=$(echo "$all_pkgs" | fzf "${fzf_args[@]}")

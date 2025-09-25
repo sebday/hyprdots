@@ -62,9 +62,7 @@ window#waybar {
 }
 
 #clock {
-	color: @accent-blue;
-    margin-left: 0;
-    padding-left: 0;
+	color: @accent-pink;
 }
 
 #custom-cava {
