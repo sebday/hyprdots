@@ -19,6 +19,7 @@
         "pulseaudio",
         "custom/github",
         "clock",
+        "tray",
         "group/tray-expander"
     ],
     "hyprland/workspaces": {
@@ -198,8 +199,7 @@
             "bluetooth",
             "network",
             "battery",
-            "cpu",
-            "tray"
+            "cpu"
         ]
     },
     "custom/expand-icon": {
