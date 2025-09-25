@@ -14,11 +14,9 @@ fzf_args=(
   --color 'pointer:green,marker:green'
 )
 
-# Sync databases
-# yay -Syy
-
 # List all repo and AUR packages for fzf.
-pkg_names=$(yay -Ssq --quiet . | fzf "${fzf_args[@]}")
+all_pkgs=$( (pacman -Slq; yay -Slqa) | sort -u )
+pkg_names=$(echo "$all_pkgs" | fzf "${fzf_args[@]}")
 
 if [[ -n "$pkg_names" ]]; then
   # Convert newline-separated selections to space-separated for yay
