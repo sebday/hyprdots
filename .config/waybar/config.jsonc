@@ -19,8 +19,8 @@
         "pulseaudio",
         "custom/github",
         "clock",
-        "tray",
-        "group/tray-expander"
+        "group/tray-expander",
+        "tray"
     ],
     "hyprland/workspaces": {
         "on-click": "activate",

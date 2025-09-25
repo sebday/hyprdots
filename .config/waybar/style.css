@@ -17,8 +17,7 @@ window#waybar {
 #custom-shopify_tgs,
 #custom-github,
 #pulseaudio,
-#clock,
-#tray-expander {
+#clock {
 	background-color: @background;
 	padding: 0 16px;
 	margin: 0 8px;
@@ -28,10 +27,11 @@ window#waybar {
 #bluetooth,
 #network,
 #cpu,
-#tray {
+#tray,
+#tray-expander {
 	background-color: @background;
 	padding: 0 4px;
-	margin: 0 8px;
+	margin: 0 6px;
 }
 
 #workspaces button {
@@ -82,13 +82,9 @@ window#waybar {
 	color: @accent-orange;
 }
 
-#tray-expander {
-    margin-left: 0;
-    padding-left: 0;
-}
-
 #tray {
     margin-left: 0;
+    margin-right: 16px;
 }
 #tray>.passive {
 	-gtk-icon-effect: dim;
@@ -98,6 +94,9 @@ window#waybar {
 	-gtk-icon-effect: highlight;
 }
 
+#tray-expander {
+    margin-right: 0;
+}
 
 #custom-shopify_zk,
 #custom-shopify_diy,
