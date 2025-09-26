@@ -63,6 +63,7 @@ window#waybar {
 
 #clock {
 	color: @accent-pink;
+    margin-left: 0;
 }
 
 #custom-cava {
@@ -74,6 +75,7 @@ window#waybar {
 #pulseaudio {
 	color: @accent-pink;
     margin-left: 0;
+    margin-right: 0;
 }
 
 #pulseaudio.muted {

@@ -16,9 +16,9 @@
     ],
     "modules-right": [
         "custom/github",
-        "clock",
         "custom/cava",
         "pulseaudio",
+        "clock",
         "group/tray-expander",
         "tray"
     ],
