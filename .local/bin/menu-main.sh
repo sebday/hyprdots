@@ -6,7 +6,7 @@ selected_option=$(echo -e "$options" | fuzzel -d -p "Select an action: ")
 
 case "$selected_option" in
     "󰸘 Change Theme")
-        bash ~/.local/bin/themes.sh
+        bash ~/.local/bin/themes-switch.sh
         ;;
     "󰋪 Change Wallpaper")
         bash ~/.local/bin/wallpaper.sh select
