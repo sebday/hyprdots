@@ -1,31 +1,24 @@
 #!/bin/bash
-THEME_DIR="$HOME/.themes"
-CURRENT_THEME_LINK="$HOME/.themes/current"
-OBSIDIAN_VAULT_DIR="$HOME/OneDrive/Notes"
 
-# Update Obsidian theme
-OBSIDIAN_CONFIG_FILE="$OBSIDIAN_VAULT_DIR/.obsidian/appearance.json"
-OBSIDIAN_VAULT_THEMES_DIR="$OBSIDIAN_VAULT_DIR/.obsidian/themes"
-THEME_CSS_FILE="$CURRENT_THEME_LINK/obsidian.css"
+OBSIDIAN_THEME_DIR="$HOME/OneDrive/Notes/.obsidian/themes/Modular"
+OBSIDIAN_CONFIG_FILE="$HOME/OneDrive/Notes/.obsidian/appearance.json"
+OBSIDIAN_CSS_FILE="$HOME/.themes/current/obsidian.css"
+OBSIDIAN_SHARED_CSS_FILE="$HOME/.themes/shared/obsidian.css"
 
-if [ -f "$THEME_CSS_FILE" ]; then
-    # --- New Modular Theme Logic ---
-    MODULAR_THEME_NAME="Modular"
-    MODULAR_THEME_DIR="$OBSIDIAN_VAULT_THEMES_DIR/$MODULAR_THEME_NAME"
-    SHARED_CSS_FILE="$THEME_DIR/shared/obsidian.css"
+if [ -f "$OBSIDIAN_CSS_FILE" ]; then
 
     # Ensure the modular theme directory exists
-    mkdir -p "$MODULAR_THEME_DIR"
+    mkdir -p "$OBSIDIAN_THEME_DIR"
 
-    # Create a manifest.json if it doesn't exist, by copying the shared one
+    # Create a manifest.json if it doesn't exist by copying the shared one
     SHARED_MANIFEST_FILE="$THEME_DIR/shared/obsidian.conf"
-    if [ ! -f "$MODULAR_THEME_DIR/manifest.json" ] && [ -f "$SHARED_MANIFEST_FILE" ]; then
-        cp "$SHARED_MANIFEST_FILE" "$MODULAR_THEME_DIR/manifest.json"
+    if [ ! -f "$OBSIDIAN_THEME_DIR/manifest.json" ] && [ -f "$SHARED_MANIFEST_FILE" ]; then
+        cp "$SHARED_MANIFEST_FILE" "$OBSIDIAN_THEME_DIR/manifest.json"
     fi
 
     # Combine theme-specific and shared CSS into the modular theme's css file
-    if [ -f "$SHARED_CSS_FILE" ] && [ -f "$THEME_CSS_FILE" ]; then
-        cat "$THEME_CSS_FILE" "$SHARED_CSS_FILE" > "$MODULAR_THEME_DIR/theme.css"
+    if [ -f "$OBSIDIAN_SHARED_CSS_FILE" ] && [ -f "$2" ]; then
+        cat "$OBSIDIAN_CSS_FILE" "$OBSIDIAN_SHARED_CSS_FILE" > "$OBSIDIAN_THEME_DIR/theme.css"
     fi
 
     # Ensure config file and directories exist
@@ -41,7 +34,7 @@ if [ -f "$THEME_CSS_FILE" ]; then
     fi
 
     # Set the theme to "Modular" and remove snippet settings
-    updated_json=$(echo "$updated_json" | jq --arg theme "obsidian" '.theme = $theme' | jq --arg cssTheme "$MODULAR_THEME_NAME" '.cssTheme = $cssTheme' | jq 'del(.enabledCssSnippets)')
+    updated_json=$(echo "$updated_json" | jq --arg theme "obsidian" '.theme = $theme' | jq --arg cssTheme "Modular" '.cssTheme = $cssTheme' | jq 'del(.enabledCssSnippets)')
 
     # Write the updated json to the config file
     echo "$updated_json" > "$OBSIDIAN_CONFIG_FILE"

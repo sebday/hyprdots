@@ -1,8 +1,6 @@
 #!/bin/bash
 
 THEME_DIR="$HOME/.themes"
-OOMOX_THEME_DIR="$HOME/.themes/shared/oomox"
-CURRENT_THEME_LINK="$HOME/.themes/current"
 source "$HOME/.local/bin/thumbnails.sh"
 
 generate_theme_list() {
@@ -26,7 +24,7 @@ fi
 selected_theme=$(echo "$selected_entry" | sed 's/^[[:space:]]*//')
 
 gsettings set org.gnome.desktop.interface gtk-theme "$selected_theme"
-ln -sfn "$HOME/.themes/$selected_theme" "$CURRENT_THEME_LINK"
+ln -sfn "$HOME/.themes/$selected_theme" "$THEME_DIR/current"
 
 # Set theme components
 "$HOME/.local/bin/wallpaper.sh" "next"
