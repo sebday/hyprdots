@@ -28,14 +28,14 @@ selected_theme=$(echo "$selected_entry" | sed 's/^[[:space:]]*//')
 gsettings set org.gnome.desktop.interface gtk-theme "$selected_theme"
 ln -sfn "$HOME/.themes/$selected_theme" "$CURRENT_THEME_LINK"
 
-/home/seb/.local/bin/themes-set-wallpaper.sh "$selected_theme"
-/home/seb/.local/bin/themes-set-icons.sh
-/home/seb/.local/bin/themes-set-btop.sh
-/home/seb/.local/bin/themes-set-mako.sh
-/home/seb/.local/bin/themes-set-cursor.sh
-/home/seb/.local/bin/themes-set-fuzzel.sh
-/home/seb/.local/bin/themes-set-obsidian.sh
-/home/seb/.local/bin/themes-set-hyprland.sh
+~/.local/bin/themes-set-wallpaper.sh "$selected_theme"
+~/.local/bin/themes-set-icons.sh
+~/.local/bin/themes-set-btop.sh
+~/.local/bin/themes-set-mako.sh
+~/.local/bin/themes-set-cursor.sh
+~/.local/bin/themes-set-fuzzel.sh
+~/.local/bin/themes-set-obsidian.sh
+~/.local/bin/themes-set-hyprland.sh
 
 reload_ghostty_windows() {
     local ghostty_addresses=$(hyprctl clients -j | jq -r '.[] | select(.class == "com.mitchellh.ghostty") | .address')
