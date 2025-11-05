@@ -1,9 +1,9 @@
 # Mako notification configuration
 # Theme colors will be updated by ThemeSwitcher.sh
-background-color=#1e1e2e
-text-color=#cdd6f4
-border-color=#cba6f7
-progress-color=#cba6f7
+background-color=#282a36
+text-color=#f8f8f2
+border-color=#bd93f9
+progress-color=#ff79c6
 
 outer-margin=20
 default-timeout=3000
@@ -15,4 +15,4 @@ output=HDMI-A-1
 anchor=bottom-center
 
 [urgency=high]
-text-color=#cdd6f4
+text-color=#f8f8f2
