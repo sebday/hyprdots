@@ -81,7 +81,7 @@ def is_fully_refunded(order):
 def should_count_in_revenue(order):
     if is_cancelled(order) or is_fully_refunded(order):
         return False
-    valid_statuses = ['paid', 'partially_paid', 'partially_refunded']
+    valid_statuses = ['paid', 'partially_paid', 'partially_refunded', 'pending']
     if hasattr(order, 'financial_status'):
         return order.financial_status in valid_statuses
     return False
