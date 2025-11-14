@@ -26,6 +26,7 @@
 .queue__fallback,
 .backgroundGradient,
 .imageChooser,
+.l-fixed-left,
 a[data-menu-name="home"] {
     display: none!important;
 }
@@ -33,19 +34,14 @@ a[data-menu-name="home"] {
 .l-container {
     width: 935px;
 }
+
 .l-search .l-fixed-left {
     width: 300px;
 }
+
+.l-search .l-main,
 .l-fluid-fixed .l-main {
-    margin: 0;
-}
-
-.l-search .l-main {
-    margin: 0 0 0 300px;
-}
-
-.searchOptions__scrollable {
-    width: 300px;
+    margin: 0!important;
 }
 
 .l-listen-wrapper .l-about-main {
