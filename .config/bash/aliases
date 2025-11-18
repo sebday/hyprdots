@@ -16,16 +16,10 @@ function git() {
 
 # Tools
 alias ff='fastfetch'
-alias cat='cat'
 alias vim='nvim'
 alias lg='lazygit'
-alias g='git'
-alias d='docker'
-alias r='rails'
-n() { if [ "$#" -eq 0 ]; then nvim .; else nvim "$@"; fi; }
 
 # Git
 alias gcm='git commit -m'
 alias gcam='git commit -a -m'
-alias gcad='git commit -a --amend'
 alias gs='git status'
