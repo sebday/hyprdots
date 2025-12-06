@@ -89,13 +89,13 @@ set_wallpaper() {
 }
 
 select_wallpaper_menu() {
-    # Get current theme wallpapers folder
+    # Get current theme backgrounds folder
     CURRENT_THEME_LINK="$HOME/.themes/current"
     CURRENT_THEME_WALLPAPERS=""
-    if [ -L "$CURRENT_THEME_LINK" ] && [ -d "$CURRENT_THEME_LINK/wallpapers" ]; then
-        CURRENT_THEME_WALLPAPERS=$(readlink -f "$CURRENT_THEME_LINK/wallpapers")
+    if [ -L "$CURRENT_THEME_LINK" ] && [ -d "$CURRENT_THEME_LINK/backgrounds" ]; then
+        CURRENT_THEME_WALLPAPERS=$(readlink -f "$CURRENT_THEME_LINK/backgrounds")
     else
-        notify-send "Wallpaper Error" "No wallpaper directory found for the current theme."
+        notify-send "Wallpaper Error" "No backgrounds directory found for the current theme."
         exit 1
     fi
 
@@ -141,13 +141,13 @@ case "$COMMAND" in
         ;;
 
     next|prev|random)
-        # Get current theme wallpapers folder
+        # Get current theme backgrounds folder
         CURRENT_THEME_LINK="$HOME/.themes/current"
         WALLPAPER_DIR=""
-        if [ -L "$CURRENT_THEME_LINK" ] && [ -d "$CURRENT_THEME_LINK/wallpapers" ]; then
-            WALLPAPER_DIR=$(readlink -f "$CURRENT_THEME_LINK/wallpapers")
+        if [ -L "$CURRENT_THEME_LINK" ] && [ -d "$CURRENT_THEME_LINK/backgrounds" ]; then
+            WALLPAPER_DIR=$(readlink -f "$CURRENT_THEME_LINK/backgrounds")
         else
-            notify-send "Wallpaper Cycler Error" "No wallpaper directory found for the current theme."
+            notify-send "Wallpaper Cycler Error" "No backgrounds directory found for the current theme."
             exit 1
         fi
 

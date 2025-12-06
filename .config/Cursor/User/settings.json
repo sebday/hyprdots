@@ -41,7 +41,7 @@
     "files.associations": {
         "*.ds": "java"
     },
-                                                                                                                                            "workbench.colorTheme": "Catppuccin Mocha",
+                                                                                                                                                    "workbench.colorTheme": "Catppuccin Mocha",
     "[vue]": {
         "editor.defaultFormatter": "Vue.volar"
     },
