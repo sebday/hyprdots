@@ -115,7 +115,7 @@ mkdir -p "$TARGET_DIR"
 
 # Copy theme files (rsync to preserve existing dirs like gtk-3.0/)
 # Exclude generated files that we create later
-rsync -a --exclude='*.toml' --exclude='chromium.theme' --exclude='kitty.conf' --exclude='swayosd.css' --exclude='walker.css' --exclude='colours.css' --exclude='fuzzel.conf' --exclude='obsidian.css' "$SOURCE_THEME/" "$TARGET_DIR/"
+rsync -a --exclude='*.toml' --exclude='chromium.theme' --exclude='kitty.conf' --exclude='swayosd.css' --exclude='walker.css' --exclude='colours.css' --exclude='fuzzel.conf' --exclude='obsidian.css' --exclude='waybar.css' "$SOURCE_THEME/" "$TARGET_DIR/"
 
 # Generate colours.css BEFORE removing walker.css (needs it for color extraction)
 # Only generate if it doesn't exist or is incomplete
@@ -151,6 +151,40 @@ fuzzel_selection_text=${bg_primary}ff
 fuzzel_border=${border:-${text_accent:-${text_primary}}}ff
 EOF
         echo "Created: fuzzel.conf (generated from colours.css)"
+    fi
+fi
+
+# Generate waybar.css from colours.css
+if [ -f "$TARGET_DIR/colours.css" ]; then
+    bg_primary=$(grep -oP -- '--bg-primary:\s*\K#[0-9a-fA-F]+' "$TARGET_DIR/colours.css")
+    bg_secondary=$(grep -oP -- '--bg-secondary:\s*\K#[0-9a-fA-F]+' "$TARGET_DIR/colours.css")
+    text_primary=$(grep -oP -- '--text-primary:\s*\K#[0-9a-fA-F]+' "$TARGET_DIR/colours.css")
+    text_accent=$(grep -oP -- '--text-accent:\s*\K#[0-9a-fA-F]+' "$TARGET_DIR/colours.css")
+    blue=$(grep -oP -- '--blue:\s*\K#[0-9a-fA-F]+' "$TARGET_DIR/colours.css")
+    cyan=$(grep -oP -- '--cyan:\s*\K#[0-9a-fA-F]+' "$TARGET_DIR/colours.css")
+    purple=$(grep -oP -- '--purple:\s*\K#[0-9a-fA-F]+' "$TARGET_DIR/colours.css")
+    pink=$(grep -oP -- '--pink:\s*\K#[0-9a-fA-F]+' "$TARGET_DIR/colours.css")
+    green=$(grep -oP -- '--green:\s*\K#[0-9a-fA-F]+' "$TARGET_DIR/colours.css")
+    orange=$(grep -oP -- '--orange:\s*\K#[0-9a-fA-F]+' "$TARGET_DIR/colours.css")
+    red=$(grep -oP -- '--red:\s*\K#[0-9a-fA-F]+' "$TARGET_DIR/colours.css")
+    
+    if [ -n "$bg_primary" ] && [ -n "$text_primary" ]; then
+        cat > "$TARGET_DIR/waybar.css" << EOF
+/* Waybar CSS generated from colours.css */
+@define-color background ${bg_primary};
+@define-color foreground ${text_primary};
+@define-color text-secondary ${bg_secondary};
+@define-color accent-blue ${blue};
+@define-color accent-pink ${purple};
+@define-color accent-yellow ${orange};
+@define-color accent-orange ${orange};
+@define-color github-0 ${bg_secondary};
+@define-color github-1 ${blue};
+@define-color github-2 ${cyan};
+@define-color github-3 ${cyan};
+@define-color github-4 ${green};
+EOF
+        echo "Created: waybar.css (generated from colours.css)"
     fi
 fi
 
