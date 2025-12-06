@@ -1,5 +1,4 @@
-include=~/.local/share/omarchy/default/mako/core.ini
-
-text-color=#cad3f5
-border-color=#c6d0f5
-background-color=#24273a
+background_color=#1e1e2e
+text_color=#cdd6f4
+border_color=#cba6f7
+progress_color=#cba6f7

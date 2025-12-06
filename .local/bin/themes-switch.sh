@@ -31,6 +31,7 @@ ln -sfn "$HOME/.themes/$selected_theme" "$THEME_DIR/current"
 "$HOME/.local/bin/themes-set-fuzzel.sh"
 "$HOME/.local/bin/themes-set-obsidian.sh"
 "$HOME/.local/bin/themes-set-hyprland.sh"
+"$HOME/.local/bin/themes-set-hyprlock.sh"
 
 reload_ghostty_windows() {
     local ghostty_addresses=$(hyprctl clients -j | jq -r '.[] | select(.class == "com.mitchellh.ghostty") | .address')
