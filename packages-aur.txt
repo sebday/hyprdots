@@ -1,5 +1,4 @@
 brave-bin
 cursor-bin
 opencode-bin
-blesh-git
 insync
