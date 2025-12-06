@@ -125,11 +125,35 @@ else
     echo "Preserved: existing colours.css (already complete)"
 fi
 
-# Add icons.theme if missing
-if [ ! -f "$TARGET_DIR/icons.theme" ]; then
-    echo "Catppuccin-Mocha" > "$TARGET_DIR/icons.theme"
-    echo "Created: icons.theme (default: Catppuccin-Mocha)"
+# Generate icons.theme - always overwrite to match available icon packs
+# Try to intelligently match theme name to available icon packs
+local icon_theme=""
+
+case "$BASE_THEME_NAME" in
+    *catppuccin*|*mocha*)
+        icon_theme="Catppuccin-Mocha"
+        ;;
+    *catppuccin*|*latte*)
+        icon_theme="Catppuccin-Latte"
+        ;;
+    *gruvbox*)
+        icon_theme="Gruvbox-Dark"
+        ;;
+    *tokyo*|*night*)
+        icon_theme="Tokyonight-Dark-Cyan"
+        ;;
+    *rose*|*pine*)
+        icon_theme="Rosepine-Moon"
+        ;;
+esac
+
+# Verify the icon theme exists, otherwise use default
+if [ -z "$icon_theme" ] || { [ ! -d "$HOME/.local/share/icons/$icon_theme" ] && [ ! -d "/usr/share/icons/$icon_theme" ]; }; then
+    icon_theme="Adwaita"
 fi
+
+echo "$icon_theme" > "$TARGET_DIR/icons.theme"
+echo "Created: icons.theme (matched: $icon_theme)"
 
 # Generate fuzzel.conf from colours.css if it exists
 if [ -f "$TARGET_DIR/colours.css" ]; then
