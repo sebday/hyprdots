@@ -7,12 +7,20 @@ generate_theme_list() {
     for theme_dir in "$THEME_DIR"/*; do
         if [ -d "$theme_dir" ] && [ "$(basename "$theme_dir")" != "current" ] && [ "$(basename "$theme_dir")" != "shared" ]; then
             theme_name=$(basename "$theme_dir")
-            wallpaper_file=""
-            backgrounds_dir="$theme_dir/backgrounds"
-            if [ -d "$backgrounds_dir" ]; then
-                wallpaper_file=$(find "$backgrounds_dir" -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.webp" \) -print -quit)
+            preview_file=""
+            
+            # Use preview.png if it exists
+            if [ -f "$theme_dir/preview.png" ]; then
+                preview_file="$theme_dir/preview.png"
+            else
+                # Fall back to finding a wallpaper from backgrounds
+                backgrounds_dir="$theme_dir/backgrounds"
+                if [ -d "$backgrounds_dir" ]; then
+                    preview_file=$(find "$backgrounds_dir" -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.webp" \) -print -quit)
+                fi
             fi
-            printf "%s\t%s\n" "$theme_name" "$wallpaper_file"
+            
+            printf "%s\t%s\n" "$theme_name" "$preview_file"
         fi
     done
 }
