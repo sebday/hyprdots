@@ -1,18 +1,5 @@
-# Mako notification configuration
-# Theme colors will be updated by ThemeSwitcher.sh
-background-color=#1e1e2e
-text-color=#cdd6f4
-border-color=#cba6f7
-progress-color=#cba6f7
+include=~/.local/share/omarchy/default/mako/core.ini
 
-outer-margin=20
-default-timeout=3000
-border-radius=8
-font=monospace 18
-icon-path=/home/seb/.local/share/icons/Tokyonight-Dark-Cyan
-max-icon-size=32
-output=HDMI-A-1
-anchor=bottom-center
-
-[urgency=high]
-text-color=#cdd6f4
+text-color=#cad3f5
+border-color=#c6d0f5
+background-color=#24273a

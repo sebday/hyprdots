@@ -1,11 +1,11 @@
 #!/bin/bash
 
 # Update btop theme
-BTHEME_CONFIG_FILE="$$HOME/.themes/current/btop.conf"
+BTOP_THEME_FILE="$HOME/.themes/current/btop.theme"
+BTOP_CONFIG_DIR="$HOME/.config/btop/themes"
 
-if [ -f "$BTHEME_CONFIG_FILE" ]; then
-    source "$BTHEME_CONFIG_FILE"
-    if [ -n "$btop_theme" ]; then
-        sed -i "s|^color_theme =.*|color_theme = \"$btop_theme\"|" "$HOME/.config/btop/btop.conf"
-    fi
+if [ -f "$BTOP_THEME_FILE" ]; then
+    mkdir -p "$BTOP_CONFIG_DIR"
+    cp "$BTOP_THEME_FILE" "$BTOP_CONFIG_DIR/current.theme"
+    sed -i 's|^color_theme =.*|color_theme = "current"|' "$HOME/.config/btop/btop.conf"
 fi

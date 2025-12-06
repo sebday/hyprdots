@@ -1,7 +1,7 @@
 #!/bin/bash
 CURRENT_THEME_LINK="$HOME/.themes/current"
 CURSOR_CONFIG_FILE="$HOME/.config/Cursor/User/settings.json"
-CURSOR_THEME_JSON="$CURRENT_THEME_LINK/cursor.json"
+CURSOR_THEME_JSON="$CURRENT_THEME_LINK/vscode.json"
 
 EXTENSION_ID=$(jq -r '.extension // empty' "$CURSOR_THEME_JSON" 2>/dev/null)
 if [ -n "$EXTENSION_ID" ]; then
