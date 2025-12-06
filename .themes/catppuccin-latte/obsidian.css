@@ -1,0 +1,33 @@
+/* Obsidian CSS generated from colours.css */
+.theme-dark,
+.theme-light {
+  --background-primary: #eff1f5;
+  --background-primary-alt: #e6e9ef;
+  --background-secondary: var(--background-primary);
+  --background-secondary-alt: var(--background-primary-alt);
+  --text-normal: #4c4f69;
+  --text-on-accent: #eff1f5;
+  --text-title-h1: #8839ef;
+  --text-title-h2: #fe640b;
+  --text-title-h3: #40a02b;
+  --text-title-h4: #d20f39;
+  --text-title-h5: #fe640b;
+  --text-title-h6: #8839ef;
+  --text-link: #1e66f5;
+  --text-a: #ea76cb;
+  --text-a-hover: #ea76cb;
+  --interactive-accent: var(--text-title-h3);
+  --blockquote-border: #8839ef;
+
+  /* Code view */
+  --code-normal: var(--text-normal);
+  --code-background: var(--background-primary);
+  --modular-foreground: var(--text-normal);
+  --modular-Comment: #04a5e5;
+  --modular-keyword: var(--text-a);
+  --modular-definition: var(--text-title-h3);
+  --modular-variable: var(--text-normal);
+  --modular-number: var(--text-title-h1);
+  --modular-function: #179299;
+  --modular-string: var(--text-title-h5);
+}

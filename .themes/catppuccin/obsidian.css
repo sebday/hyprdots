@@ -7,27 +7,27 @@
   --background-secondary-alt: var(--background-primary-alt);
   --text-normal: #cdd6f4;
   --text-on-accent: #1e1e2e;
-  --text-title-h1: #cba6f7;    /* Mauve */
-  --text-title-h2: #fab387;    /* Peach */
-  --text-title-h3: #a6e3a1;    /* Green */
-  --text-title-h4: #f38ba8;    /* Red */
-  --text-title-h5: #fab387;    /* Yellow fallback */
-  --text-title-h6: #cba6f7;    /* Mauve */
-  --text-link: #89b4fa;        /* Blue */
-  --text-a: #f5c2e7;           /* Pink */
-  --text-a-hover: #f5c2e7;      /* Pink */
+  --text-title-h1: #cba6f7;
+  --text-title-h2: #fab387;
+  --text-title-h3: #a6e3a1;
+  --text-title-h4: #f38ba8;
+  --text-title-h5: #fab387;
+  --text-title-h6: #cba6f7;
+  --text-link: #89b4fa;
+  --text-a: #f5c2e7;
+  --text-a-hover: #f5c2e7;
   --interactive-accent: var(--text-title-h3);
-  --blockquote-border: #cba6f7; /* Mauve */
+  --blockquote-border: #cba6f7;
 
   /* Code view */
   --code-normal: var(--text-normal);
   --code-background: var(--background-primary);
   --modular-foreground: var(--text-normal);
-  --modular-Comment: #a6adc8;  /* Subtext0, hardcoded */
+  --modular-Comment: #74c7ec;
   --modular-keyword: var(--text-a);
   --modular-definition: var(--text-title-h3);
   --modular-variable: var(--text-normal);
   --modular-number: var(--text-title-h1);
-  --modular-function: #94e2d5; /* Teal */
+  --modular-function: #94e2d5;
   --modular-string: var(--text-title-h5);
 }
