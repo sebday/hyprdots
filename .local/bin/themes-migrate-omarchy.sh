@@ -113,9 +113,61 @@ echo
 # Create target directory if it doesn't exist
 mkdir -p "$TARGET_DIR"
 
-# Copy theme files (rsync to preserve existing dirs like gtk-3.0/)
+# Copy theme files (rsync to preserve existing dirs)
 # Exclude generated files that we create later
-rsync -a --exclude='*.toml' --exclude='chromium.theme' --exclude='kitty.conf' --exclude='swayosd.css' --exclude='walker.css' --exclude='colours.css' --exclude='fuzzel.conf' --exclude='obsidian.css' --exclude='waybar.css' --exclude='mako.ini' "$SOURCE_THEME/" "$TARGET_DIR/"
+rsync -a --exclude='*.toml' --exclude='chromium.theme' --exclude='kitty.conf' --exclude='swayosd.css' --exclude='walker.css' --exclude='colours.css' --exclude='fuzzel.conf' --exclude='obsidian.css' --exclude='waybar.css' --exclude='mako.ini' --exclude='gtk-3.0' --exclude='gtk-4.0' "$SOURCE_THEME/" "$TARGET_DIR/"
+
+# Copy GTK themes from shared and update colors
+if [ -d "$HOME/.themes/shared/gtk-3.0" ] && [ -f "$TARGET_DIR/colours.css" ]; then
+    echo "Copying GTK themes from shared..."
+    cp -r "$HOME/.themes/shared/gtk-3.0" "$TARGET_DIR/"
+    cp -r "$HOME/.themes/shared/gtk-4.0" "$TARGET_DIR/"
+    
+    # Extract colors from colours.css
+    new_bg_primary=$(grep -oP -- '--bg-primary:\s*\K#[0-9a-fA-F]+' "$TARGET_DIR/colours.css")
+    new_bg_secondary=$(grep -oP -- '--bg-secondary:\s*\K#[0-9a-fA-F]+' "$TARGET_DIR/colours.css")
+    new_text=$(grep -oP -- '--text-primary:\s*\K#[0-9a-fA-F]+' "$TARGET_DIR/colours.css")
+    new_accent=$(grep -oP -- '--text-accent:\s*\K#[0-9a-fA-F]+' "$TARGET_DIR/colours.css")
+    new_blue=$(grep -oP -- '--blue:\s*\K#[0-9a-fA-F]+' "$TARGET_DIR/colours.css")
+    new_cyan=$(grep -oP -- '--cyan:\s*\K#[0-9a-fA-F]+' "$TARGET_DIR/colours.css")
+    new_purple=$(grep -oP -- '--purple:\s*\K#[0-9a-fA-F]+' "$TARGET_DIR/colours.css")
+    new_pink=$(grep -oP -- '--pink:\s*\K#[0-9a-fA-F]+' "$TARGET_DIR/colours.css")
+    new_green=$(grep -oP -- '--green:\s*\K#[0-9a-fA-F]+' "$TARGET_DIR/colours.css")
+    new_orange=$(grep -oP -- '--orange:\s*\K#[0-9a-fA-F]+' "$TARGET_DIR/colours.css")
+    new_red=$(grep -oP -- '--red:\s*\K#[0-9a-fA-F]+' "$TARGET_DIR/colours.css")
+    
+    # Replace Catppuccin Mocha colors with theme colors in GTK CSS files
+    # Original Catppuccin Mocha colors -> New theme colors
+    for gtk_css in "$TARGET_DIR/gtk-3.0/gtk.css" "$TARGET_DIR/gtk-3.0/gtk-dark.css" "$TARGET_DIR/gtk-4.0/gtk.css" "$TARGET_DIR/gtk-4.0/gtk-dark.css"; do
+        if [ -f "$gtk_css" ]; then
+            # Surface colors (menus, dropdowns, tooltips) - replace with bg-secondary
+            sed -i "s/#313244/$new_bg_secondary/gi" "$gtk_css"
+            sed -i "s/#292c3c/$new_bg_secondary/gi" "$gtk_css"
+            sed -i "s/#4a4b5a/$new_bg_secondary/gi" "$gtk_css"
+            sed -i "s/#232634/$new_bg_secondary/gi" "$gtk_css"
+            sed -i "s/#2b2b3a/$new_bg_secondary/gi" "$gtk_css"
+            
+            # Base colors
+            sed -i "s/#1e1e2e/$new_bg_primary/gi" "$gtk_css"
+            sed -i "s/#181825/$new_bg_secondary/gi" "$gtk_css"
+            
+            # Text colors
+            sed -i "s/#cdd6f4/$new_text/gi" "$gtk_css"
+            sed -i "s/#74c7ec/$new_accent/gi" "$gtk_css"
+            
+            # Accent colors
+            sed -i "s/#89b4fa/$new_blue/gi" "$gtk_css"
+            sed -i "s/#94e2d5/$new_cyan/gi" "$gtk_css"
+            sed -i "s/#cba6f7/$new_purple/gi" "$gtk_css"
+            sed -i "s/#f5c2e7/$new_pink/gi" "$gtk_css"
+            sed -i "s/#a6e3a1/$new_green/gi" "$gtk_css"
+            sed -i "s/#fab387/$new_orange/gi" "$gtk_css"
+            sed -i "s/#f38ba8/$new_red/gi" "$gtk_css"
+        fi
+    done
+    
+    echo "Updated GTK theme colors"
+fi
 
 # Generate colours.css BEFORE removing walker.css (needs it for color extraction)
 # Only generate if it doesn't exist or is incomplete
@@ -127,7 +179,7 @@ fi
 
 # Generate icons.theme - always overwrite to match available icon packs
 # Try to intelligently match theme name to available icon packs
-local icon_theme=""
+icon_theme=""
 
 case "$BASE_THEME_NAME" in
     *catppuccin*|*mocha*)
@@ -163,7 +215,7 @@ if [ -f "$TARGET_DIR/colours.css" ]; then
     purple=$(grep -oP -- '--purple:\s*\K#[0-9a-fA-F]+' "$TARGET_DIR/colours.css")
     
     # Read icon theme from icons.theme file
-    local icon_pack="Catppuccin-Mocha"
+    icon_pack="Catppuccin-Mocha"
     if [ -f "$TARGET_DIR/icons.theme" ]; then
         icon_pack=$(cat "$TARGET_DIR/icons.theme" | tr -d '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
     fi
