@@ -115,7 +115,7 @@ mkdir -p "$TARGET_DIR"
 
 # Copy theme files (rsync to preserve existing dirs like gtk-3.0/)
 # Exclude generated files that we create later
-rsync -a --exclude='*.toml' --exclude='chromium.theme' --exclude='kitty.conf' --exclude='swayosd.css' --exclude='walker.css' --exclude='colours.css' --exclude='fuzzel.conf' --exclude='obsidian.css' --exclude='waybar.css' "$SOURCE_THEME/" "$TARGET_DIR/"
+rsync -a --exclude='*.toml' --exclude='chromium.theme' --exclude='kitty.conf' --exclude='swayosd.css' --exclude='walker.css' --exclude='colours.css' --exclude='fuzzel.conf' --exclude='obsidian.css' --exclude='waybar.css' --exclude='mako.ini' "$SOURCE_THEME/" "$TARGET_DIR/"
 
 # Generate colours.css BEFORE removing walker.css (needs it for color extraction)
 # Only generate if it doesn't exist or is incomplete
@@ -154,6 +154,33 @@ fi
 
 echo "$icon_theme" > "$TARGET_DIR/icons.theme"
 echo "Created: icons.theme (matched: $icon_theme)"
+
+# Generate mako.ini from colours.css
+if [ -f "$TARGET_DIR/colours.css" ]; then
+    bg_primary=$(grep -oP -- '--bg-primary:\s*\K#[0-9a-fA-F]+' "$TARGET_DIR/colours.css")
+    text_primary=$(grep -oP -- '--text-primary:\s*\K#[0-9a-fA-F]+' "$TARGET_DIR/colours.css")
+    text_accent=$(grep -oP -- '--text-accent:\s*\K#[0-9a-fA-F]+' "$TARGET_DIR/colours.css")
+    purple=$(grep -oP -- '--purple:\s*\K#[0-9a-fA-F]+' "$TARGET_DIR/colours.css")
+    
+    # Read icon theme from icons.theme file
+    local icon_pack="Catppuccin-Mocha"
+    if [ -f "$TARGET_DIR/icons.theme" ]; then
+        icon_pack=$(cat "$TARGET_DIR/icons.theme" | tr -d '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+    fi
+    
+    if [ -n "$bg_primary" ] && [ -n "$text_primary" ]; then
+        cat > "$TARGET_DIR/mako.ini" << EOF
+include=~/.themes/shared/mako.ini
+
+icon-path=/home/seb/.local/share/icons/${icon_pack}
+background-color=${bg_primary}
+text-color=${text_primary}
+border-color=${text_accent}
+progress-color=${purple}
+EOF
+        echo "Created: mako.ini (generated from colours.css with ${icon_pack} icons)"
+    fi
+fi
 
 # Generate fuzzel.conf from colours.css if it exists
 if [ -f "$TARGET_DIR/colours.css" ]; then
