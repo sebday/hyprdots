@@ -2,18 +2,16 @@
 
 # Migrate omarchy theme to local theme format
 # Usage: themes-migrate-omarchy.sh <source-theme-path>
-# Automatically appends '-omarchy' to the theme name
 
 if [ -z "$1" ]; then
     echo "Usage: $0 <source-theme-path>"
     echo "Example: $0 ~/Projects/omarchy/themes/catppuccin"
-    echo "Note: Will automatically create theme as 'catppuccin-omarchy'"
     exit 1
 fi
 
 SOURCE_THEME="$1"
 BASE_THEME_NAME="$(basename "$SOURCE_THEME")"
-THEME_NAME="${BASE_THEME_NAME}-omarchy"
+THEME_NAME="${BASE_THEME_NAME}"
 TARGET_DIR="$HOME/.themes/$THEME_NAME"
 
 generate_colours_css() {
@@ -113,8 +111,8 @@ echo
 # Create target directory if it doesn't exist
 mkdir -p "$TARGET_DIR"
 
-# Copy theme files (rsync to preserve existing dirs)
-# Exclude generated files that we create later
+# Copy theme files (rsync to preserve existing dirs and existing vscode.json)
+# Exclude generated files that we create later (but keep vscode.json if it exists)
 rsync -a --exclude='*.toml' --exclude='chromium.theme' --exclude='kitty.conf' --exclude='swayosd.css' --exclude='walker.css' --exclude='colours.css' --exclude='fuzzel.conf' --exclude='obsidian.css' --exclude='waybar.css' --exclude='mako.ini' --exclude='gtk-3.0' --exclude='gtk-4.0' "$SOURCE_THEME/" "$TARGET_DIR/"
 
 # Copy GTK themes from shared and update colors
