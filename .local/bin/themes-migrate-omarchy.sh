@@ -1,21 +1,36 @@
 #!/bin/bash
 
 # Migrate omarchy theme to local theme format
-# Usage: themes-migrate-omarchy.sh <source-theme-path> [target-theme-name]
+# Usage: themes-migrate-omarchy.sh <source-theme-path>
+# Automatically appends '-omarchy' to the theme name
 
 if [ -z "$1" ]; then
-    echo "Usage: $0 <source-theme-path> [target-theme-name]"
+    echo "Usage: $0 <source-theme-path>"
     echo "Example: $0 ~/Projects/omarchy/themes/catppuccin"
-    echo "Example: $0 ~/Projects/omarchy/themes/catppuccin my-catppuccin"
+    echo "Note: Will automatically create theme as 'catppuccin-omarchy'"
     exit 1
 fi
 
 SOURCE_THEME="$1"
-THEME_NAME="${2:-$(basename "$SOURCE_THEME")}"
+BASE_THEME_NAME="$(basename "$SOURCE_THEME")"
+THEME_NAME="${BASE_THEME_NAME}-omarchy"
 TARGET_DIR="$HOME/.themes/$THEME_NAME"
 
 generate_colours_css() {
     local target_dir="$1"
+    
+    # Catppuccin Mocha defaults for missing colors
+    local default_bg_primary="#1e1e2e"
+    local default_bg_secondary="#181825"
+    local default_text_primary="#cdd6f4"
+    local default_text_accent="#74c7ec"
+    local default_blue="#89b4fa"
+    local default_cyan="#94e2d5"
+    local default_purple="#cba6f7"
+    local default_pink="#f5c2e7"
+    local default_green="#a6e3a1"
+    local default_orange="#fab387"
+    local default_red="#f38ba8"
     
     # Collect colors from all available sources
     declare -A colors
@@ -47,27 +62,41 @@ generate_colours_css() {
         [ -n "${colors[mako_background]}" ] && sources_found+=("mako.ini")
     fi
     
-    # If we have at least one source with colors, generate colours.css
-    if [ ${#sources_found[@]} -gt 0 ]; then
-        # Build CSS with preference: specific > general
-        local bg_primary="${colors[walker_base]:-${colors[walker_background]:-${colors[waybar_background]:-${colors[mako_background]}}}}"
-        local bg_secondary="${colors[walker_background]:-${colors[waybar_background]:-${colors[mako_background]}}}"
-        local text_primary="${colors[walker_text]:-${colors[walker_foreground]:-${colors[waybar_foreground]:-${colors[mako_text]}}}}"
-        local text_accent="${colors[walker_selected]:-${colors[walker_foreground]:-${colors[waybar_foreground]:-${colors[mako_text]}}}}"
-        local border="${colors[walker_border]:-${colors[mako_border]:-${colors[walker_foreground]:-${colors[waybar_foreground]}}}}"
-        
-        cat > "$target_dir/colours.css" << EOF
+    # Build CSS with all required colors (use defaults if not found)
+    local bg_primary="${colors[walker_base]:-${colors[walker_background]:-${colors[waybar_background]:-${colors[mako_background]:-$default_bg_primary}}}}"
+    local bg_secondary="${colors[walker_background]:-${colors[waybar_background]:-${colors[mako_background]:-$default_bg_secondary}}}"
+    local text_primary="${colors[walker_text]:-${colors[walker_foreground]:-${colors[waybar_foreground]:-${colors[mako_text]:-$default_text_primary}}}}"
+    local text_accent="${colors[walker_selected]:-${colors[walker_foreground]:-${colors[waybar_foreground]:-${colors[mako_text]:-$default_text_accent}}}}"
+    
+    # Use defaults for color palette (not available in omarchy themes)
+    local blue="$default_blue"
+    local cyan="$default_cyan"
+    local purple="$default_purple"
+    local pink="$default_pink"
+    local green="$default_green"
+    local orange="$default_orange"
+    local red="$default_red"
+    
+    cat > "$target_dir/colours.css" << EOF
 :root {
     --bg-primary: $bg_primary;
     --bg-secondary: $bg_secondary;
     --text-primary: $text_primary;
     --text-accent: $text_accent;
-    --border: $border;
+    --blue: $blue;
+    --cyan: $cyan;
+    --purple: $purple;
+    --pink: $pink;
+    --green: $green;
+    --orange: $orange;
+    --red: $red;
 }
 EOF
-        echo "Created: colours.css (extracted from ${sources_found[*]})"
+    
+    if [ ${#sources_found[@]} -gt 0 ]; then
+        echo "Created: colours.css (extracted from ${sources_found[*]}, defaults for palette colors)"
     else
-        echo "Skipped: colours.css (could not extract colors from theme)"
+        echo "Created: colours.css (using catppuccin defaults)"
     fi
 }
 
@@ -76,46 +105,107 @@ if [ ! -d "$SOURCE_THEME" ]; then
     exit 1
 fi
 
-if [ -d "$TARGET_DIR" ]; then
-    read -p "Theme '$THEME_NAME' already exists. Overwrite? (y/N) " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        exit 0
-    fi
-    rm -rf "$TARGET_DIR"
-fi
-
-echo "Migrating theme: $THEME_NAME"
+echo "Migrating theme: $BASE_THEME_NAME → $THEME_NAME"
 echo "Source: $SOURCE_THEME"
 echo "Target: $TARGET_DIR"
 echo
 
-# Copy the theme
-cp -r "$SOURCE_THEME" "$TARGET_DIR"
+# Create target directory if it doesn't exist
+mkdir -p "$TARGET_DIR"
+
+# Copy theme files (rsync to preserve existing dirs like gtk-3.0/)
+# Exclude generated files that we create later
+rsync -a --exclude='*.toml' --exclude='chromium.theme' --exclude='kitty.conf' --exclude='swayosd.css' --exclude='walker.css' --exclude='colours.css' --exclude='fuzzel.conf' --exclude='obsidian.css' "$SOURCE_THEME/" "$TARGET_DIR/"
 
 # Generate colours.css BEFORE removing walker.css (needs it for color extraction)
-generate_colours_css "$TARGET_DIR"
-
-# Remove unused config files
-FILES_TO_REMOVE=(
-    "alacritty.toml"
-    "chromium.theme"
-    "kitty.conf"
-    "swayosd.css"
-    "walker.css"
-)
-
-for file in "${FILES_TO_REMOVE[@]}"; do
-    if [ -f "$TARGET_DIR/$file" ]; then
-        rm "$TARGET_DIR/$file"
-        echo "Removed: $file"
-    fi
-done
+# Only generate if it doesn't exist or is incomplete
+if [ ! -f "$TARGET_DIR/colours.css" ] || ! grep -q -- "--red:" "$TARGET_DIR/colours.css"; then
+    generate_colours_css "$TARGET_DIR"
+else
+    echo "Preserved: existing colours.css (already complete)"
+fi
 
 # Add icons.theme if missing
 if [ ! -f "$TARGET_DIR/icons.theme" ]; then
     echo "Catppuccin-Mocha" > "$TARGET_DIR/icons.theme"
     echo "Created: icons.theme (default: Catppuccin-Mocha)"
+fi
+
+# Generate fuzzel.conf from colours.css if it exists
+if [ -f "$TARGET_DIR/colours.css" ]; then
+    # Extract colors from colours.css and convert to fuzzel format (remove # and add alpha)
+    bg_primary=$(grep -oP -- '--bg-primary:\s*\K#[0-9a-fA-F]+' "$TARGET_DIR/colours.css" | sed 's/#//g')
+    bg_secondary=$(grep -oP -- '--bg-secondary:\s*\K#[0-9a-fA-F]+' "$TARGET_DIR/colours.css" | sed 's/#//g')
+    text_primary=$(grep -oP -- '--text-primary:\s*\K#[0-9a-fA-F]+' "$TARGET_DIR/colours.css" | sed 's/#//g')
+    text_accent=$(grep -oP -- '--text-accent:\s*\K#[0-9a-fA-F]+' "$TARGET_DIR/colours.css" | sed 's/#//g')
+    border=$(grep -oP -- '--border:\s*\K#[0-9a-fA-F]+' "$TARGET_DIR/colours.css" | sed 's/#//g')
+    
+    if [ -n "$bg_primary" ] && [ -n "$text_primary" ]; then
+        cat > "$TARGET_DIR/fuzzel.conf" << EOF
+fuzzel_background=${bg_primary}ee
+fuzzel_text=${text_primary}ff
+fuzzel_match=${text_accent:-${text_primary}}ff
+fuzzel_selection=${text_accent:-${text_primary}}ff
+fuzzel_selection_match=${text_primary}ff
+fuzzel_selection_text=${bg_primary}ff
+fuzzel_border=${border:-${text_accent:-${text_primary}}}ff
+EOF
+        echo "Created: fuzzel.conf (generated from colours.css)"
+    fi
+fi
+
+# Generate obsidian.css from colours.css
+if [ -f "$TARGET_DIR/colours.css" ]; then
+    bg_primary=$(grep -oP -- '--bg-primary:\s*\K#[0-9a-fA-F]+' "$TARGET_DIR/colours.css")
+    bg_secondary=$(grep -oP -- '--bg-secondary:\s*\K#[0-9a-fA-F]+' "$TARGET_DIR/colours.css")
+    text_primary=$(grep -oP -- '--text-primary:\s*\K#[0-9a-fA-F]+' "$TARGET_DIR/colours.css")
+    text_accent=$(grep -oP -- '--text-accent:\s*\K#[0-9a-fA-F]+' "$TARGET_DIR/colours.css")
+    blue=$(grep -oP -- '--blue:\s*\K#[0-9a-fA-F]+' "$TARGET_DIR/colours.css")
+    cyan=$(grep -oP -- '--cyan:\s*\K#[0-9a-fA-F]+' "$TARGET_DIR/colours.css")
+    purple=$(grep -oP -- '--purple:\s*\K#[0-9a-fA-F]+' "$TARGET_DIR/colours.css")
+    pink=$(grep -oP -- '--pink:\s*\K#[0-9a-fA-F]+' "$TARGET_DIR/colours.css")
+    green=$(grep -oP -- '--green:\s*\K#[0-9a-fA-F]+' "$TARGET_DIR/colours.css")
+    orange=$(grep -oP -- '--orange:\s*\K#[0-9a-fA-F]+' "$TARGET_DIR/colours.css")
+    red=$(grep -oP -- '--red:\s*\K#[0-9a-fA-F]+' "$TARGET_DIR/colours.css")
+    
+    if [ -n "$bg_primary" ] && [ -n "$text_primary" ]; then
+        cat > "$TARGET_DIR/obsidian.css" << EOF
+/* Obsidian CSS generated from colours.css */
+.theme-dark,
+.theme-light {
+  --background-primary: ${bg_primary};
+  --background-primary-alt: ${bg_secondary};
+  --background-secondary: var(--background-primary);
+  --background-secondary-alt: var(--background-primary-alt);
+  --text-normal: ${text_primary};
+  --text-on-accent: ${bg_primary};
+  --text-title-h1: ${purple};
+  --text-title-h2: ${orange};
+  --text-title-h3: ${green};
+  --text-title-h4: ${red};
+  --text-title-h5: ${orange};
+  --text-title-h6: ${purple};
+  --text-link: ${blue};
+  --text-a: ${pink};
+  --text-a-hover: ${pink};
+  --interactive-accent: var(--text-title-h3);
+  --blockquote-border: ${purple};
+
+  /* Code view */
+  --code-normal: var(--text-normal);
+  --code-background: var(--background-primary);
+  --modular-foreground: var(--text-normal);
+  --modular-Comment: ${text_accent};
+  --modular-keyword: var(--text-a);
+  --modular-definition: var(--text-title-h3);
+  --modular-variable: var(--text-normal);
+  --modular-number: var(--text-title-h1);
+  --modular-function: ${cyan};
+  --modular-string: var(--text-title-h5);
+}
+EOF
+        echo "Created: obsidian.css (generated from colours.css)"
+    fi
 fi
 
 echo
