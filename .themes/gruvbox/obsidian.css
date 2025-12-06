@@ -1,47 +1,33 @@
+/* Obsidian CSS generated from colours.css */
 .theme-dark,
 .theme-light {
-  /* Gruvbox Dark Colors */
   --background-primary: #282828;
-  --background-primary-alt: #3c3836;
+  --background-primary-alt: #1d2021;
   --background-secondary: var(--background-primary);
   --background-secondary-alt: var(--background-primary-alt);
   --text-normal: #ebdbb2;
   --text-on-accent: #282828;
-  --text-title-h1: #fe8019;    /* Orange */
-  --text-title-h2: #fabd2f;    /* Yellow */
-  --text-title-h3: #b8bb26;    /* Green */
-  --text-title-h4: #fb4934;    /* Red */
-  --text-title-h5: #83a598;    /* Blue */
-  --text-title-h6: #d3869b;    /* Purple */
-  --canvas-color-1: 251, 73, 52;  /* Red */
-  --canvas-color-2: 254, 128, 25; /* Orange */
-  --canvas-color-3: 250, 189, 47; /* Yellow */
-  --canvas-color-4: 184, 187, 38; /* Green */
-  --canvas-color-5: 131, 165, 152;/* Blue */
-  --canvas-color-6: 211, 134, 155;/* Purple */
-  --text-link: var(--text-title-h5);
-  --markup-code: var(--text-title-h2);
-  --text-tag: var(--text-title-h3);
-  --text-a: #8ec07c;           /* Aqua */
-  --text-a-hover: #8ec07c;      /* Aqua */
-  --text-mark: var(--text-title-h2);
+  --text-title-h1: #d3869b;
+  --text-title-h2: #fe8019;
+  --text-title-h3: #b8bb26;
+  --text-title-h4: #fb4934;
+  --text-title-h5: #fe8019;
+  --text-title-h6: #d3869b;
+  --text-link: #83a598;
+  --text-a: #d3869b;
+  --text-a-hover: #d3869b;
   --interactive-accent: var(--text-title-h3);
-  --blockquote-border: var(--text-title-h6);
-  --interactive-accent-rgb: var(--text-title-h2);
-  --accent-h: 40;
-  --accent-s: 98%;
-  --accent-l: 62%;
-  --titlebar-background-focused: var(--titlebar-background);
+  --blockquote-border: #d3869b;
 
   /* Code view */
   --code-normal: var(--text-normal);
   --code-background: var(--background-primary);
   --modular-foreground: var(--text-normal);
-  --modular-Comment: #928374;
+  --modular-Comment: #fabd2f;
   --modular-keyword: var(--text-a);
   --modular-definition: var(--text-title-h3);
   --modular-variable: var(--text-normal);
-  --modular-number: var(--text-title-h6);
-  --modular-function: var(--text-title-h5);
-  --modular-string: var(--text-title-h2);
+  --modular-number: var(--text-title-h1);
+  --modular-function: #8ec07c;
+  --modular-string: var(--text-title-h5);
 }

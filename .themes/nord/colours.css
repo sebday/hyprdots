@@ -1,12 +1,12 @@
- :root {
+:root {
     --bg-primary: #2e3440;
     --bg-secondary: #3b4252;
-    --text-primary: #d8dee9;
-    --text-accent: #81a1c1;
+    --text-primary: #eceff4;
+    --text-accent: #88c0d0;
     --blue: #81a1c1;
-    --cyan: #8fbcbb;
+    --cyan: #88c0d0;
     --purple: #b48ead;
-    --pink: #bf616a;
+    --pink: #b48ead;
     --green: #a3be8c;
     --orange: #d08770;
     --red: #bf616a;

@@ -1,47 +1,33 @@
+/* Obsidian CSS generated from colours.css */
 .theme-dark,
 .theme-light {
-  /* Osaka-Jade Colors */
   --background-primary: #111c18;
-  --background-primary-alt: #23372B;
+  --background-primary-alt: #0d1511;
   --background-secondary: var(--background-primary);
   --background-secondary-alt: var(--background-primary-alt);
   --text-normal: #C1C497;
   --text-on-accent: #111c18;
-  --text-title-h1: #D2689C;    /* Pink */
-  --text-title-h2: #E5C736;    /* Yellow */
-  --text-title-h3: #549e6a;    /* Green */
-  --text-title-h4: #FF5345;    /* Red */
-  --text-title-h5: #509475;    /* Jade */
-  --text-title-h6: #ACD4CF;    /* Light Blue */
-  --canvas-color-1: 255, 83, 69;  /* Red */
-  --canvas-color-2: 229, 199, 54; /* Yellow */
-  --canvas-color-3: 84, 158, 106; /* Green */
-  --canvas-color-4: 45, 213, 183; /* Cyan */
-  --canvas-color-5: 80, 148, 117; /* Jade */
-  --canvas-color-6: 210, 104, 156;/* Pink */
-  --text-link: var(--text-title-h5);
-  --markup-code: var(--text-title-h2);
-  --text-tag: var(--text-title-h3);
-  --text-a: #2DD5B7;           /* Cyan */
-  --text-a-hover: #2DD5B7;      /* Cyan */
-  --text-mark: var(--text-title-h2);
+  --text-title-h1: #D2689C;
+  --text-title-h2: #E5C736;
+  --text-title-h3: #549e6a;
+  --text-title-h4: #FF5345;
+  --text-title-h5: #E5C736;
+  --text-title-h6: #D2689C;
+  --text-link: #509475;
+  --text-a: #D2689C;
+  --text-a-hover: #D2689C;
   --interactive-accent: var(--text-title-h3);
-  --blockquote-border: var(--text-title-h1);
-  --interactive-accent-rgb: var(--text-title-h2);
-  --accent-h: 153;
-  --accent-s: 31%;
-  --accent-l: 45%;
-  --titlebar-background-focused: var(--titlebar-background);
+  --blockquote-border: #D2689C;
 
   /* Code view */
   --code-normal: var(--text-normal);
   --code-background: var(--background-primary);
   --modular-foreground: var(--text-normal);
-  --modular-Comment: #7F8565;
+  --modular-Comment: #509475;
   --modular-keyword: var(--text-a);
   --modular-definition: var(--text-title-h3);
   --modular-variable: var(--text-normal);
   --modular-number: var(--text-title-h1);
-  --modular-function: var(--text-title-h5);
-  --modular-string: var(--text-title-h2);
+  --modular-function: #2DD5B7;
+  --modular-string: var(--text-title-h5);
 }

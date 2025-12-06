@@ -1,14 +1,13 @@
-@define-color background #1d2021;
-@define-color foreground #2c2c2b;
-@define-color text-secondary #bdae93;
-@define-color text-muted #7c6f64;
-@define-color text-dark #3c3836;
-@define-color accent-blue #458284;
-@define-color accent-pink #ce8599;
-@define-color accent-yellow #b3b628;
-@define-color accent-orange #d09522;
-@define-color github-0 #689d6a;
-@define-color github-1 #689d6a;
-@define-color github-2 #98971a;
-@define-color github-3 #b8bb26;
-@define-color github-4 #8ec07c;
+/* Waybar CSS generated from colours.css */
+@define-color background #282828;
+@define-color foreground #ebdbb2;
+@define-color text-secondary #1d2021;
+@define-color accent-blue #83a598;
+@define-color accent-pink #d3869b;
+@define-color accent-yellow #fe8019;
+@define-color accent-orange #fe8019;
+@define-color github-0 #1d2021;
+@define-color github-1 #83a598;
+@define-color github-2 #8ec07c;
+@define-color github-3 #8ec07c;
+@define-color github-4 #b8bb26;
