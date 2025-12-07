@@ -1,15 +1,15 @@
 /* Obsidian CSS generated from colours.css */
 .theme-dark,
 .theme-light {
-  --background-primary: #000000;
-  --background-primary-alt: #0a0a0a;
+  --background-primary: #121212;
+  --background-primary-alt: #121212;
   --background-secondary: var(--background-primary);
   --background-secondary-alt: var(--background-primary-alt);
   --text-normal: #ffffff;
   --text-on-accent: #000000;
-  --text-title-h1: #737373;
-  --text-title-h2: #737373;
-  --text-title-h3: #595959;
+  --text-title-h1: #e68e0d;
+  --text-title-h2: #e68e0d;
+  --text-title-h3: #ffc107;
   --text-title-h4: #8c8c8c;
   --text-title-h5: #737373;
   --text-title-h6: #737373;

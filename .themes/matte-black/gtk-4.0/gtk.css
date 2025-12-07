@@ -23,7 +23,7 @@
  * Base States *
  ***************/
 .background {
-  background-color: #000000;
+  background-color: #121212;
   color: #eff1f5;
 }
 
@@ -2515,11 +2515,11 @@ window > .titlebar headerbar:not(.flat) {
 }
 
 window.devel headerbar {
-  background: #000000 cross-fade(10%-gtk-icontheme("system-run-symbolic"), image(transparent)) 90% 0/256px 256px no-repeat, linear-gradient(to right, transparent 65%, rgba(137, 180, 250, 0.1)), linear-gradient(to top, #242437 3px, #28283d);
+  background: #121212 cross-fade(10%-gtk-icontheme("system-run-symbolic"), image(transparent)) 90% 0/256px 256px no-repeat, linear-gradient(to right, transparent 65%, rgba(137, 180, 250, 0.1)), linear-gradient(to top, #242437 3px, #28283d);
 }
 
 window.devel headerbar:backdrop {
-  background: #000000 cross-fade(10%-gtk-icontheme("system-run-symbolic"), image(transparent)) 90% 0/256px 256px no-repeat, image(#000000);
+  background: #121212 cross-fade(10%-gtk-icontheme("system-run-symbolic"), image(transparent)) 90% 0/256px 256px no-repeat, image(#121212);
   /* background-color would flash */
 }
 
@@ -2776,12 +2776,12 @@ stack.view treeview.view {
  *********/
 menubar {
   padding: 0;
-  background-color: #000000;
+  background-color: #121212;
   color: #eff1f5;
 }
 
 menubar:backdrop {
-  background-color: #000000;
+  background-color: #121212;
   color: rgba(239, 241, 245, 0.7);
 }
 
@@ -3369,11 +3369,11 @@ tabbar:not(.inline) scrolledwindow.pinned undershoot {
 }
 
 tabbar:not(.inline) undershoot.left {
-  background: linear-gradient(to right, #000000, rgba(0, 0, 0, 0) 20px);
+  background: linear-gradient(to right, #121212, rgba(0, 0, 0, 0) 20px);
 }
 
 tabbar:not(.inline) undershoot.right {
-  background: linear-gradient(to left, #000000, rgba(0, 0, 0, 0) 20px);
+  background: linear-gradient(to left, #121212, rgba(0, 0, 0, 0) 20px);
 }
 
 tabbar:not(.inline) .needs-attention-left undershoot.left {
@@ -3385,18 +3385,18 @@ tabbar:not(.inline) .needs-attention-right undershoot.right {
 }
 
 tabbar:not(.inline) tabbox > background {
-  background-color: #000000;
+  background-color: #121212;
 }
 
 tabbar:not(.inline) .start-action,
 tabbar:not(.inline) .end-action {
-  background-color: alpha(#000000, 0.6);
+  background-color: alpha(#121212, 0.6);
   border-color: rgba(239, 241, 245, 0.12);
 }
 
 dnd tab {
   min-height: 24px;
-  background-color: #000000;
+  background-color: #121212;
   color: #eff1f5;
   box-shadow: 0 1px 5px 1px rgba(0, 0, 0, 0.09), 0 2px 14px 3px rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0, 0, 0, 0.05);
   outline: 1px solid rgba(30, 30, 46, 0.75);
@@ -3484,7 +3484,7 @@ scrollbar > range > trough > slider:active {
 }
 
 scrollbar > range > trough > slider:disabled {
-  background-color: #000000;
+  background-color: #121212;
 }
 
 scrollbar > range.fine-tune > trough > slider {
@@ -3548,7 +3548,7 @@ scrollbar.overlay-indicator:not(.dragging):not(.hovering).vertical button {
 }
 
 scrollbar.overlay-indicator.dragging, scrollbar.overlay-indicator.hovering {
-  background-color: #000000;
+  background-color: #121212;
 }
 
 scrollbar.horizontal > range > trough > slider {
@@ -3608,7 +3608,7 @@ switch > slider {
   border-radius: 9999px;
   outline: none;
   box-shadow: 0 0 0 0 transparent, 0 3px 2px -2px rgba(0, 0, 0, 0.05), 0 2px 3px -1px rgba(0, 0, 0, 0.06), 0 1px 4px 0 rgba(0, 0, 0, 0.05);
-  background-color: #000000;
+  background-color: #121212;
   border: none;
 }
 
@@ -3899,7 +3899,7 @@ scale > trough > highlight {
 }
 
 scale > trough > highlight:disabled {
-  background-color: #000000;
+  background-color: #121212;
   background-image: image(rgba(239, 241, 245, 0.32));
 }
 
@@ -5226,7 +5226,7 @@ paned > separator {
 paned > separator.wide {
   min-width: 6px;
   min-height: 6px;
-  background-color: #000000;
+  background-color: #121212;
   background-image: image(#0a0a0a), image(#0a0a0a);
   background-size: 1px 1px, 1px 1px;
 }
@@ -5495,7 +5495,7 @@ colorchooser .popover.osd:backdrop {
  * Misc *
  ********/
 .content-view {
-  background-color: #000000;
+  background-color: #121212;
 }
 
 /**********************
@@ -5532,12 +5532,12 @@ window.solid-csd {
   margin: 0;
   padding: 2px;
   border-radius: 0;
-  background-color: #000000;
+  background-color: #121212;
   border: 1px solid #0a0a0a;
 }
 
 window.solid-csd:backdrop {
-  background-color: #000000;
+  background-color: #121212;
 }
 
 window.ssd {
@@ -5823,16 +5823,16 @@ popover.entry-completion > contents {
 }
 
 .nautilus-window.view {
-  background-color: #000000;
+  background-color: #121212;
 }
 
 .nautilus-window .sidebar-pane {
-  background-color: #000000;
+  background-color: #121212;
   color: #eff1f5;
 }
 
 .nautilus-window .sidebar-pane:backdrop {
-  background-color: #000000;
+  background-color: #121212;
   transition: none;
 }
 
@@ -6031,13 +6031,13 @@ row.activatable > cell {
 
 /* Nautilus Progress Indicator */
 windowhandle box.vertical box.toolbar {
-  background-color: #000000;
+  background-color: #121212;
   border: none;
   outline: none;
 }
 
 windowhandle box.toolbar menubutton button.toggle {
-  background-color: #000000;
+  background-color: #121212;
   border: none;
   outline: none;
 }
@@ -7179,7 +7179,7 @@ spinner.fade-in:checked {
 
 window > contents > leaflet > box > stack.background {
   background-color: transparent;
-  background-image: linear-gradient(to bottom, transparent, transparent 46px, #000000 46px, #000000);
+  background-image: linear-gradient(to bottom, transparent, transparent 46px, #121212 46px, #121212);
 }
 
 @define-color weather_temp_chart_fill_color rgba(223, 142, 29, 0.5);
@@ -7218,7 +7218,7 @@ window > contents > leaflet > box > stack.background {
 }
 
 .forecast-card separator {
-  background-color: #000000;
+  background-color: #121212;
 }
 
 #daily-forecast-box > separator:last-child {
@@ -7303,7 +7303,7 @@ image.circular {
 }
 
 #gnome-system-monitor.background.csd {
-  background-color: #000000;
+  background-color: #121212;
 }
 
 .large-button {
@@ -7530,7 +7530,7 @@ list.music-list {
 
 /* Nicotine+ */
 notebook scrolledwindow treeview.treeview-spacing {
-  background-color: #000000;
+  background-color: #121212;
 }
 
 .account-switcher-row label {
@@ -8106,7 +8106,7 @@ overlay-split-view > shadow.down {
 }
 
 .nautilus-window placessidebar > scrolledwindow {
-  background-color: #000000;
+  background-color: #121212;
   color: #eff1f5;
   border-radius: 0;
   margin: 0 6px 0 0;
@@ -8143,7 +8143,7 @@ overlay-split-view > shadow.down {
 .sidebar-pane .sidebar > scrolledwindow > scrollbar > range > trough > slider:disabled,
 .sidebar-pane toolbarview > scrolledwindow > scrollbar > range > trough > slider:disabled,
 .sidebar-pane navigation-view-page stack > scrolledwindow > scrollbar > range > trough > slider:disabled, placessidebar > scrolledwindow > scrollbar > range > trough > slider:disabled, .nautilus-window placessidebar scrollbar > range > trough > slider:disabled, leaflet.unfolded > box > scrolledwindow > scrollbar > range > trough > slider:disabled, leaflet.unfolded .contacts-contact-list > scrolledwindow > scrollbar > range > trough > slider:disabled {
-  background-color: #000000;
+  background-color: #121212;
 }
 
 .sidebar-pane .sidebar > scrolledwindow > scrollbar.overlay-indicator:not(.dragging):not(.hovering) button,
@@ -8360,7 +8360,7 @@ placessidebar list.navigation-sidebar > row:selected:hover, .nautilus-window pla
 }
 
 .content-pane {
-  background-color: #000000;
+  background-color: #121212;
   color: #eff1f5;
   border-top-right-radius: 12px;
   box-shadow: inset 0 1px rgba(239, 241, 245, 0.1);
@@ -8507,7 +8507,7 @@ themeswitcher checkbutton radio, themeswitcher checkbutton radio:hover, themeswi
 }
 
 themeswitcher checkbutton.system {
-  background: linear-gradient(-45deg, #000000 50%, #eff1f5 50%);
+  background: linear-gradient(-45deg, #121212 50%, #eff1f5 50%);
 }
 
 themeswitcher checkbutton.light {
@@ -8517,7 +8517,7 @@ themeswitcher checkbutton.light {
 
 themeswitcher checkbutton.dark {
   color: #eff1f5;
-  background-color: #000000;
+  background-color: #121212;
 }
 
 /* GTK NAMED COLORS
@@ -8528,7 +8528,7 @@ themeswitcher checkbutton.dark {
 /* text color for entries, views and content in general */
 @define-color theme_text_color #eff1f5;
 /* widget base background color */
-@define-color theme_bg_color #000000;
+@define-color theme_bg_color #121212;
 /* text widgets and the like base background color */
 @define-color theme_base_color #0a0a0a;
 /* base background color of selections */
@@ -8536,7 +8536,7 @@ themeswitcher checkbutton.dark {
 /* text/foreground color of selections */
 @define-color theme_selected_fg_color rgba(30, 30, 46, 0.87);
 /* base background color of insensitive widgets */
-@define-color insensitive_bg_color #000000;
+@define-color insensitive_bg_color #121212;
 /* text foreground color of insensitive widgets */
 @define-color insensitive_fg_color rgba(239, 241, 245, 0.5);
 /* insensitive text widgets and the like base background color */
@@ -8546,7 +8546,7 @@ themeswitcher checkbutton.dark {
 /* text color for entries, views and content in general on backdrop windows */
 @define-color theme_unfocused_text_color #eff1f5;
 /* widget base background color on backdrop windows */
-@define-color theme_unfocused_bg_color #000000;
+@define-color theme_unfocused_bg_color #121212;
 /* text widgets and the like base background color on backdrop windows */
 @define-color theme_unfocused_base_color #0a0a0a;
 /* base background color of selections on backdrop windows */
@@ -8569,8 +8569,8 @@ read if you used those and something break with a version upgrade you're on your
 @define-color wm_unfocused_title rgba(239, 241, 245, 0.7);
 @define-color wm_highlight rgba(239, 241, 245, 0.1);
 @define-color wm_border #0a0a0e;
-@define-color wm_focused_bg #000000;
-@define-color wm_unfocused_bg #000000;
+@define-color wm_focused_bg #121212;
+@define-color wm_unfocused_bg #121212;
 @define-color wm_button_icon #eff1f5;
 @define-color wm_button_focused_bg #0a0a0a;
 @define-color wm_button_unfocused_bg #0a0a0a;
@@ -8681,7 +8681,7 @@ read if you used those and something break with a version upgrade you're on your
 @define-color dark_2 #5e5c64;
 @define-color dark_3 #3d3846;
 @define-color dark_4 #241f31;
-@define-color dark_5 #000000;
+@define-color dark_5 #121212;
 /* GTK NAMED COLORS
    ----------------
    use responsibly! */
@@ -8700,14 +8700,14 @@ read if you used those and something break with a version upgrade you're on your
 @define-color error_bg_color #d20f39;
 @define-color error_fg_color #eff1f5;
 @define-color error_color #d20f39;
-@define-color window_bg_color #000000;
+@define-color window_bg_color #121212;
 @define-color window_fg_color #eff1f5;
 @define-color view_bg_color #0a0a0a;
 @define-color view_fg_color #eff1f5;
-@define-color headerbar_bg_color #000000;
+@define-color headerbar_bg_color #121212;
 @define-color headerbar_fg_color #eff1f5;
 @define-color headerbar_border_color rgba(239, 241, 245, 0.12);
-@define-color headerbar_backdrop_color #000000;
+@define-color headerbar_backdrop_color #121212;
 @define-color headerbar_shade_color rgba(239, 241, 245, 0.12);
 @define-color card_bg_color #0a0a0a;
 @define-color card_fg_color #eff1f5;
