@@ -231,7 +231,7 @@ def main():
         output_text = f"{display_name} £{today_sales_val:,} | {today_order_count} {sales_chart}"
         
         if today_order_count == 0:
-            output_text = f"<span foreground='{colors[0]}'>{output_text}</span>"
+            output_text = f"<span foreground='{colors[1]}'>{output_text}</span>"
 
         break
     
