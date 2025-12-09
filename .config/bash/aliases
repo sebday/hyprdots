@@ -13,3 +13,4 @@ alias lg='lazygit'
 alias gcm='git commit -m'
 alias gcam='git commit -a -m'
 alias gs='git status'
+
