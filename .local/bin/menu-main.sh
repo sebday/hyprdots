@@ -22,9 +22,7 @@ case "$selected_option" in
         ghostty --class=TUI.float -e /home/seb/.local/bin/install-pkg.sh
         ;;
     "󰃨 Clear Cache")
-        rm -rf ~/.cache/thumbnails/* ~/.local/share/Trash/* ~/Projects/stable-diffusion-webui/{cache,outputs}/*
-        cliphist wipe
-        notify-send "Cache Cleared" "Thumbnails, Trash, Cache and clipboard history cleared"
+        bash ~/.local/bin/cleanup.sh
         ;;
     *)
         # Exit gracefully if nothing was selected
