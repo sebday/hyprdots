@@ -30,6 +30,7 @@ case "$ACTION" in
     systemctl reboot
     ;;
   shutdown)
+    bash ~/.local/bin/cleanup.sh
     systemctl poweroff
     ;;
   *)
