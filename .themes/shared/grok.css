@@ -3,6 +3,13 @@
     color: var(--text-primary);
 }
 
+.from-surface, 
+.from-surface-base {
+    --tw-gradient-from: none;
+    --tw-gradient-to: none;
+    --tw-gradient-stops: none;
+}
+
 .via-background {
   --tw-gradient-stops: var(--bg-secondary),var(--bg-primary) var(--tw-gradient-via-position),var(--tw-gradient-to);
 }
