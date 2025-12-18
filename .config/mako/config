@@ -1,7 +1,7 @@
 include=~/.themes/shared/mako.ini
 
 icon-path=/home/seb/.local/share/icons/Tokyonight-Moon
-background-color=#121212
-text-color=#eaeaea
-border-color=#e68e0d
-progress-color=#666666
+background-color=#2e3440
+text-color=#eceff4
+border-color=#88c0d0
+progress-color=#b48ead
