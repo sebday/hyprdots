@@ -32,7 +32,6 @@ fzf
 bat
 ripgrep
 fd
-sshfs
 rsync
 btop
 nvtop
