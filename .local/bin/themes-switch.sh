@@ -19,6 +19,25 @@ apply_theme() {
     
     # Set GTK theme
     gsettings set org.gnome.desktop.interface gtk-theme "$theme_name"
+
+    # Update GTK config files
+    if [ -f "$HOME/.config/gtk-3.0/settings.ini" ]; then
+        sed -i "s/^gtk-theme-name=.*/gtk-theme-name=$theme_name/" "$HOME/.config/gtk-3.0/settings.ini"
+    fi
+    if [ -f "$HOME/.config/gtk-4.0/settings.ini" ]; then
+        sed -i "s/^gtk-theme-name=.*/gtk-theme-name=$theme_name/" "$HOME/.config/gtk-4.0/settings.ini"
+    fi
+    # Link GTK-4.0 assets and css to ensure apps like Ghostty pick up the theme
+    if [ -d "$HOME/.themes/$theme_name/gtk-4.0" ]; then
+        mkdir -p "$HOME/.config/gtk-4.0"
+        ln -sf "$HOME/.themes/$theme_name/gtk-4.0/gtk.css" "$HOME/.config/gtk-4.0/gtk.css"
+        if [ -f "$HOME/.themes/$theme_name/gtk-4.0/gtk-dark.css" ]; then
+            ln -sf "$HOME/.themes/$theme_name/gtk-4.0/gtk-dark.css" "$HOME/.config/gtk-4.0/gtk-dark.css"
+        fi
+        if [ -d "$HOME/.themes/$theme_name/gtk-4.0/assets" ]; then
+            ln -sf "$HOME/.themes/$theme_name/gtk-4.0/assets" "$HOME/.config/gtk-4.0/assets"
+        fi
+    fi   
     
     # Set theme components
     "$HOME/.local/bin/wallpaper.sh" "next"
