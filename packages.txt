@@ -49,6 +49,7 @@ webp-pixbuf-loader
 xarchiver
 7zip
 gvfs
+gocryptfs
 caligula
 
 # Media #####################
