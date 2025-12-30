@@ -24,48 +24,27 @@ update_hyprpaper_config() {
         return 1
     fi
     
-    if [ ! -f "$HYPRPAPER_CONFIG" ]; then
-        echo "Warning: hyprpaper.conf not found at $HYPRPAPER_CONFIG" >&2
-        return 1
-    fi
+    # Write the new config format directly
+    cat > "$HYPRPAPER_CONFIG" <<EOF
+# The Wallpaper.sh script is expected to take over
+
+wallpaper {
+    monitor =
+    path = $wallpaper_path
+    fit_mode = cover
+}
+
+# Set to false if you are not using hyprpaper's own IPC features
+ipc = on
+EOF
     
-    # Create a temporary file for the updated config
-    local temp_config
-    temp_config=$(mktemp) || {
-        echo "Error: Failed to create temporary file for hyprpaper config update." >&2
-        return 1
-    }
-    
-    # Read the existing config and update the preload and wallpaper lines
-    while IFS= read -r line; do
-        if [[ "$line" =~ ^preload[[:space:]]*= ]]; then
-            echo "preload = $wallpaper_path"
-        elif [[ "$line" =~ ^wallpaper[[:space:]]*= ]]; then
-            echo "wallpaper = ,$wallpaper_path"
-        else
-            echo "$line"
-        fi
-    done < "$HYPRPAPER_CONFIG" > "$temp_config"
-    
-    # Replace the original config with the updated one
-    if mv "$temp_config" "$HYPRPAPER_CONFIG"; then
-        echo "Updated hyprpaper.conf with new wallpaper: $wallpaper_path"
-    else
-        echo "Error: Failed to update hyprpaper.conf" >&2
-        rm -f "$temp_config"
-        return 1
-    fi
+    echo "Updated hyprpaper.conf with new wallpaper: $wallpaper_path"
 }
 
 set_wallpaper() {
     local target_wallpaper="$1"
     if [ -z "$target_wallpaper" ]; then
         echo "Error: No wallpaper path provided to set_wallpaper." >&2
-        return 1
-    fi
-
-    if ! hyprctl hyprpaper preload "$target_wallpaper"; then
-        notify-send "Wallpaper Error" "Failed to preload: $target_wallpaper"
         return 1
     fi
 
@@ -77,8 +56,6 @@ set_wallpaper() {
             hyprctl hyprpaper wallpaper "$monitor,$target_wallpaper"
         done
     fi
-
-    hyprctl hyprpaper unload unused
 
     # Save the path of the successfully set wallpaper
     mkdir -p "$(dirname "$STATE_FILE")"
@@ -120,16 +97,16 @@ select_wallpaper_menu() {
     fi
 }
 
+# Handle direct file path argument
+if [ -f "$1" ]; then
+    set_wallpaper "$1"
+    exit $?
+fi
+
 # Handle stdin for piping from other commands (e.g., imv)
 if [ ! -t 0 ]; then
     read -r wallpaper_path
     [ -n "$wallpaper_path" ] && [ -f "$wallpaper_path" ] && set_wallpaper "$wallpaper_path"
-    exit $?
-fi
-
-# Handle direct file path argument
-if [ -f "$1" ]; then
-    set_wallpaper "$1"
     exit $?
 fi
 
