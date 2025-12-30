@@ -3,6 +3,7 @@
 # Clear various caches and temporary files
 rm -rf ~/.cache/thumbnails/* ~/.local/share/Trash/* ~/Projects/stable-diffusion-webui/{cache,outputs}/*
 cliphist wipe
+lock
 
 # Function to regenerate thumbnails
 regen_thumbs() {
