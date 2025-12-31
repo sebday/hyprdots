@@ -49,6 +49,7 @@ xarchiver
 7zip
 gvfs
 gocryptfs
+usbutils
 caligula
 
 # Media #####################
