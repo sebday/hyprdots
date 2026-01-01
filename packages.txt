@@ -73,6 +73,7 @@ neovim
 luarocks
 tree-sitter-cli
 ast-grep
+libyaml
 
 # Theming ###################
 darkhttpd
