@@ -3,7 +3,7 @@
 # Clear various caches and temporary files
 rm -rf ~/.cache/thumbnails/* ~/.local/share/Trash/* ~/Projects/stable-diffusion-webui/{cache,outputs}/*
 cliphist wipe
-lock
+fusermount -u /mnt/secure
 
 # Function to regenerate thumbnails
 regen_thumbs() {
@@ -53,7 +53,7 @@ regen_thumbs() {
 regen_thumbs ~/.themes "jpg" "jpeg" "png" "gif" "webp"
 
 # Regenerate thumbnails for films
-regen_thumbs /mnt/pie/films "mkv" "mp4" "avi"
+regen_thumbs /mnt/external/films/ "mkv" "mp4" "avi"
 
 # Send notification
 notify-send "Cache Cleared" "Thumbnails, Trash, Cache and clipboard history cleared."
