@@ -16,14 +16,6 @@ if [[ "$ACTION" == "reboot" || "$ACTION" == "shutdown" || "$ACTION" == "relaunch
     fi
 fi
 
-# Exit Hyprland
-hyprctl dispatch exit
-
-# Wait for Hyprland to exit completely
-while pgrep -x Hyprland > /dev/null; do
-    sleep 0.1
-done
-
 # Perform the action
 case "$ACTION" in
   reboot)
@@ -35,5 +27,7 @@ case "$ACTION" in
     ;;
   *)
     # Default to logout (do nothing more)
+    # Exit Hyprland
+    hyprctl dispatch exit
     ;;
-esac 
+esac
