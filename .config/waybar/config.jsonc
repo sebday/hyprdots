@@ -55,6 +55,7 @@
     "custom/shopify_zk": {
         "format": "{text}",
         "exec": "cd /home/seb/Projects/shopify-dash && mise exec -- /home/seb/.local/bin/waybar-shopify.py ZK",
+        "exec-if": "ping -c 1 -W 1 8.8.8.8",
         "on-click": "xdg-open https://admin.shopify.com/store/zidar-kid/analytics/live",
         "return-type": "json",
         "interval": 300,
@@ -63,6 +64,7 @@
     "custom/shopify_diy": {
         "format": "{text}",
         "exec": "cd /home/seb/Projects/shopify-dash && mise exec -- /home/seb/.local/bin/waybar-shopify.py DIY",
+        "exec-if": "ping -c 1 -W 1 8.8.8.8",
         "on-click": "xdg-open https://admin.shopify.com/store/diy-buildingsupplies/analytics/live",
         "return-type": "json",
         "interval": 300,
@@ -71,6 +73,7 @@
     "custom/shopify_tgs": {
         "format": "{text}",
         "exec": "cd /home/seb/Projects/shopify-dash && mise exec -- /home/seb/.local/bin/waybar-shopify.py TGS",
+        "exec-if": "ping -c 1 -W 1 8.8.8.8",
         "on-click": "xdg-open https://admin.shopify.com/store/thegoodsheet-uk/analytics/live",
         "return-type": "json",
         "interval": 300,
@@ -80,6 +83,7 @@
 		"format": "{}",
 		"return-type": "json",
 		"exec": "~/.local/bin/waybar-github.sh",
+		"exec-if": "ping -c 1 -W 1 8.8.8.8",
 		"interval": 300,
 		"on-click": "xdg-open https://github.com/sebday"
 	},
