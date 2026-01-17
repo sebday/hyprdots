@@ -2,6 +2,10 @@
 force_color_prompt=yes
 color_prompt=yes
 
+parse_git_branch() {
+  git branch 2> /dev/null | sed -e '/^[^*]/d' -e 's/\* \(.*\)/ (\1)/'
+}
+
 # Prompt with user, host, path and caret
 if [[ "$HOSTNAME" == "shed" ]]; then
   PROMPT_COLOR='\[\e[0;32m\]' # Green for local machine
@@ -10,4 +14,4 @@ elif [[ "$HOSTNAME" == "prod" ]]; then
 else
   PROMPT_COLOR='\[\e[0;36m\]' # Cyan for other servers
 fi
-PS1="${PROMPT_COLOR}\u@\h\[\e[0m\]:\[\e[0;34m\]\w\[\e[0m\] "$'\uf0a9  '
+PS1="${PROMPT_COLOR}\u@\h\[\e[0m\]:\[\e[0;34m\]\w\[\e[0;35m\]\$(parse_git_branch)\[\e[0m\] "$'\uf0a9  '
