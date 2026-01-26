@@ -52,15 +52,6 @@
             "10": []
         }
     },
-    "custom/shopify_zk": {
-        "format": "{text}",
-        "exec": "cd /home/seb/Projects/shopify-dash && mise exec -- /home/seb/.local/bin/waybar-shopify.py ZK",
-        "exec-if": "ping -c 1 -W 1 8.8.8.8",
-        "on-click": "xdg-open https://admin.shopify.com/store/zidar-kid/analytics/live",
-        "return-type": "json",
-        "interval": 300,
-        "tooltip": true
-    },
     "custom/shopify_diy": {
         "format": "{text}",
         "exec": "cd /home/seb/Projects/shopify-dash && mise exec -- /home/seb/.local/bin/waybar-shopify.py DIY",
