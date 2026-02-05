@@ -1,67 +1,16 @@
 #!/usr/bin/env bash
 
-# A unified script for managing wallpapers in Hyprland.
-#
-# USAGE:
-#   wallpaper.sh next|prev|random    - Cycle to the next, previous, or a random wallpaper.
-#   wallpaper.sh select              - Open a menu to select a wallpaper.
-#   wallpaper.sh /path/to/image.jpg  - Set a specific image as the wallpaper.
-#   cat /path/to/image.jpg | wallpaper.sh - Set wallpaper from stdin.
-
-STATE_FILE="/tmp/current_wallpaper"
 HYPRPAPER_CONFIG="$HOME/.config/hypr/hyprpaper.conf"
-THUMBNAILS="$HOME/.local/bin/thumbnails.sh"
-
-# Source the shared fuzzel utilities
-if [ -f "$THUMBNAILS" ]; then
-    source "$THUMBNAILS"
-fi
 
 update_hyprpaper_config() {
     local wallpaper_path="$1"
-    if [ -z "$wallpaper_path" ]; then
-        echo "Error: No wallpaper path provided to update_hyprpaper_config." >&2
-        return 1
-    fi
-    
-    # Write the new config format directly
-    cat > "$HYPRPAPER_CONFIG" <<EOF
-# The Wallpaper.sh script is expected to take over
-
-wallpaper {
-    monitor =
-    path = $wallpaper_path
-    fit_mode = cover
-}
-
-# Set to false if you are not using hyprpaper's own IPC features
-ipc = on
-EOF
-    
-    echo "Updated hyprpaper.conf with new wallpaper: $wallpaper_path"
+    sed -i "s|^\s*path = .*|    path = $wallpaper_path|" "$HYPRPAPER_CONFIG"
 }
 
 set_wallpaper() {
     local target_wallpaper="$1"
-    if [ -z "$target_wallpaper" ]; then
-        echo "Error: No wallpaper path provided to set_wallpaper." >&2
-        return 1
-    fi
 
-    mapfile -t monitors < <(hyprctl monitors | grep "Monitor " | awk '{print $2}')
-    if [ ${#monitors[@]} -eq 0 ]; then
-        hyprctl hyprpaper wallpaper ",$target_wallpaper"
-    else
-        for monitor in "${monitors[@]}"; do
-            hyprctl hyprpaper wallpaper "$monitor,$target_wallpaper"
-        done
-    fi
-
-    # Save the path of the successfully set wallpaper
-    mkdir -p "$(dirname "$STATE_FILE")"
-    echo "$target_wallpaper" > "$STATE_FILE"
-
-    # Update hyprpaper.conf with the new wallpaper for persistence across reboots
+    hyprctl hyprpaper wallpaper ", $target_wallpaper" >/dev/null
     update_hyprpaper_config "$target_wallpaper"
 }
 
@@ -78,15 +27,14 @@ select_wallpaper_menu() {
 
     # Find wallpaper files from the theme directory, sorted alphabetically
     selected_entry=$(
-        find "$CURRENT_THEME_WALLPAPERS" -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.webp" \) | sort \
-        | generate_fuzzel_entries_with_thumbs "wallpaper" "$CURRENT_THEME_WALLPAPERS" | fuzzel -d -p "Select Wallpaper: "
+        find "$CURRENT_THEME_WALLPAPERS" -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.webp" \) | sort | while read -r file; do
+            relative=$(realpath --relative-to="$CURRENT_THEME_WALLPAPERS" "$file")
+            printf "%s\x00icon\x1f%s\n" "$relative" "$file"
+        done | fuzzel -d -p "Select Wallpaper: "
     )
 
     # If an entry was selected, reconstruct the full path and set the wallpaper
     if [ -n "$selected_entry" ]; then
-        # Strip leading space that was added for fuzzel padding
-        selected_entry=$(echo "$selected_entry" | sed 's/^ //')
-
         full_path="$CURRENT_THEME_WALLPAPERS/$selected_entry"
 
         if [ -f "$full_path" ]; then
@@ -97,17 +45,21 @@ select_wallpaper_menu() {
     fi
 }
 
-# Handle direct file path argument
-if [ -f "$1" ]; then
-    set_wallpaper "$1"
-    exit $?
-fi
-
-# Handle stdin for piping from other commands (e.g., imv)
-if [ ! -t 0 ]; then
-    read -r wallpaper_path
-    [ -n "$wallpaper_path" ] && [ -f "$wallpaper_path" ] && set_wallpaper "$wallpaper_path"
-    exit $?
+# If we have an argument, process it
+if [ -n "$1" ]; then
+    # Handle direct file path argument
+    if [ -f "$1" ]; then
+        set_wallpaper "$1"
+        exit $?
+    fi
+    # Otherwise continue to command processing below
+else
+    # Only check stdin if no arguments provided
+    if [ ! -t 0 ]; then
+        read -r wallpaper_path
+        [ -n "$wallpaper_path" ] && [ -f "$wallpaper_path" ] && set_wallpaper "$wallpaper_path"
+        exit $?
+    fi
 fi
 
 COMMAND=${1:-next} # Default to 'next' if no argument is provided
@@ -117,7 +69,7 @@ case "$COMMAND" in
         select_wallpaper_menu
         ;;
 
-    next|prev|random)
+    next|prev)
         # Get current theme backgrounds folder
         CURRENT_THEME_LINK="$HOME/.themes/current"
         WALLPAPER_DIR=""
@@ -136,10 +88,7 @@ case "$COMMAND" in
             exit 0
         fi
 
-        current_wallpaper_path=""
-        if [[ "$DIRECTION" != "random" ]] && [ -f "$STATE_FILE" ]; then
-            current_wallpaper_path=$(<"$STATE_FILE")
-        fi
+        current_wallpaper_path=$(grep -oP '^\s*path = \K.*' "$HYPRPAPER_CONFIG" | head -1)
 
         current_idx=-1
         if [ -n "$current_wallpaper_path" ]; then
@@ -152,9 +101,7 @@ case "$COMMAND" in
         fi
 
         target_idx=0
-        if [[ "$DIRECTION" == "random" ]]; then
-            target_idx=$(( RANDOM % ${#wallpapers[@]} ))
-        elif [ "$current_idx" -ne -1 ]; then
+        if [ "$current_idx" -ne -1 ]; then
             if [[ "$DIRECTION" == "next" ]]; then
                 target_idx=$(( (current_idx + 1) % ${#wallpapers[@]} ))
             elif [[ "$DIRECTION" == "prev" ]]; then
@@ -168,7 +115,7 @@ case "$COMMAND" in
         ;;
 
     *)
-        echo "Usage: $0 [next|prev|random|select|<path_to_wallpaper>]"
+        echo "Usage: $0 [next|prev|select|<path_to_wallpaper>]"
         exit 1
         ;;
 esac
