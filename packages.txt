@@ -61,7 +61,7 @@ imv
 mpv
 cava
 imagemagick
-transmission-gtk
+transmission-cli
 qalculate-gtk
 obsidian
 
