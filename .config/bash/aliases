@@ -15,3 +15,6 @@ alias lg='lazygit'
 alias gcm='git commit -m'
 alias gcam='git commit -a -m'
 alias gs='git status'
+alias tgs="git checkout store-tgs"
+alias diy="git checkout store-diy"
+alias master="git checkout master"
