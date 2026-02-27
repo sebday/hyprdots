@@ -17,6 +17,8 @@
     --button-secondary-font-color: var(--text-accent);
     --button-secondary-background-color: var(--bg-primary);
     --tag-default-background-color: var(--bg-secondary);
+    --input-default-font-color: var(--text-accent);
+    --tag-default-font-color: var(--text-accent);
 }
 
 .header__upsellWrapper,
