@@ -1,12 +1,11 @@
 {
     "reload_style_on_change": true,
     "layer": "top",
-    "position": "top",
-    "output": "DP-1",
+    "position": "bottom",
+    "output": "HDMI-A-1",
     "spacing": 0,
     "height": 32,
     "modules-left": [
-        "custom/shopify_zk",
         "custom/shopify_diy",
         "custom/shopify_tgs"
     ],
@@ -54,7 +53,7 @@
     },
     "custom/shopify_diy": {
         "format": "{text}",
-        "exec": "cd /home/seb/Projects/shopify-dash && mise exec -- /home/seb/.local/bin/waybar-shopify.py DIY",
+        "exec": "cd /home/seb/projects/shopify-dash && mise exec -- /home/seb/.local/bin/waybar-shopify.py DIY",
         "on-click": "xdg-open https://admin.shopify.com/store/diy-buildingsupplies/analytics/live",
         "return-type": "json",
         "interval": 300,
@@ -62,7 +61,7 @@
     },
     "custom/shopify_tgs": {
         "format": "{text}",
-        "exec": "cd /home/seb/Projects/shopify-dash && mise exec -- /home/seb/.local/bin/waybar-shopify.py TGS",
+        "exec": "cd /home/seb/projects/shopify-dash && mise exec -- /home/seb/.local/bin/waybar-shopify.py TGS",
         "on-click": "xdg-open https://admin.shopify.com/store/thegoodsheet-uk/analytics/live",
         "return-type": "json",
         "interval": 300,
@@ -94,7 +93,7 @@
         "on-click": "ghostty -e btop"
     },
     "clock": {
-        "format": "{:%A %d %H:%M}",
+        "format": "{:%a %d %H:%M}",
         "format-alt": "{:%A %d %B W%V %Y}",
         "tooltip": false,
         "on-click-right": "omarchy-cmd-tzupdate"
