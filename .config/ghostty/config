@@ -2,6 +2,7 @@
 
 config-file = ~/.themes/current/ghostty.conf
 
+copy-on-select = clipboard
 confirm-close-surface = false
 window-padding-x = 12
 window-padding-y = 12

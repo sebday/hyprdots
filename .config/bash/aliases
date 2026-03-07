@@ -11,6 +11,9 @@ alias ff='fastfetch'
 alias vim='nvim'
 alias lg='lazygit'
 
+# Projects
+alias publish='(cd /home/seb/projects/docs && npm run publish)'
+
 # Git
 alias gcm='git commit -m'
 alias gcam='git commit -a -m'
