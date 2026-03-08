@@ -1,0 +1,80 @@
+# Shared Yazi theme - colours from colours.css via themes-set-yazi.sh
+
+[icon]
+prepend_conds = [
+  { if = "link", text = "󰌵", fg = "{{blue}}" },
+  { if = "dir", text = "󰉓", fg = "{{blue}}" },
+]
+
+prepend_dirs = [
+  { name = ".config", text = "󰒓", fg = "{{blue}}" },
+  { name = ".local", text = "󰒓", fg = "{{cyan}}" },
+  { name = ".cache", text = "󰒓", fg = "{{green}}" },
+  { name = "downloads", text = "󰉉", fg = "{{orange}}" },
+  { name = "desktop", text = "󰇄", fg = "{{blue}}" },
+  { name = "music", text = "󰎈", fg = "{{pink}}" },
+  { name = "pictures", text = "󰋩", fg = "{{orange}}" },
+  { name = "videos", text = "󰕧", fg = "{{orange}}" },
+  { name = "git", text = "󰊢", fg = "{{orange}}" },
+  { name = "node_modules", text = "󰎙", fg = "{{green}}" },
+  { name = "notes", text = "󰈔", fg = "{{pink}}" },
+]
+
+prepend_exts = [
+  { name = "lua", text = "󰠱", fg = "{{blue}}" },
+  { name = "js", text = "󰌞", fg = "{{orange}}" },
+  { name = "ts", text = "󰛧", fg = "{{blue}}" },
+  { name = "sh", text = "󰆍", fg = "{{orange}}" },
+  { name = "bash", text = "󰆍", fg = "{{orange}}" },
+  { name = "zsh", text = "󰆍", fg = "{{orange}}" },
+  { name = "py", text = "󰌠", fg = "{{green}}" },
+  { name = "rs", text = "󱘗", fg = "{{red}}" },
+  { name = "go", text = "󰟓", fg = "{{blue}}" },
+  { name = "cpp", text = "󰙲", fg = "{{blue}}" },
+  { name = "h", text = "󰙱", fg = "{{purple}}" },
+  { name = "css", text = "󰌜", fg = "{{cyan}}" },
+  { name = "scss", text = "󰌜", fg = "{{purple}}" },
+  { name = "html", text = "󰌝", fg = "{{red}}" },
+  { name = "yaml", text = "󰗀", fg = "{{orange}}" },
+  { name = "toml", text = "󰓆", fg = "{{blue}}" },
+  { name = "mp3", text = "󰎈", fg = "{{purple}}" },
+  { name = "flac", text = "󰎈", fg = "{{green}}" },
+  { name = "jpg", text = "󰋩", fg = "{{orange}}" },
+  { name = "png", text = "󰋩", fg = "{{orange}}" },
+  { name = "pdf", text = "󰈙", fg = "{{red}}" },
+  { name = "zip", text = "󰀼", fg = "{{orange}}" },
+  { name = "dockerfile", text = "󰡨", fg = "{{blue}}" },
+  { name = "gitignore", text = "󰊢", fg = "{{purple}}" },
+  { name = "json", text = "󰘦", fg = "{{orange}}" },
+  { name = "md", text = "󰍔", fg = "{{text-primary}}" },
+  { name = "lock", text = "󰌁", fg = "{{orange}}" },
+]
+
+prepend_files = [
+  { name = ".gitignore", text = "󰊢", fg = "{{purple}}" },
+  { name = ".bashrc", text = "󰆍", fg = "{{orange}}" },
+  { name = ".zshrc", text = "󰆍", fg = "{{orange}}" },
+  { name = "Makefile", text = "󰛕", fg = "{{blue}}" },
+  { name = "makefile", text = "󰛕", fg = "{{blue}}" },
+  { name = "Dockerfile", text = "󰡨", fg = "{{blue}}" },
+  { name = "dockerfile", text = "󰡨", fg = "{{blue}}" },
+  { name = "LICENSE", text = "󰿃", fg = "{{orange}}" },
+  { name = "Cargo.toml", text = "󱘗", fg = "{{red}}" },
+  { name = "go.mod", text = "󰟓", fg = "{{blue}}" },
+  { name = "package.json", text = "󰎙", fg = "{{orange}}" },
+  { name = "package-lock.json", text = "󰎙", fg = "{{orange}}" },
+  { name = "bun.lock", text = "󰝯", fg = "{{orange}}" },
+  { name = "bun.lockb", text = "󰝯", fg = "{{orange}}" },
+  { name = "yarn.lock", text = "󰝯", fg = "{{orange}}" },
+  { name = "README.md", text = "󰍔", fg = "{{text-primary}}" },
+  { name = "readme.md", text = "󰍔", fg = "{{text-primary}}" },
+  { name = "install.sh", text = "󰆍", fg = "{{orange}}" },
+]
+
+[filetype]
+rules = [
+  { mime = "image/*", fg = "{{orange}}" },
+  { mime = "video/*", fg = "{{orange}}" },
+  { mime = "audio/*", fg = "{{purple}}" },
+  { mime = "application/pdf", fg = "{{red}}" },
+]
