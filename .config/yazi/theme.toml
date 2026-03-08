@@ -1,0 +1,80 @@
+# Shared Yazi theme - colours from colours.css via themes-set-yazi.sh
+
+[icon]
+prepend_conds = [
+  { if = "link", text = "󰌵", fg = "#89b4fa" },
+  { if = "dir", text = "󰉓", fg = "#89b4fa" },
+]
+
+prepend_dirs = [
+  { name = ".config", text = "󰒓", fg = "#89b4fa" },
+  { name = ".local", text = "󰒓", fg = "#94e2d5" },
+  { name = ".cache", text = "󰒓", fg = "#a6e3a1" },
+  { name = "downloads", text = "󰉉", fg = "#fab387" },
+  { name = "desktop", text = "󰇄", fg = "#89b4fa" },
+  { name = "pictures", text = "󰋩", fg = "#fab387" },
+  { name = "videos", text = "󰕧", fg = "#fab387" },
+  { name = "music", text = "󰉓", fg = "#89b4fa" },
+  { name = "notes", text = "󰉓", fg = "#89b4fa" },
+  { name = "git", text = "󰊢", fg = "#fab387" },
+  { name = "node_modules", text = "󰎙", fg = "#a6e3a1" },
+]
+
+prepend_exts = [
+  { name = "lua", text = "󰠱", fg = "#89b4fa" },
+  { name = "js", text = "󰌞", fg = "#fab387" },
+  { name = "ts", text = "󰛧", fg = "#89b4fa" },
+  { name = "sh", text = "󰆍", fg = "#fab387" },
+  { name = "bash", text = "󰆍", fg = "#fab387" },
+  { name = "zsh", text = "󰆍", fg = "#fab387" },
+  { name = "py", text = "󰌠", fg = "#a6e3a1" },
+  { name = "rs", text = "󱘗", fg = "#f38ba8" },
+  { name = "go", text = "󰟓", fg = "#89b4fa" },
+  { name = "cpp", text = "󰙲", fg = "#89b4fa" },
+  { name = "h", text = "󰙱", fg = "#cba6f7" },
+  { name = "css", text = "󰌜", fg = "#94e2d5" },
+  { name = "scss", text = "󰌜", fg = "#cba6f7" },
+  { name = "html", text = "󰌝", fg = "#f38ba8" },
+  { name = "yaml", text = "󰗀", fg = "#fab387" },
+  { name = "toml", text = "󰓆", fg = "#89b4fa" },
+  { name = "mp3", text = "󰎈", fg = "#cba6f7" },
+  { name = "flac", text = "󰎈", fg = "#a6e3a1" },
+  { name = "jpg", text = "󰋩", fg = "#fab387" },
+  { name = "png", text = "󰋩", fg = "#fab387" },
+  { name = "pdf", text = "󰈙", fg = "#f38ba8" },
+  { name = "zip", text = "󰀼", fg = "#fab387" },
+  { name = "dockerfile", text = "󰡨", fg = "#89b4fa" },
+  { name = "gitignore", text = "󰊢", fg = "#cba6f7" },
+  { name = "json", text = "󰘦", fg = "#fab387" },
+  { name = "md", text = "󰍔", fg = "#cdd6f4" },
+  { name = "lock", text = "󰌁", fg = "#fab387" },
+]
+
+prepend_files = [
+  { name = ".gitignore", text = "󰊢", fg = "#cba6f7" },
+  { name = ".bashrc", text = "󰆍", fg = "#fab387" },
+  { name = ".zshrc", text = "󰆍", fg = "#fab387" },
+  { name = "Makefile", text = "󰛕", fg = "#89b4fa" },
+  { name = "makefile", text = "󰛕", fg = "#89b4fa" },
+  { name = "Dockerfile", text = "󰡨", fg = "#89b4fa" },
+  { name = "dockerfile", text = "󰡨", fg = "#89b4fa" },
+  { name = "LICENSE", text = "󰿃", fg = "#fab387" },
+  { name = "Cargo.toml", text = "󱘗", fg = "#f38ba8" },
+  { name = "go.mod", text = "󰟓", fg = "#89b4fa" },
+  { name = "package.json", text = "󰎙", fg = "#fab387" },
+  { name = "package-lock.json", text = "󰎙", fg = "#fab387" },
+  { name = "bun.lock", text = "󰝯", fg = "#fab387" },
+  { name = "bun.lockb", text = "󰝯", fg = "#fab387" },
+  { name = "yarn.lock", text = "󰝯", fg = "#fab387" },
+  { name = "README.md", text = "󰍔", fg = "#cdd6f4" },
+  { name = "readme.md", text = "󰍔", fg = "#cdd6f4" },
+  { name = "install.sh", text = "󰆍", fg = "#fab387" },
+]
+
+[filetype]
+rules = [
+  { mime = "image/*", fg = "#fab387" },
+  { mime = "video/*", fg = "#fab387" },
+  { mime = "audio/*", fg = "#cba6f7" },
+  { mime = "application/pdf", fg = "#f38ba8" },
+]

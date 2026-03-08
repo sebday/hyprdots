@@ -1,12 +1,12 @@
 return {
-  {
-    "ribru17/bamboo.nvim",
-    priority = 1000,
-  },
-  {
-    "LazyVim/LazyVim",
-    opts = {
-      colorscheme = "bamboo",
-    },
-  },
+	{
+		("sebday/neovim-osaka-jade"),
+		priority = 1000,
+	},
+	{
+		"LazyVim/LazyVim",
+		opts = {
+			colorscheme = "osaka-jade",
+		},
+	},
 }

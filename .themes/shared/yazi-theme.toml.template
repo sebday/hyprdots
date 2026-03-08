@@ -12,12 +12,12 @@ prepend_dirs = [
   { name = ".cache", text = "󰒓", fg = "{{green}}" },
   { name = "downloads", text = "󰉉", fg = "{{orange}}" },
   { name = "desktop", text = "󰇄", fg = "{{blue}}" },
-  { name = "music", text = "󰎈", fg = "{{pink}}" },
   { name = "pictures", text = "󰋩", fg = "{{orange}}" },
   { name = "videos", text = "󰕧", fg = "{{orange}}" },
+  { name = "music", text = "󰉓", fg = "{{blue}}" },
+  { name = "notes", text = "󰉓", fg = "{{blue}}" },
   { name = "git", text = "󰊢", fg = "{{orange}}" },
   { name = "node_modules", text = "󰎙", fg = "{{green}}" },
-  { name = "notes", text = "󰈔", fg = "{{pink}}" },
 ]
 
 prepend_exts = [

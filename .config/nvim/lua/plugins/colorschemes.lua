@@ -2,11 +2,11 @@
 return {
   { "neanias/everforest-nvim" },
   { "catppuccin/nvim", name = "catppuccin" },
-  { "Mofiqul/dracula.nvim", name = "dracula" },
+  { "Mofiqul/dracula.nvim" },
   { "ellisonleao/gruvbox.nvim" },
   { "tahayvr/matteblack.nvim"},
   { "EdenEast/nightfox.nvim" },
-  { "ribru17/bamboo.nvim"},
+  { "sebday/neovim-osaka-jade"},
   {
     "gthelding/monokai-pro.nvim",
     config = function()
