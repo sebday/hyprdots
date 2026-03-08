@@ -43,6 +43,8 @@ apply_theme() {
     "$HOME/.local/bin/wallpaper.sh" "next"
     "$HOME/.local/bin/themes-set-icons.sh"
     "$HOME/.local/bin/themes-set-btop.sh"
+    "$HOME/.local/bin/themes-set-yazi.sh"
+    "$HOME/.local/bin/themes-set-neovim-icons.sh"
     "$HOME/.local/bin/themes-set-mako.sh"
     "$HOME/.local/bin/themes-set-cursor.sh"
     "$HOME/.local/bin/themes-set-fuzzel.sh"
