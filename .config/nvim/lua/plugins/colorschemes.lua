@@ -2,7 +2,7 @@
 return {
   { "neanias/everforest-nvim" },
   { "catppuccin/nvim", name = "catppuccin" },
-  { dir = "~/projects/dracula-neovim", name = "dracula.nvim" },
+  { "Mofiqul/dracula.nvim", name = "dracula" },
   { "ellisonleao/gruvbox.nvim" },
   { "tahayvr/matteblack.nvim"},
   { "EdenEast/nightfox.nvim" },
