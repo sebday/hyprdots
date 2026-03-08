@@ -51,6 +51,7 @@ gvfs
 gocryptfs
 usbutils
 caligula
+yazi
 
 # Media #####################
 pipewire
@@ -64,6 +65,7 @@ imagemagick
 transmission-cli
 qalculate-gtk
 obsidian
+irssi
 
 # Dev #######################
 mise

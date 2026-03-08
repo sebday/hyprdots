@@ -1,21 +1,16 @@
 return {
+  -- Use Catppuccin theme with terminal background
   {
-    "binhtran432k/dracula.nvim",
-    lazy = false,
-    name = "dracula",
-    priority = 1000,
+    "catppuccin/nvim",
+    name = "catppuccin",
     opts = {
-      transparent = true,
-      styles = {
-        sidebars = "transparent",
-        floats = "transparent",
-      },
+      transparent_background = true,
     },
   },
   {
     "LazyVim/LazyVim",
     opts = {
-      colorscheme = "dracula",
+      colorscheme = "catppuccin-mocha",
     },
   },
-} 
+}
