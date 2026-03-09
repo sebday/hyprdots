@@ -1,23 +1,25 @@
 #!/bin/bash
-# Generate GTK theme in current/ from shared base + colors.toml, then apply
+# Generate GTK theme from shared base + colors.toml, then apply
+# Uses THEME_PATH for build dir (default: current). Symlinks always point to current/.
 
-THEME_DIR="$HOME/.themes"
-CURRENT_PATH="$THEME_DIR/current"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "$SCRIPT_DIR/themes-common.sh"
+
+THEME_DIR="${THEME_DIR:-$HOME/.themes}"
+THEME_PATH="${THEME_PATH:-$THEME_DIR/current}"
 SHARED_GTK="$THEME_DIR/shared"
 
-[ ! -d "$CURRENT_PATH" ] && exit 0
-[ ! -f "$CURRENT_PATH/colors.toml" ] && exit 0
+[ ! -d "$THEME_PATH" ] && exit 0
+[ ! -f "$THEME_PATH/colors.toml" ] && exit 0
 [ ! -d "$SHARED_GTK/gtk-3.0" ] && exit 0
 
-toml_val() {
-    grep "^$1 " "$2" 2>/dev/null | sed 's/.*= *"//;s/".*//' | tr -d '\n'
-}
+toml="$THEME_PATH/colors.toml"
 
-# Copy shared GTK base into current/
-cp -r "$SHARED_GTK/gtk-3.0" "$CURRENT_PATH/"
-cp -r "$SHARED_GTK/gtk-4.0" "$CURRENT_PATH/"
+# Copy shared GTK base into theme dir
+cp -r "$SHARED_GTK/gtk-3.0" "$THEME_PATH/"
+cp -r "$SHARED_GTK/gtk-4.0" "$THEME_PATH/"
 
-toml="$CURRENT_PATH/colors.toml"
 new_bg_primary=$(toml_val background "$toml")
 new_bg_secondary=$(toml_val color0 "$toml")
 new_text=$(toml_val foreground "$toml")
@@ -30,7 +32,7 @@ new_green=$(toml_val color2 "$toml")
 new_orange=$(toml_val color3 "$toml")
 new_red=$(toml_val color1 "$toml")
 
-for gtk_css in "$CURRENT_PATH/gtk-3.0/gtk.css" "$CURRENT_PATH/gtk-3.0/gtk-dark.css" "$CURRENT_PATH/gtk-4.0/gtk.css" "$CURRENT_PATH/gtk-4.0/gtk-dark.css"; do
+for gtk_css in "$THEME_PATH/gtk-3.0/gtk.css" "$THEME_PATH/gtk-3.0/gtk-dark.css" "$THEME_PATH/gtk-4.0/gtk.css" "$THEME_PATH/gtk-4.0/gtk-dark.css"; do
     [ -f "$gtk_css" ] || continue
     sed -i "s/#313244/$new_bg_secondary/gi" "$gtk_css"
     sed -i "s/#292c3c/$new_bg_secondary/gi" "$gtk_css"
@@ -64,10 +66,11 @@ if [ -f "$HOME/.config/gtk-4.0/settings.ini" ]; then
     sed -i "s/^gtk-theme-name=.*/gtk-theme-name=$gtk_theme/" "$HOME/.config/gtk-4.0/settings.ini"
 fi
 
-# Link GTK 4 CSS and assets for apps like Ghostty
-if [ -d "$CURRENT_PATH/gtk-4.0" ]; then
+# Link GTK 4 CSS and assets (always point to current/ for live path)
+current_gtk="$THEME_DIR/current/gtk-4.0"
+if [ -d "$current_gtk" ]; then
     mkdir -p "$HOME/.config/gtk-4.0"
-    ln -sf "$CURRENT_PATH/gtk-4.0/gtk.css" "$HOME/.config/gtk-4.0/gtk.css"
-    [ -f "$CURRENT_PATH/gtk-4.0/gtk-dark.css" ] && ln -sf "$CURRENT_PATH/gtk-4.0/gtk-dark.css" "$HOME/.config/gtk-4.0/gtk-dark.css"
-    [ -d "$CURRENT_PATH/gtk-4.0/assets" ] && ln -sf "$CURRENT_PATH/gtk-4.0/assets" "$HOME/.config/gtk-4.0/assets"
+    ln -sf "$current_gtk/gtk.css" "$HOME/.config/gtk-4.0/gtk.css"
+    [ -f "$current_gtk/gtk-dark.css" ] && ln -sf "$current_gtk/gtk-dark.css" "$HOME/.config/gtk-4.0/gtk-dark.css"
+    [ -d "$current_gtk/assets" ] && ln -sf "$current_gtk/assets" "$HOME/.config/gtk-4.0/assets"
 fi

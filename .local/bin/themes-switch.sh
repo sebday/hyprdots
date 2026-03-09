@@ -10,13 +10,7 @@ THEME_DIR="$HOME/.themes"
 CURRENT_PATH="$THEME_DIR/current"
 
 get_current_theme() {
-    if [ -f "$CURRENT_PATH/.theme-name" ]; then
-        cat "$CURRENT_PATH/.theme-name"
-    elif [ -L "$CURRENT_PATH" ]; then
-        basename "$(readlink -f "$CURRENT_PATH")"
-    else
-        echo ""
-    fi
+    [ -f "$CURRENT_PATH/.theme-name" ] && cat "$CURRENT_PATH/.theme-name" || echo ""
 }
 
 apply_and_reload() {
@@ -50,6 +44,11 @@ apply_and_reload() {
     hyprctl reload
     pkill -SIGUSR2 waybar
     pkill -SIGUSR2 btop
+
+    # Post-switch hook (optional)
+    if [ -x "$HOME/.local/bin/themes-hook-post-switch" ]; then
+        "$HOME/.local/bin/themes-hook-post-switch" "$theme_name" || true
+    fi
 
     notify-send "Theme switched to $theme_name"
 }

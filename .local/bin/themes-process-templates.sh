@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 # Process templates from colors.toml into a theme dir
 # Usage: themes-process-templates.sh <theme_dir>
 
@@ -12,6 +13,7 @@ toml="$theme_dir/colors.toml"
 [ ! -f "$toml" ] && exit 0
 
 sed_script=$(mktemp)
+trap 'rm -f "$sed_script"' EXIT
 
 while IFS='=' read -r key value; do
     key="${key//[\"\' ]/}"
@@ -38,11 +40,6 @@ for tpl in "$TEMPLATES_DIR"/*.tpl; do
     [ -f "$tpl" ] || continue
     filename=$(basename "$tpl" .tpl)
     output="$theme_dir/$filename"
-    if [ "$filename" = "hyprland.conf" ]; then
-        output="$HOME/.config/hypr/theme.conf"
-    fi
-    [ -f "$output" ] && [ "$filename" != "hyprland.conf" ] && continue
+    [ -f "$output" ] && continue
     sed -f "$sed_script" "$tpl" > "$output"
 done
-
-rm -f "$sed_script"

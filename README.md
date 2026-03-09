@@ -31,27 +31,19 @@ Load the violentmonkey script from `.themes/shared/` and set it to auto-update.
 
 # Themes
 
-To add a new theme
- - Download a GTK theme into the `.themes/` directory
- - Icons into `.local/share/icons/` 
- - Wallpapers into `.themes/.../wallpapers/`
+Theme system with `colors.toml` as master. Templates in `~/.themes/shared/templates/` are processed at switch time; GTK theme is generated from a shared base.
 
-Install a VS Code and Obsidian theme, then edit create the theme files:
+**Switch theme:** `themes-switch.sh select` (fuzzel) or `themes-switch.sh refresh` (rebuild current)
 
-- `btop.conf` - system stats
-- `cursor.conf` - editor
-- `fuzzel.conf` - app launcher
-- `ghostty.conf` - terminal
-- `hyprlock.conf` - lock screen
-- `mako.conf` - notifications
-- `icons.conf` - icon pack
-- `obsidian.conf` - notes
-- `soundcloud.css` - music player
-- `waybar.css` - taskbar
+**Add a new theme:**
+1. Create `~/.themes/<name>/colors.toml` with 24 colors (accent, cursor, foreground, background, selection_*, color0–color15)
+2. Add `backgrounds/`, `btop.theme`, `neovim.lua`, `vscode.json`, `icons.theme`, `preview.png`
+3. Run `themes-switch.sh select` — templates generate configs on first switch
+4. Optional: add custom `hyprland.conf` or `waybar.css` to skip template output
 
-Violentmonkey and darkhttpd are used to theme GitHub, Soundcloud, GoogleHome Cameras, Youtube and X in Brave.
+**Directory layout:** `~/.themes/current/` is the live theme (atomic swap from `next/`). Source theme dirs stay clean; generated files live in `current/` only.
 
-To style more websites add a new css in `.themes/shared` and edit `violentmonkey.js` to include the new site.
+Violentmonkey and darkhttpd theme GitHub, Soundcloud, GoogleHome Cameras, Youtube and X in Brave. Add CSS in `.themes/shared` and edit `violentmonkey.js` for more sites.
 
 # Unixpr0n
 
