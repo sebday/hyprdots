@@ -1,5 +1,9 @@
 #!/bin/bash
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "$SCRIPT_DIR/themes-common.sh"
+
 # Migrate omarchy themes to local theme format
 # Usage: themes-migrate-omarchy.sh <source-path>
 #   source-path: single theme dir (has colors.toml) or directory of themes (children have colors.toml)
@@ -30,17 +34,31 @@ migrate_theme() {
         return
     fi
 
+    if [ -d "$target_dir" ]; then
+        echo "Skipping $theme_name: already exists"
+        return
+    fi
+
     echo "Migrating: $theme_name"
     mkdir -p "$target_dir"
 
     # Copy theme files, exclude omarchy-specific
     rsync -a \
         --exclude='chromium.theme' \
+        --exclude='keyboard.rgb' \
         --exclude='kitty.conf' \
         --exclude='swayosd.css' \
         --exclude='walker.css' \
         --exclude='alacritty.toml' \
         "$source_theme/" "$target_dir/"
+
+    # Add mantle (required for VS Code editor/chrome split): 20% darker than background
+    if ! grep -q '^mantle ' "$target_dir/colors.toml" 2>/dev/null; then
+        bg=$(grep '^background ' "$target_dir/colors.toml" 2>/dev/null | sed 's/.*= *"//;s/".*//' | tr -d '\n')
+        [ -z "$bg" ] && bg="#000000"
+        mantle_hex=$(darken_hex "$bg")
+        awk -v m="mantle = \"$mantle_hex\"" '/^background /{print; print m; next}1' "$target_dir/colors.toml" > "$target_dir/colors.toml.tmp" && mv "$target_dir/colors.toml.tmp" "$target_dir/colors.toml"
+    fi
 
     echo "  Done: $theme_name"
 }
@@ -62,4 +80,4 @@ else
 fi
 
 echo
-echo "Migration complete. Use themes-switch.sh to apply."
+echo "Migration complete. Use themes-apply.sh select or themes-apply.sh to apply."

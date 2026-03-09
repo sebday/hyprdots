@@ -1,12 +1,12 @@
 # Define menu options with Nerd Font icons
-options="󰸘 Change Theme\n󰋪 Change Wallpaper\n󰌌 Show Keybinds\n󰑐 Restart Waybar\n󰏔 Install Package\n󰃨 Clear Cache"
+options="󰸘 Change Theme\n󰋪 Change Wallpaper\n󰌌 Show Keybinds\n󰑐 Restart Waybar\n󰖴 Toggle Waybar Position\n󰏔 Install Package\n󰃨 Clear Cache"
 
 # Use fuzzel to get the user's choice
 selected_option=$(echo -e "$options" | fuzzel -d -p "Select an action: ")
 
 case "$selected_option" in
     "󰸘 Change Theme")
-        bash ~/.local/bin/themes-switch.sh
+        bash ~/.local/bin/themes-apply.sh
         ;;
     "󰋪 Change Wallpaper")
         bash ~/.local/bin/wallpaper.sh select
@@ -18,8 +18,8 @@ case "$selected_option" in
         pkill waybar 2>/dev/null
         waybar &
         ;;
-    "󰏔 Install Package")
-        ghostty --class=TUI.float -e /home/seb/.local/bin/install-pkg.sh
+    "󰖴 Waybar Position")
+        bash ~/.local/bin/waybar-toggle-position.sh
         ;;
     "󰃨 Clear Cache")
         bash ~/.local/bin/cleanup.sh

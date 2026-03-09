@@ -1,55 +1,48 @@
 #!/bin/bash
+# Install generated VS Code theme and set workbench.colorTheme
+# Uses ~/.themes/current/vscode-theme/ (generated from colors.toml)
 
-# Configuration
 CURSOR_CONFIG_FILE="$HOME/.config/Cursor/User/settings.json"
-CURSOR_THEME_JSON="$HOME/.themes/current/vscode.json"
 CURSOR_EXTENSIONS_DIR="$HOME/.cursor/extensions"
+VSCODE_THEME_DIR="$HOME/.themes/current/vscode-theme"
 
-# Check if theme definition exists
-[ ! -f "$CURSOR_THEME_JSON" ] && exit 0
+[ ! -d "$VSCODE_THEME_DIR" ] && exit 0
+[ ! -f "$VSCODE_THEME_DIR/package.json" ] && exit 0
 
-# 1. Handle Extension Installation
-EXTENSION_ID=$(jq -r '.extension // empty' "$CURSOR_THEME_JSON" 2>/dev/null)
-if [ -n "$EXTENSION_ID" ]; then
-    # Try marketplace first (handles "already installed" case gracefully)
-    if ! cursor --install-extension "$EXTENSION_ID" >/dev/null 2>&1; then
-        # Fallback to GitHub for specific extensions
-        case "$EXTENSION_ID" in
-            sebday.*)
-                THEME_SLUG=${EXTENSION_ID#sebday.}
-                GITHUB_URL="https://github.com/sebday/vscode-$THEME_SLUG"
-                TEMP_DIR=$(mktemp -d)
-                
-                if git clone --depth 1 "$GITHUB_URL" "$TEMP_DIR" 2>/dev/null; then
-                    rm -rf "$TEMP_DIR/.git"
-                    EXTENSION_VERSION=$(jq -r '.version // "1.0.0"' "$TEMP_DIR/package.json" 2>/dev/null)
-                    EXTENSION_DIR="$CURSOR_EXTENSIONS_DIR/${EXTENSION_ID}-${EXTENSION_VERSION}"
-                    
-                    mkdir -p "$CURSOR_EXTENSIONS_DIR"
-                    rm -rf "$EXTENSION_DIR"
-                    cp -r "$TEMP_DIR" "$EXTENSION_DIR"
-                    echo "✓ Installed from GitHub: $EXTENSION_ID"
-                fi
-                rm -rf "$TEMP_DIR"
-                ;;
-        esac
+# Read extension id and theme label from generated package.json
+publisher=$(jq -r '.publisher // "sebday"' "$VSCODE_THEME_DIR/package.json" 2>/dev/null)
+name=$(jq -r '.name // empty' "$VSCODE_THEME_DIR/package.json" 2>/dev/null)
+version=$(jq -r '.version // "1.0.0"' "$VSCODE_THEME_DIR/package.json" 2>/dev/null)
+theme_label=$(jq -r '.contributes.themes[0].label // empty' "$VSCODE_THEME_DIR/package.json" 2>/dev/null)
+
+[ -z "$name" ] || [ -z "$theme_label" ] && exit 0
+
+ext_id="${publisher}.${name}"
+ext_dir="$CURSOR_EXTENSIONS_DIR/${ext_id}-${version}"
+
+# Install: copy only if extension missing or content changed
+mkdir -p "$CURSOR_EXTENSIONS_DIR"
+if [ -d "$ext_dir" ]; then
+    if diff -q "$VSCODE_THEME_DIR/themes/color-theme.json" "$ext_dir/themes/color-theme.json" 2>/dev/null && \
+       diff -q "$VSCODE_THEME_DIR/package.json" "$ext_dir/package.json" 2>/dev/null; then
+        # Content identical, skip copy
+        :
+    else
+        rm -rf "$ext_dir"
+        cp -r "$VSCODE_THEME_DIR" "$ext_dir"
     fi
+else
+    cp -r "$VSCODE_THEME_DIR" "$ext_dir"
 fi
 
-# 2. Update Settings
-THEME_NAME=$(jq -r '.name // empty' "$CURSOR_THEME_JSON" 2>/dev/null)
+# Update workbench.colorTheme in settings
+mkdir -p "$(dirname "$CURSOR_CONFIG_FILE")"
+[ -f "$CURSOR_CONFIG_FILE" ] || printf '{\n}\n' > "$CURSOR_CONFIG_FILE"
 
-if [ -n "$THEME_NAME" ]; then
-    # Ensure settings file exists
-    mkdir -p "$(dirname "$CURSOR_CONFIG_FILE")"
-    [ -f "$CURSOR_CONFIG_FILE" ] || printf '{\n}\n' >"$CURSOR_CONFIG_FILE"
+grep -q '"workbench.colorTheme"' "$CURSOR_CONFIG_FILE" || \
+    sed -i --follow-symlinks -E '0,/\{/{s/\{/{\n    "workbench.colorTheme": "",/}' "$CURSOR_CONFIG_FILE"
 
-    # Add key if missing
-    grep -q '"workbench.colorTheme"' "$CURSOR_CONFIG_FILE" || \
-        sed -i --follow-symlinks -E '0,/\{/{s/\{/{\n    "workbench.colorTheme": "",/}' "$CURSOR_CONFIG_FILE"
-
-    # Update value
-    sed -i --follow-symlinks -E \
-        "s/(\"workbench\.colorTheme\"[[:space:]]*:[[:space:]]*\")[^\"]*(\")/\1$THEME_NAME\2/" \
-        "$CURSOR_CONFIG_FILE"
-fi
+safe_name=$(printf '%s' "$theme_label" | sed 's/[&\]/\\&/g')
+sed -i --follow-symlinks -E \
+    "s/(\"workbench\.colorTheme\"[[:space:]]*:[[:space:]]*\")[^\"]*(\")/\1${safe_name}\2/" \
+    "$CURSOR_CONFIG_FILE"

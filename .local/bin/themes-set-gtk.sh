@@ -1,6 +1,6 @@
 #!/bin/bash
-# Generate GTK theme from shared base + colors.toml, then apply
-# Uses THEME_PATH for build dir (default: current). Symlinks always point to current/.
+# Generate GTK theme from shared base + colors.toml (build-only)
+# Uses THEME_PATH for build dir (default: current). Activation is done by themes-activate-gtk.sh after swap.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
@@ -51,26 +51,3 @@ for gtk_css in "$THEME_PATH/gtk-3.0/gtk.css" "$THEME_PATH/gtk-3.0/gtk-dark.css" 
     sed -i "s/#fab387/$new_orange/gi" "$gtk_css"
     sed -i "s/#f38ba8/$new_red/gi" "$gtk_css"
 done
-
-# Set gtk-theme-name to "current" so GTK loads from ~/.themes/current/gtk-*
-# Toggle away and back to force GTK hot-reload (Thunar etc) when value would otherwise stay "current"
-gtk_theme="current"
-gsettings set org.gnome.desktop.interface gtk-theme ""
-gsettings set org.gnome.desktop.interface gtk-theme "$gtk_theme"
-
-# Update settings.ini
-if [ -f "$HOME/.config/gtk-3.0/settings.ini" ]; then
-    sed -i "s/^gtk-theme-name=.*/gtk-theme-name=$gtk_theme/" "$HOME/.config/gtk-3.0/settings.ini"
-fi
-if [ -f "$HOME/.config/gtk-4.0/settings.ini" ]; then
-    sed -i "s/^gtk-theme-name=.*/gtk-theme-name=$gtk_theme/" "$HOME/.config/gtk-4.0/settings.ini"
-fi
-
-# Link GTK 4 CSS and assets (always point to current/ for live path)
-current_gtk="$THEME_DIR/current/gtk-4.0"
-if [ -d "$current_gtk" ]; then
-    mkdir -p "$HOME/.config/gtk-4.0"
-    ln -sf "$current_gtk/gtk.css" "$HOME/.config/gtk-4.0/gtk.css"
-    [ -f "$current_gtk/gtk-dark.css" ] && ln -sf "$current_gtk/gtk-dark.css" "$HOME/.config/gtk-4.0/gtk-dark.css"
-    [ -d "$current_gtk/assets" ] && ln -sf "$current_gtk/assets" "$HOME/.config/gtk-4.0/assets"
-fi

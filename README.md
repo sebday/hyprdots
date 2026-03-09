@@ -31,14 +31,19 @@ Load the violentmonkey script from `.themes/shared/` and set it to auto-update.
 
 # Themes
 
-Theme system with `colors.toml` as master. Templates in `~/.themes/shared/templates/` are processed at switch time; GTK theme is generated from a shared base.
+- GTK theme is generated
+- Obsidian theme is generated
+- VS Code theme is generated
+- NeoVim theme is not generated
 
-**Switch theme:** `themes-switch.sh select` (fuzzel) or `themes-switch.sh refresh` (rebuild current)
+Theme system with `colors.toml` as master. Templates in `~/.themes/shared/templates/` are processed at switch time; 
+
+**Switch theme:** `themes-apply.sh select` (fuzzel) or `themes-apply.sh refresh` (rebuild current). `themes-apply.sh` is a symlink to `themes-apply.sh`.
 
 **Add a new theme:**
 1. Create `~/.themes/<name>/colors.toml` with 24 colors (accent, cursor, foreground, background, selection_*, color0–color15)
 2. Add `backgrounds/`, `btop.theme`, `neovim.lua`, `vscode.json`, `icons.theme`, `preview.png`
-3. Run `themes-switch.sh select` — templates generate configs on first switch
+3. Run `themes-apply.sh select` — templates generate configs on first switch
 4. Optional: add custom `hyprland.conf` or `waybar.css` to skip template output
 
 **Directory layout:** `~/.themes/current/` is the live theme (atomic swap from `next/`). Source theme dirs stay clean; generated files live in `current/` only.
