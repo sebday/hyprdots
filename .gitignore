@@ -1,2 +1,14 @@
 *
 !.gitignore
+.themes/current/
+
+# Generated theme files (regenerate via themes-switch.sh refresh)
+.themes/*/colours.css
+.themes/*/ghostty.conf
+.themes/*/mako.ini
+.themes/*/fuzzel.conf
+.themes/*/hyprlock.conf
+.themes/*/hyprland.conf
+.themes/*/waybar.css
+.themes/*/obsidian.css
+.themes/*/yazi-theme.toml

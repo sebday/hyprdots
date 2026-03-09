@@ -6,17 +6,83 @@
 #   themes-switch.sh select   - Open a menu to select a theme
 #   themes-switch.sh next     - Cycle to the next theme
 #   themes-switch.sh prev     - Cycle to the previous theme
+#   themes-switch.sh refresh  - Regenerate configs for current theme (after cleanup)
 
 THEME_DIR="$HOME/.themes"
-CURRENT_LINK="$THEME_DIR/current"
+CURRENT_PATH="$THEME_DIR/current"
+TEMPLATES_DIR="$THEME_DIR/shared/templates"
+
+get_current_theme() {
+    if [ -f "$CURRENT_PATH/.theme-name" ]; then
+        cat "$CURRENT_PATH/.theme-name"
+    elif [ -L "$CURRENT_PATH" ]; then
+        basename "$(readlink -f "$CURRENT_PATH")"
+    else
+        echo ""
+    fi
+}
+
+# Process templates from colors.toml (omarchy-style)
+process_templates() {
+    local theme_dir="$1"
+    local toml="$theme_dir/colors.toml"
+    [ ! -f "$toml" ] && return
+
+    local sed_script
+    sed_script=$(mktemp)
+
+    while IFS='=' read -r key value; do
+        key="${key//[\"\' ]/}"
+        [[ $key && $key != \#* ]] || continue
+        value="${value#*[\"\']}"
+        value="${value%%[\"\']*}"
+        printf 's|{{ %s }}|%s|g\n' "$key" "$value" >> "$sed_script"
+        printf 's|{{ %s_strip }}|%s|g\n' "$key" "${value#\#}" >> "$sed_script"
+        if [[ $value =~ ^# ]]; then
+            local hex="${value#\#}"
+            printf 's|{{ %s_rgb }}|%d,%d,%d|g\n' "$key" "$(( 0x${hex:0:2} ))" "$(( 0x${hex:2:2} ))" "$(( 0x${hex:4:2} ))" >> "$sed_script"
+        fi
+    done < "$toml"
+
+    # Add icon_path from icons.theme for mako.ini
+    local icon_path="/home/seb/.local/share/icons/Adwaita"
+    if [ -f "$theme_dir/icons.theme" ]; then
+        local icon_name
+        icon_name=$(tr -d '\n' < "$theme_dir/icons.theme" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        [ -n "$icon_name" ] && icon_path="/home/seb/.local/share/icons/$icon_name"
+    fi
+    printf 's|{{ icon_path }}|%s|g\n' "$icon_path" >> "$sed_script"
+
+    for tpl in "$TEMPLATES_DIR"/*.tpl; do
+        [ -f "$tpl" ] || continue
+        local filename
+        filename=$(basename "$tpl" .tpl)
+        local output="$theme_dir/$filename"
+        # hyprland.conf goes to stable path to avoid globbing error when current/ is rebuilt
+        if [ "$filename" = "hyprland.conf" ]; then
+            output="$HOME/.config/hypr/theme.conf"
+        fi
+        [ -f "$output" ] && [ "$filename" != "hyprland.conf" ] && continue
+        sed -f "$sed_script" "$tpl" > "$output"
+    done
+
+    rm -f "$sed_script"
+}
 
 # Function to apply a theme
 apply_theme() {
     local theme_name="$1"
-    
-    # Update symlink
-    ln -sfn "$HOME/.themes/$theme_name" "$CURRENT_LINK"
-    
+    local source_path="$THEME_DIR/$theme_name"
+
+    # Rebuild current dir: copy source, then generate templates (omarchy-style staging)
+    rm -rf "$CURRENT_PATH"
+    mkdir -p "$CURRENT_PATH"
+    cp -a "$source_path/." "$CURRENT_PATH/"
+    echo "$theme_name" > "$CURRENT_PATH/.theme-name"
+
+    # Generate configs from templates into current/
+    process_templates "$CURRENT_PATH"
+
     # Set GTK theme
     gsettings set org.gnome.desktop.interface gtk-theme "$theme_name"
 
@@ -28,14 +94,14 @@ apply_theme() {
         sed -i "s/^gtk-theme-name=.*/gtk-theme-name=$theme_name/" "$HOME/.config/gtk-4.0/settings.ini"
     fi
     # Link GTK-4.0 assets and css to ensure apps like Ghostty pick up the theme
-    if [ -d "$HOME/.themes/$theme_name/gtk-4.0" ]; then
+    if [ -d "$CURRENT_PATH/gtk-4.0" ]; then
         mkdir -p "$HOME/.config/gtk-4.0"
-        ln -sf "$HOME/.themes/$theme_name/gtk-4.0/gtk.css" "$HOME/.config/gtk-4.0/gtk.css"
-        if [ -f "$HOME/.themes/$theme_name/gtk-4.0/gtk-dark.css" ]; then
-            ln -sf "$HOME/.themes/$theme_name/gtk-4.0/gtk-dark.css" "$HOME/.config/gtk-4.0/gtk-dark.css"
+        ln -sf "$CURRENT_PATH/gtk-4.0/gtk.css" "$HOME/.config/gtk-4.0/gtk.css"
+        if [ -f "$CURRENT_PATH/gtk-4.0/gtk-dark.css" ]; then
+            ln -sf "$CURRENT_PATH/gtk-4.0/gtk-dark.css" "$HOME/.config/gtk-4.0/gtk-dark.css"
         fi
-        if [ -d "$HOME/.themes/$theme_name/gtk-4.0/assets" ]; then
-            ln -sf "$HOME/.themes/$theme_name/gtk-4.0/assets" "$HOME/.config/gtk-4.0/assets"
+        if [ -d "$CURRENT_PATH/gtk-4.0/assets" ]; then
+            ln -sf "$CURRENT_PATH/gtk-4.0/assets" "$HOME/.config/gtk-4.0/assets"
         fi
     fi   
     
@@ -127,10 +193,7 @@ case "$COMMAND" in
         fi
         
         # Get current theme
-        current_theme=""
-        if [ -L "$CURRENT_LINK" ]; then
-            current_theme=$(basename "$(readlink -f "$CURRENT_LINK")")
-        fi
+        current_theme=$(get_current_theme)
         
         # Find current theme index
         current_idx=-1
@@ -158,9 +221,18 @@ case "$COMMAND" in
         
         apply_theme "${themes[$target_idx]}"
         ;;
+
+    refresh)
+        current_theme=$(get_current_theme)
+        if [ -z "$current_theme" ]; then
+            notify-send "Theme Refresh" "No current theme."
+            exit 1
+        fi
+        apply_theme "$current_theme"
+        ;;
     
     *)
-        echo "Usage: $0 [select|next|prev]"
+        echo "Usage: $0 [select|next|prev|refresh]"
         exit 1
         ;;
 esac
