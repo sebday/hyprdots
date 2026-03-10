@@ -1,5 +1,5 @@
 # Define menu options with Nerd Font icons
-options="󰸘 Change Theme\n󰋪 Change Wallpaper\n󰌌 Show Keybinds\n󰑐 Restart Waybar\n󰖴 Toggle Waybar Position\n󰏔 Install Package\n󰃨 Clear Cache"
+options="󰸘 Change Theme\n󰋪 Change Wallpaper\n󰌌 Show Keybinds\n󰑐 Restart Waybar\n󰖴 Waybar Position\n󰏔 Install Package\n󰃨 Clear Cache"
 
 # Use fuzzel to get the user's choice
 selected_option=$(echo -e "$options" | fuzzel -d -p "Select an action: ")

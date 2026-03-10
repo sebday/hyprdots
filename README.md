@@ -6,7 +6,7 @@ Created so I can easily reinstall Arch to my exact liking, with all [software](h
 
 Quad monitor setup in hyprland.conf, and I doubt you want my gtk bookmarks :)
 
-Massive thanks to [Vaxry](https://blog.vaxry.net/) for reigniting my long-time love for [tinkering](https://sebday.dev/desktop-appreciation/) with my desktop.
+Massive thanks to [Vaxry](https://blog.vaxry.net/) for reigniting my long-time love for [tinkering](https://sebday.dev/2025/07/18-desktop-appreciation/) with my desktop.
 
 Also thank you to [DHH](https://world.hey.com/dhh) for Omarchy with loads of cool ideas to copy.
 
@@ -27,41 +27,103 @@ Also thank you to [DHH](https://world.hey.com/dhh) for Omarchy with loads of coo
 
 ### Brave
 
-In `brave://flags/` search for `ozone` and set to Wayland  
-In settings search for "fonts" and set the default to `Caskaydia`  
-In appearance set the theme to `GTK`
+In `brave://flags/` search for "ozone" and set to *Wayland*  
+In `brave://settings/` search for "fonts" and set the default to *Caskaydia*  
+In `brave://settings/appearance` set the theme to *GTK*
 
-### Firefox
-
-Install extensions 
-[ViolentMonkey](https://addons.mozilla.org/en-US/firefox/addon/violentmonkey/), 
-[PopupWindow](https://addons.mozilla.org/en-GB/firefox/addon/popup-window/), 
-[uBlock](https://github.com/gorhill/uBlock#ublock-origin).
+#### Extensions 
+Auto loaded through my Brave sync but also needed on Firefox:
+[ViolentMonkey](https://addons.mozilla.org/en-US/firefox/addon/violentmonkey/) for theming websites and [PopupWindow](https://addons.mozilla.org/en-GB/firefox/addon/popup-window/) to pop Soundcloud or Youtube into a window with no titlebar.
 
 Load the violentmonkey script from `.themes/shared/` and set it to auto-update.
 
-## Unixpr0n
+#### Website theming
 
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/hypr_dracula_screenshot1.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/hypr_dracula_screenshot1.png)
-*fzf wallpaper selection, thunar and obsidian*
+- Gemini
+- Github
+- Grok
+- Soundcloud
+- X
 
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/theme_catppuccin.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/theme_catppuccin.png)
-*Catppuccin theme*
+Soundcloud has heavy modifiction to remove cruft
 
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/theme_dracula.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/theme_dracula.png)
-*Dracula theme*
+## Themes
 
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/theme_gruvboxdark.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/theme_gruvboxdark.png)
-*Gruvbox Dark theme*
+### Catppuccin
 
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/theme_gruvboxlight.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/theme_gruvboxlight.png)
-*Gruvbox Light theme*
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/catppuccin.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/catppuccin.png)
 
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/theme_nord.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/theme_nord.png)
-*Nord theme*
+### Dracula
 
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/theme_rosepine.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/theme_rosepine.png)
-*Rose Pine theme*
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula.png)
 
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/theme_tokyo.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/theme_tokyo.png)
-*Tokyo theme*
+### Ethereal
+
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/ethereal.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/ethereal.png)
+
+### Everforest
+
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/ethereal.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/ethereal.png)
+
+### Gruvbox
+
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/gruvbox.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/gruvbox.png)
+
+### Hackerman
+
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/hackerman.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/hackerman.png)
+
+
+### Kanagwa
+
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/kanagwa.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/kanagwa.png)
+
+### Matte Black
+
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/matte-black.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/matte-black.png)
+
+### Nord
+
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/nord.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/nord.png)
+
+### Osaka Jade
+
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/osaka-jade.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/osaka-jade.png)
+
+### Ristretto
+
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/ristretto.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/ristretto.png)
+
+### Solo
+
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/solo.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/solo.png)
+
+### Tokyo Night
+
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/tokyo-night.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/tokyo-night.png)
+
+### Vanta Black
+
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/vanta-black.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/vanta-black.png)
+
+## Apps
+
+### Ghostty
+
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula_fastfetch.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula_fastfetch.png)
+
+### Brave
+
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula_brave.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula_brave.png)
+
+### Cursor
+
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula_cursor.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula_cursor.png)
+
+### Lazygit & Yazi
+
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula_lazygit_yazi.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula_lazygit_yazi.png)
+
+### Neovim
+
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula_nvim.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula_nvim.png)
