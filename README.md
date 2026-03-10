@@ -8,7 +8,9 @@ Quad monitor setup in hyprland.conf, and I doubt you want my gtk bookmarks :)
 
 Massive thanks to [Vaxry](https://blog.vaxry.net/) for reigniting my long-time love for [tinkering](https://sebday.dev/2025/07/18-desktop-appreciation/) with my desktop.
 
-Also thank you to [DHH](https://world.hey.com/dhh) for Omarchy with loads of cool ideas to copy.
+Thank you to [DHH](https://world.hey.com/dhh) for Omarchy with loads of cool ideas to copy.
+
+Thank you to [Bjarne](https://github.com/bjarneo) for some gorgeous themes.
 
 ## Features
 
@@ -51,36 +53,36 @@ Soundcloud has heavy modifiction to remove cruft
 
 ### Catppuccin
 
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/catppuccin.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/catppuccin.png)
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/catppuccin/preview.png)](https://github.com/sebday/hyprdots/blob/master/.themes/catppuccin/preview.png)
 
 ### Dracula
 
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula.png)
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/dracula/preview.png)](https://github.com/sebday/hyprdots/blob/master/.themes/dracula/preview.png)
 
 ### Ethereal
 
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/ethereal.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/ethereal.png)
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/ethereal/preview.png)](https://github.com/sebday/hyprdots/blob/master/.themes/ethereal/preview.png)
 
 ### Everforest
 
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/ethereal.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/ethereal.png)
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/everforest/preview.png)](https://github.com/sebday/hyprdots/blob/master/.themes/everforest/preview.png)
 
 ### Gruvbox
 
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/gruvbox.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/gruvbox.png)
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/gruvbox/preview.png)](https://github.com/sebday/hyprdots/blob/master/.themes/gruvbox/preview.png)
 
 ### Hackerman
 
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/hackerman.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/hackerman.png)
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/hackerman/preview.png)](https://github.com/sebday/hyprdots/blob/master/.themes/hackerman/preview.png)
 
 
 ### Kanagwa
 
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/kanagwa.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/kanagwa.png)
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/kanagawa/preview.png)](https://github.com/sebday/hyprdots/blob/master/.themes/kanagawa/preview.png)
 
 ### Matte Black
 
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/matte-black.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/matte-black.png)
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/matte-black/preview.png)](https://github.com/sebday/hyprdots/blob/master/.themes/matte-black/preview.png)
 
 ### Nord
 
@@ -88,7 +90,7 @@ Soundcloud has heavy modifiction to remove cruft
 
 ### Osaka Jade
 
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/osaka-jade.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/osaka-jade.png)
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/osaka-jade/preview.png)](https://github.com/sebday/hyprdots/blob/master/.themes/osaka-jade/preview.png)
 
 ### Ristretto
 
@@ -96,15 +98,15 @@ Soundcloud has heavy modifiction to remove cruft
 
 ### Solo
 
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/solo.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/solo.png)
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/solo/preview.png)](https://github.com/sebday/hyprdots/blob/master/.themes/solo/preview.png)
 
 ### Tokyo Night
 
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/tokyo-night.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/tokyo-night.png)
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/tokyo-night/preview.png)](https://github.com/sebday/hyprdots/blob/master/.themes/tokyo-night/preview.png)
 
 ### Vanta Black
 
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/vanta-black.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/vanta-black.png)
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/vantablack/preview.png)](https://github.com/sebday/hyprdots/blob/master/.themes/vantablack/preview.png)
 
 ## Apps
 
