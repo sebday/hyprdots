@@ -18,7 +18,7 @@ if [ -f "$THEME_CSS_FILE" ]; then
     fi
     
     if [ -f "$SHARED_CSS_FILE" ] && [ -f "$THEME_CSS_FILE" ]; then
-        cat "$THEME_CSS_FILE" "$SHARED_CSS_FILE" > "$MODULAR_THEME_DIR/theme.css"
+        cat "$SHARED_CSS_FILE" "$THEME_CSS_FILE" > "$MODULAR_THEME_DIR/theme.css"
     fi
 
     OBSIDIAN_CONFIG_DIR=$(dirname "$OBSIDIAN_CONFIG_FILE")

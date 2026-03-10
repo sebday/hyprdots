@@ -1,10 +1,21 @@
-/* Obsidian CSS generated from colors.toml - merges with shared/obsidian.css */
-.theme-dark,
-.theme-light {
+/* Obsidian CSS generated from colors.toml - overrides shared/obsidian.css (must load last)
+   Uses body.theme-dark for higher specificity so we win over Obsidian's built-in body rules
+   that remap --background-primary from --color-base-00. */
+body.theme-dark,
+body.theme-light {
+  /* Neutral ramp - Obsidian derives semantic backgrounds from these */
+  --color-base-00: {{ background }};
+  --color-base-05: {{ color0 }};
+  --color-base-10: {{ color0 }};
+  --color-base-20: {{ color0 }};
+  --color-base-25: {{ color0 }};
+  --color-base-30: {{ color8 }};
+  /* Semantic backgrounds - reassert so Obsidian's body rule resolves to our palette */
   --background-primary: {{ background }};
-  --background-primary-alt: {{ color0 }};
+  --background-primary-alt: {{ mantle }};
   --background-secondary: var(--background-primary);
   --background-secondary-alt: var(--background-primary-alt);
+  --tab-container-background: var(--background-primary);
   --text-normal: {{ foreground }};
   --text-on-accent: {{ background }};
   --text-title-h1: {{ color5 }};
