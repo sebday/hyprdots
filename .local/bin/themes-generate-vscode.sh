@@ -132,9 +132,9 @@ jq --arg bg "$bg" '
 # Update theme name in JSON
 sed -i "s/\"name\": \"Catppuccin Mocha\"/\"name\": \"$display_name\"/" "$out_dir/themes/color-theme.json"
 
-# If we updated current theme, sync to Cursor so manual regens propagate
+# If we updated current theme, sync to editors so manual regens propagate
 if [ "$theme_dir" = "$HOME/.themes/current" ] || [ "$(cd "$theme_dir" 2>/dev/null && pwd -P)" = "$(cd "$HOME/.themes/current" 2>/dev/null && pwd -P)" ]; then
-    "$HOME/.local/bin/themes-set-cursor.sh" 2>/dev/null || true
+    "$HOME/.local/bin/themes-set-vscode.sh" 2>/dev/null || true
 fi
 
 # package.json

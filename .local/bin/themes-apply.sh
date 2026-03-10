@@ -15,6 +15,26 @@ get_current_theme() {
     [ -f "$CURRENT_PATH/.theme-name" ] && cat "$CURRENT_PATH/.theme-name" || echo ""
 }
 
+activate_gtk() {
+    local gtk_theme="current"
+    if [ -f "$HOME/.config/gtk-3.0/settings.ini" ]; then
+        sed -i "s/^gtk-theme-name=.*/gtk-theme-name=$gtk_theme/" "$HOME/.config/gtk-3.0/settings.ini"
+    fi
+    if [ -f "$HOME/.config/gtk-4.0/settings.ini" ]; then
+        sed -i "s/^gtk-theme-name=.*/gtk-theme-name=$gtk_theme/" "$HOME/.config/gtk-4.0/settings.ini"
+    fi
+    local current_gtk="$THEME_DIR/current/gtk-4.0"
+    if [ -d "$current_gtk" ]; then
+        mkdir -p "$HOME/.config/gtk-4.0"
+        ln -sf "$current_gtk/gtk.css" "$HOME/.config/gtk-4.0/gtk.css"
+        [ -f "$current_gtk/gtk-dark.css" ] && ln -sf "$current_gtk/gtk-dark.css" "$HOME/.config/gtk-4.0/gtk-dark.css"
+        [ -d "$current_gtk/assets" ] && ln -sf "$current_gtk/assets" "$HOME/.config/gtk-4.0/assets"
+    fi
+    gsettings set org.gnome.desktop.interface gtk-theme "" 2>/dev/null || true
+    sleep 0.5
+    gsettings set org.gnome.desktop.interface gtk-theme "$gtk_theme" 2>/dev/null || true
+}
+
 apply_theme() {
     local theme_name="$1"
     [ -z "$theme_name" ] && return 1
@@ -46,10 +66,10 @@ apply_theme() {
 
     # Set theme components (read from current/)
     "$HOME/.local/bin/themes-install-manifest.sh"
-    "$HOME/.local/bin/themes-activate-gtk.sh"
+    activate_gtk
     "$HOME/.local/bin/wallpaper.sh" "next"
     "$HOME/.local/bin/themes-set-icons.sh"
-    "$HOME/.local/bin/themes-set-cursor.sh"
+    "$HOME/.local/bin/themes-set-vscode.sh"
     "$HOME/.local/bin/themes-set-fuzzel.sh"
     "$HOME/.local/bin/themes-set-obsidian.sh"
 }
@@ -74,7 +94,7 @@ reload_apps() {
             hyprctl dispatch focuswindow "address:$current_window" 2>/dev/null || true
         fi
     fi
-    
+
     makoctl reload 2>/dev/null || true
     hyprctl reload 2>/dev/null || true
     pkill waybar 2>/dev/null; waybar &

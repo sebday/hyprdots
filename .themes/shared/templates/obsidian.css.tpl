@@ -12,7 +12,7 @@ body.theme-light {
   --color-base-30: {{ color8 }};
   /* Semantic backgrounds - reassert so Obsidian's body rule resolves to our palette */
   --background-primary: {{ background }};
-  --background-primary-alt: {{ mantle }};
+  --background-primary-alt: {{ background }};
   --background-secondary: var(--background-primary);
   --background-secondary-alt: var(--background-primary-alt);
   --tab-container-background: var(--background-primary);
