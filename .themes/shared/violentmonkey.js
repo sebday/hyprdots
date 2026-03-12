@@ -10,11 +10,14 @@
 // @match       https://grok.com/*
 // @match       https://gemini.google.com/*
 // @match       https://*day.marketing/*
+// @match       https://sebday.dev/*
+// @match       https://ads.google.com/*
+// @match       https://web.telegram.org/*
 // @grant       GM_addStyle
 // @grant       GM_xmlhttpRequest
 // @grant       GM_getValue
 // @grant       GM_setValue
-// @version     2.4
+// @version     2.4.63
 // @author      Seb Day
 // @description Hot-reloads themes for multiple sites using darkhttpd.
 // ==/UserScript==
@@ -29,14 +32,16 @@
         'home.google.com': 'googlehome.css',
         'www.youtube.com': 'youtube.css',
         'grok.com': 'grok.css',
-        'gemini.google.com': 'gemini.css'
+        'gemini.google.com': 'gemini.css',
+        'sebday.dev': 'shoelace.css',
+        'docs.day.marketing': 'shoelace.css',
+        'diy.day.marketing': 'shoelace.css',
+        'tgs.day.marketing': 'shoelace.css',
+        'web.telegram.org': 'telegram.css',
     };
 
     const currentHost = window.location.hostname;
     let cssFile = SITES[currentHost];
-    if (!cssFile && currentHost.endsWith('day.marketing')) {
-        cssFile = 'day.css';
-    }
     if (!cssFile) return;
 
     const STYLE_ID = `hot-reload-style-${currentHost}`;
