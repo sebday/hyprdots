@@ -1,0 +1,10 @@
+.awsm-root._ngcontent-awn-AWSM-0,
+._nghost-awn-AWSM-16,
+.material-sidebar._ngcontent-awn-AWSM-16,
+.container._ngcontent-awn-AWSM-79 {
+    background: var(--bg-primary) !important;
+}
+
+.aurora .has-selection._ngcontent-awn-AWSM-37 dropdown-button .button {
+    background: var(--bg-secondary) !important;
+}

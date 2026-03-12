@@ -112,19 +112,15 @@ COMMAND="${1:-select}"
 
 case "$COMMAND" in
     select|"")
-        source "$HOME/.local/bin/thumbnails.sh"
-
-        generate_theme_list() {
+        selected_entry=$(
             for theme_dir in "$THEME_DIR"/*; do
-                if [ -d "$theme_dir" ] && [ "$(basename "$theme_dir")" != "current" ] && [ "$(basename "$theme_dir")" != "shared" ]; then
-                    theme_name=$(basename "$theme_dir")
-                    preview_file="$theme_dir/preview.png"
-                    printf "%s\t%s\n" "$theme_name" "$preview_file"
-                fi
-            done
-        }
-
-        selected_entry=$(generate_theme_list | generate_fuzzel_entries_with_thumbs "theme" | fuzzel -d -p "Select a theme: ")
+                [ ! -d "$theme_dir" ] && continue
+                theme_name=$(basename "$theme_dir")
+                [[ "$theme_name" == "current" || "$theme_name" == "shared" ]] && continue
+                preview=$(find "$theme_dir/backgrounds" -maxdepth 1 -type f -iname "*.png" 2>/dev/null | sort | head -1)
+                printf "%s\x00icon\x1f%s\n" "$theme_name" "$preview"
+            done | fuzzel -d -p "Select a theme: "
+        )
         if [ -z "$selected_entry" ]; then
             exit 0
         fi
