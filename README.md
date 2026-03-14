@@ -49,6 +49,28 @@ Load the violentmonkey script from `.themes/shared/` and set it to auto-update.
 
 Soundcloud has heavy modifiction to remove cruft
 
+## Apps
+
+### Ghostty
+
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula_fastfetch.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula_fastfetch.png)
+
+### Brave
+
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula_brave.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula_brave.png)
+
+### Cursor
+
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula_cursor.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula_cursor.png)
+
+### Lazygit & Yazi
+
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula_lazygit_yazi.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula_lazygit_yazi.png)
+
+### Neovim
+
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula_nvim.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula_nvim.png)
+
 ## Themes
 
 ### Catppuccin
@@ -108,24 +130,3 @@ Soundcloud has heavy modifiction to remove cruft
 
 [![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/vantablack/preview.png)](https://github.com/sebday/hyprdots/blob/master/.themes/vantablack/preview.png)
 
-## Apps
-
-### Ghostty
-
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula_fastfetch.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula_fastfetch.png)
-
-### Brave
-
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula_brave.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula_brave.png)
-
-### Cursor
-
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula_cursor.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula_cursor.png)
-
-### Lazygit & Yazi
-
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula_lazygit_yazi.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula_lazygit_yazi.png)
-
-### Neovim
-
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula_nvim.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula_nvim.png)
