@@ -2,6 +2,7 @@
     --bard-color-sidenav-background-desktop: var(--bg-secondary);
     --bard-color-surface-dim-tmp: var(--bg-primary);
     --gem-sys-color--surface-container-lowest: var(--bg-secondary);
+    --bard-color-surface-dim-tmp: var(--bg-primary);
 }
 
 .text-input-field {

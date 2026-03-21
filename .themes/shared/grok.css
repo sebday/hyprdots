@@ -1,3 +1,7 @@
+:root {
+    --background: var(--bg-primary);
+}
+
 .bg-surface, .bg-surface-base {
     background: var(--bg-primary) !important;
     color: var(--text-primary);
