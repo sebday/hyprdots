@@ -17,7 +17,7 @@
 // @grant       GM_xmlhttpRequest
 // @grant       GM_getValue
 // @grant       GM_setValue
-// @version     2.4.63
+// @version     2.4.64
 // @author      Seb Day
 // @description Hot-reloads themes for multiple sites using darkhttpd.
 // ==/UserScript==
@@ -46,7 +46,7 @@
 
     const STYLE_ID = `hot-reload-style-${currentHost}`;
     const CACHE_KEY = `theme-css-${currentHost}`;
-    const COLORS_URL = 'http://localhost:8008/current/colours.css';
+    const COLORS_URL = 'http://localhost:8008/current/colors.css';
     const SHARED_URL = `http://localhost:8008/shared/${cssFile}`;
     let currentCombinedCSS = null;
 
