@@ -1,6 +1,6 @@
 include=~/.themes/shared/mako.ini
 
-icon-path=/home/seb/.local/share/icons/Tokyonight-Dark-Cyan
+icon-path=/home/seb/.local/share/icons/Tokyonight-Moon
 background-color=#16242d
 text-color=#d6e2ee
 border-color=#f2fcff

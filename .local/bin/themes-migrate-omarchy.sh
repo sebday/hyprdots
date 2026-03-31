@@ -42,7 +42,8 @@ migrate_theme() {
     echo "Migrating: $theme_name"
     mkdir -p "$target_dir"
 
-    # Copy theme files, exclude omarchy-specific
+    # Copy theme files, exclude omarchy-specific and files we generate at apply
+    # (themes-process-templates.sh writes hyprland.conf / waybar.css from shared *.tpl)
     rsync -a \
         --exclude='chromium.theme' \
         --exclude='keyboard.rgb' \
@@ -50,6 +51,8 @@ migrate_theme() {
         --exclude='swayosd.css' \
         --exclude='walker.css' \
         --exclude='alacritty.toml' \
+        --exclude='hyprland.conf' \
+        --exclude='waybar.css' \
         "$source_theme/" "$target_dir/"
 
     # Add mantle (required for VS Code editor/chrome split): 20% darker than background
