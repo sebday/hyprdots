@@ -44,11 +44,10 @@ def load_github_colors():
 
 
 # prefix = Waybar argv (DIY, TGS, …); site_key = ecommerce-data sqlite basename (diy.sqlite)
-_ICON = "\ue26b "  # nerd-fonts private use (same as previous waybar-shopify config)
 STORES_CONFIG = [
-    {"prefix": "ZK", "display_name": _ICON, "site_key": "zk"},
-    {"prefix": "DIY", "display_name": _ICON, "site_key": "diy"},
-    {"prefix": "TGS", "display_name": _ICON, "site_key": "tgs"},
+    {"prefix": "ZK", "display_name": "Z ", "site_key": "zk"},
+    {"prefix": "DIY", "display_name": "D ", "site_key": "diy"},
+    {"prefix": "TGS", "display_name": "T ", "site_key": "tgs"},
 ]
 
 
