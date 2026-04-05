@@ -63,4 +63,6 @@
     "editor.autoClosingComments": "never",
     "editor.autoClosingDelete": "never",
     "editor.autoClosingQuotes": "never",
+    "editor.codeLensFontFamily": "'CaskaydiaMono Nerd Font', 'monospace', monospace",
+    "editor.inlayHints.fontFamily": "'CaskaydiaMono Nerd Font', 'monospace', monospace",
 }

@@ -53,7 +53,7 @@
   },
   "custom/shopify_diy": {
     "format": "{text}",
-    "exec": "cd /home/seb/projects/shopify-dash && mise exec -- /home/seb/.local/bin/waybar-shopify.py DIY",
+    "exec": "/home/seb/.local/bin/waybar-shopify.py DIY",
     "on-click": "xdg-open https://admin.shopify.com/store/diy-buildingsupplies/analytics/live",
     "return-type": "json",
     "interval": 300,
@@ -61,7 +61,7 @@
   },
   "custom/shopify_tgs": {
     "format": "{text}",
-    "exec": "cd /home/seb/projects/shopify-dash && mise exec -- /home/seb/.local/bin/waybar-shopify.py TGS",
+    "exec": "/home/seb/.local/bin/waybar-shopify.py TGS",
     "on-click": "xdg-open https://admin.shopify.com/store/thegoodsheet-uk/analytics/live",
     "return-type": "json",
     "interval": 300,
