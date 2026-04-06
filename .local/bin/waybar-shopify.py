@@ -3,18 +3,31 @@
 Waybar JSON output for daily Shopify sales + 14-day sparkline.
 Reads merged KPI rows from ecommerce-data SQLite (fact_kpi_daily).
 Currency label for today uses raw_shopify_orders_daily when present (fact has no currency).
+
+Paths (first match wins):
+  ECOMMERCE_SQLITE_DIR     — use this directory only (no fetch).
+  Otherwise                — rsync/scp from ECOMMERCE_SQLITE_REMOTE if set, else
+                             built-in DEFAULT_REMOTE, into ~/.cache/ecommerce-waybar-sqlite,
+                             then read from that cache.
+
+Pure local / no network: set ECOMMERCE_SQLITE_DIR to ~/projects/ecommerce-data/data.
+Disable remote only: export ECOMMERCE_SQLITE_REMOTE= (empty string) — then falls
+back to ~/projects/ecommerce-data/data without fetching.
 """
 import argparse
 import json
 import os
 import re
 import sqlite3
+import subprocess
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 DEFAULT_SQLITE_DIR = Path.home() / "projects" / "ecommerce-data" / "data"
+DEFAULT_CACHE_DIR = Path.home() / ".cache" / "ecommerce-waybar-sqlite"
+DEFAULT_REMOTE = "seb@192.168.2.200:/home/seb/projects/ecommerce-data/data"
 DEFAULT_TZ = "Europe/London"
 
 
@@ -51,16 +64,82 @@ STORES_CONFIG = [
 ]
 
 
-def sqlite_dir() -> Path:
-    raw = os.environ.get("ECOMMERCE_SQLITE_DIR", "").strip()
-    if raw:
-        return Path(raw).expanduser().resolve()
+def _remote_spec() -> str | None:
+    if "ECOMMERCE_SQLITE_REMOTE" in os.environ:
+        v = os.environ["ECOMMERCE_SQLITE_REMOTE"].strip()
+        return v or None
+    return DEFAULT_REMOTE.strip() or None
+
+
+def sync_remote_sqlite(remote_spec: str) -> Path:
+    """Pull *.sqlite into local cache; on failure leave existing cache for stale reads."""
+    cache = Path(
+        os.environ.get("ECOMMERCE_SQLITE_CACHE_DIR", str(DEFAULT_CACHE_DIR))
+    ).expanduser()
+    cache.mkdir(parents=True, exist_ok=True)
+    src = remote_spec.rstrip("/") + "/"
+    ssh = "ssh -o BatchMode=yes -o ConnectTimeout=8"
+    try:
+        r = subprocess.run(
+            [
+                "rsync",
+                "-az",
+                "--include=*.sqlite",
+                "--exclude=*",
+                "--timeout=25",
+                "-e",
+                ssh,
+                src,
+                str(cache) + "/",
+            ],
+            capture_output=True,
+            timeout=40,
+        )
+        if r.returncode == 0:
+            return cache
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+
+    m = re.match(r"^([^@]+)@([^:]+):(.+)$", remote_spec)
+    if m:
+        user, host, dirpath = m.group(1), m.group(2), m.group(3).rstrip("/")
+        base = f"{user}@{host}:{dirpath}"
+        for site in STORES_CONFIG:
+            key = site["site_key"]
+            try:
+                subprocess.run(
+                    [
+                        "scp",
+                        "-q",
+                        "-o",
+                        "BatchMode=yes",
+                        "-o",
+                        "ConnectTimeout=8",
+                        f"{base}/{key}.sqlite",
+                        str(cache / f"{key}.sqlite"),
+                    ],
+                    capture_output=True,
+                    timeout=35,
+                    check=False,
+                )
+            except (FileNotFoundError, subprocess.TimeoutExpired):
+                break
+    return cache
+
+
+def sqlite_base() -> Path:
+    explicit = os.environ.get("ECOMMERCE_SQLITE_DIR", "").strip()
+    if explicit:
+        return Path(explicit).expanduser().resolve()
+    remote = _remote_spec()
+    if remote:
+        return sync_remote_sqlite(remote).resolve()
     return DEFAULT_SQLITE_DIR.resolve()
 
 
-def site_sqlite_path(site_key: str) -> Path:
+def site_sqlite_path(site_key: str, base: Path) -> Path:
     safe = re.sub(r"[^a-z0-9_-]", "_", site_key.strip().lower())
-    return sqlite_dir() / f"{safe}.sqlite"
+    return base / f"{safe}.sqlite"
 
 
 def get_day_stats(conn: sqlite3.Connection, dt_iso: str) -> tuple[float, int]:
@@ -152,6 +231,7 @@ def main():
 
     colors = load_github_colors()
     today = datetime.now(tz).date()
+    base = sqlite_base()
 
     stores_to_process = STORES_CONFIG
     if args.store_prefix:
@@ -167,13 +247,13 @@ def main():
     for store_config in stores_to_process:
         display_name = store_config["display_name"]
         site_key = store_config["site_key"]
-        db_path = site_sqlite_path(site_key)
+        db_path = site_sqlite_path(site_key, base)
 
         if not db_path.is_file():
             print(
                 json.dumps(
                     {
-                        "text": f"{display_name}: no db ({db_path.name})",
+                        "text": f"{display_name}: no db ({db_path})",
                     }
                 )
             )
