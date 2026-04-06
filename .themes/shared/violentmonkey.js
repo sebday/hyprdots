@@ -17,7 +17,7 @@
 // @grant       GM_xmlhttpRequest
 // @grant       GM_getValue
 // @grant       GM_setValue
-// @version     2.4.64
+// @version     2.4.65
 // @author      Seb Day
 // @description Hot-reloads themes for multiple sites using darkhttpd.
 // ==/UserScript==
@@ -33,10 +33,7 @@
         'www.youtube.com': 'youtube.css',
         'grok.com': 'grok.css',
         'gemini.google.com': 'gemini.css',
-        'sebday.dev': 'shoelace.css',
         'docs.day.marketing': 'shoelace.css',
-        'diy.day.marketing': 'shoelace.css',
-        'tgs.day.marketing': 'shoelace.css',
         'web.telegram.org': 'telegram.css',
     };
 
