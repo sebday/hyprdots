@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Update Obsidian theme
-OBSIDIAN_VAULT_DIR="$HOME/projects/docs/notes/"
+# Update Obsidian theme (override with OBSIDIAN_VAULT_DIR if your vault moves)
+OBSIDIAN_VAULT_DIR="${OBSIDIAN_VAULT_DIR:-$HOME/onedrive/notes}"
 OBSIDIAN_CONFIG_FILE="$OBSIDIAN_VAULT_DIR/.obsidian/appearance.json"
 THEME_CSS_FILE="$HOME/.themes/current/obsidian.css"
 
