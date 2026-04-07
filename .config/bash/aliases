@@ -13,7 +13,7 @@ alias lg='lazygit'
 alias vi='nvim'
 
 # Projects
-alias publish='(cd /home/seb/projects/docs && npm run publish)'
+alias publish='(cd /home/seb/projects/client-docs && npm run publish)'
 
 # Git
 alias gcm='git commit -m'
