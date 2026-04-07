@@ -111,3 +111,11 @@ h1 {
 .sc-button-prev svg {
     color: var(--bg-secondary)!important;
 }
+
+.searchTitle {
+    background: var(--bg-primary)!important;
+}
+
+.searchTitle__textContent {
+    color: var(--text-primary)!important;
+}
