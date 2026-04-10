@@ -142,19 +142,20 @@ def site_sqlite_path(site_key: str, base: Path) -> Path:
     return base / f"{safe}.sqlite"
 
 
-def get_day_stats(conn: sqlite3.Connection, dt_iso: str) -> tuple[float, int]:
+def get_day_stats(conn: sqlite3.Connection, dt_iso: str) -> tuple[float, int, float | None]:
     row = conn.execute(
         """
-        SELECT revenue, orders
+        SELECT revenue, orders, cost_of_sales_pct
         FROM fact_kpi_daily
         WHERE dt = ?
         """,
         (dt_iso,),
     ).fetchone()
     if not row:
-        return 0.0, 0
-    rev, n = row[0], row[1]
-    return float(rev or 0), int(n or 0)
+        return 0.0, 0, None
+    rev, n, cos_pct = row[0], row[1], row[2]
+    cos_f = float(cos_pct) if cos_pct is not None else None
+    return float(rev or 0), int(n or 0), cos_f
 
 
 def generate_sales_chart(daily_sales, colors):
@@ -268,7 +269,9 @@ def main():
 
         try:
             today_s = today.isoformat()
-            today_sales_figure, today_order_count = get_day_stats(conn, today_s)
+            today_sales_figure, today_order_count, today_cos_pct = get_day_stats(
+                conn, today_s
+            )
 
             cur_row = conn.execute(
                 "SELECT currency_code FROM raw_shopify_orders_daily WHERE dt = ?",
@@ -279,13 +282,19 @@ def main():
             chart_daily_sales = []
             for i in range(13, -1, -1):
                 d = (today - timedelta(days=i)).isoformat()
-                rev, _n = get_day_stats(conn, d)
+                rev, _, _ = get_day_stats(conn, d)
                 chart_daily_sales.append(rev)
 
             sales_chart = generate_sales_chart(chart_daily_sales, colors)
             today_sales_val = int(today_sales_figure if today_sales_figure is not None else 0)
 
-            output_text = f"{display_name}{sym}{today_sales_val:,} | {today_order_count} {sales_chart}"
+            # fact_kpi_daily stores cost_of_sales_pct as a ratio (e.g. 0.1623), not 0–100.
+            cos_str = (
+                f"{today_cos_pct * 100:.1f}%" if today_cos_pct is not None else "—"
+            )
+            output_text = (
+                f"{display_name}{sym}{today_sales_val:,} | {today_order_count} | {cos_str} {sales_chart}"
+            )
             if today_order_count == 0:
                 output_text = f"<span foreground='{colors[1]}'>{output_text}</span>"
 
