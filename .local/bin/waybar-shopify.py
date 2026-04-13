@@ -4,15 +4,13 @@ Waybar JSON output for daily Shopify sales + 14-day sparkline.
 Reads merged KPI rows from ecommerce-data SQLite (fact_kpi_daily).
 Currency label for today uses raw_shopify_orders_daily when present (fact has no currency).
 
-Paths (first match wins):
-  ECOMMERCE_SQLITE_DIR     — use this directory only (no fetch).
-  Otherwise                — rsync/scp from ECOMMERCE_SQLITE_REMOTE if set, else
-                             built-in DEFAULT_REMOTE, into ~/.cache/ecommerce-waybar-sqlite,
-                             then read from that cache.
+Environment:
+  ECOMMERCE_SQLITE_DIR — directory for *.sqlite (default ~/projects/ecommerce-data/data;
+                       same default as ecommerce-reports when SQLITE_DIR is unset).
 
-Pure local / no network: set ECOMMERCE_SQLITE_DIR to ~/projects/ecommerce-data/data.
-Disable remote only: export ECOMMERCE_SQLITE_REMOTE= (empty string) — then falls
-back to ~/projects/ecommerce-data/data without fetching.
+  ECOMMERCE_SQLITE_REMOTE — rsync source host:path; if set and non-empty, pull *.sqlite
+                       into ECOMMERCE_SQLITE_DIR before reading. Built-in default points
+                       at zotac. Set to empty to use local files only (no network).
 """
 import argparse
 import json
@@ -26,7 +24,6 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 DEFAULT_SQLITE_DIR = Path.home() / "projects" / "ecommerce-data" / "data"
-DEFAULT_CACHE_DIR = Path.home() / ".cache" / "ecommerce-waybar-sqlite"
 DEFAULT_REMOTE = "seb@192.168.2.200:/home/seb/projects/ecommerce-data/data"
 DEFAULT_TZ = "Europe/London"
 
@@ -71,12 +68,15 @@ def _remote_spec() -> str | None:
     return DEFAULT_REMOTE.strip() or None
 
 
-def sync_remote_sqlite(remote_spec: str) -> Path:
-    """Pull *.sqlite into local cache; on failure leave existing cache for stale reads."""
-    cache = Path(
-        os.environ.get("ECOMMERCE_SQLITE_CACHE_DIR", str(DEFAULT_CACHE_DIR))
-    ).expanduser()
-    cache.mkdir(parents=True, exist_ok=True)
+def sqlite_data_dir() -> Path:
+    """Single local directory for ecommerce-data *.sqlite files."""
+    raw = os.environ.get("ECOMMERCE_SQLITE_DIR", "").strip()
+    return (Path(raw).expanduser().resolve() if raw else DEFAULT_SQLITE_DIR.resolve())
+
+
+def sync_remote_sqlite(remote_spec: str, dest: Path) -> Path:
+    """Pull *.sqlite into dest (ECOMMERCE_SQLITE_DIR)."""
+    dest.mkdir(parents=True, exist_ok=True)
     src = remote_spec.rstrip("/") + "/"
     ssh = "ssh -o BatchMode=yes -o ConnectTimeout=8"
     try:
@@ -90,13 +90,13 @@ def sync_remote_sqlite(remote_spec: str) -> Path:
                 "-e",
                 ssh,
                 src,
-                str(cache) + "/",
+                str(dest) + "/",
             ],
             capture_output=True,
             timeout=40,
         )
         if r.returncode == 0:
-            return cache
+            return dest
     except (FileNotFoundError, subprocess.TimeoutExpired):
         pass
 
@@ -116,7 +116,7 @@ def sync_remote_sqlite(remote_spec: str) -> Path:
                         "-o",
                         "ConnectTimeout=8",
                         f"{base}/{key}.sqlite",
-                        str(cache / f"{key}.sqlite"),
+                        str(dest / f"{key}.sqlite"),
                     ],
                     capture_output=True,
                     timeout=35,
@@ -124,17 +124,15 @@ def sync_remote_sqlite(remote_spec: str) -> Path:
                 )
             except (FileNotFoundError, subprocess.TimeoutExpired):
                 break
-    return cache
+    return dest
 
 
 def sqlite_base() -> Path:
-    explicit = os.environ.get("ECOMMERCE_SQLITE_DIR", "").strip()
-    if explicit:
-        return Path(explicit).expanduser().resolve()
+    dest = sqlite_data_dir()
     remote = _remote_spec()
     if remote:
-        return sync_remote_sqlite(remote).resolve()
-    return DEFAULT_SQLITE_DIR.resolve()
+        return sync_remote_sqlite(remote, dest).resolve()
+    return dest
 
 
 def site_sqlite_path(site_key: str, base: Path) -> Path:
