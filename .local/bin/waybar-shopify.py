@@ -140,10 +140,16 @@ def site_sqlite_path(site_key: str, base: Path) -> Path:
     return base / f"{safe}.sqlite"
 
 
-def get_day_stats(conn: sqlite3.Connection, dt_iso: str) -> tuple[float, int, float | None]:
+def get_day_stats(
+    conn: sqlite3.Connection, dt_iso: str, kpi_cols: set[str]
+) -> tuple[float, int, float | None]:
+    spend_expr = "NULL AS google_spend"
+    if "google_spend" in kpi_cols:
+        spend_expr = "google_spend"
+
     row = conn.execute(
-        """
-        SELECT revenue, orders, cost_of_sales_pct
+        f"""
+        SELECT revenue, orders, {spend_expr}
         FROM fact_kpi_daily
         WHERE dt = ?
         """,
@@ -151,9 +157,12 @@ def get_day_stats(conn: sqlite3.Connection, dt_iso: str) -> tuple[float, int, fl
     ).fetchone()
     if not row:
         return 0.0, 0, None
-    rev, n, cos_pct = row[0], row[1], row[2]
-    cos_f = float(cos_pct) if cos_pct is not None else None
-    return float(rev or 0), int(n or 0), cos_f
+    rev, n, spend = row[0], row[1], row[2]
+    revenue = float(rev or 0)
+    cos_f = None
+    if spend is not None and revenue > 0:
+        cos_f = float(spend) / revenue
+    return revenue, int(n or 0), cos_f
 
 
 def generate_sales_chart(daily_sales, colors):
@@ -266,9 +275,13 @@ def main():
             break
 
         try:
+            kpi_cols = {
+                r[1]
+                for r in conn.execute("PRAGMA table_info(fact_kpi_daily)").fetchall()
+            }
             today_s = today.isoformat()
             today_sales_figure, today_order_count, today_cos_pct = get_day_stats(
-                conn, today_s
+                conn, today_s, kpi_cols
             )
 
             cur_row = conn.execute(
@@ -280,13 +293,12 @@ def main():
             chart_daily_sales = []
             for i in range(13, -1, -1):
                 d = (today - timedelta(days=i)).isoformat()
-                rev, _, _ = get_day_stats(conn, d)
+                rev, _, _ = get_day_stats(conn, d, kpi_cols)
                 chart_daily_sales.append(rev)
 
             sales_chart = generate_sales_chart(chart_daily_sales, colors)
             today_sales_val = int(today_sales_figure if today_sales_figure is not None else 0)
 
-            # fact_kpi_daily stores cost_of_sales_pct as a ratio (e.g. 0.1623), not 0–100.
             cos_str = (
                 f"{today_cos_pct * 100:.1f}%" if today_cos_pct is not None else "—"
             )

@@ -30,7 +30,7 @@ if [ -f "$THEME_CSS_FILE" ]; then
         updated_json='{}'
     fi
 
-    updated_json=$(echo "$updated_json" | jq --arg theme "obsidian" '.theme = $theme' | jq --arg cssTheme "Modular" '.cssTheme = $cssTheme' | jq 'del(.enabledCssSnippets)')
+updated_json=$(echo "$updated_json" | jq --arg theme "obsidian" '.theme = $theme' | jq --arg cssTheme "Modular" '.cssTheme = $cssTheme')
 
     echo "$updated_json" > "$OBSIDIAN_CONFIG_FILE"
 fi
