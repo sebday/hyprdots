@@ -1,3 +1,8 @@
 export EDITOR="nvim"
 export SUDO_EDITOR="$EDITOR"
 export BAT_THEME=ansi
+
+# Activate mise for tool version management
+if command -v mise &> /dev/null; then
+  eval "$(mise activate bash)"
+fi
