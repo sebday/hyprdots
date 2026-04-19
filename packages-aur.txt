@@ -1,4 +1,4 @@
 brave-bin
-cursor-bin
+# install with appimage so no nodejs - cursor-bin
 opencode-bin
 insync

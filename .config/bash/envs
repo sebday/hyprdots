@@ -6,3 +6,6 @@ export BAT_THEME=ansi
 if command -v mise &> /dev/null; then
   eval "$(mise activate bash)"
 fi
+
+# Add local bin to PATH
+export PATH="$HOME/.local/bin:$PATH"

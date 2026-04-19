@@ -1,6 +1,6 @@
 [Desktop Entry]
 Name=Cursor
-Exec=cursor --enable-features=UseOzonePlatform --ozone-platform-hint=wayland --no-sandbox %U
+Exec=/opt/cursor/Cursor-3.1.15-x86_64.AppImage --enable-features=UseOzonePlatform --ozone-platform-hint=wayland --no-sandbox %U
 Terminal=false
 Type=Application
 Icon=/home/seb/.local/share/applications/cursor.png
