@@ -1,7 +1,6 @@
 [tools]
 python = "latest"
 node = "22"
-bun = "latest"
 "npm:@shopify/cli" = "latest"
 
 [settings]
