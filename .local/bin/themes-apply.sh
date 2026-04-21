@@ -57,9 +57,6 @@ apply_theme() {
     # Generate VS Code theme extension from colors.toml (Catppuccin Mocha base)
     "$HOME/.local/bin/themes-generate-vscode.sh" "$NEXT_PATH"
 
-    # Generate Neovim theme from colors.toml (Modular palette)
-    "$HOME/.local/bin/themes-generate-neovim.sh" "$NEXT_PATH"
-
     # Atomic swap
     rm -rf "$CURRENT_PATH"
     mv "$NEXT_PATH" "$CURRENT_PATH"

@@ -25,6 +25,7 @@ ttf-cascadia-mono-nerd
 vimix-cursors
 
 # Base ######################
+nano
 ghostty
 git
 eza
@@ -52,7 +53,6 @@ gvfs
 gocryptfs
 usbutils
 caligula
-yazi
 
 # Media #####################
 pipewire
@@ -72,11 +72,6 @@ irssi
 mise
 python
 lazygit
-neovim
-luarocks
-tree-sitter-cli
-ast-grep
-libyaml
 
 # Theming ###################
 darkhttpd

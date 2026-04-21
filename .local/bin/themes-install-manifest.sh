@@ -13,18 +13,11 @@ copy_if() {
 }
 
 copy_if mako.ini "$CONFIG/mako/config"
-copy_if yazi-theme.toml "$CONFIG/yazi/theme.toml"
 copy_if hyprland.conf "$CONFIG/hypr/theme.conf"
-copy_if nvim-icons.lua "$CONFIG/nvim/lua/theme-icons.lua"
 
 # btop: copy theme + update btop.conf
 if [ -f "$CURRENT/btop.theme" ]; then
     mkdir -p "$CONFIG/btop/themes"
     cp "$CURRENT/btop.theme" "$CONFIG/btop/themes/current.theme"
     [ -f "$CONFIG/btop/btop.conf" ] && sed -i 's|^color_theme =.*|color_theme = "current"|' "$CONFIG/btop/btop.conf"
-fi
-
-# neovim: remove if no theme file
-if [ ! -f "$CURRENT/nvim-icons.lua" ]; then
-    rm -f "$CONFIG/nvim/lua/theme-icons.lua"
 fi
