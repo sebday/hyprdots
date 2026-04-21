@@ -8,7 +8,6 @@ alias unlock='gocryptfs /mnt/external/.crypt /mnt/secure'
 
 # Tools
 alias ff='fastfetch'
-alias vim='nvim'
 alias lg='lazygit'
 alias vi='nvim'
 
