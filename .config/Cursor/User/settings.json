@@ -51,10 +51,10 @@
     "window.titleBarStyle": "native",
     "cursor.composer.textSizeScale": 1.15,
     "remote.SSH.remotePlatform": {
-      "192.168.2.200": "linux",
-      "192.168.1.199": "linux",
-      "192.168.2.199": "linux",
-      "34.132.57.19": "linux"
+        "192.168.2.200": "linux",
+        "192.168.1.199": "linux",
+        "192.168.2.199": "linux",
+        "34.132.57.19": "linux"
     },
     "workbench.tree.enableStickyScroll": false,
     "editor.stickyScroll.enabled": false,
@@ -65,4 +65,5 @@
     "editor.autoClosingQuotes": "never",
     "editor.codeLensFontFamily": "'CaskaydiaMono Nerd Font', 'monospace', monospace",
     "editor.inlayHints.fontFamily": "'CaskaydiaMono Nerd Font', 'monospace', monospace",
+    "explorer.confirmDragAndDrop": false,
 }

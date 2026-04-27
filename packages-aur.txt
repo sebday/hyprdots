@@ -1,4 +1,4 @@
 brave-bin
-# install with appimage so no nodejs - cursor-bin
-opencode-bin
 insync
+# install with appimage so no nodejs - cursor-bin
+# curl https://cursor.com/install -fsS | bash
