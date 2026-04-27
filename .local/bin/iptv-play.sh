@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# iptv-org playlist picker: floating terminal (TUI.float), fzf search, mpv playback.
+# iptv-org playlist picker: floating terminal (TUI.iptv → floating-window-small), fzf, mpv.
 
 set -euo pipefail
 
@@ -10,7 +10,7 @@ TERMINAL_FLOAT="${TERMINAL_FLOAT:-ghostty}"
 script_path=$(readlink -f "${BASH_SOURCE[0]}")
 
 if [[ "${1:-}" != "--inner" ]]; then
-	exec "$TERMINAL_FLOAT" --class=TUI.float -e bash -c "exec bash $(printf '%q' "$script_path") --inner"
+	exec "$TERMINAL_FLOAT" --class=TUI.iptv -e bash -c "exec bash $(printf '%q' "$script_path") --inner"
 fi
 
 cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/iptv"
@@ -79,15 +79,43 @@ selected=$(
 
 IFS=$'\t' read -r title url referrer useragent <<<"$selected"
 
-mpv_args=()
+mpv_args=(--force-window=immediate --title="$title")
 [[ -n "${referrer:-}" ]] && mpv_args+=(--referrer="$referrer")
 [[ -n "${useragent:-}" ]] && mpv_args+=(--user-agent="$useragent")
 
-# start mpv outside this tty/session so ghostty can exit as soon as fzf is done
+mpv_client_count() {
+	hyprctl clients -j 2>/dev/null | jq 'map(select(.class == "mpv")) | length' 2>/dev/null || echo 0
+}
+
+before_mpv=0
+if command -v hyprctl >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
+	before_mpv=$(mpv_client_count)
+fi
+
+printf '\033[2J\033[H\033[3J' # clear — same window after fzf, feels like “loading”
+printf '  %s\n\n  %s\n' "$title" "loading stream…"
+notify-send -a "IPTV" "Starting" "$title" 2>/dev/null || true
+
+# detach mpv from this tty; keep this window until the new mpv client appears (or timeout)
 if command -v setsid >/dev/null 2>&1; then
 	setsid -f -- mpv "${mpv_args[@]}" "$url" </dev/null &>/dev/null
 else
 	nohup mpv "${mpv_args[@]}" "$url" </dev/null &>/dev/null &
 	disown || true
 fi
+
+if command -v hyprctl >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
+	i=0
+	while ((i < 48)); do
+		after_mpv=$(mpv_client_count)
+		if ((after_mpv > before_mpv)); then
+			break
+		fi
+		sleep 0.25
+		((++i)) || true
+	done
+else
+	sleep 2
+fi
+
 exit 0
