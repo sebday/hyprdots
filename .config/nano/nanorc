@@ -1,0 +1,3 @@
+## Syntax highlighting — bundled definitions (Arch/GNU nano)
+include /usr/share/nano/*.nanorc
+include /usr/share/nano/extra/*.nanorc
