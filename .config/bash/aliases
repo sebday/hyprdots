@@ -9,7 +9,6 @@ alias unlock='gocryptfs /mnt/external/.crypt /mnt/secure'
 # Tools
 alias ff='fastfetch'
 alias lg='lazygit'
-alias vi='nvim'
 
 # Projects
 alias publish='(cd /home/seb/projects/client-docs && npm run publish)'

@@ -66,11 +66,13 @@ imagemagick
 transmission-cli
 qalculate-gtk
 obsidian
+glow
 
 # Dev #######################
 mise
 python
 lazygit
+libyaml
 
 # Theming ###################
 darkhttpd
