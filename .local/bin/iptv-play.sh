@@ -1,121 +1,51 @@
 #!/usr/bin/env bash
-# iptv-org playlist picker: floating terminal (TUI.iptv → floating-window-small), fzf, mpv.
+# iptv-org M3U → ~/.cache/iptv/channels.tsv → Walker --dmenu → detached mpv.
 
 set -euo pipefail
 
-IPTV_PLAYLIST_URL="${IPTV_PLAYLIST_URL:-https://iptv-org.github.io/iptv/index.m3u}"
-IPTV_CACHE_MAX_AGE_MINUTES="${IPTV_CACHE_MAX_AGE_MINUTES:-1440}"
-TERMINAL_FLOAT="${TERMINAL_FLOAT:-ghostty}"
+export PATH="${HOME}/.local/bin:${PATH}"
 
-script_path=$(readlink -f "${BASH_SOURCE[0]}")
+for cmd in launch-walker walker mpv; do
+	command -v "$cmd" >/dev/null 2>&1 || {
+		echo "iptv-play.sh: need '$cmd' in PATH" >&2
+		exit 127
+	}
+done
 
-if [[ "${1:-}" != "--inner" ]]; then
-	exec "$TERMINAL_FLOAT" --class=TUI.iptv -e bash -c "exec bash $(printf '%q' "$script_path") --inner"
-fi
+bash "${HOME}/.local/bin/iptv-ensure-cache.sh"
 
 cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/iptv"
-playlist="$cache_dir/index.m3u"
-mkdir -p "$cache_dir"
+channels_tsv="$cache_dir/channels.tsv"
 
-refresh_playlist() {
-	local tmp
-	tmp=$(mktemp "$playlist.part.XXXXXX")
-	if curl -fsSL --max-time 120 -o "$tmp" "$IPTV_PLAYLIST_URL"; then
-		mv "$tmp" "$playlist"
-	else
-		rm -f "$tmp"
-		return 1
-	fi
+[[ -s "$channels_tsv" ]] || {
+	echo "no channel list: $channels_tsv" >&2
+	exit 1
 }
 
-if [[ ! -f "$playlist" ]]; then
-	refresh_playlist || {
-		echo "failed to download playlist" >&2
-		exit 1
-	}
-elif find "$playlist" -mmin "+$IPTV_CACHE_MAX_AGE_MINUTES" 2>/dev/null | grep -q .; then
-	refresh_playlist || true
-fi
+idx=$(cut -f1 "$channels_tsv" | launch-walker --dmenu --width 644 --minheight 1 --maxheight 520 -p 'search channels ' -i | tr -d '\n\r')
+[[ -z "$idx" ]] && exit 0
+[[ "$idx" =~ ^[0-9]+$ ]] || exit 0
 
-if [[ ! -s "$playlist" ]]; then
-	echo "playlist missing or empty: $playlist" >&2
-	exit 1
-fi
-
-# Parse M3U: title from #EXTINF (text after last comma), optional EXTVLCOPT, then stream URL.
-selected=$(
-	awk '
-		function strip_cr(s) { sub(/\r$/, "", s); return s }
-		/^#EXTINF:/ {
-			title = strip_cr($0)
-			sub(/^.*,/, "", title)
-			ref = ""
-			ua = ""
-			url = ""
-			while ((getline line) > 0) {
-				line = strip_cr(line)
-				if (line ~ /^#EXTVLCOPT:http-referrer=/) {
-					sub(/^#EXTVLCOPT:http-referrer=/, "", line)
-					ref = line
-				} else if (line ~ /^#EXTVLCOPT:http-user-agent=/) {
-					sub(/^#EXTVLCOPT:http-user-agent=/, "", line)
-					ua = line
-				} else if (line ~ /^https?:\/\//) {
-					url = line
-					break
-				}
-			}
-			if (url != "" && title != "")
-				print title "\t" url "\t" ref "\t" ua
-		}
-	' "$playlist" | fzf --delimiter=$'\t' --with-nth=1 \
-		--prompt='iptv channel> ' \
-		--height=100% \
-		--layout=reverse \
-		--info=inline
-) || true
-
-[[ -z "${selected:-}" ]] && exit 0
-
-IFS=$'\t' read -r title url referrer useragent <<<"$selected"
+IFS=$'\t' read -r title url referrer useragent < <(awk -v n="$idx" 'NR == n + 1 { print; exit }' "$channels_tsv")
 
 mpv_args=(--force-window=immediate --title="$title")
 [[ -n "${referrer:-}" ]] && mpv_args+=(--referrer="$referrer")
 [[ -n "${useragent:-}" ]] && mpv_args+=(--user-agent="$useragent")
 
-mpv_client_count() {
-	hyprctl clients -j 2>/dev/null | jq 'map(select(.class == "mpv")) | length' 2>/dev/null || echo 0
-}
-
 before_mpv=0
 if command -v hyprctl >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
-	before_mpv=$(mpv_client_count)
+	before_mpv=$(hyprctl clients -j 2>/dev/null | jq 'map(select(.class == "mpv")) | length' 2>/dev/null || echo 0)
 fi
 
-printf '\033[2J\033[H\033[3J' # clear — same window after fzf, feels like “loading”
-printf '  %s\n\n  %s\n' "$title" "loading stream…"
 notify-send -a "IPTV" "Starting" "$title" 2>/dev/null || true
-
-# detach mpv from this tty; keep this window until the new mpv client appears (or timeout)
-if command -v setsid >/dev/null 2>&1; then
-	setsid -f -- mpv "${mpv_args[@]}" "$url" </dev/null &>/dev/null
-else
-	nohup mpv "${mpv_args[@]}" "$url" </dev/null &>/dev/null &
-	disown || true
-fi
+setsid -f mpv "${mpv_args[@]}" "$url" </dev/null &>/dev/null
 
 if command -v hyprctl >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
-	i=0
-	while ((i < 48)); do
-		after_mpv=$(mpv_client_count)
-		if ((after_mpv > before_mpv)); then
-			break
-		fi
+	for ((i = 0; i < 48; i++)); do
+		after=$(hyprctl clients -j 2>/dev/null | jq 'map(select(.class == "mpv")) | length' 2>/dev/null || echo 0)
+		((after > before_mpv)) && break
 		sleep 0.25
-		((++i)) || true
 	done
 else
 	sleep 2
 fi
-
-exit 0

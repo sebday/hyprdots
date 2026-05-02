@@ -5,9 +5,5 @@ elephant-providerlist
 elephant-websearch
 elephant-clipboard
 elephant-menus
-elephant-unicode
 brave-bin
 insync
-
-# Cursor - install with appimage so no nodejs - cursor-bin
-# Agent - curl https://cursor.com/install -fsS | bash

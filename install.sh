@@ -11,7 +11,7 @@ log() {
 # Install script dependencies
 install_dependencies() {
     log "Installing script dependencies..."
-    sudo pacman -Syu --noconfirm git base-devel rsync
+    sudo pacman -Syu --noconfirm git base-devel rsync curl jq fuse2
 }
 
 # Clone the dotfiles repository and set it up.
@@ -80,6 +80,40 @@ install_aur_packages() {
     local aur_packages
     aur_packages=$(grep -vE '^#|^$' packages-aur.txt | tr '\n' ' ')
     yay -Sy --noconfirm $aur_packages
+}
+
+# Install Cursor from the official AppImage so it does not pull Node.js via AUR.
+install_cursor() {
+    log "Installing Cursor..."
+
+    local cursor_dir="/opt/cursor"
+    local cursor_appimage="$cursor_dir/Cursor.AppImage"
+    local download_api="https://www.cursor.com/api/download?platform=linux-x64&releaseTrack=stable"
+    local appimage_url
+    local temp_appimage
+    local temp_agent_installer
+
+    temp_appimage=$(mktemp)
+    temp_agent_installer=$(mktemp)
+
+    appimage_url=$(curl -fsSL -H "User-Agent: Mozilla/5.0" "$download_api" | jq -r '.downloadUrl // empty')
+    if [[ -z "$appimage_url" ]]; then
+        echo "Failed to find the Cursor AppImage download URL"
+        exit 1
+    fi
+
+    curl -fL --progress-bar -H "User-Agent: Mozilla/5.0" "$appimage_url" -o "$temp_appimage"
+    chmod +x "$temp_appimage"
+
+    sudo install -d -m 0755 "$cursor_dir"
+    sudo install -m 0755 "$temp_appimage" "$cursor_appimage"
+    sudo ln -sf "$cursor_appimage" /usr/local/bin/cursor
+    rm -f "$temp_appimage"
+
+    log "Installing Cursor Agent..."
+    curl -fsSL https://cursor.com/install -o "$temp_agent_installer"
+    bash "$temp_agent_installer"
+    rm -f "$temp_agent_installer"
 }
 
 # Set the Plymouth boot screen theme.
@@ -153,6 +187,7 @@ main() {
     install_pacman_packages
     install_yay
     install_aur_packages
+    install_cursor
     configure_elephant_service
     configure_greetd
     install_mise_tools

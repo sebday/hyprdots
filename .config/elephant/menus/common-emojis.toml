@@ -1,0 +1,320 @@
+# Curated emoji list for Walker (`walker -m menus`). Requires elephant-menus (menus.so).
+# Copy uses wl-copy with stdin (menu action "wl-copy" + entry value).
+# Edit entries freely; `fixed_order` keeps this row order instead of sorting A–Z.
+
+name = "common-emojis"
+name_pretty = "Common emojis"
+icon = "face-smile"
+action = "wl-copy"
+fixed_order = true
+history = true
+
+[[entries]]
+text = "😀 grinning face"
+keywords = ["smile", "happy", "grin"]
+value = "😀"
+
+[[entries]]
+text = "😃 grinning big eyes"
+keywords = ["smile", "joy"]
+value = "😃"
+
+[[entries]]
+text = "😄 smile eyes"
+keywords = ["smile", "grin"]
+value = "😄"
+
+[[entries]]
+text = "😁 grin teeth"
+keywords = ["beam", "grin"]
+value = "😁"
+
+[[entries]]
+text = "😅 sweat smile"
+keywords = ["nervous", "oops"]
+value = "😅"
+
+[[entries]]
+text = "🤣 rolling laugh"
+keywords = ["lol", "rofl"]
+value = "🤣"
+
+[[entries]]
+text = "😂 tears of joy"
+keywords = ["lol", "cry"]
+value = "😂"
+
+[[entries]]
+text = "🙂 slight smile"
+keywords = ["smile"]
+value = "🙂"
+
+[[entries]]
+text = "😉 wink"
+keywords = ["wink"]
+value = "😉"
+
+[[entries]]
+text = "😊 smiling eyes"
+keywords = ["blush", "happy"]
+value = "😊"
+
+[[entries]]
+text = "😇 halo"
+keywords = ["angel", "innocent"]
+value = "😇"
+
+[[entries]]
+text = "🥰 hearts smile"
+keywords = ["love", "crush"]
+value = "🥰"
+
+[[entries]]
+text = "😍 heart eyes"
+keywords = ["love", "star"]
+value = "😍"
+
+[[entries]]
+text = "🤩 star-struck"
+keywords = ["wow", "eyes"]
+value = "🤩"
+
+[[entries]]
+text = "😘 kiss"
+keywords = ["love", "kiss"]
+value = "😘"
+
+[[entries]]
+text = "😋 yum"
+keywords = ["food", "tongue"]
+value = "😋"
+
+[[entries]]
+text = "😛 tongue"
+keywords = ["tease"]
+value = "😛"
+
+[[entries]]
+text = "🤔 thinking"
+keywords = ["hmm", "think"]
+value = "🤔"
+
+[[entries]]
+text = "😐 neutral"
+keywords = ["meh"]
+value = "😐"
+
+[[entries]]
+text = "😑 expressionless"
+keywords = ["blank"]
+value = "😑"
+
+[[entries]]
+text = "😶 face mouthless"
+keywords = ["silent", "quiet"]
+value = "😶"
+
+[[entries]]
+text = "🙄 roll eyes"
+keywords = ["sarcasm", "annoyed"]
+value = "🙄"
+
+[[entries]]
+text = "😬 grimace"
+keywords = ["awkward", "cringe"]
+value = "😬"
+
+[[entries]]
+text = "😴 sleeping"
+keywords = ["sleep", "tired"]
+value = "😴"
+
+[[entries]]
+text = "🤮 sick"
+keywords = ["vomit", "gross"]
+value = "🤮"
+
+[[entries]]
+text = "👍 thumbs up"
+keywords = ["yes", "ok", "good"]
+value = "👍"
+
+[[entries]]
+text = "👎 thumbs down"
+keywords = ["no", "bad"]
+value = "👎"
+
+[[entries]]
+text = "👌 ok hand"
+keywords = ["perfect", "ok"]
+value = "👌"
+
+[[entries]]
+text = "✌️ victory"
+keywords = ["peace", "v"]
+value = "✌️"
+
+[[entries]]
+text = "🤞 crossed fingers"
+keywords = ["luck", "hope"]
+value = "🤞"
+
+[[entries]]
+text = "🙏 folded hands"
+keywords = ["please", "thanks", "pray"]
+value = "🙏"
+
+[[entries]]
+text = "👏 clap"
+keywords = ["applause", "bravo"]
+value = "👏"
+
+[[entries]]
+text = "🙌 raised hands"
+keywords = ["celebrate", "hooray"]
+value = "🙌"
+
+[[entries]]
+text = "💪 flex"
+keywords = ["strong", "muscle"]
+value = "💪"
+
+[[entries]]
+text = "❤️ red heart"
+keywords = ["love", "heart"]
+value = "❤️"
+
+[[entries]]
+text = "🧡 orange heart"
+keywords = ["heart"]
+value = "🧡"
+
+[[entries]]
+text = "💛 yellow heart"
+keywords = ["heart"]
+value = "💛"
+
+[[entries]]
+text = "💚 green heart"
+keywords = ["heart"]
+value = "💚"
+
+[[entries]]
+text = "💙 blue heart"
+keywords = ["heart"]
+value = "💙"
+
+[[entries]]
+text = "💜 purple heart"
+keywords = ["heart"]
+value = "💜"
+
+[[entries]]
+text = "🖤 black heart"
+keywords = ["heart"]
+value = "🖤"
+
+[[entries]]
+text = "💔 broken heart"
+keywords = ["sad", "breakup"]
+value = "💔"
+
+[[entries]]
+text = "🔥 fire"
+keywords = ["lit", "hot", "streak"]
+value = "🔥"
+
+[[entries]]
+text = "✨ sparkles"
+keywords = ["magic", "new"]
+value = "✨"
+
+[[entries]]
+text = "⭐ star"
+keywords = ["favorite"]
+value = "⭐"
+
+[[entries]]
+text = "🎉 party"
+keywords = ["celebrate", "tada"]
+value = "🎉"
+
+[[entries]]
+text = "💯 hundred"
+keywords = ["perfect", "100"]
+value = "💯"
+
+[[entries]]
+text = "✅ check"
+keywords = ["done", "yes", "tick"]
+value = "✅"
+
+[[entries]]
+text = "❌ cross"
+keywords = ["no", "wrong"]
+value = "❌"
+
+[[entries]]
+text = "⚠️ warning"
+keywords = ["alert", "caution"]
+value = "⚠️"
+
+[[entries]]
+text = "💬 speech"
+keywords = ["chat", "comment"]
+value = "💬"
+
+[[entries]]
+text = "👀 eyes"
+keywords = ["look", "see"]
+value = "👀"
+
+[[entries]]
+text = "🤷 shrug"
+keywords = ["dunno", "whatever"]
+value = "🤷"
+
+[[entries]]
+text = "🤦 facepalm"
+keywords = ["fail", "ugh"]
+value = "🤦"
+
+[[entries]]
+text = "🎵 music"
+keywords = ["note", "song"]
+value = "🎵"
+
+[[entries]]
+text = "📷 camera"
+keywords = ["photo", "pic"]
+value = "📷"
+
+[[entries]]
+text = "📎 paperclip"
+keywords = ["attach"]
+value = "📎"
+
+[[entries]]
+text = "🔗 link"
+keywords = ["url", "href"]
+value = "🔗"
+
+[[entries]]
+text = "☕ coffee"
+keywords = ["tea", "drink"]
+value = "☕"
+
+[[entries]]
+text = "🍕 pizza"
+keywords = ["food"]
+value = "🍕"
+
+[[entries]]
+text = "🚀 rocket"
+keywords = ["ship", "launch"]
+value = "🚀"
+
+[[entries]]
+text = "💡 bulb"
+keywords = ["idea", "tip"]
+value = "💡"
