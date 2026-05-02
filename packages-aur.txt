@@ -2,7 +2,6 @@ walker
 elephant
 elephant-desktopapplications
 elephant-providerlist
-elephant-websearch
 elephant-clipboard
 elephant-menus
 brave-bin

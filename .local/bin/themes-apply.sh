@@ -10,7 +10,7 @@ set -e
 THEME_DIR="${THEME_DIR:-$HOME/.themes}"
 CURRENT_PATH="${CURRENT_PATH:-$THEME_DIR/current}"
 NEXT_PATH="${NEXT_PATH:-$THEME_DIR/next}"
-LAUNCH_WALKER="${LAUNCH_WALKER:-$HOME/.local/bin/launch-walker}"
+LAUNCH_WALKER="${LAUNCH_WALKER:-$HOME/.local/bin/walker-launch}"
 
 get_current_theme() {
     [ -f "$CURRENT_PATH/.theme-name" ] && cat "$CURRENT_PATH/.theme-name" || echo ""

@@ -1,4 +1,4 @@
--- Walker /providerlist → IPTV: rows load from ~/.cache/iptv/channels.tsv (iptv-ensure-cache.sh).
+-- Walker /providerlist → IPTV: rows load from ~/.cache/iptv/channels.tsv (walker-iptv-cache.sh).
 Name = "iptv"
 NamePretty = "IPTV"
 Icon = "video-display"
@@ -16,7 +16,7 @@ end
 
 function GetEntries(query)
 	local home = os.getenv("HOME") or ""
-	local ensure = home .. "/.local/bin/iptv-ensure-cache.sh"
+	local ensure = home .. "/.local/bin/iptv-cache.sh"
 	local cache = (os.getenv("XDG_CACHE_HOME") or (home .. "/.cache")) .. "/iptv/channels.tsv"
 
 	os.execute("bash " .. sh_quote(ensure) .. " >/dev/null 2>&1")
@@ -25,7 +25,7 @@ function GetEntries(query)
 	if not f then
 		return {
 			{
-				Text = "IPTV: no channel list (run ~/.local/bin/iptv-ensure-cache.sh)",
+				Text = "IPTV: no channel list (run ~/.local/bin/walker-iptv-cache.sh)",
 				Actions = { ["menus:default"] = ":" },
 			},
 		}

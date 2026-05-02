@@ -47,29 +47,35 @@ Load the violentmonkey script from `.themes/shared/` and set it to auto-update.
 - Soundcloud
 - X
 
-Soundcloud has heavy modifiction to remove cruft
+Soundcloud has heavy modification to remove cruft
 
 ## Apps
 
 ### Ghostty
 
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula_fastfetch.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula_fastfetch.png)
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/dracula/screenshots/dracula_fastfetch.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/dracula/screenshots/dracula_fastfetch.png)
 
 ### Brave
 
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula_brave.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula_brave.png)
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/dracula/screenshots/dracula_brave.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/dracula/screenshots/dracula_brave.png)
 
 ### Cursor
 
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula_cursor.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula_cursor.png)
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/dracula/screenshots/dracula_cursor.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/dracula/screenshots/dracula_cursor.png)
 
 ### Lazygit & Yazi
 
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula_lazygit_yazi.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula_lazygit_yazi.png)
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/dracula/screenshots/dracula_lazygit_yazi.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/dracula/screenshots/dracula_lazygit_yazi.png)
 
 ### Neovim
 
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula_nvim.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/dracula_nvim.png)
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/dracula/screenshots/dracula_nvim.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/dracula/screenshots/dracula_nvim.png)
+
+### Walker & Elephant
+
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/dracula/screenshots/dracula_walker.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/dracula/screenshots/dracula_walker.png)
+
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/dracula/screenshots/dracula_walker_wallpapers.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/dracula/screenshots/dracula_walker_wallpapers.png)
 
 ## Themes
 
@@ -97,7 +103,6 @@ Soundcloud has heavy modifiction to remove cruft
 
 [![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/hackerman/preview.png)](https://github.com/sebday/hyprdots/blob/master/.themes/hackerman/preview.png)
 
-
 ### Kanagwa
 
 [![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/kanagawa/preview.png)](https://github.com/sebday/hyprdots/blob/master/.themes/kanagawa/preview.png)
@@ -108,7 +113,11 @@ Soundcloud has heavy modifiction to remove cruft
 
 ### Nord
 
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/nord.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/nord.png)
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/nord/preview.png)](https://github.com/sebday/hyprdots/blob/master/.themes/nord/preview.png)
+
+### Lumon
+
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/lumon/preview.png)](https://github.com/sebday/hyprdots/blob/master/.themes/lumon/preview.png)
 
 ### Osaka Jade
 
@@ -116,7 +125,7 @@ Soundcloud has heavy modifiction to remove cruft
 
 ### Ristretto
 
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/ristretto.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.config/hypr/screenshots/ristretto.png)
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/ristretto/preview.png)](https://github.com/sebday/hyprdots/blob/master/.themes/ristretto/preview.png)
 
 ### Solo
 

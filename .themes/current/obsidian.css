@@ -1,0 +1,44 @@
+/* Obsidian CSS generated from colors.toml - overrides shared/obsidian.css (must load last)
+   Uses body.theme-dark for higher specificity so we win over Obsidian's built-in body rules
+   that remap --background-primary from --color-base-00. */
+body.theme-dark,
+body.theme-light {
+  /* Neutral ramp - Obsidian derives semantic backgrounds from these */
+  --color-base-00: #0a0e19;
+  --color-base-05: #282a36;
+  --color-base-10: #282a36;
+  --color-base-20: #282a36;
+  --color-base-25: #282a36;
+  --color-base-30: #6272a4;
+  /* Semantic backgrounds - reassert so Obsidian's body rule resolves to our palette */
+  --background-primary: #0a0e19;
+  --background-primary-alt: #0a0e19;
+  --background-secondary: var(--background-primary);
+  --background-secondary-alt: var(--background-primary-alt);
+  --tab-container-background: var(--background-primary);
+  --text-normal: #f8f8f2;
+  --text-on-accent: #0a0e19;
+  --text-title-h1: #bd93f9;
+  --text-title-h2: #ffb86c;
+  --text-title-h3: #50fa7b;
+  --text-title-h4: #ff5555;
+  --text-title-h5: #ffb86c;
+  --text-title-h6: #bd93f9;
+  --text-link: #8be9fd;
+  --text-a: #ff79c6;
+  --text-a-hover: #ff79c6;
+  --interactive-accent: var(--text-title-h3);
+  --blockquote-border: #bd93f9;
+
+  /* Code view */
+  --code-normal: var(--text-normal);
+  --code-background: var(--background-primary);
+  --modular-foreground: var(--text-normal);
+  --modular-Comment: #8be9fd;
+  --modular-keyword: var(--text-a);
+  --modular-definition: var(--text-title-h3);
+  --modular-variable: var(--text-normal);
+  --modular-number: var(--text-title-h1);
+  --modular-function: #b2f8f8;
+  --modular-string: var(--text-title-h5);
+}

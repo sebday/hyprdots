@@ -1,0 +1,879 @@
+# Curated emoji list for Walker. Copy uses wl-copy with stdin (menu action "wl-copy" + entry value).
+# Edit entries freely; `fixed_order` keeps this row order instead of sorting A–Z.
+
+name = "emojis"
+name_pretty = "Emojis"
+icon = "face-smile"
+action = "wl-copy"
+fixed_order = true
+history = true
+
+[[entries]]
+text = "😀 grinning face"
+keywords = ["smile", "happy", "grin"]
+value = "😀"
+
+[[entries]]
+text = "😃 grinning big eyes"
+keywords = ["smile", "joy"]
+value = "😃"
+
+[[entries]]
+text = "😄 smile eyes"
+keywords = ["smile", "grin"]
+value = "😄"
+
+[[entries]]
+text = "😁 grin teeth"
+keywords = ["beam", "grin"]
+value = "😁"
+
+[[entries]]
+text = "😅 sweat smile"
+keywords = ["nervous", "oops"]
+value = "😅"
+
+[[entries]]
+text = "🤣 rolling laugh"
+keywords = ["lol", "rofl"]
+value = "🤣"
+
+[[entries]]
+text = "😂 tears of joy"
+keywords = ["lol", "cry"]
+value = "😂"
+
+[[entries]]
+text = "🙂 slight smile"
+keywords = ["smile"]
+value = "🙂"
+
+[[entries]]
+text = "😉 wink"
+keywords = ["wink"]
+value = "😉"
+
+[[entries]]
+text = "😊 smiling eyes"
+keywords = ["blush", "happy"]
+value = "😊"
+
+[[entries]]
+text = "😇 halo"
+keywords = ["angel", "innocent"]
+value = "😇"
+
+[[entries]]
+text = "🥰 hearts smile"
+keywords = ["love", "crush"]
+value = "🥰"
+
+[[entries]]
+text = "😍 heart eyes"
+keywords = ["love", "star"]
+value = "😍"
+
+[[entries]]
+text = "🤩 star-struck"
+keywords = ["wow", "eyes"]
+value = "🤩"
+
+[[entries]]
+text = "😘 kiss"
+keywords = ["love", "kiss"]
+value = "😘"
+
+[[entries]]
+text = "😋 yum"
+keywords = ["food", "tongue"]
+value = "😋"
+
+[[entries]]
+text = "😛 tongue"
+keywords = ["tease"]
+value = "😛"
+
+[[entries]]
+text = "🤔 thinking"
+keywords = ["hmm", "think"]
+value = "🤔"
+
+[[entries]]
+text = "😐 neutral"
+keywords = ["meh"]
+value = "😐"
+
+[[entries]]
+text = "😑 expressionless"
+keywords = ["blank"]
+value = "😑"
+
+[[entries]]
+text = "😶 face mouthless"
+keywords = ["silent", "quiet"]
+value = "😶"
+
+[[entries]]
+text = "🙄 roll eyes"
+keywords = ["sarcasm", "annoyed"]
+value = "🙄"
+
+[[entries]]
+text = "😬 grimace"
+keywords = ["awkward", "cringe"]
+value = "😬"
+
+[[entries]]
+text = "😴 sleeping"
+keywords = ["sleep", "tired"]
+value = "😴"
+
+[[entries]]
+text = "🤮 sick"
+keywords = ["vomit", "gross"]
+value = "🤮"
+
+[[entries]]
+text = "👍 thumbs up"
+keywords = ["yes", "ok", "good"]
+value = "👍"
+
+[[entries]]
+text = "👎 thumbs down"
+keywords = ["no", "bad"]
+value = "👎"
+
+[[entries]]
+text = "👌 ok hand"
+keywords = ["perfect", "ok"]
+value = "👌"
+
+[[entries]]
+text = "✌️ victory"
+keywords = ["peace", "v"]
+value = "✌️"
+
+[[entries]]
+text = "🤞 crossed fingers"
+keywords = ["luck", "hope"]
+value = "🤞"
+
+[[entries]]
+text = "🙏 folded hands"
+keywords = ["please", "thanks", "pray"]
+value = "🙏"
+
+[[entries]]
+text = "👏 clap"
+keywords = ["applause", "bravo"]
+value = "👏"
+
+[[entries]]
+text = "🙌 raised hands"
+keywords = ["celebrate", "hooray"]
+value = "🙌"
+
+[[entries]]
+text = "💪 flex"
+keywords = ["strong", "muscle"]
+value = "💪"
+
+[[entries]]
+text = "❤️ red heart"
+keywords = ["love", "heart"]
+value = "❤️"
+
+[[entries]]
+text = "🧡 orange heart"
+keywords = ["heart"]
+value = "🧡"
+
+[[entries]]
+text = "💛 yellow heart"
+keywords = ["heart"]
+value = "💛"
+
+[[entries]]
+text = "💚 green heart"
+keywords = ["heart"]
+value = "💚"
+
+[[entries]]
+text = "💙 blue heart"
+keywords = ["heart"]
+value = "💙"
+
+[[entries]]
+text = "💜 purple heart"
+keywords = ["heart"]
+value = "💜"
+
+[[entries]]
+text = "🖤 black heart"
+keywords = ["heart"]
+value = "🖤"
+
+[[entries]]
+text = "💔 broken heart"
+keywords = ["sad", "breakup"]
+value = "💔"
+
+[[entries]]
+text = "🔥 fire"
+keywords = ["lit", "hot", "streak"]
+value = "🔥"
+
+[[entries]]
+text = "✨ sparkles"
+keywords = ["magic", "new"]
+value = "✨"
+
+[[entries]]
+text = "⭐ star"
+keywords = ["favorite"]
+value = "⭐"
+
+[[entries]]
+text = "🎉 party"
+keywords = ["celebrate", "tada"]
+value = "🎉"
+
+[[entries]]
+text = "💯 hundred"
+keywords = ["perfect", "100"]
+value = "💯"
+
+[[entries]]
+text = "✅ check"
+keywords = ["done", "yes", "tick"]
+value = "✅"
+
+[[entries]]
+text = "❌ cross"
+keywords = ["no", "wrong"]
+value = "❌"
+
+[[entries]]
+text = "⚠️ warning"
+keywords = ["alert", "caution"]
+value = "⚠️"
+
+[[entries]]
+text = "💬 speech"
+keywords = ["chat", "comment"]
+value = "💬"
+
+[[entries]]
+text = "👀 eyes"
+keywords = ["look", "see"]
+value = "👀"
+
+[[entries]]
+text = "🤷 shrug"
+keywords = ["dunno", "whatever"]
+value = "🤷"
+
+[[entries]]
+text = "🤦 facepalm"
+keywords = ["fail", "ugh"]
+value = "🤦"
+
+[[entries]]
+text = "🎵 music"
+keywords = ["note", "song"]
+value = "🎵"
+
+[[entries]]
+text = "📷 camera"
+keywords = ["photo", "pic"]
+value = "📷"
+
+[[entries]]
+text = "📎 paperclip"
+keywords = ["attach"]
+value = "📎"
+
+[[entries]]
+text = "🔗 link"
+keywords = ["url", "href"]
+value = "🔗"
+
+[[entries]]
+text = "☕ coffee"
+keywords = ["tea", "drink"]
+value = "☕"
+
+[[entries]]
+text = "🍕 pizza"
+keywords = ["food"]
+value = "🍕"
+
+[[entries]]
+text = "🚀 rocket"
+keywords = ["ship", "launch"]
+value = "🚀"
+
+[[entries]]
+text = "💡 bulb"
+keywords = ["idea", "tip"]
+value = "💡"
+
+[[entries]]
+text = "🐵 monkey face"
+keywords = ["animal", "monkey"]
+value = "🐵"
+
+[[entries]]
+text = "🦁 lion"
+keywords = ["animal", "lion"]
+value = "🦁"
+
+[[entries]]
+text = "🐯 tiger face"
+keywords = ["animal", "tiger"]
+value = "🐯"
+
+[[entries]]
+text = "🐱 cat face"
+keywords = ["animal", "cat"]
+value = "🐱"
+
+[[entries]]
+text = "🐶 dog face"
+keywords = ["animal", "dog"]
+value = "🐶"
+
+[[entries]]
+text = "🐺 wolf"
+keywords = ["animal", "wolf"]
+value = "🐺"
+
+[[entries]]
+text = "🐻 bear"
+keywords = ["animal", "bear"]
+value = "🐻"
+
+[[entries]]
+text = "🐻‍❄️ polar bear"
+keywords = ["animal", "bear", "polar"]
+value = "🐻‍❄️"
+
+[[entries]]
+text = "🐨 koala"
+keywords = ["animal", "koala"]
+value = "🐨"
+
+[[entries]]
+text = "🐼 panda"
+keywords = ["animal", "panda"]
+value = "🐼"
+
+[[entries]]
+text = "🐹 hamster"
+keywords = ["animal", "hamster"]
+value = "🐹"
+
+[[entries]]
+text = "🐭 mouse face"
+keywords = ["animal", "mouse"]
+value = "🐭"
+
+[[entries]]
+text = "🐰 rabbit face"
+keywords = ["animal", "rabbit", "bunny"]
+value = "🐰"
+
+[[entries]]
+text = "🦊 fox"
+keywords = ["animal", "fox"]
+value = "🦊"
+
+[[entries]]
+text = "🐮 cow face"
+keywords = ["animal", "cow"]
+value = "🐮"
+
+[[entries]]
+text = "🐷 pig face"
+keywords = ["animal", "pig"]
+value = "🐷"
+
+[[entries]]
+text = "🐽 pig nose"
+keywords = ["animal", "pig", "nose"]
+value = "🐽"
+
+[[entries]]
+text = "🐗 boar"
+keywords = ["animal", "boar"]
+value = "🐗"
+
+[[entries]]
+text = "🦄 unicorn"
+keywords = ["animal", "unicorn"]
+value = "🦄"
+
+[[entries]]
+text = "🐴 horse face"
+keywords = ["animal", "horse"]
+value = "🐴"
+
+[[entries]]
+text = "🫎 moose"
+keywords = ["animal", "moose"]
+value = "🫎"
+
+[[entries]]
+text = "🐲 dragon face"
+keywords = ["animal", "dragon"]
+value = "🐲"
+
+[[entries]]
+text = "🦎 lizard"
+keywords = ["animal", "lizard"]
+value = "🦎"
+
+[[entries]]
+text = "🐉 dragon"
+keywords = ["animal", "dragon"]
+value = "🐉"
+
+[[entries]]
+text = "🦖 t-rex"
+keywords = ["animal", "dinosaur", "trex"]
+value = "🦖"
+
+[[entries]]
+text = "🦕 sauropod"
+keywords = ["animal", "dinosaur"]
+value = "🦕"
+
+[[entries]]
+text = "🐢 turtle"
+keywords = ["animal", "turtle"]
+value = "🐢"
+
+[[entries]]
+text = "🐊 crocodile"
+keywords = ["animal", "crocodile"]
+value = "🐊"
+
+[[entries]]
+text = "🐍 snake"
+keywords = ["animal", "snake"]
+value = "🐍"
+
+[[entries]]
+text = "🐸 frog"
+keywords = ["animal", "frog"]
+value = "🐸"
+
+[[entries]]
+text = "🐇 rabbit"
+keywords = ["animal", "rabbit", "bunny"]
+value = "🐇"
+
+[[entries]]
+text = "🐁 mouse"
+keywords = ["animal", "mouse"]
+value = "🐁"
+
+[[entries]]
+text = "🐈 cat"
+keywords = ["animal", "cat"]
+value = "🐈"
+
+[[entries]]
+text = "🐕 dog"
+keywords = ["animal", "dog"]
+value = "🐕"
+
+[[entries]]
+text = "🦮 guide dog"
+keywords = ["animal", "dog", "guide"]
+value = "🦮"
+
+[[entries]]
+text = "🐖 pig"
+keywords = ["animal", "pig"]
+value = "🐖"
+
+[[entries]]
+text = "🐎 horse"
+keywords = ["animal", "horse"]
+value = "🐎"
+
+[[entries]]
+text = "🐄 cow"
+keywords = ["animal", "cow"]
+value = "🐄"
+
+[[entries]]
+text = "🐂 ox"
+keywords = ["animal", "ox", "bull"]
+value = "🐂"
+
+[[entries]]
+text = "🐃 buffalo"
+keywords = ["animal", "buffalo", "water"]
+value = "🐃"
+
+[[entries]]
+text = "🦬 bison"
+keywords = ["animal", "bison", "buffalo"]
+value = "🦬"
+
+[[entries]]
+text = "🐏 ram"
+keywords = ["animal", "ram", "sheep"]
+value = "🐏"
+
+[[entries]]
+text = "🐑 ewe"
+keywords = ["animal", "ewe", "sheep"]
+value = "🐑"
+
+[[entries]]
+text = "🐐 goat"
+keywords = ["animal", "goat"]
+value = "🐐"
+
+[[entries]]
+text = "🦌 deer"
+keywords = ["animal", "deer"]
+value = "🦌"
+
+[[entries]]
+text = "🦙 llama"
+keywords = ["animal", "llama"]
+value = "🦙"
+
+[[entries]]
+text = "🦥 sloth"
+keywords = ["animal", "sloth"]
+value = "🦥"
+
+[[entries]]
+text = "🦘 kangaroo"
+keywords = ["animal", "kangaroo"]
+value = "🦘"
+
+[[entries]]
+text = "🦓 zebra"
+keywords = ["animal", "zebra"]
+value = "🦓"
+
+[[entries]]
+text = "🐘 elephant"
+keywords = ["animal", "elephant"]
+value = "🐘"
+
+[[entries]]
+text = "🦣 mammoth"
+keywords = ["animal", "mammoth"]
+value = "🦣"
+
+[[entries]]
+text = "🦏 rhinoceros"
+keywords = ["animal", "rhino", "rhinoceros"]
+value = "🦏"
+
+[[entries]]
+text = "🦛 hippopotamus"
+keywords = ["animal", "hippo", "hippopotamus"]
+value = "🦛"
+
+[[entries]]
+text = "🦒 giraffe"
+keywords = ["animal", "giraffe"]
+value = "🦒"
+
+[[entries]]
+text = "🐆 leopard"
+keywords = ["animal", "leopard"]
+value = "🐆"
+
+[[entries]]
+text = "🐅 tiger"
+keywords = ["animal", "tiger"]
+value = "🐅"
+
+[[entries]]
+text = "🐒 monkey"
+keywords = ["animal", "monkey"]
+value = "🐒"
+
+[[entries]]
+text = "🦍 gorilla"
+keywords = ["animal", "gorilla", "ape"]
+value = "🦍"
+
+[[entries]]
+text = "🦧 orangutan"
+keywords = ["animal", "orangutan", "ape"]
+value = "🦧"
+
+[[entries]]
+text = "🐪 camel"
+keywords = ["animal", "camel"]
+value = "🐪"
+
+[[entries]]
+text = "🐫 two-hump camel"
+keywords = ["animal", "camel"]
+value = "🐫"
+
+[[entries]]
+text = "🐿️ chipmunk"
+keywords = ["animal", "chipmunk", "squirrel"]
+value = "🐿️"
+
+[[entries]]
+text = "🦫 beaver"
+keywords = ["animal", "beaver"]
+value = "🦫"
+
+[[entries]]
+text = "🦝 raccoon"
+keywords = ["animal", "raccoon"]
+value = "🦝"
+
+[[entries]]
+text = "🦨 skunk"
+keywords = ["animal", "skunk"]
+value = "🦨"
+
+[[entries]]
+text = "🦡 badger"
+keywords = ["animal", "badger"]
+value = "🦡"
+
+[[entries]]
+text = "🦔 hedgehog"
+keywords = ["animal", "hedgehog"]
+value = "🦔"
+
+[[entries]]
+text = "🦦 otter"
+keywords = ["animal", "otter"]
+value = "🦦"
+
+[[entries]]
+text = "🦇 bat"
+keywords = ["animal", "bat"]
+value = "🦇"
+
+[[entries]]
+text = "🐦 bird"
+keywords = ["animal", "bird"]
+value = "🐦"
+
+[[entries]]
+text = "🐦‍⬛ black bird"
+keywords = ["animal", "bird", "black"]
+value = "🐦‍⬛"
+
+[[entries]]
+text = "🐓 rooster"
+keywords = ["animal", "bird", "rooster"]
+value = "🐓"
+
+[[entries]]
+text = "🐔 chicken"
+keywords = ["animal", "bird", "chicken"]
+value = "🐔"
+
+[[entries]]
+text = "🐤 baby chick"
+keywords = ["animal", "bird", "chick"]
+value = "🐤"
+
+[[entries]]
+text = "🐥 front-facing chick"
+keywords = ["animal", "bird", "chick"]
+value = "🐥"
+
+[[entries]]
+text = "🦅 eagle"
+keywords = ["animal", "bird", "eagle"]
+value = "🦅"
+
+[[entries]]
+text = "🦉 owl"
+keywords = ["animal", "bird", "owl"]
+value = "🦉"
+
+[[entries]]
+text = "🦜 parrot"
+keywords = ["animal", "bird", "parrot"]
+value = "🦜"
+
+[[entries]]
+text = "🕊️ dove"
+keywords = ["animal", "bird", "dove", "peace"]
+value = "🕊️"
+
+[[entries]]
+text = "🦤 dodo"
+keywords = ["animal", "bird", "dodo"]
+value = "🦤"
+
+[[entries]]
+text = "🦢 swan"
+keywords = ["animal", "bird", "swan"]
+value = "🦢"
+
+[[entries]]
+text = "🦆 duck"
+keywords = ["animal", "bird", "duck"]
+value = "🦆"
+
+[[entries]]
+text = "🪿 goose"
+keywords = ["animal", "bird", "goose"]
+value = "🪿"
+
+[[entries]]
+text = "🦩 flamingo"
+keywords = ["animal", "bird", "flamingo"]
+value = "🦩"
+
+[[entries]]
+text = "🦚 peacock"
+keywords = ["animal", "bird", "peacock"]
+value = "🦚"
+
+[[entries]]
+text = "🐦‍🔥 phoenix"
+keywords = ["animal", "bird", "phoenix"]
+value = "🐦‍🔥"
+
+[[entries]]
+text = "🦃 turkey"
+keywords = ["animal", "bird", "turkey"]
+value = "🦃"
+
+[[entries]]
+text = "🐧 penguin"
+keywords = ["animal", "bird", "penguin"]
+value = "🐧"
+
+[[entries]]
+text = "🦭 seal"
+keywords = ["animal", "seal"]
+value = "🦭"
+
+[[entries]]
+text = "🦈 shark"
+keywords = ["animal", "fish", "shark"]
+value = "🦈"
+
+[[entries]]
+text = "🫍 orca"
+keywords = ["animal", "orca", "whale"]
+value = "🫍"
+
+[[entries]]
+text = "🐬 dolphin"
+keywords = ["animal", "dolphin"]
+value = "🐬"
+
+[[entries]]
+text = "🐋 whale"
+keywords = ["animal", "whale"]
+value = "🐋"
+
+[[entries]]
+text = "🐳 spouting whale"
+keywords = ["animal", "whale"]
+value = "🐳"
+
+[[entries]]
+text = "🐟 fish"
+keywords = ["animal", "fish"]
+value = "🐟"
+
+[[entries]]
+text = "🐠 tropical fish"
+keywords = ["animal", "fish", "tropical"]
+value = "🐠"
+
+[[entries]]
+text = "🐡 blowfish"
+keywords = ["animal", "fish", "blowfish"]
+value = "🐡"
+
+[[entries]]
+text = "🦐 shrimp"
+keywords = ["animal", "shrimp"]
+value = "🦐"
+
+[[entries]]
+text = "🦞 lobster"
+keywords = ["animal", "lobster"]
+value = "🦞"
+
+[[entries]]
+text = "🐙 octopus"
+keywords = ["animal", "octopus"]
+value = "🐙"
+
+[[entries]]
+text = "🪼 jellyfish"
+keywords = ["animal", "jellyfish"]
+value = "🪼"
+
+[[entries]]
+text = "🦂 scorpion"
+keywords = ["animal", "scorpion"]
+value = "🦂"
+
+[[entries]]
+text = "🪰 fly"
+keywords = ["animal", "insect", "fly"]
+value = "🪰"
+
+[[entries]]
+text = "🐝 bee"
+keywords = ["animal", "insect", "bee"]
+value = "🐝"
+
+[[entries]]
+text = "🐌 snail"
+keywords = ["animal", "snail"]
+value = "🐌"
+
+[[entries]]
+text = "🐞 lady beetle"
+keywords = ["animal", "insect", "ladybug"]
+value = "🐞"
+
+[[entries]]
+text = "🦋 butterfly"
+keywords = ["animal", "insect", "butterfly"]
+value = "🦋"
+
+[[entries]]
+text = "🪲 beetle"
+keywords = ["animal", "insect", "beetle"]
+value = "🪲"
+
+[[entries]]
+text = "🦗 cricket"
+keywords = ["animal", "insect", "cricket"]
+value = "🦗"
+
+[[entries]]
+text = "🦟 mosquito"
+keywords = ["animal", "insect", "mosquito"]
+value = "🦟"
+
+[[entries]]
+text = "🪱 worm"
+keywords = ["animal", "worm"]
+value = "🪱"
+
+[[entries]]
+text = "🐛 bug"
+keywords = ["animal", "insect", "bug"]
+value = "🐛"

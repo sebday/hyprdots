@@ -1,0 +1,14 @@
+/* Waybar CSS generated from colors.toml */
+@define-color background #0a0e19;
+@define-color foreground #f8f8f2;
+@define-color text-dark #6272a4;
+@define-color text-secondary #282a36;
+@define-color accent-blue #8be9fd;
+@define-color accent-pink #bd93f9;
+@define-color accent-yellow #ffb86c;
+@define-color accent-orange #ffb86c;
+@define-color github-0 #282a36;
+@define-color github-1 #8be9fd;
+@define-color github-2 #b2f8f8;
+@define-color github-3 #b2f8f8;
+@define-color github-4 #50fa7b;

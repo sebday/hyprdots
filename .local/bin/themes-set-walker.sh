@@ -1,7 +1,6 @@
 #!/bin/bash
-# Install Walker theme from ~/.themes/current/walker.css (generated from walker.css.tpl),
-# ~/.themes/current/walker/style.css override, or legacy walker-style.css.
-# Sets theme name in ~/.config/walker/config.toml.
+# Install Walker theme CSS as a symlink: ~/.config/walker/themes/<name>/style.css → source file.
+# Prefers ~/.themes/current/walker/style.css, then walker.css, then walker-style.css.
 
 set -e
 
@@ -24,7 +23,8 @@ fi
 [ -f "$CFG" ] || exit 0
 
 mkdir -p "$DEST_ROOT/$THEME_NAME"
-cp "$SRC" "$DEST_ROOT/$THEME_NAME/style.css"
+# Single source of truth in ~/.themes/current — Walker only reads style.css in this folder.
+ln -sfn "$(realpath "$SRC")" "$DEST_ROOT/$THEME_NAME/style.css"
 
 if grep -q '^theme = ' "$CFG"; then
 	sed -i "s/^theme = .*/theme = \"$THEME_NAME\"/" "$CFG"

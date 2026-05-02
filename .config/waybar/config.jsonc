@@ -1,8 +1,8 @@
 {
   "reload_style_on_change": true,
   "layer": "top",
-  "position": "bottom",
-  "output": "HDMI-A-1",
+  "position": "top",
+  "output": "DP-1",
   "spacing": 0,
   "height": 32,
   "modules-left": [
@@ -82,7 +82,7 @@
     "on-click": "~/.local/bin/record.sh"
   },
   "custom/cava": {
-    "exec": "~/.local/bin/cava.sh",
+    "exec": "~/.local/bin/waybar-cava-sh",
     "format": "{}",
     "on-click": "ghostty --class=TUI.float -e wiremix",
     "on-click-right": "ghostty --class=TUI.float -e alsamixer"
