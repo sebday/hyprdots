@@ -10,6 +10,7 @@ set -e
 THEME_DIR="${THEME_DIR:-$HOME/.themes}"
 CURRENT_PATH="${CURRENT_PATH:-$THEME_DIR/current}"
 NEXT_PATH="${NEXT_PATH:-$THEME_DIR/next}"
+LAUNCH_WALKER="${LAUNCH_WALKER:-$HOME/.local/bin/launch-walker}"
 
 get_current_theme() {
     [ -f "$CURRENT_PATH/.theme-name" ] && cat "$CURRENT_PATH/.theme-name" || echo ""
@@ -67,7 +68,7 @@ apply_theme() {
     "$HOME/.local/bin/wallpaper.sh" "next"
     "$HOME/.local/bin/themes-set-icons.sh"
     "$HOME/.local/bin/themes-set-vscode.sh"
-    "$HOME/.local/bin/themes-set-fuzzel.sh"
+    "$HOME/.local/bin/themes-set-walker.sh"
     "$HOME/.local/bin/themes-set-obsidian.sh"
 }
 
@@ -97,6 +98,11 @@ reload_apps() {
     pkill waybar 2>/dev/null; waybar &
     pkill -SIGUSR2 btop 2>/dev/null || true
 
+    if command -v walker >/dev/null 2>&1; then
+        pkill -f "walker --gapplication-service" 2>/dev/null || true
+        setsid env GSK_RENDERER=cairo walker --gapplication-service >/dev/null 2>&1 &
+    fi
+
     # Post-switch hook (optional)
     if [ -x "$HOME/.local/bin/themes-hook-post-switch" ]; then
         "$HOME/.local/bin/themes-hook-post-switch" "$theme_name" 2>/dev/null || true
@@ -109,19 +115,18 @@ COMMAND="${1:-select}"
 
 case "$COMMAND" in
     select|"")
-        selected_entry=$(
+        # Theme list: Walker --dmenu (see LAUNCH_WALKER, same as menu-main)
+        selected_theme=$(
             for theme_dir in "$THEME_DIR"/*; do
                 [ ! -d "$theme_dir" ] && continue
                 theme_name=$(basename "$theme_dir")
                 [[ "$theme_name" == "current" || "$theme_name" == "shared" ]] && continue
-                preview=$(find "$theme_dir/backgrounds" -maxdepth 1 -type f -iname "*.png" 2>/dev/null | sort | head -1)
-                printf "%s\x00icon\x1f%s\n" "$theme_name" "$preview"
-            done | fuzzel -d -p "Select a theme: "
+                echo "$theme_name"
+            done | "$LAUNCH_WALKER" --dmenu --width 420 --minheight 1 --maxheight 480 -p "Select a theme: "
         )
-        if [ -z "$selected_entry" ]; then
+        if [ -z "$selected_theme" ]; then
             exit 0
         fi
-        selected_theme=$(echo "$selected_entry" | sed 's/^[[:space:]]*//')
 
         apply_theme "$selected_theme" || exit 1
         reload_apps "$selected_theme"

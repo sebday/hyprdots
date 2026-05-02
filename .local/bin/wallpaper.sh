@@ -28,9 +28,8 @@ select_wallpaper_menu() {
     # Find wallpaper files from the theme directory, sorted alphabetically
     selected_entry=$(
         find "$CURRENT_THEME_WALLPAPERS" -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.webp" \) | sort | while read -r file; do
-            relative=$(realpath --relative-to="$CURRENT_THEME_WALLPAPERS" "$file")
-            printf "%s\x00icon\x1f%s\n" "$relative" "$file"
-        done | fuzzel -d -p "Select Wallpaper: "
+            realpath --relative-to="$CURRENT_THEME_WALLPAPERS" "$file"
+        done | "$HOME/.local/bin/launch-walker" --dmenu --width 560 --minheight 1 --maxheight 480 -p "Select Wallpaper: "
     )
 
     # If an entry was selected, reconstruct the full path and set the wallpaper

@@ -1,4 +1,5 @@
 *
 !.gitignore
 .themes/current/
-__pycache__
+**/__pycache__/
+*.pyc

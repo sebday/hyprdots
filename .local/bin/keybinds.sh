@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Display Hyprland keybindings using fuzzel
+# Display Hyprland keybindings using Walker --dmenu
 # Uses hyprctl to get the active keybindings & temp files to avoid pipeline issues
 
 # Create temp files
@@ -37,4 +37,4 @@ awk '
     }
 ' "$HYPRCTL_OUTPUT" > "$AWK_OUTPUT"
 sort "$AWK_OUTPUT" > "$SORTED_OUTPUT"
-fuzzel --width=55 -d -p "󰌌 Keybinds: " < "$SORTED_OUTPUT"
+"$HOME/.local/bin/launch-walker" --dmenu --width 720 --minheight 1 --maxheight 560 -p "󰌌 Keybinds: " < "$SORTED_OUTPUT"

@@ -9,6 +9,6 @@ StartupWMClass=cursor
 X-AppImage-Version=1.2.4
 MimeType=x-scheme-handler/cursor;
 Categories=Utility;TextEditor;Development;IDE
-Comment=
+Comment=Text editor
 Path=
 StartupNotify=false
