@@ -54,21 +54,22 @@ install_pacman_packages() {
     sudo pacman -Syu --noconfirm "${sync_packages[@]}"
 }
 
-# Configure greetd for automatic login.
+# Configure greetd for automatic login (wrapper waits for network then starts Hyprland).
 configure_greetd() {
     log "Configuring greetd for autologin..."
-    local user
+    local user greet_cmd
     user=$(whoami) || { echo "Failed to get username"; exit 1; }
+    greet_cmd="$HOME/.local/bin/hypr-greetd.sh"
     cat <<EOT | sudo tee /etc/greetd/config.toml > /dev/null
 [terminal]
 vt = 1
 
 [default_session]
-command = "hyprland"
+command = "$greet_cmd"
 user = "$user"
 
 [initial_session]
-command = "hyprland"
+command = "$greet_cmd"
 user = "$user"
 EOT
     sudo systemctl enable greetd
