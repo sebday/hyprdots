@@ -78,4 +78,3 @@ darkhttpd
 sassc
 librsvg
 bc
-

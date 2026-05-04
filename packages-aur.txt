@@ -1,8 +1,4 @@
 walker
-elephant
-elephant-desktopapplications
-elephant-providerlist
-elephant-clipboard
-elephant-menus
+elephant-all
 brave-bin
 insync
