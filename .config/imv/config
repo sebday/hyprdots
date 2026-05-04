@@ -1,4 +1,4 @@
 [binds]
-<Return> = exec sh -c 'echo "$imv_current_file" | ~/.local/bin/wallpaper.sh'; quit
+<Return> = exec sh -c 'echo "$imv_current_file" | ~/.local/bin/hypr-wallpaper.sh'; quit
 # Delete and then close an open image by pressing 'del'
 <Delete> = exec rm "$imv_current_file"; close

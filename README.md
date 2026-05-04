@@ -138,4 +138,3 @@ Soundcloud has heavy modification to remove cruft
 ### Vanta Black
 
 [![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/vantablack/preview.png)](https://github.com/sebday/hyprdots/blob/master/.themes/vantablack/preview.png)
-
