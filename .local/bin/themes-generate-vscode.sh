@@ -7,7 +7,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
 source "$SCRIPT_DIR/themes-common.sh"
 
-THEME_DIR="${THEME_DIR:-$HOME/.themes}"
 SHARED_VSCODE="$THEME_DIR/shared/vscode"
 
 theme_dir="$1"
@@ -22,12 +21,7 @@ toml="$theme_dir/colors.toml"
 theme_name=""
 [ -f "$theme_dir/.theme-name" ] && theme_name=$(tr -d '\n' < "$theme_dir/.theme-name")
 [ -z "$theme_name" ] && theme_name=$(basename "$theme_dir")
-# Display name: capitalize first letter of each word (e.g. tokyo-night -> Tokyo Night)
-display_name=""
-for word in $(echo "$theme_name" | tr '-' ' '); do
-    display_name="${display_name}${word^} "
-done
-display_name="${display_name% }"
+display_name=$(theme_display_name "$theme_name")
 
 # Read colors
 bg=$(toml_val background "$toml")
@@ -133,7 +127,7 @@ jq --arg bg "$bg" '
 sed -i "s/\"name\": \"Catppuccin Mocha\"/\"name\": \"$display_name\"/" "$out_dir/themes/color-theme.json"
 
 # If we updated current theme, sync to editors so manual regens propagate
-if [ "$theme_dir" = "$HOME/.themes/current" ] || [ "$(cd "$theme_dir" 2>/dev/null && pwd -P)" = "$(cd "$HOME/.themes/current" 2>/dev/null && pwd -P)" ]; then
+if [ "$theme_dir" = "$HOME/.themes/current" ] || paths_resolved_equal "$theme_dir" "$HOME/.themes/current"; then
     "$HOME/.local/bin/themes-set-vscode.sh" 2>/dev/null || true
 fi
 

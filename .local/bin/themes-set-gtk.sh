@@ -1,12 +1,11 @@
 #!/bin/bash
 # Generate GTK theme from shared base + colors.toml (build-only)
-# Uses THEME_PATH for build dir (default: current). Activation is done by themes-activate-gtk.sh after swap.
+# Uses THEME_PATH for build dir (default: current). GTK activation is done by themes-apply.sh after swap.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
 source "$SCRIPT_DIR/themes-common.sh"
 
-THEME_DIR="${THEME_DIR:-$HOME/.themes}"
 THEME_PATH="${THEME_PATH:-$THEME_DIR/current}"
 SHARED_GTK="$THEME_DIR/shared"
 

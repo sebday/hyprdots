@@ -7,7 +7,10 @@ set -e
 #   themes-apply.sh refresh   - Regenerate configs for current theme
 #   themes-apply.sh <name>     - Apply theme by name
 
-THEME_DIR="${THEME_DIR:-$HOME/.themes}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "$SCRIPT_DIR/themes-common.sh"
+
 CURRENT_PATH="${CURRENT_PATH:-$THEME_DIR/current}"
 NEXT_PATH="${NEXT_PATH:-$THEME_DIR/next}"
 LAUNCH_WALKER="${LAUNCH_WALKER:-$HOME/.local/bin/walker-launch}"
@@ -49,8 +52,7 @@ apply_theme() {
     cp -a "$source_path/." "$NEXT_PATH/"
     echo "$theme_name" > "$NEXT_PATH/.theme-name"
 
-    # Generate configs from templates into staging
-    "$HOME/.local/bin/themes-process-templates.sh" "$NEXT_PATH"
+    process_theme_templates "$NEXT_PATH"
 
     # Generate GTK theme into staging (THEME_PATH=next for build)
     THEME_PATH="$NEXT_PATH" "$HOME/.local/bin/themes-set-gtk.sh"
@@ -62,14 +64,13 @@ apply_theme() {
     rm -rf "$CURRENT_PATH"
     mv "$NEXT_PATH" "$CURRENT_PATH"
 
-    # Set theme components (read from current/)
-    "$HOME/.local/bin/themes-install-manifest.sh"
+    install_theme_manifest
     activate_gtk
-    "$HOME/.local/bin/wallpaper.sh" "next"
-    "$HOME/.local/bin/themes-set-icons.sh"
-    "$HOME/.local/bin/themes-set-vscode.sh"
-    "$HOME/.local/bin/themes-set-walker.sh"
-    "$HOME/.local/bin/themes-set-obsidian.sh"
+    "$HOME/.local/bin/hypr-wallpaper.sh" "next"
+    themes_sync_icon_theme_gsettings
+    themes_sync_vscode_generated_extension
+    themes_sync_walker_style_symlink
+    themes_sync_obsidian_modular
 }
 
 reload_apps() {
