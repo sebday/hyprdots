@@ -71,6 +71,7 @@ mise
 python
 lazygit
 libyaml
+pass
 
 # Theming ###################
 darkhttpd
