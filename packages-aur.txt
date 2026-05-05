@@ -1,4 +1,9 @@
+# Desktop ###################
 walker
 elephant-all
+
+# Tools ######################
 brave-bin
+
+# File Management ###########
 insync

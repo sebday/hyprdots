@@ -1,2 +1,4 @@
 [MIME Cache]
+text/markdown=glow.desktop;
+text/x-markdown=glow.desktop;
 x-scheme-handler/cursor=cursor.desktop;

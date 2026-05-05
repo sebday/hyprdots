@@ -1,21 +1,31 @@
+# Base ######################
+greetd
+plymouth
+mkinitcpio
+
 # Hyprland ##################
 hyprland
 hyprland-protocols
 hyprwayland-scanner
 xorg-xwayland
-greetd
-plymouth
-mkinitcpio
 hyprlock
 hypridle
 hyprpaper
 hyprshot
+
+# Desktop ###################
+nwg-look
 waybar
+mako
 swappy
 cliphist
-mako
-nwg-look
 wf-recorder
+
+# Theming ###################
+darkhttpd
+sassc
+librsvg
+bc
 
 # Fonts #####################
 noto-fonts
@@ -23,7 +33,7 @@ noto-fonts-emoji
 ttf-cascadia-mono-nerd
 vimix-cursors
 
-# Base ######################
+# Tools ######################
 nano
 ghostty
 git
@@ -72,9 +82,3 @@ python
 lazygit
 libyaml
 pass
-
-# Theming ###################
-darkhttpd
-sassc
-librsvg
-bc

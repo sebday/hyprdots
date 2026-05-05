@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.5
+Type=Application
+Name=Glow
+GenericName=Text editor
+Comment=Console markdown viewer
+Exec=/usr/bin/glow -p %f
+Terminal=true
+MimeType=text/markdown;text/x-markdown;
+Categories=Utility;TextEditor;
+Keywords=editor;text;terminal;console;
+Icon=edit-text-frame-update
+StartupNotify=false
