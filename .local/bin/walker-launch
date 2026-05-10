@@ -33,6 +33,15 @@ start_walker_service() {
 	setsid env GSK_RENDERER=cairo walker --gapplication-service >/dev/null 2>&1 &
 }
 
+# Session warm-up: start providers + GTK service so the first open is not cold.
+# Use from Hyprland: exec-once = ~/.local/bin/walker-launch --prewarm
+# Or XDG autostart: Exec=walker-launch --prewarm
+if [[ "${1:-}" == "--prewarm" ]]; then
+	start_elephant
+	start_walker_service
+	exit 0
+fi
+
 start_elephant
 start_walker_service
 
