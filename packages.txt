@@ -14,7 +14,6 @@ hyprpaper
 hyprshot
 
 # Desktop ###################
-nwg-look
 waybar
 mako
 swappy
