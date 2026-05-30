@@ -1,14 +1,13 @@
 [Desktop Entry]
 Name=Cursor
-Exec=/opt/cursor/Cursor-3.1.15-x86_64.AppImage --no-sandbox %U
-Terminal=false
+Comment=The AI Code Editor
+GenericName=Text Editor
+Exec=/home/seb/.local/bin/cursor %F
+Icon=co.anysphere
 Type=Application
-Icon=/home/seb/.local/share/applications/cursor.png
-# Change the class below to "Cursor" when on X11
-StartupWMClass=cursor
-X-AppImage-Version=1.2.4
-MimeType=x-scheme-handler/cursor;
-Categories=Utility;TextEditor;Development;IDE
-Comment=Text editor
-Path=
 StartupNotify=false
+StartupWMClass=Cursor
+Categories=TextEditor;Development;IDE;
+MimeType=application/x-cursor-workspace;x-scheme-handler/cursor;
+Terminal=false
+Path=

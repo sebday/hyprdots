@@ -1,0 +1,14 @@
+#!/bin/sh
+# Launch Cursor through Hyprland so it gets the same session environment as
+# running `cursor` from a terminal. Walker/Elephant otherwise starts apps in a
+# new session (setsid), which can make Cursor open a separate window with
+# default zoom/fonts instead of your saved profile.
+
+cmd="/usr/bin/cursor --reuse-window"
+if [ "$#" -gt 0 ]; then
+	for arg in "$@"; do
+		cmd="$cmd $(printf '%q' "$arg")"
+	done
+fi
+
+exec hyprctl dispatch exec "$cmd"

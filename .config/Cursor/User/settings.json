@@ -2,7 +2,39 @@
     "editor.fontFamily": "'CaskaydiaMono Nerd Font', 'monospace', monospace",
     "editor.fontLigatures": true,
     "editor.fontVariations": false,
-    "git.openRepositoryInParentFolders": "always",
+    "git.openRepositoryInParentFolders": "never",
+    "npm.autoDetect": "off",
+    "typescript.tsc.autoDetect": "off",
+    "gulp.autoDetect": "off",
+    "grunt.autoDetect": "off",
+    "jake.autoDetect": "off",
+    "npm.exclude": [
+        "**/.local/**",
+        "**/.cache/**",
+        "**/.config/**",
+        "**/node_modules/**",
+        "**/.git/**"
+    ],
+    "files.watcherExclude": {
+        "**/.local/**": true,
+        "**/.cache/**": true,
+        "**/.config/Cursor/**": true,
+        "**/.config/BraveSoftware/**": true,
+        "**/.steam/**": true,
+        "**/node_modules/**": true
+    },
+    "search.exclude": {
+        "**/.local": true,
+        "**/.cache": true,
+        "**/.config/Cursor": true,
+        "**/.config/BraveSoftware": true,
+        "**/.steam": true,
+        "**/node_modules": true
+    },
+    "files.exclude": {
+        "**/.local": true,
+        "**/.cache": true
+    },
     "workbench.colorCustomizations": {
         "[Dracula Theme]": {
             "sideBar.background": "#0a0e19",
@@ -17,8 +49,8 @@
     "workbench.editor.enablePreview": false,
     "github.branchProtection": false,
     "github.gitAuthentication": false,
-    "cursor.general.gitGraphIndexing": "enabled",
-    "cursor.general.enableShadowWorkspace": true,
+    "cursor.general.gitGraphIndexing": "disabled",
+    "cursor.general.enableShadowWorkspace": false,
     "chat.editor.fontSize": 16,
     "editor.fontSize": 18,
     "files.autoSave": "afterDelay",
@@ -66,4 +98,5 @@
     "editor.codeLensFontFamily": "'CaskaydiaMono Nerd Font', 'monospace', monospace",
     "editor.inlayHints.fontFamily": "'CaskaydiaMono Nerd Font', 'monospace', monospace",
     "explorer.confirmDragAndDrop": false,
+    "window.autoDetectColorScheme": false,
 }
