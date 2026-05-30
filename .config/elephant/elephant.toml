@@ -1,0 +1,9 @@
+auto_detect_launch_prefix = false
+before_load = []
+git_on_demand = true
+ignored_providers = []
+launch_prefix = ''
+overload_local_env = false
+terminal_cmd = ''
+
+[provider_hosts]
