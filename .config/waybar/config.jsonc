@@ -18,7 +18,9 @@
     "custom/cava",
     "pulseaudio",
     "clock",
-    "group/tray-expander",
+    "custom/alsa",
+    "network",
+    "cpu",
     "tray"
   ],
   "hyprland/workspaces": {
@@ -87,6 +89,12 @@
     "on-click": "ghostty --class=TUI.float -e wiremix",
     "on-click-right": "ghostty --class=TUI.float -e alsamixer"
   },
+  "custom/alsa": {
+    "format": "󰓃",
+    "tooltip": "Audio Mixer",
+    "on-click": "ghostty --class=TUI.float -e wiremix",
+    "on-click-right": "ghostty --class=TUI.float -e alsamixer"
+  },
   "cpu": {
     "interval": 5,
     "format": "󰍛",
@@ -95,79 +103,18 @@
   "clock": {
     "format": "{:%a %d %H:%M}",
     "format-alt": "{:%A %d %B W%V %Y}",
-    "tooltip": false,
-    "on-click-right": "omarchy-cmd-tzupdate"
+    "tooltip": false
   },
   "network": {
-    "format-icons": [
-      "󰤯",
-      "󰤟",
-      "󰤢",
-      "󰤥",
-      "󰤨"
-    ],
-    "format": "{icon}",
-    "format-wifi": "{icon}",
     "format-ethernet": "󰀂",
     "format-disconnected": "󰖪",
-    "tooltip-format-wifi": "{essid} ({frequency} GHz)\n⇣{bandwidthDownBytes}  ⇡{bandwidthUpBytes}",
     "tooltip-format-ethernet": "⇣{bandwidthDownBytes}  ⇡{bandwidthUpBytes}",
     "tooltip-format-disconnected": "Disconnected",
     "interval": 3,
-    "nospacing": 1,
-    "on-click": "ghostty --class=Impala -e impala"
-  },
-  "battery": {
-    "format": "{capacity}% {icon}",
-    "format-discharging": "{icon}",
-    "format-charging": "{icon}",
-    "format-plugged": "",
-    "format-icons": {
-      "charging": [
-        "󰢜",
-        "󰂆",
-        "󰂇",
-        "󰂈",
-        "󰢝",
-        "󰂉",
-        "󰢞",
-        "󰂊",
-        "󰂋",
-        "󰂅"
-      ],
-      "default": [
-        "󰁺",
-        "󰁻",
-        "󰁼",
-        "󰁽",
-        "󰁾",
-        "󰁿",
-        "󰂀",
-        "󰂁",
-        "󰂂",
-        "󰁹"
-      ]
-    },
-    "format-full": "󰂅",
-    "tooltip-format-discharging": "{power:>1.0f}W↓ {capacity}%",
-    "tooltip-format-charging": "{power:>1.0f}W↑ {capacity}%",
-    "interval": 5,
-    "states": {
-      "warning": 20,
-      "critical": 10
-    }
-  },
-  "bluetooth": {
-    "format": "",
-    "format-disabled": "󰂲",
-    "format-connected": "",
-    "tooltip-format": "Devices connected: {num_connections}",
-    "on-click": "blueberry"
+    "on-click": "ghostty -e /usr/bin/ip -br addr show enp0s25"
   },
   "pulseaudio": {
     "format": "{icon} {volume}%",
-    "on-click": "ghostty --class=TUI.float -e wiremix",
-    "on-click-right": "ghostty --class=TUI.float -e alsamixer",
     "tooltip-format": "Playing at {volume}%",
     "scroll-step": 5,
     "format-muted": "󰝟",
@@ -178,24 +125,6 @@
         " "
       ]
     }
-  },
-  "group/tray-expander": {
-    "orientation": "inherit",
-    "drawer": {
-      "transition-duration": 600,
-      "children-class": "tray-group-item"
-    },
-    "modules": [
-      "custom/expand-icon",
-      "bluetooth",
-      "network",
-      "battery",
-      "cpu"
-    ]
-  },
-  "custom/expand-icon": {
-    "format": " ",
-    "tooltip": false
   },
   "tray": {
     "icon-size": 12,

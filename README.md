@@ -2,9 +2,7 @@
 
 My Arch & Hyprland desktop with themes. 
 
-Created so I can easily reinstall Arch to my exact liking, with all [software](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/packages.txt) for a full dev desktop. 
-
-Quad monitor setup in hyprland.conf, and I doubt you want my gtk bookmarks :)
+Created so I can easily reinstall Arch to my exact liking with a quad monitor setup and [software](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/packages.txt) for a full desktop. 
 
 Massive thanks to [Vaxry](https://blog.vaxry.net/) for reigniting my long-time love for [tinkering](https://sebday.dev/2025/07/18-desktop-appreciation/) with my desktop.
 
@@ -15,13 +13,12 @@ Thank you to [Bjarne](https://github.com/bjarneo) for some gorgeous themes.
 ## Features
 
 - Master `colors.toml`
-- Auto generated colour schemes for
+- Auto generated themes for
     - Obsidian
-    - VS Code
-    - NeoVim
-- Convert Omarchy themes 
-- Themed websites (Soundcloud, X etc)  
-
+    - Cursor
+    - Neovim
+- Themed websites (Soundcloud, Grok X etc) 
+- Walker system menu
 
 ## Install 
 
@@ -39,16 +36,6 @@ Auto loaded through my Brave sync but also needed on Firefox:
 
 Load the violentmonkey script from `.themes/shared/` and set it to auto-update.
 
-#### Website theming
-
-- Gemini
-- Github
-- Grok
-- Soundcloud
-- X
-
-Soundcloud has heavy modification to remove cruft
-
 ## Apps
 
 ### Ghostty
@@ -62,14 +49,6 @@ Soundcloud has heavy modification to remove cruft
 ### Cursor
 
 [![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/dracula/screenshots/dracula_cursor.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/dracula/screenshots/dracula_cursor.png)
-
-### Lazygit & Yazi
-
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/dracula/screenshots/dracula_lazygit_yazi.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/dracula/screenshots/dracula_lazygit_yazi.png)
-
-### Neovim
-
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/dracula/screenshots/dracula_nvim.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/dracula/screenshots/dracula_nvim.png)
 
 ### Walker & Elephant
 

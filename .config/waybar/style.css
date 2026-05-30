@@ -7,10 +7,6 @@
 	min-height: 0;
 }
 
-window#waybar {
-	padding-top: 1px;
-}
-
 #workspaces,
 #custom-shopify_zk,
 #custom-shopify_diy,
@@ -24,11 +20,11 @@ window#waybar {
 }
 
 #custom-cava,
+#custom-alsa,
 #bluetooth,
 #network,
 #cpu,
-#tray,
-#tray-expander {
+#tray {
 	background-color: @background;
 	padding: 0 4px;
 	margin: 0 6px;
@@ -72,6 +68,13 @@ window#waybar {
     margin-right: 0;
 }
 
+#custom-alsa {
+	color: @foreground;
+	padding-left: 0;
+	margin-left: 0;
+	margin-right: 0;
+}
+
 #pulseaudio {
 	color: @accent-pink;
     margin-left: 0;
@@ -83,7 +86,7 @@ window#waybar {
 }
 
 #tray {
-    margin-left: 0;
+    margin-left: 4px;
     margin-right: 16px;
 }
 #tray>.passive {
@@ -94,8 +97,10 @@ window#waybar {
 	-gtk-icon-effect: highlight;
 }
 
-#tray-expander {
-    margin-right: 0;
+#custom-alsa,
+#network,
+#cpu {
+    margin-right: 0px;
 }
 
 #custom-shopify_zk,
@@ -125,6 +130,8 @@ window#waybar {
 #custom-github:hover,
 #clock:hover,
 #pulseaudio:hover,
-#tray-expander:hover {
+#custom-alsa:hover,
+#network:hover,
+#cpu:hover {
 	color: @accent-pink;
 }
