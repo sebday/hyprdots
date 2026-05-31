@@ -73,7 +73,6 @@ cava
 imagemagick
 transmission-cli
 obsidian
-glow
 
 # Dev #######################
 mise

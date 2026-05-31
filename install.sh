@@ -132,6 +132,42 @@ configure_timesync() {
     sudo systemctl enable systemd-timesyncd
 }
 
+# Limit journal size and trim old logs (audit: journald was ~4 GB before vacuum).
+configure_journald() {
+    log "Configuring journald..."
+    sudo mkdir -p /etc/systemd/journald.conf.d
+    if [[ ! -f /etc/systemd/journald.conf.d/size-limit.conf ]]; then
+        sudo tee /etc/systemd/journald.conf.d/size-limit.conf > /dev/null <<'EOF'
+[Journal]
+SystemMaxUse=500M
+EOF
+        sudo systemctl restart systemd-journald
+    fi
+    log "Trimming journals older than 1 day..."
+    sudo journalctl --vacuum-time=1d
+}
+
+# Enable UFW with a default-deny incoming policy (desktop: allow outbound only).
+configure_ufw() {
+    log "Configuring UFW firewall..."
+    if ! command -v ufw >/dev/null 2>&1; then
+        log "ufw not installed; skip"
+        return 0
+    fi
+
+    sudo systemctl enable ufw
+
+    if ! sudo ufw status 2>/dev/null | grep -q 'Status: active'; then
+        sudo ufw default deny incoming
+        sudo ufw default allow outgoing
+        sudo ufw --force enable
+    else
+        log "UFW already active"
+    fi
+
+    sudo ufw status verbose | head -20 || true
+}
+
 # Install and configure mise for managing dev tools.
 install_mise_tools() {
     log "Installing mise and setting up global dev tools..."
@@ -161,6 +197,8 @@ main() {
     configure_darkhttpd
     configure_networking
     configure_timesync
+    configure_journald
+    configure_ufw
 
     log "Setup complete! Please reboot your system."
 }
