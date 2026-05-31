@@ -9,30 +9,23 @@
     "grunt.autoDetect": "off",
     "jake.autoDetect": "off",
     "npm.exclude": [
-        "**/.local/**",
         "**/.cache/**",
-        "**/.config/**",
         "**/node_modules/**",
         "**/.git/**"
     ],
     "files.watcherExclude": {
-        "**/.local/**": true,
         "**/.cache/**": true,
-        "**/.config/Cursor/**": true,
         "**/.config/BraveSoftware/**": true,
         "**/.steam/**": true,
         "**/node_modules/**": true
     },
     "search.exclude": {
-        "**/.local": true,
         "**/.cache": true,
-        "**/.config/Cursor": true,
         "**/.config/BraveSoftware": true,
         "**/.steam": true,
         "**/node_modules": true
     },
     "files.exclude": {
-        "**/.local": true,
         "**/.cache": true
     },
     "workbench.colorCustomizations": {
@@ -84,9 +77,7 @@
     "cursor.composer.textSizeScale": 1.15,
     "remote.SSH.remotePlatform": {
         "192.168.2.200": "linux",
-        "192.168.1.199": "linux",
-        "192.168.2.199": "linux",
-        "34.132.57.19": "linux"
+        "192.168.1.199": "linux"
     },
     "workbench.tree.enableStickyScroll": false,
     "editor.stickyScroll.enabled": false,

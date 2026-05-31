@@ -3,21 +3,16 @@
 # GitHub username
 USERNAME="sebday"
 
-# Path to your GitHub personal access token
-TOKEN_PATH="${HOME}/.ssh/github"
-
 # --- Token Validation ---
-if [[ ! -f "${TOKEN_PATH}" ]]; then
-    echo '{"text": " Error", "tooltip": "GitHub token file not found at '${TOKEN_PATH}'", "class": "error"}' >&2
-    echo '{"text": " Token File Err", "tooltip": "Token file missing."}'
+if ! TOKEN=$(pass show github/token 2>/dev/null); then
+    echo '{"text": " Error", "tooltip": "GitHub token not found in pass (github/token)", "class": "error"}' >&2
+    echo '{"text": " Pass Err", "tooltip": "Run: pass insert github/token"}'
     exit 1
 fi
 
-TOKEN=$(cat "${TOKEN_PATH}")
-
 if [[ -z "$TOKEN" ]]; then
-    echo '{"text": " Error", "tooltip": "GitHub token is empty in '${TOKEN_PATH}'", "class": "error"}' >&2
-    echo '{"text": " Empty Token Err", "tooltip": "Token file is empty."}'
+    echo '{"text": " Error", "tooltip": "GitHub token is empty in pass (github/token)", "class": "error"}' >&2
+    echo '{"text": " Empty Token Err", "tooltip": "Token is empty."}'
     exit 1
 fi
 
