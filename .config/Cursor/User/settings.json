@@ -99,4 +99,5 @@
     "editor.inlayHints.fontFamily": "'CaskaydiaMono Nerd Font', 'monospace', monospace",
     "explorer.confirmDragAndDrop": false,
     "window.autoDetectColorScheme": false,
+    "workbench.agentsWindowButton.enabled": false,
 }

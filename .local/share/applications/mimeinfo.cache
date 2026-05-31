@@ -1,4 +1,5 @@
 [MIME Cache]
+application/x-cursor-workspace=cursor.desktop;
 text/markdown=glow.desktop;
 text/x-markdown=glow.desktop;
 x-scheme-handler/cursor=cursor.desktop;

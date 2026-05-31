@@ -5,7 +5,6 @@ elephant-all
 # Tools ######################
 brave-bin
 cursor-bin
-lmstudio-bin
 
 # File Management ###########
 insync
