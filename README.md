@@ -2,7 +2,7 @@
 
 My Arch & Hyprland desktop with themes. 
 
-Created so I can easily reinstall Arch to my exact liking with a quad monitor setup and [software](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/packages.txt) for a full desktop. 
+Created so I can easily reinstall Arch to my exact liking with a quad monitor setup and [software](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.install/packages.txt) for a full desktop. 
 
 Massive thanks to [Vaxry](https://blog.vaxry.net/) for reigniting my long-time love for [tinkering](https://sebday.dev/2025/07/18-desktop-appreciation/) with my desktop.
 
@@ -22,7 +22,7 @@ Thank you to [Bjarne](https://github.com/bjarneo) for some gorgeous themes.
 
 ## Install 
 
-`wget -qO- sebday.dev/install | bash`
+`wget -qO- sebday.dev/installer | bash`
 
 ### Brave
 

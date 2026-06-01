@@ -1,8 +1,10 @@
 #!/bin/bash
-# To install, run: wget -qO- sebday.dev/install | bash
+# To install, run: wget -qO- sebday.dev/installer | bash
 
 # Exit immediately if a command exits with a non-zero status.
 set -e
+
+INSTALL_DIR="${HOME}/.install"
 
 log() {
     echo "--- $1 ---"
@@ -50,7 +52,7 @@ install_pacman_packages() {
         if pacman -Si "$pkg" &>/dev/null; then
             sync_packages+=("$pkg")
         fi
-    done < <(grep -vE '^#|^$' packages.txt | awk '{print $1}')
+    done < <(grep -vE '^#|^$' "${INSTALL_DIR}/packages.txt" | awk '{print $1}')
     sudo pacman -Syu --noconfirm "${sync_packages[@]}"
 }
 
@@ -79,7 +81,7 @@ EOT
 install_aur_packages() {
     log "Installing AUR packages from packages-aur.txt..."
     local aur_packages
-    aur_packages=$(grep -vE '^#|^$' packages-aur.txt | tr '\n' ' ')
+    aur_packages=$(grep -vE '^#|^$' "${INSTALL_DIR}/packages-aur.txt" | tr '\n' ' ')
     yay -Sy --noconfirm $aur_packages
 }
 
@@ -168,6 +170,82 @@ configure_ufw() {
     sudo ufw status verbose | head -20 || true
 }
 
+# Google Ads Editor via Wine under /opt/google-ads-editor (no native Linux build).
+configure_google_ads_editor() {
+    log "Configuring Google Ads Editor (Wine)..."
+    if ! command -v wine >/dev/null 2>&1; then
+        log "wine not installed; skip"
+        return 0
+    fi
+
+    local opt_root=/opt/google-ads-editor
+    local prefix="${opt_root}/prefix"
+    local msi_url=https://dl.google.com/adwords_editor/google_ads_editor.msi
+    local msi_path="${opt_root}/install/google_ads_editor.msi"
+    local launcher="${opt_root}/bin/google-ads-editor"
+    local desktop="${HOME}/.local/share/applications/google-ads-editor.desktop"
+    local user
+    user=$(whoami)
+
+    sudo mkdir -p "${opt_root}"/{prefix,install,bin}
+    sudo chown -R "${user}:${user}" "${opt_root}"
+
+    export WINEPREFIX="${prefix}"
+    export WINEARCH=win64
+    export WINEDEBUG=-all
+
+    if [[ ! -d "${prefix}/drive_c" ]]; then
+        log "Initializing Wine prefix..."
+        wineboot --init
+        winetricks -q win10
+        winetricks -q vcrun2019 || winetricks -q vcrun2017 || true
+    fi
+
+    if ! find "${prefix}/drive_c" -iname 'google_ads_editor.exe' -print -quit 2>/dev/null | grep -q .; then
+        log "Downloading Google Ads Editor MSI (~200 MB)..."
+        curl -fL --retry 3 -o "${msi_path}" "${msi_url}"
+        log "Installing Google Ads Editor..."
+        wine msiexec /i "${msi_path}"
+    else
+        log "Google Ads Editor already installed in prefix"
+    fi
+
+    local exe_path
+    exe_path=$(find "${prefix}/drive_c" -iname 'google_ads_editor.exe' 2>/dev/null | head -1)
+    if [[ -z "${exe_path}" ]]; then
+        log "WARNING: google_ads_editor.exe not found after install"
+        return 0
+    fi
+
+    cat >"${launcher}" <<EOF
+#!/usr/bin/env bash
+export WINEPREFIX="${prefix}"
+export WINEARCH=win64
+export WINEDEBUG=-all
+exec wine '${exe_path}' "\$@"
+EOF
+    chmod +x "${launcher}"
+
+    local icon_path
+    icon_path=$(find "${prefix}/drive_c/users/${user}/AppData/Local/Google/Google Ads Editor" \
+        -path '*/assets/adslogo.png' 2>/dev/null | head -1)
+    [[ -z "${icon_path}" ]] && icon_path=wine
+
+    mkdir -p "${HOME}/.local/share/applications"
+    cat >"${desktop}" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Google Ads Editor
+Comment=Google Ads Editor (Wine)
+Exec=${launcher}
+Icon=${icon_path}
+Categories=Office;
+StartupNotify=true
+EOF
+
+    log "Google Ads Editor: ${launcher}"
+}
+
 # Install and configure mise for managing dev tools.
 install_mise_tools() {
     log "Installing mise and setting up global dev tools..."
@@ -199,6 +277,7 @@ main() {
     configure_timesync
     configure_journald
     configure_ufw
+    configure_google_ads_editor
 
     log "Setup complete! Please reboot your system."
 }
