@@ -1,4 +1,4 @@
-/* Obsidian CSS generated from colors.toml - overrides shared/obsidian.css (must load last)
+/* Obsidian CSS generated from colors.toml - overrides shared/css/obsidian.css (must load last)
    Uses body.theme-dark for higher specificity so we win over Obsidian's built-in body rules
    that remap --background-primary from --color-base-00. */
 body.theme-dark,

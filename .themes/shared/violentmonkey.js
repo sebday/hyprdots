@@ -17,7 +17,7 @@
 // @grant       GM_xmlhttpRequest
 // @grant       GM_getValue
 // @grant       GM_setValue
-// @version     2.4.85
+// @version     2.4.86
 // @author      Seb Day
 // @description Hot-reloads themes for multiple sites using darkhttpd.
 // ==/UserScript==
@@ -46,9 +46,11 @@
     if (!siteCss) return;
 
     const STYLE_ID = `hot-reload-style-${host}`;
-    const CACHE_KEY = `theme-css-v11-${host}`;
-    const siteDir = siteCss === 'shoelace-hex.css' ? 'current' : 'shared';
-    const themeUrls = [`${BASE}/current/colors.css`, `${BASE}/${siteDir}/${siteCss}`];
+    const CACHE_KEY = `theme-css-v12-${host}`;
+    const siteCssUrl = siteCss === 'shoelace-hex.css'
+        ? `${BASE}/current/${siteCss}`
+        : `${BASE}/shared/css/${siteCss}`;
+    const themeUrls = [`${BASE}/current/colors.css`, siteCssUrl];
     let currentCombinedCSS = null;
 
     function injectCSS(css) {

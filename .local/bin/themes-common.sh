@@ -114,7 +114,7 @@ themes_sync_obsidian_modular() {
     [ -f "$theme_css" ] || return 0
 
     local modular_dir="$vault/.obsidian/themes/Modular"
-    local shared_css="${THEME_DIR}/shared/obsidian.css"
+    local shared_css="${THEME_DIR}/shared/css/obsidian.css"
     local shared_manifest="${THEME_DIR}/shared/obsidian.conf"
     local appearance="$vault/.obsidian/appearance.json"
     local updated_json
