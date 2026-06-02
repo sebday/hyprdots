@@ -20,7 +20,6 @@
     "clock",
     "custom/alsa",
     "network",
-    "cpu",
     "tray"
   ],
   "hyprland/workspaces": {
@@ -94,11 +93,6 @@
     "tooltip": "Audio Mixer",
     "on-click": "ghostty --class=TUI.float -e wiremix",
     "on-click-right": "ghostty --class=TUI.float -e alsamixer"
-  },
-  "cpu": {
-    "interval": 5,
-    "format": "󰍛",
-    "on-click": "ghostty -e btop"
   },
   "clock": {
     "format": "{:%a %d %H:%M}",
