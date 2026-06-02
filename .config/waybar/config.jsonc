@@ -18,8 +18,6 @@
     "custom/cava",
     "pulseaudio",
     "clock",
-    "custom/alsa",
-    "network",
     "tray"
   ],
   "hyprland/workspaces": {
@@ -88,12 +86,6 @@
     "on-click": "ghostty --class=TUI.float -e wiremix",
     "on-click-right": "ghostty --class=TUI.float -e alsamixer"
   },
-  "custom/alsa": {
-    "format": "󰓃",
-    "tooltip": "Audio Mixer",
-    "on-click": "ghostty --class=TUI.float -e wiremix",
-    "on-click-right": "ghostty --class=TUI.float -e alsamixer"
-  },
   "clock": {
     "format": "{:%a %d %H:%M}",
     "format-alt": "{:%A %d %B W%V %Y}",
@@ -110,6 +102,8 @@
   "pulseaudio": {
     "format": "{icon} {volume}%",
     "tooltip-format": "Playing at {volume}%",
+    "on-click": "ghostty --class=TUI.float -e wiremix",
+    "on-click-right": "ghostty --class=TUI.float -e alsamixer",
     "scroll-step": 5,
     "format-muted": "󰝟",
     "format-icons": {

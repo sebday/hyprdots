@@ -43,7 +43,8 @@ paths_resolved_equal() {
     [ "$a" = "$b" ]
 }
 
-# Expand shared/templates/*.tpl into theme_dir (skipped if target already exists).
+# Expand shared/templates/*.tpl into theme_dir from colors.toml.
+# Skips existing outputs except shoelace-hex.css (regenerated each apply for Violentmonkey).
 process_theme_templates() {
     local theme_dir="$1"
     [ -n "$theme_dir" ] || return 1
@@ -72,7 +73,7 @@ process_theme_templates() {
         [ -f "$tpl" ] || continue
         filename=$(basename "$tpl" .tpl)
         output="$theme_dir/$filename"
-        [ -f "$output" ] && continue
+        [ -f "$output" ] && [ "$filename" != "shoelace-hex.css" ] && continue
         sed -f "$sed_script" "$tpl" > "$output"
     done
     rm -f "$sed_script"

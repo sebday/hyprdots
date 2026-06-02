@@ -9,21 +9,23 @@
 // @match       https://www.youtube.com/*
 // @match       https://grok.com/*
 // @match       https://gemini.google.com/*
-// @match       https://*day.marketing/*
+// @match       https://diy.day.marketing/*
+// @match       https://tgs.day.marketing/*
 // @match       https://sebday.dev/*
 // @match       https://ads.google.com/*
 // @match       https://web.telegram.org/*
-// @grant       GM_addStyle
 // @grant       GM_xmlhttpRequest
 // @grant       GM_getValue
 // @grant       GM_setValue
-// @version     2.4.65
+// @version     2.4.85
 // @author      Seb Day
 // @description Hot-reloads themes for multiple sites using darkhttpd.
 // ==/UserScript==
 
 (function() {
     'use strict';
+
+    const BASE = 'http://localhost:8008';
 
     const SITES = {
         'x.com': 'x.css',
@@ -33,18 +35,20 @@
         'www.youtube.com': 'youtube.css',
         'grok.com': 'grok.css',
         'gemini.google.com': 'gemini.css',
-        'docs.day.marketing': 'shoelace.css',
         'web.telegram.org': 'telegram.css',
+        'diy.day.marketing': 'shoelace-hex.css',
+        'tgs.day.marketing': 'shoelace-hex.css',
+        'sebday.dev': 'shoelace-hex.css',
     };
 
-    const currentHost = window.location.hostname;
-    let cssFile = SITES[currentHost];
-    if (!cssFile) return;
+    const host = window.location.hostname;
+    const siteCss = SITES[host];
+    if (!siteCss) return;
 
-    const STYLE_ID = `hot-reload-style-${currentHost}`;
-    const CACHE_KEY = `theme-css-${currentHost}`;
-    const COLORS_URL = 'http://localhost:8008/current/colors.css';
-    const SHARED_URL = `http://localhost:8008/shared/${cssFile}`;
+    const STYLE_ID = `hot-reload-style-${host}`;
+    const CACHE_KEY = `theme-css-v11-${host}`;
+    const siteDir = siteCss === 'shoelace-hex.css' ? 'current' : 'shared';
+    const themeUrls = [`${BASE}/current/colors.css`, `${BASE}/${siteDir}/${siteCss}`];
     let currentCombinedCSS = null;
 
     function injectCSS(css) {
@@ -52,47 +56,44 @@
         if (!el) {
             el = document.createElement('style');
             el.id = STYLE_ID;
-            (document.head || document.documentElement).appendChild(el);
         }
         el.textContent = css;
+        (document.head || document.documentElement).appendChild(el);
     }
 
     function fetchCSS(url) {
         return new Promise((resolve, reject) => {
             GM_xmlhttpRequest({
                 method: 'GET',
-                url: url,
-                onload: function(response) {
-                    if (response.status >= 200 && response.status < 300) {
-                        resolve(response.responseText);
-                    } else {
-                        reject(new Error(`Failed to fetch ${url}: ${response.statusText}`));
-                    }
+                url,
+                onload(r) {
+                    if (r.status >= 200 && r.status < 300) resolve(r.responseText);
+                    else reject(new Error(`${url}: ${r.statusText}`));
                 },
-                onerror: function(response) {
-                    reject(new Error(`Error fetching ${url}: ${response.statusText}`));
-                }
+                onerror: () => reject(new Error(url)),
             });
         });
     }
 
     function checkForUpdate() {
-        Promise.all([fetchCSS(COLORS_URL), fetchCSS(SHARED_URL)])
-            .then(([colorsCSS, sharedCSS]) => {
-                const newCombinedCSS = colorsCSS + '\n' + sharedCSS;
-                if (newCombinedCSS && newCombinedCSS !== currentCombinedCSS) {
-                    currentCombinedCSS = newCombinedCSS;
-                    injectCSS(newCombinedCSS);
-                    GM_setValue(CACHE_KEY, newCombinedCSS);
-                    console.log(`Theme updated for ${currentHost}.`);
-                }
+        Promise.all(themeUrls.map(fetchCSS))
+            .then((parts) => {
+                const css = parts.join('\n');
+                if (!css || css === currentCombinedCSS) return;
+                currentCombinedCSS = css;
+                injectCSS(css);
+                GM_setValue(CACHE_KEY, css);
+                console.log(`Theme updated for ${host}.`);
             })
             .catch(() => {});
     }
 
     (async function init() {
         const cached = await GM_getValue(CACHE_KEY, '');
-        if (cached) injectCSS(cached);
+        if (cached) {
+            currentCombinedCSS = cached;
+            injectCSS(cached);
+        }
         checkForUpdate();
         setInterval(checkForUpdate, 2000);
     })();
