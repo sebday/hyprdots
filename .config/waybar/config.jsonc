@@ -8,7 +8,7 @@
   "modules-left": [
     "custom/shopify_diy",
     "custom/shopify_tgs",
-    "custom/kraken_btc"
+    "custom/btc"
   ],
   "modules-center": [
     "hyprland/workspaces",
@@ -67,9 +67,9 @@
     "interval": 300,
     "tooltip": true
   },
-  "custom/kraken_btc": {
+  "custom/btc": {
     "format": "{text}",
-    "exec": "/home/seb/.local/bin/waybar-kraken-btc.py",
+    "exec": "/home/seb/.local/bin/waybar-btc.sh",
     "on-click": "xdg-open https://pro.kraken.com/app/trade/btc-usd",
     "return-type": "json",
     "interval": 60,

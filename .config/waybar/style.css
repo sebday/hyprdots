@@ -8,27 +8,17 @@
 }
 
 #workspaces,
-#custom-shopify_zk,
 #custom-shopify_diy,
 #custom-shopify_tgs,
-#custom-kraken_btc,
+#custom-btc,
 #custom-github,
 #pulseaudio,
-#clock {
+#clock,
+#custom-cava,
+#tray {
 	background-color: @background;
 	padding: 0 16px;
 	margin: 0 8px;
-}
-
-#custom-cava,
-#custom-alsa,
-#bluetooth,
-#network,
-#cpu,
-#tray {
-	background-color: @background;
-	padding: 0 4px;
-	margin: 0 6px;
 }
 
 #workspaces button {
@@ -37,59 +27,19 @@
 	padding-right: 8px;
 }
 
-#workspaces button.active {
-	color: @accent-blue;
-}
-
-#workspaces button.urgent {
-	color: @accent-pink;
-}
-
-#custom-recording {
-    color: @accent-orange;
-    font-size: 16px;
-    animation: blink 1s linear infinite;
-}
-  
-@keyframes blink {
-    0% { opacity: 1; }
-    50% { opacity: 1; }
-    51% { opacity: 0; }
-    100% { opacity: 0; }
-}
-
-#clock {
-	color: @accent-pink;
-    margin-left: 0;
-}
-
 #custom-cava {
-	color: @accent-pink;
 	padding-right: 0;
     margin-right: 0;
 }
 
-#custom-alsa {
-	color: @foreground;
-	padding-left: 0;
-	margin-left: 0;
-	margin-right: 0;
-}
-
 #pulseaudio {
-	color: @accent-pink;
     margin-left: 0;
-    margin-right: 0;
 }
 
 #pulseaudio.muted {
 	color: @accent-orange;
 }
 
-#tray {
-    margin-left: 4px;
-    margin-right: 16px;
-}
 #tray>.passive {
 	-gtk-icon-effect: dim;
 }
@@ -98,18 +48,15 @@
 	-gtk-icon-effect: highlight;
 }
 
-#custom-alsa,
-#network,
-#cpu {
-    margin-right: 0px;
-}
-
-#custom-shopify_zk,
+#workspaces button.active,
+#pulseaudio,
+#clock,
 #custom-shopify_diy,
 #custom-shopify_tgs,
-#custom-kraken_btc {
+#custom-btc {
     color: @accent-blue;
 }
+
 #custom-github.github-level-0 {
     color: @text-dark;
 }
@@ -126,10 +73,12 @@
     color: @github-4;
 }
 
+#workspaces button.urgent,
+#custom-cava,
 #custom-shopify_zk:hover,
 #custom-shopify_diy:hover,
 #custom-shopify_tgs:hover,
-#custom-kraken_btc:hover,
+#custom-btc:hover,
 #custom-github:hover,
 #clock:hover,
 #pulseaudio:hover,
