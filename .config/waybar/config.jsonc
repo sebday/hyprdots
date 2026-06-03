@@ -18,6 +18,7 @@
     "custom/github",
     "custom/cava",
     "pulseaudio",
+    "custom/weather",
     "clock",
     "tray"
   ],
@@ -94,6 +95,14 @@
     "format": "{}",
     "on-click": "ghostty --class=TUI.float -e wiremix",
     "on-click-right": "ghostty --class=TUI.float -e alsamixer"
+  },
+  "custom/weather": {
+    "format": "{text}",
+    "exec": "/home/seb/.local/bin/waybar-weather.sh",
+    "return-type": "json",
+    "interval": 1800,
+    "tooltip": true,
+    "on-click": "xdg-open https://www.metoffice.gov.uk/weather/forecast/gcqybuwnp"
   },
   "clock": {
     "format": "{:%a %d %H:%M}",

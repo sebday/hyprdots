@@ -1,5 +1,7 @@
 #!/bin/bash
 
+source "${HOME}/.local/bin/waybar-common.sh"
+
 # GitHub username
 USERNAME="sebday"
 
@@ -16,29 +18,7 @@ if [[ -z "$TOKEN" ]]; then
     exit 1
 fi
 
-# --- Get Contribution Colors ---
-WAYBAR_CSS="$HOME/.themes/current/waybar.css"
-declare -A CONTRIB_COLORS
-
-if [ -f "$WAYBAR_CSS" ]; then
-    for i in {0..4}; do
-        color=$(grep "@define-color github-$i" "$WAYBAR_CSS" | awk '{print $3}' | tr -d ';')
-        if [ -n "$color" ]; then
-            CONTRIB_COLORS[$i]="$color"
-        fi
-    done
-fi
-
-# If colors weren't loaded completely, use defaults
-if [ "${#CONTRIB_COLORS[@]}" -ne 5 ]; then
-    CONTRIB_COLORS=(
-        [0]="#ebedf0" # Level 0
-        [1]="#9be9a8" # Level 1
-        [2]="#40c463" # Level 2
-        [3]="#30a14e" # Level 3
-        [4]="#216e39" # Level 4
-    )
-fi
+waybar_load_heatmap_colors
 
 # --- Fetch Contribution Data using GraphQL ---
 GRAPHQL_QUERY_RAW='
@@ -91,8 +71,7 @@ ACTIVITY_BOXES_STRING_FOR_JSON=""
 
 if [[ -z "$ALL_DAYS_DATA" ]]; then
     TODAY_CONTRIBUTION_COUNT=0
-    COLOR_LEVEL_0=${CONTRIB_COLORS[0]}
-    for i in {1..14}; do ACTIVITY_BOXES_STRING_FOR_JSON+="<span fgcolor='${COLOR_LEVEL_0}'>■</span>"; done
+    for i in {1..14}; do ACTIVITY_BOXES_STRING_FOR_JSON+="<span foreground='${GITHUB_COLORS[0]}'>■</span>"; done
 else
     while IFS=_ read -r date_val count_val; do
         contribs_by_date["$date_val"]=$count_val
@@ -116,8 +95,7 @@ else
         elif [[ "$COUNT_FOR_DAY" -ge 30 ]]; then
             LEVEL=4
         fi
-        COLOR=${CONTRIB_COLORS[$LEVEL]}
-        TEMP_BOXES_STRING+="<span fgcolor='${COLOR}'>■</span>"
+        TEMP_BOXES_STRING+="<span foreground='${GITHUB_COLORS[$LEVEL]}'>■</span>"
     done
     ACTIVITY_BOXES_STRING_FOR_JSON=$TEMP_BOXES_STRING
 

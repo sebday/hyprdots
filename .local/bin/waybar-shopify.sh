@@ -10,6 +10,8 @@
 
 set -euo pipefail
 
+source "${HOME}/.local/bin/waybar-common.sh"
+
 DEFAULT_SQLITE_DIR="$HOME/projects/ecommerce-data/data"
 DEFAULT_REMOTE="seb@192.168.2.200:/home/seb/projects/ecommerce-data/data"
 DEFAULT_TZ="Europe/London"
@@ -25,31 +27,6 @@ BARS=(" " "▂" "▃" "▄" "▅" "▆" "▇" "█")
 
 json_text() {
     jq -cn --arg text "$1" '{text: $text}'
-}
-
-load_github_colors() {
-    local waybar_css="$HOME/.themes/current/waybar.css"
-    declare -gA GITHUB_COLORS
-
-    if [[ -f "$waybar_css" ]]; then
-        for i in {0..4}; do
-            local color
-            color=$(grep "@define-color github-$i" "$waybar_css" | awk '{print $3}' | tr -d ';' || true)
-            if [[ -n "$color" ]]; then
-                GITHUB_COLORS[$i]="$color"
-            fi
-        done
-    fi
-
-    if ((${#GITHUB_COLORS[@]} != 5)); then
-        GITHUB_COLORS=(
-            [0]="#ebedf0"
-            [1]="#9be9a8"
-            [2]="#40c463"
-            [3]="#30a14e"
-            [4]="#216e39"
-        )
-    fi
 }
 
 remote_spec() {
@@ -203,7 +180,6 @@ generate_sales_chart() {
                 else if (pct > 0.25) color_level = 2
                 else color_level = 1
             }
-
             bars[0] = " "
             bars[1] = "▂"
             bars[2] = "▃"
@@ -243,7 +219,7 @@ main() {
     tz_name="${tz_name// /}"
     [[ -z "$tz_name" ]] && tz_name="$DEFAULT_TZ"
 
-    load_github_colors
+    waybar_load_heatmap_colors
 
     local today_s i day_iso base db_path spend_col
     local rev orders cos sym sales_chart today_sales_val cos_str output_text

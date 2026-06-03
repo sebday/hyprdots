@@ -11,4 +11,4 @@
 @define-color github-1 {{ color4 }};
 @define-color github-2 {{ color6 }};
 @define-color github-3 {{ color6 }};
-@define-color github-4 {{ color2 }};
+@define-color github-4 {{ color4 }};
