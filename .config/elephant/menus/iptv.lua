@@ -1,4 +1,4 @@
--- channels.tsv from ~/.local/bin/iptv-cache.sh
+-- channels.tsv from ~/.local/bin/walker-iptv-cache.sh
 Name = "iptv"
 NamePretty = "IPTV"
 Parent = "media"
@@ -18,7 +18,7 @@ function GetEntries(query)
 	local home = os.getenv("HOME") or ""
 	local cache = (os.getenv("XDG_CACHE_HOME") or home .. "/.cache") .. "/iptv/channels.tsv"
 
-	os.execute("bash " .. q(home .. "/.local/bin/iptv-cache.sh") .. " >/dev/null 2>&1")
+	os.execute("bash " .. q(home .. "/.local/bin/walker-iptv-cache.sh") .. " >/dev/null 2>&1")
 
 	local f = io.open(cache, "r")
 	if not f then

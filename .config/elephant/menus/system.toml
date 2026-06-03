@@ -4,6 +4,12 @@ icon = "preferences-desktop"
 search_name = true
 
 [[entries]]
+text = "Media"
+icon = "multimedia-video-player"
+keywords = ["media", "iptv", "films", "tv", "video", "movies", "stream"]
+submenu = "media"
+
+[[entries]]
 text = "Themes"
 icon = "preferences-color"
 keywords = ["theme", "appearance", "rice"]

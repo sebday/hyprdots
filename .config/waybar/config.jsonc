@@ -93,8 +93,8 @@
   "custom/cava": {
     "exec": "~/.local/bin/waybar-cava.sh",
     "format": "{}",
-    "on-click": "ghostty --class=TUI.float -e wiremix",
-    "on-click-right": "ghostty --class=TUI.float -e alsamixer"
+    "on-click": "ghostty --class=TUI.main -e wiremix",
+    "on-click-right": "ghostty --class=TUI.main -e alsamixer"
   },
   "custom/weather": {
     "format": "{text}",
@@ -120,8 +120,8 @@
   "pulseaudio": {
     "format": "{icon} {volume}%",
     "tooltip-format": "Playing at {volume}%",
-    "on-click": "ghostty --class=TUI.float -e wiremix",
-    "on-click-right": "ghostty --class=TUI.float -e alsamixer",
+    "on-click": "ghostty --class=TUI.main -e wiremix",
+    "on-click-right": "ghostty --class=TUI.main -e alsamixer",
     "scroll-step": 5,
     "format-muted": "󰝟",
     "format-icons": {

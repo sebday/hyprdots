@@ -49,8 +49,7 @@
 	-gtk-icon-effect: highlight;
 }
 
-
-#workspaces button.urgent,
+#workspaces button.active,
 #custom-shopify_zk:hover,
 #custom-shopify_diy:hover,
 #custom-shopify_tgs:hover,
