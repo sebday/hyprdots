@@ -5,7 +5,7 @@ set -euo pipefail
 
 export PATH="${HOME}/.local/bin:${PATH}"
 
-for cmd in walker-launch walker mpv; do
+for cmd in walker-launch.sh walker mpv; do
 	command -v "$cmd" >/dev/null 2>&1 || {
 		echo "walker-iptv-play.sh: need '$cmd' in PATH" >&2
 		exit 127
@@ -22,7 +22,7 @@ channels_tsv="$cache_dir/channels.tsv"
 	exit 1
 }
 
-idx=$(cut -f1 "$channels_tsv" | walker-launch --dmenu --width 644 --minheight 1 --maxheight 520 -p 'search channels ' -i | tr -d '\n\r')
+idx=$(cut -f1 "$channels_tsv" | walker-launch.sh --dmenu --width 644 --minheight 1 --maxheight 520 -p 'search channels ' -i | tr -d '\n\r')
 [[ -z "$idx" ]] && exit 0
 [[ "$idx" =~ ^[0-9]+$ ]] || exit 0
 

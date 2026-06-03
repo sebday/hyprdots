@@ -91,7 +91,7 @@
     "on-click": "~/.local/bin/record.sh"
   },
   "custom/cava": {
-    "exec": "~/.local/bin/waybar-cava-sh",
+    "exec": "~/.local/bin/waybar-cava.sh",
     "format": "{}",
     "on-click": "ghostty --class=TUI.float -e wiremix",
     "on-click-right": "ghostty --class=TUI.float -e alsamixer"

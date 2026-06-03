@@ -18,7 +18,7 @@ submenu = "wallpaper"
 [[entries]]
 text = "Show keybinds"
 icon = "input-keyboard"
-actions = { "menus:default" = "bash -lc 'exec \"$HOME/.local/bin/walker-keybinds\"'" }
+actions = { "menus:default" = "bash -lc 'exec \"$HOME/.local/bin/walker-keybinds.sh\"'" }
 
 [[entries]]
 text = "Waybar restart"

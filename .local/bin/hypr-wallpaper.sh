@@ -29,7 +29,7 @@ select_wallpaper_menu() {
     selected_entry=$(
         find "$CURRENT_THEME_WALLPAPERS" -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.webp" \) | sort | while read -r file; do
             realpath --relative-to="$CURRENT_THEME_WALLPAPERS" "$file"
-        done | "$HOME/.local/bin/walker-launch" --dmenu --width 560 --minheight 1 --maxheight 480 -p "Select Wallpaper: "
+        done | "$HOME/.local/bin/walker-launch.sh" --dmenu --width 560 --minheight 1 --maxheight 480 -p "Select Wallpaper: "
     )
 
     # If an entry was selected, reconstruct the full path and set the wallpaper

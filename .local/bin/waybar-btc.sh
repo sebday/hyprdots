@@ -114,7 +114,7 @@ fi
 
 if [[ -n "${UPNL_PCT:-}" && "$UPNL_PCT" =~ ^-?[0-9]+\.?[0-9]*$ ]]; then
     PCT_S=$(awk -v p="$UPNL_PCT" 'BEGIN { printf "%+.2f", p }')
-    TEXT="₿ ${PRICE_S} ${PCT_S}%"
+    TEXT="₿ ${PRICE_S}"
     TIP="BTC/USD · Kraken
 Price: $(fmt_price "$LAST")
 Unrealized P/L: ${PCT_S}%"

@@ -13,7 +13,7 @@ source "$SCRIPT_DIR/themes-common.sh"
 
 CURRENT_PATH="${CURRENT_PATH:-$THEME_DIR/current}"
 NEXT_PATH="${NEXT_PATH:-$THEME_DIR/next}"
-LAUNCH_WALKER="${LAUNCH_WALKER:-$HOME/.local/bin/walker-launch}"
+LAUNCH_WALKER="${LAUNCH_WALKER:-$HOME/.local/bin/walker-launch.sh}"
 
 get_current_theme() {
     [ -f "$CURRENT_PATH/.theme-name" ] && cat "$CURRENT_PATH/.theme-name" || echo ""
