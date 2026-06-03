@@ -7,7 +7,8 @@
   "height": 32,
   "modules-left": [
     "custom/shopify_diy",
-    "custom/shopify_tgs"
+    "custom/shopify_tgs",
+    "custom/kraken_btc"
   ],
   "modules-center": [
     "hyprland/workspaces",
@@ -52,7 +53,7 @@
   },
   "custom/shopify_diy": {
     "format": "{text}",
-    "exec": "/home/seb/.local/bin/waybar-shopify.py DIY",
+    "exec": "/home/seb/.local/bin/waybar-shopify.sh DIY",
     "on-click": "xdg-open https://admin.shopify.com/store/diy-buildingsupplies/analytics/live",
     "return-type": "json",
     "interval": 300,
@@ -60,10 +61,18 @@
   },
   "custom/shopify_tgs": {
     "format": "{text}",
-    "exec": "/home/seb/.local/bin/waybar-shopify.py TGS",
+    "exec": "/home/seb/.local/bin/waybar-shopify.sh TGS",
     "on-click": "xdg-open https://admin.shopify.com/store/thegoodsheet-uk/analytics/live",
     "return-type": "json",
     "interval": 300,
+    "tooltip": true
+  },
+  "custom/kraken_btc": {
+    "format": "{text}",
+    "exec": "/home/seb/.local/bin/waybar-kraken-btc.py",
+    "on-click": "xdg-open https://pro.kraken.com/app/trade/btc-usd",
+    "return-type": "json",
+    "interval": 60,
     "tooltip": true
   },
   "custom/github": {

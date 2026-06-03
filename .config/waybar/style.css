@@ -11,6 +11,7 @@
 #custom-shopify_zk,
 #custom-shopify_diy,
 #custom-shopify_tgs,
+#custom-kraken_btc,
 #custom-github,
 #pulseaudio,
 #clock {
@@ -105,7 +106,8 @@
 
 #custom-shopify_zk,
 #custom-shopify_diy,
-#custom-shopify_tgs {
+#custom-shopify_tgs,
+#custom-kraken_btc {
     color: @accent-blue;
 }
 #custom-github.github-level-0 {
@@ -127,6 +129,7 @@
 #custom-shopify_zk:hover,
 #custom-shopify_diy:hover,
 #custom-shopify_tgs:hover,
+#custom-kraken_btc:hover,
 #custom-github:hover,
 #clock:hover,
 #pulseaudio:hover,
