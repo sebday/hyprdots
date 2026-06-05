@@ -1,8 +1,11 @@
+# Walker/Elephant always launch via setsid; prefix re-attaches apps to the
+# compositor session (fonts, zoom, WAYLAND_*). hyprctl matches plain Hyprland;
+# set auto_detect_launch_prefix = true and install uwsm for uwsm-app -- instead.
 auto_detect_launch_prefix = false
 before_load = []
 git_on_demand = true
 ignored_providers = []
-launch_prefix = ''
+launch_prefix = 'hyprctl dispatch exec'
 overload_local_env = false
 terminal_cmd = ''
 

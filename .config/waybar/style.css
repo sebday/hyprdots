@@ -28,9 +28,11 @@
 	padding-right: 8px;
 }
 
-#custom-cava {
-	padding-right: 0;
-    margin-right: 0;
+#custom-cava.empty {
+	padding: 0;
+	margin: 0;
+	min-width: 0;
+	opacity: 0;
 }
 
 #pulseaudio {
@@ -49,6 +51,7 @@
 	-gtk-icon-effect: highlight;
 }
 
+#clock,
 #workspaces button.active,
 #custom-shopify_zk:hover,
 #custom-shopify_diy:hover,
