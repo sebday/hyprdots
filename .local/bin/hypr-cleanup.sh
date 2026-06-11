@@ -13,7 +13,7 @@ rm -rf ~/.local/share/Trash/*
 cliphist wipe
 
 # Unmount FUSE
-fusermount -u /mnt/secure
+fusermount3 -u /mnt/secure
 
 # Send notification
 notify-send "Cache Cleared" "Full ~/.cache, Trash, clipboard, FUSE unmount."
