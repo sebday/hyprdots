@@ -32,7 +32,8 @@ In `brave://settings/appearance` set the theme to *GTK*
 
 #### Extensions 
 Auto loaded through my Brave sync but also needed on Firefox:
-[ViolentMonkey](https://addons.mozilla.org/en-US/firefox/addon/violentmonkey/) for theming websites and [PopupWindow](https://addons.mozilla.org/en-GB/firefox/addon/popup-window/) to pop Soundcloud or Youtube into a window with no titlebar.
+Replaced ViolentMonkey with [OrangeMonkey ](https://chromewebstore.google.com/detail/orangemonkey/ekmeppjgajofkpiofbebgcbohbmfldaf)
+for theming websites and [PopupWindow](https://addons.mozilla.org/en-GB/firefox/addon/popup-window/) to pop Soundcloud or Youtube into a window with no titlebar.
 
 Load the violentmonkey script from `.themes/shared/` and set it to auto-update.
 

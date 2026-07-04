@@ -106,7 +106,7 @@
     "return-type": "json",
     "interval": 1800,
     "tooltip": true,
-    "on-click": "xdg-open https://www.metoffice.gov.uk/weather/forecast/gcqybuwnp"
+    "on-click": "xdg-open https://weather.metoffice.gov.uk/forecast/gcqvn6pq4"
   },
   "clock": {
     "format": "{:%a %d %H:%M}",
