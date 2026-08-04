@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Start Elephant + walker --gapplication-service if missing, then exec walker (client).
+
+set -euo pipefail
+
+start_elephant() {
+	local runtime_dir sock
+	runtime_dir="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+	sock="$runtime_dir/elephant/elephant.sock"
+	if pgrep -x elephant >/dev/null 2>&1; then
+		return 0
+	fi
+	if command -v systemctl >/dev/null 2>&1; then
+		if systemctl --user is-enabled --quiet elephant.service 2>/dev/null; then
+			systemctl --user start elephant.service 2>/dev/null || true
+			for _ in {1..50}; do
+				[[ -S "$sock" ]] && return 0
+				sleep 0.1
+			done
+			return 0
+		fi
+		if systemctl --user start elephant.service 2>/dev/null; then
+			return 0
+		fi
+	fi
+	setsid elephant >/dev/null 2>&1 &
+}
+
+start_walker_service() {
+	if pgrep -f "walker --gapplication-service" >/dev/null 2>&1; then
+		return 0
+	fi
+	setsid env GSK_RENDERER=cairo walker --gapplication-service >/dev/null 2>&1 &
+}
+
+# Session warm-up: start providers + GTK service so the first open is not cold.
+# Use from Hyprland: exec-once = ~/.local/bin/walker-launch.sh --prewarm
+# Or XDG autostart: Exec=/home/seb/.local/bin/walker-launch.sh --prewarm
+if [[ "${1:-}" == "--prewarm" ]]; then
+	start_elephant
+	start_walker_service
+	exit 0
+fi
+
+start_elephant
+start_walker_service
+
+exec walker --width 644 --maxheight 440 --minheight 300 "$@"

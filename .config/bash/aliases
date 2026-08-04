@@ -11,7 +11,7 @@ alias ff='fastfetch'
 alias lg='lazygit'
 
 # Projects
-alias publish='(cd /home/seb/projects/client-docs && npm run publish)'
+alias pub='(cd /home/seb/projects/client-docs && npm run publish)'
 alias reports='(cd /home/seb/projects/ecommerce-reports && ruby bin/generate-reports weekly)'
 
 # Git
