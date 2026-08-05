@@ -87,7 +87,7 @@ hl.window_rule({
     match = { class = "qalculate-gtk" },
     float = true,
     center = true,
-    size = { 400, 500 }
+    size = { 350, 400 }
 })
 
 hl.window_rule({

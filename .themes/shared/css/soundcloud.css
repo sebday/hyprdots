@@ -4,7 +4,9 @@
     font-family: monospace!important;
 }
 
-.theme-dark, .theme-light {
+/* Classic (v1) theme tokens */
+.theme-dark,
+.theme-light {
     --primary-color: var(--text-primary);
     --secondary-color: var(--text-accent);
     --font-primary-color: var(--text-primary);
@@ -19,6 +21,60 @@
     --tag-default-background-color: var(--bg-secondary);
     --input-default-font-color: var(--text-accent);
     --tag-default-font-color: var(--text-accent);
+}
+
+/* MUI / Next.js track UI (iframe at /n/..., html.mui-theme-dark) */
+:root,
+.mui-theme-dark,
+.mui-theme-light {
+    --mui-palette-background-default: var(--bg-primary) !important;
+    --mui-palette-background-paper: var(--bg-primary) !important;
+    --mui-palette-background-dark: var(--bg-primary) !important;
+    --mui-palette-background-tonal: var(--bg-secondary) !important;
+    --mui-palette-background-low: var(--bg-secondary) !important;
+    --mui-palette-common-background: var(--bg-primary) !important;
+    --mui-palette-black-main: var(--bg-primary) !important;
+
+    --mui-palette-text-primary: var(--text-primary) !important;
+    --mui-palette-text-secondary: var(--text-accent) !important;
+    --mui-palette-common-onBackground: var(--text-primary) !important;
+    --mui-palette-white-main: var(--text-primary) !important;
+
+    --mui-palette-primary-main: var(--text-primary) !important;
+    --mui-palette-primary-contrastText: var(--bg-primary) !important;
+    --mui-palette-secondary-main: var(--text-accent) !important;
+    --mui-palette-secondary-light: var(--bg-secondary) !important;
+    --mui-palette-secondary-contrastText: var(--text-primary) !important;
+
+    --mui-palette-highlight-main: var(--bg-secondary) !important;
+    --mui-palette-link-main: var(--blue) !important;
+    --mui-palette-link-light: var(--blue) !important;
+    --mui-palette-brand-main: var(--pink) !important;
+
+    --mui-palette-contrast-contrastText: var(--text-primary) !important;
+    --mui-palette-contrast-light: var(--text-accent) !important;
+    --mui-palette-action-hover: var(--bg-secondary) !important;
+    --mui-palette-action-selected: var(--bg-secondary) !important;
+    --mui-palette-action-disabledBackground: var(--bg-secondary) !important;
+    --mui-palette-divider: var(--bg-secondary) !important;
+    --mui-palette-border-main: var(--bg-secondary) !important;
+    --mui-palette-border-subtle: var(--bg-secondary) !important;
+}
+
+html.mui-theme-dark,
+html.mui-theme-dark body,
+html.mui-theme-light,
+html.mui-theme-light body,
+#main,
+#navigation-shell-right-side-container {
+    background-color: var(--bg-primary) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Artwork-tinted player header (hashed class e.g. mui-1fqfhr3) */
+section[aria-label="Track header"] {
+    background-color: var(--bg-primary) !important;
+    background-image: none !important;
 }
 
 .header__upsellWrapper,
@@ -65,8 +121,15 @@ a[data-menu-name="home"] {
     background-size: auto!important;
 }
 
-h1 {
+/* Classic listen hero only — MUI titles use palette text tokens */
+.fullHero h1,
+.l-listen-hero h1 {
     color: var(--bg-primary)!important;
+}
+
+html.mui-theme-dark h1,
+html.mui-theme-light h1 {
+    color: var(--text-primary)!important;
 }
 
 .queue__itemWrapper,
