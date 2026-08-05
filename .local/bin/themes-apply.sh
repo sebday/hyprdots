@@ -84,13 +84,13 @@ reload_apps() {
         current_window=$(hyprctl activewindow -j 2>/dev/null | jq -r '.address' 2>/dev/null) || true
         while IFS= read -r address; do
             if [[ -n "$address" ]]; then
-                hyprctl dispatch focuswindow "address:$address" 2>/dev/null || true
+                hyprctl dispatch "hl.dsp.focus({ window = \"address:$address\" })" 2>/dev/null || true
                 sleep 0.1
-                hyprctl dispatch sendshortcut "CTRL SHIFT, comma, address:$address" 2>/dev/null || true
+                hyprctl dispatch "hl.dsp.send_shortcut({ mods = \"CTRL SHIFT\", key = \"comma\", window = \"address:$address\" })" 2>/dev/null || true
             fi
         done <<< "$ghostty_addresses"
         if [[ -n "$current_window" ]]; then
-            hyprctl dispatch focuswindow "address:$current_window" 2>/dev/null || true
+            hyprctl dispatch "hl.dsp.focus({ window = \"address:$current_window\" })" 2>/dev/null || true
         fi
     fi
 

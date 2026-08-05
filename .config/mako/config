@@ -1,7 +1,7 @@
 include=~/.themes/shared/mako.ini
 
-icon-path=/home/seb/.local/share/icons/Catppuccin-Mocha
-background-color=#1e1e2e
-text-color=#cdd6f4
-border-color=#89b4fa
-progress-color=#f5c2e7
+icon-path=/home/seb/.local/share/icons/Everforest-Dark
+background-color=#2d353b
+text-color=#d3c6aa
+border-color=#7fbbb3
+progress-color=#d699b6
