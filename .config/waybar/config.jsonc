@@ -8,7 +8,8 @@
   "modules-left": [
     "custom/shopify_diy",
     "custom/shopify_tgs",
-    "custom/btc"
+    "custom/btc",
+    "custom/spacex"
   ],
   "modules-center": [
     "hyprland/workspaces",
@@ -72,6 +73,14 @@
     "format": "{text}",
     "exec": "/home/seb/.local/bin/waybar-btc.sh",
     "on-click": "xdg-open https://pro.kraken.com/app/trade/btc-usd",
+    "return-type": "json",
+    "interval": 60,
+    "tooltip": true
+  },
+  "custom/spacex": {
+    "format": "{text}",
+    "exec": "/home/seb/.local/bin/waybar-spacex.sh",
+    "on-click": "xdg-open https://www.nasdaq.com/market-activity/stocks/spcx",
     "return-type": "json",
     "interval": 60,
     "tooltip": true
