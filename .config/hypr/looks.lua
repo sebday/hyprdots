@@ -1,0 +1,68 @@
+hl.env("XCURSOR_THEME", "Vimix-cursors")
+hl.env("XCURSOR_SIZE", "24")
+hl.env("GTK_THEME", "current")
+
+hl.config({
+    xwayland = {
+        force_zero_scaling = true,
+    },
+
+    general = {
+        gaps_in = 0,
+        gaps_out = 0,
+        border_size = 2,
+        resize_on_border = false,
+        allow_tearing = false,
+        layout = "dwindle",
+    },
+
+    decoration = {
+        rounding = 0,
+        active_opacity = 0.97,
+        inactive_opacity = 0.88,
+        fullscreen_opacity = 1,
+        shadow = {
+            enabled = false,
+            range = 4,
+            render_power = 3,
+            color = 0xee1a1a1a,
+        },
+        blur = {
+            enabled = true,
+            passes = 2,
+        },
+    },
+
+    animations = {
+        enabled = true,
+    },
+
+    dwindle = {
+        preserve_split = true,
+    },
+
+    master = {
+        new_status = "master",
+    },
+
+    misc = {
+        force_default_wallpaper = 0,
+        disable_hyprland_logo = true,
+        background_color = 0x0a0e19,
+    },
+
+    binds = {
+        workspace_back_and_forth = false,
+        allow_workspace_cycles = false,
+    },
+})
+
+hl.curve("myBezier", { type = "bezier", points = { { 0.05, 0.9 }, { 0.1, 1.05 } } })
+
+hl.animation({ leaf = "windows", enabled = true, speed = 7, bezier = "myBezier" })
+hl.animation({ leaf = "windowsIn", enabled = true, speed = 7, bezier = "myBezier", style = "slide top" })
+hl.animation({ leaf = "windowsOut", enabled = true, speed = 7, bezier = "default", style = "popin 80%" })
+hl.animation({ leaf = "border", enabled = true, speed = 10, bezier = "default" })
+hl.animation({ leaf = "borderangle", enabled = true, speed = 8, bezier = "default" })
+hl.animation({ leaf = "fade", enabled = true, speed = 7, bezier = "default" })
+hl.animation({ leaf = "workspaces", enabled = true, speed = 6, bezier = "myBezier", style = "slidevert" })

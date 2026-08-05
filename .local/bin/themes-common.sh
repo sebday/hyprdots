@@ -88,9 +88,25 @@ install_theme_manifest() {
         mkdir -p "$config/mako"
         cp "$current/mako.ini" "$config/mako/config"
     fi
-    if [ -f "$current/hyprland.conf" ]; then
+    if [ -f "$current/colors.toml" ]; then
+        local accent accent_strip
         mkdir -p "$config/hypr"
-        cp "$current/hyprland.conf" "$config/hypr/theme.conf"
+        accent=$(toml_val accent "$current/colors.toml")
+        accent_strip="${accent#\#}"
+        cat > "$config/hypr/theme.lua" <<EOF
+hl.config({
+    general = {
+        col = {
+            active_border = "rgb(${accent_strip})",
+        },
+    },
+    group = {
+        col = {
+            border_active = "rgb(${accent_strip})",
+        },
+    },
+})
+EOF
     fi
     if [ -f "$current/btop.theme" ]; then
         mkdir -p "$config/btop/themes"

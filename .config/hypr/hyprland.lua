@@ -1,0 +1,7 @@
+require("input")
+require("looks")
+require("theme")
+require("monitors")
+require("windows")
+require("autostart")
+require("bindings")

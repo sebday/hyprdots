@@ -72,7 +72,7 @@
   "custom/btc": {
     "format": "{text}",
     "exec": "/home/seb/.local/bin/waybar-btc.sh",
-    "on-click": "xdg-open https://pro.kraken.com/app/trade/btc-usd",
+    "on-click": "xdg-open https://www.tradingview.com/symbols/BTCUSD/",
     "return-type": "json",
     "interval": 60,
     "tooltip": true
