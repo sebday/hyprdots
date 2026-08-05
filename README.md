@@ -67,10 +67,6 @@ Load the violentmonkey script from `.themes/shared/` and set it to auto-update.
 
 [![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/dracula/preview.png)](https://github.com/sebday/hyprdots/blob/master/.themes/dracula/preview.png)
 
-### Ethereal
-
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/ethereal/preview.png)](https://github.com/sebday/hyprdots/blob/master/.themes/ethereal/preview.png)
-
 ### Everforest
 
 [![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/everforest/preview.png)](https://github.com/sebday/hyprdots/blob/master/.themes/everforest/preview.png)
@@ -82,10 +78,6 @@ Load the violentmonkey script from `.themes/shared/` and set it to auto-update.
 ### Hackerman
 
 [![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/hackerman/preview.png)](https://github.com/sebday/hyprdots/blob/master/.themes/hackerman/preview.png)
-
-### Kanagwa
-
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/kanagawa/preview.png)](https://github.com/sebday/hyprdots/blob/master/.themes/kanagawa/preview.png)
 
 ### Matte Black
 
@@ -102,14 +94,6 @@ Load the violentmonkey script from `.themes/shared/` and set it to auto-update.
 ### Osaka Jade
 
 [![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/osaka-jade/preview.png)](https://github.com/sebday/hyprdots/blob/master/.themes/osaka-jade/preview.png)
-
-### Ristretto
-
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/ristretto/preview.png)](https://github.com/sebday/hyprdots/blob/master/.themes/ristretto/preview.png)
-
-### Solo
-
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/solo/preview.png)](https://github.com/sebday/hyprdots/blob/master/.themes/solo/preview.png)
 
 ### Tokyo Night
 
