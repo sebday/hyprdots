@@ -32,7 +32,6 @@ end)
 bindd("SUPER + J", "Toggle Split Direction", hl.dsp.layout("togglesplit"))
 bindd("SUPER + K", "Toggle Floating Window", hl.dsp.window.float({ action = "toggle" }))
 bindd("SUPER + L", "Lock Screen", hl.dsp.exec_cmd("hyprlock"))
-bindd("SUPER + C", "Calculator", hl.dsp.exec_cmd("qalculate-gtk"))
 bindd("SUPER + V", "Clipboard History", hl.dsp.exec_cmd("~/.local/bin/walker-launch.sh -m clipboard"))
 bindd("SUPER + ALT + V", "Emoji Picker", hl.dsp.exec_cmd("~/.local/bin/walker-launch.sh -m symbols"))
 
@@ -40,10 +39,8 @@ bindd("SUPER + ALT + V", "Emoji Picker", hl.dsp.exec_cmd("~/.local/bin/walker-la
 bindd("SUPER + 1", "Brave Browser", hl.dsp.exec_cmd(browser))
 bindd("SUPER + 2", "Brave Incognito", hl.dsp.exec_cmd(browser .. " --incognito"))
 bindd("SUPER + 3", "Brave Incognito", hl.dsp.exec_cmd(browser .. " --tor"))
-bindd("SUPER + 4", "Colour Picker", hl.dsp.exec_cmd("hyprpicker -al"))
-bindd("SUPER + 5", "Record Screen Region", hl.dsp.exec_cmd("~/.local/bin/hypr-record.sh"))
-bindd("SUPER + 6", "Record Fullscreen", hl.dsp.exec_cmd("~/.local/bin/hypr-record.sh --fullscreen"))
-bindd("SUPER + 7", "Edit hypr config", hl.dsp.exec_cmd(editor .. " ~/.config/hypr/looks.lua"))
+bindd("SUPER + 4", "Calculator", hl.dsp.exec_cmd("qalculate-gtk"))
+bindd("SUPER + 5", "Colour Picker", hl.dsp.exec_cmd("hyprpicker -al"))
 
 -- Switch workspaces with numpad keys
 bindd("SUPER + KP_End", "Workspace 1", hl.dsp.focus({ workspace = 1 }))
