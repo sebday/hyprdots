@@ -91,6 +91,11 @@ body,
     background: transparent !important;
 }
 
+#LeftColumn {
+    margin: 0 !important;
+    border-radius: 0 !important;
+}
+
 #MiddleColumn {
     --theme-background-color: var(--bg-primary) !important;
     --pattern-color: color-mix(in srgb, var(--text-accent) 35%, transparent) !important;
