@@ -5,7 +5,7 @@ auto_detect_launch_prefix = false
 before_load = []
 git_on_demand = true
 ignored_providers = []
-launch_prefix = 'hyprctl dispatch exec'
+launch_prefix = '/home/seb/.local/bin/hypr-launch.sh'
 overload_local_env = false
 terminal_cmd = ''
 
