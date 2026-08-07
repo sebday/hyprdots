@@ -85,4 +85,3 @@ mise
 python
 lazygit
 libyaml
-pass
