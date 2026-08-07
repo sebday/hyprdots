@@ -1,7 +1,13 @@
 #!/bin/bash
 # Waybar: Kraken BTC/USD price + unrealized P/L % on XXBT holdings.
 #
-# Credentials: pass show kraken/api-key, pass show kraken/secret
+# Credentials: ~/.config/waybar/secrets.env (KRAKEN_API_KEY, KRAKEN_SECRET)
+
+SECRETS_FILE="${HOME}/.config/waybar/secrets.env"
+if [[ -f "$SECRETS_FILE" ]]; then
+    # shellcheck disable=SC1090
+    source "$SECRETS_FILE"
+fi
 
 fmt_price() {
   awk -v p="$1" '
@@ -38,13 +44,9 @@ fi
 LAST=$(echo "$TICKER" | jq -r '.result | to_entries[0].value.c[0]')
 PRICE_S=$(fmt_price "$LAST")
 
-# --- Unrealized P/L % (Kraken private API, local pass creds) ---
-if ! KRAKEN_API_KEY=$(pass show kraken/api-key 2>/dev/null); then
-    KRAKEN_ERR="kraken/api-key not in pass"
-elif ! KRAKEN_SECRET=$(pass show kraken/secret 2>/dev/null); then
-    KRAKEN_ERR="kraken/secret not in pass"
-elif [[ -z "$KRAKEN_API_KEY" || -z "$KRAKEN_SECRET" ]]; then
-    KRAKEN_ERR="kraken pass entries are empty"
+# --- Unrealized P/L % (Kraken private API) ---
+if [[ -z "${KRAKEN_API_KEY:-}" || -z "${KRAKEN_SECRET:-}" ]]; then
+    KRAKEN_ERR="set KRAKEN_API_KEY and KRAKEN_SECRET in ~/.config/waybar/secrets.env"
 else
     KRAKEN_ERR=""
     export KRAKEN_API_KEY KRAKEN_SECRET

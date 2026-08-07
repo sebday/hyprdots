@@ -5,16 +5,19 @@ source "${HOME}/.local/bin/waybar-common.sh"
 # GitHub username
 USERNAME="sebday"
 
-# --- Token Validation ---
-if ! TOKEN=$(pass show github/token 2>/dev/null); then
-    echo '{"text": " Error", "tooltip": "GitHub token not found in pass (github/token)", "class": "error"}' >&2
-    echo '{"text": " Pass Err", "tooltip": "Run: pass insert github/token"}'
-    exit 1
+# Secrets: ~/.config/waybar/secrets.env (chmod 600), e.g. GITHUB_TOKEN=ghp_...
+SECRETS_FILE="${HOME}/.config/waybar/secrets.env"
+if [[ -f "$SECRETS_FILE" ]]; then
+    # shellcheck disable=SC1090
+    source "$SECRETS_FILE"
 fi
 
+TOKEN="${GITHUB_TOKEN:-}"
+
+# --- Token Validation ---
 if [[ -z "$TOKEN" ]]; then
-    echo '{"text": " Error", "tooltip": "GitHub token is empty in pass (github/token)", "class": "error"}' >&2
-    echo '{"text": " Empty Token Err", "tooltip": "Token is empty."}'
+    echo '{"text": " Error", "tooltip": "GITHUB_TOKEN missing. Add it to ~/.config/waybar/secrets.env (chmod 600)", "class": "error"}' >&2
+    echo '{"text": " Token Err", "tooltip": "Set GITHUB_TOKEN in ~/.config/waybar/secrets.env"}'
     exit 1
 fi
 

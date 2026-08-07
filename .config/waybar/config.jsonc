@@ -9,7 +9,7 @@
     "custom/shopify_diy",
     "custom/shopify_tgs",
     "custom/btc",
-    "custom/spacex"
+    "custom/spcx"
   ],
   "modules-center": [
     "hyprland/workspaces",
@@ -77,10 +77,10 @@
     "interval": 60,
     "tooltip": true
   },
-  "custom/spacex": {
+  "custom/spcx": {
     "format": "{text}",
-    "exec": "/home/seb/.local/bin/waybar-spacex.sh",
-    "on-click": "xdg-open https://www.nasdaq.com/market-activity/stocks/spcx",
+    "exec": "/home/seb/.local/bin/waybar-spcx.sh",
+    "on-click": "xdg-open https://app.trading212.com/",
     "return-type": "json",
     "interval": 60,
     "tooltip": true
