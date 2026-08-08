@@ -16,6 +16,6 @@ alias reports='(cd /home/seb/projects/ecommerce-reports && ruby bin/generate-rep
 
 # Git
 alias gcm='git commit -m'
-alias gcam='git commit -a -m'
+alias gcam='git add -A && git commit -m'
 alias gs='git status'
 alias master="git checkout master"

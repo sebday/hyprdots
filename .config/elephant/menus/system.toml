@@ -42,7 +42,7 @@ icon = "edit-clear"
 actions = { "menus:default" = "bash -lc 'exec \"$HOME/.local/bin/hypr-cleanup.sh\"'" }
 
 [[entries]]
-text = "Hypr backup"
+text = "Backup"
 icon = "document-save"
 keywords = ["backup", "projects", "env", "secrets", "hypr", "waybar"]
 actions = { "menus:default" = "bash -lc 'exec \"$HOME/.local/bin/hypr-backup.sh\"'" }
