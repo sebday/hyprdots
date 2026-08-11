@@ -3,6 +3,6 @@
   "id": "evo.clipboard",
   "name": "Clipboard",
   "version": "1.0.0",
-  "kinds": ["panel", "service"],
-  "entryPoints": { "panel": "Panel.qml", "service": "Service.qml" }
+  "kinds": ["service"],
+  "entryPoints": { "service": "Service.qml" }
 }

@@ -33,15 +33,14 @@ end)
 bindd("SUPER + J", "Toggle Split Direction", hl.dsp.layout("togglesplit"))
 bindd("SUPER + K", "Toggle Floating Window", hl.dsp.window.float({ action = "toggle" }))
 bindd("SUPER + L", "Lock Screen", hl.dsp.exec_cmd(bin .. "/evo-system-lock"))
-bindd("SUPER + V", "Clipboard History", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.clipboard"))
-bindd("SUPER + ALT + V", "Emoji Picker", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.emojis"))
+bindd("SUPER + C", "Calculator", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.panel '{\"module\":\"calc\"}'"))
+bindd("SUPER + V", "Clipboard History", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.panel '{\"module\":\"clipboard\"}'"))
+bindd("SUPER + P", "Colour Picker", hl.dsp.exec_cmd("hyprpicker -al"))
 
 -- Programs
 bindd("SUPER + 1", "Brave Browser", hl.dsp.exec_cmd(browser))
 bindd("SUPER + 2", "Brave Incognito", hl.dsp.exec_cmd(browser .. " --incognito"))
 bindd("SUPER + 3", "Brave Incognito", hl.dsp.exec_cmd(browser .. " --tor"))
-bindd("SUPER + 4", "Panel", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.panel"))
-bindd("SUPER + 5", "Colour Picker", hl.dsp.exec_cmd("hyprpicker -al"))
 
 -- Switch workspaces with numpad keys
 bindd("SUPER + KP_End", "Workspace 1", hl.dsp.focus({ workspace = 1 }))

@@ -1,14 +1,15 @@
 import Quickshell
 import Quickshell.Io
-import Quickshell.Wayland
 import QtQuick
-import "../../Commons"
+import QtQuick.Layouts
+import "../../../Commons"
 
 Item {
     id: root
 
+    property var panel: null
     property var shell: null
-    property bool opened: false
+
     property var entries: []
     property int selectedIndex: 0
     property int previewTick: 0
@@ -16,30 +17,13 @@ Item {
     readonly property string script: Quickshell.env("HOME") + "/.local/bin/evo-clipboard.sh"
     readonly property string previewDir: Quickshell.env("HOME") + "/.local/state/evo-shell/clipboard-previews"
     readonly property int listLimit: 30
-    readonly property int panelWidth: 780
-    readonly property int panelHeight: 420
-    readonly property int previewPaneWidth: 320
+    readonly property int historyFontSize: 13
+    readonly property bool active: panel && panel.opened && panel.activeModule === "clipboard"
 
     readonly property var selectedEntry: {
         if (selectedIndex < 0 || selectedIndex >= entries.length)
             return null
         return entries[selectedIndex]
-    }
-
-    function open(payloadJson) {
-        selectedIndex = 0
-        previewTick = 0
-        refresh()
-        opened = true
-    }
-
-    function dismiss() {
-        if (shell) shell.hide("evo.clipboard")
-        else close()
-    }
-
-    function close() {
-        opened = false
     }
 
     function refresh() {
@@ -101,11 +85,21 @@ Item {
 
     function copyId(id) {
         Quickshell.execDetached(["bash", root.script, "copy", String(id)])
-        dismiss()
+        if (panel) panel.dismiss()
     }
 
     function cachePreviews() {
         if (!cacheProc.running) cacheProc.running = true
+    }
+
+    function onActivated() {
+        selectedIndex = 0
+        previewTick = 0
+        refresh()
+        Qt.callLater(function() {
+            if (root.active)
+                focusSink.forceActiveFocus()
+        })
     }
 
     Process {
@@ -128,87 +122,81 @@ Item {
         onExited: root.previewTick++
     }
 
-    PanelWindow {
-        visible: root.opened
-        anchors { top: true; bottom: true; left: true; right: true }
-        color: "transparent"
-        WlrLayershell.namespace: "evo-clipboard"
-        WlrLayershell.layer: WlrLayer.Overlay
-        WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
-
-        Item {
-            anchors.fill: parent
-            focus: root.opened
-            Keys.onEscapePressed: root.dismiss()
-            Keys.onUpPressed: listView.decrementCurrentIndex()
-            Keys.onDownPressed: listView.incrementCurrentIndex()
-            Keys.onReturnPressed: {
-                if (listView.currentIndex >= 0 && listView.currentIndex < root.entries.length)
-                    root.copyId(root.entries[listView.currentIndex].id)
-            }
+    Item {
+        id: focusSink
+        anchors.fill: parent
+        focus: root.active
+        Keys.enabled: root.active
+        Keys.onEscapePressed: if (panel) panel.dismiss()
+        Keys.onUpPressed: listView.decrementCurrentIndex()
+        Keys.onDownPressed: listView.incrementCurrentIndex()
+        Keys.onReturnPressed: {
+            if (listView.currentIndex >= 0 && listView.currentIndex < root.entries.length)
+                root.copyId(root.entries[listView.currentIndex].id)
+        }
+        Keys.onEnterPressed: {
+            if (listView.currentIndex >= 0 && listView.currentIndex < root.entries.length)
+                root.copyId(root.entries[listView.currentIndex].id)
         }
 
-        Rectangle {
-            anchors.centerIn: parent
-            width: root.panelWidth
-            height: root.panelHeight
-            color: Theme.background
-            border.color: Theme.accent
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: 10
 
-            Row {
-                anchors.fill: parent
-                anchors.margins: 12
-                spacing: 12
+            FramedPanel {
+                label: "History"
+                contentFill: true
+                Layout.fillWidth: true
+                Layout.fillHeight: true
 
                 ListView {
                     id: listView
-                    width: parent.width - root.previewPaneWidth - parent.spacing
-                    height: parent.height
+                    anchors.fill: parent
                     clip: true
                     model: root.entries
                     currentIndex: root.selectedIndex
                     highlightFollowsCurrentItem: true
                     boundsBehavior: Flickable.StopAtBounds
-
                     onCurrentIndexChanged: root.selectedIndex = currentIndex
 
                     delegate: Rectangle {
                         required property var modelData
                         required property int index
                         width: ListView.view.width
-                        height: modelData.image ? 48 : 32
-                        color: ListView.isCurrentItem || mouseArea.containsMouse ? Theme.mantle : "transparent"
+                        height: modelData.image ? 44 : 30
+                        color: ListView.isCurrentItem || mouseArea.containsMouse ? Theme.panelMantle : "transparent"
+                        radius: 3
 
                         Row {
                             anchors.fill: parent
-                            anchors.margins: 6
+                            anchors.margins: 4
                             spacing: 8
 
                             Item {
-                                width: 36
+                                width: 32
                                 height: parent.height
-                                visible: modelData.image !== null && modelData.image !== undefined
+                                visible: !!modelData.image
 
                                 Image {
                                     anchors.centerIn: parent
-                                    width: 36
-                                    height: 36
+                                    width: 32
+                                    height: 32
                                     fillMode: Image.PreserveAspectFit
                                     source: root.previewUrlFor(modelData)
-                                    sourceSize: Qt.size(72, 72)
+                                    sourceSize: Qt.size(64, 64)
                                     asynchronous: true
                                     cache: false
                                 }
                             }
 
                             Text {
-                                width: parent.width - (modelData.image ? 44 : 0)
+                                width: parent.width - (modelData.image ? 40 : 0)
                                 height: parent.height
                                 verticalAlignment: Text.AlignVCenter
                                 text: modelData.label
                                 color: Theme.foreground
                                 font.family: Theme.fontFamily
-                                font.pixelSize: 12
+                                font.pixelSize: root.historyFontSize
                                 elide: Text.ElideRight
                             }
                         }
@@ -217,72 +205,85 @@ Item {
                             id: mouseArea
                             anchors.fill: parent
                             hoverEnabled: true
-                            onClicked: root.copyId(modelData.id)
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                listView.currentIndex = index
+                                root.copyId(modelData.id)
+                            }
                         }
                     }
                 }
 
-                Rectangle {
-                    width: root.previewPaneWidth
-                    height: parent.height
-                    color: Theme.mantle
-                    clip: true
-
-                    Image {
-                        id: previewImage
-                        anchors.centerIn: parent
-                        width: parent.width - 16
-                        height: parent.height - 16
-                        fillMode: Image.PreserveAspectFit
-                        asynchronous: true
-                        cache: false
-                        visible: root.selectedEntry && root.selectedEntry.image && status === Image.Ready
-                        source: root.previewUrlFor(root.selectedEntry)
-                        sourceSize: Qt.size(root.previewPaneWidth * 2, root.panelHeight * 2)
-                    }
-
-                    Text {
-                        anchors.fill: parent
-                        anchors.margins: 12
-                        visible: root.selectedEntry && !root.selectedEntry.image
-                        text: root.selectedEntry ? root.selectedEntry.text : ""
-                        wrapMode: Text.WordWrap
-                        clip: true
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: 12
-                        verticalAlignment: Text.AlignTop
-                    }
-
-                    Text {
-                        anchors.centerIn: parent
-                        visible: !root.selectedEntry
-                        text: "No clipboard history"
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: 12
-                        opacity: 0.6
-                    }
-
-                    Text {
-                        anchors.bottom: parent.bottom
-                        anchors.right: parent.right
-                        anchors.margins: 8
-                        visible: previewImage.visible && root.selectedEntry && root.selectedEntry.image
-                        text: root.selectedEntry.image.width + "×" + root.selectedEntry.image.height
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: 10
-                        opacity: 0.65
-                    }
+                Text {
+                    anchors.centerIn: parent
+                    visible: listView.count === 0
+                    text: "No clipboard history"
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.historyFontSize
+                    opacity: 0.5
                 }
             }
-        }
 
-        MouseArea {
-            anchors.fill: parent
-            z: -1
-            onClicked: root.dismiss()
+            FramedPanel {
+                label: "Preview"
+                contentFill: true
+                Layout.fillWidth: true
+                Layout.preferredHeight: 150
+                Layout.topMargin: 4
+
+                Image {
+                    id: previewImage
+                    anchors.centerIn: parent
+                    width: parent.width
+                    height: parent.height
+                    fillMode: Image.PreserveAspectFit
+                    asynchronous: true
+                    cache: false
+                    visible: root.selectedEntry && root.selectedEntry.image && status === Image.Ready
+                    source: root.previewUrlFor(root.selectedEntry)
+                    sourceSize: Qt.size(parent.width * 2, parent.height * 2)
+                }
+
+                Text {
+                    anchors.fill: parent
+                    visible: root.selectedEntry && !root.selectedEntry.image
+                    text: root.selectedEntry ? root.selectedEntry.text : ""
+                    wrapMode: Text.WordWrap
+                    clip: true
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 12
+                    verticalAlignment: Text.AlignTop
+                }
+
+                Text {
+                    anchors.centerIn: parent
+                    visible: !root.selectedEntry
+                    text: "Select an entry"
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 12
+                    opacity: 0.5
+                }
+
+                Text {
+                    anchors.bottom: parent.bottom
+                    anchors.right: parent.right
+                    visible: {
+                        var e = root.selectedEntry
+                        return previewImage.visible && e && e.image
+                    }
+                    text: {
+                        var e = root.selectedEntry
+                        return (e && e.image) ? (e.image.width + "×" + e.image.height) : ""
+                    }
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 10
+                    opacity: 0.65
+                }
+            }
         }
     }
 }

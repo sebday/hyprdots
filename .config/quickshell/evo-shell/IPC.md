@@ -29,6 +29,8 @@ Plugin-specific targets are registered by services:
 evo-shell-ipc shell ping
 evo-shell-ipc shell toggle evo.menu
 evo-shell-ipc shell toggle evo.menu '{"mode":"apps"}'
+evo-shell-ipc shell toggle evo.panel '{"module":"clipboard"}'
+evo-shell-ipc shell toggle evo.panel '{"module":"emojis"}'
 evo-shell-ipc shell call evo.lock lock
 evo-shell-ipc evo.audio stepUp
 evo-shell-ipc background next

@@ -14,22 +14,44 @@ Item {
     readonly property var modules: [
         { id: "calc", icon: "󰃬", title: "Calculator" },
         { id: "notes", icon: "󰠮", title: "Notes" },
+        { id: "clipboard", icon: "󰅌", title: "Clipboard" },
+        { id: "emojis", icon: "󰞅", title: "Emojis" },
         { id: "settings", icon: "󰒓", title: "Settings" }
     ]
 
+    function parseModule(payloadJson) {
+        if (!payloadJson) return ""
+        try {
+            var payload = JSON.parse(String(payloadJson))
+            if (payload && payload.module)
+                return String(payload.module)
+        } catch (e) {}
+        return ""
+    }
+
     function open(payloadJson) {
-        var nextModule = activeModule
-        if (payloadJson) {
-            try {
-                var payload = JSON.parse(String(payloadJson))
-                if (payload && payload.module)
-                    nextModule = String(payload.module)
-            } catch (e) {}
-        }
-        activeModule = moduleIds.indexOf(nextModule) >= 0 ? nextModule : "calc"
+        var nextModule = parseModule(payloadJson)
+        if (moduleIds.indexOf(nextModule) < 0)
+            nextModule = activeModule
+        if (moduleIds.indexOf(nextModule) < 0)
+            nextModule = "calc"
+        activeModule = nextModule
         dock.reveal()
         opened = true
         activateModule()
+    }
+
+    // Called by shell toggle when panel is already open. Returns true if we
+    // switched modules and stayed open; false means the shell should hide us.
+    function reopen(payloadJson) {
+        var nextModule = parseModule(payloadJson)
+        if (!nextModule || moduleIds.indexOf(nextModule) < 0)
+            return false
+        if (nextModule === activeModule)
+            return false
+        activeModule = nextModule
+        activateModule()
+        return true
     }
 
     function close() {
@@ -55,6 +77,10 @@ Item {
                 calcModule.onActivated()
             else if (activeModule === "notes" && notesModule)
                 notesModule.onActivated()
+            else if (activeModule === "clipboard" && clipboardModule)
+                clipboardModule.onActivated()
+            else if (activeModule === "emojis" && emojisModule)
+                emojisModule.onActivated()
             else if (activeModule === "settings" && settingsModule)
                 settingsModule.onActivated()
         })
@@ -92,6 +118,18 @@ Item {
 
             NotesModule {
                 id: notesModule
+                panel: root
+                shell: root.shell
+            }
+
+            ClipboardModule {
+                id: clipboardModule
+                panel: root
+                shell: root.shell
+            }
+
+            EmojisModule {
+                id: emojisModule
                 panel: root
                 shell: root.shell
             }

@@ -24,7 +24,7 @@ Read this before editing bar widgets, shell IPC, Hypr bindings, or `evo-bar-*` s
 
 - Quickshell config name: `evo-shell` → `quickshell -n -c evo-shell`
 - Plugin IDs: `evo.menu`, `evo.bar`, `evo.audio`, … (prefix `evo.`)
-- Wayland layer namespaces: `evo-bar`, `evo-menu`, `evo-clipboard`, `evo-emojis`, `evo-notifications`, `evo-background`
+- Wayland layer namespaces: `evo-bar`, `evo-menu`, `evo-panel`, `evo-notifications`, `evo-background`
 - Scripts: `evo-shell-ipc`, `evo-launch-shell`, `evo-bar-{name}.sh`
 
 ## Run, reload, debug
@@ -129,11 +129,11 @@ Use `theme.json` for colours and notification sizing only — not timing.
 shell.qml
 ├── pluginTable → services (background, audio, idle, lock, notifications)
 ├── Loader → plugins/bar/Bar.qml (from barConfig)
-├── Instantiator → menu, clipboard, emojis panels
+├── Instantiator → menu, panel
 └── IpcHandler target "shell"
 ```
 
-**Services** live in `plugins/*/Service.qml` (or `Background.qml`), registered in `pluginTable`, often `keepLoaded: true`.
+**Services** live in `plugins/*/Service.qml` (or `Background.qml`), registered in `pluginTable`, often `keepLoaded: true`. Clipboard watch remains `evo.clipboard` (service-only); clipboard/emojis UIs live in `evo.panel` modules.
 
 **Bar-only widgets** are **not** in `pluginTable`; mapped in `plugins/bar/Bar.qml` → `widgetComponentFor()`.
 
@@ -260,7 +260,7 @@ hl.exec_cmd(HOME .. "/.local/bin/evo-launch-shell")
 
 -- bindings.lua
 local shell_ipc = bin .. "/evo-shell-ipc"
--- evo.menu, evo.clipboard, evo.emojis, evo.audio, evo-system-lock, evo-wallpaper.sh
+-- evo.menu, evo.panel (clipboard/emojis modules), evo.audio, evo-system-lock, evo-wallpaper.sh
 
 -- apps/evo-shell.lua
 hl.layer_rule({ match = { namespace = "evo-bar" }, no_anim = true, animation = "none" })

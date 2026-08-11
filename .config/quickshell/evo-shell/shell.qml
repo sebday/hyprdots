@@ -35,8 +35,7 @@ ShellRoot {
         "evo.lock": { kinds: ["service"], path: "plugins/lock/Service.qml", keepLoaded: true },
         "evo.notifications": { kinds: ["service"], path: "plugins/notifications/Service.qml", keepLoaded: true },
         "evo.menu": { kinds: ["menu"], path: "plugins/menu/Menu.qml", keepLoaded: true },
-        "evo.clipboard": { kinds: ["panel", "service"], path: "plugins/clipboard/Panel.qml", servicePath: "plugins/clipboard/Service.qml", keepLoaded: true },
-        "evo.emojis": { kinds: ["panel"], path: "plugins/emojis/Panel.qml" },
+        "evo.clipboard": { kinds: ["service"], path: "plugins/clipboard/Service.qml", keepLoaded: true },
         "evo.panel": { kinds: ["panel"], path: "plugins/panel/Panel.qml", keepLoaded: true },
         "evo.bar": { kinds: ["bar"], path: "plugins/bar/Bar.qml" }
     })
@@ -141,7 +140,16 @@ ShellRoot {
     }
 
     function toggle(id, payloadJson) {
-        return isPluginOpen(id) ? hide(id) : summon(id, payloadJson)
+        var pluginId = String(id || "")
+        if (isPluginOpen(pluginId)) {
+            var loader = panelLoaders[pluginId]
+            if (payloadJson && loader && loader.item && typeof loader.item.reopen === "function") {
+                if (loader.item.reopen(payloadJson))
+                    return true
+            }
+            return hide(pluginId)
+        }
+        return summon(pluginId, payloadJson)
     }
 
     function isPluginOpen(id) {
@@ -206,7 +214,7 @@ ShellRoot {
         }
     }
 
-    readonly property var panelPluginIds: ["evo.menu", "evo.clipboard", "evo.emojis", "evo.panel"]
+    readonly property var panelPluginIds: ["evo.menu", "evo.panel"]
 
     Instantiator {
         model: shell.panelPluginIds
