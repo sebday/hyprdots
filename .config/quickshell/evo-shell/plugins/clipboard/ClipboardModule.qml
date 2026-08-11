@@ -13,6 +13,7 @@ Item {
     property var entries: []
     property int selectedIndex: 0
     property int previewTick: 0
+    property bool imagesOnly: false
 
     readonly property string script: Quickshell.env("HOME") + "/.local/bin/evo-clipboard.sh"
     readonly property string previewDir: Quickshell.env("HOME") + "/.local/state/evo-shell/clipboard-previews"
@@ -20,10 +21,33 @@ Item {
     readonly property int historyFontSize: 13
     readonly property bool active: host && host.opened === true
 
+    readonly property var visibleEntries: {
+        if (!imagesOnly) return entries
+        var out = []
+        for (var i = 0; i < entries.length; i++) {
+            if (entries[i] && entries[i].image)
+                out.push(entries[i])
+        }
+        return out
+    }
+
     readonly property var selectedEntry: {
-        if (selectedIndex < 0 || selectedIndex >= entries.length)
+        if (selectedIndex < 0 || selectedIndex >= visibleEntries.length)
             return null
-        return entries[selectedIndex]
+        return visibleEntries[selectedIndex]
+    }
+
+    function clampSelectedIndex() {
+        if (visibleEntries.length === 0) {
+            selectedIndex = 0
+            listView.currentIndex = -1
+            return
+        }
+        if (selectedIndex >= visibleEntries.length)
+            selectedIndex = visibleEntries.length - 1
+        if (selectedIndex < 0)
+            selectedIndex = 0
+        listView.currentIndex = selectedIndex
     }
 
     function dismissHost() {
@@ -104,6 +128,7 @@ Item {
 
     function onActivated() {
         selectedIndex = 0
+        imagesOnly = false
         previewTick = 0
         refresh()
         Qt.callLater(function() {
@@ -129,9 +154,7 @@ Item {
         stdout: StdioCollector {
             onStreamFinished: {
                 root.entries = root.parseList(text)
-                if (root.selectedIndex >= root.entries.length)
-                    root.selectedIndex = Math.max(0, root.entries.length - 1)
-                listView.currentIndex = root.selectedIndex
+                root.clampSelectedIndex()
                 root.cachePreviews()
             }
         }
@@ -152,12 +175,12 @@ Item {
         Keys.onUpPressed: listView.decrementCurrentIndex()
         Keys.onDownPressed: listView.incrementCurrentIndex()
         Keys.onReturnPressed: {
-            if (listView.currentIndex >= 0 && listView.currentIndex < root.entries.length)
-                root.copyId(root.entries[listView.currentIndex].id)
+            if (listView.currentIndex >= 0 && listView.currentIndex < root.visibleEntries.length)
+                root.copyId(root.visibleEntries[listView.currentIndex].id)
         }
         Keys.onEnterPressed: {
-            if (listView.currentIndex >= 0 && listView.currentIndex < root.entries.length)
-                root.copyId(root.entries[listView.currentIndex].id)
+            if (listView.currentIndex >= 0 && listView.currentIndex < root.visibleEntries.length)
+                root.copyId(root.visibleEntries[listView.currentIndex].id)
         }
 
         ColumnLayout {
@@ -174,7 +197,7 @@ Item {
                     id: listView
                     anchors.fill: parent
                     clip: true
-                    model: root.entries
+                    model: root.visibleEntries
                     currentIndex: root.selectedIndex
                     highlightFollowsCurrentItem: true
                     boundsBehavior: Flickable.StopAtBounds
@@ -238,7 +261,7 @@ Item {
                 Text {
                     anchors.centerIn: parent
                     visible: listView.count === 0
-                    text: "No clipboard history"
+                    text: root.imagesOnly ? "No images in clipboard history" : "No clipboard history"
                     color: Theme.foreground
                     font.family: Theme.fontFamily
                     font.pixelSize: root.historyFontSize
@@ -306,29 +329,63 @@ Item {
                 }
             }
 
-            Item {
+            RowLayout {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 28
                 Layout.topMargin: 2
-                opacity: root.entries.length === 0 || clearProc.running ? 0.35 : 1
+                spacing: 16
 
-                Text {
-                    anchors.centerIn: parent
-                    text: "Clear history"
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: 12
-                    font.bold: Theme.fontBold
-                    opacity: clearMouse.containsMouse ? 1 : 0.72
+                Item {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 28
+                    opacity: root.visibleEntries.length === 0 && !root.imagesOnly ? 0.35 : 1
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: "Images only"
+                        color: root.imagesOnly ? Theme.accent : Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: 12
+                        font.bold: Theme.fontBold
+                        opacity: imagesMouse.containsMouse || root.imagesOnly ? 1 : 0.72
+                    }
+
+                    MouseArea {
+                        id: imagesMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        enabled: root.entries.length > 0
+                        onClicked: {
+                            root.imagesOnly = !root.imagesOnly
+                            root.clampSelectedIndex()
+                        }
+                    }
                 }
 
-                MouseArea {
-                    id: clearMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    enabled: root.entries.length > 0 && !clearProc.running
-                    onClicked: root.clearHistory()
+                Item {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 28
+                    opacity: root.entries.length === 0 || clearProc.running ? 0.35 : 1
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: "Clear history"
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: 12
+                        font.bold: Theme.fontBold
+                        opacity: clearMouse.containsMouse ? 1 : 0.72
+                    }
+
+                    MouseArea {
+                        id: clearMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        enabled: root.entries.length > 0 && !clearProc.running
+                        onClicked: root.clearHistory()
+                    }
                 }
             }
         }

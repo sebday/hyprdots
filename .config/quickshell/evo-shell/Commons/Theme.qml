@@ -72,7 +72,7 @@ Singleton {
     readonly property int sparklineChartMargin: 10
     readonly property int sparklineHeight: 12
     readonly property int sparklineBarWidth: 3
-    readonly property int sparklineWideBarWidth: 6
+    readonly property int sparklineWideBarWidth: 8
     readonly property int sparklineCellSize: 7
     readonly property int sparklineBarSpacing: 1
     readonly property int sparklineExpandedHeight: 52

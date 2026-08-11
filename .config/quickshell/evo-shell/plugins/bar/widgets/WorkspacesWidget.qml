@@ -6,29 +6,20 @@ Row {
     property var bar: null
     property var settings: ({})
 
-    readonly property var visibleWorkspaces: {
-        var out = []
-        var all = Hyprland.workspaces || []
-        for (var i = 0; i < all.length; i++) {
-            var ws = all[i]
-            if (!ws) continue
-            var id = Number(ws.id)
-            if (!isFinite(id) || id <= 0) continue
-            out.push(ws)
-        }
-        out.sort(function(a, b) { return Number(a.id) - Number(b.id) })
-        return out
-    }
-
     spacing: 4
     height: Theme.barHeight
 
     Repeater {
-        model: visibleWorkspaces
+        model: Hyprland.workspaces
 
         Item {
             required property var modelData
-            width: wsLabel.implicitWidth + 8
+
+            readonly property int workspaceId: modelData ? Number(modelData.id) : 0
+            readonly property bool workspaceVisible: isFinite(workspaceId) && workspaceId > 0
+
+            visible: workspaceVisible
+            width: workspaceVisible ? wsLabel.implicitWidth + 8 : 0
             height: Theme.barHeight
 
             Text {
@@ -43,6 +34,7 @@ Row {
 
             MouseArea {
                 anchors.fill: parent
+                enabled: workspaceVisible
                 onClicked: if (modelData) Hyprland.dispatch("workspace " + modelData.id)
             }
         }
