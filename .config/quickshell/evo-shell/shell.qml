@@ -260,4 +260,22 @@ ShellRoot {
     Component.onCompleted: {
         applyShellConfig()
     }
+
+    Connections {
+        target: Quickshell
+
+        function onReloadCompleted() {
+            Quickshell.inhibitReloadPopup()
+            var notif = shell.serviceFor("evo.notifications")
+            if (notif && typeof notif.showBrief === "function")
+                notif.showBrief("evo-shell", "reloaded")
+        }
+
+        function onReloadFailed() {
+            Quickshell.inhibitReloadPopup()
+            var notif = shell.serviceFor("evo.notifications")
+            if (notif && typeof notif.showBrief === "function")
+                notif.showBrief("evo-shell", "reload failed")
+        }
+    }
 }

@@ -23,10 +23,10 @@ Scope {
         return ""
     }
 
-    readonly property var popupScreen: {
+    function screenForOutput(outputName) {
         var screens = Quickshell.screens
         if (!screens || screens.length === 0) return null
-        var output = barOutput
+        var output = String(outputName || "").trim()
         if (!output) return screens[0]
         for (var i = 0; i < screens.length; i++) {
             var s = screens[i]
@@ -35,8 +35,11 @@ Scope {
         return screens[0]
     }
 
+    readonly property var popupScreen: screenForOutput(barOutput || "HDMI-A-1")
+
     NotificationServer {
         id: server
+        keepOnReload: false
         bodySupported: true
         imageSupported: true
         actionsSupported: true
@@ -95,7 +98,7 @@ Scope {
     function popupTitle(entry) {
         if (!entry) return ""
         if (entry.local) return String(entry.title || "")
-        if (entry.notification) return String(entry.notification.title || "")
+        if (entry.notification) return String(entry.notification.summary || entry.notification.title || "")
         return ""
     }
 
@@ -142,7 +145,7 @@ Scope {
             required property int index
 
             screen: root.popupScreen
-            color: Theme.background
+            color: "transparent"
             implicitWidth: Theme.notificationWidth
             implicitHeight: Math.max(Theme.notificationStackSlot - popupGap, card.height)
 
@@ -163,7 +166,7 @@ Scope {
 
                 Rectangle {
                     anchors.fill: parent
-                    color: Theme.background
+                    color: Theme.panelBackground
                     border.color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.55)
                     border.width: 1
                 }

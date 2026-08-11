@@ -67,7 +67,12 @@ Item {
     readonly property int cellSpacing: 6
     readonly property int emojiFontSize: 30
 
+    readonly property var displayEmojis: UsageMemory.sortByUsage(
+        allEmojis, "emojis", function(e) { return e }, function(e) { return e }
+    )
+
     function open(payloadJson) {
+        UsageMemory.reload()
         opened = true
     }
 
@@ -81,6 +86,7 @@ Item {
     }
 
     function pick(emoji) {
+        UsageMemory.bump("emojis", emoji)
         Quickshell.execDetached(["bash", "-lc", "printf '%s' " + Util.shellQuote(emoji) + " | wl-copy"])
         dismiss()
     }
@@ -127,7 +133,7 @@ Item {
                     spacing: root.cellSpacing
 
                     Repeater {
-                        model: root.allEmojis
+                        model: root.displayEmojis
 
                         Item {
                             required property var modelData

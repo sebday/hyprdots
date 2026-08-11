@@ -7,7 +7,7 @@ set -euo pipefail
 pkill -x hyprpaper 2>/dev/null || true
 
 run_shell() {
-    systemd-cat -t evo-shell -- quickshell -n -c evo-shell &
+    systemd-cat -t evo-shell -- env QS_NO_RELOAD_POPUP=1 quickshell -n -c evo-shell &
     shell_pid=$!
 
     local status

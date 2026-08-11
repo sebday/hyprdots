@@ -96,6 +96,7 @@ Item {
         }
         filterText = ""
         selectedIndex = 0
+        UsageMemory.reload()
         refreshCommandEntries()
         if (submenu) loadDynamicEntries(submenu)
         else dynamicEntries = []
@@ -266,7 +267,12 @@ Item {
         } catch (e) {
             console.warn("evo.menu app list failed:", e)
         }
-        list.sort(function(a, b) { return a.name.localeCompare(b.name) })
+        list.sort(function(a, b) {
+            var sa = UsageMemory.score("apps", a.id)
+            var sb = UsageMemory.score("apps", b.id)
+            if (sa !== sb) return sb - sa
+            return a.name.localeCompare(b.name)
+        })
         return list
     }
 
@@ -295,7 +301,7 @@ Item {
                 else if (app.name.toLowerCase().indexOf(q.toLowerCase()) !== -1 || app.id.toLowerCase().indexOf(q.toLowerCase()) !== -1)
                     out.push(app)
             }
-            return out
+            return UsageMemory.sortByUsage(out, "apps", function(e) { return e.id }, function(e) { return e.name })
         }
         if (mode === "power" || mode === "system") {
             return MenuEntries.filterEntries(commandEntries, q, 16).map(MenuEntries.mapEntry)
@@ -313,6 +319,7 @@ Item {
     function activateEntry(entry) {
         if (!entry) return
         if (entry.kind === "app") {
+            UsageMemory.bump("apps", entry.id)
             if (entry.entryRef && typeof entry.entryRef.execute === "function")
                 entry.entryRef.execute()
             else

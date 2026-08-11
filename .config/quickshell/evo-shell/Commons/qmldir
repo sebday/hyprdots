@@ -1,5 +1,6 @@
 module Commons
 singleton Theme 1.0 Theme.qml
 singleton Util 1.0 Util.qml
+singleton UsageMemory 1.0 UsageMemory.qml
 LeftDockPanel 1.0 LeftDockPanel.qml
 FramedPanel 1.0 FramedPanel.qml
