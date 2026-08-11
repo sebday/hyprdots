@@ -13,7 +13,7 @@ Read this before editing bar widgets, shell IPC, Hypr bindings, or `evo-bar-*` s
 | `~/.local/bin/evo-*` | Launch, IPC, bar data scripts |
 | `~/.config/hypr/autostart.lua` | Starts `evo-launch-shell` |
 | `~/.config/hypr/bindings.lua` | Keybinds → `evo-shell-ipc` |
-| `~/.config/hypr/apps/evo-shell.lua` | Layer rules for `evo-*` namespaces |
+| `~/.config/hypr/evo-shell.lua` | Layer rules for `evo-*` namespaces |
 | `~/.local/state/evo-shell/wallpaper` | Current wallpaper path |
 
 **Legacy (do not use for new work):**
@@ -144,7 +144,7 @@ Fixed left-side panels that reserve screen width via `exclusiveZone` (windows sh
 ```qml
 LeftDockPanel {
     id: dock
-    layerNamespace: "evo-mytool"   // add to hypr/apps/evo-shell.lua layer rules
+    layerNamespace: "evo-mytool"   // add to hypr/evo-shell.lua layer rules
     title: "My tool"                // optional header
 
     // children go into the panel body; use Layout.* attached properties
@@ -262,7 +262,7 @@ hl.exec_cmd(HOME .. "/.local/bin/evo-launch-shell")
 local shell_ipc = bin .. "/evo-shell-ipc"
 -- evo.menu, evo.panel (clipboard/emojis modules), evo.audio, evo-system-lock, evo-wallpaper.sh
 
--- apps/evo-shell.lua
+-- evo-shell.lua
 hl.layer_rule({ match = { namespace = "evo-bar" }, no_anim = true, animation = "none" })
 ```
 

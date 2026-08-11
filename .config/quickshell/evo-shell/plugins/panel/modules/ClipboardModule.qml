@@ -92,6 +92,11 @@ Item {
         if (!cacheProc.running) cacheProc.running = true
     }
 
+    function clearHistory() {
+        if (entries.length === 0 || clearProc.running) return
+        clearProc.running = true
+    }
+
     function onActivated() {
         selectedIndex = 0
         previewTick = 0
@@ -100,6 +105,17 @@ Item {
             if (root.active)
                 focusSink.forceActiveFocus()
         })
+    }
+
+    Process {
+        id: clearProc
+        command: ["bash", root.script, "clear"]
+        onExited: {
+            root.entries = []
+            root.selectedIndex = 0
+            root.previewTick++
+            root.refresh()
+        }
     }
 
     Process {
@@ -282,6 +298,32 @@ Item {
                     font.family: Theme.fontFamily
                     font.pixelSize: 10
                     opacity: 0.65
+                }
+            }
+
+            Item {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 28
+                Layout.topMargin: 2
+                opacity: root.entries.length === 0 || clearProc.running ? 0.35 : 1
+
+                Text {
+                    anchors.centerIn: parent
+                    text: "Clear history"
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 12
+                    font.bold: Theme.fontBold
+                    opacity: clearMouse.containsMouse ? 1 : 0.72
+                }
+
+                MouseArea {
+                    id: clearMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    enabled: root.entries.length > 0 && !clearProc.running
+                    onClicked: root.clearHistory()
                 }
             }
         }

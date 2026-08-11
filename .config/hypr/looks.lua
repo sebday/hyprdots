@@ -34,7 +34,7 @@ hl.config({
     },
 
     animations = {
-        enabled = true,
+        enabled = false,
     },
 
     dwindle = {
@@ -98,11 +98,21 @@ do
                 general.gaps_out = gap_out
             end
 
+            local animations = nil
+            if data.animationsOn == true then
+                animations = { enabled = true }
+            elseif data.animationsOn == false then
+                animations = { enabled = false }
+            end
+
             if next(decoration) then
                 updates.decoration = decoration
             end
             if next(general) then
                 updates.general = general
+            end
+            if animations then
+                updates.animations = animations
             end
             if next(updates) then
                 hl.config(updates)

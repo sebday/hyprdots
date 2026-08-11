@@ -16,6 +16,7 @@ Item {
 
     property bool roundingOn: false
     property bool gapsOn: false
+    property bool animationsOn: false
     property bool barOnDp1Top: false
     property bool panelOnRight: false
     property bool hyprReady: false
@@ -54,6 +55,7 @@ Item {
             var data = JSON.parse(String(raw || "{}"))
             root.roundingOn = data.roundingOn === true
             root.gapsOn = data.gapsOn === true
+            root.animationsOn = data.animationsOn === true
             root.hyprReady = true
         } catch (e) {
             root.hyprReady = false
@@ -157,6 +159,15 @@ Item {
                     checked: root.gapsOn
                     enabled: root.hyprReady && !hyprToggleProc.running
                     onToggled: root.toggleHypr("gaps")
+                }
+
+                ToggleRow {
+                    width: parent.width
+                    label: "Animations"
+                    detail: "Window / workspace motion"
+                    checked: root.animationsOn
+                    enabled: root.hyprReady && !hyprToggleProc.running
+                    onToggled: root.toggleHypr("animations")
                 }
             }
         }

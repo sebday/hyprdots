@@ -108,14 +108,21 @@ cache_previews() {
     done < <(cliphist list 2>/dev/null | head -n "$limit")
 }
 
+clear_history() {
+    cliphist wipe
+    rm -rf "$PREVIEW_DIR"
+    mkdir -p "$PREVIEW_DIR"
+}
+
 case "${1:-}" in
 watch) watch ;;
 list) list_entries "${2:-$LIMIT_DEFAULT}" ;;
 copy) copy_id "${2:-}" ;;
 preview) preview_file "${2:-}" ;;
 cache-previews) cache_previews "${2:-$LIMIT_DEFAULT}" ;;
+clear) clear_history ;;
 *)
-    echo "usage: evo-clipboard.sh watch|list [n]|copy <id>|preview <id>|cache-previews [n]" >&2
+    echo "usage: evo-clipboard.sh watch|list [n]|copy <id>|preview <id>|cache-previews [n]|clear" >&2
     exit 1
     ;;
 esac

@@ -11,14 +11,17 @@ Item {
     property string side: "left"
     property bool opened: false
     property bool shown: false
+    property bool pinned: false
     property string title: ""
     property bool showCloseButton: false
+    property bool showPinButton: false
     property int contentSpacing: 10
     property int contentMargin: 12
 
     readonly property bool onRight: side === "right"
 
     signal closeRequested()
+    signal pinRequested()
 
     default property alias content: contentLayout.children
 
@@ -29,6 +32,7 @@ Item {
 
     function conceal() {
         opened = false
+        shown = false
     }
 
     PanelWindow {
@@ -39,21 +43,11 @@ Item {
         anchors.right: dock.onRight
         implicitWidth: dock.panelWidth
         color: Theme.panelBackground
-        exclusiveZone: dock.opened ? dock.panelWidth : 0
-        exclusionMode: ExclusionMode.Normal
+        exclusiveZone: (dock.opened && dock.pinned) ? dock.panelWidth : 0
+        exclusionMode: dock.pinned ? ExclusionMode.Normal : ExclusionMode.Ignore
         WlrLayershell.namespace: dock.layerNamespace
         WlrLayershell.layer: WlrLayer.Top
         WlrLayershell.keyboardFocus: dock.opened ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
-
-        Behavior on exclusiveZone {
-            NumberAnimation {
-                duration: 200
-                easing.type: Easing.OutCubic
-                onRunningChanged: {
-                    if (!running && !dock.opened) dock.shown = false
-                }
-            }
-        }
 
         ColumnLayout {
             id: contentLayout
@@ -72,33 +66,62 @@ Item {
             }
         }
 
-        Item {
+        Row {
+            id: chromeButtons
             anchors.top: parent.top
             anchors.right: parent.right
             anchors.topMargin: dock.contentMargin - 2
             anchors.rightMargin: dock.contentMargin - 4
-            width: 28
-            height: 28
-            visible: dock.showCloseButton
+            spacing: 2
             z: 1
+            visible: dock.showCloseButton || dock.showPinButton
 
-            Text {
-                id: closeIcon
-                anchors.centerIn: parent
-                text: "󰅖"
-                color: Theme.foreground
-                font.family: Theme.fontFamily
-                font.pixelSize: 16
-                font.bold: Theme.fontBold
-                opacity: closeMouse.containsMouse ? 1 : 0.65
+            Item {
+                width: 28
+                height: 28
+                visible: dock.showPinButton
+
+                Text {
+                    anchors.centerIn: parent
+                    text: dock.pinned ? "󰐃" : "󰤱"
+                    color: dock.pinned ? Theme.accent : Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 16
+                    font.bold: Theme.fontBold
+                    opacity: pinMouse.containsMouse || dock.pinned ? 1 : 0.65
+                }
+
+                MouseArea {
+                    id: pinMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: dock.pinRequested()
+                }
             }
 
-            MouseArea {
-                id: closeMouse
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: dock.closeRequested()
+            Item {
+                width: 28
+                height: 28
+                visible: dock.showCloseButton
+
+                Text {
+                    anchors.centerIn: parent
+                    text: "󰅖"
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 16
+                    font.bold: Theme.fontBold
+                    opacity: closeMouse.containsMouse ? 1 : 0.65
+                }
+
+                MouseArea {
+                    id: closeMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: dock.closeRequested()
+                }
             }
         }
     }

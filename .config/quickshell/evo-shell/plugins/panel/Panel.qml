@@ -1,4 +1,5 @@
 import Quickshell
+import Quickshell.Io
 import QtQuick
 import QtQuick.Layouts
 import "../../Commons"
@@ -10,6 +11,9 @@ Item {
     property var shell: null
     property bool opened: false
     property string activeModule: "calc"
+    property bool pinned: false
+
+    readonly property string layoutScript: Quickshell.env("HOME") + "/.local/bin/evo-panel-layout.sh"
 
     readonly property var modules: [
         { id: "calc", icon: "󰃬", title: "Calculator" },
@@ -29,7 +33,13 @@ Item {
         return ""
     }
 
+    function syncPinnedFromConfig() {
+        var panel = shell && shell.shellConfig && shell.shellConfig.panel
+        pinned = !!(panel && panel.pinned === true)
+    }
+
     function open(payloadJson) {
+        syncPinnedFromConfig()
         var nextModule = parseModule(payloadJson)
         if (moduleIds.indexOf(nextModule) < 0)
             nextModule = activeModule
@@ -64,6 +74,19 @@ Item {
         else close()
     }
 
+    function togglePinned() {
+        if (pinToggleProc.running) return
+        pinned = !pinned
+        pinToggleProc.running = true
+    }
+
+    function parsePinState(raw) {
+        try {
+            var data = JSON.parse(String(raw || "{}"))
+            pinned = data.panelPinned === true
+        } catch (e) {}
+    }
+
     readonly property var moduleIds: modules.map(function(m) { return m.id })
 
     readonly property string panelSide: {
@@ -86,12 +109,32 @@ Item {
         })
     }
 
+    Process {
+        id: pinToggleProc
+        command: ["bash", root.layoutScript, "toggle-pin"]
+        stdout: StdioCollector {
+            onStreamFinished: root.parsePinState(text)
+        }
+    }
+
+    Connections {
+        target: root.shell
+        function onShellConfigChanged() {
+            root.syncPinnedFromConfig()
+        }
+    }
+
+    Component.onCompleted: syncPinnedFromConfig()
+
     LeftDockPanel {
         id: dock
         layerNamespace: "evo-panel"
         side: root.panelSide
+        pinned: root.pinned
         showCloseButton: true
+        showPinButton: true
         onCloseRequested: root.dismiss()
+        onPinRequested: root.togglePinned()
 
         DockModuleBar {
             Layout.fillWidth: true
