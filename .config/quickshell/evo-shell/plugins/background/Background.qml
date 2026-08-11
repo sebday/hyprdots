@@ -20,10 +20,8 @@ Item {
     property bool wallpaperSkipFade: false
 
     readonly property string defaultWallpaperCommand: [
-        "theme=$(tr -d '\\n' < " + Util.shellQuote(themeNamePath) + " 2>/dev/null || true)",
-        "if [[ -n \"$theme\" ]]; then",
-        "  printf '%s' " + Util.shellQuote(home + "/.themes/current/backgrounds/1-evo8-") + "\"${theme}.png\"",
-        "fi"
+        "dir=" + Util.shellQuote(home + "/.themes/current/backgrounds"),
+        "find \"$dir\" -maxdepth 1 -type f \\( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \\) 2>/dev/null | sort | head -n1"
     ].join("\n")
 
     readonly property string cycleScriptBody: [

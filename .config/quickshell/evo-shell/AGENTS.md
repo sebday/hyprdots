@@ -231,7 +231,25 @@ Colours are read live from `theme.json` via `FileView`. Bar scripts read heatmap
 | `sparklineBarWidth` / `sparklineBarSpacing` | Native bar charts |
 | `fontFamily` | `CaskaydiaMono Nerd Font`, bold |
 
-`themes-apply.sh` calls `evo-shell-ipc shell reloadConfig` after theme switch.
+`themes-apply.sh` updates live consumers without `reloadConfig`: `Theme.qml` watches `theme.json`, wallpaper changes go through `evo.background` IPC, and `~/.cache/evo-shell/bar/` is cleared so heatmap JSON cannot retain stale colours.
+
+### Theme switcher (`themes-apply.sh`)
+
+Pipeline: **build** (staging under `~/.themes/next`) → **promote** (atomic swap to `current`) → **activate** (Hypr `theme.lua`, `theme.json`, GTK, wallpaper, icons, editor theme) → **notify** (Ghostty reload, `hyprctl reload`, preview warm, btop, post-switch hook).
+
+| Output | Notes |
+|--------|--------|
+| `theme.json` | Written from `colors.toml`; `Theme.qml` reloads live |
+| `~/.themes/current/evo-bar.css` | Bar heatmap colours |
+| `~/.config/hypr/theme.lua` | Hypr border colours |
+| GTK / Ghostty / btop / vscode-theme / Obsidian / browser CSS | Generated in staging, activated after promote |
+
+Browser CSS (`colors.css`, `shoelace-hex.css`) is served from `~/.themes/current/` via darkhttpd on port 8008 for the Violentmonkey userscript in `~/.themes/shared/violentmonkey.js`. Site-specific CSS lives in `~/.themes/shared/css/`.
+| Wallpaper | First lexicographically sorted image in `backgrounds/` (`1-` prefix promotes default) |
+
+**Manual setters:** `themes-set-obsidian.sh`, `themes-set-gtk.sh`, `themes-set-vscode.sh`, `themes-set-icons.sh`, `themes-hook-post-switch` (Obsidian also syncs automatically on theme switch).
+
+**Menu previews:** `evo-menu-list-previews.sh` (fast TSV listing), `evo-menu-preview-warm.sh` (thumbnail writer on startup and after switch; prunes orphan cache). Preview tiles use `cache: false` so regenerated thumbs appear without shell restart.
 
 ## Quickshell patterns
 

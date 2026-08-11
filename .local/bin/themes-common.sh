@@ -36,17 +36,14 @@ theme_display_name() {
     printf '%s' "${display_name% }"
 }
 
-# Default wallpaper for current theme: prefer backgrounds/1-* then first sorted image.
+# Default wallpaper: first lexicographically sorted image in backgrounds/ (1- prefix promotes default).
 themes_default_wallpaper() {
     local dir="${CURRENT_PATH:-$THEME_DIR/current}/backgrounds"
     local candidate
     [ -d "$dir" ] || return 1
-    candidate=$(find "$dir" -maxdepth 1 -type f \( -iname '1-*' \) 2>/dev/null | sort | head -n1)
-    if [ -n "$candidate" ]; then
-        printf '%s' "$candidate"
-        return 0
-    fi
-    candidate=$(find "$dir" -maxdepth 1 -type f 2>/dev/null | sort | head -n1)
+    candidate=$(find "$dir" -maxdepth 1 -type f \
+        \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) \
+        2>/dev/null | sort | head -n1)
     [ -n "$candidate" ] || return 1
     printf '%s' "$candidate"
 }
@@ -66,7 +63,7 @@ process_theme_templates() {
     local toml="$theme_dir/colors.toml"
     [ -f "$toml" ] || return 0
 
-    local sed_script key value hex icon_path filename tpl output
+    local sed_script key value hex filename tpl output
     sed_script=$(mktemp)
     while IFS='=' read -r key value; do
         key="${key//[\"\' ]/}"
@@ -81,16 +78,46 @@ process_theme_templates() {
         fi
     done < "$toml"
 
-    icon_path=$(theme_icon_path_for_dir "$theme_dir")
-    printf 's|{{ icon_path }}|%s|g\n' "$icon_path" >> "$sed_script"
-
     for tpl in "$TEMPLATES_DIR"/*.tpl; do
         [ -f "$tpl" ] || continue
         filename=$(basename "$tpl" .tpl)
+        [ "$filename" = "obsidian.css" ] && continue
+        [ "$filename" = "colors.css" ] && continue
+        [ "$filename" = "shoelace-hex.css" ] && continue
         output="$theme_dir/$filename"
-        [ -f "$output" ] && [ "$filename" != "shoelace-hex.css" ] && continue
+        [ -f "$output" ] && continue
         sed -f "$sed_script" "$tpl" > "$output"
     done
+    rm -f "$sed_script"
+}
+
+# Generate a single template output (always overwrites).
+process_theme_template() {
+    local theme_dir="$1"
+    local basename="$2"
+    [ -n "$theme_dir" ] || return 1
+    [ -n "$basename" ] || return 1
+    local toml="$theme_dir/colors.toml"
+    local tpl="$TEMPLATES_DIR/${basename}.tpl"
+    [ -f "$toml" ] || return 1
+    [ -f "$tpl" ] || return 1
+
+    local sed_script key value hex output
+    sed_script=$(mktemp)
+    while IFS='=' read -r key value; do
+        key="${key//[\"\' ]/}"
+        [[ $key && $key != \#* ]] || continue
+        value="${value#*[\"\']}"
+        value="${value%%[\"\']*}"
+        printf 's|{{ %s }}|%s|g\n' "$key" "$value" >> "$sed_script"
+        printf 's|{{ %s_strip }}|%s|g\n' "$key" "${value#\#}" >> "$sed_script"
+        if [[ $value =~ ^# ]]; then
+            hex="${value#\#}"
+            printf 's|{{ %s_rgb }}|%d,%d,%d|g\n' "$key" "$(( 0x${hex:0:2} ))" "$(( 0x${hex:2:2} ))" "$(( 0x${hex:4:2} ))" >> "$sed_script"
+        fi
+    done < "$toml"
+    output="$theme_dir/$basename"
+    sed -f "$sed_script" "$tpl" > "$output"
     rm -f "$sed_script"
 }
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Global UI/editor font for evo panel settings.
-# Applies to GTK, evo-shell theme.json, Ghostty (editor size), and Cursor/VS Code.
+# Applies to GTK, evo-shell theme.json, Ghostty (UI size), and Cursor/VS Code (editor size).
 
 set -euo pipefail
 
@@ -281,7 +281,7 @@ apply_all() {
     local editor_size="$3"
     apply_gtk "$family" "$ui_size"
     apply_evo_shell "$family" "$ui_size"
-    apply_ghostty "$family" "$editor_size"
+    apply_ghostty "$family" "$ui_size"
     apply_editors "$family" "$editor_size"
 }
 
@@ -295,6 +295,12 @@ get)
     ;;
 list)
     list_families
+    ;;
+apply-gtk)
+    state="$(read_state)"
+    family="$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['family'])" "$state")"
+    ui_size="$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['uiSize'])" "$state")"
+    apply_gtk "$family" "$ui_size"
     ;;
 apply)
     state="$(read_state)"

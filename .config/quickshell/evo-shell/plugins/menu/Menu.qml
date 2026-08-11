@@ -149,7 +149,6 @@ Item {
         refreshCommandEntries()
         if (submenu) loadDynamicEntries(submenu)
         else dynamicEntries = []
-        if (mode === "system" && !submenu) warmPreviewCache()
         hostScreen = resolveHostScreen()
         opened = true
         Qt.callLater(function() {
@@ -412,28 +411,15 @@ Item {
     function loadDynamicEntries(kind) {
         dynamicLoading = true
         dynamicEntries = []
-        var script = ""
-        var thumbScript = home + "/.local/bin/evo-menu-preview-thumb.sh"
-        if (kind === "wallpaper") {
-            script = "THUMB=" + Util.shellQuote(thumbScript) + "; " +
-                "dir=\"$HOME/.themes/current/backgrounds\"; " +
-                "theme=$(tr -d '\\n' < \"$HOME/.themes/current/.theme-name\" 2>/dev/null); " +
-                "find \"$dir\" -type f \\( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \\) 2>/dev/null | sort | " +
-                "while read -r f; do bn=\"${f##*/}\"; p=\"$f\"; " +
-                "if [ -x \"$THUMB\" ]; then p=$(\"$THUMB\" \"$f\" \"wallpapers/${theme}/${bn}\" 2>/dev/null || echo \"$f\"); fi; " +
-                "printf '%s\\t%s/.local/bin/evo-wallpaper.sh set %s\\t%s\\n' \"$bn\" \"$HOME\" \"$f\" \"$p\"; done"
-        } else if (kind === "themes") {
-            script = "THUMB=" + Util.shellQuote(thumbScript) + "; " +
-                "find \"$HOME/.themes\" -mindepth 1 -maxdepth 1 -type d ! -name current ! -name shared ! -name next -printf '%f\\n' 2>/dev/null | sort | " +
-                "while read -r n; do src=\"$HOME/.themes/$n/preview.png\"; p=\"$src\"; " +
-                "if [ -x \"$THUMB\" ]; then p=$(\"$THUMB\" \"$src\" \"themes/${n}.png\" 2>/dev/null || echo \"$src\"); fi; " +
-                "printf '%s\\t%s/.local/bin/themes-apply.sh %s\\t%s\\n' \"$n\" \"$HOME\" \"$n\" \"$p\"; done"
-        }
-        if (!script) {
+        var listScript = home + "/.local/bin/evo-menu-list-previews.sh"
+        if (kind !== "themes" && kind !== "wallpaper") {
             dynamicLoading = false
             return
         }
-        dynamicProc.command = ["bash", "-lc", script]
+        dynamicProc.command = ["bash", "-lc",
+            "test -x " + Util.shellQuote(listScript) + " && " +
+            Util.shellQuote(listScript) + " " + (kind === "wallpaper" ? "wallpapers" : "themes")
+        ]
         dynamicProc.running = true
     }
 
@@ -666,7 +652,7 @@ Item {
                                         fillMode: Image.PreserveAspectCrop
                                         smooth: true
                                         asynchronous: true
-                                        cache: true
+                                        cache: false
                                         mipmap: true
                                         sourceSize: Qt.size(
                                             Math.ceil(root.previewTileWidth * root.previewDpr),

@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# Background warm-up for menu preview thumbnails.
+# Background warm-up for menu preview thumbnails and orphan cache pruning.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 thumb="$SCRIPT_DIR/evo-menu-preview-thumb.sh"
 theme_dir="${HOME}/.themes"
+cache_root="${XDG_STATE_HOME:-$HOME/.local/state}/evo-shell/menu-cache"
 
 thumb_one() {
     local src="$1"
@@ -13,8 +14,11 @@ thumb_one() {
     "$thumb" "$src" "$key" >/dev/null 2>&1 || true
 }
 
+valid_keys=()
+
 while IFS= read -r name; do
     [[ -n "$name" ]] || continue
+    valid_keys+=("themes/${name}.png")
     thumb_one "$theme_dir/$name/preview.png" "themes/${name}.png"
 done < <(find "$theme_dir" -mindepth 1 -maxdepth 1 -type d ! -name current ! -name shared ! -name next -printf '%f\n' 2>/dev/null | sort)
 
@@ -27,6 +31,22 @@ if [[ -n "$theme_name" && -d "$bg_dir" ]]; then
     while IFS= read -r file; do
         [[ -n "$file" ]] || continue
         bn="${file##*/}"
+        valid_keys+=("wallpapers/${theme_name}/${bn}")
         thumb_one "$file" "wallpapers/${theme_name}/${bn}"
     done < <(find "$bg_dir" -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) 2>/dev/null | sort)
+fi
+
+if [[ -d "$cache_root" ]]; then
+    while IFS= read -r cached; do
+        [[ -n "$cached" ]] || continue
+        key="${cached#"$cache_root"/}"
+        keep=0
+        for valid in "${valid_keys[@]}"; do
+            if [[ "$key" == "$valid" ]]; then
+                keep=1
+                break
+            fi
+        done
+        [[ "$keep" -eq 1 ]] || rm -f "$cached"
+    done < <(find "$cache_root" -type f 2>/dev/null)
 fi
