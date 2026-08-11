@@ -37,6 +37,7 @@ ShellRoot {
         "evo.weather": { kinds: ["menu"], path: "plugins/weather/Weather.qml", keepLoaded: true },
         "evo.stats": { kinds: ["menu"], path: "plugins/stats/Stats.qml", keepLoaded: true },
         "evo.calendar": { kinds: ["menu"], path: "plugins/calendar/Calendar.qml", keepLoaded: true },
+        "evo.cursor-usage": { kinds: ["menu"], path: "plugins/cursor/Usage.qml", keepLoaded: true },
         "evo.clipboard": { kinds: ["service"], path: "plugins/clipboard/Service.qml", keepLoaded: true },
         "evo.panel": { kinds: ["panel"], path: "plugins/panel/Panel.qml", keepLoaded: true },
         "evo.bar": { kinds: ["bar"], path: "plugins/bar/Bar.qml" }
@@ -44,6 +45,10 @@ ShellRoot {
 
     property var shellConfig: builtinShellConfig
     property var barConfig: builtinShellConfig.bar
+    readonly property string overlayOutput: {
+        var panel = shellConfig && shellConfig.panel
+        return panel && panel.output ? String(panel.output) : "DP-1"
+    }
     property string _barLoaderKey: ""
     property var _services: ({})
     property var openPanelIds: ({})
@@ -224,7 +229,7 @@ ShellRoot {
         }
     }
 
-    readonly property var panelPluginIds: ["evo.menu", "evo.panel", "evo.weather", "evo.stats", "evo.calendar"]
+    readonly property var panelPluginIds: ["evo.menu", "evo.panel", "evo.weather", "evo.stats", "evo.calendar", "evo.cursor-usage"]
 
     Instantiator {
         model: shell.panelPluginIds

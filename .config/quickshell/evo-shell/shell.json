@@ -44,6 +44,11 @@
       ],
       "right": [
         {
+          "id": "evo.cursor",
+          "interval": 300,
+          "onClick": "~/.local/bin/evo-shell-ipc shell toggle evo.cursor-usage"
+        },
+        {
           "id": "evo.github",
           "interval": 300,
           "onClick": "xdg-open https://github.com/sebday"

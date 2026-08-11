@@ -7,6 +7,7 @@ TrayContextMenu 1.0 TrayContextMenu.qml
 CommandWidget 1.0 CommandWidget.qml
 MenuBarWidget 1.0 MenuBarWidget.qml
 GithubWidget 1.0 GithubWidget.qml
+CursorWidget 1.0 CursorWidget.qml
 ShopifyWidget 1.0 ShopifyWidget.qml
 CavaWidget 1.0 CavaWidget.qml
 BarSection 1.0 BarSection.qml

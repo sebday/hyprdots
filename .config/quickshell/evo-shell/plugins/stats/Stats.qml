@@ -26,6 +26,7 @@ Item {
     CenteredOverlay {
         opened: root.opened
         layerNamespace: "evo-stats"
+        preferredOutput: root.shell ? root.shell.overlayOutput : "DP-1"
         contentWidth: 460
         contentHeight: 650
         onDismissed: root.dismiss()

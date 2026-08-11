@@ -1,4 +1,5 @@
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Io
 import QtQuick
 import QtQuick.Layouts
@@ -49,6 +50,7 @@ Item {
         if (moduleIds.indexOf(nextModule) < 0)
             nextModule = "calc"
         activeModule = nextModule
+        panelScreen = resolvePanelScreen()
         dock.reveal()
         opened = true
         activateModule()
@@ -94,16 +96,23 @@ Item {
         return (panel && String(panel.side) === "right") ? "right" : "left"
     }
 
-    readonly property string panelOutput: {
+    property var panelScreen: null
+
+    function resolvePanelScreen() {
+        try {
+            var mon = Hyprland.focusedMonitor
+            if (mon) {
+                for (var i = 0; i < Quickshell.screens.length; i++) {
+                    var s = Quickshell.screens[i]
+                    if (s && s.name === mon.name)
+                        return s
+                }
+            }
+        } catch (e) {}
         var panel = shell && shell.shellConfig && shell.shellConfig.panel
-        return (panel && panel.output) ? String(panel.output).trim() : ""
+        var output = panel && panel.output ? String(panel.output).trim() : ""
+        return Util.screenForOutput(output, true)
     }
-
-    function screenForOutput(outputName) {
-        return Util.screenForOutput(outputName, true)
-    }
-
-    readonly property var panelScreen: screenForOutput(root.panelOutput)
 
     function moduleLoaderFor(id) {
         for (var i = 0; i < moduleLoaders.count; i++) {

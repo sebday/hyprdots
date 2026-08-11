@@ -1,7 +1,7 @@
 import Quickshell
 import QtQuick
 import "../../Commons"
-import "../panel/modules"
+import "."
 
 Item {
     id: root
@@ -11,7 +11,7 @@ Item {
 
     function open(payloadJson) {
         opened = true
-        weatherContent.onActivated()
+        usageContent.onActivated()
     }
 
     function close() {
@@ -19,20 +19,20 @@ Item {
     }
 
     function dismiss() {
-        if (shell) shell.hide("evo.weather")
+        if (shell) shell.hide("evo.cursor-usage")
         else close()
     }
 
     CenteredOverlay {
         opened: root.opened
-        layerNamespace: "evo-weather"
+        layerNamespace: "evo-cursor-usage"
         preferredOutput: root.shell ? root.shell.overlayOutput : "DP-1"
-        contentWidth: 400
-        contentHeight: 540
+        contentWidth: 420
+        contentHeight: 580
         onDismissed: root.dismiss()
 
-        WeatherModule {
-            id: weatherContent
+        UsageModule {
+            id: usageContent
             anchors.fill: parent
             host: root
         }

@@ -11,7 +11,6 @@ Item {
     property string displayText: ""
     property string displayRichText: ""
     property bool useRichText: false
-    property string tooltipText: ""
     property string className: ""
     property bool hideWhenEmpty: settings.hideEmpty === true || settings.hideEmptyText === true
 
@@ -48,7 +47,6 @@ Item {
             displayText = ""
             displayRichText = ""
             useRichText = false
-            tooltipText = ""
             className = ""
             return
         }
@@ -57,7 +55,6 @@ Item {
             try {
                 var json = JSON.parse(line)
                 var text = String(json.text || json.content || "")
-                tooltipText = String(json.tooltip || "")
                 className = String(json.class || "")
                 if (text.indexOf("<span") !== -1) {
                     useRichText = true
@@ -77,7 +74,6 @@ Item {
         useRichText = false
         displayRichText = ""
         displayText = line
-        tooltipText = ""
         className = ""
     }
 

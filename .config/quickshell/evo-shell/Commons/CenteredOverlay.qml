@@ -11,12 +11,19 @@ Item {
     property int contentHeight: 520
     property int contentMargin: 16
     property string layerNamespace: "evo-overlay"
+    property string preferredOutput: ""
     property var hostScreen: null
     signal dismissed()
 
     default property alias content: contentHost.data
 
     function resolveHostScreen() {
+        var preferred = String(root.preferredOutput || "").trim()
+        if (preferred) {
+            var matched = Util.screenForOutput(preferred, false)
+            if (matched) return matched
+        }
+
         try {
             var mon = Hyprland.focusedMonitor
             if (mon) {
