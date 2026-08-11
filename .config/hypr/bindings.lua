@@ -17,6 +17,7 @@ end
 
 bindd("SUPER + Space", "Launcher menu", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.menu"))
 bindd("SUPER + Return", "Terminal", hl.dsp.exec_cmd(terminal))
+bindd("SUPER + ALT + Return", "Cursor Agent", hl.dsp.exec_cmd(terminal .. " -e " .. bin .. "/agent"))
 bindd("SUPER + Escape", "Power menu", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.menu '{\"mode\":\"power\"}'"))
 bindd("SUPER + W", "Close Active Window", hl.dsp.window.close())
 bindd("SUPER + E", "Editor", hl.dsp.exec_cmd(editor .. " ~/"))

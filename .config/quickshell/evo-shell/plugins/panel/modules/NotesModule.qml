@@ -104,8 +104,37 @@ Item {
 
     function toggleTaskDone(index) {
         if (taskLoading || index < 0 || index >= taskModel.count) return
-        var row = taskModel.get(index)
-        taskModel.setProperty(index, "done", !row.done)
+        var rows = []
+        for (var i = 0; i < taskModel.count; i++) {
+            rows.push({
+                text: String(taskModel.get(i).text || ""),
+                done: taskModel.get(i).done === true
+            })
+        }
+        var toggled = rows[index]
+        toggled.done = !toggled.done
+        rows.splice(index, 1)
+
+        var completed = []
+        var incomplete = []
+        for (var j = 0; j < rows.length; j++) {
+            if (rows[j].done && String(rows[j].text || "").trim())
+                completed.push(rows[j])
+            else
+                incomplete.push(rows[j])
+        }
+
+        var text = String(toggled.text || "").trim()
+        if (text) {
+            if (toggled.done)
+                completed.push(toggled)
+            else
+                incomplete.unshift(toggled)
+        } else {
+            incomplete.push(toggled)
+        }
+
+        setTaskModel(completed.concat(incomplete))
         taskDirty = true
         taskUiTick++
         taskSaveTimer.restart()

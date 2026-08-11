@@ -58,8 +58,7 @@ Item {
 
             Rectangle {
                 anchors.fill: parent
-                color: Theme.background
-                opacity: 0.58
+                color: Theme.overlayScrim
             }
         }
     }
@@ -76,8 +75,7 @@ Item {
 
         Rectangle {
             anchors.fill: parent
-            color: Theme.background
-            opacity: 0.58
+            color: Theme.overlayScrim
         }
 
         MouseArea {
@@ -95,20 +93,17 @@ Item {
 
             Keys.onEscapePressed: root.dismissed()
 
-            MouseArea {
-                anchors.fill: parent
-                onClicked: mouse.accepted = true
-            }
-
             Rectangle {
+                z: 0
                 anchors.fill: parent
-                color: Theme.background
+                color: Theme.overlaySurface
                 border.color: Theme.accent
                 border.width: 1
             }
 
             Item {
                 id: contentHost
+                z: 1
                 anchors.fill: parent
                 anchors.margins: root.contentMargin
             }

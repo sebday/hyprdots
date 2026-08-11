@@ -118,7 +118,7 @@ Item {
 
             Rectangle {
                 anchors.fill: parent
-                color: Theme.panelBackground
+                color: Theme.overlaySurface
             }
 
             // Absorb clicks on empty panel chrome so they don't reach the dismiss area.

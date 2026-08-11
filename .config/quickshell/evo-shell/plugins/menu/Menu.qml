@@ -52,9 +52,9 @@ Item {
     readonly property int appIconSize: 64
     readonly property int appIconTopPadding: 18
     readonly property int appLabelFontSize: 13
-    readonly property int previewTileWidth: 148
-    readonly property int previewTileHeight: 132
-    readonly property int previewImageHeight: 96
+    readonly property int previewTileWidth: 296
+    readonly property int previewTileHeight: 204
+    readonly property int previewImageHeight: 192
     readonly property real previewDpr: 2
     readonly property int listIconSize: 40
     readonly property int listFontSize: 24
@@ -63,6 +63,7 @@ Item {
     readonly property int listFilterFontSize: 28
     readonly property int previewMenuMargin: 48
 
+    readonly property int previewGridColumns: 5
     readonly property int previewColumnCount: gridColumnCount
     readonly property int activeTileWidth: previewTileMode ? previewTileWidth : (appsGridMode ? appTileWidth : tileWidth)
     readonly property int activeTileHeight: previewTileMode ? previewTileHeight : (appsGridMode ? appTileHeight : tileHeight)
@@ -73,6 +74,8 @@ Item {
         if (tileMode) return n
         if (appsGridMode)
             return Math.max(1, Math.min(n, appGridColumns))
+        if (previewTileMode)
+            return Math.max(1, Math.min(n, previewGridColumns))
         var maxW = panel.previewAreaMaxWidth
         var cols = Math.floor((maxW + tileSpacing) / (activeTileWidth + tileSpacing))
         return Math.max(1, Math.min(n, cols))
@@ -477,8 +480,7 @@ Item {
 
             Rectangle {
                 anchors.fill: parent
-                color: Theme.background
-                opacity: 0.58
+                color: Theme.overlayScrim
             }
         }
     }
@@ -516,8 +518,7 @@ Item {
 
         Rectangle {
             anchors.fill: parent
-            color: Theme.background
-            opacity: 0.58
+            color: Theme.overlayScrim
         }
 
         MouseArea {
@@ -549,7 +550,7 @@ Item {
             Rectangle {
                 anchors.fill: parent
                 visible: root.framedMode
-                color: Theme.background
+                color: Theme.overlaySurface
                 border.color: Theme.accent
                 border.width: 1
             }
@@ -567,7 +568,7 @@ Item {
 
                     Rectangle {
                         anchors.fill: parent
-                        color: Theme.mantle
+                        color: Theme.overlaySurface
                     }
 
                     Text {
@@ -630,64 +631,44 @@ Item {
                             required property int index
                             width: root.previewTileWidth
                             height: root.previewTileHeight
-                            color: index === root.selectedIndex || previewMouse.containsMouse
-                                ? Theme.mantle : Theme.background
+                            color: Theme.overlaySurface
                             border.color: index === root.selectedIndex ? Theme.accent : Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.35)
                             border.width: index === root.selectedIndex ? 2 : 1
 
-                            Column {
+                            Item {
                                 anchors.fill: parent
                                 anchors.margins: 6
-                                spacing: 6
+                                clip: true
 
-                                Item {
-                                    width: parent.width
-                                    height: root.previewImageHeight
-                                    clip: true
+                                Image {
+                                    id: previewImage
+                                    anchors.fill: parent
+                                    source: Util.fileUrl(modelData.preview)
+                                    fillMode: Image.PreserveAspectCrop
+                                    smooth: true
+                                    asynchronous: true
+                                    cache: false
+                                    mipmap: true
+                                    sourceSize: Qt.size(
+                                        Math.ceil(root.previewTileWidth * root.previewDpr),
+                                        Math.ceil(root.previewImageHeight * root.previewDpr)
+                                    )
+                                }
 
-                                    Image {
-                                        id: previewImage
-                                        anchors.fill: parent
-                                        source: Util.fileUrl(modelData.preview)
-                                        fillMode: Image.PreserveAspectCrop
-                                        smooth: true
-                                        asynchronous: true
-                                        cache: false
-                                        mipmap: true
-                                        sourceSize: Qt.size(
-                                            Math.ceil(root.previewTileWidth * root.previewDpr),
-                                            Math.ceil(root.previewImageHeight * root.previewDpr)
-                                        )
-                                    }
-
-                                    Rectangle {
-                                        anchors.fill: parent
-                                        color: Theme.background
-                                        visible: !modelData.preview || previewImage.status === Image.Error
-                                    }
-
-                                    Text {
-                                        anchors.centerIn: parent
-                                        visible: !modelData.preview || previewImage.status === Image.Error
-                                        text: root.previewFallbackIcon
-                                        color: Theme.accent
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: root.tileIconSize
-                                        font.bold: Theme.fontBold
-                                    }
+                                Rectangle {
+                                    anchors.fill: parent
+                                    color: Theme.overlaySurface
+                                    visible: !modelData.preview || previewImage.status === Image.Error
                                 }
 
                                 Text {
-                                    text: modelData.name
-                                    color: Theme.foreground
+                                    anchors.centerIn: parent
+                                    visible: !modelData.preview || previewImage.status === Image.Error
+                                    text: root.previewFallbackIcon
+                                    color: Theme.accent
                                     font.family: Theme.fontFamily
-                                    font.pixelSize: 11
+                                    font.pixelSize: root.tileIconSize
                                     font.bold: Theme.fontBold
-                                    width: parent.width
-                                    horizontalAlignment: Text.AlignHCenter
-                                    wrapMode: Text.Wrap
-                                    maximumLineCount: 2
-                                    elide: Text.ElideRight
                                 }
                             }
 
@@ -724,8 +705,7 @@ Item {
                         required property int index
                         width: root.appTileWidth
                         height: root.appTileHeight
-                        color: index === root.selectedIndex || appMouse.containsMouse
-                            ? Theme.mantle : Theme.background
+                        color: Theme.overlaySurface
                         border.color: index === root.selectedIndex ? Theme.accent : Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.35)
                         border.width: index === root.selectedIndex ? 2 : 1
 
@@ -810,8 +790,7 @@ Item {
                             required property int index
                             width: root.tileWidth
                             height: root.tileHeight
-                            color: index === root.selectedIndex || tileMouse.containsMouse
-                                ? Theme.mantle : Theme.background
+                            color: Theme.overlaySurface
                             border.color: index === root.selectedIndex ? Theme.accent : Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.35)
                             border.width: index === root.selectedIndex ? 2 : 1
 
@@ -873,7 +852,7 @@ Item {
                         required property int index
                         width: entryList.width
                         height: root.listRowHeight
-                        color: index === entryList.currentIndex || mouseArea.containsMouse ? Theme.mantle : "transparent"
+                        color: index === entryList.currentIndex || mouseArea.containsMouse ? Theme.panelMantle : "transparent"
 
                         readonly property string appIconSource: root.entryIconSource(modelData)
                         readonly property string glyphIcon: root.entryGlyphIcon(modelData)

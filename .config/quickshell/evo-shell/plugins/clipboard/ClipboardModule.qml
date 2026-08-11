@@ -19,6 +19,7 @@ Item {
     readonly property string previewDir: Quickshell.env("HOME") + "/.local/state/evo-shell/clipboard-previews"
     readonly property int listLimit: 30
     readonly property int historyFontSize: 13
+    readonly property int rowHeight: 44
     readonly property bool active: host && host.opened === true
 
     readonly property var visibleEntries: {
@@ -207,8 +208,10 @@ Item {
                         required property var modelData
                         required property int index
                         width: ListView.view.width
-                        height: modelData.image ? 44 : 30
-                        color: ListView.isCurrentItem || mouseArea.containsMouse ? Theme.panelMantle : "transparent"
+                        height: root.rowHeight
+                        color: listView.currentIndex === index || rowMouse.containsMouse
+                            ? Theme.panelMantle
+                            : "transparent"
                         radius: 3
 
                         Row {
@@ -246,10 +249,11 @@ Item {
                         }
 
                         MouseArea {
-                            id: mouseArea
+                            id: rowMouse
                             anchors.fill: parent
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
+                            onEntered: listView.currentIndex = index
                             onClicked: {
                                 listView.currentIndex = index
                                 root.copyId(modelData.id)

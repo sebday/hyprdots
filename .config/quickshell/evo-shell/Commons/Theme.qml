@@ -51,6 +51,15 @@ Singleton {
         return Qt.rgba(c.r, c.g, c.b, alpha)
     }
 
+    function mixColors(a, b, t) {
+        return Qt.rgba(
+            a.r + (b.r - a.r) * t,
+            a.g + (b.g - a.g) * t,
+            a.b + (b.b - a.b) * t,
+            1
+        )
+    }
+
     readonly property color foreground: themeColor("foreground", "#d3c6aa")
     readonly property color background: themeColor("background", "#2d353b")
     readonly property color accent: themeColor("accent", "#7fbbb3")
@@ -59,8 +68,16 @@ Singleton {
     // Match hyprland decoration.active_opacity / inactive_opacity in ~/.config/hypr/looks.lua
     readonly property real surfaceOpacity: themeNumber("surfaceOpacity", 0.97)
     readonly property real surfaceOpacityInactive: themeNumber("surfaceOpacityInactive", 0.88)
-    readonly property color panelBackground: withOpacity(background, surfaceOpacity)
-    readonly property color panelMantle: withOpacity(mantle, surfaceOpacity)
+    readonly property real overlayScrimOpacity: themeNumber("overlayScrimOpacity", 0.72)
+    readonly property color overlayScrim: withOpacity(mantle, overlayScrimOpacity)
+    readonly property color overlaySurface: withOpacity(mantle, surfaceOpacity)
+    readonly property color panelBackground: overlaySurface
+    // Lift mantle toward foreground so row hover/selection reads on overlaySurface.
+    readonly property real panelMantleLift: themeNumber("panelMantleLift", 0.12)
+    readonly property color panelMantle: withOpacity(
+        mixColors(mantle, foreground, panelMantleLift),
+        surfaceOpacityInactive
+    )
     readonly property string fontFamily: themeColor("fontFamily", "CaskaydiaMono Nerd Font")
     readonly property bool fontBold: true
     readonly property int fontPixelSize: themeNumber("fontPixelSize", 13)

@@ -50,6 +50,7 @@ Item {
 
     Item {
         id: contentHost
+        clip: true
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top

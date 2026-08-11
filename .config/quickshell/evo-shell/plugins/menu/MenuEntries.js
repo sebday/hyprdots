@@ -3,7 +3,8 @@
 function powerEntries(home) {
     return [
         { name: "Lock", icon: "󰌾", keywords: ["lock", "screen"], command: "evo-system-lock" },
-        { name: "Relaunch", icon: "󰑐", keywords: ["relaunch", "logout", "session", "hyprland"], command: home + "/.local/bin/evo-logout.sh relaunch" },
+        { name: "Evo", icon: "󰑐", keywords: ["evo", "shell", "bar", "quickshell", "refresh", "restart shell"], command: home + "/.local/bin/evo-restart-shell.sh" },
+        { name: "Hypr", icon: "󰑐", keywords: ["hypr", "hyprland", "relaunch", "logout", "session"], command: home + "/.local/bin/evo-logout.sh relaunch" },
         { name: "Restart", icon: "󰜉", keywords: ["reboot", "restart"], command: home + "/.local/bin/evo-logout.sh reboot" },
         { name: "Shutdown", icon: "󰐥", keywords: ["shutdown", "power off"], command: home + "/.local/bin/evo-logout.sh shutdown" }
     ]
@@ -14,7 +15,6 @@ function systemEntries(home) {
         { name: "Theme", icon: "󰸌", keywords: ["theme", "appearance"], submenu: "themes" },
         { name: "Wallpaper", icon: "󰏘", keywords: ["wallpaper", "background"], submenu: "wallpaper" },
         { name: "Settings", icon: "󰒓", keywords: ["settings", "panel", "font", "config"], command: home + "/.local/bin/evo-shell-ipc shell summon evo.panel '{\"module\":\"settings\"}'" },
-        { name: "Restart shell", icon: "󰑓", keywords: ["shell", "bar", "quickshell", "refresh"], command: home + "/.local/bin/evo-restart-shell.sh" },
         { name: "Clear cache", icon: "󰃢", keywords: ["cache", "cleanup"], command: home + "/.local/bin/evo-cleanup.sh" },
         { name: "Backup", icon: "󰁯", keywords: ["backup", "env"], command: home + "/.local/bin/evo-backup.sh" }
     ]
