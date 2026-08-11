@@ -2,6 +2,7 @@ import Quickshell
 import Quickshell.Wayland
 import QtQuick
 import "../../Commons"
+import "."
 import "widgets"
 
 Scope {
@@ -9,6 +10,12 @@ Scope {
 
     property var shell: null
     property var barConfig: ({})
+
+    BarWidgetRegistry { id: barWidgetRegistry }
+
+    BarWidgetCatalog {
+        registry: barWidgetRegistry
+    }
 
     readonly property string position: {
         var p = barConfig && barConfig.position ? String(barConfig.position) : "bottom"
@@ -62,6 +69,7 @@ Scope {
                 barPanel: barPanel
                 shell: root.shell
                 barConfig: root.barConfig
+                widgetRegistry: barWidgetRegistry
                 entries: (root.barConfig.layout && root.barConfig.layout.left) ? root.barConfig.layout.left : []
             }
 
@@ -72,6 +80,7 @@ Scope {
                 barPanel: barPanel
                 shell: root.shell
                 barConfig: root.barConfig
+                widgetRegistry: barWidgetRegistry
                 entries: (root.barConfig.layout && root.barConfig.layout.center) ? root.barConfig.layout.center : []
             }
 
@@ -83,6 +92,7 @@ Scope {
                 barPanel: barPanel
                 shell: root.shell
                 barConfig: root.barConfig
+                widgetRegistry: barWidgetRegistry
                 entries: (root.barConfig.layout && root.barConfig.layout.right) ? root.barConfig.layout.right : []
             }
         }

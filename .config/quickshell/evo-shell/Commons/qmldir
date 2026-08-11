@@ -12,3 +12,4 @@ FontFamilyPicker 1.0 FontFamilyPicker.qml
 SparklineChart 1.0 SparklineChart.qml
 JsonPollRunner 1.0 JsonPollRunner.qml
 CenteredOverlay 1.0 CenteredOverlay.qml
+BarWidgetRegistry 1.0 BarWidgetRegistry.qml

@@ -7,7 +7,7 @@ import "../../../Commons"
 Item {
     id: root
 
-    property var panel: null
+    property var host: null
     property var shell: null
 
     property var entries: []
@@ -20,7 +20,7 @@ Item {
     readonly property string script: Quickshell.env("HOME") + "/.local/bin/evo-calc.sh"
     readonly property int inputFontSize: 24
     readonly property int historyFontSize: 15
-    readonly property bool active: panel && panel.opened && panel.activeModule === "calc"
+    readonly property bool active: host && host.opened && host.activeModule === "calc"
 
     function refreshHistory() {
         if (!historyProc.running) historyProc.running = true
@@ -171,7 +171,7 @@ Item {
                         event.accepted = true
                     }
                 }
-                Keys.onEscapePressed: if (panel) panel.dismiss()
+                Keys.onEscapePressed: if (host) host.dismiss()
                 Keys.onUpPressed: root.recallHistory(-1)
                 Keys.onDownPressed: root.recallHistory(1)
             }

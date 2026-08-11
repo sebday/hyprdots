@@ -1,0 +1,33 @@
+import QtQuick
+import "widgets"
+
+Item {
+    id: catalog
+
+    property var registry: null
+    visible: false
+
+    Component { id: menuWidgetComp; MenuBarWidget {} }
+    Component { id: workspacesComp; WorkspacesWidget {} }
+    Component { id: clockComp; ClockWidget {} }
+    Component { id: audioComp; AudioWidget {} }
+    Component { id: trayComp; TrayWidget {} }
+    Component { id: githubComp; GithubWidget {} }
+    Component { id: shopifyComp; ShopifyWidget {} }
+    Component { id: cavaComp; CavaWidget {} }
+
+    function registerAll() {
+        if (!registry) return
+        registry.register("evo.menu", menuWidgetComp, { displayName: "Menu" })
+        registry.register("evo.workspaces", workspacesComp, { displayName: "Workspaces" })
+        registry.register("evo.clock", clockComp, { displayName: "Clock" })
+        registry.register("evo.audio", audioComp, { displayName: "Audio" })
+        registry.register("evo.tray", trayComp, { displayName: "Tray" })
+        registry.register("evo.github", githubComp, { displayName: "GitHub" })
+        registry.register("evo.shopify", shopifyComp, { displayName: "Shopify" })
+        registry.register("evo.cava", cavaComp, { displayName: "Cava" })
+        registry.register("cava", cavaComp, { displayName: "Cava" })
+    }
+
+    Component.onCompleted: registerAll()
+}

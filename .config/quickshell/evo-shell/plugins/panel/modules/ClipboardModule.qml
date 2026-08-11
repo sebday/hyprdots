@@ -7,7 +7,7 @@ import "../../../Commons"
 Item {
     id: root
 
-    property var panel: null
+    property var host: null
     property var shell: null
 
     property var entries: []
@@ -18,7 +18,7 @@ Item {
     readonly property string previewDir: Quickshell.env("HOME") + "/.local/state/evo-shell/clipboard-previews"
     readonly property int listLimit: 30
     readonly property int historyFontSize: 13
-    readonly property bool active: panel && panel.opened && panel.activeModule === "clipboard"
+    readonly property bool active: host && host.opened && host.activeModule === "clipboard"
 
     readonly property var selectedEntry: {
         if (selectedIndex < 0 || selectedIndex >= entries.length)
@@ -85,7 +85,7 @@ Item {
 
     function copyId(id) {
         Quickshell.execDetached(["bash", root.script, "copy", String(id)])
-        if (panel) panel.dismiss()
+        if (host) host.dismiss()
     }
 
     function cachePreviews() {
@@ -143,7 +143,7 @@ Item {
         anchors.fill: parent
         focus: root.active
         Keys.enabled: root.active
-        Keys.onEscapePressed: if (panel) panel.dismiss()
+        Keys.onEscapePressed: if (host) host.dismiss()
         Keys.onUpPressed: listView.decrementCurrentIndex()
         Keys.onDownPressed: listView.incrementCurrentIndex()
         Keys.onReturnPressed: {

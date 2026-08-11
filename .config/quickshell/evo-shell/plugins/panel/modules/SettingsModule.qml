@@ -7,7 +7,7 @@ import "../../../Commons"
 Item {
     id: root
 
-    property var panel: null
+    property var host: null
     property var shell: null
 
     readonly property string hyprScript: Quickshell.env("HOME") + "/.local/bin/evo-hypr-looks.sh"

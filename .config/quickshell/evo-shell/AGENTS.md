@@ -77,6 +77,16 @@ evo-shell-ipc background next
 
 Hypr `bindings.lua` uses `$HOME/.local/bin/evo-shell-ipc` (PATH may not include `~/.local/bin`).
 
+### Calendar overlay (`evo.calendar`)
+
+Click the bar clock to open a simple month-view calendar (centered overlay, same pattern as weather/stats). No events or sync.
+
+| Path | Purpose |
+|------|---------|
+| `plugins/calendar/Calendar.qml` | Overlay host |
+| `plugins/calendar/CalendarModule.qml` | Month grid |
+| `plugins/calendar/Model.js` | Date/grid math |
+
 ### Plugin IPC targets
 
 | Target | Methods |
@@ -136,7 +146,9 @@ shell.qml
 
 **Services** live in `plugins/*/Service.qml` (or `Background.qml`), registered in `pluginTable`, often `keepLoaded: true`. Clipboard watch remains `evo.clipboard` (service-only); clipboard UI lives in an `evo.panel` module.
 
-**Bar-only widgets** are **not** in `pluginTable`; mapped in `plugins/bar/widgets/BarSection.qml`.
+**Bar-only widgets** are registered in [`BarWidgetCatalog.qml`](plugins/bar/BarWidgetCatalog.qml) via [`BarWidgetRegistry`](Commons/BarWidgetRegistry.qml); layout entries in `shell.json` resolve by `id` in [`BarSection.qml`](plugins/bar/widgets/BarSection.qml).
+
+**Panel dock modules** are registered in [`Panel.qml`](plugins/panel/Panel.qml) `dockModules` table; overlay hosts (weather, stats) reuse module QML with `host` instead of dock tabs.
 
 **Shared Commons helpers:** `Util.screenForOutput`, `Format`, `JsonPollRunner`, `SparklineChart`.
 
@@ -158,25 +170,24 @@ LeftDockPanel {
 
 Plugin root should call `dock.reveal()` / `dock.conceal()` from `open()` / `close()`, and register in `shell.qml` `panelPluginIds`. The unified left dock is `plugins/panel/Panel.qml` with a `DockModuleBar` and per-module QML under `plugins/panel/modules/`.
 
-### Bar widget routing (`BarSection.qml`)
+**Panel module contract:** `property var host` (dock or overlay root), optional `property var shell`, `onActivated()` when the module becomes active. Dock modules are listed in `Panel.qml` `dockModules`; overlay-only modules (weather, stats) stay out of that table and are hosted by their own plugin.
+
+### Bar widget registry (`BarWidgetCatalog.qml`)
+
+Built-in widgets register once at bar load. `BarSection` looks up `entry.id` in the registry; `type: "command"` / `exec` still routes to `CommandWidget`.
 
 | `id` in shell.json | Widget | Data source |
 |--------------------|--------|-------------|
 | `evo.menu` | `MenuBarWidget` | — |
 | `evo.workspaces` | `WorkspacesWidget` | Hyprland |
-| `evo.clock` | `ClockWidget` | Qt `format` in settings |
-| `evo.audio` | `AudioWidget` | Pipewire via `evo.audio` service |
-| `evo.tray` | `TrayWidget` | Quickshell tray |
-| `evo.github` | `GithubWidget` | `evo-bar-github.sh` |
-| `evo.shopify` | `ShopifyWidget` | `evo-bar-shopify.sh` + `store` setting |
-| `evo.cava` | `CavaWidget` | Pipewire peak monitor |
+| `evo.clock` | `ClockWidget` | Qt `format` in settings; click opens calendar |
 | `type: "command"` or `exec` | `CommandWidget` | polled bash, JSON stdout |
 
 To add a native bar widget:
 
 1. Create `plugins/bar/widgets/MyWidget.qml`
 2. Register in `widgets/qmldir`
-3. Add branch in `BarSection.qml` → `widgetComponentFor()`
+3. Add `Component` + `registry.register("evo.mywidget", …)` in `BarWidgetCatalog.qml`
 4. Reference by `id` in `shell.json`
 
 ## Bar data scripts (`evo-bar-*.sh`)
@@ -273,6 +284,7 @@ Widgets receive `settings` from shell.json entry via Loader `onLoaded`. Implemen
 
 - `import Quickshell` required for singletons / `Quickshell.execDetached`
 - `widgets/qmldir` must list every bar widget
+- Register new bar widgets in `BarWidgetCatalog.qml`, not `BarSection.qml`
 - `toggle` IPC needs two args when payload omitted — handled in `evo-shell-ipc`
 - `ToolTip` on bar items broke load — avoid unless tested
 - Clock: use Qt date format (`%a %d %H:%M`), not `strftime`
@@ -299,8 +311,15 @@ Menu power/system entries use `evo-system-lock`, `evo-restart-shell.sh`, `evo-wa
 1. **Native widget** (streaming, Pipewire, rich UI) → QML in `plugins/bar/widgets/`
 2. **Simple polled data** → `evo-bar-foo.sh` + `CommandWidget` entry in `shell.json`
 3. **Structured chart** → script emits JSON fields + QML renders with `Rectangle` / `Repeater`
-4. Register routing in `BarSection.qml` if not `type: command`
+4. Register in `BarWidgetCatalog.qml` if not `type: command`
 5. `evo-shell-ipc shell reloadConfig` or restart shell
+
+## Adding a panel dock module (checklist)
+
+1. Create `plugins/panel/modules/FooModule.qml` implementing `host`, `shell`, `onActivated()`
+2. Register in `plugins/panel/modules/qmldir`
+3. Add `Component` + entry to `dockModules` in `Panel.qml`
+4. Open via `evo-shell-ipc shell toggle evo.panel '{"module":"foo"}'`
 
 ## User preferences (repo)
 

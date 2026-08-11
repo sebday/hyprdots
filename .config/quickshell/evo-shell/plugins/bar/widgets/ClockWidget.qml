@@ -3,7 +3,9 @@ import "../../../Commons"
 
 Item {
     id: root
+
     property var bar: null
+    property var shell: null
     property var settings: ({})
 
     implicitWidth: label.implicitWidth + Theme.barSectionGap * 2
@@ -11,7 +13,6 @@ Item {
 
     function strftimeToQt(fmt) {
         var f = String(fmt || "")
-        // waybar/strftime tokens → Qt formatDateTime
         f = f.replace(/%Y/g, "yyyy")
         f = f.replace(/%y/g, "yy")
         f = f.replace(/%m/g, "MM")
@@ -46,6 +47,15 @@ Item {
         font.family: Theme.fontFamily
         font.pixelSize: Theme.fontPixelSize
         font.bold: Theme.fontBold
+    }
+
+    MouseArea {
+        anchors.fill: parent
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+        onClicked: {
+            if (shell) shell.toggle("evo.calendar", "")
+        }
     }
 
     Timer {

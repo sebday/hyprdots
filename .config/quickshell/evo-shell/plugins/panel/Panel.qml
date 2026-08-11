@@ -15,12 +15,21 @@ Item {
 
     readonly property string layoutScript: Quickshell.env("HOME") + "/.local/bin/evo-shell-layout.sh"
 
-    readonly property var modules: [
-        { id: "calc", icon: "󰃬", title: "Calculator" },
-        { id: "notes", icon: "󰠮", title: "Notes" },
-        { id: "clipboard", icon: "󰅌", title: "Clipboard" },
-        { id: "settings", icon: "󰒓", title: "Settings" }
+    Component { id: calcComp; CalcModule {} }
+    Component { id: notesComp; NotesModule {} }
+    Component { id: clipboardComp; ClipboardModule {} }
+    Component { id: settingsComp; SettingsModule {} }
+
+    readonly property var dockModules: [
+        { id: "calc", icon: "󰃬", title: "Calculator", component: calcComp },
+        { id: "notes", icon: "󰠮", title: "Notes", component: notesComp },
+        { id: "clipboard", icon: "󰅌", title: "Clipboard", component: clipboardComp },
+        { id: "settings", icon: "󰒓", title: "Settings", component: settingsComp }
     ]
+
+    readonly property var modules: dockModules.map(function(entry) {
+        return { id: entry.id, icon: entry.icon, title: entry.title }
+    })
 
     function parseModule(payloadJson) {
         if (!payloadJson) return ""
@@ -96,16 +105,20 @@ Item {
 
     readonly property var panelScreen: screenForOutput(root.panelOutput)
 
+    function moduleLoaderFor(id) {
+        for (var i = 0; i < moduleLoaders.count; i++) {
+            var loader = moduleLoaders.itemAt(i)
+            if (loader && loader.moduleId === id)
+                return loader
+        }
+        return null
+    }
+
     function activateModule() {
         Qt.callLater(function() {
-            if (activeModule === "calc" && calcModule)
-                calcModule.onActivated()
-            else if (activeModule === "notes" && notesModule)
-                notesModule.onActivated()
-            else if (activeModule === "clipboard" && clipboardModule)
-                clipboardModule.onActivated()
-            else if (activeModule === "settings" && settingsModule)
-                settingsModule.onActivated()
+            var loader = moduleLoaderFor(activeModule)
+            if (loader && loader.item && typeof loader.item.onActivated === "function")
+                loader.item.onActivated()
         })
     }
 
@@ -138,34 +151,30 @@ Item {
             }
         }
 
-        StackLayout {
+        Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.topMargin: 8
-            currentIndex: Math.max(0, root.moduleIds.indexOf(root.activeModule))
 
-            CalcModule {
-                id: calcModule
-                panel: root
-                shell: root.shell
-            }
+            Repeater {
+                id: moduleLoaders
+                model: root.dockModules
 
-            NotesModule {
-                id: notesModule
-                panel: root
-                shell: root.shell
-            }
+                delegate: Loader {
+                    required property var modelData
+                    readonly property string moduleId: modelData.id
 
-            ClipboardModule {
-                id: clipboardModule
-                panel: root
-                shell: root.shell
-            }
+                    anchors.fill: parent
+                    active: true
+                    visible: moduleId === root.activeModule
+                    sourceComponent: modelData.component
 
-            SettingsModule {
-                id: settingsModule
-                panel: root
-                shell: root.shell
+                    onLoaded: {
+                        if (!item) return
+                        if ("host" in item) item.host = root
+                        if ("shell" in item) item.shell = root.shell
+                    }
+                }
             }
         }
     }

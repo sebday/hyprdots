@@ -7,12 +7,12 @@ import "../../../Commons"
 Item {
     id: root
 
-    property var panel: null
+    property var host: null
     property var shell: null
 
     readonly property string notesPath: Quickshell.env("HOME") + "/.local/state/evo-shell/notes.txt"
     readonly property int editorFontSize: 15
-    readonly property bool active: panel && panel.opened && panel.activeModule === "notes"
+    readonly property bool active: host && host.opened && host.activeModule === "notes"
 
     property bool loading: false
     property bool dirty: false
@@ -53,13 +53,13 @@ Item {
     }
 
     Connections {
-        target: root.panel
+        target: root.host
         function onActiveModuleChanged() {
-            if (root.panel && root.panel.activeModule !== "notes")
+            if (root.host && root.host.activeModule !== "notes")
                 root.saveNotes()
         }
         function onOpenedChanged() {
-            if (root.panel && !root.panel.opened)
+            if (root.host && !root.host.opened)
                 root.saveNotes()
         }
     }
@@ -128,7 +128,7 @@ Item {
 
                     Keys.onEscapePressed: {
                         root.saveNotes()
-                        if (panel) panel.dismiss()
+                        if (host) host.dismiss()
                     }
                 }
             }

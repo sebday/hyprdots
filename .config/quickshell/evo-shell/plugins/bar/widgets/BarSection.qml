@@ -11,6 +11,7 @@ Row {
     property var shell: null
     property var barConfig: ({})
     property var entries: []
+    property var widgetRegistry: null
     property int sectionMargin: 0
 
     spacing: Theme.barGap
@@ -19,28 +20,12 @@ Row {
     anchors.rightMargin: sectionMargin
 
     function widgetComponentFor(entry) {
-        var id = String(entry.id || "")
-        if (id === "evo.menu") return menuWidgetComp
-        if (id === "evo.workspaces") return workspacesComp
-        if (id === "evo.clock") return clockComp
-        if (id === "evo.audio") return audioComp
-        if (id === "evo.tray") return trayComp
-        if (id === "evo.github") return githubComp
-        if (id === "evo.cava" || id === "cava") return cavaComp
-        if (id === "evo.shopify") return shopifyComp
         if (entry.type === "command" || entry.exec) return commandComp
-        return null
+        if (!widgetRegistry) return null
+        return widgetRegistry.componentFor(String(entry.id || ""))
     }
 
-    Component { id: menuWidgetComp; MenuBarWidget { shell: root.shell } }
-    Component { id: workspacesComp; WorkspacesWidget {} }
-    Component { id: clockComp; ClockWidget {} }
-    Component { id: audioComp; AudioWidget { shell: root.shell } }
-    Component { id: trayComp; TrayWidget {} }
     Component { id: commandComp; CommandWidget {} }
-    Component { id: githubComp; GithubWidget {} }
-    Component { id: shopifyComp; ShopifyWidget {} }
-    Component { id: cavaComp; CavaWidget {} }
 
     Repeater {
         model: root.entries
