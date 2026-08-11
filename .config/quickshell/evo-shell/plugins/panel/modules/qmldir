@@ -1,3 +1,4 @@
 module modules
 CalcModule 1.0 CalcModule.qml
+NotesModule 1.0 NotesModule.qml
 SettingsModule 1.0 SettingsModule.qml

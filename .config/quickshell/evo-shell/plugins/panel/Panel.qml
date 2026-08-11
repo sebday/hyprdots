@@ -13,6 +13,7 @@ Item {
 
     readonly property var modules: [
         { id: "calc", icon: "󰃬", title: "Calculator" },
+        { id: "notes", icon: "󰠮", title: "Notes" },
         { id: "settings", icon: "󰒓", title: "Settings" }
     ]
 
@@ -52,6 +53,8 @@ Item {
         Qt.callLater(function() {
             if (activeModule === "calc" && calcModule)
                 calcModule.onActivated()
+            else if (activeModule === "notes" && notesModule)
+                notesModule.onActivated()
             else if (activeModule === "settings" && settingsModule)
                 settingsModule.onActivated()
         })
@@ -79,10 +82,16 @@ Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.topMargin: 8
-            currentIndex: root.activeModule === "settings" ? 1 : 0
+            currentIndex: Math.max(0, root.moduleIds.indexOf(root.activeModule))
 
             CalcModule {
                 id: calcModule
+                panel: root
+                shell: root.shell
+            }
+
+            NotesModule {
+                id: notesModule
                 panel: root
                 shell: root.shell
             }
