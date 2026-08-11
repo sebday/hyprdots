@@ -36,6 +36,7 @@ bindd("SUPER + L", "Lock Screen", hl.dsp.exec_cmd(bin .. "/evo-system-lock"))
 bindd("SUPER + C", "Calculator", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.panel '{\"module\":\"calc\"}'"))
 bindd("SUPER + N", "Notes", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.panel '{\"module\":\"notes\"}'"))
 bindd("SUPER + V", "Clipboard History", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.panel '{\"module\":\"clipboard\"}'"))
+bindd("SUPER + B", "Panel settings", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.panel '{\"module\":\"settings\"}'"))
 bindd("SUPER + P", "Colour Picker", hl.dsp.exec_cmd("hyprpicker -al"))
 
 -- Programs

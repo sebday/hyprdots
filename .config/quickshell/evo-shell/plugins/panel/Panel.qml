@@ -33,13 +33,8 @@ Item {
         return ""
     }
 
-    function syncPinnedFromConfig() {
-        var panel = shell && shell.shellConfig && shell.shellConfig.panel
-        pinned = !!(panel && panel.pinned === true)
-    }
-
     function open(payloadJson) {
-        syncPinnedFromConfig()
+        pinned = false
         var nextModule = parseModule(payloadJson)
         if (moduleIds.indexOf(nextModule) < 0)
             nextModule = activeModule
@@ -65,6 +60,7 @@ Item {
     }
 
     function close() {
+        pinned = false
         dock.conceal()
         opened = false
     }
@@ -75,16 +71,12 @@ Item {
     }
 
     function togglePinned() {
-        if (pinToggleProc.running) return
         pinned = !pinned
-        pinToggleProc.running = true
     }
 
-    function parsePinState(raw) {
-        try {
-            var data = JSON.parse(String(raw || "{}"))
-            pinned = data.panelPinned === true
-        } catch (e) {}
+    function toggleSide() {
+        if (sideToggleProc.running) return
+        sideToggleProc.running = true
     }
 
     readonly property var moduleIds: modules.map(function(m) { return m.id })
@@ -110,21 +102,9 @@ Item {
     }
 
     Process {
-        id: pinToggleProc
-        command: ["bash", root.layoutScript, "toggle-pin"]
-        stdout: StdioCollector {
-            onStreamFinished: root.parsePinState(text)
-        }
+        id: sideToggleProc
+        command: ["bash", root.layoutScript, "toggle"]
     }
-
-    Connections {
-        target: root.shell
-        function onShellConfigChanged() {
-            root.syncPinnedFromConfig()
-        }
-    }
-
-    Component.onCompleted: syncPinnedFromConfig()
 
     LeftDockPanel {
         id: dock
@@ -133,8 +113,10 @@ Item {
         pinned: root.pinned
         showCloseButton: true
         showPinButton: true
+        showSideButton: true
         onCloseRequested: root.dismiss()
         onPinRequested: root.togglePinned()
+        onSideRequested: root.toggleSide()
 
         DockModuleBar {
             Layout.fillWidth: true

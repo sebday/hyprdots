@@ -15,6 +15,7 @@ Item {
     property string title: ""
     property bool showCloseButton: false
     property bool showPinButton: false
+    property bool showSideButton: false
     property int contentSpacing: 10
     property int contentMargin: 12
 
@@ -22,6 +23,7 @@ Item {
 
     signal closeRequested()
     signal pinRequested()
+    signal sideRequested()
 
     default property alias content: contentLayout.children
 
@@ -74,7 +76,31 @@ Item {
             anchors.rightMargin: dock.contentMargin - 4
             spacing: 2
             z: 1
-            visible: dock.showCloseButton || dock.showPinButton
+            visible: dock.showCloseButton || dock.showPinButton || dock.showSideButton
+
+            Item {
+                width: 28
+                height: 28
+                visible: dock.showSideButton
+
+                Text {
+                    anchors.centerIn: parent
+                    text: dock.onRight ? "󰁍" : "󰁔"
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 16
+                    font.bold: Theme.fontBold
+                    opacity: sideMouse.containsMouse ? 1 : 0.65
+                }
+
+                MouseArea {
+                    id: sideMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: dock.sideRequested()
+                }
+            }
 
             Item {
                 width: 28

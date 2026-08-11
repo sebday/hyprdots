@@ -12,29 +12,25 @@ Item {
 
     readonly property string hyprScript: Quickshell.env("HOME") + "/.local/bin/evo-hypr-looks.sh"
     readonly property string barScript: Quickshell.env("HOME") + "/.local/bin/evo-bar-layout.sh"
-    readonly property string panelScript: Quickshell.env("HOME") + "/.local/bin/evo-panel-layout.sh"
     readonly property string fontScript: Quickshell.env("HOME") + "/.local/bin/evo-font.sh"
 
     property bool roundingOn: false
     property bool gapsOn: false
     property bool animationsOn: false
     property bool barOnDp1Top: false
-    property bool panelOnRight: false
     property string fontFamily: "CaskaydiaMono Nerd Font"
     property int fontUiSize: 13
     property int fontEditorSize: 18
     property var fontFamilies: []
     property bool hyprReady: false
     property bool barReady: false
-    property bool panelReady: false
     property bool fontReady: false
-    readonly property bool ready: hyprReady && barReady && panelReady && fontReady
+    readonly property bool ready: hyprReady && barReady && fontReady
     readonly property bool fontBusy: fontSetProc.running
 
     function refresh() {
         if (!loadHyprProc.running) loadHyprProc.running = true
         if (!loadBarProc.running) loadBarProc.running = true
-        if (!loadPanelProc.running) loadPanelProc.running = true
         if (!loadFontProc.running) loadFontProc.running = true
         if (!loadFontListProc.running) loadFontListProc.running = true
     }
@@ -48,11 +44,6 @@ Item {
     function toggleBar() {
         if (!barReady || barToggleProc.running) return
         barToggleProc.running = true
-    }
-
-    function togglePanelSide() {
-        if (!panelReady || panelToggleProc.running) return
-        panelToggleProc.running = true
     }
 
     function setFont(key, value) {
@@ -85,16 +76,6 @@ Item {
             root.barReady = true
         } catch (e) {
             root.barReady = false
-        }
-    }
-
-    function parsePanelState(raw) {
-        try {
-            var data = JSON.parse(String(raw || "{}"))
-            root.panelOnRight = data.panelOnRight === true
-            root.panelReady = true
-        } catch (e) {
-            root.panelReady = false
         }
     }
 
@@ -139,14 +120,6 @@ Item {
     }
 
     Process {
-        id: loadPanelProc
-        command: ["bash", root.panelScript, "get"]
-        stdout: StdioCollector {
-            onStreamFinished: root.parsePanelState(text)
-        }
-    }
-
-    Process {
         id: loadFontProc
         command: ["bash", root.fontScript, "get"]
         stdout: StdioCollector {
@@ -176,14 +149,6 @@ Item {
         command: ["bash", root.barScript, "toggle"]
         stdout: StdioCollector {
             onStreamFinished: root.parseBarState(text)
-        }
-    }
-
-    Process {
-        id: panelToggleProc
-        command: ["bash", root.panelScript, "toggle"]
-        stdout: StdioCollector {
-            onStreamFinished: root.parsePanelState(text)
         }
     }
 
@@ -332,20 +297,6 @@ Item {
                         enabled: root.hyprReady && !hyprToggleProc.running
                         onToggled: root.toggleHypr("animations")
                     }
-                }
-            }
-
-            FramedPanel {
-                label: "Panel"
-                Layout.fillWidth: true
-
-                ToggleRow {
-                    width: parent.width
-                    label: "Panel on right"
-                    detail: "Off: left side"
-                    checked: root.panelOnRight
-                    enabled: root.panelReady && !panelToggleProc.running
-                    onToggled: root.togglePanelSide()
                 }
             }
 

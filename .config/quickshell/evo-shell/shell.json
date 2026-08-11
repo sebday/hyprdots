@@ -76,7 +76,6 @@
   },
   "plugins": [],
   "panel": {
-    "side": "left",
-    "pinned": false
+    "side": "left"
   }
 }

@@ -15,7 +15,7 @@ ShellRoot {
         version: 1,
         idle: { screensaver: 1800, lock: 900 },
         notifications: { durationMs: 3000 },
-        panel: { side: "left", pinned: false },
+        panel: { side: "left" },
         bar: {
             id: "evo.bar",
             position: "bottom",
