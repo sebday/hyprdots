@@ -7,3 +7,4 @@ FramedPanel 1.0 FramedPanel.qml
 DockModuleBar 1.0 DockModuleBar.qml
 SliderSetting 1.0 SliderSetting.qml
 ToggleRow 1.0 ToggleRow.qml
+FontFamilyPicker 1.0 FontFamilyPicker.qml

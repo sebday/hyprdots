@@ -127,10 +127,12 @@ EOF
 }
 
 # Write ~/.config/quickshell/evo-shell/theme.json from colors.toml for Quickshell Theme.qml.
+# Preserves fontFamily / fontPixelSize from an existing theme.json or evo-font state.
 themes_sync_evo_shell() {
     local current="${CURRENT_PATH:-$THEME_DIR/current}"
     local toml="$current/colors.toml"
     local out="${HOME}/.config/quickshell/evo-shell/theme.json"
+    local font_state="${XDG_STATE_HOME:-$HOME/.local/state}/evo-shell/font.json"
     [ -f "$toml" ] || return 0
 
     local fg bg accent mantle urgent
@@ -140,6 +142,11 @@ themes_sync_evo_shell() {
     mantle=$(toml_val mantle "$toml")
     urgent=$(toml_val color1 "$toml")
 
+    local prev_json='{}'
+    local fonts_json='{}'
+    [ -f "$out" ] && prev_json=$(cat "$out" 2>/dev/null || echo '{}')
+    [ -f "$font_state" ] && fonts_json=$(cat "$font_state" 2>/dev/null || echo '{}')
+
     mkdir -p "$(dirname "$out")"
     jq -n \
         --arg foreground "$fg" \
@@ -147,7 +154,23 @@ themes_sync_evo_shell() {
         --arg accent "$accent" \
         --arg mantle "$mantle" \
         --arg urgent "$urgent" \
-        '{foreground: $foreground, background: $background, accent: $accent, mantle: $mantle, urgent: $urgent}' \
+        --argjson prev "$prev_json" \
+        --argjson fonts "$fonts_json" \
+        '
+        {
+          foreground: $foreground,
+          background: $background,
+          accent: $accent,
+          mantle: $mantle,
+          urgent: $urgent
+        }
+        + (if (($prev.fontFamily // $fonts.family // "") | length) > 0 then
+            {fontFamily: ($prev.fontFamily // $fonts.family)}
+          else {} end)
+        + (if ($prev.fontPixelSize // $fonts.uiSize // null) != null then
+            {fontPixelSize: ($prev.fontPixelSize // $fonts.uiSize)}
+          else {} end)
+        ' \
         > "$out"
 }
 

@@ -77,6 +77,6 @@
   "plugins": [],
   "panel": {
     "side": "left",
-    "pinned": true
+    "pinned": false
   }
 }

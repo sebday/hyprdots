@@ -61,9 +61,9 @@ Singleton {
     readonly property real surfaceOpacityInactive: themeNumber("surfaceOpacityInactive", 0.88)
     readonly property color panelBackground: withOpacity(background, surfaceOpacity)
     readonly property color panelMantle: withOpacity(mantle, surfaceOpacity)
-    readonly property string fontFamily: "CaskaydiaMono Nerd Font"
+    readonly property string fontFamily: themeColor("fontFamily", "CaskaydiaMono Nerd Font")
     readonly property bool fontBold: true
-    readonly property int fontPixelSize: 13
+    readonly property int fontPixelSize: themeNumber("fontPixelSize", 13)
     readonly property int barHeight: 32
     readonly property int barPaddingX: 16
     readonly property int barGap: 8

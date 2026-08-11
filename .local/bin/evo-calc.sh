@@ -31,7 +31,10 @@ eval_expr() {
         return 1
     fi
     result="${result//$'\n'/}"
-    result=$(printf '%s' "$result" | sed -E 's/\.?0+$//; s/\.$//')
+    # Strip trailing fractional zeros only (20000 must stay 20000, not become 2).
+    if [[ "$result" == *.* ]]; then
+        result=$(printf '%s' "$result" | sed -E 's/0+$//; s/\.$//')
+    fi
     [[ -n "$result" ]] || {
         printf 'error\n'
         return 1

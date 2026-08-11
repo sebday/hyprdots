@@ -73,6 +73,8 @@ apply_theme() {
     themes_sync_icon_theme_gsettings
     themes_sync_vscode_generated_extension
     themes_sync_obsidian_modular
+    # Re-apply global font after theme color sync (preserves UI/editor sizes).
+    "$HOME/.local/bin/evo-font.sh" apply >/dev/null 2>&1 || true
 }
 
 reload_apps() {

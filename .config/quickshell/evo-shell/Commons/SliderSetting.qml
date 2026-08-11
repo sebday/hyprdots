@@ -9,10 +9,12 @@ ColumnLayout {
     property int minimum: 0
     property int maximum: 20
     property int step: 1
+    property bool enabled: true
 
     signal valueEdited(int value)
 
     spacing: 6
+    opacity: root.enabled ? 1 : 0.45
 
     RowLayout {
         Layout.fillWidth: true
@@ -75,6 +77,7 @@ ColumnLayout {
         MouseArea {
             anchors.fill: parent
             hoverEnabled: true
+            enabled: root.enabled
             cursorShape: Qt.SizeHorCursor
 
             function valueAt(mouseX) {

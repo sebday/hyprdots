@@ -13,21 +13,30 @@ Item {
     readonly property string hyprScript: Quickshell.env("HOME") + "/.local/bin/evo-hypr-looks.sh"
     readonly property string barScript: Quickshell.env("HOME") + "/.local/bin/evo-bar-layout.sh"
     readonly property string panelScript: Quickshell.env("HOME") + "/.local/bin/evo-panel-layout.sh"
+    readonly property string fontScript: Quickshell.env("HOME") + "/.local/bin/evo-font.sh"
 
     property bool roundingOn: false
     property bool gapsOn: false
     property bool animationsOn: false
     property bool barOnDp1Top: false
     property bool panelOnRight: false
+    property string fontFamily: "CaskaydiaMono Nerd Font"
+    property int fontUiSize: 13
+    property int fontEditorSize: 18
+    property var fontFamilies: []
     property bool hyprReady: false
     property bool barReady: false
     property bool panelReady: false
-    readonly property bool ready: hyprReady && barReady && panelReady
+    property bool fontReady: false
+    readonly property bool ready: hyprReady && barReady && panelReady && fontReady
+    readonly property bool fontBusy: fontSetProc.running
 
     function refresh() {
         if (!loadHyprProc.running) loadHyprProc.running = true
         if (!loadBarProc.running) loadBarProc.running = true
         if (!loadPanelProc.running) loadPanelProc.running = true
+        if (!loadFontProc.running) loadFontProc.running = true
+        if (!loadFontListProc.running) loadFontListProc.running = true
     }
 
     function toggleHypr(key) {
@@ -44,6 +53,13 @@ Item {
     function togglePanelSide() {
         if (!panelReady || panelToggleProc.running) return
         panelToggleProc.running = true
+    }
+
+    function setFont(key, value) {
+        if (!fontReady || fontBusy) return
+        fontSetProc.key = key
+        fontSetProc.value = String(value)
+        fontSetProc.running = true
     }
 
     function onActivated() {
@@ -82,6 +98,30 @@ Item {
         }
     }
 
+    function parseFontState(raw) {
+        try {
+            var data = JSON.parse(String(raw || "{}"))
+            if (data.family)
+                root.fontFamily = String(data.family)
+            if (typeof data.uiSize === "number")
+                root.fontUiSize = data.uiSize
+            if (typeof data.editorSize === "number")
+                root.fontEditorSize = data.editorSize
+            root.fontReady = true
+        } catch (e) {
+            root.fontReady = false
+        }
+    }
+
+    function parseFontList(raw) {
+        try {
+            var data = JSON.parse(String(raw || "{}"))
+            root.fontFamilies = Array.isArray(data.families) ? data.families : []
+        } catch (e) {
+            root.fontFamilies = []
+        }
+    }
+
     Process {
         id: loadHyprProc
         command: ["bash", root.hyprScript, "get"]
@@ -103,6 +143,22 @@ Item {
         command: ["bash", root.panelScript, "get"]
         stdout: StdioCollector {
             onStreamFinished: root.parsePanelState(text)
+        }
+    }
+
+    Process {
+        id: loadFontProc
+        command: ["bash", root.fontScript, "get"]
+        stdout: StdioCollector {
+            onStreamFinished: root.parseFontState(text)
+        }
+    }
+
+    Process {
+        id: loadFontListProc
+        command: ["bash", root.fontScript, "list"]
+        stdout: StdioCollector {
+            onStreamFinished: root.parseFontList(text)
         }
     }
 
@@ -131,73 +187,180 @@ Item {
         }
     }
 
-    ColumnLayout {
+    Process {
+        id: fontSetProc
+        property string key: ""
+        property string value: ""
+        command: ["bash", root.fontScript, "set", fontSetProc.key, fontSetProc.value]
+        stdout: StdioCollector {
+            onStreamFinished: root.parseFontState(text)
+        }
+    }
+
+    Timer {
+        id: uiSizeDebounce
+        interval: 180
+        repeat: false
+        property int pending: root.fontUiSize
+        onTriggered: root.setFont("ui-size", pending)
+    }
+
+    Timer {
+        id: editorSizeDebounce
+        interval: 180
+        repeat: false
+        property int pending: root.fontEditorSize
+        onTriggered: root.setFont("editor-size", pending)
+    }
+
+    Flickable {
         anchors.fill: parent
-        spacing: 16
+        clip: true
+        contentWidth: width
+        // Extra top pad so FramedPanel labels (y: -7) aren't clipped.
+        contentHeight: settingsColumn.implicitHeight + 10
+        boundsBehavior: Flickable.StopAtBounds
+        flickableDirection: Flickable.VerticalFlick
 
-        FramedPanel {
-            label: "Hyprland"
-            Layout.fillWidth: true
+        ColumnLayout {
+            id: settingsColumn
+            width: parent.width
+            y: 10
+            spacing: 16
 
-            Column {
-                width: parent.width
-                spacing: 12
+            FramedPanel {
+                label: "Font"
+                Layout.fillWidth: true
 
-                ToggleRow {
+                Column {
                     width: parent.width
-                    label: "Border radius"
-                    detail: "On: 7px"
-                    checked: root.roundingOn
-                    enabled: root.hyprReady && !hyprToggleProc.running
-                    onToggled: root.toggleHypr("rounding")
-                }
+                    spacing: 14
 
-                ToggleRow {
-                    width: parent.width
-                    label: "Window gaps"
-                    detail: "On: 10 in / 20 out"
-                    checked: root.gapsOn
-                    enabled: root.hyprReady && !hyprToggleProc.running
-                    onToggled: root.toggleHypr("gaps")
-                }
+                    FontFamilyPicker {
+                        width: parent.width
+                        label: "Family"
+                        value: root.fontFamily
+                        model: root.fontFamilies
+                        enabled: root.fontReady && !root.fontBusy
+                        onActivated: function(family) {
+                            root.fontFamily = family
+                            root.setFont("family", family)
+                        }
+                    }
 
-                ToggleRow {
-                    width: parent.width
-                    label: "Animations"
-                    detail: "Window / workspace motion"
-                    checked: root.animationsOn
-                    enabled: root.hyprReady && !hyprToggleProc.running
-                    onToggled: root.toggleHypr("animations")
+                    SliderSetting {
+                        width: parent.width
+                        label: "UI size"
+                        value: root.fontUiSize
+                        minimum: 9
+                        maximum: 28
+                        enabled: root.fontReady && !root.fontBusy
+                        onValueEdited: function(v) {
+                            root.fontUiSize = v
+                            uiSizeDebounce.pending = v
+                            uiSizeDebounce.restart()
+                        }
+                    }
+
+                    Text {
+                        width: parent.width
+                        text: "GTK, evo-shell"
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: 10
+                        opacity: 0.45
+                        wrapMode: Text.WordWrap
+                    }
+
+                    SliderSetting {
+                        width: parent.width
+                        label: "Editor size"
+                        value: root.fontEditorSize
+                        minimum: 9
+                        maximum: 28
+                        enabled: root.fontReady && !root.fontBusy
+                        onValueEdited: function(v) {
+                            root.fontEditorSize = v
+                            editorSizeDebounce.pending = v
+                            editorSizeDebounce.restart()
+                        }
+                    }
+
+                    Text {
+                        width: parent.width
+                        text: "Ghostty, Cursor / VS Code"
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: 10
+                        opacity: 0.45
+                        wrapMode: Text.WordWrap
+                    }
                 }
             }
-        }
 
-        FramedPanel {
-            label: "Panel"
-            Layout.fillWidth: true
+            FramedPanel {
+                label: "Hyprland"
+                Layout.fillWidth: true
 
-            ToggleRow {
-                width: parent.width
-                label: "Panel on right"
-                detail: "Off: left side"
-                checked: root.panelOnRight
-                enabled: root.panelReady && !panelToggleProc.running
-                onToggled: root.togglePanelSide()
+                Column {
+                    width: parent.width
+                    spacing: 12
+
+                    ToggleRow {
+                        width: parent.width
+                        label: "Border radius"
+                        detail: "On: 7px"
+                        checked: root.roundingOn
+                        enabled: root.hyprReady && !hyprToggleProc.running
+                        onToggled: root.toggleHypr("rounding")
+                    }
+
+                    ToggleRow {
+                        width: parent.width
+                        label: "Window gaps"
+                        detail: "On: 10 in / 20 out"
+                        checked: root.gapsOn
+                        enabled: root.hyprReady && !hyprToggleProc.running
+                        onToggled: root.toggleHypr("gaps")
+                    }
+
+                    ToggleRow {
+                        width: parent.width
+                        label: "Animations"
+                        detail: "Window / workspace motion"
+                        checked: root.animationsOn
+                        enabled: root.hyprReady && !hyprToggleProc.running
+                        onToggled: root.toggleHypr("animations")
+                    }
+                }
             }
-        }
 
-        FramedPanel {
-            label: "Bar"
-            Layout.fillWidth: true
-            Layout.fillHeight: true
+            FramedPanel {
+                label: "Panel"
+                Layout.fillWidth: true
 
-            ToggleRow {
-                width: parent.width
-                label: "Bar on DP-1 top"
-                detail: "Off: HDMI-A-1 bottom"
-                checked: root.barOnDp1Top
-                enabled: root.barReady && !barToggleProc.running
-                onToggled: root.toggleBar()
+                ToggleRow {
+                    width: parent.width
+                    label: "Panel on right"
+                    detail: "Off: left side"
+                    checked: root.panelOnRight
+                    enabled: root.panelReady && !panelToggleProc.running
+                    onToggled: root.togglePanelSide()
+                }
+            }
+
+            FramedPanel {
+                label: "Bar"
+                Layout.fillWidth: true
+
+                ToggleRow {
+                    width: parent.width
+                    label: "Bar on DP-1 top"
+                    detail: "Off: HDMI-A-1 bottom"
+                    checked: root.barOnDp1Top
+                    enabled: root.barReady && !barToggleProc.running
+                    onToggled: root.toggleBar()
+                }
             }
         }
     }
