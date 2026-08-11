@@ -31,11 +31,7 @@
             "key": "│ ├󰏖",
             "keyColor": "yellow"
         },
-        {
-            "type": "shell",
-            "key": "│ ├",
-            "keyColor": "yellow"
-        },
+        "break",
         {
             "type": "wm",
             "key": " DE/WM",
@@ -44,16 +40,6 @@
         {
             "type": "wmtheme",
             "key": "│ ├󰉼",
-            "keyColor": "blue"
-        },
-        {
-            "type": "icons",
-            "key": "│ ├󰀻",
-            "keyColor": "blue"
-        },
-        {
-            "type": "cursor",
-            "key": "│ ├",
             "keyColor": "blue"
         },
         {
@@ -66,6 +52,7 @@
             "key": "│ └",
             "keyColor": "blue"
         },
+        "break",
         {
             "type": "host",
             "key": "󰌢 SYSTEM",
@@ -98,6 +85,7 @@
             "key": "│ ├󰅐",
             "keyColor": "green"
         },
+        "break",
         {
             "type": "sound",
             "key": "  AUDIO",
