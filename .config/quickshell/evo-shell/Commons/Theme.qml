@@ -39,11 +39,28 @@ Singleton {
         return value ? value : fallback
     }
 
+    function themeNumber(key, fallback) {
+        var value = themeData[key]
+        if (value === undefined || value === null || value === "")
+            return fallback
+        var n = Number(value)
+        return isNaN(n) ? fallback : n
+    }
+
+    function withOpacity(c, alpha) {
+        return Qt.rgba(c.r, c.g, c.b, alpha)
+    }
+
     readonly property color foreground: themeColor("foreground", "#d3c6aa")
     readonly property color background: themeColor("background", "#2d353b")
     readonly property color accent: themeColor("accent", "#7fbbb3")
     readonly property color urgent: themeColor("urgent", "#e67e80")
     readonly property color mantle: themeColor("mantle", "#252b30")
+    // Match hyprland decoration.active_opacity / inactive_opacity in ~/.config/hypr/looks.lua
+    readonly property real surfaceOpacity: themeNumber("surfaceOpacity", 0.97)
+    readonly property real surfaceOpacityInactive: themeNumber("surfaceOpacityInactive", 0.88)
+    readonly property color panelBackground: withOpacity(background, surfaceOpacity)
+    readonly property color panelMantle: withOpacity(mantle, surfaceOpacity)
     readonly property string fontFamily: "CaskaydiaMono Nerd Font"
     readonly property bool fontBold: true
     readonly property int fontPixelSize: 13

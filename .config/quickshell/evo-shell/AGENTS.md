@@ -118,6 +118,11 @@ Widget entry fields depend on type (see below). `FileView` watches this file; `r
 
 Use `theme.json` for colours and notification sizing only — not timing.
 
+| `theme.json` key | Purpose |
+|------------------|---------|
+| `surfaceOpacity` | Panel/dock background alpha; default `0.97` (match hypr `decoration.active_opacity`) |
+| `surfaceOpacityInactive` | Reserved for unfocused surfaces; default `0.88` (match hypr `inactive_opacity`) |
+
 ## Architecture
 
 ```

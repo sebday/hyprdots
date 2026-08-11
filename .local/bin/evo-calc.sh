@@ -90,12 +90,25 @@ with open(path, "w", encoding="utf-8") as f:
 PY
 }
 
+clear_history() {
+    python3 - "$HISTORY_FILE" <<'PY'
+import json
+import sys
+
+path = sys.argv[1]
+with open(path, "w", encoding="utf-8") as f:
+    json.dump([], f, ensure_ascii=False)
+    f.write("\n")
+PY
+}
+
 case "${1:-}" in
 eval) eval_expr "${2:-}" ;;
 history) history_list ;;
 add) add_history "${2:-}" "${3:-}" ;;
+clear) clear_history ;;
 *)
-    echo "usage: evo-calc.sh eval <expr>|history|add <expr> <result>" >&2
+    echo "usage: evo-calc.sh eval <expr>|history|add <expr> <result>|clear" >&2
     exit 1
     ;;
 esac
