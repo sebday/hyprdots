@@ -6,6 +6,8 @@
 local browser = "brave"
 local terminal = "ghostty"
 local editor = "ghostty -e nano"
+local bin = (os.getenv("HOME") or "") .. "/.local/bin"
+local shell_ipc = bin .. "/evo-shell-ipc"
 
 local function bindd(keys, description, dispatcher, flags)
     flags = flags or {}
@@ -13,15 +15,14 @@ local function bindd(keys, description, dispatcher, flags)
     hl.bind(keys, dispatcher, flags)
 end
 
-bindd("SUPER + Space", "Provider list", hl.dsp.exec_cmd("~/.local/bin/walker-launch.sh -m menus:system"))
+bindd("SUPER + Space", "Launcher menu", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.menu"))
 bindd("SUPER + Return", "Terminal", hl.dsp.exec_cmd(terminal))
-bindd("SUPER + Escape", "Power", hl.dsp.exec_cmd("~/.local/bin/walker-launch.sh -m menus:power"))
+bindd("SUPER + Escape", "Power menu", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.menu '{\"mode\":\"power\"}'"))
 bindd("SUPER + W", "Close Active Window", hl.dsp.window.close())
 bindd("SUPER + E", "Editor", hl.dsp.exec_cmd(editor .. " ~/"))
 bindd("SUPER + T", "GUI File Manager", hl.dsp.exec_cmd("thunar"))
-bindd("SUPER + D", "Provider list", hl.dsp.exec_cmd("~/.local/bin/walker-launch.sh -m desktopapplications"))
-bindd("SUPER + ALT + D", "Provider list", hl.dsp.exec_cmd("~/.local/bin/walker-launch.sh -m providerlist"))
-bindd("SUPER + R", "Runner", hl.dsp.exec_cmd("~/.local/bin/walker-launch.sh -m runner"))
+bindd("SUPER + D", "App launcher", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.menu '{\"mode\":\"apps\"}'"))
+bindd("SUPER + R", "Runner", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.menu '{\"mode\":\"runner\"}'"))
 bindd("SUPER + F", "Fullscreen", hl.dsp.window.fullscreen({ mode = "fullscreen", action = "set" }))
 bindd("SUPER + H", "Toggle window transparency", function()
     local window = hl.get_active_window()
@@ -31,9 +32,9 @@ bindd("SUPER + H", "Toggle window transparency", function()
 end)
 bindd("SUPER + J", "Toggle Split Direction", hl.dsp.layout("togglesplit"))
 bindd("SUPER + K", "Toggle Floating Window", hl.dsp.window.float({ action = "toggle" }))
-bindd("SUPER + L", "Lock Screen", hl.dsp.exec_cmd("hyprlock"))
-bindd("SUPER + V", "Clipboard History", hl.dsp.exec_cmd("~/.local/bin/walker-launch.sh -m clipboard"))
-bindd("SUPER + ALT + V", "Emoji Picker", hl.dsp.exec_cmd("~/.local/bin/walker-launch.sh -m symbols"))
+bindd("SUPER + L", "Lock Screen", hl.dsp.exec_cmd(bin .. "/evo-system-lock"))
+bindd("SUPER + V", "Clipboard History", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.clipboard"))
+bindd("SUPER + ALT + V", "Emoji Picker", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.emojis"))
 
 -- Programs
 bindd("SUPER + 1", "Brave Browser", hl.dsp.exec_cmd(browser))
@@ -104,17 +105,17 @@ bindd("SUPER + CTRL + left", "Resize window narrower", hl.dsp.window.resize({ x 
 bindd("SUPER + CTRL + up", "Resize window shorter", hl.dsp.window.resize({ x = 0, y = -20, relative = true }), { repeating = true })
 bindd("SUPER + CTRL + down", "Resize window taller", hl.dsp.window.resize({ x = 0, y = 20, relative = true }), { repeating = true })
 
--- Volume controls
-bindd("XF86AudioRaiseVolume", "Volume up", hl.dsp.exec_cmd("~/.local/bin/hypr-volume.sh up"), { locked = true, repeating = true })
-bindd("XF86AudioLowerVolume", "Volume down", hl.dsp.exec_cmd("~/.local/bin/hypr-volume.sh down"), { locked = true, repeating = true })
-bindd("XF86AudioMute", "Mute volume", hl.dsp.exec_cmd("~/.local/bin/hypr-volume.sh mute"), { locked = true, repeating = true })
+-- Volume controls (Pipewire via evo-shell)
+bindd("XF86AudioRaiseVolume", "Volume up", hl.dsp.exec_cmd(shell_ipc .. " evo.audio stepUp"), { locked = true, repeating = true })
+bindd("XF86AudioLowerVolume", "Volume down", hl.dsp.exec_cmd(shell_ipc .. " evo.audio stepDown"), { locked = true, repeating = true })
+bindd("XF86AudioMute", "Mute volume", hl.dsp.exec_cmd(shell_ipc .. " evo.audio toggleMute"), { locked = true, repeating = true })
 bindd("XF86AudioPlay", "Play/Pause media", hl.dsp.exec_cmd("playerctl play-pause"), { locked = true })
 bindd("XF86AudioNext", "Next media track", hl.dsp.exec_cmd("playerctl next"), { locked = true })
 bindd("XF86AudioPrev", "Previous media track", hl.dsp.exec_cmd("playerctl previous"), { locked = true })
 
 -- Wallpaper
-bindd("SUPER + equal", "Next Wallpaper", hl.dsp.exec_cmd("bash ~/.local/bin/hypr-wallpaper.sh next"))
-bindd("SUPER + minus", "Previous Wallpaper", hl.dsp.exec_cmd("bash ~/.local/bin/hypr-wallpaper.sh prev"))
+bindd("SUPER + equal", "Next Wallpaper", hl.dsp.exec_cmd(shell_ipc .. " background next"))
+bindd("SUPER + minus", "Previous Wallpaper", hl.dsp.exec_cmd(shell_ipc .. " background prev"))
 
 -- Screenshot
 bindd("PRINT", "Screenshot Region", hl.dsp.exec_cmd("bash -c \"hyprshot -m region -o /tmp/ -f hyprshot.png;\""))

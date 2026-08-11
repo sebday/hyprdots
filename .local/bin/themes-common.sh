@@ -36,6 +36,21 @@ theme_display_name() {
     printf '%s' "${display_name% }"
 }
 
+# Default wallpaper for current theme: prefer backgrounds/1-* then first sorted image.
+themes_default_wallpaper() {
+    local dir="${CURRENT_PATH:-$THEME_DIR/current}/backgrounds"
+    local candidate
+    [ -d "$dir" ] || return 1
+    candidate=$(find "$dir" -maxdepth 1 -type f \( -iname '1-*' \) 2>/dev/null | sort | head -n1)
+    if [ -n "$candidate" ]; then
+        printf '%s' "$candidate"
+        return 0
+    fi
+    candidate=$(find "$dir" -maxdepth 1 -type f 2>/dev/null | sort | head -n1)
+    [ -n "$candidate" ] || return 1
+    printf '%s' "$candidate"
+}
+
 paths_resolved_equal() {
     local a b
     a=$(cd "$1" 2>/dev/null && pwd -P) || return 1
@@ -79,15 +94,11 @@ process_theme_templates() {
     rm -f "$sed_script"
 }
 
-# Copy theme files from current/ into ~/.config (mako, hypr theme, btop).
+# Copy theme files from current/ into ~/.config (hypr theme, btop).
 install_theme_manifest() {
     local current="${CURRENT_PATH:-$THEME_DIR/current}"
     local config="${HOME}/.config"
 
-    if [ -f "$current/mako.ini" ]; then
-        mkdir -p "$config/mako"
-        cp "$current/mako.ini" "$config/mako/config"
-    fi
     if [ -f "$current/colors.toml" ]; then
         local accent accent_strip
         mkdir -p "$config/hypr"
@@ -113,6 +124,31 @@ EOF
         cp "$current/btop.theme" "$config/btop/themes/current.theme"
         [ -f "$config/btop/btop.conf" ] && sed -i 's|^color_theme =.*|color_theme = "current"|' "$config/btop/btop.conf"
     fi
+}
+
+# Write ~/.config/quickshell/evo-shell/theme.json from colors.toml for Quickshell Theme.qml.
+themes_sync_evo_shell() {
+    local current="${CURRENT_PATH:-$THEME_DIR/current}"
+    local toml="$current/colors.toml"
+    local out="${HOME}/.config/quickshell/evo-shell/theme.json"
+    [ -f "$toml" ] || return 0
+
+    local fg bg accent mantle urgent
+    fg=$(toml_val foreground "$toml")
+    bg=$(toml_val background "$toml")
+    accent=$(toml_val accent "$toml")
+    mantle=$(toml_val mantle "$toml")
+    urgent=$(toml_val color1 "$toml")
+
+    mkdir -p "$(dirname "$out")"
+    jq -n \
+        --arg foreground "$fg" \
+        --arg background "$bg" \
+        --arg accent "$accent" \
+        --arg mantle "$mantle" \
+        --arg urgent "$urgent" \
+        '{foreground: $foreground, background: $background, accent: $accent, mantle: $mantle, urgent: $urgent}' \
+        > "$out"
 }
 
 themes_sync_icon_theme_gsettings() {
@@ -151,31 +187,6 @@ themes_sync_obsidian_modular() {
     fi
     updated_json=$(echo "$updated_json" | jq --arg theme "obsidian" '.theme = $theme' | jq --arg cssTheme "Modular" '.cssTheme = $cssTheme')
     echo "$updated_json" > "$appearance"
-}
-
-themes_sync_walker_style_symlink() {
-    local current="${CURRENT_PATH:-$THEME_DIR/current}"
-    local dest_root="${XDG_CONFIG_HOME:-$HOME/.config}/walker/themes"
-    local name="${WALKER_THEME_NAME:-current}"
-    local cfg="${XDG_CONFIG_HOME:-$HOME/.config}/walker/config.toml"
-    local src=""
-
-    if [ -f "$current/walker/style.css" ]; then
-        src="$current/walker/style.css"
-    elif [ -f "$current/walker.css" ]; then
-        src="$current/walker.css"
-    elif [ -f "$current/walker-style.css" ]; then
-        src="$current/walker-style.css"
-    else
-        return 0
-    fi
-    [ -f "$cfg" ] || return 0
-
-    mkdir -p "$dest_root/$name"
-    ln -sfn "$(realpath "$src")" "$dest_root/$name/style.css"
-    if grep -q '^theme = ' "$cfg"; then
-        sed -i "s/^theme = .*/theme = \"$name\"/" "$cfg"
-    fi
 }
 
 # Install ~/.themes/current/vscode-theme into editor extension dirs and set workbench.colorTheme.

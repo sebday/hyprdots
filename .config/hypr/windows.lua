@@ -83,14 +83,6 @@ hl.window_rule({
 })
 
 hl.window_rule({
-    name = "qalculate-popup",
-    match = { class = "qalculate-gtk" },
-    float = true,
-    center = true,
-    size = { 350, 400 }
-})
-
-hl.window_rule({
     name = "workspace-gimp",
     match = { initial_class = "^(gimp)" },
     workspace = "8",

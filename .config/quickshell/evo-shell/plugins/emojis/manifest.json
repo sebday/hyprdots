@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "id": "evo.emojis",
+  "name": "Emojis",
+  "version": "1.0.0",
+  "kinds": ["panel"],
+  "entryPoints": { "panel": "Panel.qml" }
+}

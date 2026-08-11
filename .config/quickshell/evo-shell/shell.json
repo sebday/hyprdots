@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "idle": {
+    "screensaver": 1800,
+    "lock": 900
+  },
+  "bar": {
+    "id": "evo.bar",
+    "position": "bottom",
+    "output": "HDMI-A-1",
+    "transparent": false,
+    "layout": {
+      "left": [
+        {
+          "id": "evo.shopify",
+          "store": "DIY",
+          "interval": 300,
+          "onClick": "xdg-open https://admin.shopify.com/store/diy-buildingsupplies/analytics/live"
+        },
+        {
+          "id": "evo.shopify",
+          "store": "TGS",
+          "interval": 300,
+          "onClick": "xdg-open https://admin.shopify.com/store/thegoodsheet-uk/analytics/live"
+        },
+        {
+          "id": "btc",
+          "type": "command",
+          "exec": "~/.local/bin/evo-bar-btc.sh",
+          "interval": 60,
+          "onClick": "xdg-open https://www.tradingview.com/symbols/BTCUSD/"
+        },
+        {
+          "id": "spcx",
+          "type": "command",
+          "exec": "~/.local/bin/evo-bar-spcx.sh",
+          "interval": 60,
+          "onClick": "xdg-open https://app.trading212.com/"
+        }
+      ],
+      "center": [
+        { "id": "evo.workspaces" }
+      ],
+      "right": [
+        {
+          "id": "evo.github",
+          "interval": 300,
+          "onClick": "xdg-open https://github.com/sebday"
+        },
+        {
+          "id": "weather",
+          "type": "command",
+          "exec": "~/.local/bin/evo-bar-weather.sh",
+          "interval": 1800,
+          "onClick": "xdg-open https://weather.metoffice.gov.uk/forecast/gcqvn6pq4"
+        },
+        {
+          "id": "evo.cava",
+          "onClick": "ghostty --class=TUI.main -e wiremix",
+          "onClickRight": "ghostty --class=TUI.main -e alsamixer"
+        },
+        { "id": "evo.audio" },
+        { "id": "evo.clock", "format": "%a %d %H:%M" },
+        { "id": "evo.tray" }
+      ]
+    }
+  },
+  "plugins": []
+}

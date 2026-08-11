@@ -1,0 +1,774 @@
+import Quickshell
+import Quickshell.Io
+import Quickshell.Wayland
+import QtQuick
+import "../../Commons"
+import "MenuEntries.js" as MenuEntries
+
+Item {
+    id: root
+
+    property var shell: null
+    property bool opened: false
+    property string filterText: ""
+    property string mode: "system"
+    property string submenu: ""
+    property var commandEntries: []
+    property var dynamicEntries: []
+    property bool dynamicLoading: false
+    property int selectedIndex: 0
+    property real previewAreaMaxWidth: 1600
+    property real previewAreaMaxHeight: 900
+
+    readonly property bool tileMode: (mode === "system" || mode === "power") && !submenu
+    readonly property bool previewTileMode: submenu === "themes" || submenu === "wallpaper"
+    readonly property bool boxTileMode: tileMode || previewTileMode
+    readonly property string previewFallbackIcon: submenu === "wallpaper" ? "󰏘" : "󰸌"
+    readonly property int tileWidth: 104
+    readonly property int tileHeight: 100
+    readonly property int tileSpacing: 10
+    readonly property int tileIconSize: 32
+    readonly property int previewTileWidth: 148
+    readonly property int previewTileHeight: 132
+    readonly property int previewImageHeight: 96
+    readonly property real previewDpr: 2
+    readonly property int listIconSize: 20
+    readonly property int previewMenuMargin: 48
+
+    readonly property int previewColumnCount: {
+        var n = filteredEntries().length
+        if (n <= 0) return 1
+        var maxW = panel.previewAreaMaxWidth
+        var cols = Math.floor((maxW + tileSpacing) / (previewTileWidth + tileSpacing))
+        return Math.max(1, Math.min(n, cols))
+    }
+
+    readonly property int previewRowCount: {
+        var n = filteredEntries().length
+        if (n <= 0) return 1
+        return Math.ceil(n / previewColumnCount)
+    }
+
+    readonly property int previewGridWidth: {
+        var cols = previewColumnCount
+        if (cols <= 0) return previewTileWidth
+        return cols * previewTileWidth + (cols - 1) * tileSpacing
+    }
+
+    readonly property int previewGridHeight: {
+        var rows = previewRowCount
+        if (rows <= 0) return previewTileHeight
+        return rows * previewTileHeight + (rows - 1) * tileSpacing
+    }
+
+    readonly property int tileRowWidth: {
+        var n = filteredEntries().length
+        if (n <= 0) return tileWidth
+        return n * tileWidth + (n - 1) * tileSpacing
+    }
+
+    readonly property int previewRowWidth: {
+        var n = filteredEntries().length
+        if (n <= 0) return previewTileWidth
+        return n * previewTileWidth + (n - 1) * tileSpacing
+    }
+
+    readonly property int boxRowWidth: previewTileMode ? previewGridWidth : tileRowWidth
+    readonly property int boxRowHeight: previewTileMode ? previewGridHeight : tileHeight
+
+    readonly property string home: Quickshell.env("HOME")
+    readonly property string placeholderText: {
+        if (mode === "runner") return "run: command"
+        if (mode === "power") return "Power…"
+        if (mode === "apps") return "Applications…"
+        if (mode === "system") return "System…"
+        return "Search…"
+    }
+
+    function open(payloadJson) {
+        try {
+            var payload = JSON.parse(payloadJson || "{}")
+            mode = String(payload.mode || "system")
+            submenu = String(payload.submenu || "")
+        } catch (e) {
+            mode = "system"
+            submenu = ""
+        }
+        filterText = ""
+        selectedIndex = 0
+        refreshCommandEntries()
+        if (submenu) loadDynamicEntries(submenu)
+        else dynamicEntries = []
+        if (mode === "system" && !submenu) warmPreviewCache()
+        opened = true
+        Qt.callLater(function() {
+            root.previewAreaMaxWidth = panel.previewAreaMaxWidth
+            root.previewAreaMaxHeight = panel.previewAreaMaxHeight
+            if (root.boxTileMode)
+                menuHost.forceActiveFocus()
+            else
+                filterField.forceActiveFocus()
+        })
+    }
+
+    function dismiss() {
+        if (shell) shell.hide("evo.menu")
+        else close()
+    }
+
+    function close() {
+        if (!opened) return
+        opened = false
+        filterText = ""
+        submenu = ""
+        dynamicEntries = []
+        selectedIndex = 0
+    }
+
+    function moveSelection(delta) {
+        var count = filteredEntries().length
+        if (count <= 0) {
+            selectedIndex = 0
+            return
+        }
+        var next = selectedIndex + delta
+        if (next < 0) next = count - 1
+        else if (next >= count) next = 0
+        selectedIndex = next
+        if (!boxTileMode)
+            entryList.positionViewAtIndex(selectedIndex, ListView.Contain)
+    }
+
+    function moveGridSelection(dx, dy) {
+        var count = filteredEntries().length
+        if (count <= 0) {
+            selectedIndex = 0
+            return
+        }
+        var cols = previewColumnCount
+        var rows = previewRowCount
+        var row = Math.floor(selectedIndex / cols)
+        var col = selectedIndex % cols
+
+        if (dx !== 0) {
+            if (dx > 0) {
+                if (col < cols - 1 && selectedIndex + 1 < count)
+                    selectedIndex++
+                else
+                    selectedIndex = (selectedIndex + 1) % count
+            } else {
+                if (col > 0)
+                    selectedIndex--
+                else
+                    selectedIndex = (selectedIndex - 1 + count) % count
+            }
+            return
+        }
+
+        if (dy === 0) return
+        var targetRow = row + dy
+        if (targetRow < 0) targetRow = rows - 1
+        else if (targetRow >= rows) targetRow = 0
+        var targetIdx = targetRow * cols + col
+        if (targetIdx >= count) targetIdx = count - 1
+        selectedIndex = targetIdx
+    }
+
+    function handlePreviewLeft() {
+        if (previewTileMode) moveGridSelection(-1, 0)
+        else if (tileMode) moveSelection(-1)
+    }
+
+    function handlePreviewRight() {
+        if (previewTileMode) moveGridSelection(1, 0)
+        else if (tileMode) moveSelection(1)
+    }
+
+    function handlePreviewUp() {
+        if (previewTileMode) moveGridSelection(0, -1)
+        else if (!boxTileMode) moveSelection(-1)
+    }
+
+    function handlePreviewDown() {
+        if (previewTileMode) moveGridSelection(0, 1)
+        else if (!boxTileMode) moveSelection(1)
+    }
+
+    function activateSelection() {
+        var list = filteredEntries()
+        if (list.length === 0) return
+        var idx = Math.max(0, Math.min(selectedIndex, list.length - 1))
+        activateEntry(list[idx])
+    }
+
+    function handleEscapeKey() {
+        if (submenu) {
+            submenu = ""
+            dynamicEntries = []
+            filterText = ""
+            selectedIndex = 0
+        } else dismiss()
+    }
+
+    function handleActivateKey() {
+        if (mode === "runner") {
+            var cmd = filterText.trim()
+            if (cmd.indexOf("run:") === 0) cmd = cmd.slice(4).trim()
+            runCommand(cmd)
+            return
+        }
+        activateSelection()
+    }
+
+    onFilterTextChanged: selectedIndex = 0
+    onSubmenuChanged: selectedIndex = 0
+    onModeChanged: selectedIndex = 0
+
+    function refreshCommandEntries() {
+        if (mode === "power") {
+            commandEntries = MenuEntries.powerEntries(home)
+            return
+        }
+        if (mode === "apps" || mode === "runner") {
+            commandEntries = []
+            return
+        }
+        commandEntries = MenuEntries.systemEntries(home)
+    }
+
+    function entryIconSource(entry) {
+        if (!entry) return ""
+        if (entry.kind === "app" && entry.entryRef && entry.entryRef.icon)
+            return Quickshell.iconPath(String(entry.entryRef.icon), true) || ""
+        return ""
+    }
+
+    function entryGlyphIcon(entry) {
+        if (!entry) return "󰍉"
+        if (entry.icon) return entry.icon
+        return "󰍉"
+    }
+
+    function appEntries() {
+        var list = []
+        try {
+            var values = DesktopEntries.applications.values || []
+            for (var i = 0; i < values.length; i++) {
+                var entry = values[i]
+                if (!entry || !entry.id) continue
+                list.push({
+                    kind: "app",
+                    name: String(entry.name || entry.id),
+                    id: entry.id,
+                    entryRef: entry
+                })
+            }
+        } catch (e) {
+            console.warn("evo.menu app list failed:", e)
+        }
+        list.sort(function(a, b) { return a.name.localeCompare(b.name) })
+        return list
+    }
+
+    function filteredEntries() {
+        var q = filterText.trim()
+        if (mode === "runner") return []
+        if (submenu) {
+            if (dynamicEntries.length === 0) return []
+            return MenuEntries.filterEntries(dynamicEntries, q).map(function(e) {
+                return {
+                    kind: "command",
+                    name: e.name,
+                    command: e.command,
+                    submenu: e.submenu,
+                    preview: e.preview || "",
+                    icon: e.icon || ""
+                }
+            })
+        }
+        var out = []
+        if (mode === "apps") {
+            var apps = appEntries()
+            for (var i = 0; i < apps.length; i++) {
+                var app = apps[i]
+                if (!q) out.push(app)
+                else if (app.name.toLowerCase().indexOf(q.toLowerCase()) !== -1 || app.id.toLowerCase().indexOf(q.toLowerCase()) !== -1)
+                    out.push(app)
+            }
+            return out
+        }
+        if (mode === "power" || mode === "system") {
+            return MenuEntries.filterEntries(commandEntries, q, 16).map(MenuEntries.mapEntry)
+        }
+        return []
+    }
+
+    function runCommand(cmd) {
+        var command = String(cmd || "").trim()
+        if (!command) return
+        Quickshell.execDetached(["bash", "-lc", command])
+        dismiss()
+    }
+
+    function activateEntry(entry) {
+        if (!entry) return
+        if (entry.kind === "app") {
+            if (entry.entryRef && typeof entry.entryRef.execute === "function")
+                entry.entryRef.execute()
+            else
+                Quickshell.execDetached(["gtk-launch", String(entry.id)])
+            dismiss()
+            return
+        }
+        if (entry.kind === "submenu" && entry.submenu) {
+            submenu = entry.submenu
+            filterText = ""
+            selectedIndex = 0
+            loadDynamicEntries(entry.submenu)
+            Qt.callLater(function() {
+                root.previewAreaMaxWidth = panel.previewAreaMaxWidth
+                root.previewAreaMaxHeight = panel.previewAreaMaxHeight
+                if (entry.submenu === "themes" || entry.submenu === "wallpaper")
+                    menuHost.forceActiveFocus()
+                else
+                    filterField.forceActiveFocus()
+            })
+            return
+        }
+        if (entry.command) runCommand(entry.command)
+    }
+
+    function warmPreviewCache() {
+        var warmScript = home + "/.local/bin/evo-menu-preview-warm.sh"
+        previewWarmProc.command = ["bash", "-lc", "test -x " + Util.shellQuote(warmScript) + " && " + Util.shellQuote(warmScript)]
+        previewWarmProc.running = true
+    }
+
+    function loadDynamicEntries(kind) {
+        dynamicLoading = true
+        dynamicEntries = []
+        var script = ""
+        var thumbScript = home + "/.local/bin/evo-menu-preview-thumb.sh"
+        if (kind === "wallpaper") {
+            script = "THUMB=" + Util.shellQuote(thumbScript) + "; " +
+                "dir=\"$HOME/.themes/current/backgrounds\"; " +
+                "theme=$(tr -d '\\n' < \"$HOME/.themes/current/.theme-name\" 2>/dev/null); " +
+                "find \"$dir\" -type f \\( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \\) 2>/dev/null | sort | " +
+                "while read -r f; do bn=\"${f##*/}\"; p=\"$f\"; " +
+                "if [ -x \"$THUMB\" ]; then p=$(\"$THUMB\" \"$f\" \"wallpapers/${theme}/${bn}\" 2>/dev/null || echo \"$f\"); fi; " +
+                "printf '%s\\t%s/.local/bin/evo-wallpaper.sh set %s\\t%s\\n' \"$bn\" \"$HOME\" \"$f\" \"$p\"; done"
+        } else if (kind === "themes") {
+            script = "THUMB=" + Util.shellQuote(thumbScript) + "; " +
+                "find \"$HOME/.themes\" -mindepth 1 -maxdepth 1 -type d ! -name current ! -name shared ! -name next -printf '%f\\n' 2>/dev/null | sort | " +
+                "while read -r n; do src=\"$HOME/.themes/$n/preview.png\"; p=\"$src\"; " +
+                "if [ -x \"$THUMB\" ]; then p=$(\"$THUMB\" \"$src\" \"themes/${n}.png\" 2>/dev/null || echo \"$src\"); fi; " +
+                "printf '%s\\t%s/.local/bin/themes-apply.sh %s\\t%s\\n' \"$n\" \"$HOME\" \"$n\" \"$p\"; done"
+        }
+        if (!script) {
+            dynamicLoading = false
+            return
+        }
+        dynamicProc.command = ["bash", "-lc", script]
+        dynamicProc.running = true
+    }
+
+    function parseDynamicLines(raw) {
+        var lines = String(raw || "").split("\n")
+        var out = []
+        for (var i = 0; i < lines.length; i++) {
+            var line = lines[i].trim()
+            if (!line) continue
+            var tab = line.indexOf("\t")
+            if (tab === -1) {
+                out.push({ name: line, command: line, preview: "" })
+            } else {
+                var parts = line.split("\t")
+                out.push({
+                    name: parts[0] || "",
+                    command: parts[1] || "",
+                    preview: parts[2] || ""
+                })
+            }
+        }
+        dynamicEntries = out
+        dynamicLoading = false
+        Qt.callLater(function() {
+            root.previewAreaMaxWidth = panel.previewAreaMaxWidth
+            root.previewAreaMaxHeight = panel.previewAreaMaxHeight
+        })
+    }
+
+    Process {
+        id: dynamicProc
+        stdout: StdioCollector {
+            onStreamFinished: root.parseDynamicLines(text)
+        }
+        onExited: root.dynamicLoading = false
+    }
+
+    Process {
+        id: previewWarmProc
+    }
+
+    PanelWindow {
+        id: panel
+        visible: root.opened
+        anchors { top: true; bottom: true; left: true; right: true }
+        color: "transparent"
+        WlrLayershell.namespace: "evo-menu"
+        WlrLayershell.layer: WlrLayer.Overlay
+        WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
+        exclusionMode: ExclusionMode.Ignore
+
+        readonly property real previewAreaMaxWidth: {
+            var screenW = width > 0 ? width : (Quickshell.screens.length > 0 ? Quickshell.screens[0].width : 1920)
+            return Math.max(root.previewTileWidth * 3, screenW - root.previewMenuMargin * 2)
+        }
+        readonly property real previewAreaMaxHeight: {
+            var screenH = height > 0 ? height : (Quickshell.screens.length > 0 ? Quickshell.screens[0].height : 1080)
+            return Math.max(root.previewTileHeight * 2, screenH - root.previewMenuMargin * 2)
+        }
+
+        onWidthChanged: {
+            root.previewAreaMaxWidth = previewAreaMaxWidth
+        }
+        onHeightChanged: {
+            root.previewAreaMaxHeight = previewAreaMaxHeight
+        }
+        Component.onCompleted: {
+            root.previewAreaMaxWidth = previewAreaMaxWidth
+            root.previewAreaMaxHeight = previewAreaMaxHeight
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            color: Theme.background
+            opacity: 0.58
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            onClicked: root.dismiss()
+        }
+
+        Item {
+            id: menuHost
+            z: 1
+            anchors.centerIn: parent
+            width: root.boxTileMode
+                ? root.boxRowWidth
+                : 560
+            height: root.boxTileMode ? root.boxRowHeight : 420
+            focus: root.opened
+
+            Keys.onEscapePressed: root.handleEscapeKey()
+            Keys.onLeftPressed: root.handlePreviewLeft()
+            Keys.onRightPressed: root.handlePreviewRight()
+            Keys.onUpPressed: root.handlePreviewUp()
+            Keys.onDownPressed: root.handlePreviewDown()
+            Keys.onReturnPressed: root.handleActivateKey()
+
+            Rectangle {
+                anchors.fill: parent
+                visible: !root.boxTileMode
+                color: Theme.background
+                border.color: Theme.accent
+                border.width: 1
+            }
+
+            Column {
+                anchors.fill: parent
+                anchors.margins: root.boxTileMode ? 0 : 16
+                spacing: 12
+
+                Item {
+                    width: parent.width
+                    height: 40
+                    visible: !root.boxTileMode && (root.mode === "apps" || root.mode === "runner")
+
+                    Rectangle {
+                        anchors.fill: parent
+                        color: Theme.mantle
+                    }
+
+                    Text {
+                        visible: filterField.text.length === 0 && !filterField.activeFocus
+                        anchors.left: parent.left
+                        anchors.leftMargin: 12
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: root.placeholderText
+                        color: Theme.foreground
+                        opacity: 0.45
+                        font.family: Theme.fontFamily
+                        font.pixelSize: 14
+                        font.bold: Theme.fontBold
+                    }
+
+                    TextInput {
+                        id: filterField
+                        anchors.fill: parent
+                        anchors.leftMargin: 12
+                        anchors.rightMargin: 12
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: 14
+                        font.bold: Theme.fontBold
+                        text: root.filterText
+                        selectByMouse: true
+                        verticalAlignment: TextInput.AlignVCenter
+                        onTextEdited: root.filterText = text
+                        Keys.onEscapePressed: root.handleEscapeKey()
+                        Keys.onLeftPressed: root.handlePreviewLeft()
+                        Keys.onRightPressed: root.handlePreviewRight()
+                        Keys.onUpPressed: root.handlePreviewUp()
+                        Keys.onDownPressed: root.handlePreviewDown()
+                        Keys.onReturnPressed: root.handleActivateKey()
+                    }
+                }
+
+                Text {
+                    visible: root.dynamicLoading
+                    text: "Loading…"
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 12
+                    font.bold: Theme.fontBold
+                }
+
+                Flow {
+                    id: previewFlow
+                    visible: root.previewTileMode
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    width: root.previewGridWidth
+                    spacing: root.tileSpacing
+                    flow: Flow.LeftToRight
+
+                    Repeater {
+                        model: root.filteredEntries()
+
+                        Rectangle {
+                            required property var modelData
+                            required property int index
+                            width: root.previewTileWidth
+                            height: root.previewTileHeight
+                            color: index === root.selectedIndex || previewMouse.containsMouse
+                                ? Theme.mantle : Theme.background
+                            border.color: index === root.selectedIndex ? Theme.accent : Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.35)
+                            border.width: index === root.selectedIndex ? 2 : 1
+
+                            Column {
+                                anchors.fill: parent
+                                anchors.margins: 6
+                                spacing: 6
+
+                                Item {
+                                    width: parent.width
+                                    height: root.previewImageHeight
+                                    clip: true
+
+                                    Image {
+                                        id: previewImage
+                                        anchors.fill: parent
+                                        source: Util.fileUrl(modelData.preview)
+                                        fillMode: Image.PreserveAspectCrop
+                                        smooth: true
+                                        asynchronous: true
+                                        cache: true
+                                        mipmap: true
+                                        sourceSize: Qt.size(
+                                            Math.ceil(root.previewTileWidth * root.previewDpr),
+                                            Math.ceil(root.previewImageHeight * root.previewDpr)
+                                        )
+                                    }
+
+                                    Rectangle {
+                                        anchors.fill: parent
+                                        color: Theme.background
+                                        visible: !modelData.preview || previewImage.status === Image.Error
+                                    }
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        visible: !modelData.preview || previewImage.status === Image.Error
+                                        text: root.previewFallbackIcon
+                                        color: Theme.accent
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: root.tileIconSize
+                                        font.bold: Theme.fontBold
+                                    }
+                                }
+
+                                Text {
+                                    text: modelData.name
+                                    color: Theme.foreground
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: 11
+                                    font.bold: Theme.fontBold
+                                    width: parent.width
+                                    horizontalAlignment: Text.AlignHCenter
+                                    wrapMode: Text.Wrap
+                                    maximumLineCount: 2
+                                    elide: Text.ElideRight
+                                }
+                            }
+
+                            MouseArea {
+                                id: previewMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                onClicked: {
+                                    root.selectedIndex = index
+                                    root.activateEntry(modelData)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Row {
+                    id: tileRow
+                    visible: root.tileMode
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    spacing: root.tileSpacing
+                    height: root.tileHeight
+
+                    Repeater {
+                        model: root.filteredEntries()
+
+                        Rectangle {
+                            required property var modelData
+                            required property int index
+                            width: root.tileWidth
+                            height: root.tileHeight
+                            color: index === root.selectedIndex || tileMouse.containsMouse
+                                ? Theme.mantle : Theme.background
+                            border.color: index === root.selectedIndex ? Theme.accent : Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.35)
+                            border.width: index === root.selectedIndex ? 2 : 1
+
+                            Column {
+                                anchors.centerIn: parent
+                                spacing: 8
+                                width: parent.width - 12
+
+                                Text {
+                                    text: modelData.icon || "󰍉"
+                                    color: Theme.accent
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: root.tileIconSize
+                                    font.bold: Theme.fontBold
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                }
+
+                                Text {
+                                    text: modelData.name
+                                    color: Theme.foreground
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: 12
+                                    font.bold: Theme.fontBold
+                                    width: parent.width
+                                    horizontalAlignment: Text.AlignHCenter
+                                    wrapMode: Text.Wrap
+                                    maximumLineCount: 2
+                                    elide: Text.ElideRight
+                                }
+                            }
+
+                            MouseArea {
+                                id: tileMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                onClicked: {
+                                    root.selectedIndex = index
+                                    root.activateEntry(modelData)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                ListView {
+                    id: entryList
+                    width: parent.width
+                    height: parent.height - 50
+                    clip: true
+                    visible: !root.boxTileMode
+                    model: root.filteredEntries()
+                    currentIndex: root.selectedIndex
+
+                    onCountChanged: if (root.selectedIndex >= count) root.selectedIndex = Math.max(0, count - 1)
+
+                    delegate: Rectangle {
+                        id: entryRow
+                        required property var modelData
+                        required property int index
+                        width: entryList.width
+                        height: 36
+                        color: index === entryList.currentIndex || mouseArea.containsMouse ? Theme.mantle : "transparent"
+
+                        readonly property string appIconSource: root.entryIconSource(modelData)
+                        readonly property string glyphIcon: root.entryGlyphIcon(modelData)
+
+                        Row {
+                            anchors.left: parent.left
+                            anchors.leftMargin: 8
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: 10
+                            width: parent.width - 16
+
+                            Item {
+                                width: root.listIconSize
+                                height: root.listIconSize
+
+                                Image {
+                                    anchors.fill: parent
+                                    visible: entryRow.appIconSource.length > 0
+                                    source: entryRow.appIconSource
+                                    fillMode: Image.PreserveAspectFit
+                                    smooth: true
+                                    asynchronous: true
+                                    cache: true
+                                    sourceSize: Qt.size(root.listIconSize * 2, root.listIconSize * 2)
+                                }
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    visible: entryRow.appIconSource.length === 0
+                                    text: entryRow.glyphIcon
+                                    color: Theme.accent
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: root.listIconSize
+                                    font.bold: Theme.fontBold
+                                }
+                            }
+
+                            Text {
+                                text: modelData.name
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: 13
+                                font.bold: Theme.fontBold
+                                elide: Text.ElideRight
+                                width: parent.width - root.listIconSize - 10
+                            }
+                        }
+
+                        MouseArea {
+                            id: mouseArea
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            onClicked: {
+                                root.selectedIndex = index
+                                root.activateEntry(modelData)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Component.onCompleted: {
+        refreshCommandEntries()
+        Qt.callLater(warmPreviewCache)
+    }
+}

@@ -8,17 +8,13 @@ hyprland
 hyprland-protocols
 hyprwayland-scanner
 xorg-xwayland
-hyprlock
-hypridle
-hyprpaper
 hyprshot
 
 # Desktop ###################
-waybar
-mako
+quickshell
 swappy
 cliphist
-wf-recorder
+wl-clipboard
 
 # Theming ###################
 darkhttpd
@@ -74,7 +70,6 @@ playerctl
 wiremix
 imv
 mpv
-cava
 imagemagick
 transmission-cli
 obsidian

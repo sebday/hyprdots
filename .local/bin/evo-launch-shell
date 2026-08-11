@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+# Launch the evo-shell Quickshell process with journal logging.
+
+set -euo pipefail
+
+# evo-shell owns wallpapers; stop legacy hyprpaper if it is still running.
+pkill -x hyprpaper 2>/dev/null || true
+
+run_shell() {
+    systemd-cat -t evo-shell -- quickshell -n -c evo-shell &
+    shell_pid=$!
+
+    local status
+    while true; do
+        wait "$shell_pid"
+        status=$?
+        kill -0 "$shell_pid" 2>/dev/null || break
+    done
+
+    shell_pid=""
+    return "$status"
+}
+
+compositor_alive() {
+    local attempt
+    for attempt in 1 2 3; do
+        hyprctl -j monitors >/dev/null 2>&1 && return 0
+        (( attempt < 3 )) && sleep 0.5
+    done
+    return 0
+}
+
+terminating=0
+shell_pid=""
+
+stop() {
+    terminating=1
+    [[ -n "$shell_pid" ]] && kill -TERM "$shell_pid" 2>/dev/null
+    return 0
+}
+trap stop HUP INT TERM
+
+attempts=0
+window_started=$SECONDS
+
+while true; do
+    (( terminating )) && exit 0
+
+    run_shell
+    status=$?
+
+    (( terminating )) && exit 0
+    (( status == 0 )) && exit 0
+
+    compositor_alive || exit 0
+
+    if (( SECONDS - window_started > 60 )); then
+        attempts=0
+        window_started=$SECONDS
+    fi
+
+    if (( ++attempts > 5 )); then
+        logger -t evo-shell "Giving up on evo-shell after $attempts relaunches in under a minute."
+        exit 1
+    fi
+
+    logger -t evo-shell "evo-shell exited with status $status; relaunching."
+    sleep 1
+done

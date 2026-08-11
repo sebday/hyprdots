@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Cycle or set wallpaper through evo-shell background plugin.
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+IPC="${SCRIPT_DIR}/evo-shell-ipc"
+
+cmd="${1:-next}"
+
+case "$cmd" in
+    next|prev)
+        exec "$IPC" background "$cmd"
+        ;;
+    set)
+        [[ -n "${2:-}" ]] && exec "$IPC" background set "$2"
+        exit 1
+        ;;
+    *)
+        echo "Usage: $0 [next|prev|set <path>]" >&2
+        exit 1
+        ;;
+esac

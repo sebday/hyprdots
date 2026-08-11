@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "id": "evo.lock",
+  "name": "Lock screen",
+  "version": "1.0.0",
+  "kinds": ["service"],
+  "keepLoaded": true,
+  "entryPoints": { "service": "Service.qml" }
+}

@@ -1,0 +1,11 @@
+module widgets
+ClockWidget 1.0 ClockWidget.qml
+WorkspacesWidget 1.0 WorkspacesWidget.qml
+AudioWidget 1.0 AudioWidget.qml
+TrayWidget 1.0 TrayWidget.qml
+TrayContextMenu 1.0 TrayContextMenu.qml
+CommandWidget 1.0 CommandWidget.qml
+MenuBarWidget 1.0 MenuBarWidget.qml
+GithubWidget 1.0 GithubWidget.qml
+ShopifyWidget 1.0 ShopifyWidget.qml
+CavaWidget 1.0 CavaWidget.qml

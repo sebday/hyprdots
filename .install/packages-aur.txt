@@ -1,7 +1,3 @@
-# Desktop ###################
-walker
-elephant-all
-
 # Tools ######################
 brave-bin
 cursor-bin

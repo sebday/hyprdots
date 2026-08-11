@@ -13,7 +13,6 @@ source "$SCRIPT_DIR/themes-common.sh"
 
 CURRENT_PATH="${CURRENT_PATH:-$THEME_DIR/current}"
 NEXT_PATH="${NEXT_PATH:-$THEME_DIR/next}"
-LAUNCH_WALKER="${LAUNCH_WALKER:-$HOME/.local/bin/walker-launch.sh}"
 
 get_current_theme() {
     [ -f "$CURRENT_PATH/.theme-name" ] && cat "$CURRENT_PATH/.theme-name" || echo ""
@@ -65,11 +64,14 @@ apply_theme() {
     mv "$NEXT_PATH" "$CURRENT_PATH"
 
     install_theme_manifest
+    themes_sync_evo_shell
     activate_gtk
-    "$HOME/.local/bin/hypr-wallpaper.sh" "next"
+    wallpaper=$(themes_default_wallpaper || true)
+    if [ -n "$wallpaper" ]; then
+        "$HOME/.local/bin/evo-wallpaper.sh" set "$wallpaper"
+    fi
     themes_sync_icon_theme_gsettings
     themes_sync_vscode_generated_extension
-    themes_sync_walker_style_symlink
     themes_sync_obsidian_modular
 }
 
@@ -94,15 +96,10 @@ reload_apps() {
         fi
     fi
 
-    makoctl reload 2>/dev/null || true
     hyprctl reload 2>/dev/null || true
-    pkill waybar 2>/dev/null; waybar &
+    "$HOME/.local/bin/evo-shell-ipc" shell reloadConfig 2>/dev/null || true
+    "$HOME/.local/bin/evo-menu-preview-warm.sh" 2>/dev/null &
     pkill -SIGUSR2 btop 2>/dev/null || true
-
-    if command -v walker >/dev/null 2>&1; then
-        pkill -f "walker --gapplication-service" 2>/dev/null || true
-        setsid env GSK_RENDERER=cairo walker --gapplication-service >/dev/null 2>&1 &
-    fi
 
     # Post-switch hook (optional)
     if [ -x "$HOME/.local/bin/themes-hook-post-switch" ]; then
@@ -116,21 +113,7 @@ COMMAND="${1:-select}"
 
 case "$COMMAND" in
     select|"")
-        # Theme list: Walker --dmenu (see LAUNCH_WALKER, same as menu-main)
-        selected_theme=$(
-            for theme_dir in "$THEME_DIR"/*; do
-                [ ! -d "$theme_dir" ] && continue
-                theme_name=$(basename "$theme_dir")
-                [[ "$theme_name" == "current" || "$theme_name" == "shared" ]] && continue
-                echo "$theme_name"
-            done | "$LAUNCH_WALKER" --dmenu --width 420 --minheight 1 --maxheight 480 -p "Select a theme: "
-        )
-        if [ -z "$selected_theme" ]; then
-            exit 0
-        fi
-
-        apply_theme "$selected_theme" || exit 1
-        reload_apps "$selected_theme"
+        exec "$HOME/.local/bin/evo-shell-ipc" shell toggle evo.menu '{"submenu":"themes"}'
         ;;
 
     refresh)
