@@ -39,7 +39,9 @@
         }
       ],
       "center": [
-        { "id": "evo.workspaces" }
+        {
+          "id": "evo.workspaces"
+        }
       ],
       "right": [
         {
@@ -59,11 +61,21 @@
           "onClick": "ghostty --class=TUI.main -e wiremix",
           "onClickRight": "ghostty --class=TUI.main -e alsamixer"
         },
-        { "id": "evo.audio" },
-        { "id": "evo.clock", "format": "%a %d %H:%M" },
-        { "id": "evo.tray" }
+        {
+          "id": "evo.audio"
+        },
+        {
+          "id": "evo.clock",
+          "format": "%a %d %H:%M"
+        },
+        {
+          "id": "evo.tray"
+        }
       ]
     }
   },
-  "plugins": []
+  "plugins": [],
+  "panel": {
+    "side": "left"
+  }
 }

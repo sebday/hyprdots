@@ -153,7 +153,7 @@ LeftDockPanel {
 }
 ```
 
-Plugin root should call `dock.reveal()` / `dock.conceal()` from `open()` / `close()`, and register in `shell.qml` `panelPluginIds`. Example: `plugins/calc/Panel.qml`.
+Plugin root should call `dock.reveal()` / `dock.conceal()` from `open()` / `close()`, and register in `shell.qml` `panelPluginIds`. The unified left dock is `plugins/panel/Panel.qml` with a `DockModuleBar` and per-module QML under `plugins/panel/modules/`.
 
 ### Bar widget routing (`Bar.qml`)
 

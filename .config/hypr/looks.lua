@@ -66,3 +66,47 @@ hl.animation({ leaf = "border", enabled = true, speed = 10, bezier = "default" }
 hl.animation({ leaf = "borderangle", enabled = true, speed = 8, bezier = "default" })
 hl.animation({ leaf = "fade", enabled = true, speed = 7, bezier = "default" })
 hl.animation({ leaf = "workspaces", enabled = true, speed = 6, bezier = "myBezier", style = "slidevert" })
+
+do
+    local path = (os.getenv("HOME") or "") .. "/.local/state/evo-shell/hypr-looks-overrides.lua"
+    local chunk = loadfile(path)
+    if chunk then
+        local ok, data = pcall(chunk)
+        if ok and type(data) == "table" then
+            local updates = {}
+            local decoration = {}
+            local general = {}
+
+            if data.roundingOn == true then
+                decoration.rounding = 7
+            elseif data.roundingOn == false then
+                decoration.rounding = 0
+            elseif data.rounding ~= nil then
+                decoration.rounding = data.rounding
+            end
+
+            if data.gapsOn == true then
+                general.gaps_in = 10
+                general.gaps_out = 20
+            elseif data.gapsOn == false then
+                general.gaps_in = 0
+                general.gaps_out = 0
+            elseif data.gaps_in ~= nil or data.gaps_out ~= nil or data.gap ~= nil then
+                local gap_in = data.gaps_in or data.gap or 0
+                local gap_out = data.gaps_out or data.gap or 0
+                general.gaps_in = gap_in
+                general.gaps_out = gap_out
+            end
+
+            if next(decoration) then
+                updates.decoration = decoration
+            end
+            if next(general) then
+                updates.general = general
+            end
+            if next(updates) then
+                hl.config(updates)
+            end
+        end
+    end
+end

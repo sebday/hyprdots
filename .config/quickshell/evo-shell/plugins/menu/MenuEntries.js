@@ -11,11 +11,11 @@ function powerEntries(home) {
 
 function systemEntries(home) {
     return [
+        { name: "Theme", icon: "󰸌", keywords: ["theme", "appearance"], submenu: "themes" },
+        { name: "Wallpaper", icon: "󰏘", keywords: ["wallpaper", "background"], submenu: "wallpaper" },
         { name: "Restart shell", icon: "󰑓", keywords: ["shell", "bar", "quickshell", "refresh"], command: home + "/.local/bin/evo-restart-shell.sh" },
         { name: "Clear cache", icon: "󰃢", keywords: ["cache", "cleanup"], command: home + "/.local/bin/evo-cleanup.sh" },
-        { name: "Backup", icon: "󰁯", keywords: ["backup", "env"], command: home + "/.local/bin/evo-backup.sh" },
-        { name: "Wallpaper", icon: "󰏘", keywords: ["wallpaper", "background"], submenu: "wallpaper" },
-        { name: "Theme", icon: "󰸌", keywords: ["theme", "appearance"], submenu: "themes" }
+        { name: "Backup", icon: "󰁯", keywords: ["backup", "env"], command: home + "/.local/bin/evo-backup.sh" }
     ]
 }
 

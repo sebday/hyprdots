@@ -4,3 +4,6 @@ singleton Util 1.0 Util.qml
 singleton UsageMemory 1.0 UsageMemory.qml
 LeftDockPanel 1.0 LeftDockPanel.qml
 FramedPanel 1.0 FramedPanel.qml
+DockModuleBar 1.0 DockModuleBar.qml
+SliderSetting 1.0 SliderSetting.qml
+ToggleRow 1.0 ToggleRow.qml

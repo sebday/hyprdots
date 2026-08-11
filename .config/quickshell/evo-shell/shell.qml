@@ -15,6 +15,7 @@ ShellRoot {
         version: 1,
         idle: { screensaver: 1800, lock: 900 },
         notifications: { durationMs: 3000 },
+        panel: { side: "left" },
         bar: {
             id: "evo.bar",
             position: "bottom",
@@ -36,7 +37,7 @@ ShellRoot {
         "evo.menu": { kinds: ["menu"], path: "plugins/menu/Menu.qml", keepLoaded: true },
         "evo.clipboard": { kinds: ["panel", "service"], path: "plugins/clipboard/Panel.qml", servicePath: "plugins/clipboard/Service.qml", keepLoaded: true },
         "evo.emojis": { kinds: ["panel"], path: "plugins/emojis/Panel.qml" },
-        "evo.calc": { kinds: ["panel"], path: "plugins/calc/Panel.qml", keepLoaded: true },
+        "evo.panel": { kinds: ["panel"], path: "plugins/panel/Panel.qml", keepLoaded: true },
         "evo.bar": { kinds: ["bar"], path: "plugins/bar/Bar.qml" }
     })
 
@@ -205,7 +206,7 @@ ShellRoot {
         }
     }
 
-    readonly property var panelPluginIds: ["evo.menu", "evo.clipboard", "evo.emojis", "evo.calc"]
+    readonly property var panelPluginIds: ["evo.menu", "evo.clipboard", "evo.emojis", "evo.panel"]
 
     Instantiator {
         model: shell.panelPluginIds
