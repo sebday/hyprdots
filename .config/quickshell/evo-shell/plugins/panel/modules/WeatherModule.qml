@@ -7,8 +7,7 @@ import "../../../Commons"
 Item {
     id: root
 
-    property var panel: null
-    property var shell: null
+    property var host: null
 
     property bool loading: false
     property bool ok: false
@@ -20,7 +19,12 @@ Item {
     property var hourly: []
 
     readonly property string script: Quickshell.env("HOME") + "/.local/bin/evo-panel-weather.sh"
-    readonly property bool active: panel && panel.opened && panel.activeModule === "weather"
+    readonly property bool active: host && host.opened === true
+
+    function dismissHost() {
+        if (host && typeof host.dismiss === "function")
+            host.dismiss()
+    }
 
     function refresh() {
         if (loadProc.running) return
@@ -80,7 +84,7 @@ Item {
         anchors.fill: parent
         focus: root.active
         Keys.enabled: root.active
-        Keys.onEscapePressed: if (panel) panel.dismiss()
+        Keys.onEscapePressed: root.dismissHost()
 
         ColumnLayout {
             anchors.fill: parent

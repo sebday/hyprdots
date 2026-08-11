@@ -14,27 +14,27 @@
           "id": "evo.shopify",
           "store": "DIY",
           "interval": 300,
-          "onClick": "~/.local/bin/evo-shell-ipc shell toggle evo.panel '{\"module\":\"stats\"}'"
+          "onClick": "~/.local/bin/evo-shell-ipc shell toggle evo.stats"
         },
         {
           "id": "evo.shopify",
           "store": "TGS",
           "interval": 300,
-          "onClick": "~/.local/bin/evo-shell-ipc shell toggle evo.panel '{\"module\":\"stats\"}'"
+          "onClick": "~/.local/bin/evo-shell-ipc shell toggle evo.stats"
         },
         {
           "id": "btc",
           "type": "command",
           "exec": "~/.local/bin/evo-bar-btc.sh",
           "interval": 60,
-          "onClick": "xdg-open https://www.tradingview.com/symbols/BTCUSD/"
+          "onClick": "~/.local/bin/evo-shell-ipc shell toggle evo.stats"
         },
         {
           "id": "spcx",
           "type": "command",
           "exec": "~/.local/bin/evo-bar-spcx.sh",
           "interval": 60,
-          "onClick": "xdg-open https://app.trading212.com/"
+          "onClick": "~/.local/bin/evo-shell-ipc shell toggle evo.stats"
         }
       ],
       "center": [
@@ -53,7 +53,7 @@
           "type": "command",
           "exec": "~/.local/bin/evo-bar-weather.sh",
           "interval": 1800,
-          "onClick": "~/.local/bin/evo-shell-ipc shell toggle evo.panel '{\"module\":\"weather\"}'",
+          "onClick": "~/.local/bin/evo-shell-ipc shell toggle evo.weather",
           "onClickRight": "xdg-open https://weather.metoffice.gov.uk/forecast/gcqvn6pq4"
         },
         {

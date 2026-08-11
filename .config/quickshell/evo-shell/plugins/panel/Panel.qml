@@ -19,8 +19,6 @@ Item {
         { id: "calc", icon: "󰃬", title: "Calculator" },
         { id: "notes", icon: "󰠮", title: "Notes" },
         { id: "clipboard", icon: "󰅌", title: "Clipboard" },
-        { id: "weather", icon: "󰖐", title: "Weather" },
-        { id: "stats", icon: "󰄨", title: "Stats" },
         { id: "settings", icon: "󰒓", title: "Settings" }
     ]
 
@@ -104,12 +102,8 @@ Item {
                 calcModule.onActivated()
             else if (activeModule === "notes" && notesModule)
                 notesModule.onActivated()
-            else if (activeModule === "stats" && statsModule)
-                statsModule.onActivated()
             else if (activeModule === "clipboard" && clipboardModule)
                 clipboardModule.onActivated()
-            else if (activeModule === "weather" && weatherModule)
-                weatherModule.onActivated()
             else if (activeModule === "settings" && settingsModule)
                 settingsModule.onActivated()
         })
@@ -164,18 +158,6 @@ Item {
 
             ClipboardModule {
                 id: clipboardModule
-                panel: root
-                shell: root.shell
-            }
-
-            WeatherModule {
-                id: weatherModule
-                panel: root
-                shell: root.shell
-            }
-
-            StatsModule {
-                id: statsModule
                 panel: root
                 shell: root.shell
             }

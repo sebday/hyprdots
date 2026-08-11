@@ -34,6 +34,8 @@ ShellRoot {
         "evo.lock": { kinds: ["service"], path: "plugins/lock/Service.qml", keepLoaded: true },
         "evo.notifications": { kinds: ["service"], path: "plugins/notifications/Service.qml", keepLoaded: true },
         "evo.menu": { kinds: ["menu"], path: "plugins/menu/Menu.qml", keepLoaded: true },
+        "evo.weather": { kinds: ["menu"], path: "plugins/weather/Weather.qml", keepLoaded: true },
+        "evo.stats": { kinds: ["menu"], path: "plugins/stats/Stats.qml", keepLoaded: true },
         "evo.clipboard": { kinds: ["service"], path: "plugins/clipboard/Service.qml", keepLoaded: true },
         "evo.panel": { kinds: ["panel"], path: "plugins/panel/Panel.qml", keepLoaded: true },
         "evo.bar": { kinds: ["bar"], path: "plugins/bar/Bar.qml" }
@@ -131,7 +133,7 @@ ShellRoot {
 
     function hide(id) {
         var pluginId = String(id || "")
-        if (!openPanelIds[pluginId]) return true
+        if (!openPanelIds[pluginId] && !isPluginOpen(pluginId)) return true
         var next = ({})
         for (var k in openPanelIds) if (k !== pluginId) next[k] = openPanelIds[k]
         openPanelIds = next
@@ -221,7 +223,7 @@ ShellRoot {
         }
     }
 
-    readonly property var panelPluginIds: ["evo.menu", "evo.panel"]
+    readonly property var panelPluginIds: ["evo.menu", "evo.panel", "evo.weather", "evo.stats"]
 
     Instantiator {
         model: shell.panelPluginIds

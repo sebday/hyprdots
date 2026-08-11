@@ -7,11 +7,10 @@ import "../../../Commons"
 Item {
     id: root
 
-    property var panel: null
-    property var shell: null
+    property var host: null
 
     readonly property string home: Quickshell.env("HOME")
-    readonly property bool statsActive: panel && panel.opened && panel.activeModule === "stats"
+    readonly property bool statsActive: host && host.opened === true
 
     property var diyData: ({})
     property var tgsData: ({})

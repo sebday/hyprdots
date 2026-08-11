@@ -1,5 +1,6 @@
 import Quickshell
 import Quickshell.Io
+import Quickshell.Hyprland
 import Quickshell.Wayland
 import QtQuick
 import "../../Commons"
@@ -19,6 +20,21 @@ Item {
     property int selectedIndex: 0
     property real previewAreaMaxWidth: 1600
     property real previewAreaMaxHeight: 900
+    property var hostScreen: null
+
+    function resolveHostScreen() {
+        try {
+            var mon = Hyprland.focusedMonitor
+            if (mon) {
+                for (var i = 0; i < Quickshell.screens.length; i++) {
+                    var s = Quickshell.screens[i]
+                    if (s && s.name === mon.name)
+                        return s
+                }
+            }
+        } catch (e) {}
+        return Quickshell.screens.length > 0 ? Quickshell.screens[0] : null
+    }
 
     readonly property bool tileMode: (mode === "system" || mode === "power") && !submenu
     readonly property bool previewTileMode: submenu === "themes" || submenu === "wallpaper"
@@ -43,7 +59,7 @@ Item {
     readonly property int listIconSize: 40
     readonly property int listFontSize: 24
     readonly property int listRowHeight: 72
-    readonly property int listFilterHeight: 80
+    readonly property int listFilterHeight: 68
     readonly property int listFilterFontSize: 28
     readonly property int previewMenuMargin: 48
 
@@ -134,6 +150,7 @@ Item {
         if (submenu) loadDynamicEntries(submenu)
         else dynamicEntries = []
         if (mode === "system" && !submenu) warmPreviewCache()
+        hostScreen = resolveHostScreen()
         opened = true
         Qt.callLater(function() {
             root.previewAreaMaxWidth = panel.previewAreaMaxWidth
@@ -458,8 +475,31 @@ Item {
         id: previewWarmProc
     }
 
+    Variants {
+        model: Quickshell.screens
+
+        PanelWindow {
+            required property var modelData
+            screen: modelData
+            visible: root.opened && root.hostScreen && modelData && modelData.name !== root.hostScreen.name
+            anchors { top: true; bottom: true; left: true; right: true }
+            color: "transparent"
+            WlrLayershell.namespace: "evo-menu"
+            WlrLayershell.layer: WlrLayer.Overlay
+            WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+            exclusionMode: ExclusionMode.Ignore
+
+            Rectangle {
+                anchors.fill: parent
+                color: Theme.background
+                opacity: 0.58
+            }
+        }
+    }
+
     PanelWindow {
         id: panel
+        screen: root.hostScreen
         visible: root.opened
         anchors { top: true; bottom: true; left: true; right: true }
         color: "transparent"
