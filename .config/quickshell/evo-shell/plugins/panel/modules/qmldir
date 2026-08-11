@@ -1,0 +1,3 @@
+module modules
+CalcModule 1.0 CalcModule.qml
+SettingsModule 1.0 SettingsModule.qml

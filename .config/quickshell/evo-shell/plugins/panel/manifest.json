@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "id": "evo.panel",
+  "name": "Panel",
+  "version": "1.0.0",
+  "kinds": ["panel"],
+  "entryPoints": {
+    "panel": "Panel.qml"
+  }
+}
