@@ -36,7 +36,19 @@ json_shopify() {
         --argjson bars "$3" \
         --arg store "$4" \
         --arg symbol "$5" \
-        '{text: $text, label: $label, bars: $bars, store: $store, symbol: $symbol}'
+        --argjson orders "$6" \
+        --arg cos "$7" \
+        --arg revenue "$8" \
+        '{
+            text: $text,
+            label: $label,
+            bars: $bars,
+            store: $store,
+            symbol: $symbol,
+            orders: $orders,
+            cos: $cos,
+            revenue: $revenue
+        }'
 }
 
 remote_spec() {
@@ -337,10 +349,16 @@ main() {
         cos_str="—"
     fi
 
-    label_text="${STORE_DISPLAY}${sym}${today_sales_val} | ${orders} | ${cos_str}"
+    label_text="${STORE_DISPLAY}${sym}${today_sales_val} | ${cos_str}"
     output_text="${label_text} ${sales_chart}"
 
-    json_shopify "$output_text" "$label_text" "$sparkline_json" "${STORE_DISPLAY}" "$sym"
+    # Re-read today's stats (chart loop overwrote $rev with day 0).
+    IFS='|' read -r rev orders cos <<< "$(get_day_stats "$db_path" "$today_s" "$spend_col")"
+    orders_n=$(awk -v o="${orders:-0}" 'BEGIN { print int(o + 0) }')
+    revenue_n=$(awk -v r="${rev:-0}" 'BEGIN { printf "%.2f", r + 0 }')
+
+    json_shopify "$output_text" "$label_text" "$sparkline_json" "${STORE_DISPLAY}" "$sym" \
+        "$orders_n" "$cos_str" "$revenue_n"
 }
 
 main "$@"

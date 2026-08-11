@@ -133,7 +133,7 @@ shell.qml
 └── IpcHandler target "shell"
 ```
 
-**Services** live in `plugins/*/Service.qml` (or `Background.qml`), registered in `pluginTable`, often `keepLoaded: true`. Clipboard watch remains `evo.clipboard` (service-only); clipboard/emojis UIs live in `evo.panel` modules.
+**Services** live in `plugins/*/Service.qml` (or `Background.qml`), registered in `pluginTable`, often `keepLoaded: true`. Clipboard watch remains `evo.clipboard` (service-only); clipboard UI lives in an `evo.panel` module.
 
 **Bar-only widgets** are **not** in `pluginTable`; mapped in `plugins/bar/Bar.qml` → `widgetComponentFor()`.
 
@@ -260,7 +260,7 @@ hl.exec_cmd(HOME .. "/.local/bin/evo-launch-shell")
 
 -- bindings.lua
 local shell_ipc = bin .. "/evo-shell-ipc"
--- evo.menu, evo.panel (clipboard/emojis modules), evo.audio, evo-system-lock, evo-wallpaper.sh
+-- evo.menu, evo.panel (clipboard/stats modules), evo.audio, evo-system-lock, evo-wallpaper.sh
 
 -- evo-shell.lua
 hl.layer_rule({ match = { namespace = "evo-bar" }, no_anim = true, animation = "none" })

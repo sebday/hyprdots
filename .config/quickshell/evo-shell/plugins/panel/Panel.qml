@@ -18,8 +18,8 @@ Item {
     readonly property var modules: [
         { id: "calc", icon: "󰃬", title: "Calculator" },
         { id: "notes", icon: "󰠮", title: "Notes" },
+        { id: "stats", icon: "󰄨", title: "Stats" },
         { id: "clipboard", icon: "󰅌", title: "Clipboard" },
-        { id: "emojis", icon: "󰞅", title: "Emojis" },
         { id: "weather", icon: "󰖐", title: "Weather" },
         { id: "settings", icon: "󰒓", title: "Settings" }
     ]
@@ -112,10 +112,10 @@ Item {
                 calcModule.onActivated()
             else if (activeModule === "notes" && notesModule)
                 notesModule.onActivated()
+            else if (activeModule === "stats" && statsModule)
+                statsModule.onActivated()
             else if (activeModule === "clipboard" && clipboardModule)
                 clipboardModule.onActivated()
-            else if (activeModule === "emojis" && emojisModule)
-                emojisModule.onActivated()
             else if (activeModule === "weather" && weatherModule)
                 weatherModule.onActivated()
             else if (activeModule === "settings" && settingsModule)
@@ -170,14 +170,14 @@ Item {
                 shell: root.shell
             }
 
-            ClipboardModule {
-                id: clipboardModule
+            StatsModule {
+                id: statsModule
                 panel: root
                 shell: root.shell
             }
 
-            EmojisModule {
-                id: emojisModule
+            ClipboardModule {
+                id: clipboardModule
                 panel: root
                 shell: root.shell
             }

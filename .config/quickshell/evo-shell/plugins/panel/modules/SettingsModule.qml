@@ -306,8 +306,8 @@ Item {
 
                 ToggleRow {
                     width: parent.width
-                    label: "Bar on DP-1 top"
-                    detail: "Off: HDMI-A-1 bottom"
+                    label: "Bar on top"
+                    detail: "Off: Bar on main"
                     checked: root.barOnDp1Top
                     enabled: root.barReady && !barToggleProc.running
                     onToggled: root.toggleBar()

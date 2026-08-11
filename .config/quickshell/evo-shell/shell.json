@@ -15,13 +15,13 @@
           "id": "evo.shopify",
           "store": "DIY",
           "interval": 300,
-          "onClick": "xdg-open https://admin.shopify.com/store/diy-buildingsupplies/analytics/live"
+          "onClick": "~/.local/bin/evo-shell-ipc shell toggle evo.panel '{\"module\":\"stats\"}'"
         },
         {
           "id": "evo.shopify",
           "store": "TGS",
           "interval": 300,
-          "onClick": "xdg-open https://admin.shopify.com/store/thegoodsheet-uk/analytics/live"
+          "onClick": "~/.local/bin/evo-shell-ipc shell toggle evo.panel '{\"module\":\"stats\"}'"
         },
         {
           "id": "btc",

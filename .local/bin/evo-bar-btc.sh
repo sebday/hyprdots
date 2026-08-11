@@ -1,11 +1,16 @@
 #!/bin/bash
 # Evo bar: Kraken BTC/USD price + unrealized P/L % on XXBT holdings.
+# Persists daily closes (seeded from Kraken OHLC) for stats-panel charts.
 #
 # Credentials: ~/.local/share/evo-shell/secrets.env (KRAKEN_API_KEY, KRAKEN_SECRET)
 
 source "${HOME}/.local/bin/evo-bar-common.sh"
 
 SECRETS_FILE="$EVO_SECRETS_FILE"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/evo-shell"
+HISTORY_FILE="${STATE_DIR}/btc-history.json"
+HISTORY_KEEP=30
+
 if [[ -f "$SECRETS_FILE" ]]; then
     # shellcheck disable=SC1090
     source "$SECRETS_FILE"
@@ -32,23 +37,78 @@ fmt_price() {
 }
 
 json_out() {
-    jq -cn --arg text "$1" --arg tooltip "$2" '{text: $text, tooltip: $tooltip}'
+    local text="$1" tooltip="$2" detail="${3:-}" bars="${4:-[]}"
+    jq -cn \
+        --arg text "$text" \
+        --arg tooltip "$tooltip" \
+        --arg detail "$detail" \
+        --argjson bars "$bars" \
+        '{text: $text, tooltip: $tooltip, detail: $detail, bars: $bars}'
+}
+
+fetch_ohlc_rows() {
+    local ohlc
+    ohlc=$(curl -sf --max-time 10 \
+        'https://api.kraken.com/0/public/OHLC?pair=XBTUSD&interval=1440' 2>/dev/null) || ohlc=""
+    if [[ -z "$ohlc" ]]; then
+        return 0
+    fi
+    echo "$ohlc" | jq -r '
+        (.result | to_entries[0].value) // []
+        | .[-30:]
+        | .[]
+        | ((.[0] | tonumber | strftime("%Y-%m-%d")) + "|" + (.[4] | tonumber | tostring))
+    ' 2>/dev/null || true
+}
+
+build_bars() {
+    local price="$1"
+    local today rows=()
+    today=$(date -u +%Y-%m-%d)
+    mkdir -p "$STATE_DIR"
+    evo_bar_load_heatmap_colors || true
+
+    mapfile -t rows < <({
+        fetch_ohlc_rows
+        printf '%s|%s\n' "$today" "$price"
+    } | evo_bar_merge_history "$HISTORY_FILE" "$HISTORY_KEEP")
+
+    # Prefer last 14 days for the chart (Shopify-length window).
+    if ((${#rows[@]} > 14)); then
+        rows=("${rows[@]: -14}")
+    fi
+    if ((${#rows[@]} == 0)); then
+        printf '[]'
+        return
+    fi
+    evo_bar_build_bars_json "${rows[@]}"
 }
 
 # --- Kraken public ticker ---
 TICKER=$(curl -sf --max-time 8 'https://api.kraken.com/0/public/Ticker?pair=XBTUSD' 2>/dev/null) || TICKER=""
 
 if [[ -z "$TICKER" ]] || ! echo "$TICKER" | jq -e '.result | length > 0' >/dev/null 2>&1; then
-    json_out "₿ —" "Kraken ticker unavailable"
+    # Still try to render from cached history.
+    evo_bar_load_heatmap_colors || true
+    if [[ -f "$HISTORY_FILE" ]]; then
+        mapfile -t rows < <(jq -r '.[] | "\(.date)|\(.value)"' "$HISTORY_FILE" 2>/dev/null | tail -n 14)
+        if ((${#rows[@]} > 0)); then
+            BARS_JSON=$(evo_bar_build_bars_json "${rows[@]}")
+            json_out "₿ —" "Kraken ticker unavailable" "" "$BARS_JSON"
+            exit 0
+        fi
+    fi
+    json_out "₿ —" "Kraken ticker unavailable" "" "[]"
     exit 0
 fi
 
 LAST=$(echo "$TICKER" | jq -r '.result | to_entries[0].value.c[0]')
 PRICE_S=$(fmt_price "$LAST")
+BARS_JSON=$(build_bars "$LAST")
 
 # --- Unrealized P/L % (Kraken private API) ---
 if [[ -z "${KRAKEN_API_KEY:-}" || -z "${KRAKEN_SECRET:-}" ]]; then
-    KRAKEN_ERR="set KRAKEN_API_KEY and KRAKEN_SECRET in ~/.config/waybar/secrets.env"
+    KRAKEN_ERR="set KRAKEN_API_KEY and KRAKEN_SECRET in secrets.env"
 else
     KRAKEN_ERR=""
     export KRAKEN_API_KEY KRAKEN_SECRET
@@ -119,19 +179,22 @@ fi
 if [[ -n "${UPNL_PCT:-}" && "$UPNL_PCT" =~ ^-?[0-9]+\.?[0-9]*$ ]]; then
     PCT_S=$(awk -v p="$UPNL_PCT" 'BEGIN { printf "%+.2f", p }')
     TEXT="₿ ${PRICE_S}"
+    DETAIL="${PRICE_S} · ${PCT_S}%"
     TIP="BTC/USD · Kraken
 Price: $(fmt_price "$LAST")
 Unrealized P/L: ${PCT_S}%"
 elif [[ -n "$KRAKEN_ERR" ]]; then
     TEXT="₿ ${PRICE_S} —"
+    DETAIL="${PRICE_S} · —"
     TIP="BTC/USD · Kraken
 Price: $(fmt_price "$LAST")
 Unrealized P/L: unavailable (${KRAKEN_ERR})"
 else
     TEXT="₿ ${PRICE_S} —"
+    DETAIL="${PRICE_S} · —"
     TIP="BTC/USD · Kraken
 Price: $(fmt_price "$LAST")
 Unrealized P/L: unavailable"
 fi
 
-json_out "$TEXT" "$TIP"
+json_out "$TEXT" "$TIP" "$DETAIL" "$BARS_JSON"
