@@ -13,7 +13,14 @@ Item {
     readonly property string home: Quickshell.env("HOME")
     readonly property string userName: Quickshell.env("USER") || Quickshell.env("LOGNAME")
     readonly property string statePath: home + "/.local/state/evo-shell/wallpaper"
-    readonly property string defaultWallpaper: home + "/.themes/current/backgrounds/1-evo8-shader.png"
+    readonly property string themeNamePath: home + "/.themes/current/.theme-name"
+
+    readonly property string defaultWallpaperCommand: [
+        "theme=$(tr -d '\\n' < " + Util.shellQuote(themeNamePath) + " 2>/dev/null || true)",
+        "if [[ -n \"$theme\" ]]; then",
+        "  printf '%s' " + Util.shellQuote(home + "/.themes/current/backgrounds/1-evo8-") + "\"${theme}.png\"",
+        "fi"
+    ].join("\n")
 
     property bool lockRequested: false
     property bool authenticating: false
@@ -176,7 +183,7 @@ Item {
 
     Process {
         id: readStateProc
-        command: ["bash", "-c", "if [[ -f " + Util.shellQuote(root.statePath) + " ]]; then cat " + Util.shellQuote(root.statePath) + "; else echo " + Util.shellQuote(root.defaultWallpaper) + "; fi"]
+        command: ["bash", "-c", "if [[ -f " + Util.shellQuote(root.statePath) + " ]]; then cat " + Util.shellQuote(root.statePath) + "; else " + root.defaultWallpaperCommand + "; fi"]
         stdout: StdioCollector {
             onStreamFinished: root.backgroundPath = String(text || "").trim()
         }

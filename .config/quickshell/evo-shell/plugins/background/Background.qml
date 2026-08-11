@@ -11,13 +11,20 @@ Item {
 
     readonly property string home: Quickshell.env("HOME")
     readonly property string statePath: home + "/.local/state/evo-shell/wallpaper"
-    readonly property string defaultWallpaper: home + "/.themes/current/backgrounds/1-evo8-shader.png"
+    readonly property string themeNamePath: home + "/.themes/current/.theme-name"
     readonly property int wallpaperFadeMs: 480
 
     property string currentBackground: ""
     property string displayedBackground: ""
     property string queuedWrite: ""
     property bool wallpaperSkipFade: false
+
+    readonly property string defaultWallpaperCommand: [
+        "theme=$(tr -d '\\n' < " + Util.shellQuote(themeNamePath) + " 2>/dev/null || true)",
+        "if [[ -n \"$theme\" ]]; then",
+        "  printf '%s' " + Util.shellQuote(home + "/.themes/current/backgrounds/1-evo8-") + "\"${theme}.png\"",
+        "fi"
+    ].join("\n")
 
     readonly property string cycleScriptBody: [
         "dir=\"$HOME/.themes/current/backgrounds\"",
@@ -81,12 +88,12 @@ Item {
 
     Process {
         id: readStateProc
-        command: ["bash", "-c", "if [[ -f " + Util.shellQuote(root.statePath) + " ]]; then cat " + Util.shellQuote(root.statePath) + "; else echo " + Util.shellQuote(root.defaultWallpaper) + "; fi"]
+        command: ["bash", "-c",
+            "if [[ -f " + Util.shellQuote(root.statePath) + " ]]; then cat " + Util.shellQuote(root.statePath) + "; else " + root.defaultWallpaperCommand + "; fi"]
         stdout: StdioCollector {
             onStreamFinished: {
                 var path = String(text || "").trim()
-                if (!path) path = root.defaultWallpaper
-                root.setBackground(path, !root.displayedBackground)
+                if (path) root.setBackground(path, !root.displayedBackground)
             }
         }
     }
