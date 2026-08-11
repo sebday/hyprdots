@@ -15,7 +15,7 @@ ShellRoot {
         version: 1,
         idle: { screensaver: 1800, lock: 900 },
         notifications: { durationMs: 3000 },
-        panel: { side: "left" },
+        panel: { side: "left", output: "DP-1" },
         bar: {
             id: "evo.bar",
             position: "bottom",

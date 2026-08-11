@@ -20,6 +20,7 @@ Item {
         { id: "notes", icon: "󰠮", title: "Notes" },
         { id: "clipboard", icon: "󰅌", title: "Clipboard" },
         { id: "emojis", icon: "󰞅", title: "Emojis" },
+        { id: "weather", icon: "󰖐", title: "Weather" },
         { id: "settings", icon: "󰒓", title: "Settings" }
     ]
 
@@ -86,6 +87,25 @@ Item {
         return (panel && String(panel.side) === "right") ? "right" : "left"
     }
 
+    readonly property string panelOutput: {
+        var panel = shell && shell.shellConfig && shell.shellConfig.panel
+        return (panel && panel.output) ? String(panel.output).trim() : ""
+    }
+
+    function screenForOutput(outputName) {
+        var screens = Quickshell.screens
+        if (!screens || screens.length === 0) return null
+        var output = String(outputName || "").trim()
+        if (!output) return null
+        for (var i = 0; i < screens.length; i++) {
+            var s = screens[i]
+            if (s && String(s.name) === output) return s
+        }
+        return null
+    }
+
+    readonly property var panelScreen: screenForOutput(root.panelOutput)
+
     function activateModule() {
         Qt.callLater(function() {
             if (activeModule === "calc" && calcModule)
@@ -96,6 +116,8 @@ Item {
                 clipboardModule.onActivated()
             else if (activeModule === "emojis" && emojisModule)
                 emojisModule.onActivated()
+            else if (activeModule === "weather" && weatherModule)
+                weatherModule.onActivated()
             else if (activeModule === "settings" && settingsModule)
                 settingsModule.onActivated()
         })
@@ -110,6 +132,7 @@ Item {
         id: dock
         layerNamespace: "evo-panel"
         side: root.panelSide
+        screen: root.panelScreen
         pinned: root.pinned
         showCloseButton: true
         showPinButton: true
@@ -155,6 +178,12 @@ Item {
 
             EmojisModule {
                 id: emojisModule
+                panel: root
+                shell: root.shell
+            }
+
+            WeatherModule {
+                id: weatherModule
                 panel: root
                 shell: root.shell
             }

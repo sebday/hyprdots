@@ -4,3 +4,4 @@ NotesModule 1.0 NotesModule.qml
 ClipboardModule 1.0 ClipboardModule.qml
 EmojisModule 1.0 EmojisModule.qml
 SettingsModule 1.0 SettingsModule.qml
+WeatherModule 1.0 WeatherModule.qml

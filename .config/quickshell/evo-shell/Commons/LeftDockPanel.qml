@@ -9,6 +9,7 @@ Item {
     property string layerNamespace: "evo-dock"
     property int panelWidth: 350
     property string side: "left"
+    property var screen: null
     property bool opened: false
     property bool shown: false
     property bool pinned: false
@@ -39,6 +40,7 @@ Item {
 
     PanelWindow {
         visible: dock.shown
+        screen: dock.screen
         anchors.top: true
         anchors.bottom: true
         anchors.left: !dock.onRight

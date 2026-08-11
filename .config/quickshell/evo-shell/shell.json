@@ -54,7 +54,8 @@
           "type": "command",
           "exec": "~/.local/bin/evo-bar-weather.sh",
           "interval": 1800,
-          "onClick": "xdg-open https://weather.metoffice.gov.uk/forecast/gcqvn6pq4"
+          "onClick": "~/.local/bin/evo-shell-ipc shell toggle evo.panel '{\"module\":\"weather\"}'",
+          "onClickRight": "xdg-open https://weather.metoffice.gov.uk/forecast/gcqvn6pq4"
         },
         {
           "id": "evo.cava",
@@ -76,6 +77,7 @@
   },
   "plugins": [],
   "panel": {
-    "side": "left"
+    "side": "left",
+    "output": "DP-1"
   }
 }
