@@ -10,7 +10,7 @@ Singleton {
     readonly property string statePath: (Quickshell.env("HOME") || "") + "/.local/state/evo-shell/usage.json"
     readonly property string bumpScript: (Quickshell.env("HOME") || "") + "/.local/bin/evo-usage.sh"
 
-    property var counts: ({ apps: {}, emojis: {} })
+    property var counts: ({ apps: {} })
 
     FileView {
         id: usageFile
@@ -22,7 +22,7 @@ Singleton {
     }
 
     function resetCounts() {
-        counts = { apps: {}, emojis: {} }
+        counts = { apps: {} }
     }
 
     function loadFromFile() {
@@ -33,10 +33,7 @@ Singleton {
         }
         try {
             var parsed = JSON.parse(text)
-            counts = {
-                apps: parsed.apps || {},
-                emojis: parsed.emojis || {}
-            }
+            counts = { apps: parsed.apps || {} }
         } catch (e) {
             resetCounts()
         }
@@ -55,16 +52,11 @@ Singleton {
 
     function bump(bucket, key) {
         var k = String(key || "")
-        if (!k || !bumpScript) return
+        if (!k || !bumpScript || bucket !== "apps") return
         Quickshell.execDetached(["bash", bumpScript, "bump", String(bucket), k])
-        var next = {
-            apps: {},
-            emojis: {}
-        }
+        var next = { apps: {} }
         for (var a in counts.apps) next.apps[a] = counts.apps[a]
-        for (var e in counts.emojis) next.emojis[e] = counts.emojis[e]
-        if (bucket === "apps") next.apps[k] = (next.apps[k] || 0) + 1
-        else if (bucket === "emojis") next.emojis[k] = (next.emojis[k] || 0) + 1
+        next.apps[k] = (next.apps[k] || 0) + 1
         counts = next
     }
 

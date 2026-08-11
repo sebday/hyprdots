@@ -17,11 +17,10 @@ cmd = sys.argv[2]
 
 def load():
     if not os.path.isfile(path):
-        return {"apps": {}, "emojis": {}}
+        return {"apps": {}}
     with open(path, encoding="utf-8") as fh:
         data = json.load(fh)
     data.setdefault("apps", {})
-    data.setdefault("emojis", {})
     return data
 
 def save(data):
@@ -32,7 +31,7 @@ def save(data):
 if cmd == "bump":
     bucket = sys.argv[3]
     key = sys.argv[4]
-    if bucket not in ("apps", "emojis") or not key:
+    if bucket != "apps" or not key:
         sys.exit(1)
     data = load()
     data[bucket][key] = int(data[bucket].get(key, 0)) + 1
@@ -51,7 +50,7 @@ bump)
     ;;
 dump) usage_python dump ;;
 *)
-    echo "usage: evo-usage.sh bump <apps|emojis> <key>|dump" >&2
+    echo "usage: evo-usage.sh bump apps <key>|dump" >&2
     exit 1
     ;;
 esac

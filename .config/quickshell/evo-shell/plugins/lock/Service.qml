@@ -13,7 +13,7 @@ Item {
     readonly property string home: Quickshell.env("HOME")
     readonly property string userName: Quickshell.env("USER") || Quickshell.env("LOGNAME")
     readonly property string statePath: home + "/.local/state/evo-shell/wallpaper"
-    readonly property string defaultWallpaper: home + "/.themes/current/backgrounds/1-everforest.png"
+    readonly property string defaultWallpaper: home + "/.themes/current/backgrounds/1-evo8-shader.png"
 
     property bool lockRequested: false
     property bool authenticating: false
@@ -22,9 +22,15 @@ Item {
     property string failureMessage: ""
     property int failedAttempts: 0
     property string backgroundPath: ""
-    property bool passwordPamConfigured: true
 
     readonly property bool locked: lockRequested || sessionLock.locked || sessionLock.secure
+
+    function recoverOrphanLock() {
+        if (sessionLock.secure && !lockRequested) {
+            lockRequested = true
+            refreshBackground()
+        }
+    }
 
     function refreshBackground() {
         if (!readStateProc.running) readStateProc.running = true
@@ -200,5 +206,15 @@ Item {
                 failedAttempts: root.failedAttempts
             })
         }
+    }
+
+    Component.onCompleted: {
+        refreshBackground()
+        Qt.callLater(recoverOrphanLock)
+    }
+
+    Connections {
+        target: sessionLock
+        function onSecureChanged() { root.recoverOrphanLock() }
     }
 }

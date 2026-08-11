@@ -9,7 +9,6 @@ Scope {
 
     property var shell: null
     property var barConfig: ({})
-    property var manifest: null
 
     readonly property string position: {
         var p = barConfig && barConfig.position ? String(barConfig.position) : "bottom"
@@ -23,40 +22,18 @@ Scope {
 
     readonly property var barScreenModel: {
         var screens = Quickshell.screens
-        var output = barOutput
         if (!screens || screens.length === 0) return []
+        var output = barOutput
         if (!output) return screens
         var matched = []
         for (var i = 0; i < screens.length; i++) {
             var s = screens[i]
             if (s && String(s.name) === output) matched.push(s)
         }
-        return matched
+        if (matched.length > 0) return matched
+        var fallback = Util.screenForOutput("", true)
+        return fallback ? [fallback] : screens
     }
-
-    function widgetComponentFor(entry) {
-        var id = String(entry.id || "")
-        if (id === "evo.menu") return menuWidgetComp
-        if (id === "evo.workspaces") return workspacesComp
-        if (id === "evo.clock") return clockComp
-        if (id === "evo.audio") return audioComp
-        if (id === "evo.tray") return trayComp
-        if (id === "evo.github") return githubComp
-        if (id === "evo.cava" || id === "cava") return cavaComp
-        if (id === "evo.shopify" || id === "shopify_diy" || id === "shopify_tgs") return shopifyComp
-        if (entry.type === "command" || entry.exec) return commandComp
-        return null
-    }
-
-    Component { id: menuWidgetComp; MenuBarWidget { shell: root.shell } }
-    Component { id: workspacesComp; WorkspacesWidget {} }
-    Component { id: clockComp; ClockWidget {} }
-    Component { id: audioComp; AudioWidget { shell: root.shell } }
-    Component { id: trayComp; TrayWidget {} }
-    Component { id: commandComp; CommandWidget {} }
-    Component { id: githubComp; GithubWidget {} }
-    Component { id: shopifyComp; ShopifyWidget {} }
-    Component { id: cavaComp; CavaWidget {} }
 
     Variants {
         model: root.barScreenModel
@@ -77,87 +54,36 @@ Scope {
             WlrLayershell.namespace: "evo-bar"
             WlrLayershell.layer: WlrLayer.Top
 
-            Row {
+            BarSection {
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
-                anchors.leftMargin: Theme.barGap
-                spacing: Theme.barGap
-                height: Theme.barHeight
-
-                Repeater {
-                    model: (root.barConfig.layout && root.barConfig.layout.left) ? root.barConfig.layout.left : []
-                    delegate: Loader {
-                        required property var modelData
-                        property var entry: modelData
-                        height: Theme.barHeight
-                        anchors.verticalCenter: parent.verticalCenter
-                        sourceComponent: root.widgetComponentFor(entry)
-                        onLoaded: {
-                            if (!item) return
-                            if ("bar" in item) item.bar = root
-                            if ("barPanel" in item) item.barPanel = barPanel
-                            if ("settings" in item) item.settings = entry
-                            if ("shell" in item) item.shell = root.shell
-                            if (typeof item.restartPolling === "function") item.restartPolling()
-                            else if (typeof item.runExec === "function") item.runExec()
-                        }
-                    }
-                }
+                sectionMargin: Theme.barGap
+                bar: root
+                barPanel: barPanel
+                shell: root.shell
+                barConfig: root.barConfig
+                entries: (root.barConfig.layout && root.barConfig.layout.left) ? root.barConfig.layout.left : []
             }
 
-            Row {
+            BarSection {
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: Theme.barGap
-                height: Theme.barHeight
-
-                Repeater {
-                    model: (root.barConfig.layout && root.barConfig.layout.center) ? root.barConfig.layout.center : []
-                    delegate: Loader {
-                        required property var modelData
-                        property var entry: modelData
-                        height: Theme.barHeight
-                        anchors.verticalCenter: parent.verticalCenter
-                        sourceComponent: root.widgetComponentFor(entry)
-                        onLoaded: {
-                            if (!item) return
-                            if ("bar" in item) item.bar = root
-                            if ("barPanel" in item) item.barPanel = barPanel
-                            if ("settings" in item) item.settings = entry
-                            if ("shell" in item) item.shell = root.shell
-                            if (typeof item.restartPolling === "function") item.restartPolling()
-                            else if (typeof item.runExec === "function") item.runExec()
-                        }
-                    }
-                }
+                bar: root
+                barPanel: barPanel
+                shell: root.shell
+                barConfig: root.barConfig
+                entries: (root.barConfig.layout && root.barConfig.layout.center) ? root.barConfig.layout.center : []
             }
 
-            Row {
+            BarSection {
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
-                anchors.rightMargin: Theme.barGap
-                spacing: Theme.barGap
-                height: Theme.barHeight
-
-                Repeater {
-                    model: (root.barConfig.layout && root.barConfig.layout.right) ? root.barConfig.layout.right : []
-                    delegate: Loader {
-                        required property var modelData
-                        property var entry: modelData
-                        height: Theme.barHeight
-                        anchors.verticalCenter: parent.verticalCenter
-                        sourceComponent: root.widgetComponentFor(entry)
-                        onLoaded: {
-                            if (!item) return
-                            if ("bar" in item) item.bar = root
-                            if ("barPanel" in item) item.barPanel = barPanel
-                            if ("settings" in item) item.settings = entry
-                            if ("shell" in item) item.shell = root.shell
-                            if (typeof item.restartPolling === "function") item.restartPolling()
-                            else if (typeof item.runExec === "function") item.runExec()
-                        }
-                    }
-                }
+                sectionMargin: Theme.barGap
+                bar: root
+                barPanel: barPanel
+                shell: root.shell
+                barConfig: root.barConfig
+                entries: (root.barConfig.layout && root.barConfig.layout.right) ? root.barConfig.layout.right : []
             }
         }
     }

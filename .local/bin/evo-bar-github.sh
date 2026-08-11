@@ -2,6 +2,11 @@
 
 source "${HOME}/.local/bin/evo-bar-common.sh"
 
+if cached=$(evo_bar_cache_read "github" 300 2>/dev/null); then
+    printf '%s\n' "$cached"
+    exit 0
+fi
+
 # GitHub username
 USERNAME="sebday"
 
@@ -142,4 +147,6 @@ ACTIVITY_BOXES_STRING_FOR_JSON=$(printf '%s' "${heatmap_chars[@]}")
 TEXT_OUTPUT="  ${TODAY_CONTRIBUTION_COUNT} ${ACTIVITY_BOXES_STRING_FOR_JSON}"
 CLASS="github-level-${TODAY_LEVEL}"
 
-json_github "$TEXT_OUTPUT" "$TODAY_CONTRIBUTION_COUNT" "$HEATMAP_JSON" "$CLASS"
+output=$(json_github "$TEXT_OUTPUT" "$TODAY_CONTRIBUTION_COUNT" "$HEATMAP_JSON" "$CLASS")
+printf '%s\n' "$output" | evo_bar_cache_write "github"
+printf '%s\n' "$output"

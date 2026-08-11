@@ -1,8 +1,0 @@
-{
-  "schemaVersion": 1,
-  "id": "evo.clipboard",
-  "name": "Clipboard",
-  "version": "1.0.0",
-  "kinds": ["service"],
-  "entryPoints": { "service": "Service.qml" }
-}

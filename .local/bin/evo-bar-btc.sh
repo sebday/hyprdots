@@ -6,6 +6,11 @@
 
 source "${HOME}/.local/bin/evo-bar-common.sh"
 
+if cached=$(evo_bar_cache_read "btc" 60 2>/dev/null); then
+    printf '%s\n' "$cached"
+    exit 0
+fi
+
 SECRETS_FILE="$EVO_SECRETS_FILE"
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/evo-shell"
 HISTORY_FILE="${STATE_DIR}/btc-history.json"
@@ -197,4 +202,6 @@ Price: $(fmt_price "$LAST")
 Unrealized P/L: unavailable"
 fi
 
-json_out "$TEXT" "$TIP" "$DETAIL" "$BARS_JSON"
+output=$(json_out "$TEXT" "$TIP" "$DETAIL" "$BARS_JSON")
+printf '%s\n' "$output" | evo_bar_cache_write "btc"
+printf '%s\n' "$output"

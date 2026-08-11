@@ -23,4 +23,17 @@ Singleton {
     function isPlainObject(value) {
         return value !== null && typeof value === "object" && !Array.isArray(value)
     }
+
+    function screenForOutput(outputName, fallbackToFirst) {
+        var screens = Quickshell.screens
+        if (!screens || screens.length === 0) return null
+        var output = String(outputName || "").trim()
+        if (!output)
+            return fallbackToFirst !== false ? screens[0] : null
+        for (var i = 0; i < screens.length; i++) {
+            var s = screens[i]
+            if (s && String(s.name) === output) return s
+        }
+        return fallbackToFirst !== false ? screens[0] : null
+    }
 }

@@ -286,6 +286,23 @@ find_store() {
 
 main() {
     local store_prefix=${1:-}
+    local cache_key="shopify-${store_prefix:-all}"
+    local cached output
+
+    if cached=$(evo_bar_cache_read "$cache_key" 300 2>/dev/null); then
+        printf '%s\n' "$cached"
+        return 0
+    fi
+
+    local days=${2:-14}
+    if ! [[ "$days" =~ ^[0-9]+$ ]] || (( days < 1 )); then
+        days=14
+    fi
+    if (( days > 90 )); then
+        days=90
+    fi
+    local days_back=$((days - 1))
+
     local tz_name="${EVO_SHOPIFY_TZ:-$DEFAULT_TZ}"
     tz_name="${tz_name// /}"
     [[ -z "$tz_name" ]] && tz_name="$DEFAULT_TZ"
@@ -332,7 +349,7 @@ main() {
     sym=$(currency_symbol "$(sqlite3 -readonly "$db_path" \
         "SELECT currency_code FROM raw_shopify_orders_daily WHERE dt = '${today_s}';" 2>/dev/null || true)")
 
-    for i in $(seq 13 -1 0); do
+    for i in $(seq "$days_back" -1 0); do
         day_iso=$(TZ="$tz_name" date -d "${today_s} - ${i} days" +%Y-%m-%d)
         rev=$(get_day_stats "$db_path" "$day_iso" "$spend_col" | cut -d'|' -f1)
         chart_sales+=("$rev")
@@ -357,8 +374,10 @@ main() {
     orders_n=$(awk -v o="${orders:-0}" 'BEGIN { print int(o + 0) }')
     revenue_n=$(awk -v r="${rev:-0}" 'BEGIN { printf "%.2f", r + 0 }')
 
-    json_shopify "$output_text" "$label_text" "$sparkline_json" "${STORE_DISPLAY}" "$sym" \
-        "$orders_n" "$cos_str" "$revenue_n"
+    output=$(json_shopify "$output_text" "$label_text" "$sparkline_json" "${STORE_DISPLAY}" "$sym" \
+        "$orders_n" "$cos_str" "$revenue_n")
+    printf '%s\n' "$output" | evo_bar_cache_write "$cache_key"
+    printf '%s\n' "$output"
 }
 
 main "$@"

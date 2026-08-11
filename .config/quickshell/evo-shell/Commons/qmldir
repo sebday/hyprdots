@@ -1,4 +1,5 @@
 module Commons
+singleton Format 1.0 Format.qml
 singleton Theme 1.0 Theme.qml
 singleton Util 1.0 Util.qml
 singleton UsageMemory 1.0 UsageMemory.qml
@@ -9,3 +10,4 @@ SliderSetting 1.0 SliderSetting.qml
 ToggleRow 1.0 ToggleRow.qml
 FontFamilyPicker 1.0 FontFamilyPicker.qml
 SparklineChart 1.0 SparklineChart.qml
+JsonPollRunner 1.0 JsonPollRunner.qml

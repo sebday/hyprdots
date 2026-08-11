@@ -8,7 +8,6 @@
     "id": "evo.bar",
     "position": "bottom",
     "output": "HDMI-A-1",
-    "transparent": false,
     "layout": {
       "left": [
         {
@@ -75,7 +74,6 @@
       ]
     }
   },
-  "plugins": [],
   "panel": {
     "side": "left",
     "output": "DP-1"

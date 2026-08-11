@@ -24,8 +24,7 @@ ShellRoot {
                 center: [{ id: "evo.workspaces" }, { id: "evo.clock", format: "%a %d %H:%M" }],
                 right: [{ id: "evo.audio" }, { id: "evo.tray" }]
             }
-        },
-        plugins: []
+        }
     })
 
     readonly property var pluginTable: ({
@@ -42,6 +41,7 @@ ShellRoot {
 
     property var shellConfig: builtinShellConfig
     property var barConfig: builtinShellConfig.bar
+    property string _barLoaderKey: ""
     property var _services: ({})
     property var openPanelIds: ({})
     property var panelLoaders: ({})
@@ -186,10 +186,17 @@ ShellRoot {
     }
 
   function reloadBar() {
-        if (barLoader.item) {
-            if ("barConfig" in barLoader.item) barLoader.item.barConfig = shell.barConfig
+        var key = JSON.stringify({
+            output: barConfig && barConfig.output ? String(barConfig.output) : "",
+            position: barConfig && barConfig.position ? String(barConfig.position) : ""
+        })
+        if (barLoader.item && "barConfig" in barLoader.item && key === _barLoaderKey) {
+            barLoader.item.barConfig = shell.barConfig
             return
         }
+        _barLoaderKey = key
+        if (barLoader.item && "barConfig" in barLoader.item)
+            barLoader.item.barConfig = shell.barConfig
         barLoader.active = false
         barLoader.source = ""
         Qt.callLater(function() {

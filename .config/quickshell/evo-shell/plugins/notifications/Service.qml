@@ -24,18 +24,10 @@ Scope {
     }
 
     function screenForOutput(outputName) {
-        var screens = Quickshell.screens
-        if (!screens || screens.length === 0) return null
-        var output = String(outputName || "").trim()
-        if (!output) return screens[0]
-        for (var i = 0; i < screens.length; i++) {
-            var s = screens[i]
-            if (s && String(s.name) === output) return s
-        }
-        return screens[0]
+        return Util.screenForOutput(outputName, true)
     }
 
-    readonly property var popupScreen: screenForOutput(barOutput || "HDMI-A-1")
+    readonly property var popupScreen: screenForOutput(barOutput)
 
     NotificationServer {
         id: server
@@ -78,6 +70,14 @@ Scope {
         dismissTimer.restart()
     }
 
+    function dismissAll() {
+        for (var i = 0; i < activePopups.length; i++) {
+            var item = activePopups[i]
+            if (item.notification) item.notification.dismiss()
+        }
+        activePopups = []
+    }
+
     function dismissEntry(key) {
         var next = []
         for (var i = 0; i < activePopups.length; i++) {
@@ -89,10 +89,7 @@ Scope {
     }
 
     function dismissOldest() {
-        if (activePopups.length === 0) return
-        dismissEntry(activePopups[0].key)
-        if (activePopups.length > 0)
-            scheduleDismiss(dismissTimer.interval)
+        dismissAll()
     }
 
     function popupTitle(entry) {

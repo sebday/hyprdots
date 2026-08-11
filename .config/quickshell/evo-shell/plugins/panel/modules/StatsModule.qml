@@ -11,9 +11,7 @@ Item {
     property var shell: null
 
     readonly property string home: Quickshell.env("HOME")
-    readonly property string shopifyScript: home + "/.local/bin/evo-bar-shopify.sh"
-    readonly property string btcScript: home + "/.local/bin/evo-bar-btc.sh"
-    readonly property string spcxScript: home + "/.local/bin/evo-bar-spcx.sh"
+    readonly property bool statsActive: panel && panel.opened && panel.activeModule === "stats"
 
     property var diyData: ({})
     property var tgsData: ({})
@@ -25,29 +23,10 @@ Item {
     }
 
     function refreshAll() {
-        if (!diyProc.running) diyProc.running = true
-        if (!tgsProc.running) tgsProc.running = true
-        if (!btcProc.running) btcProc.running = true
-        if (!spcxProc.running) spcxProc.running = true
-    }
-
-    function parseJson(raw) {
-        try {
-            return JSON.parse(String(raw || "{}").trim() || "{}")
-        } catch (e) {
-            return ({})
-        }
-    }
-
-    function formatRevenue(val, symbol) {
-        var n = Math.round(parseFloat(val) || 0)
-        var s = String(n)
-        var out = ""
-        for (var i = 0; i < s.length; i++) {
-            if (i > 0 && (s.length - i) % 3 === 0) out += ","
-            out += s.charAt(i)
-        }
-        return String(symbol || "£") + out
+        diyPoll.runPoll()
+        tgsPoll.runPoll()
+        btcPoll.runPoll()
+        spcxPoll.runPoll()
     }
 
     function shopifyHeader(data, fallbackName) {
@@ -56,7 +35,7 @@ Item {
         var sym = data.symbol || "£"
         var cos = data.cos || "—"
         var revenue = data.revenue !== undefined
-            ? formatRevenue(data.revenue, sym)
+            ? Format.formatRevenue(data.revenue, sym)
             : String(data.label || "").replace(/^[A-Z]\s+/, "")
         var parts = [revenue, cos]
         if (typeof data.orders === "number")
@@ -76,56 +55,36 @@ Item {
         Quickshell.execDetached(["bash", "-lc", "xdg-open " + Util.shellQuote(url)])
     }
 
-    Process {
-        id: diyProc
-        command: ["bash", root.shopifyScript, "DIY"]
-        stdout: StdioCollector {
-            onStreamFinished: root.diyData = root.parseJson(text)
-        }
+    JsonPollRunner {
+        id: diyPoll
+        active: root.statsActive
+        defaultIntervalSec: 300
+        command: ["bash", root.home + "/.local/bin/evo-bar-shopify.sh", "DIY"]
+        onPolled: function(json) { root.diyData = json }
     }
 
-    Process {
-        id: tgsProc
-        command: ["bash", root.shopifyScript, "TGS"]
-        stdout: StdioCollector {
-            onStreamFinished: root.tgsData = root.parseJson(text)
-        }
+    JsonPollRunner {
+        id: tgsPoll
+        active: root.statsActive
+        defaultIntervalSec: 300
+        command: ["bash", root.home + "/.local/bin/evo-bar-shopify.sh", "TGS"]
+        onPolled: function(json) { root.tgsData = json }
     }
 
-    Process {
-        id: btcProc
-        command: ["bash", root.btcScript]
-        stdout: StdioCollector {
-            onStreamFinished: root.btcData = root.parseJson(text)
-        }
+    JsonPollRunner {
+        id: btcPoll
+        active: root.statsActive
+        defaultIntervalSec: 60
+        command: ["bash", root.home + "/.local/bin/evo-bar-btc.sh"]
+        onPolled: function(json) { root.btcData = json }
     }
 
-    Process {
-        id: spcxProc
-        command: ["bash", root.spcxScript]
-        stdout: StdioCollector {
-            onStreamFinished: root.spcxData = root.parseJson(text)
-        }
-    }
-
-    Timer {
-        interval: 300000
-        running: root.panel && root.panel.opened && root.panel.activeModule === "stats"
-        repeat: true
-        onTriggered: {
-            if (!diyProc.running) diyProc.running = true
-            if (!tgsProc.running) tgsProc.running = true
-        }
-    }
-
-    Timer {
-        interval: 60000
-        running: root.panel && root.panel.opened && root.panel.activeModule === "stats"
-        repeat: true
-        onTriggered: {
-            if (!btcProc.running) btcProc.running = true
-            if (!spcxProc.running) spcxProc.running = true
-        }
+    JsonPollRunner {
+        id: spcxPoll
+        active: root.statsActive
+        defaultIntervalSec: 60
+        command: ["bash", root.home + "/.local/bin/evo-bar-spcx.sh"]
+        onPolled: function(json) { root.spcxData = json }
     }
 
     Flickable {

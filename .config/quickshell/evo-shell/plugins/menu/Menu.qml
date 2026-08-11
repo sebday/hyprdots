@@ -32,7 +32,11 @@ Item {
     readonly property int previewTileHeight: 132
     readonly property int previewImageHeight: 96
     readonly property real previewDpr: 2
-    readonly property int listIconSize: 20
+    readonly property int listIconSize: 40
+    readonly property int listFontSize: 24
+    readonly property int listRowHeight: 72
+    readonly property int listFilterHeight: 80
+    readonly property int listFilterFontSize: 28
     readonly property int previewMenuMargin: 48
 
     readonly property int previewColumnCount: {
@@ -464,8 +468,8 @@ Item {
             anchors.centerIn: parent
             width: root.boxTileMode
                 ? root.boxRowWidth
-                : 560
-            height: root.boxTileMode ? root.boxRowHeight : 420
+                : 720
+            height: root.boxTileMode ? root.boxRowHeight : 640
             focus: root.opened
 
             Keys.onEscapePressed: root.handleEscapeKey()
@@ -490,7 +494,7 @@ Item {
 
                 Item {
                     width: parent.width
-                    height: 40
+                    height: root.listFilterHeight
                     visible: !root.boxTileMode && (root.mode === "apps" || root.mode === "runner")
 
                     Rectangle {
@@ -507,7 +511,7 @@ Item {
                         color: Theme.foreground
                         opacity: 0.45
                         font.family: Theme.fontFamily
-                        font.pixelSize: 14
+                        font.pixelSize: root.listFilterFontSize
                         font.bold: Theme.fontBold
                     }
 
@@ -518,7 +522,7 @@ Item {
                         anchors.rightMargin: 12
                         color: Theme.foreground
                         font.family: Theme.fontFamily
-                        font.pixelSize: 14
+                        font.pixelSize: root.listFilterFontSize
                         font.bold: Theme.fontBold
                         text: root.filterText
                         selectByMouse: true
@@ -538,7 +542,7 @@ Item {
                     text: "Loading…"
                     color: Theme.foreground
                     font.family: Theme.fontFamily
-                    font.pixelSize: 12
+                    font.pixelSize: root.listFontSize
                     font.bold: Theme.fontBold
                 }
 
@@ -696,7 +700,8 @@ Item {
                 ListView {
                     id: entryList
                     width: parent.width
-                    height: parent.height - 50
+                    height: parent.height - (root.mode === "apps" || root.mode === "runner"
+                        ? root.listFilterHeight + 12 : 0)
                     clip: true
                     visible: !root.boxTileMode
                     model: root.filteredEntries()
@@ -709,7 +714,7 @@ Item {
                         required property var modelData
                         required property int index
                         width: entryList.width
-                        height: 36
+                        height: root.listRowHeight
                         color: index === entryList.currentIndex || mouseArea.containsMouse ? Theme.mantle : "transparent"
 
                         readonly property string appIconSource: root.entryIconSource(modelData)
@@ -719,7 +724,7 @@ Item {
                             anchors.left: parent.left
                             anchors.leftMargin: 8
                             anchors.verticalCenter: parent.verticalCenter
-                            spacing: 10
+                            spacing: 20
                             width: parent.width - 16
 
                             Item {
@@ -752,10 +757,10 @@ Item {
                                 text: modelData.name
                                 color: Theme.foreground
                                 font.family: Theme.fontFamily
-                                font.pixelSize: 13
+                                font.pixelSize: root.listFontSize
                                 font.bold: Theme.fontBold
                                 elide: Text.ElideRight
-                                width: parent.width - root.listIconSize - 10
+                                width: parent.width - root.listIconSize - 20
                             }
                         }
 

@@ -1,8 +1,0 @@
-{
-  "schemaVersion": 1,
-  "id": "evo.bar",
-  "name": "Bar",
-  "version": "1.0.0",
-  "kinds": ["bar"],
-  "entryPoints": { "bar": "Bar.qml" }
-}

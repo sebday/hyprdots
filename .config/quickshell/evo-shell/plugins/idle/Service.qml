@@ -35,6 +35,13 @@ Item {
         screensaverTimer.stop()
         lockTimer.stop()
         idledThisCycle = false
+        var lockSvc = shell && typeof shell.serviceFor === "function"
+            ? shell.serviceFor("evo.lock")
+            : null
+        if (lockSvc && typeof lockSvc.beginLock === "function") {
+            lockSvc.beginLock()
+            return
+        }
         if (!lockProc.running) lockProc.running = true
     }
 

@@ -12,26 +12,13 @@ Item {
     property bool isError: false
     property string statusText: ""
     property int todayCount: 0
-    property var heatmap: []
     property var cells: []
 
     readonly property string home: Quickshell.env("HOME") || ""
     readonly property string script: home + "/.local/bin/evo-bar-github.sh"
-    readonly property bool useNativeCells: cells.length > 0
 
     implicitWidth: contentRow.implicitWidth + Theme.barPaddingX * 2
     implicitHeight: Theme.barHeight
-
-    function parseSpans(text) {
-        var spans = []
-        var re = /<span foreground='([^']+)'>([^<]*)<\/span>/g
-        var m
-        var s = String(text || "")
-        while ((m = re.exec(s)) !== null) {
-            spans.push({ color: m[1], char: m[2] || "■" })
-        }
-        return spans
-    }
 
     function applyJson(line) {
         loading = false
@@ -44,30 +31,13 @@ Item {
                 isError = true
                 statusText = String(json.text || "GitHub error").replace(/<[^>]+>/g, "").trim()
                 cells = []
-                heatmap = []
                 return
             }
 
             isError = false
             statusText = ""
-
-            if (json.today !== undefined && json.today !== null)
-                todayCount = parseInt(json.today, 10) || 0
-            else {
-                var text = String(json.text || "")
-                var prefix = text.split("<span")[0].trim()
-                var countMatch = prefix.match(/(\d+)\s*$/)
-                todayCount = countMatch ? parseInt(countMatch[1], 10) : 0
-            }
-
-            if (Array.isArray(json.cells) && json.cells.length > 0) {
-                cells = json.cells
-                heatmap = []
-            } else {
-                cells = []
-                var fallbackText = String(json.text || "")
-                heatmap = parseSpans(fallbackText)
-            }
+            todayCount = parseInt(json.today, 10) || 0
+            cells = Array.isArray(json.cells) ? json.cells : []
         } catch (e) {
             console.warn("github widget parse failed:", e)
         }
@@ -115,7 +85,7 @@ Item {
         Row {
             id: nativeHeatmap
             spacing: Theme.sparklineBarSpacing
-            visible: !root.loading && root.useNativeCells
+            visible: !root.loading && root.cells.length > 0
             height: Theme.sparklineCellSize
             anchors.verticalCenter: parent.verticalCenter
 
@@ -131,29 +101,6 @@ Item {
                     width: Theme.sparklineCellSize
                     height: Theme.sparklineCellSize
                     color: modelData.color || Theme.foreground
-                }
-            }
-        }
-
-        Row {
-            spacing: Theme.sparklineBarSpacing
-            visible: !root.loading && !root.useNativeCells && root.heatmap.length > 0
-            anchors.verticalCenter: parent.verticalCenter
-
-            Item {
-                width: Theme.sparklineChartMargin
-                height: 1
-            }
-
-            Repeater {
-                model: root.heatmap
-                Text {
-                    required property var modelData
-                    text: modelData.char
-                    color: modelData.color
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontPixelSize
-                    font.bold: Theme.fontBold
                 }
             }
         }

@@ -2,13 +2,21 @@
 # Panel weather details — Derby (Open-Meteo, no API key).
 #
 # Environment:
-#   WAYBAR_WEATHER_LAT / WAYBAR_WEATHER_LON — default Derby, UK
+#   EVO_WEATHER_LAT / EVO_WEATHER_LON — default Derby, UK
 
 set -euo pipefail
 
-LAT="${WAYBAR_WEATHER_LAT:-52.9219}"
-LON="${WAYBAR_WEATHER_LON:--1.4746}"
-LOCATION="Derby"
+source "${HOME}/.local/bin/evo-bar-common.sh"
+source "${HOME}/.local/bin/evo-weather-lib.sh"
+
+if cached=$(evo_bar_cache_read "weather-panel" 600 2>/dev/null); then
+    printf '%s\n' "$cached"
+    exit 0
+fi
+
+LAT="$EVO_WEATHER_LAT"
+LON="$EVO_WEATHER_LON"
+LOCATION="$EVO_WEATHER_LOCATION"
 MET_OFFICE_URL="https://weather.metoffice.gov.uk/forecast/gcqvn6pq4"
 
 error_out() {
@@ -25,7 +33,7 @@ if [[ -z "$DATA" ]] || ! echo "$DATA" | jq -e '.daily.time | length >= 2' >/dev/
     exit 0
 fi
 
-echo "$DATA" | jq -c \
+output="$(echo "$DATA" | jq -c \
     --arg location "$LOCATION" \
     --arg url "$MET_OFFICE_URL" '
 def icon($c):
@@ -113,4 +121,7 @@ def dow($date):
     }
   ]
 }
-'
+')"
+
+printf '%s\n' "$output" | evo_bar_cache_write "weather-panel"
+printf '%s\n' "$output"

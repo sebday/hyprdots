@@ -1,6 +1,6 @@
 # Evo shell — agent notes
 
-Omarchy Quattro-style consolidated Hyprland desktop shell. One **Quickshell** process (`evo-shell`) replaces Waybar, Walker (launcher/clipboard/emojis), Mako, hyprlock, hyprpaper, and hypridle.
+Omarchy Quattro-style consolidated Hyprland desktop shell. One **Quickshell** process (`evo-shell`) replaces Waybar, Walker (launcher/clipboard), Mako, hyprlock, hyprpaper, and hypridle.
 
 Read this before editing bar widgets, shell IPC, Hypr bindings, or `evo-bar-*` scripts.
 
@@ -15,17 +15,18 @@ Read this before editing bar widgets, shell IPC, Hypr bindings, or `evo-bar-*` s
 | `~/.config/hypr/bindings.lua` | Keybinds → `evo-shell-ipc` |
 | `~/.config/hypr/evo-shell.lua` | Layer rules for `evo-*` namespaces |
 | `~/.local/state/evo-shell/wallpaper` | Current wallpaper path |
+| `~/.cache/evo-shell/bar/` | TTL JSON cache for `evo-bar-*.sh` output |
 
 **Legacy (do not use for new work):**
 
-- `~/.config/waybar/` — old Waybar config; secrets may still live there
+- `~/.config/waybar/` — removed; do not add new fallbacks
 
 ## Naming
 
 - Quickshell config name: `evo-shell` → `quickshell -n -c evo-shell`
 - Plugin IDs: `evo.menu`, `evo.bar`, `evo.audio`, … (prefix `evo.`)
 - Wayland layer namespaces: `evo-bar`, `evo-menu`, `evo-panel`, `evo-notifications`, `evo-background`
-- Scripts: `evo-shell-ipc`, `evo-launch-shell`, `evo-bar-{name}.sh`
+- Scripts: `evo-shell-ipc`, `evo-launch-shell`, `evo-shell-layout.sh`, `evo-bar-{name}.sh`
 
 ## Run, reload, debug
 
@@ -82,10 +83,10 @@ Hypr `bindings.lua` uses `$HOME/.local/bin/evo-shell-ipc` (PATH may not include 
 |--------|---------|
 | `background` | `refresh`, `set(path)`, `setInstant(path)`, `next`, `prev` |
 | `evo.audio` | `stepUp`, `stepDown`, `toggleMute`, `step(up\|down)` |
-| `evo.lock` | `lock`, `isLocked`, `status` (via `shell call`) |
-| `idle` | `status`, `enable`, `disable`, `toggle` |
+| `evo.lock` | `lock`, `isLocked`, `status` via `shell call`; direct target is `lock` |
+| `idle` | `status` |
 
-Volume keys and `evo-volume.sh` call `evo.audio` directly, not `shell call`.
+Hypr volume keys call `evo-shell-ipc evo.audio` directly, not `shell call`.
 
 ## `shell.json` (version 1)
 
@@ -135,7 +136,9 @@ shell.qml
 
 **Services** live in `plugins/*/Service.qml` (or `Background.qml`), registered in `pluginTable`, often `keepLoaded: true`. Clipboard watch remains `evo.clipboard` (service-only); clipboard UI lives in an `evo.panel` module.
 
-**Bar-only widgets** are **not** in `pluginTable`; mapped in `plugins/bar/Bar.qml` → `widgetComponentFor()`.
+**Bar-only widgets** are **not** in `pluginTable`; mapped in `plugins/bar/widgets/BarSection.qml`.
+
+**Shared Commons helpers:** `Util.screenForOutput`, `Format`, `JsonPollRunner`, `SparklineChart`.
 
 ### Left dock panels
 
@@ -155,7 +158,7 @@ LeftDockPanel {
 
 Plugin root should call `dock.reveal()` / `dock.conceal()` from `open()` / `close()`, and register in `shell.qml` `panelPluginIds`. The unified left dock is `plugins/panel/Panel.qml` with a `DockModuleBar` and per-module QML under `plugins/panel/modules/`.
 
-### Bar widget routing (`Bar.qml`)
+### Bar widget routing (`BarSection.qml`)
 
 | `id` in shell.json | Widget | Data source |
 |--------------------|--------|-------------|
@@ -166,22 +169,24 @@ Plugin root should call `dock.reveal()` / `dock.conceal()` from `open()` / `clos
 | `evo.tray` | `TrayWidget` | Quickshell tray |
 | `evo.github` | `GithubWidget` | `evo-bar-github.sh` |
 | `evo.shopify` | `ShopifyWidget` | `evo-bar-shopify.sh` + `store` setting |
-| `evo.cava` | `CavaWidget` | native `cava` + `SplitParser` |
+| `evo.cava` | `CavaWidget` | Pipewire peak monitor |
 | `type: "command"` or `exec` | `CommandWidget` | polled bash, JSON stdout |
 
 To add a native bar widget:
 
 1. Create `plugins/bar/widgets/MyWidget.qml`
 2. Register in `widgets/qmldir`
-3. Add `Component` + branch in `widgetComponentFor()`
+3. Add branch in `BarSection.qml` → `widgetComponentFor()`
 4. Reference by `id` in `shell.json`
 
 ## Bar data scripts (`evo-bar-*.sh`)
 
-Live in `~/.local/bin/`. Shared helpers: `evo-bar-common.sh`.
+Live in `~/.local/bin/`. Shared helpers: `evo-bar-common.sh`, `evo-weather-lib.sh`.
 
-- **Secrets:** `EVO_SECRETS_FILE` → `~/.local/share/evo-shell/secrets.env` (fallback: waybar path)
-- **Heatmap colours:** `~/.themes/current/waybar.css` (`@define-color github-N`) via `evo_bar_load_heatmap_colors`
+- **Secrets:** `EVO_SECRETS_FILE` → `~/.local/share/evo-shell/secrets.env`
+- **Heatmap colours:** `~/.themes/current/evo-bar.css` via `evo_bar_load_heatmap_colors`
+- **TTL cache:** `evo_bar_cache_read` / `evo_bar_cache_write` in `~/.cache/evo-shell/bar/`
+- **Weather env:** `EVO_WEATHER_LAT` / `EVO_WEATHER_LON`
 
 ### Output conventions
 
@@ -198,20 +203,23 @@ Pango `<span foreground='…'>` in `text` is converted to RichText in `CommandWi
 ```json
 {
   "text": "legacy full string with spans",
-  "label": "D £4,474 | 20 | 9.0%",
-  "bars": [{ "level": 5, "colorLevel": 4, "color": "#7fbbb3" }, …]
+  "label": "D £4,474 | 8.8%",
+  "bars": [{ "level": 5, "colorLevel": 4, "color": "#7fbbb3" }, …],
+  "orders": 20
 }
 ```
 
-Widget draws native `Rectangle` bars; falls back to span parsing if `bars` missing.
+Widget draws native `Rectangle` bars from `bars`.
 
-**GithubWidget:** still uses span markup in `text`; count parsed from prefix before first `<span`.
+**GithubWidget:** structured JSON with `today` and `cells`.
 
-**CavaWidget:** runs `cava` natively with `SplitParser`; playback gate via `evo-bar-cava-if.sh`.
+**CavaWidget:** Pipewire `PwNodePeakMonitor` audio visualizer.
+
+**Layout scripts:** `evo-shell-layout.sh bar|panel get|toggle` (wrappers: `evo-bar-layout.sh`, `evo-panel-layout.sh`).
 
 ## Theme and bar spacing (`Commons/Theme.qml`)
 
-Colours are **hardcoded** in `Theme.qml` today (not live from `colors.toml`). Bar scripts read heatmap colours from theme `waybar.css`.
+Colours are read live from `theme.json` via `FileView`. Bar scripts read heatmap colours from `evo-bar.css`.
 
 | Property | Typical use |
 |----------|-------------|
@@ -273,7 +281,7 @@ Menu power/system entries use `evo-system-lock`, `evo-restart-shell.sh`, `evo-wa
 1. **Native widget** (streaming, Pipewire, rich UI) → QML in `plugins/bar/widgets/`
 2. **Simple polled data** → `evo-bar-foo.sh` + `CommandWidget` entry in `shell.json`
 3. **Structured chart** → script emits JSON fields + QML renders with `Rectangle` / `Repeater`
-4. Register routing in `Bar.qml` if not `type: command`
+4. Register routing in `BarSection.qml` if not `type: command`
 5. `evo-shell-ipc shell reloadConfig` or restart shell
 
 ## User preferences (repo)

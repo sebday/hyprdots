@@ -3,8 +3,27 @@
 
 set -euo pipefail
 
-# evo-shell owns wallpapers; stop legacy hyprpaper if it is still running.
-pkill -x hyprpaper 2>/dev/null || true
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/evo-shell"
+SUPERVISOR_PID_FILE="${STATE_DIR}/launch-shell.pid"
+LEGACY_MARKER="${STATE_DIR}/legacy-cleaned"
+
+mkdir -p "$STATE_DIR"
+printf '%s\n' "$$" >"$SUPERVISOR_PID_FILE"
+
+cleanup_pid_file() {
+    local current
+    current="$(cat "$SUPERVISOR_PID_FILE" 2>/dev/null || true)"
+    if [[ "$current" == "$$" ]]; then
+        rm -f "$SUPERVISOR_PID_FILE"
+    fi
+}
+
+if [[ ! -f "$LEGACY_MARKER" ]]; then
+    for proc in hyprpaper waybar mako hypridle walker; do
+        pkill -x "$proc" 2>/dev/null || true
+    done
+    touch "$LEGACY_MARKER"
+fi
 
 run_shell() {
     systemd-cat -t evo-shell -- env QS_NO_RELOAD_POPUP=1 quickshell -n -c evo-shell &
@@ -27,7 +46,7 @@ compositor_alive() {
         hyprctl -j monitors >/dev/null 2>&1 && return 0
         (( attempt < 3 )) && sleep 0.5
     done
-    return 0
+    return 1
 }
 
 terminating=0
@@ -36,9 +55,10 @@ shell_pid=""
 stop() {
     terminating=1
     [[ -n "$shell_pid" ]] && kill -TERM "$shell_pid" 2>/dev/null
+    cleanup_pid_file
     return 0
 }
-trap stop HUP INT TERM
+trap stop HUP INT TERM EXIT
 
 attempts=0
 window_started=$SECONDS

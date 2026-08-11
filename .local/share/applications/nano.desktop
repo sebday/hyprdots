@@ -11,3 +11,5 @@ Keywords=editor;text;terminal;console;
 Icon=edit
 Path=
 StartupNotify=false
+NoDisplay=true
+Hidden=true

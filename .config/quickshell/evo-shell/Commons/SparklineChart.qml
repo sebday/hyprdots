@@ -1,4 +1,5 @@
 import QtQuick
+import "."
 
 Item {
     id: root
@@ -22,7 +23,7 @@ Item {
 
     readonly property string caption: {
         if (!activeBar) return ""
-        return formatDay(activeBar.date) + "  " + formatValue(activeBar.value)
+        return Format.formatDay(activeBar.date) + "  " + Format.formatValue(activeBar.value, valuePrefix)
     }
 
     implicitHeight: chartHeight + (caption !== "" ? 18 : 0)
@@ -33,30 +34,6 @@ Item {
     onChartHeightChanged: if (isLine) lineCanvas.requestPaint()
     onLineColorChanged: if (isLine) lineCanvas.requestPaint()
     onStyleChanged: if (isLine) lineCanvas.requestPaint()
-
-    function formatDay(iso) {
-        if (!iso) return ""
-        var parts = String(iso).split("-")
-        if (parts.length < 3) return String(iso)
-        var d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10))
-        var days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-        return days[d.getDay()] + " " + d.getDate()
-    }
-
-    function formatValue(val) {
-        var n = parseFloat(val)
-        if (isNaN(n)) return String(val || "")
-        if (Math.abs(n) >= 1000) {
-            var s = String(Math.round(n))
-            var out = ""
-            for (var i = 0; i < s.length; i++) {
-                if (i > 0 && (s.length - i) % 3 === 0) out += ","
-                out += s.charAt(i)
-            }
-            return root.valuePrefix + out
-        }
-        return root.valuePrefix + n.toFixed(2)
-    }
 
     readonly property real effectiveBarWidth: {
         if (!fillWidth || bars.length === 0) return barWidth

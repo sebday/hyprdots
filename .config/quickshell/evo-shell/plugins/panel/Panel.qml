@@ -13,14 +13,14 @@ Item {
     property string activeModule: "calc"
     property bool pinned: false
 
-    readonly property string layoutScript: Quickshell.env("HOME") + "/.local/bin/evo-panel-layout.sh"
+    readonly property string layoutScript: Quickshell.env("HOME") + "/.local/bin/evo-shell-layout.sh"
 
     readonly property var modules: [
         { id: "calc", icon: "󰃬", title: "Calculator" },
         { id: "notes", icon: "󰠮", title: "Notes" },
-        { id: "stats", icon: "󰄨", title: "Stats" },
         { id: "clipboard", icon: "󰅌", title: "Clipboard" },
         { id: "weather", icon: "󰖐", title: "Weather" },
+        { id: "stats", icon: "󰄨", title: "Stats" },
         { id: "settings", icon: "󰒓", title: "Settings" }
     ]
 
@@ -93,15 +93,7 @@ Item {
     }
 
     function screenForOutput(outputName) {
-        var screens = Quickshell.screens
-        if (!screens || screens.length === 0) return null
-        var output = String(outputName || "").trim()
-        if (!output) return null
-        for (var i = 0; i < screens.length; i++) {
-            var s = screens[i]
-            if (s && String(s.name) === output) return s
-        }
-        return null
+        return Util.screenForOutput(outputName, true)
     }
 
     readonly property var panelScreen: screenForOutput(root.panelOutput)
@@ -125,7 +117,7 @@ Item {
 
     Process {
         id: sideToggleProc
-        command: ["bash", root.layoutScript, "toggle"]
+        command: ["bash", root.layoutScript, "panel", "toggle"]
     }
 
     LeftDockPanel {
@@ -170,12 +162,6 @@ Item {
                 shell: root.shell
             }
 
-            StatsModule {
-                id: statsModule
-                panel: root
-                shell: root.shell
-            }
-
             ClipboardModule {
                 id: clipboardModule
                 panel: root
@@ -184,6 +170,12 @@ Item {
 
             WeatherModule {
                 id: weatherModule
+                panel: root
+                shell: root.shell
+            }
+
+            StatsModule {
+                id: statsModule
                 panel: root
                 shell: root.shell
             }

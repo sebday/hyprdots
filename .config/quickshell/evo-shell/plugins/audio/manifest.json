@@ -1,8 +1,0 @@
-{
-  "schemaVersion": 1,
-  "id": "evo.audio",
-  "name": "Audio",
-  "version": "1.0.0",
-  "kinds": ["service"],
-  "keepLoaded": true
-}

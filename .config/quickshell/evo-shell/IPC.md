@@ -12,7 +12,7 @@ The shell exposes a Quickshell `IpcHandler` target named `shell`. Use `evo-shell
 | `toggle <id> [payloadJson]` | — | Summon if closed, hide if open |
 | `call <id> <method> [arg]` | string | Call a method on a loaded service plugin |
 | `reloadConfig` | `ok` | Reload `~/.config/quickshell/evo-shell/shell.json` |
-| `listPlugins` | JSON | Discovered plugins and enabled state |
+| `listPlugins` | JSON | Static `pluginTable` from `shell.qml` |
 
 Plugin-specific targets are registered by services:
 
@@ -20,8 +20,10 @@ Plugin-specific targets are registered by services:
 |--------|---------|
 | `background` | `refresh`, `set(path)`, `setInstant(path)`, `next`, `prev` |
 | `evo.audio` | `stepUp`, `stepDown`, `toggleMute`, `step(up\|down)` |
-| `evo.lock` | `lock`, `isLocked`, `status` |
-| `idle` | `status`, `enable`, `disable`, `toggle` |
+| `lock` | `lock`, `isLocked`, `status` |
+| `idle` | `status` |
+
+`evo.lock` is the plugin id for `shell call`; the direct IPC target is `lock`.
 
 ## Examples
 
@@ -31,6 +33,7 @@ evo-shell-ipc shell toggle evo.menu
 evo-shell-ipc shell toggle evo.menu '{"mode":"apps"}'
 evo-shell-ipc shell toggle evo.panel '{"module":"clipboard"}'
 evo-shell-ipc shell call evo.lock lock
+evo-shell-ipc lock lock
 evo-shell-ipc evo.audio stepUp
 evo-shell-ipc background next
 evo-shell-ipc shell reloadConfig
@@ -42,6 +45,10 @@ Canonical user config at `~/.config/quickshell/evo-shell/shell.json`.
 
 - `bar.layout.left|center|right` — widget entries with inline settings
 - `idle.screensaver` / `idle.lock` — seconds until DPMS off and session lock
+- `notifications.durationMs` — shared popup lifetime
+- `panel.side` / `panel.output` — left dock panel placement
 - `version: 1` is required
 
-Command widgets accept Waybar-style JSON output: `{ "text": "...", "tooltip": "...", "class": "..." }`.
+Command widgets accept JSON output: `{ "text": "...", "tooltip": "...", "class": "..." }`.
+
+Shopify and GitHub widgets prefer structured JSON (`label`/`bars`, `cells`) from `evo-bar-*.sh`.

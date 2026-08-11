@@ -3,13 +3,8 @@
 # Heatmap colours come from ~/.themes/current/evo-bar.css (generated from colors.toml).
 
 EVO_BAR_THEME_CSS="${EVO_BAR_THEME_CSS:-$HOME/.themes/current/evo-bar.css}"
-if [[ ! -f "$EVO_BAR_THEME_CSS" ]]; then
-    EVO_BAR_THEME_CSS="$HOME/.themes/current/waybar.css"
-fi
 EVO_SECRETS_FILE="${EVO_SECRETS_FILE:-${XDG_DATA_HOME:-$HOME/.local/share}/evo-shell/secrets.env}"
-if [[ ! -f "$EVO_SECRETS_FILE" ]]; then
-    EVO_SECRETS_FILE="$HOME/.config/waybar/secrets.env"
-fi
+EVO_BAR_CACHE_DIR="${EVO_BAR_CACHE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/evo-shell/bar}"
 
 # Fill global GITHUB_COLORS[0..4] from @define-color github-N in theme evo-bar.css.
 evo_bar_load_heatmap_colors() {
@@ -86,6 +81,33 @@ evo_bar_build_bars_json() {
     done
 
     printf '%s' "$lines" | jq -s '.'
+}
+
+evo_bar_cache_path() {
+    printf '%s/%s.json' "$EVO_BAR_CACHE_DIR" "$1"
+}
+
+# Return cached JSON when younger than ttl seconds.
+evo_bar_cache_read() {
+    local key="$1" ttl="${2:-60}"
+    local path now mtime age
+    path="$(evo_bar_cache_path "$key")"
+    [[ -f "$path" ]] || return 1
+    now=$(date +%s)
+    mtime=$(stat -c %Y "$path" 2>/dev/null || echo 0)
+    age=$((now - mtime))
+    (( age < ttl )) || return 1
+    cat "$path"
+}
+
+# Write JSON cache atomically from stdin.
+evo_bar_cache_write() {
+    local key="$1" path tmp
+    mkdir -p "$EVO_BAR_CACHE_DIR"
+    path="$(evo_bar_cache_path "$key")"
+    tmp="$(mktemp "${path}.XXXXXX")"
+    cat >"$tmp"
+    mv "$tmp" "$path"
 }
 
 # Merge date|value rows from stdin into a JSON history file.

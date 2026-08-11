@@ -1,6 +1,6 @@
 # Evo shell
 
-Omarchy Quattro-style consolidated desktop shell for Hyprland. One `quickshell` process replaces Waybar, Walker (launcher/clipboard/emojis), Mako, hyprlock, hyprpaper, and hypridle.
+Omarchy Quattro-style consolidated desktop shell for Hyprland. One `quickshell` process replaces Waybar, Walker (launcher/clipboard), Mako, hyprlock, hyprpaper, and hypridle.
 
 ## Install
 
@@ -22,17 +22,22 @@ Manual start:
 evo-launch-shell
 ```
 
+Restart:
+
+```bash
+evo-restart-shell.sh
+```
+
 ## Config
 
 Everything lives in [`~/.config/quickshell/evo-shell/`](~/.config/quickshell/evo-shell/):
 
-- [`shell.json`](shell.json) — bar layout, idle timings, widget settings
-- [`theme.json`](theme.json) — colors (written by `themes-apply.sh`)
+- [`shell.json`](shell.json) — bar layout, idle timings, notifications, panel settings
+- [`theme.json`](theme.json) — colors (written by `themes-apply.sh`, watched by `Theme.qml`)
 - QML shell + plugins (`shell.qml`, `plugins/`, …)
-- [`secrets.env.example`](secrets.env.example) — template for API tokens
 - [`AGENTS.md`](AGENTS.md) — notes for agents
 
-API tokens: `~/.local/share/evo-shell/secrets.env` (copy from example, `chmod 600`). Not in git.
+API tokens: `~/.local/share/evo-shell/secrets.env` (`chmod 600`). Not in git.
 
 See [REPLACEMENTS.md](REPLACEMENTS.md) and [IPC.md](IPC.md).
 
