@@ -18,13 +18,11 @@ Item {
 
     Component { id: calcComp; CalcModule {} }
     Component { id: notesComp; NotesModule {} }
-    Component { id: clipboardComp; ClipboardModule {} }
     Component { id: settingsComp; SettingsModule {} }
 
     readonly property var dockModules: [
         { id: "calc", icon: "󰃬", title: "Calculator", component: calcComp },
         { id: "notes", icon: "󰠮", title: "Notes", component: notesComp },
-        { id: "clipboard", icon: "󰅌", title: "Clipboard", component: clipboardComp },
         { id: "settings", icon: "󰒓", title: "Settings", component: settingsComp }
     ]
 

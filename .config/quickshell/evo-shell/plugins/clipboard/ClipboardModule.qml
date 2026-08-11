@@ -2,7 +2,7 @@ import Quickshell
 import Quickshell.Io
 import QtQuick
 import QtQuick.Layouts
-import "../../../Commons"
+import "../../Commons"
 
 Item {
     id: root
@@ -18,12 +18,17 @@ Item {
     readonly property string previewDir: Quickshell.env("HOME") + "/.local/state/evo-shell/clipboard-previews"
     readonly property int listLimit: 30
     readonly property int historyFontSize: 13
-    readonly property bool active: host && host.opened && host.activeModule === "clipboard"
+    readonly property bool active: host && host.opened === true
 
     readonly property var selectedEntry: {
         if (selectedIndex < 0 || selectedIndex >= entries.length)
             return null
         return entries[selectedIndex]
+    }
+
+    function dismissHost() {
+        if (host && typeof host.dismiss === "function")
+            host.dismiss()
     }
 
     function refresh() {
@@ -85,7 +90,7 @@ Item {
 
     function copyId(id) {
         Quickshell.execDetached(["bash", root.script, "copy", String(id)])
-        if (host) host.dismiss()
+        dismissHost()
     }
 
     function cachePreviews() {
@@ -143,7 +148,7 @@ Item {
         anchors.fill: parent
         focus: root.active
         Keys.enabled: root.active
-        Keys.onEscapePressed: if (host) host.dismiss()
+        Keys.onEscapePressed: root.dismissHost()
         Keys.onUpPressed: listView.decrementCurrentIndex()
         Keys.onDownPressed: listView.incrementCurrentIndex()
         Keys.onReturnPressed: {
