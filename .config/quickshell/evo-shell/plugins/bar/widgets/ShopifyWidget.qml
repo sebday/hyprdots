@@ -86,7 +86,7 @@ Item {
             text: root.loading ? "…" : root.mainText
             color: Theme.foreground
             font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontPixelSize
+            font.pixelSize: Theme.barFontPixelSize
             font.bold: Theme.fontBold
         }
 

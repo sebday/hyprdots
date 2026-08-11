@@ -80,12 +80,23 @@ Item {
             if (tab < 1) continue
             var id = line.substring(0, tab)
             if (!/^[0-9]+$/.test(id)) continue
-            var text = line.substring(tab + 1)
+            var rest = line.substring(tab + 1)
+            var pinned = false
+            var text = rest
+            var flagSep = rest.lastIndexOf("\t")
+            if (flagSep >= 0) {
+                var flag = rest.substring(flagSep + 1)
+                if (flag === "0" || flag === "1") {
+                    pinned = flag === "1"
+                    text = rest.substring(0, flagSep)
+                }
+            }
             var image = parseImageMeta(text)
             out.push({
                 id: id,
                 text: text,
                 image: image,
+                pinned: pinned,
                 label: image ? ("image " + image.width + "×" + image.height) : text
             })
         }
@@ -113,6 +124,12 @@ Item {
         return Util.fileUrl(path) + "?t=" + previewTick
     }
 
+    function togglePin(id) {
+        if (pinProc.running) return
+        pinProc.entryId = String(id)
+        pinProc.running = true
+    }
+
     function copyId(id) {
         Quickshell.execDetached(["bash", root.script, "copy", String(id)])
         dismissHost()
@@ -136,6 +153,13 @@ Item {
             if (root.active)
                 focusSink.forceActiveFocus()
         })
+    }
+
+    Process {
+        id: pinProc
+        property string entryId: ""
+        command: ["bash", root.script, "toggle-pin", pinProc.entryId]
+        onExited: root.refresh()
     }
 
     Process {
@@ -237,7 +261,7 @@ Item {
                             }
 
                             Text {
-                                width: parent.width - (modelData.image ? 40 : 0)
+                                width: parent.width - (modelData.image ? 40 : 0) - 32
                                 height: parent.height
                                 verticalAlignment: Text.AlignVCenter
                                 text: modelData.label
@@ -245,6 +269,33 @@ Item {
                                 font.family: Theme.fontFamily
                                 font.pixelSize: root.historyFontSize
                                 elide: Text.ElideRight
+                            }
+                        }
+
+                        Item {
+                            anchors.right: parent.right
+                            anchors.rightMargin: 2
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 28
+                            height: 28
+                            z: 2
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: modelData.pinned ? "󰐃" : "󰤱"
+                                color: modelData.pinned ? Theme.accent : Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: 16
+                                font.bold: Theme.fontBold
+                                opacity: pinMouse.containsMouse || modelData.pinned ? 1 : 0.45
+                            }
+
+                            MouseArea {
+                                id: pinMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.togglePin(modelData.id)
                             }
                         }
 

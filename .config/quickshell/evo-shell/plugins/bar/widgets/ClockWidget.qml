@@ -45,7 +45,7 @@ Item {
         anchors.leftMargin: Theme.barSectionGap
         color: Theme.foreground
         font.family: Theme.fontFamily
-        font.pixelSize: Theme.fontPixelSize
+        font.pixelSize: Theme.barFontPixelSize
         font.bold: Theme.fontBold
     }
 

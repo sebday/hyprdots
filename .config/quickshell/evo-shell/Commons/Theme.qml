@@ -81,6 +81,7 @@ Singleton {
     readonly property string fontFamily: themeColor("fontFamily", "CaskaydiaMono Nerd Font")
     readonly property bool fontBold: true
     readonly property int fontPixelSize: themeNumber("fontPixelSize", 13)
+    readonly property int barFontPixelSize: 13
     readonly property int barHeight: 32
     readonly property int barPaddingX: 16
     readonly property int barGap: 8

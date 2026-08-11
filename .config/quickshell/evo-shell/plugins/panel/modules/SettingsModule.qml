@@ -229,7 +229,7 @@ Item {
 
                     Text {
                         width: parent.width
-                        text: "GTK, evo-shell"
+                        text: "GTK, evo-shell, Ghostty"
                         color: Theme.foreground
                         font.family: Theme.fontFamily
                         font.pixelSize: 10
@@ -253,7 +253,7 @@ Item {
 
                     Text {
                         width: parent.width
-                        text: "Ghostty, Cursor / VS Code"
+                        text: "Cursor / VS Code"
                         color: Theme.foreground
                         font.family: Theme.fontFamily
                         font.pixelSize: 10

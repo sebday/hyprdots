@@ -3,23 +3,32 @@
 
 set -euo pipefail
 
+EVO_CLIPBOARD="${HOME}/.local/bin/evo-clipboard.sh"
+EVO_SHELL_CACHE="${XDG_CACHE_HOME:-${HOME}/.cache}/evo-shell"
+
 cleared=()
 
-# Clipboard history (evo-shell clipboard + cliphist)
-if command -v cliphist >/dev/null 2>&1; then
-  cliphist wipe 2>/dev/null || true
-  cleared+=("cliphist")
+# Clipboard history — clear cliphist but keep pinned entries (restored from disk)
+if [[ -x "$EVO_CLIPBOARD" ]]; then
+  bash "$EVO_CLIPBOARD" clear || true
+  cleared+=("cliphist (pins kept)")
 fi
 
-# Entire ~/.cache (XDG_CACHE_HOME)
-if [ -d "$HOME/.cache" ]; then
-  find "$HOME/.cache" -mindepth 1 -delete
-  cleared+=("~/.cache")
+# Evo-shell cache (bar widget JSON, etc.)
+if [[ -d "$EVO_SHELL_CACHE" ]]; then
+  rm -rf "$EVO_SHELL_CACHE"
+  cleared+=("evo-shell cache")
+fi
+
+# Other ~/.cache entries — keep cliphist db (pinned history lives there)
+if [[ -d "${HOME}/.cache" ]]; then
+  find "${HOME}/.cache" -mindepth 1 -maxdepth 1 ! -name 'cliphist' -exec rm -rf {} +
+  cleared+=("~/.cache (except cliphist)")
 fi
 
 # Clear Trash
-if [ -d "$HOME/.local/share/Trash" ]; then
-  rm -rf "$HOME/.local/share/Trash"/*
+if [[ -d "${HOME}/.local/share/Trash" ]]; then
+  rm -rf "${HOME}/.local/share/Trash"/*
   cleared+=("trash")
 fi
 

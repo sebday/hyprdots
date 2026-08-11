@@ -21,7 +21,7 @@ Item {
         text: audioRoot.audio ? audioRoot.audio.displayText : "󰕾"
         color: Theme.foreground
         font.family: Theme.fontFamily
-        font.pixelSize: Theme.fontPixelSize
+        font.pixelSize: Theme.barFontPixelSize
         font.bold: Theme.fontBold
     }
 

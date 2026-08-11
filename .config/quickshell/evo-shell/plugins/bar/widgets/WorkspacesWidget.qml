@@ -28,7 +28,7 @@ Row {
                 text: String(modelData ? modelData.id : "")
                 color: (Hyprland.focusedWorkspace && modelData && modelData.id === Hyprland.focusedWorkspace.id) ? Theme.accent : Theme.foreground
                 font.family: Theme.fontFamily
-                font.pixelSize: Theme.fontPixelSize
+                font.pixelSize: Theme.barFontPixelSize
                 font.bold: Theme.fontBold
             }
 

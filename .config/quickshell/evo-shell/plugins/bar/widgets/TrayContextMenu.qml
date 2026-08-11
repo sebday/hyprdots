@@ -135,7 +135,7 @@ Item {
                                 text: modelData.checkState === 2 ? "☑" : "☐"
                                 color: Theme.accent
                                 font.family: Theme.fontFamily
-                                font.pixelSize: Theme.fontPixelSize
+                                font.pixelSize: Theme.barFontPixelSize
                                 font.bold: Theme.fontBold
                                 anchors.verticalCenter: parent.verticalCenter
                             }
@@ -144,7 +144,7 @@ Item {
                                 text: modelData.text
                                 color: modelData.enabled ? Theme.foreground : Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.45)
                                 font.family: Theme.fontFamily
-                                font.pixelSize: Theme.fontPixelSize
+                                font.pixelSize: Theme.barFontPixelSize
                                 font.bold: Theme.fontBold
                                 elide: Text.ElideRight
                                 width: parent.width - (modelData.buttonType !== 0 ? 20 : 0) - (modelData.hasChildren ? 16 : 0)
@@ -156,7 +156,7 @@ Item {
                                 text: "›"
                                 color: Theme.accent
                                 font.family: Theme.fontFamily
-                                font.pixelSize: Theme.fontPixelSize
+                                font.pixelSize: Theme.barFontPixelSize
                                 font.bold: Theme.fontBold
                                 anchors.verticalCenter: parent.verticalCenter
                             }

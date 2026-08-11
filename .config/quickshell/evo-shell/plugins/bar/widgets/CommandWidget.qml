@@ -84,7 +84,7 @@ Item {
         textFormat: commandRoot.useRichText ? Text.RichText : Text.PlainText
         color: Theme.foreground
         font.family: Theme.fontFamily
-        font.pixelSize: Theme.fontPixelSize
+        font.pixelSize: Theme.barFontPixelSize
         font.bold: Theme.fontBold
         visible: !commandRoot.hideWhenEmpty || commandRoot.displayText !== ""
     }
