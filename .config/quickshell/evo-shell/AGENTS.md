@@ -95,6 +95,7 @@ Canonical path: `~/.config/quickshell/evo-shell/shell.json`.
 {
   "version": 1,
   "idle": { "screensaver": 1800, "lock": 900 },
+  "notifications": { "durationMs": 3000 },
   "bar": {
     "id": "evo.bar",
     "position": "bottom",
@@ -110,6 +111,13 @@ Canonical path: `~/.config/quickshell/evo-shell/shell.json`.
 
 Widget entry fields depend on type (see below). `FileView` watches this file; `reloadConfig` or save triggers `applyShellConfig()` → `reloadBar()`.
 
+| Key | Purpose |
+|-----|---------|
+| `idle.screensaver` / `idle.lock` | Seconds before screensaver / lock |
+| `notifications.durationMs` | How long all popups stay visible (volume OSD, calc copy, dbus notifications) |
+
+Use `theme.json` for colours and notification sizing only — not timing.
+
 ## Architecture
 
 ```
@@ -123,6 +131,24 @@ shell.qml
 **Services** live in `plugins/*/Service.qml` (or `Background.qml`), registered in `pluginTable`, often `keepLoaded: true`.
 
 **Bar-only widgets** are **not** in `pluginTable`; mapped in `plugins/bar/Bar.qml` → `widgetComponentFor()`.
+
+### Left dock panels
+
+Fixed left-side panels that reserve screen width via `exclusiveZone` (windows shift right instead of being covered). Reuse `Commons/LeftDockPanel.qml`:
+
+```qml
+LeftDockPanel {
+    id: dock
+    layerNamespace: "evo-mytool"   // add to hypr/apps/evo-shell.lua layer rules
+    title: "My tool"                // optional header
+
+    // children go into the panel body; use Layout.* attached properties
+    Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 48 /* … */ }
+    Item { Layout.fillWidth: true; Layout.fillHeight: true /* … */ }
+}
+```
+
+Plugin root should call `dock.reveal()` / `dock.conceal()` from `open()` / `close()`, and register in `shell.qml` `panelPluginIds`. Example: `plugins/calc/Panel.qml`.
 
 ### Bar widget routing (`Bar.qml`)
 

@@ -40,7 +40,7 @@ bindd("SUPER + ALT + V", "Emoji Picker", hl.dsp.exec_cmd(shell_ipc .. " shell to
 bindd("SUPER + 1", "Brave Browser", hl.dsp.exec_cmd(browser))
 bindd("SUPER + 2", "Brave Incognito", hl.dsp.exec_cmd(browser .. " --incognito"))
 bindd("SUPER + 3", "Brave Incognito", hl.dsp.exec_cmd(browser .. " --tor"))
-bindd("SUPER + 4", "Calculator", hl.dsp.exec_cmd("qalculate-gtk"))
+bindd("SUPER + 4", "Calculator", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.calc"))
 bindd("SUPER + 5", "Colour Picker", hl.dsp.exec_cmd("hyprpicker -al"))
 
 -- Switch workspaces with numpad keys

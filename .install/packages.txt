@@ -73,7 +73,6 @@ mpv
 imagemagick
 transmission-cli
 obsidian
-qalculate-gtk
 
 # Dev #######################
 mise

@@ -61,7 +61,7 @@ Item {
         var notif = shell ? shell.serviceFor("evo.notifications") : null
         if (!notif || typeof notif.showBrief !== "function") return
         var body = muted ? "Muted" : percent + "%"
-        notif.showBrief("Volume", body, 1500)
+        notif.showBrief("Volume", body)
     }
 
     IpcHandler {

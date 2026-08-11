@@ -12,6 +12,10 @@ Scope {
 
     readonly property int popupGap: 10
     readonly property int popupMarginAboveBar: 14
+    readonly property int durationMs: {
+        var cfg = shell && shell.shellConfig && shell.shellConfig.notifications
+        return Math.max(500, parseInt(cfg && cfg.durationMs, 10) || 3000)
+    }
 
     readonly property string barOutput: {
         if (shell && shell.barConfig && shell.barConfig.output)
@@ -45,7 +49,7 @@ Scope {
     function enqueuePopup(notification) {
         var entry = { notification: notification, key: Date.now() + Math.random() }
         activePopups = activePopups.concat([entry])
-        scheduleDismiss(Math.max(500, parseInt(notification.expireTimeout, 10) || 5000))
+        scheduleDismiss(root.durationMs)
     }
 
     function showBrief(title, body, durationMs) {
@@ -63,7 +67,7 @@ Scope {
             body: String(body || "")
         })
         activePopups = next
-        scheduleDismiss(Math.max(500, parseInt(durationMs, 10) || 1500))
+        scheduleDismiss(Math.max(500, parseInt(durationMs, 10) || root.durationMs))
     }
 
     function scheduleDismiss(intervalMs) {
@@ -124,7 +128,7 @@ Scope {
 
     Timer {
         id: dismissTimer
-        interval: 5000
+        interval: root.durationMs
         repeat: false
         onTriggered: root.dismissOldest()
     }
