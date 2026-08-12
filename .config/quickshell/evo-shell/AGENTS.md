@@ -3,10 +3,13 @@
 Quickshell desktop shell (`quickshell -n -c evo-shell`). Config: `~/.config/quickshell/evo-shell/`. Bar scripts + IPC: `~/.local/bin/evo-*`. Hypr: `~/.config/hypr/{autostart,bindings,evo-shell}.lua`.
 
 ```bash
-~/.local/bin/evo-restart-shell.sh          # full restart
+evo-launch-shell                             # supervised start (Hypr autostart)
+~/.local/bin/evo-restart-shell.sh            # full restart
 ~/.local/bin/evo-shell-ipc shell reloadConfig  # re-read shell.json
 journalctl -t evo-shell -f
 ```
+
+Secrets: `~/.local/share/evo-shell/secrets.env` (`chmod 600`). Wallpaper path: `~/.local/state/evo-shell/wallpaper`.
 
 ## Where things register
 
@@ -16,7 +19,7 @@ journalctl -t evo-shell -f
 | Bar layout | `shell.json` → `bar.layout` |
 | Bar widgets | `BarWidgetCatalog.qml` + `widgets/qmldir`; polled scripts use `type: "command"` / `exec` → `CommandWidget` |
 | Panel dock tabs | `Panel.qml` → `dockModules` + `plugins/panel/modules/qmldir` |
-| Overlay popups | Own plugin (`Weather.qml`, `Stats.qml`, …) + `CenteredOverlay` |
+| Overlay popups | `Calendar.qml`, `Clipboard.qml`, … + `CenteredOverlay` |
 
 ## IPC
 
@@ -26,8 +29,8 @@ Hypr bindings use full path `~/.local/bin/evo-shell-ipc` (PATH may not include i
 
 ## Monitors
 
-- **Popups** (weather, stats, cursor, clipboard): `CenteredOverlay.preferredOutput` → `shell.overlayOutput` from `shell.json` `panel.output` (default `DP-1`)
-- **Left dock** (`evo.panel`): Hyprland focused monitor on each `open()`
+- **Overlays** (calendar, clipboard): `CenteredOverlay.preferredOutput` → `shell.overlayOutput` from `shell.json` `panel.output` (default `DP-1`)
+- **Left dock** (`evo.panel`): `shell.json` `panel.output` when set, else Hyprland focused monitor on each `open()`
 - **Menu / calendar**: focused monitor (no `preferredOutput`)
 
 ## Bar scripts

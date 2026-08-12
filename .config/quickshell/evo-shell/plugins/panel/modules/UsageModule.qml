@@ -289,24 +289,11 @@ Item {
                         height: 1
                     }
 
-                    Item {
+                    CycleProgressBar {
                         visible: root.showCycleBar
-                        Layout.preferredWidth: 36
-                        Layout.preferredHeight: 4
-
-                        Rectangle {
-                            anchors.fill: parent
-                            radius: 2
-                            color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.12)
-                        }
-
-                        Rectangle {
-                            height: parent.height
-                            width: parent.width * Math.max(0, Math.min(1, root.cycleProgress))
-                            radius: 2
-                            color: Theme.accent
-                            opacity: 0.9
-                        }
+                        Layout.preferredWidth: implicitWidth
+                        Layout.preferredHeight: implicitHeight
+                        progress: root.cycleProgress
                     }
                 }
             }

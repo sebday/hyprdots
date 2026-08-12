@@ -21,20 +21,6 @@
           "store": "TGS",
           "interval": 300,
           "onClick": "~/.local/bin/evo-shell-ipc shell toggle evo.panel '{\"module\":\"stats\"}'"
-        },
-        {
-          "id": "btc",
-          "type": "command",
-          "exec": "~/.local/bin/evo-bar-btc.sh",
-          "interval": 60,
-          "onClick": "~/.local/bin/evo-shell-ipc shell toggle evo.panel '{\"module\":\"info\"}'"
-        },
-        {
-          "id": "spcx",
-          "type": "command",
-          "exec": "~/.local/bin/evo-bar-spcx.sh",
-          "interval": 60,
-          "onClick": "~/.local/bin/evo-shell-ipc shell toggle evo.panel '{\"module\":\"info\"}'"
         }
       ],
       "center": [
@@ -43,11 +29,6 @@
         }
       ],
       "right": [
-        {
-          "id": "evo.cursor",
-          "interval": 300,
-          "onClick": "~/.local/bin/evo-shell-ipc shell toggle evo.panel '{\"module\":\"info\"}'"
-        },
         {
           "id": "evo.github",
           "interval": 300,

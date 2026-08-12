@@ -13,7 +13,6 @@ Item {
     Component { id: audioComp; AudioWidget {} }
     Component { id: trayComp; TrayWidget {} }
     Component { id: githubComp; GithubWidget {} }
-    Component { id: cursorComp; CursorWidget {} }
     Component { id: shopifyComp; ShopifyWidget {} }
     Component { id: cavaComp; CavaWidget {} }
 
@@ -25,10 +24,8 @@ Item {
         registry.register("evo.audio", audioComp, { displayName: "Audio" })
         registry.register("evo.tray", trayComp, { displayName: "Tray" })
         registry.register("evo.github", githubComp, { displayName: "GitHub" })
-        registry.register("evo.cursor", cursorComp, { displayName: "Cursor" })
         registry.register("evo.shopify", shopifyComp, { displayName: "Shopify" })
         registry.register("evo.cava", cavaComp, { displayName: "Cava" })
-        registry.register("cava", cavaComp, { displayName: "Cava" })
     }
 
     Component.onCompleted: registerAll()

@@ -22,6 +22,8 @@ Item {
     property string location: "Derby"
     property var current: null
     property var daily: []
+    property string sunrise: ""
+    property string sunset: ""
 
     property bool systemLoading: false
     property var systemData: ({})
@@ -61,6 +63,9 @@ Item {
     readonly property int statBarHeight: 4
     readonly property int statBarRadius: 2
     readonly property int statBarWidth: 48
+    readonly property int statNameColWidth: 58
+    readonly property int statValueColWidth: 72
+    readonly property int statPercentColWidth: 34
     readonly property int treeGutter: 18
     readonly property int treeStemX: 8
     readonly property int treeRowHeight: 22
@@ -137,11 +142,15 @@ Item {
             root.location = String(data.location || "Derby")
             root.current = data.current || null
             root.daily = Array.isArray(data.daily) ? data.daily : []
+            root.sunrise = String(data.sunrise || "")
+            root.sunset = String(data.sunset || "")
         } catch (e) {
             root.weatherOk = false
             root.weatherError = "Weather unavailable"
             root.current = null
             root.daily = []
+            root.sunrise = ""
+            root.sunset = ""
         }
     }
 
@@ -159,21 +168,15 @@ Item {
         if (!json || json.ok !== true) return
         var next = {}
         for (var k in root.systemData) next[k] = root.systemData[k]
-        next.memUsed = json.memUsed
         next.memTotal = json.memTotal
         next.memPercent = json.memPercent
-        next.memUsedLabel = json.memUsedLabel
         next.memTotalLabel = json.memTotalLabel
-        next.diskUsed = json.diskUsed
         next.diskTotal = json.diskTotal
         next.diskPercent = json.diskPercent
-        next.diskUsedLabel = json.diskUsedLabel
         next.diskTotalLabel = json.diskTotalLabel
-        next.storageUsed = json.storageUsed
         next.storageTotal = json.storageTotal
         next.storagePercent = json.storagePercent
         next.storageTotalLabel = json.storageTotalLabel
-        next.externalUsed = json.externalUsed
         next.externalTotal = json.externalTotal
         next.externalPercent = json.externalPercent
         next.externalTotalLabel = json.externalTotalLabel
@@ -655,6 +658,66 @@ Item {
                             }
                         }
 
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 88
+                            visible: root.systemMonitors.length > 0
+
+                            Repeater {
+                                model: root.monitorLayoutRects(root.systemMonitors, parent.width, parent.height)
+
+                                Item {
+                                    required property var modelData
+                                    x: modelData.x
+                                    y: modelData.y
+                                    width: modelData.w
+                                    height: modelData.h
+
+                                    Rectangle {
+                                        anchors.fill: parent
+                                        radius: 2
+                                        color: modelData.primary
+                                            ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.18)
+                                            : Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.07)
+                                        border.color: modelData.primary
+                                            ? Theme.accent
+                                            : Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.28)
+                                        border.width: modelData.primary ? 1.5 : 1
+                                    }
+
+                                    Column {
+                                        anchors.centerIn: parent
+                                        width: parent.width - 4
+                                        spacing: 1
+
+                                        Text {
+                                            width: parent.width
+                                            horizontalAlignment: Text.AlignHCenter
+                                            text: root.shortMonitorName(modelData.name)
+                                            color: modelData.primary ? Theme.accent : Theme.foreground
+                                            font.family: Theme.fontFamily
+                                            font.pixelSize: 8
+                                            font.bold: modelData.primary
+                                            opacity: modelData.primary ? 0.9 : 0.55
+                                            elide: Text.ElideRight
+                                        }
+
+                                        Text {
+                                            width: parent.width
+                                            horizontalAlignment: Text.AlignHCenter
+                                            text: modelData.resolution
+                                            color: modelData.primary ? Theme.foreground : Theme.foreground
+                                            font.family: Theme.fontFamily
+                                            font.pixelSize: Theme.panelHintFontPixelSize
+                                            font.bold: modelData.primary
+                                            opacity: modelData.primary ? 0.95 : 0.65
+                                            elide: Text.ElideRight
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         Text {
                             Layout.fillWidth: true
                             visible: root.systemLoading && root.distroLabel === "" && root.systemDetailRows.length === 0
@@ -723,8 +786,9 @@ Item {
                                 TreeBranchRow {
                                     visible: root.systemData.ok === true
                                     icon: "󰾆"
-                                    label: "RAM  " + (root.systemData.memTotalLabel || "")
-                                        + "  " + Math.round(Number(root.systemData.memPercent || 0)) + "%"
+                                    statName: "RAM"
+                                    statValue: root.systemData.memTotalLabel || ""
+                                    statPercent: Math.round(Number(root.systemData.memPercent || 0)) + "%"
                                     barFraction: Number(root.systemData.memPercent || 0) / 100
                                     isLast: false
                                 }
@@ -732,8 +796,9 @@ Item {
                                 TreeBranchRow {
                                     visible: root.systemData.ok === true
                                     icon: "󰋊"
-                                    label: "/  " + (root.systemData.diskTotalLabel || "")
-                                        + "  " + Math.round(Number(root.systemData.diskPercent || 0)) + "%"
+                                    statName: "/"
+                                    statValue: root.systemData.diskTotalLabel || ""
+                                    statPercent: Math.round(Number(root.systemData.diskPercent || 0)) + "%"
                                     barFraction: Number(root.systemData.diskPercent || 0) / 100
                                     isLast: false
                                 }
@@ -741,8 +806,9 @@ Item {
                                 TreeBranchRow {
                                     visible: root.systemData.ok === true && Number(root.systemData.storageTotal || 0) > 0
                                     icon: "󰋊"
-                                    label: "storage  " + (root.systemData.storageTotalLabel || "")
-                                        + "  " + Math.round(Number(root.systemData.storagePercent || 0)) + "%"
+                                    statName: "storage"
+                                    statValue: root.systemData.storageTotalLabel || ""
+                                    statPercent: Math.round(Number(root.systemData.storagePercent || 0)) + "%"
                                     barFraction: Number(root.systemData.storagePercent || 0) / 100
                                     isLast: !(root.systemData.ok === true && Number(root.systemData.externalTotal || 0) > 0)
                                 }
@@ -750,70 +816,11 @@ Item {
                                 TreeBranchRow {
                                     visible: root.systemData.ok === true && Number(root.systemData.externalTotal || 0) > 0
                                     icon: "󰋊"
-                                    label: "external  " + (root.systemData.externalTotalLabel || "")
-                                        + "  " + Math.round(Number(root.systemData.externalPercent || 0)) + "%"
+                                    statName: "external"
+                                    statValue: root.systemData.externalTotalLabel || ""
+                                    statPercent: Math.round(Number(root.systemData.externalPercent || 0)) + "%"
                                     barFraction: Number(root.systemData.externalPercent || 0) / 100
                                     isLast: true
-                                }
-                            }
-                        }
-
-                        Item {
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 88
-                            visible: root.systemMonitors.length > 0
-
-                            Repeater {
-                                model: root.monitorLayoutRects(root.systemMonitors, parent.width, parent.height)
-
-                                Item {
-                                    required property var modelData
-                                    x: modelData.x
-                                    y: modelData.y
-                                    width: modelData.w
-                                    height: modelData.h
-
-                                    Rectangle {
-                                        anchors.fill: parent
-                                        radius: 2
-                                        color: modelData.primary
-                                            ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.18)
-                                            : Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.07)
-                                        border.color: modelData.primary
-                                            ? Theme.accent
-                                            : Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.28)
-                                        border.width: modelData.primary ? 1.5 : 1
-                                    }
-
-                                    Column {
-                                        anchors.centerIn: parent
-                                        width: parent.width - 4
-                                        spacing: 1
-
-                                        Text {
-                                            width: parent.width
-                                            horizontalAlignment: Text.AlignHCenter
-                                            text: root.shortMonitorName(modelData.name)
-                                            color: modelData.primary ? Theme.accent : Theme.foreground
-                                            font.family: Theme.fontFamily
-                                            font.pixelSize: 8
-                                            font.bold: modelData.primary
-                                            opacity: modelData.primary ? 0.9 : 0.55
-                                            elide: Text.ElideRight
-                                        }
-
-                                        Text {
-                                            width: parent.width
-                                            horizontalAlignment: Text.AlignHCenter
-                                            text: modelData.resolution
-                                            color: modelData.primary ? Theme.foreground : Theme.foreground
-                                            font.family: Theme.fontFamily
-                                            font.pixelSize: Theme.panelHintFontPixelSize
-                                            font.bold: modelData.primary
-                                            opacity: modelData.primary ? 0.95 : 0.65
-                                            elide: Text.ElideRight
-                                        }
-                                    }
                                 }
                             }
                         }
@@ -824,13 +831,13 @@ Item {
                     label: root.location || "Weather"
                     Layout.fillWidth: true
 
-                    Item {
+                    ColumnLayout {
                         width: parent.width
-                        implicitHeight: weatherRow.implicitHeight
+                        spacing: 8
 
                         RowLayout {
                             id: weatherRow
-                            anchors.horizontalCenter: parent.horizontalCenter
+                            Layout.alignment: Qt.AlignHCenter
                             spacing: root.weatherColSpacing
 
                             ColumnLayout {
@@ -941,6 +948,52 @@ Item {
                                 }
                             }
                         }
+
+                        RowLayout {
+                            Layout.alignment: Qt.AlignHCenter
+                            spacing: 18
+                            visible: root.weatherOk && (root.sunrise !== "" || root.sunset !== "")
+
+                            RowLayout {
+                                spacing: 4
+                                visible: root.sunrise !== ""
+
+                                Text {
+                                    text: "󰖜"
+                                    color: Theme.accent
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.panelSmallFontPixelSize
+                                }
+
+                                Text {
+                                    text: root.sunrise
+                                    color: Theme.foreground
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.panelSmallFontPixelSize
+                                    opacity: 0.75
+                                }
+                            }
+
+                            RowLayout {
+                                spacing: 4
+                                visible: root.sunset !== ""
+
+                                Text {
+                                    text: "󰖛"
+                                    color: Theme.accent
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.panelSmallFontPixelSize
+                                }
+
+                                Text {
+                                    text: root.sunset
+                                    color: Theme.foreground
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.panelSmallFontPixelSize
+                                    opacity: 0.75
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -965,8 +1018,13 @@ Item {
 
         property string icon: ""
         property string label: ""
+        property string statName: ""
+        property string statValue: ""
+        property string statPercent: ""
         property real barFraction: -1
         property bool isLast: false
+
+        readonly property bool isStatRow: statName !== ""
 
         Layout.fillWidth: true
         Layout.preferredHeight: root.treeRowHeight
@@ -994,12 +1052,48 @@ Item {
         }
 
         Text {
+            visible: !branchRow.isStatRow
             Layout.fillWidth: true
             text: branchRow.label
             color: Theme.foreground
             font.family: Theme.fontFamily
             font.pixelSize: Theme.panelSmallFontPixelSize
             elide: Text.ElideRight
+        }
+
+        Text {
+            visible: branchRow.isStatRow
+            Layout.preferredWidth: root.statNameColWidth
+            text: branchRow.statName
+            color: Theme.foreground
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.panelSmallFontPixelSize
+            elide: Text.ElideRight
+        }
+
+        Text {
+            visible: branchRow.isStatRow
+            Layout.preferredWidth: root.statValueColWidth
+            text: branchRow.statValue
+            color: Theme.foreground
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.panelSmallFontPixelSize
+            elide: Text.ElideRight
+        }
+
+        Text {
+            visible: branchRow.isStatRow
+            Layout.preferredWidth: root.statPercentColWidth
+            horizontalAlignment: Text.AlignRight
+            text: branchRow.statPercent
+            color: Theme.foreground
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.panelSmallFontPixelSize
+        }
+
+        Item {
+            visible: branchRow.isStatRow
+            Layout.fillWidth: true
         }
 
         Item {

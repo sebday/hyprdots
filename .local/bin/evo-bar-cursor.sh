@@ -1,5 +1,5 @@
 #!/bin/bash
-# Cursor billing usage — GET https://cursor.com/api/usage-summary
+# Cursor usage for evo panel Info tab — GET https://cursor.com/api/usage-summary
 # Cursor Models = autoPercentUsed · Other Models = apiPercentUsed
 source "${HOME}/.local/bin/evo-bar-common.sh"
 

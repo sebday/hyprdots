@@ -1,5 +1,5 @@
 #!/bin/bash
-# Evo bar: Kraken BTC/USD price + unrealized P/L % on XXBT holdings.
+# Evo stats panel: Kraken BTC/USD price + unrealized P/L % on XXBT holdings.
 # Persists daily closes (seeded from Kraken OHLC) for stats-panel charts.
 #
 # Credentials: ~/.local/share/evo-shell/secrets.env (KRAKEN_API_KEY, KRAKEN_SECRET)

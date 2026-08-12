@@ -67,15 +67,11 @@ read_live_stats() {
     external_pct="${external_pct:-0}"
 
     jq -cn \
-        --argjson memUsed "$mem_used" \
         --argjson memTotal "$mem_total" \
         --arg memPercent "$mem_pct" \
-        --arg memUsedLabel "$(fmt_bytes "$mem_used")" \
         --arg memTotalLabel "$(fmt_bytes "$mem_total")" \
-        --argjson diskUsed "$disk_used" \
         --argjson diskTotal "$disk_total" \
         --arg diskPercent "$disk_pct" \
-        --arg diskUsedLabel "$(fmt_bytes "$disk_used")" \
         --arg diskTotalLabel "$(fmt_bytes "$disk_total")" \
         --argjson storageUsed "$storage_used" \
         --argjson storageTotal "$storage_total" \
@@ -88,15 +84,11 @@ read_live_stats() {
         --argjson monitors "$monitors_json" \
         '{
             ok: true,
-            memUsed: $memUsed,
             memTotal: $memTotal,
             memPercent: ($memPercent | tonumber),
-            memUsedLabel: $memUsedLabel,
             memTotalLabel: $memTotalLabel,
-            diskUsed: $diskUsed,
             diskTotal: $diskTotal,
             diskPercent: ($diskPercent | tonumber),
-            diskUsedLabel: $diskUsedLabel,
             diskTotalLabel: $diskTotalLabel,
             storageUsed: $storageUsed,
             storageTotal: $storageTotal,
@@ -143,23 +135,9 @@ read_monitors_json() {
 
 read_snapshot() {
     local ff os install_age kernel packages wm host cpu gpu uptime_text
-    local live_json mem_used mem_total mem_pct disk_used disk_total disk_pct
-    local monitors_json
+    local live_json
 
     live_json="$(read_live_stats)"
-    mem_used="$(echo "$live_json" | jq -r '.memUsed')"
-    mem_total="$(echo "$live_json" | jq -r '.memTotal')"
-    mem_pct="$(echo "$live_json" | jq -r '.memPercent')"
-    disk_used="$(echo "$live_json" | jq -r '.diskUsed')"
-    disk_total="$(echo "$live_json" | jq -r '.diskTotal')"
-    disk_pct="$(echo "$live_json" | jq -r '.diskPercent')"
-    storage_used="$(echo "$live_json" | jq -r '.storageUsed')"
-    storage_total="$(echo "$live_json" | jq -r '.storageTotal')"
-    storage_pct="$(echo "$live_json" | jq -r '.storagePercent')"
-    external_used="$(echo "$live_json" | jq -r '.externalUsed')"
-    external_total="$(echo "$live_json" | jq -r '.externalTotal')"
-    external_pct="$(echo "$live_json" | jq -r '.externalPercent')"
-    monitors_json="$(echo "$live_json" | jq -c '.monitors // []')"
 
     if ! ff="$(fastfetch --json 2>/dev/null)"; then
         jq -cn --arg error "System info unavailable" \
@@ -175,11 +153,12 @@ read_snapshot() {
     host="$(echo "$ff" | jq -r '.[] | select(.type=="Host") | "\(.result.vendor // "") \(.result.name // "")"' | head -1 | sed 's/^ //;s/ $//')"
     cpu="$(echo "$ff" | jq -r '.[] | select(.type=="CPU") | .result.cpu // ""' | head -1)"
     gpu="$(echo "$ff" | jq -r '.[] | select(.type=="GPU") | .result[0].name // ""' | head -1)"
-  local uptime_ms
+    local uptime_ms
     uptime_ms="$(echo "$ff" | jq -r '.[] | select(.type=="Uptime") | .result.uptime // 0' | head -1)"
     uptime_text="$(fmt_uptime "$uptime_ms")"
 
     jq -cn \
+        --argjson live "$live_json" \
         --arg os "$os" \
         --arg installAge "$install_age" \
         --arg kernel "$kernel" \
@@ -189,27 +168,7 @@ read_snapshot() {
         --arg cpu "$cpu" \
         --arg gpu "$gpu" \
         --arg uptime "$uptime_text" \
-        --argjson memUsed "$mem_used" \
-        --argjson memTotal "$mem_total" \
-        --argjson memPercent "$mem_pct" \
-        --arg memUsedLabel "$(fmt_bytes "$mem_used")" \
-        --arg memTotalLabel "$(fmt_bytes "$mem_total")" \
-        --argjson diskUsed "$disk_used" \
-        --argjson diskTotal "$disk_total" \
-        --argjson diskPercent "$disk_pct" \
-        --arg diskUsedLabel "$(fmt_bytes "$disk_used")" \
-        --arg diskTotalLabel "$(fmt_bytes "$disk_total")" \
-        --argjson storageUsed "$storage_used" \
-        --argjson storageTotal "$storage_total" \
-        --arg storagePercent "$storage_pct" \
-        --arg storageTotalLabel "$(fmt_bytes "$storage_total")" \
-        --argjson externalUsed "$external_used" \
-        --argjson externalTotal "$external_total" \
-        --arg externalPercent "$external_pct" \
-        --arg externalTotalLabel "$(fmt_bytes "$external_total")" \
-        --argjson monitors "$monitors_json" \
-        '{
-            ok: true,
+        '$live + {
             os: $os,
             installAge: $installAge,
             kernel: $kernel,
@@ -218,26 +177,7 @@ read_snapshot() {
             host: $host,
             cpu: $cpu,
             gpu: $gpu,
-            uptime: $uptime,
-            memUsed: $memUsed,
-            memTotal: $memTotal,
-            memPercent: $memPercent,
-            memUsedLabel: $memUsedLabel,
-            memTotalLabel: $memTotalLabel,
-            diskUsed: $diskUsed,
-            diskTotal: $diskTotal,
-            diskPercent: $diskPercent,
-            diskUsedLabel: $diskUsedLabel,
-            diskTotalLabel: $diskTotalLabel,
-            storageUsed: $storageUsed,
-            storageTotal: $storageTotal,
-            storagePercent: ($storagePercent | tonumber),
-            storageTotalLabel: $storageTotalLabel,
-            externalUsed: $externalUsed,
-            externalTotal: $externalTotal,
-            externalPercent: ($externalPercent | tonumber),
-            externalTotalLabel: $externalTotalLabel,
-            monitors: $monitors
+            uptime: $uptime
         }'
 }
 

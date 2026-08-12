@@ -21,10 +21,10 @@ MET_OFFICE_URL="https://weather.metoffice.gov.uk/forecast/gcqvn6pq4"
 
 error_out() {
     jq -cn --arg location "$LOCATION" --arg error "$1" --arg url "$MET_OFFICE_URL" \
-        '{ok:false, location:$location, error:$error, metOfficeUrl:$url, current:null, daily:[], hourly:[]}'
+        '{ok:false, location:$location, error:$error, metOfficeUrl:$url, sunrise:"", sunset:"", current:null, daily:[], hourly:[]}'
 }
 
-API_URL="https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&timezone=Europe%2FLondon&forecast_days=2&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&hourly=temperature_2m,weather_code,precipitation_probability"
+API_URL="https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&timezone=Europe%2FLondon&forecast_days=2&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset&hourly=temperature_2m,weather_code,precipitation_probability"
 
 DATA=$(curl -sf --max-time 12 "$API_URL" 2>/dev/null) || DATA=""
 
@@ -74,6 +74,11 @@ def temp($t): ($t // 0 | round);
 def hour_label($iso):
   ($iso | split("T")[1] // "00:00")[0:5];
 
+def clock($iso):
+  if ($iso // "") == "" then ""
+  else ($iso | split("T")[1] // "")[0:5]
+  end;
+
 def dow($date):
   ($date + "T12:00:00Z" | fromdateiso8601 | strftime("%a"));
 
@@ -84,6 +89,8 @@ def dow($date):
   location: $location,
   error: "",
   metOfficeUrl: $url,
+  sunrise: clock(.daily.sunrise[0]),
+  sunset: clock(.daily.sunset[0]),
   current: (
     (.current.weather_code // 0) as $code |
     {

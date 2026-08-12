@@ -1,5 +1,5 @@
 #!/bin/bash
-# Evo bar: SPCX USD price + Trading 212 unrealized P/L %.
+# Evo stats panel: SPCX USD price + Trading 212 unrealized P/L %.
 # Seeds/persists daily closes (Yahoo chart + live T212 price) for stats-panel charts.
 #
 # Credentials: ~/.local/share/evo-shell/secrets.env (T212_API_KEY, T212_API_SECRET)
