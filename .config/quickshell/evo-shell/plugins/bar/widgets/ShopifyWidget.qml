@@ -150,6 +150,8 @@ Item {
     MouseArea {
         z: -1
         anchors.fill: parent
+        hoverEnabled: true
+        cursorShape: root.settings.onClick ? Qt.PointingHandCursor : Qt.ArrowCursor
         onClicked: if (root.settings.onClick)
             Quickshell.execDetached(["bash", "-lc", String(root.settings.onClick)])
     }

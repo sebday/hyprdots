@@ -55,6 +55,8 @@ Item {
 
                 MouseArea {
                     anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
                     acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
                     onClicked: function(mouse) {
                         if (!modelData) return

@@ -15,13 +15,17 @@ Item {
 
     readonly property string layoutScript: Quickshell.env("HOME") + "/.local/bin/evo-shell-layout.sh"
 
+    Component { id: infoComp; InfoModule {} }
     Component { id: calcComp; CalcModule {} }
     Component { id: notesComp; NotesModule {} }
+    Component { id: statsComp; StatsModule {} }
     Component { id: settingsComp; SettingsModule {} }
 
     readonly property var dockModules: [
         { id: "calc", icon: "󰃬", title: "Calculator", component: calcComp },
         { id: "notes", icon: "󰠮", title: "Notes", component: notesComp },
+        { id: "stats", icon: "󰄪", title: "Stats", component: statsComp },
+        { id: "info", icon: "󰋼", title: "Info", component: infoComp },
         { id: "settings", icon: "󰒓", title: "Settings", component: settingsComp }
     ]
 
@@ -61,6 +65,7 @@ Item {
         if (nextModule === activeModule)
             return false
         activeModule = nextModule
+        panelScreen = resolvePanelScreen()
         activateModule()
         return true
     }
@@ -95,6 +100,12 @@ Item {
     property var panelScreen: null
 
     function resolvePanelScreen() {
+        var panel = shell && shell.shellConfig && shell.shellConfig.panel
+        var output = panel && panel.output ? String(panel.output).trim() : ""
+        if (output) {
+            var configured = Util.screenForOutput(output, false)
+            if (configured) return configured
+        }
         try {
             var mon = Hyprland.focusedMonitor
             if (mon) {
@@ -105,8 +116,6 @@ Item {
                 }
             }
         } catch (e) {}
-        var panel = shell && shell.shellConfig && shell.shellConfig.panel
-        var output = panel && panel.output ? String(panel.output).trim() : ""
         return Util.screenForOutput(output, true)
     }
 

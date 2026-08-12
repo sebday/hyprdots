@@ -72,6 +72,8 @@ Singleton {
     readonly property color overlayScrim: withOpacity(mantle, overlayScrimOpacity)
     readonly property color overlaySurface: withOpacity(mantle, surfaceOpacity)
     readonly property color panelBackground: overlaySurface
+    // Opaque fill for framed-panel legend masks (semi-transparent surfaces show borders through).
+    readonly property color panelVeil: mantle
     // Lift mantle toward foreground so row hover/selection reads on overlaySurface.
     readonly property real panelMantleLift: themeNumber("panelMantleLift", 0.12)
     readonly property color panelMantle: withOpacity(

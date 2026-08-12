@@ -10,12 +10,10 @@ Item {
     property var host: null
 
     readonly property string home: Quickshell.env("HOME")
-    readonly property bool statsActive: host && host.opened === true
+    readonly property bool active: host && host.opened === true && host.activeModule === "stats"
 
     property var diyData: ({})
     property var tgsData: ({})
-    property var btcData: ({})
-    property var spcxData: ({})
 
     function onActivated() {
         refreshAll()
@@ -24,8 +22,6 @@ Item {
     function refreshAll() {
         diyPoll.runPoll()
         tgsPoll.runPoll()
-        btcPoll.runPoll()
-        spcxPoll.runPoll()
     }
 
     function shopifyHeader(data, fallbackName) {
@@ -42,13 +38,6 @@ Item {
         return parts.join(" · ")
     }
 
-    function marketHeader(data, fallbackName) {
-        if (!data) return fallbackName + " …"
-        if (data.detail) return String(data.detail)
-        if (data.text) return String(data.text)
-        return fallbackName + " …"
-    }
-
     function openUrl(url) {
         if (!url) return
         Quickshell.execDetached(["bash", "-lc", "xdg-open " + Util.shellQuote(url)])
@@ -56,7 +45,7 @@ Item {
 
     JsonPollRunner {
         id: diyPoll
-        active: root.statsActive
+        active: root.active
         defaultIntervalSec: 300
         command: ["bash", root.home + "/.local/bin/evo-bar-shopify.sh", "DIY"]
         onPolled: function(json) { root.diyData = json }
@@ -64,26 +53,10 @@ Item {
 
     JsonPollRunner {
         id: tgsPoll
-        active: root.statsActive
+        active: root.active
         defaultIntervalSec: 300
         command: ["bash", root.home + "/.local/bin/evo-bar-shopify.sh", "TGS"]
         onPolled: function(json) { root.tgsData = json }
-    }
-
-    JsonPollRunner {
-        id: btcPoll
-        active: root.statsActive
-        defaultIntervalSec: 60
-        command: ["bash", root.home + "/.local/bin/evo-bar-btc.sh"]
-        onPolled: function(json) { root.btcData = json }
-    }
-
-    JsonPollRunner {
-        id: spcxPoll
-        active: root.statsActive
-        defaultIntervalSec: 60
-        command: ["bash", root.home + "/.local/bin/evo-bar-spcx.sh"]
-        onPolled: function(json) { root.spcxData = json }
     }
 
     Flickable {
@@ -98,7 +71,7 @@ Item {
             id: statsColumn
             width: parent.width
             y: 10
-            spacing: 16
+            spacing: 14
 
             FramedPanel {
                 label: "DIY"
@@ -115,7 +88,7 @@ Item {
                         text: root.shopifyHeader(root.diyData, "DIY")
                         color: Theme.foreground
                         font.family: Theme.fontFamily
-                        font.pixelSize: 13
+                        font.pixelSize: Theme.panelSmallFontPixelSize
                         font.bold: Theme.fontBold
                         elide: Text.ElideRight
 
@@ -151,7 +124,7 @@ Item {
                         text: root.shopifyHeader(root.tgsData, "TGS")
                         color: Theme.foreground
                         font.family: Theme.fontFamily
-                        font.pixelSize: 13
+                        font.pixelSize: Theme.panelSmallFontPixelSize
                         font.bold: Theme.fontBold
                         elide: Text.ElideRight
 
@@ -168,80 +141,6 @@ Item {
                         bars: root.tgsData.bars || []
                         valuePrefix: root.tgsData.symbol || "£"
                         chartHeight: 54
-                    }
-                }
-            }
-
-            FramedPanel {
-                label: "BTC"
-                contentFill: true
-                Layout.fillWidth: true
-                Layout.preferredHeight: 140
-
-                Column {
-                    anchors.fill: parent
-                    spacing: 8
-
-                    Text {
-                        width: parent.width
-                        text: root.marketHeader(root.btcData, "BTC")
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: 13
-                        font.bold: Theme.fontBold
-                        elide: Text.ElideRight
-
-                        MouseArea {
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: root.openUrl("https://www.tradingview.com/symbols/BTCUSD/")
-                        }
-                    }
-
-                    SparklineChart {
-                        width: parent.width
-                        height: 72
-                        bars: root.btcData.bars || []
-                        valuePrefix: "$"
-                        chartHeight: 54
-                        style: "line"
-                    }
-                }
-            }
-
-            FramedPanel {
-                label: "SPCX"
-                contentFill: true
-                Layout.fillWidth: true
-                Layout.preferredHeight: 140
-
-                Column {
-                    anchors.fill: parent
-                    spacing: 8
-
-                    Text {
-                        width: parent.width
-                        text: root.marketHeader(root.spcxData, "SPCX")
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: 13
-                        font.bold: Theme.fontBold
-                        elide: Text.ElideRight
-
-                        MouseArea {
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: root.openUrl("https://app.trading212.com/")
-                        }
-                    }
-
-                    SparklineChart {
-                        width: parent.width
-                        height: 72
-                        bars: root.spcxData.bars || []
-                        valuePrefix: "$"
-                        chartHeight: 54
-                        style: "line"
                     }
                 }
             }

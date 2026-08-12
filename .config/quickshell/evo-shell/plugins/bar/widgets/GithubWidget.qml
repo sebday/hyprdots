@@ -108,6 +108,8 @@ Item {
 
     MouseArea {
         anchors.fill: parent
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
         onClicked: {
             if (root.settings.onClick)
                 Quickshell.execDetached(["bash", "-lc", String(root.settings.onClick)])

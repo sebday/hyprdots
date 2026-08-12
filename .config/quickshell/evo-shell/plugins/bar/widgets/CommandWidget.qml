@@ -139,6 +139,7 @@ Item {
         anchors.fill: parent
         hoverEnabled: true
         acceptedButtons: Qt.LeftButton | Qt.RightButton
+        cursorShape: (settings.onClick || settings.onClickRight) ? Qt.PointingHandCursor : Qt.ArrowCursor
         onClicked: function(mouse) {
             if (mouse.button === Qt.RightButton && settings.onClickRight)
                 Quickshell.execDetached(["bash", "-lc", String(settings.onClickRight)])

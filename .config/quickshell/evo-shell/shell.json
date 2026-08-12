@@ -6,35 +6,35 @@
   },
   "bar": {
     "id": "evo.bar",
-    "position": "top",
-    "output": "DP-1",
+    "position": "bottom",
+    "output": "HDMI-A-1",
     "layout": {
       "left": [
         {
           "id": "evo.shopify",
           "store": "DIY",
           "interval": 300,
-          "onClick": "~/.local/bin/evo-shell-ipc shell toggle evo.stats"
+          "onClick": "~/.local/bin/evo-shell-ipc shell toggle evo.panel '{\"module\":\"stats\"}'"
         },
         {
           "id": "evo.shopify",
           "store": "TGS",
           "interval": 300,
-          "onClick": "~/.local/bin/evo-shell-ipc shell toggle evo.stats"
+          "onClick": "~/.local/bin/evo-shell-ipc shell toggle evo.panel '{\"module\":\"stats\"}'"
         },
         {
           "id": "btc",
           "type": "command",
           "exec": "~/.local/bin/evo-bar-btc.sh",
           "interval": 60,
-          "onClick": "~/.local/bin/evo-shell-ipc shell toggle evo.stats"
+          "onClick": "~/.local/bin/evo-shell-ipc shell toggle evo.panel '{\"module\":\"info\"}'"
         },
         {
           "id": "spcx",
           "type": "command",
           "exec": "~/.local/bin/evo-bar-spcx.sh",
           "interval": 60,
-          "onClick": "~/.local/bin/evo-shell-ipc shell toggle evo.stats"
+          "onClick": "~/.local/bin/evo-shell-ipc shell toggle evo.panel '{\"module\":\"info\"}'"
         }
       ],
       "center": [
@@ -46,7 +46,7 @@
         {
           "id": "evo.cursor",
           "interval": 300,
-          "onClick": "~/.local/bin/evo-shell-ipc shell toggle evo.cursor-usage"
+          "onClick": "~/.local/bin/evo-shell-ipc shell toggle evo.panel '{\"module\":\"info\"}'"
         },
         {
           "id": "evo.github",
@@ -58,7 +58,7 @@
           "type": "command",
           "exec": "~/.local/bin/evo-bar-weather.sh",
           "interval": 1800,
-          "onClick": "~/.local/bin/evo-shell-ipc shell toggle evo.weather",
+          "onClick": "~/.local/bin/evo-shell-ipc shell toggle evo.panel '{\"module\":\"info\"}'",
           "onClickRight": "xdg-open https://weather.metoffice.gov.uk/forecast/gcqvn6pq4"
         },
         {

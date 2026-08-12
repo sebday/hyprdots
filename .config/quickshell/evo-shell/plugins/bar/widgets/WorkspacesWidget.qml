@@ -35,6 +35,8 @@ Row {
             MouseArea {
                 anchors.fill: parent
                 enabled: workspaceVisible
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
                 onClicked: if (modelData) Hyprland.dispatch("workspace " + modelData.id)
             }
         }
