@@ -13,11 +13,15 @@ Item {
     property bool loading: false
     property bool isError: false
     property string mainText: ""
+    property int cycleDaysUsed: 0
+    property int cycleDaysTotal: 0
+    property real cycleProgress: 0
 
     readonly property string home: Quickshell.env("HOME") || ""
     readonly property string script: home + "/.local/bin/evo-bar-cursor.sh"
+    readonly property bool showCycleBar: !loading && !isError && cycleDaysTotal > 0
 
-    implicitWidth: label.implicitWidth + Theme.barPaddingX * 2
+    implicitWidth: contentRow.implicitWidth + Theme.barPaddingX * 2
     implicitHeight: Theme.barHeight
 
     function applyJson(line) {
@@ -29,10 +33,16 @@ Item {
             if (json.class === "error") {
                 isError = true
                 mainText = String(json.text || "󰆧 …")
+                cycleDaysUsed = 0
+                cycleDaysTotal = 0
+                cycleProgress = 0
                 return
             }
             isError = false
             mainText = String(json.text || "").replace(/<[^>]+>/g, "").trim()
+            cycleDaysUsed = parseInt(json.cycleDaysUsed, 10) || 0
+            cycleDaysTotal = parseInt(json.cycleDaysTotal, 10) || 0
+            cycleProgress = Number(json.cycleProgress) || 0
         } catch (e) {
             console.warn("cursor widget parse failed:", e)
         }
@@ -58,14 +68,51 @@ Item {
         }
     }
 
-    Text {
-        id: label
+    Row {
+        id: contentRow
         anchors.centerIn: parent
-        text: root.loading ? "󰆧 …" : root.mainText
-        color: Theme.foreground
-        font.family: Theme.fontFamily
-        font.pixelSize: Theme.barFontPixelSize
-        font.bold: Theme.fontBold
+        spacing: Theme.sparklineGap
+
+        Text {
+            id: label
+            text: root.loading ? "󰆧 …" : root.mainText
+            color: Theme.foreground
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.barFontPixelSize
+            font.bold: Theme.fontBold
+        }
+
+        Row {
+            visible: root.showCycleBar
+            spacing: 0
+            height: cycleBar.height
+            anchors.verticalCenter: parent.verticalCenter
+
+            Item {
+                width: Theme.sparklineChartMargin
+                height: 1
+            }
+
+            Item {
+                id: cycleBar
+                width: 36
+                height: 4
+
+                Rectangle {
+                    anchors.fill: parent
+                    radius: 2
+                    color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.12)
+                }
+
+                Rectangle {
+                    height: parent.height
+                    width: parent.width * Math.max(0, Math.min(1, root.cycleProgress))
+                    radius: 2
+                    color: Theme.accent
+                    opacity: 0.9
+                }
+            }
+        }
     }
 
     MouseArea {

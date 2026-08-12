@@ -8,7 +8,7 @@ CURSOR_STATE_DB="${CURSOR_STATE_DB:-$HOME/.config/Cursor/User/globalStorage/stat
 
 json_error() {
     jq -cn --arg text "$1" --arg message "${2:-}" \
-        '{text: $text, class: "error", message: $message, chips: [], cursorPercent: 0, otherPercent: 0, detail: null}'
+        '{text: $text, class: "error", message: $message, chips: [], cursorPercent: 0, otherPercent: 0, cycleDaysUsed: 0, cycleDaysTotal: 0, cycleProgress: 0, detail: null}'
 }
 
 jwt_sub() {
@@ -123,8 +123,29 @@ fi
 cursor_pct=$(round_pct "$(echo "$plan_json" | jq -r '.autoPercentUsed // 0')")
 other_pct=$(round_pct "$(echo "$plan_json" | jq -r '.apiPercentUsed // 0')")
 
+billing_start_iso=$(echo "$response" | jq -r '.billingCycleStart // ""')
+billing_end_iso=$(echo "$response" | jq -r '.billingCycleEnd // ""')
+cycle_days_used=0
+cycle_days_total=0
+cycle_progress=0
+
+if [[ -n "$billing_start_iso" && -n "$billing_end_iso" ]]; then
+    start_epoch=$(date -d "$(date -d "$billing_start_iso" +%Y-%m-%d 2>/dev/null)" +%s 2>/dev/null || echo 0)
+    end_epoch=$(date -d "$(date -d "$billing_end_iso" +%Y-%m-%d 2>/dev/null)" +%s 2>/dev/null || echo 0)
+    today_epoch=$(date -d "today 00:00:00" +%s 2>/dev/null || echo 0)
+    if (( start_epoch > 0 && end_epoch > start_epoch && today_epoch > 0 )); then
+        cycle_days_total=$(( (end_epoch - start_epoch) / 86400 ))
+        cycle_days_used=$(( (today_epoch - start_epoch) / 86400 ))
+        if (( cycle_days_used < 0 )); then cycle_days_used=0; fi
+        if (( cycle_days_total > 0 )); then
+            if (( cycle_days_used > cycle_days_total )); then cycle_days_used=$cycle_days_total; fi
+            cycle_progress=$(awk -v u="$cycle_days_used" -v t="$cycle_days_total" 'BEGIN { p = u / t; if (p > 1) p = 1; printf "%.4f", p }')
+        fi
+    fi
+fi
+
 now_ms=$(date +%s%3N)
-billing_start_ms=$(iso_to_ms "$(echo "$response" | jq -r '.billingCycleStart // ""')")
+billing_start_ms=$(iso_to_ms "$billing_start_iso")
 today_start_ms=$(date -d "today 00:00:00" +%s%3N 2>/dev/null || echo 0)
 aggregated_cycle=$(fetch_aggregated "$billing_start_ms" "$now_ms" || echo "{}")
 aggregated_today=$(fetch_aggregated "$today_start_ms" "$now_ms" || echo "{}")
@@ -174,6 +195,9 @@ detail_json=$(echo "$response" | jq -c \
     --argjson tokensTotal "$tokens_total" \
     --argjson tokensToday "$tokens_today" \
     --argjson modelSplit "$model_split_json" \
+    --argjson cycleDaysUsed "$cycle_days_used" \
+    --argjson cycleDaysTotal "$cycle_days_total" \
+    --argjson cycleProgress "$cycle_progress" \
     --arg cursorColor "$cursor_color" \
     --arg otherColor "$other_color" \
     '{
@@ -189,6 +213,9 @@ detail_json=$(echo "$response" | jq -c \
       tokensTotal: $tokensTotal,
       tokensToday: $tokensToday,
       modelSplit: $modelSplit,
+      cycleDaysUsed: $cycleDaysUsed,
+      cycleDaysTotal: $cycleDaysTotal,
+      cycleProgress: $cycleProgress,
       cursorColor: $cursorColor,
       otherColor: $otherColor
     }')
@@ -198,8 +225,11 @@ output=$(jq -cn \
     --argjson chips "$chips_json" \
     --argjson cursorPercent "$cursor_pct" \
     --argjson otherPercent "$other_pct" \
+    --argjson cycleDaysUsed "$cycle_days_used" \
+    --argjson cycleDaysTotal "$cycle_days_total" \
+    --argjson cycleProgress "$cycle_progress" \
     --argjson detail "$detail_json" \
-    '{text: $text, class: "cursor-usage", chips: $chips, cursorPercent: $cursorPercent, otherPercent: $otherPercent, detail: $detail}')
+    '{text: $text, class: "cursor-usage", chips: $chips, cursorPercent: $cursorPercent, otherPercent: $otherPercent, cycleDaysUsed: $cycleDaysUsed, cycleDaysTotal: $cycleDaysTotal, cycleProgress: $cycleProgress, detail: $detail}')
 
 printf '%s\n' "$output" | evo_bar_cache_write "$CACHE_KEY"
 printf '%s\n' "$output"
