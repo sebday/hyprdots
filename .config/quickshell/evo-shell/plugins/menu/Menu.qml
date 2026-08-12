@@ -376,14 +376,21 @@ Item {
         dismiss()
     }
 
+    function launchDesktopEntry(entryRef, id) {
+        // Quickshell execute() ignores runInTerminal; gtk-launch respects Terminal=true.
+        if (entryRef && entryRef.runInTerminal)
+            Quickshell.execDetached(["gtk-launch", String(id)])
+        else if (entryRef && typeof entryRef.execute === "function")
+            entryRef.execute()
+        else
+            Quickshell.execDetached(["gtk-launch", String(id)])
+    }
+
     function activateEntry(entry) {
         if (!entry) return
         if (entry.kind === "app") {
             UsageMemory.bump("apps", entry.id)
-            if (entry.entryRef && typeof entry.entryRef.execute === "function")
-                entry.entryRef.execute()
-            else
-                Quickshell.execDetached(["gtk-launch", String(entry.id)])
+            launchDesktopEntry(entry.entryRef, entry.id)
             dismiss()
             return
         }

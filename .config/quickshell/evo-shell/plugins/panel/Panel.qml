@@ -12,7 +12,6 @@ Item {
     property var shell: null
     property bool opened: false
     property string activeModule: "calc"
-    property bool pinned: false
 
     readonly property string layoutScript: Quickshell.env("HOME") + "/.local/bin/evo-shell-layout.sh"
 
@@ -41,7 +40,6 @@ Item {
     }
 
     function open(payloadJson) {
-        pinned = false
         var nextModule = parseModule(payloadJson)
         if (moduleIds.indexOf(nextModule) < 0)
             nextModule = activeModule
@@ -68,7 +66,6 @@ Item {
     }
 
     function close() {
-        pinned = false
         dock.conceal()
         opened = false
     }
@@ -78,13 +75,8 @@ Item {
         else close()
     }
 
-    function togglePinned() {
-        pinned = !pinned
-    }
-
     function toggleSide() {
         if (sideToggleProc.running) return
-        root.pinned = false
         panelSideLive = panelSideLive === "right" ? "left" : "right"
         sideToggleProc.running = true
     }
@@ -139,7 +131,6 @@ Item {
         id: sideToggleProc
         command: ["bash", root.layoutScript, "panel", "toggle"]
         onExited: {
-            root.pinned = false
             root.panelSideLive = root.panelSide
             root.panelScreen = root.resolvePanelScreen()
         }
@@ -150,12 +141,10 @@ Item {
         layerNamespace: "evo-panel"
         side: root.panelSideLive
         screen: root.panelScreen
-        pinned: root.pinned
+        pinned: true
         showCloseButton: true
-        showPinButton: true
         showSideButton: true
         onCloseRequested: root.dismiss()
-        onPinRequested: root.togglePinned()
         onSideRequested: root.toggleSide()
 
         DockModuleBar {

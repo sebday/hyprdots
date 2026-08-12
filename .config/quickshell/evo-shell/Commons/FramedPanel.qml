@@ -42,7 +42,7 @@ Item {
             text: root.label
             color: Theme.foreground
             font.family: Theme.fontFamily
-            font.pixelSize: 12
+            font.pixelSize: Theme.panelSmallFontPixelSize
             font.bold: Theme.fontBold
             opacity: 0.72
         }

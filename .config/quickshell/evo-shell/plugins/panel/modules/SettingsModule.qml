@@ -19,8 +19,8 @@ Item {
     property bool animationsOn: false
     property bool barOnDp1Top: false
     property string fontFamily: "CaskaydiaMono Nerd Font"
-    property int fontUiSize: 13
-    property int fontEditorSize: 18
+    property int fontScalePercent: 100
+    property int fontBaseSize: 13
     property var fontFamilies: []
     property bool hyprReady: false
     property bool barReady: false
@@ -84,10 +84,12 @@ Item {
             var data = JSON.parse(String(raw || "{}"))
             if (data.family)
                 root.fontFamily = String(data.family)
-            if (typeof data.uiSize === "number")
-                root.fontUiSize = data.uiSize
-            if (typeof data.editorSize === "number")
-                root.fontEditorSize = data.editorSize
+            if (typeof data.baseFontSize === "number")
+                root.fontBaseSize = data.baseFontSize
+            if (typeof data.scalePercent === "number")
+                root.fontScalePercent = data.scalePercent
+            else if (typeof data.textSize === "number")
+                root.fontScalePercent = 100 + (data.textSize - (root.fontBaseSize - 2)) * 10
             root.fontReady = true
         } catch (e) {
             root.fontReady = false
@@ -162,22 +164,6 @@ Item {
         }
     }
 
-    Timer {
-        id: uiSizeDebounce
-        interval: 180
-        repeat: false
-        property int pending: root.fontUiSize
-        onTriggered: root.setFont("ui-size", pending)
-    }
-
-    Timer {
-        id: editorSizeDebounce
-        interval: 180
-        repeat: false
-        property int pending: root.fontEditorSize
-        onTriggered: root.setFont("editor-size", pending)
-    }
-
     Flickable {
         anchors.fill: parent
         clip: true
@@ -215,51 +201,40 @@ Item {
 
                     SliderSetting {
                         width: parent.width
-                        label: "UI size"
-                        value: root.fontUiSize
+                        label: "Base size"
+                        value: root.fontBaseSize
+                        valueSuffix: "px"
                         minimum: 9
                         maximum: 28
+                        step: 1
                         enabled: root.fontReady && !root.fontBusy
                         onValueEdited: function(v) {
-                            root.fontUiSize = v
-                            uiSizeDebounce.pending = v
-                            uiSizeDebounce.restart()
+                            root.fontBaseSize = v
                         }
-                    }
-
-                    Text {
-                        width: parent.width
-                        text: "GTK, evo-shell, Ghostty"
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: 10
-                        opacity: 0.45
-                        wrapMode: Text.WordWrap
+                        onValueCommitted: function(v) {
+                            root.fontBaseSize = v
+                            root.setFont("base", v)
+                        }
                     }
 
                     SliderSetting {
                         width: parent.width
-                        label: "Editor size"
-                        value: root.fontEditorSize
-                        minimum: 9
-                        maximum: 28
+                        label: "Zoom level"
+                        value: root.fontScalePercent
+                        valueSuffix: "%"
+                        minimum: 50
+                        maximum: 150
+                        step: 10
                         enabled: root.fontReady && !root.fontBusy
                         onValueEdited: function(v) {
-                            root.fontEditorSize = v
-                            editorSizeDebounce.pending = v
-                            editorSizeDebounce.restart()
+                            root.fontScalePercent = v
+                        }
+                        onValueCommitted: function(v) {
+                            root.fontScalePercent = v
+                            root.setFont("zoom", v)
                         }
                     }
 
-                    Text {
-                        width: parent.width
-                        text: "Cursor / VS Code"
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: 10
-                        opacity: 0.45
-                        wrapMode: Text.WordWrap
-                    }
                 }
             }
 
@@ -283,7 +258,7 @@ Item {
                     ToggleRow {
                         width: parent.width
                         label: "Window gaps"
-                        detail: "On: 10 in / 20 out"
+                        detail: "On: 10px in / 20px out"
                         checked: root.gapsOn
                         enabled: root.hyprReady && !hyprToggleProc.running
                         onToggled: root.toggleHypr("gaps")
@@ -306,8 +281,8 @@ Item {
 
                 ToggleRow {
                     width: parent.width
-                    label: "Bar on top"
-                    detail: "Off: Bar on main"
+                    label: "Bar position"
+                    detail: "On: Main screen"
                     checked: root.barOnDp1Top
                     enabled: root.barReady && !barToggleProc.running
                     onToggled: root.toggleBar()

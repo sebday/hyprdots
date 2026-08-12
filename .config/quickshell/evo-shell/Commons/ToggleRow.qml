@@ -29,7 +29,7 @@ Item {
                 text: root.label
                 color: Theme.foreground
                 font.family: Theme.fontFamily
-                font.pixelSize: 13
+                font.pixelSize: Theme.fontPixelSize
                 font.bold: Theme.fontBold
                 elide: Text.ElideRight
                 Layout.fillWidth: true
@@ -40,7 +40,7 @@ Item {
                 text: root.detail
                 color: Theme.foreground
                 font.family: Theme.fontFamily
-                font.pixelSize: 11
+                font.pixelSize: Theme.panelDetailFontPixelSize
                 opacity: 0.55
                 elide: Text.ElideRight
                 Layout.fillWidth: true

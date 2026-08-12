@@ -11,7 +11,10 @@ ColumnLayout {
     property int step: 1
     property bool enabled: true
 
+    property string valueSuffix: ""
+
     signal valueEdited(int value)
+    signal valueCommitted(int value)
 
     spacing: 6
     opacity: root.enabled ? 1 : 0.45
@@ -25,16 +28,16 @@ ColumnLayout {
             text: root.label
             color: Theme.foreground
             font.family: Theme.fontFamily
-            font.pixelSize: 13
+            font.pixelSize: Theme.fontPixelSize
             font.bold: Theme.fontBold
             elide: Text.ElideRight
         }
 
         Text {
-            text: root.value
+            text: root.value + root.valueSuffix
             color: Theme.accent
             font.family: Theme.fontFamily
-            font.pixelSize: 13
+            font.pixelSize: Theme.fontPixelSize
             font.bold: Theme.fontBold
             horizontalAlignment: Text.AlignRight
             Layout.minimumWidth: 28
@@ -80,6 +83,8 @@ ColumnLayout {
             enabled: root.enabled
             cursorShape: Qt.SizeHorCursor
 
+            property int dragStartValue: root.value
+
             function valueAt(mouseX) {
                 var ratio = Math.max(0, Math.min(1, mouseX / track.width))
                 var raw = root.minimum + ratio * (root.maximum - root.minimum)
@@ -88,12 +93,21 @@ ColumnLayout {
             }
 
             onPressed: function(mouse) {
+                dragStartValue = root.value
                 root.valueEdited(valueAt(mouse.x))
             }
 
             onPositionChanged: function(mouse) {
                 if (pressed)
                     root.valueEdited(valueAt(mouse.x))
+            }
+
+            onReleased: function(mouse) {
+                root.valueCommitted(valueAt(mouse.x))
+            }
+
+            onCanceled: {
+                root.valueEdited(dragStartValue)
             }
         }
     }

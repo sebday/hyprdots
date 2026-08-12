@@ -160,7 +160,7 @@ Item {
                         text: dock.onRight ? "󰁍" : "󰁔"
                         color: Theme.foreground
                         font.family: Theme.fontFamily
-                        font.pixelSize: 16
+                        font.pixelSize: Theme.panelIconFontPixelSize
                         font.bold: Theme.fontBold
                         opacity: sideMouse.containsMouse ? 1 : 0.65
                     }
@@ -184,7 +184,7 @@ Item {
                         text: dock.pinned ? "󰐃" : "󰤱"
                         color: dock.pinned ? Theme.accent : Theme.foreground
                         font.family: Theme.fontFamily
-                        font.pixelSize: 16
+                        font.pixelSize: Theme.panelIconFontPixelSize
                         font.bold: Theme.fontBold
                         opacity: pinMouse.containsMouse || dock.pinned ? 1 : 0.65
                     }
@@ -208,7 +208,7 @@ Item {
                         text: "󰅖"
                         color: Theme.foreground
                         font.family: Theme.fontFamily
-                        font.pixelSize: 16
+                        font.pixelSize: Theme.panelIconFontPixelSize
                         font.bold: Theme.fontBold
                         opacity: closeMouse.containsMouse ? 1 : 0.65
                     }
@@ -244,7 +244,7 @@ Item {
                     text: dock.title
                     color: Theme.foreground
                     font.family: Theme.fontFamily
-                    font.pixelSize: 14
+                    font.pixelSize: Theme.panelTitleFontPixelSize
                     font.bold: Theme.fontBold
                 }
             }

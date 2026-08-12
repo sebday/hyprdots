@@ -36,7 +36,7 @@ RowLayout {
                 text: modelData.icon
                 color: isActive ? Theme.accent : Theme.foreground
                 font.family: Theme.fontFamily
-                font.pixelSize: 16
+                font.pixelSize: Theme.panelIconFontPixelSize
                 font.bold: Theme.fontBold
             }
 
