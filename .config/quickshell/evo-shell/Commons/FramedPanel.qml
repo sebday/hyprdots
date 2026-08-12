@@ -5,9 +5,8 @@ Item {
 
     property string label: ""
     property int contentPad: 10
-    property int cornerRadius: 4
+    property int cornerRadius: Theme.panelCornerRadius
     property color frameBorder: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.32)
-    property color veilColor: Theme.panelVeil
     property int legendPadH: 0
     property int legendPadV: 0
     property bool contentFill: false
@@ -22,6 +21,12 @@ Item {
         ? Math.round(frameLabel.implicitHeight / 2) + 4
         : 0
     readonly property int balancedBottomPad: hasLabel ? headerPad : 0
+    readonly property int labelGapLeft: hasLabel
+        ? Math.max(0, frameLabel.x - legendPadH)
+        : 0
+    readonly property int labelGapRight: hasLabel
+        ? Math.min(width, frameLabel.x + frameLabel.width + legendPadH)
+        : 0
 
     implicitWidth: 200
     implicitHeight: contentFill
@@ -29,12 +34,70 @@ Item {
         : (contentPad * 2 + headerPad + balancedBottomPad + contentHost.childrenRect.height)
 
     Rectangle {
+        visible: !root.hasLabel
         z: 0
         anchors.fill: parent
         color: "transparent"
         border.color: root.frameBorder
         border.width: 1
         radius: root.cornerRadius
+    }
+
+    Rectangle {
+        visible: root.hasLabel && root.cornerRadius > 0
+        z: 0
+        anchors.fill: parent
+        color: "transparent"
+        border.color: root.frameBorder
+        border.width: 1
+        radius: root.cornerRadius
+    }
+
+    // Square fieldsets: gap the top border so the label sits on the panel bg (no veil).
+    Item {
+        visible: root.hasLabel && root.cornerRadius === 0
+        z: 0
+        anchors.fill: parent
+
+        Rectangle {
+            x: 0
+            y: 0
+            width: root.labelGapLeft
+            height: 1
+            color: root.frameBorder
+        }
+
+        Rectangle {
+            y: 0
+            width: Math.max(0, parent.width - root.labelGapRight)
+            height: 1
+            anchors.right: parent.right
+            color: root.frameBorder
+        }
+
+        Rectangle {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            height: 1
+            color: root.frameBorder
+        }
+
+        Rectangle {
+            anchors.left: parent.left
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            width: 1
+            color: root.frameBorder
+        }
+
+        Rectangle {
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            width: 1
+            color: root.frameBorder
+        }
     }
 
     Text {
@@ -49,17 +112,6 @@ Item {
         font.pixelSize: Theme.panelSmallFontPixelSize
         font.bold: Theme.fontBold
         opacity: 0.72
-    }
-
-    // Label backdrop — exact text bounds by default so it does not cover rounded corners.
-    Rectangle {
-        z: 1
-        visible: root.hasLabel
-        x: frameLabel.x - root.legendPadH
-        y: frameLabel.y - root.legendPadV
-        width: frameLabel.implicitWidth + root.legendPadH * 2
-        height: frameLabel.implicitHeight + root.legendPadV * 2
-        color: root.veilColor
     }
 
     Item {

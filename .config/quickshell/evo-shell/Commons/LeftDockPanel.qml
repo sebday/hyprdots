@@ -71,11 +71,7 @@ Item {
     }
 
     function syncHover() {
-        hovered = panelHover.hovered
-            || hoverCatcher.containsMouse
-            || sideMouse.containsMouse
-            || pinMouse.containsMouse
-            || closeMouse.containsMouse
+        hovered = hoverCatcher.containsMouse
         Theme.panelSurfaceActive = surfaceActive
     }
 
@@ -148,11 +144,6 @@ Item {
             id: panelHost
             anchors.fill: parent
 
-            HoverHandler {
-                id: panelHover
-                onHoveredChanged: dock.syncHover()
-            }
-
             // Layer-shell surfaces miss HoverHandler; track hover without stealing clicks/scroll.
             MouseArea {
                 id: hoverCatcher
@@ -168,11 +159,10 @@ Item {
                 id: panelBg
                 anchors.fill: parent
                 z: -1
-                color: Theme.mantle
-                opacity: dock.surfaceActive ? Theme.surfaceOpacity : Theme.surfaceOpacityInactive
+                color: dock.surfaceActive ? Theme.overlaySurface : Theme.overlaySurfaceInactive
 
-                Behavior on opacity {
-                    NumberAnimation {
+                Behavior on color {
+                    ColorAnimation {
                         duration: 150
                         easing.type: Easing.OutCubic
                     }
@@ -209,7 +199,6 @@ Item {
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
-                        onContainsMouseChanged: dock.syncHover()
                         onClicked: dock.sideRequested()
                     }
                 }
@@ -234,7 +223,6 @@ Item {
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
-                        onContainsMouseChanged: dock.syncHover()
                         onClicked: dock.pinRequested()
                     }
                 }
@@ -259,7 +247,6 @@ Item {
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
-                        onContainsMouseChanged: dock.syncHover()
                         onClicked: dock.closeRequested()
                     }
                 }

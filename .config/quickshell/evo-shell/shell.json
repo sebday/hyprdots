@@ -25,7 +25,16 @@
       ],
       "center": [
         {
-          "id": "evo.workspaces"
+          "id": "evo.clock",
+          "format": "%a %d %H:%M"
+        },
+        {
+          "id": "weather",
+          "type": "command",
+          "exec": "~/.local/bin/evo-bar-weather.sh",
+          "interval": 1800,
+          "onClick": "~/.local/bin/evo-shell-ipc shell toggle evo.panel '{\"module\":\"info\"}'",
+          "onClickRight": "xdg-open https://weather.metoffice.gov.uk/forecast/gcqvn6pq4"
         }
       ],
       "right": [
@@ -35,24 +44,12 @@
           "onClick": "xdg-open https://github.com/sebday"
         },
         {
-          "id": "weather",
-          "type": "command",
-          "exec": "~/.local/bin/evo-bar-weather.sh",
-          "interval": 1800,
-          "onClick": "~/.local/bin/evo-shell-ipc shell toggle evo.panel '{\"module\":\"info\"}'",
-          "onClickRight": "xdg-open https://weather.metoffice.gov.uk/forecast/gcqvn6pq4"
-        },
-        {
           "id": "evo.cava",
           "onClick": "ghostty --class=TUI.main -e wiremix",
           "onClickRight": "ghostty --class=TUI.main -e alsamixer"
         },
         {
           "id": "evo.audio"
-        },
-        {
-          "id": "evo.clock",
-          "format": "%a %d %H:%M"
         },
         {
           "id": "evo.tray"

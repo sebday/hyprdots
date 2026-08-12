@@ -44,6 +44,7 @@ Item {
         || barToggleProc.running || resetProc.running || cleanupProc.running || backupProc.running
 
     function refresh() {
+        Theme.reloadLooks()
         if (!loadHyprProc.running) loadHyprProc.running = true
         if (!loadBarProc.running) loadBarProc.running = true
         if (!loadFontProc.running) loadFontProc.running = true
@@ -162,6 +163,7 @@ Item {
         stdout: StdioCollector {
             onStreamFinished: root.parseHyprState(text)
         }
+        onExited: Theme.reloadLooks()
     }
 
     Process {
@@ -244,6 +246,7 @@ Item {
         stdout: StdioCollector {
             onStreamFinished: root.parseHyprState(text)
         }
+        onExited: Theme.reloadLooks()
     }
 
     Process {
@@ -254,6 +257,7 @@ Item {
         stdout: StdioCollector {
             onStreamFinished: root.parseHyprState(text)
         }
+        onExited: Theme.reloadLooks()
     }
 
     Process {
@@ -304,6 +308,32 @@ Item {
             width: parent.width
             y: 10
             spacing: 16
+
+            FramedPanel {
+                label: "Theme"
+                Layout.fillWidth: true
+
+                PreviewPickerGrid {
+                    id: themePicker
+                    width: parent.width
+                    kind: "themes"
+                    selectedKey: root.currentThemeName
+                    enabled: !settingsBusy
+                }
+            }
+
+            FramedPanel {
+                label: "Wallpaper"
+                Layout.fillWidth: true
+
+                PreviewPickerGrid {
+                    id: wallpaperPicker
+                    width: parent.width
+                    kind: "wallpapers"
+                    selectedKey: root.currentWallpaperPath
+                    enabled: !settingsBusy
+                }
+            }
 
             FramedPanel {
                 label: "Font"
@@ -404,7 +434,7 @@ Item {
                         label: "Active opacity"
                         value: root.activeOpacityPercent
                         valueSuffix: "%"
-                        minimum: 50
+                        minimum: 0
                         maximum: 100
                         step: 1
                         enabled: root.hyprReady && !settingsBusy
@@ -422,7 +452,7 @@ Item {
                         label: "Inactive opacity"
                         value: root.inactiveOpacityPercent
                         valueSuffix: "%"
-                        minimum: 50
+                        minimum: 0
                         maximum: 100
                         step: 1
                         enabled: root.hyprReady && !settingsBusy
@@ -448,32 +478,6 @@ Item {
                     checked: root.barOnDp1Top
                     enabled: root.barReady && !settingsBusy
                     onToggled: root.toggleBar()
-                }
-            }
-
-            FramedPanel {
-                label: "Theme"
-                Layout.fillWidth: true
-
-                PreviewPickerGrid {
-                    id: themePicker
-                    width: parent.width
-                    kind: "themes"
-                    selectedKey: root.currentThemeName
-                    enabled: !settingsBusy
-                }
-            }
-
-            FramedPanel {
-                label: "Wallpaper"
-                Layout.fillWidth: true
-
-                PreviewPickerGrid {
-                    id: wallpaperPicker
-                    width: parent.width
-                    kind: "wallpapers"
-                    selectedKey: root.currentWallpaperPath
-                    enabled: !settingsBusy
                 }
             }
 

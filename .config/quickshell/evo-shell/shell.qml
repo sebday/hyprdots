@@ -21,7 +21,7 @@ ShellRoot {
             position: "bottom",
             layout: {
                 left: [{ id: "evo.menu" }],
-                center: [{ id: "evo.workspaces" }, { id: "evo.clock", format: "%a %d %H:%M" }],
+                center: [{ id: "evo.clock", format: "%a %d %H:%M" }],
                 right: [{ id: "evo.audio" }, { id: "evo.tray" }]
             }
         }

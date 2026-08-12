@@ -46,12 +46,12 @@ Item {
     readonly property int tileHeight: 100
     readonly property int tileSpacing: 10
     readonly property int tileIconSize: 32
-    readonly property int appGridColumns: 9
-    readonly property int appTileWidth: 120
-    readonly property int appTileHeight: 136
-    readonly property int appIconSize: 64
-    readonly property int appIconTopPadding: 18
-    readonly property int appLabelFontSize: 13
+    readonly property int appGridColumns: 6
+    readonly property int appTileWidth: 96
+    readonly property int appTileHeight: 108
+    readonly property int appIconSize: 44
+    readonly property int appIconTopPadding: 10
+    readonly property int appLabelFontSize: Theme.panelSmallFontPixelSize
     readonly property int previewTileWidth: 296
     readonly property int previewTileHeight: 204
     readonly property int previewImageHeight: 192
@@ -59,9 +59,11 @@ Item {
     readonly property int listIconSize: 40
     readonly property int listFontSize: 24
     readonly property int listRowHeight: 72
-    readonly property int listFilterHeight: 68
-    readonly property int listFilterFontSize: 28
+    readonly property int listFilterHeight: 38
+    readonly property int listFilterFontSize: Theme.panelTitleFontPixelSize
     readonly property int previewMenuMargin: 48
+    readonly property int appsMenuPadding: 14
+    readonly property int appsMenuRadius: Theme.panelCornerRadius
 
     readonly property int previewGridColumns: 5
     readonly property int previewColumnCount: gridColumnCount
@@ -125,8 +127,8 @@ Item {
 
     readonly property int boxRowWidth: previewTileMode ? gridWidth : tileRowWidth
     readonly property int boxRowHeight: previewTileMode ? gridHeight : tileHeight
-    readonly property int appsHostWidth: gridWidth
-    readonly property int appsHostHeight: listFilterHeight + 12 + Math.min(gridHeight, appsGridViewportHeight)
+    readonly property int appsHostWidth: gridWidth + appsMenuPadding * 2
+    readonly property int appsHostHeight: listFilterHeight + 16 + Math.min(gridHeight, appsGridViewportHeight) + appsMenuPadding * 2 + 8
 
     readonly property string home: Quickshell.env("HOME")
     readonly property string placeholderText: {
@@ -555,6 +557,15 @@ Item {
 
             Rectangle {
                 anchors.fill: parent
+                visible: root.appsGridMode
+                color: Theme.overlaySurfaceInactive
+                radius: root.appsMenuRadius
+                border.color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.22)
+                border.width: 1
+            }
+
+            Rectangle {
+                anchors.fill: parent
                 visible: root.framedMode
                 color: Theme.overlaySurface
                 border.color: Theme.accent
@@ -563,8 +574,8 @@ Item {
 
             Column {
                 anchors.fill: parent
-                anchors.margins: root.boxTileMode ? 0 : (root.appsGridMode ? 0 : 16)
-                spacing: 12
+                anchors.margins: root.boxTileMode ? 0 : (root.appsGridMode ? root.appsMenuPadding : 16)
+                spacing: root.appsGridMode ? 10 : 12
 
                 Item {
                     width: root.appsGridMode ? root.gridWidth : parent.width
@@ -574,13 +585,31 @@ Item {
 
                     Rectangle {
                         anchors.fill: parent
-                        color: Theme.overlaySurface
+                        radius: root.appsGridMode ? root.appsMenuRadius : 0
+                        color: root.appsGridMode ? Theme.panelMantle : Theme.overlaySurface
+                        border.color: root.appsGridMode
+                            ? Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.18)
+                            : "transparent"
+                        border.width: root.appsGridMode ? 1 : 0
+                    }
+
+                    Text {
+                        visible: root.appsGridMode
+                        anchors.left: parent.left
+                        anchors.leftMargin: 12
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "󰍉"
+                        color: Theme.accent
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.panelIconFontPixelSize
+                        font.bold: Theme.fontBold
+                        opacity: 0.85
                     }
 
                     Text {
                         visible: filterField.text.length === 0 && !filterField.activeFocus
                         anchors.left: parent.left
-                        anchors.leftMargin: 12
+                        anchors.leftMargin: root.appsGridMode ? 36 : 12
                         anchors.verticalCenter: parent.verticalCenter
                         text: root.placeholderText
                         color: Theme.foreground
@@ -590,11 +619,24 @@ Item {
                         font.bold: Theme.fontBold
                     }
 
+                    Text {
+                        visible: root.appsGridMode && root.filteredEntries().length > 0
+                        anchors.right: parent.right
+                        anchors.rightMargin: 12
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: String(root.filteredEntries().length)
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.panelHintFontPixelSize
+                        font.bold: Theme.fontBold
+                        opacity: 0.5
+                    }
+
                     TextInput {
                         id: filterField
                         anchors.fill: parent
-                        anchors.leftMargin: 12
-                        anchors.rightMargin: 12
+                        anchors.leftMargin: root.appsGridMode ? 36 : 12
+                        anchors.rightMargin: root.appsGridMode ? 40 : 12
                         color: Theme.foreground
                         font.family: Theme.fontFamily
                         font.pixelSize: root.listFilterFontSize
@@ -691,12 +733,23 @@ Item {
                     }
                 }
 
+                Text {
+                    visible: root.appsGridMode && !root.dynamicLoading && root.filteredEntries().length === 0
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: filterField.text.trim() === "" ? "No applications" : "No matches"
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.panelSmallFontPixelSize
+                    font.bold: Theme.fontBold
+                    opacity: 0.55
+                }
+
                 GridView {
                     id: appGrid
-                    visible: root.appsGridMode
+                    visible: root.appsGridMode && root.filteredEntries().length > 0
                     anchors.horizontalCenter: parent.horizontalCenter
                     width: root.gridWidth
-                    height: parent.height - root.listFilterHeight - 12
+                    height: parent.height - root.listFilterHeight - (root.appsGridMode ? 26 : 12)
                     clip: true
                     cellWidth: root.appTileWidth + root.tileSpacing
                     cellHeight: root.appTileHeight + root.tileSpacing
@@ -711,20 +764,26 @@ Item {
                         required property int index
                         width: root.appTileWidth
                         height: root.appTileHeight
-                        color: Theme.overlaySurface
-                        border.color: index === root.selectedIndex ? Theme.accent : Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.35)
-                        border.width: index === root.selectedIndex ? 2 : 1
+                        radius: root.appsMenuRadius
+                        color: index === root.selectedIndex || appMouse.containsMouse
+                            ? Theme.panelMantle
+                            : Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.04)
+                        border.color: index === root.selectedIndex
+                            ? Theme.accent
+                            : Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.12)
+                        border.width: 1
+                        opacity: appMouse.containsMouse || index === root.selectedIndex ? 1 : 0.88
 
                         readonly property string appIconSource: root.entryIconSource(modelData)
                         readonly property string glyphIcon: root.entryGlyphIcon(modelData)
 
                         Column {
                             anchors.fill: parent
-                            anchors.leftMargin: 8
-                            anchors.rightMargin: 8
+                            anchors.leftMargin: 6
+                            anchors.rightMargin: 6
                             anchors.bottomMargin: 8
                             anchors.topMargin: root.appIconTopPadding
-                            spacing: 8
+                            spacing: 6
 
                             Item {
                                 width: parent.width
@@ -750,7 +809,7 @@ Item {
                                     text: appTile.glyphIcon
                                     color: Theme.accent
                                     font.family: Theme.fontFamily
-                                    font.pixelSize: root.appIconSize * 0.55
+                                    font.pixelSize: root.appIconSize * 0.5
                                     font.bold: Theme.fontBold
                                 }
                             }
@@ -766,6 +825,7 @@ Item {
                                 wrapMode: Text.Wrap
                                 maximumLineCount: 2
                                 elide: Text.ElideRight
+                                opacity: appMouse.containsMouse || index === root.selectedIndex ? 1 : 0.78
                             }
                         }
 
@@ -773,6 +833,7 @@ Item {
                             id: appMouse
                             anchors.fill: parent
                             hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
                             onClicked: {
                                 root.selectedIndex = index
                                 root.activateEntry(modelData)

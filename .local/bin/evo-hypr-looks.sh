@@ -180,8 +180,8 @@ set)
         echo "value must be an integer percent" >&2
         exit 1
     }
-    (( value >= 50 && value <= 100 )) || {
-        echo "value must be between 50 and 100" >&2
+    (( value >= 0 && value <= 100 )) || {
+        echo "value must be between 0 and 100" >&2
         exit 1
     }
     current="$(read_state)"
@@ -232,7 +232,7 @@ reset)
     read_state
     ;;
 *)
-    echo "usage: evo-hypr-looks.sh get|reset|toggle <rounding|gaps|animations>|set <active|inactive> <50-100>" >&2
+    echo "usage: evo-hypr-looks.sh get|reset|toggle <rounding|gaps|animations>|set <active|inactive> <0-100>" >&2
     exit 1
     ;;
 esac

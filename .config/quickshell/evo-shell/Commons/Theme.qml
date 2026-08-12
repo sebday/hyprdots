@@ -60,6 +60,10 @@ Singleton {
         }
     }
 
+    function reloadLooks() {
+        looksFile.reload()
+    }
+
     function looksNumber(key, fallback) {
         var value = looksData[key]
         if (value === undefined || value === null || value === "")
@@ -100,20 +104,34 @@ Singleton {
     readonly property color urgent: themeColor("urgent", "#e67e80")
     readonly property color mantle: themeColor("mantle", "#252b30")
     // Match hyprland decoration.active_opacity / inactive_opacity (evo settings → hypr-looks.json)
-    readonly property real surfaceOpacity: looksNumber("activeOpacity", themeNumber("surfaceOpacity", 0.97))
-    readonly property real surfaceOpacityInactive: looksNumber("inactiveOpacity", themeNumber("surfaceOpacityInactive", 0.88))
+    readonly property real surfaceOpacity: {
+        var value = looksData.activeOpacity
+        if (value === undefined || value === null || value === "")
+            return themeNumber("surfaceOpacity", 0.97)
+        var n = Number(value)
+        return isNaN(n) ? themeNumber("surfaceOpacity", 0.97) : n
+    }
+    readonly property real surfaceOpacityInactive: {
+        var value = looksData.inactiveOpacity
+        if (value === undefined || value === null || value === "")
+            return themeNumber("surfaceOpacityInactive", 0.88)
+        var n = Number(value)
+        return isNaN(n) ? themeNumber("surfaceOpacityInactive", 0.88) : n
+    }
+    readonly property bool roundingOn: looksData.roundingOn === true
+    readonly property int panelCornerRadius: roundingOn ? 4 : 0
     readonly property real overlayScrimOpacity: themeNumber("overlayScrimOpacity", 0.72)
     readonly property color overlayScrim: withOpacity(mantle, overlayScrimOpacity)
     readonly property color overlaySurface: withOpacity(mantle, surfaceOpacity)
     readonly property color overlaySurfaceInactive: withOpacity(mantle, surfaceOpacityInactive)
     readonly property color panelBackground: overlaySurface
     property bool panelSurfaceActive: false
-    readonly property color panelVeil: withOpacity(mantle, panelSurfaceActive ? surfaceOpacity : surfaceOpacityInactive)
+    readonly property real panelSurfaceOpacity: panelSurfaceActive ? surfaceOpacity : surfaceOpacityInactive
     // Lift mantle toward foreground so row hover/selection reads on overlaySurface.
     readonly property real panelMantleLift: themeNumber("panelMantleLift", 0.12)
     readonly property color panelMantle: withOpacity(
         mixColors(mantle, foreground, panelMantleLift),
-        surfaceOpacityInactive
+        panelSurfaceOpacity
     )
     readonly property string fontFamily: themeColor("fontFamily", "CaskaydiaMono Nerd Font")
     readonly property bool fontBold: true

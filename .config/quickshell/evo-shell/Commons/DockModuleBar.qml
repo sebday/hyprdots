@@ -24,7 +24,7 @@ RowLayout {
 
             Rectangle {
                 anchors.fill: parent
-                radius: 4
+                radius: Theme.panelCornerRadius
                 color: isActive ? Theme.panelMantle : "transparent"
                 border.color: isActive ? Theme.accent : Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.2)
                 border.width: 1
