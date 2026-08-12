@@ -660,8 +660,13 @@ step-zoom)
     write_state "$family" "$scale_percent" "$base_font_size" >/dev/null
     read_state
     ;;
+reset)
+    apply_all "$DEFAULT_FAMILY" "$DEFAULT_SCALE_PERCENT" "$DEFAULT_BASE_FONT_SIZE" "$DEFAULT_SCALE_PERCENT"
+    write_state "$DEFAULT_FAMILY" "$DEFAULT_SCALE_PERCENT" "$DEFAULT_BASE_FONT_SIZE" >/dev/null
+    read_state
+    ;;
 *)
-    echo "usage: evo-font.sh get|list|apply|apply-gtk|set <family|zoom|base> <value>|cycle-family [next|prev]|step-zoom [up|down]" >&2
+    echo "usage: evo-font.sh get|list|apply|apply-gtk|reset|set <family|zoom|base> <value>|cycle-family [next|prev]|step-zoom [up|down]" >&2
     exit 1
     ;;
 esac

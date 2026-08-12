@@ -13,11 +13,19 @@ Item {
     readonly property string hyprScript: Quickshell.env("HOME") + "/.local/bin/evo-hypr-looks.sh"
     readonly property string barScript: Quickshell.env("HOME") + "/.local/bin/evo-bar-layout.sh"
     readonly property string fontScript: Quickshell.env("HOME") + "/.local/bin/evo-font.sh"
+    readonly property string resetScript: Quickshell.env("HOME") + "/.local/bin/evo-settings-reset.sh"
     readonly property string fontStatePath: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/evo-shell/font.json"
+    readonly property string themeNamePath: Quickshell.env("HOME") + "/.themes/current/.theme-name"
+    readonly property string wallpaperStatePath: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/evo-shell/wallpaper"
+
+    property string currentThemeName: ""
+    property string currentWallpaperPath: ""
 
     property bool roundingOn: false
     property bool gapsOn: false
     property bool animationsOn: false
+    property int activeOpacityPercent: 97
+    property int inactiveOpacityPercent: 88
     property bool barOnDp1Top: false
     property string fontFamily: "CaskaydiaMono Nerd Font"
     property int fontScalePercent: 100
@@ -28,27 +36,51 @@ Item {
     property bool fontReady: false
     readonly property bool ready: hyprReady && barReady && fontReady
     readonly property bool fontBusy: fontSetProc.running
+    readonly property bool settingsBusy: fontBusy || hyprToggleProc.running || hyprSetProc.running
+        || barToggleProc.running || resetProc.running
 
     function refresh() {
         if (!loadHyprProc.running) loadHyprProc.running = true
         if (!loadBarProc.running) loadBarProc.running = true
         if (!loadFontProc.running) loadFontProc.running = true
         if (!loadFontListProc.running) loadFontListProc.running = true
+        themeNameFile.reload()
+        wallpaperStateFile.reload()
+        Qt.callLater(reloadPickers)
+    }
+
+    function reloadPickers() {
+        themePicker.reload()
+        wallpaperPicker.reload()
+    }
+
+    function refreshWallpapers() {
+        wallpaperStateFile.reload()
+        Qt.callLater(function() {
+            wallpaperPicker.reload()
+        })
     }
 
     function toggleHypr(key) {
-        if (!hyprReady || hyprToggleProc.running) return
+        if (!hyprReady || settingsBusy) return
         hyprToggleProc.target = key
         hyprToggleProc.running = true
     }
 
+    function setHyprOpacity(key, percent) {
+        if (!hyprReady || settingsBusy) return
+        hyprSetProc.key = key
+        hyprSetProc.value = String(percent)
+        hyprSetProc.running = true
+    }
+
     function toggleBar() {
-        if (!barReady || barToggleProc.running) return
+        if (!barReady || settingsBusy) return
         barToggleProc.running = true
     }
 
     function setFont(key, value) {
-        if (!fontReady || fontBusy) return
+        if (!fontReady || settingsBusy) return
         fontSetProc.key = key
         fontSetProc.value = String(value)
         fontSetProc.running = true
@@ -58,12 +90,19 @@ Item {
         refresh()
     }
 
+    function resetDefaults() {
+        if (!ready || settingsBusy) return
+        resetProc.running = true
+    }
+
     function parseHyprState(raw) {
         try {
             var data = JSON.parse(String(raw || "{}"))
             root.roundingOn = data.roundingOn === true
             root.gapsOn = data.gapsOn === true
             root.animationsOn = data.animationsOn === true
+            root.activeOpacityPercent = Math.round(Number(data.activeOpacity || 0.97) * 100)
+            root.inactiveOpacityPercent = Math.round(Number(data.inactiveOpacity || 0.88) * 100)
             root.hyprReady = true
         } catch (e) {
             root.hyprReady = false
@@ -139,6 +178,30 @@ Item {
         onFileChanged: reload()
     }
 
+    FileView {
+        id: themeNameFile
+        path: root.themeNamePath
+        watchChanges: true
+        printErrors: false
+        onLoaded: {
+            var next = String(themeNameFile.text() || "").trim()
+            if (next !== root.currentThemeName) {
+                root.currentThemeName = next
+                root.refreshWallpapers()
+            }
+        }
+        onFileChanged: reload()
+    }
+
+    FileView {
+        id: wallpaperStateFile
+        path: root.wallpaperStatePath
+        watchChanges: true
+        printErrors: false
+        onLoaded: root.currentWallpaperPath = String(wallpaperStateFile.text() || "").trim()
+        onFileChanged: reload()
+    }
+
     Process {
         id: loadFontListProc
         command: ["bash", root.fontScript, "list"]
@@ -151,6 +214,16 @@ Item {
         id: hyprToggleProc
         property string target: ""
         command: ["bash", root.hyprScript, "toggle", hyprToggleProc.target]
+        stdout: StdioCollector {
+            onStreamFinished: root.parseHyprState(text)
+        }
+    }
+
+    Process {
+        id: hyprSetProc
+        property string key: ""
+        property string value: ""
+        command: ["bash", root.hyprScript, "set", hyprSetProc.key, hyprSetProc.value]
         stdout: StdioCollector {
             onStreamFinished: root.parseHyprState(text)
         }
@@ -172,6 +245,12 @@ Item {
         stdout: StdioCollector {
             onStreamFinished: root.parseFontState(text)
         }
+    }
+
+    Process {
+        id: resetProc
+        command: ["bash", root.resetScript]
+        onExited: root.refresh()
     }
 
     Flickable {
@@ -202,7 +281,7 @@ Item {
                         label: "Family"
                         value: root.fontFamily
                         model: root.fontFamilies
-                        enabled: root.fontReady && !root.fontBusy
+                        enabled: root.fontReady && !settingsBusy
                         onActivated: function(family) {
                             root.fontFamily = family
                             root.setFont("family", family)
@@ -217,7 +296,7 @@ Item {
                         minimum: 9
                         maximum: 28
                         step: 1
-                        enabled: root.fontReady && !root.fontBusy
+                        enabled: root.fontReady && !settingsBusy
                         onValueEdited: function(v) {
                             root.fontBaseSize = v
                         }
@@ -235,7 +314,7 @@ Item {
                         minimum: 50
                         maximum: 150
                         step: 10
-                        enabled: root.fontReady && !root.fontBusy
+                        enabled: root.fontReady && !settingsBusy
                         onValueEdited: function(v) {
                             root.fontScalePercent = v
                         }
@@ -261,7 +340,7 @@ Item {
                         label: "Border radius"
                         detail: "On: 7px"
                         checked: root.roundingOn
-                        enabled: root.hyprReady && !hyprToggleProc.running
+                        enabled: root.hyprReady && !settingsBusy
                         onToggled: root.toggleHypr("rounding")
                     }
 
@@ -270,7 +349,7 @@ Item {
                         label: "Window gaps"
                         detail: "On: 10px in / 20px out"
                         checked: root.gapsOn
-                        enabled: root.hyprReady && !hyprToggleProc.running
+                        enabled: root.hyprReady && !settingsBusy
                         onToggled: root.toggleHypr("gaps")
                     }
 
@@ -279,8 +358,44 @@ Item {
                         label: "Animations"
                         detail: "Window / workspace motion"
                         checked: root.animationsOn
-                        enabled: root.hyprReady && !hyprToggleProc.running
+                        enabled: root.hyprReady && !settingsBusy
                         onToggled: root.toggleHypr("animations")
+                    }
+
+                    SliderSetting {
+                        width: parent.width
+                        label: "Active opacity"
+                        value: root.activeOpacityPercent
+                        valueSuffix: "%"
+                        minimum: 50
+                        maximum: 100
+                        step: 1
+                        enabled: root.hyprReady && !settingsBusy
+                        onValueEdited: function(v) {
+                            root.activeOpacityPercent = v
+                        }
+                        onValueCommitted: function(v) {
+                            root.activeOpacityPercent = v
+                            root.setHyprOpacity("active", v)
+                        }
+                    }
+
+                    SliderSetting {
+                        width: parent.width
+                        label: "Inactive opacity"
+                        value: root.inactiveOpacityPercent
+                        valueSuffix: "%"
+                        minimum: 50
+                        maximum: 100
+                        step: 1
+                        enabled: root.hyprReady && !settingsBusy
+                        onValueEdited: function(v) {
+                            root.inactiveOpacityPercent = v
+                        }
+                        onValueCommitted: function(v) {
+                            root.inactiveOpacityPercent = v
+                            root.setHyprOpacity("inactive", v)
+                        }
                     }
                 }
             }
@@ -294,8 +409,61 @@ Item {
                     label: "Bar position"
                     detail: "On: Main screen"
                     checked: root.barOnDp1Top
-                    enabled: root.barReady && !barToggleProc.running
+                    enabled: root.barReady && !settingsBusy
                     onToggled: root.toggleBar()
+                }
+            }
+
+            FramedPanel {
+                label: "Theme"
+                Layout.fillWidth: true
+
+                PreviewPickerGrid {
+                    id: themePicker
+                    width: parent.width
+                    kind: "themes"
+                    selectedKey: root.currentThemeName
+                    enabled: !settingsBusy
+                    onActivated: root.refreshWallpapers()
+                }
+            }
+
+            FramedPanel {
+                label: "Wallpaper"
+                Layout.fillWidth: true
+
+                PreviewPickerGrid {
+                    id: wallpaperPicker
+                    width: parent.width
+                    kind: "wallpapers"
+                    selectedKey: root.currentWallpaperPath
+                    enabled: !settingsBusy
+                }
+            }
+
+            Item {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 28
+                Layout.topMargin: 2
+                opacity: root.ready && !settingsBusy ? 1 : 0.35
+
+                Text {
+                    anchors.centerIn: parent
+                    text: resetProc.running ? "Resetting…" : "Reset to defaults"
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 12
+                    font.bold: Theme.fontBold
+                    opacity: resetMouse.containsMouse ? 1 : 0.72
+                }
+
+                MouseArea {
+                    id: resetMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    enabled: root.ready && !settingsBusy
+                    cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                    onClicked: root.resetDefaults()
                 }
             }
         }

@@ -105,6 +105,13 @@ do
                 animations = { enabled = false }
             end
 
+            if data.activeOpacity ~= nil then
+                decoration.active_opacity = data.activeOpacity
+            end
+            if data.inactiveOpacity ~= nil then
+                decoration.inactive_opacity = data.inactiveOpacity
+            end
+
             if next(decoration) then
                 updates.decoration = decoration
             end

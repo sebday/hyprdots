@@ -10,6 +10,9 @@ Singleton {
     readonly property string themePath: Quickshell.shellDir + "/theme.json"
 
     property var themeData: ({})
+    property var looksData: ({})
+
+    readonly property string looksStatePath: (Quickshell.env("HOME") || "") + "/.local/state/evo-shell/hypr-looks.json"
 
     FileView {
         id: themeFile
@@ -18,6 +21,16 @@ Singleton {
         printErrors: false
         onLoaded: root.applyThemeFile()
         onLoadFailed: root.applyThemeFile()
+        onFileChanged: reload()
+    }
+
+    FileView {
+        id: looksFile
+        path: root.looksStatePath
+        watchChanges: true
+        printErrors: false
+        onLoaded: root.applyLooksFile()
+        onLoadFailed: root.applyLooksFile()
         onFileChanged: reload()
     }
 
@@ -32,6 +45,27 @@ Singleton {
         } catch (e) {
             themeData = {}
         }
+    }
+
+    function applyLooksFile() {
+        var text = looksFile.text() || ""
+        if (!text.trim()) {
+            looksData = {}
+            return
+        }
+        try {
+            looksData = JSON.parse(text)
+        } catch (e) {
+            looksData = {}
+        }
+    }
+
+    function looksNumber(key, fallback) {
+        var value = looksData[key]
+        if (value === undefined || value === null || value === "")
+            return fallback
+        var n = Number(value)
+        return isNaN(n) ? fallback : n
     }
 
     function themeColor(key, fallback) {
@@ -65,9 +99,9 @@ Singleton {
     readonly property color accent: themeColor("accent", "#7fbbb3")
     readonly property color urgent: themeColor("urgent", "#e67e80")
     readonly property color mantle: themeColor("mantle", "#252b30")
-    // Match hyprland decoration.active_opacity / inactive_opacity in ~/.config/hypr/looks.lua
-    readonly property real surfaceOpacity: themeNumber("surfaceOpacity", 0.97)
-    readonly property real surfaceOpacityInactive: themeNumber("surfaceOpacityInactive", 0.88)
+    // Match hyprland decoration.active_opacity / inactive_opacity (evo settings → hypr-looks.json)
+    readonly property real surfaceOpacity: looksNumber("activeOpacity", themeNumber("surfaceOpacity", 0.97))
+    readonly property real surfaceOpacityInactive: looksNumber("inactiveOpacity", themeNumber("surfaceOpacityInactive", 0.88))
     readonly property real overlayScrimOpacity: themeNumber("overlayScrimOpacity", 0.72)
     readonly property color overlayScrim: withOpacity(mantle, overlayScrimOpacity)
     readonly property color overlaySurface: withOpacity(mantle, surfaceOpacity)
@@ -111,5 +145,8 @@ Singleton {
     readonly property int notificationIconSize: 28
     readonly property int notificationStackSlot: 104
 
-    Component.onCompleted: applyThemeFile()
+    Component.onCompleted: {
+        applyThemeFile()
+        applyLooksFile()
+    }
 }

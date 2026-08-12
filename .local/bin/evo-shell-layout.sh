@@ -85,7 +85,7 @@ reload_shell_config() {
 usage() {
     cat >&2 <<'EOF'
 usage:
-  evo-shell-layout.sh bar get|toggle
+  evo-shell-layout.sh bar get|toggle|reset
   evo-shell-layout.sh panel get|toggle
 EOF
     exit 1
@@ -108,6 +108,11 @@ bar)
         else
             write_bar_layout true
         fi
+        reload_shell_config
+        read_bar_state
+        ;;
+    reset)
+        write_bar_layout false
         reload_shell_config
         read_bar_state
         ;;
