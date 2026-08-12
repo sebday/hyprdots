@@ -13,6 +13,7 @@ Item {
     readonly property string hyprScript: Quickshell.env("HOME") + "/.local/bin/evo-hypr-looks.sh"
     readonly property string barScript: Quickshell.env("HOME") + "/.local/bin/evo-bar-layout.sh"
     readonly property string fontScript: Quickshell.env("HOME") + "/.local/bin/evo-font.sh"
+    readonly property string fontStatePath: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/evo-shell/font.json"
 
     property bool roundingOn: false
     property bool gapsOn: false
@@ -127,6 +128,15 @@ Item {
         stdout: StdioCollector {
             onStreamFinished: root.parseFontState(text)
         }
+    }
+
+    FileView {
+        id: fontStateFile
+        path: root.fontStatePath
+        watchChanges: true
+        printErrors: false
+        onLoaded: root.parseFontState(fontStateFile.text())
+        onFileChanged: reload()
     }
 
     Process {

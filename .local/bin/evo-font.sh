@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Global font family + unified text size for evo-shell settings.
-# Applies to GTK (incl. Firefox UI), evo-shell, Ghostty, Cursor, Brave, and Obsidian.
+# Applies to GTK (incl. Firefox UI), evo-shell, Ghostty, Cursor, and Obsidian.
 
 set -euo pipefail
 
@@ -8,7 +8,6 @@ STATE_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/evo-shell"
 STATE_FILE="${STATE_DIR}/font.json"
 THEME_JSON="${HOME}/.config/quickshell/evo-shell/theme.json"
 GHOSTTY_CONF="${HOME}/.config/ghostty/config"
-BRAVE_FLAGS_CONF="${XDG_CONFIG_HOME:-${HOME}/.config}/brave-flags.conf"
 GKEY_SCHEMA="org.gnome.desktop.interface"
 GKEY_SCALING="text-scaling-factor"
 
@@ -58,11 +57,9 @@ percent = max(lo_pct, min(hi_pct, percent))
 offset = (percent - 100) // 10
 small_size = max(lo, min(hi, small_base + offset))
 base_size = max(lo, min(hi, base + offset))
-brave_size = max(lo, min(hi, max(9, small_base + offset)))
 obsidian_size = max(lo, min(hi, large_base + offset))
 print(small_size)
 print(base_size)
-print(brave_size)
 print(obsidian_size)
 PY
 }
@@ -120,7 +117,6 @@ offset = (percent - 100) // 10
 small_size = max(lo, min(hi, small_base + offset))
 base_size = max(lo, min(hi, base_font_size + offset))
 cursor_size = max(lo, min(hi, base_font_size + xlarge_off))
-brave_size = max(lo, min(hi, max(9, small_base + offset)))
 obsidian_size = max(lo, min(hi, large_base + offset))
 state["baseFontSize"] = base_font_size
 state["scalePercent"] = percent
@@ -133,7 +129,6 @@ state["largeFontSize"] = large_base
 state["textSize"] = small_size
 state["evoSize"] = base_size
 state["cursorSize"] = cursor_size
-state["braveChromeSize"] = brave_size
 state["obsidianSize"] = obsidian_size
 print(json.dumps(state))
 PY
@@ -166,7 +161,6 @@ offset = (percent - 100) // 10
 small_size = max(lo, min(hi, small_base + offset))
 base_size = max(lo, min(hi, base_font_size + offset))
 cursor_size = max(lo, min(hi, base_font_size + xlarge_off))
-brave_size = max(lo, min(hi, max(9, small_base + offset)))
 obsidian_size = max(lo, min(hi, large_base + offset))
 
 data = {
@@ -188,7 +182,6 @@ print(json.dumps({
     "textSize": small_size,
     "evoSize": base_size,
     "cursorSize": cursor_size,
-    "braveChromeSize": brave_size,
     "obsidianSize": obsidian_size,
 }))
 PY
@@ -515,114 +508,6 @@ for vault_id in vault_ids:
 PY
 }
 
-apply_brave_launcher() {
-    local family="$1"
-    local scale_percent="$2"
-    local base_font_size="$3"
-    local sizes brave_size font_name
-    sizes="$(compute_sizes "$scale_percent" "$base_font_size")"
-    brave_size="$(sed -n '3p' <<<"$sizes")"
-    font_name="$(gtk_font_name "$family" "$brave_size")"
-
-    python3 - "$BRAVE_FLAGS_CONF" "$STATE_DIR/brave-gtk" "$HOME/.config" "$font_name" <<'PY'
-import os
-import sys
-
-flags_path, overlay_root, real_config, font_name = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
-
-# Drop whole-browser scaling; title bar uses gtk/dconf overlay only.
-lines = []
-if os.path.isfile(flags_path):
-    with open(flags_path, encoding="utf-8") as f:
-        for line in f.read().splitlines():
-            stripped = line.strip()
-            if not stripped or stripped.startswith("#"):
-                lines.append(line)
-                continue
-            if stripped.startswith("--force-device-scale-factor="):
-                continue
-            lines.append(line)
-while lines and not lines[-1].strip():
-    lines.pop()
-if lines:
-    with open(flags_path, "w", encoding="utf-8") as f:
-        f.write("\n".join(lines) + "\n")
-elif os.path.isfile(flags_path):
-    os.remove(flags_path)
-
-if os.path.isdir(overlay_root):
-    for name in os.listdir(overlay_root):
-        path = os.path.join(overlay_root, name)
-        if os.path.islink(path) or os.path.isfile(path):
-            os.remove(path)
-        elif os.path.isdir(path):
-            import shutil
-            shutil.rmtree(path)
-
-for entry in os.listdir(real_config):
-    if entry in {"gtk-3.0", "gtk-4.0"}:
-        continue
-    src = os.path.join(real_config, entry)
-    dst = os.path.join(overlay_root, entry)
-    if not os.path.exists(dst):
-        os.symlink(src, dst)
-
-for ver in ("gtk-3.0", "gtk-4.0"):
-    gtk_dir = os.path.join(overlay_root, ver)
-    os.makedirs(gtk_dir, exist_ok=True)
-    real_gtk = os.path.join(real_config, ver)
-    for name in ("gtk.css", "gtk-dark.css", "assets", "bookmarks"):
-        src = os.path.join(real_gtk, name)
-        dst = os.path.join(gtk_dir, name)
-        if os.path.exists(src) and not os.path.exists(dst):
-            os.symlink(src, dst)
-    theme = "current"
-    settings_ini = os.path.join(real_gtk, "settings.ini")
-    if os.path.isfile(settings_ini):
-        with open(settings_ini, encoding="utf-8") as f:
-            for line in f:
-                if line.startswith("gtk-theme-name="):
-                    theme = line.split("=", 1)[1].strip() or theme
-                    break
-    with open(os.path.join(gtk_dir, "settings.ini"), "w", encoding="utf-8") as f:
-        f.write(f"[Settings]\ngtk-theme-name={theme}\ngtk-font-name={font_name}\n")
-PY
-}
-
-launch_brave() {
-    local state family scale_percent base_font_size sizes brave_size font_name restore_font old_font tiers small_baseline
-    state="$(read_state)"
-    family="$(state_field "$state" family)"
-    scale_percent="$(state_field "$state" scalePercent)"
-    base_font_size="$(state_field "$state" baseFontSize)"
-    apply_brave_launcher "$family" "$scale_percent" "$base_font_size"
-
-    sizes="$(compute_sizes "$scale_percent" "$base_font_size")"
-    brave_size="$(sed -n '3p' <<<"$sizes")"
-    tiers="$(font_tiers "$base_font_size")"
-    small_baseline="$(sed -n '1p' <<<"$tiers")"
-    font_name="$(gtk_font_name "$family" "$brave_size")"
-    restore_font="$(gtk_font_name "$family" "$small_baseline")"
-
-    old_font="$(gsettings get "$GKEY_SCHEMA" font-name 2>/dev/null || true)"
-    gsettings set "$GKEY_SCHEMA" font-name "$font_name" 2>/dev/null || true
-
-    export XDG_CONFIG_HOME="${STATE_DIR}/brave-gtk"
-    /usr/bin/brave "$@" &
-    local brave_pid=$!
-
-    (
-        sleep 2
-        if [[ -n "$old_font" ]]; then
-            gsettings set "$GKEY_SCHEMA" font-name "$old_font" 2>/dev/null || true
-        else
-            gsettings set "$GKEY_SCHEMA" font-name "$restore_font" 2>/dev/null || true
-        fi
-    ) &
-
-    wait "$brave_pid"
-}
-
 apply_all() {
     local family="$1"
     local scale_percent="$2"
@@ -641,7 +526,6 @@ apply_all() {
     apply_ghostty "$family" "$base_size"
     apply_cursor "$family" "$base_size" "$base_font_size"
     apply_obsidian "$family" "$small_size" "$large_baseline" "$small_baseline" "$zoom_delta"
-    apply_brave_launcher "$family" "$scale_percent" "$base_font_size"
 }
 
 clamp_px() {
@@ -776,12 +660,8 @@ step-zoom)
     write_state "$family" "$scale_percent" "$base_font_size" >/dev/null
     read_state
     ;;
-launch-brave)
-    shift
-    launch_brave "$@"
-    ;;
 *)
-    echo "usage: evo-font.sh get|list|apply|apply-gtk|launch-brave [args...]|set <family|zoom|base> <value>|cycle-family [next|prev]|step-zoom [up|down]" >&2
+    echo "usage: evo-font.sh get|list|apply|apply-gtk|set <family|zoom|base> <value>|cycle-family [next|prev]|step-zoom [up|down]" >&2
     exit 1
     ;;
 esac
