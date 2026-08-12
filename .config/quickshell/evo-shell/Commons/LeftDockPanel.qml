@@ -19,8 +19,10 @@ Item {
     property bool showSideButton: false
     property int contentSpacing: 10
     property int contentMargin: 12
+    property bool hovered: false
 
     readonly property bool onRight: side === "right"
+    readonly property bool surfaceActive: dock.hovered
     readonly property bool scrimActive: shown && opened && !pinned
 
     // Other outputs only — panel screen uses the in-window dismiss catcher.
@@ -67,6 +69,17 @@ Item {
                 reveal()
         })
     }
+
+    function syncHover() {
+        hovered = panelHover.hovered
+            || hoverCatcher.containsMouse
+            || sideMouse.containsMouse
+            || pinMouse.containsMouse
+            || closeMouse.containsMouse
+        Theme.panelSurfaceActive = surfaceActive
+    }
+
+    onSurfaceActiveChanged: Theme.panelSurfaceActive = surfaceActive
 
     // Dismiss when clicking other monitors while unpinned.
     Variants {
@@ -135,9 +148,35 @@ Item {
             id: panelHost
             anchors.fill: parent
 
-            Rectangle {
+            HoverHandler {
+                id: panelHover
+                onHoveredChanged: dock.syncHover()
+            }
+
+            // Layer-shell surfaces miss HoverHandler; track hover without stealing clicks/scroll.
+            MouseArea {
+                id: hoverCatcher
                 anchors.fill: parent
-                color: dockWindow.active ? Theme.overlaySurface : Theme.overlaySurfaceInactive
+                z: 100
+                hoverEnabled: true
+                acceptedButtons: Qt.NoButton
+                onContainsMouseChanged: dock.syncHover()
+                onWheel: function(wheel) { wheel.accepted = false }
+            }
+
+            Rectangle {
+                id: panelBg
+                anchors.fill: parent
+                z: -1
+                color: Theme.mantle
+                opacity: dock.surfaceActive ? Theme.surfaceOpacity : Theme.surfaceOpacityInactive
+
+                Behavior on opacity {
+                    NumberAnimation {
+                        duration: 150
+                        easing.type: Easing.OutCubic
+                    }
+                }
             }
 
             Row {
@@ -170,6 +209,7 @@ Item {
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
+                        onContainsMouseChanged: dock.syncHover()
                         onClicked: dock.sideRequested()
                     }
                 }
@@ -194,6 +234,7 @@ Item {
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
+                        onContainsMouseChanged: dock.syncHover()
                         onClicked: dock.pinRequested()
                     }
                 }
@@ -218,6 +259,7 @@ Item {
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
+                        onContainsMouseChanged: dock.syncHover()
                         onClicked: dock.closeRequested()
                     }
                 }
@@ -225,6 +267,7 @@ Item {
 
             // Block click-through to the dismiss scrim below (not over chrome buttons).
             MouseArea {
+                id: blockMouse
                 anchors.fill: parent
                 anchors.topMargin: chromeButtons.height + dock.contentMargin
                 z: 0
@@ -252,4 +295,10 @@ Item {
     }
 
     onSideChanged: if (shown) resetDockWindow()
+    onShownChanged: {
+        if (!shown) {
+            hovered = false
+            Theme.panelSurfaceActive = false
+        }
+    }
 }

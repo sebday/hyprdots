@@ -481,76 +481,88 @@ Item {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 28
                 Layout.topMargin: 2
-                opacity: !settingsBusy ? 1 : 0.35
 
-                Text {
+                Row {
                     anchors.centerIn: parent
-                    text: cleanupProc.running ? "Clearing cache…" : "Clear cache"
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: 12
-                    font.bold: Theme.fontBold
-                    opacity: cleanupMouse.containsMouse ? 1 : 0.72
-                }
+                    spacing: 20
 
-                MouseArea {
-                    id: cleanupMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    enabled: !settingsBusy
-                    cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                    onClicked: cleanupProc.running = true
-                }
-            }
+                    Item {
+                        width: cleanupText.implicitWidth
+                        height: 28
+                        opacity: !settingsBusy ? 1 : 0.35
 
-            Item {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 28
-                opacity: !settingsBusy ? 1 : 0.35
+                        Text {
+                            id: cleanupText
+                            anchors.centerIn: parent
+                            text: cleanupProc.running ? "Clearing…" : "Clear"
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: 12
+                            font.bold: Theme.fontBold
+                            opacity: cleanupMouse.containsMouse ? 1 : 0.72
+                        }
 
-                Text {
-                    anchors.centerIn: parent
-                    text: backupProc.running ? "Backing up…" : "Backup"
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: 12
-                    font.bold: Theme.fontBold
-                    opacity: backupMouse.containsMouse ? 1 : 0.72
-                }
+                        MouseArea {
+                            id: cleanupMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            enabled: !settingsBusy
+                            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                            onClicked: cleanupProc.running = true
+                        }
+                    }
 
-                MouseArea {
-                    id: backupMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    enabled: !settingsBusy
-                    cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                    onClicked: backupProc.running = true
-                }
-            }
+                    Item {
+                        width: backupText.implicitWidth
+                        height: 28
+                        opacity: !settingsBusy ? 1 : 0.35
 
-            Item {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 28
-                Layout.topMargin: 2
-                opacity: root.ready && !settingsBusy ? 1 : 0.35
+                        Text {
+                            id: backupText
+                            anchors.centerIn: parent
+                            text: backupProc.running ? "Backing up…" : "Backup"
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: 12
+                            font.bold: Theme.fontBold
+                            opacity: backupMouse.containsMouse ? 1 : 0.72
+                        }
 
-                Text {
-                    anchors.centerIn: parent
-                    text: resetProc.running ? "Resetting…" : "Reset to defaults"
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: 12
-                    font.bold: Theme.fontBold
-                    opacity: resetMouse.containsMouse ? 1 : 0.72
-                }
+                        MouseArea {
+                            id: backupMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            enabled: !settingsBusy
+                            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                            onClicked: backupProc.running = true
+                        }
+                    }
 
-                MouseArea {
-                    id: resetMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    enabled: root.ready && !settingsBusy
-                    cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                    onClicked: root.resetDefaults()
+                    Item {
+                        width: resetText.implicitWidth
+                        height: 28
+                        opacity: root.ready && !settingsBusy ? 1 : 0.35
+
+                        Text {
+                            id: resetText
+                            anchors.centerIn: parent
+                            text: resetProc.running ? "Resetting…" : "Reset"
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: 12
+                            font.bold: Theme.fontBold
+                            opacity: resetMouse.containsMouse ? 1 : 0.72
+                        }
+
+                        MouseArea {
+                            id: resetMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            enabled: root.ready && !settingsBusy
+                            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                            onClicked: root.resetDefaults()
+                        }
+                    }
                 }
             }
         }

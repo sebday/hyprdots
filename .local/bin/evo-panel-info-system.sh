@@ -26,13 +26,44 @@ read_mount_stats() {
     df -B1 --output=used,size,pcent "$mp" 2>/dev/null | awk 'NR == 2 { gsub(/%/, "", $3); print $1, $2, $3; found=1 } END { if (!found) print "0 0 0" }'
 }
 
+read_cpu_percent() {
+    local state_dir state idle total prev_idle prev_total di dt
+    state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/evo-shell"
+    state="$state_dir/cpu-stat.prev"
+    mkdir -p "$state_dir"
+    read -r idle total < <(awk '/^cpu / {idle=$5+$6; t=0; for (i=2; i<=NF; i++) t+=$i; print idle, t}' /proc/stat)
+  prev_idle=0
+  prev_total=0
+  if [[ -f "$state" ]]; then
+    read -r prev_idle prev_total < "$state" || true
+  fi
+  printf '%s %s\n' "$idle" "$total" > "$state"
+  if (( prev_total > 0 && total > prev_total )); then
+    di=$((idle - prev_idle))
+    dt=$((total - prev_total))
+    awk -v di="$di" -v dt="$dt" 'BEGIN { if (dt > 0) printf "%.1f", 100 * (1 - di / dt); else print 0 }'
+  else
+    printf '0'
+  fi
+}
+
+read_uptime_short() {
+    awk '{printf "%dh %dm", int($1 / 3600), int(($1 % 3600) / 60)}' /proc/uptime 2>/dev/null || echo ""
+}
+
 read_live_stats() {
     local mem_total mem_used mem_avail disk_used disk_total disk_pct
     local storage_used storage_total storage_pct
     local external_used external_total external_pct
-    local monitors_json
+    local monitors_json cpu_pct load1 host uptime_short
 
     monitors_json="$(read_monitors_json)"
+    cpu_pct="$(read_cpu_percent)"
+    load1="$(awk '{print $1}' /proc/loadavg 2>/dev/null || echo 0)"
+    host="$(hostname -s 2>/dev/null || true)"
+    [[ -z "$host" ]] && host="$(hostname 2>/dev/null || true)"
+    [[ -z "$host" && -f /etc/hostname ]] && host="$(tr -d '\n' < /etc/hostname)"
+    uptime_short="$(read_uptime_short)"
 
     read -r mem_total mem_avail < <(awk '
         /MemTotal:/ { t = $2 }
@@ -82,8 +113,16 @@ read_live_stats() {
         --arg externalPercent "$external_pct" \
         --arg externalTotalLabel "$(fmt_bytes "$external_total")" \
         --argjson monitors "$monitors_json" \
+        --arg cpuPercent "$cpu_pct" \
+        --arg load1 "$load1" \
+        --arg host "$host" \
+        --arg uptime "$uptime_short" \
         '{
             ok: true,
+            host: $host,
+            uptime: $uptime,
+            cpuPercent: ($cpuPercent | tonumber),
+            load1: ($load1 | tonumber),
             memTotal: $memTotal,
             memPercent: ($memPercent | tonumber),
             memTotalLabel: $memTotalLabel,

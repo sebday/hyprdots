@@ -181,6 +181,9 @@ Item {
         next.externalPercent = json.externalPercent
         next.externalTotalLabel = json.externalTotalLabel
         if (Array.isArray(json.monitors)) next.monitors = json.monitors
+        if (json.cpuPercent !== undefined) next.cpuPercent = json.cpuPercent
+        if (json.load1 !== undefined) next.load1 = json.load1
+        if (json.host !== undefined) next.host = json.host
         next.ok = true
         root.systemData = next
     }
@@ -367,7 +370,10 @@ Item {
         active: root.active
         defaultIntervalSec: 3
         command: ["bash", root.systemScript, "--live"]
-        onPolled: function(json) { root.applyLiveStats(json) }
+        onPolled: function(json) {
+            root.applyLiveStats(json)
+            miniBtop.pushSample(json)
+        }
     }
 
     PwObjectTracker {
@@ -780,49 +786,17 @@ Item {
                                         required property var modelData
                                         icon: modelData.icon
                                         label: modelData.label
+                                        isLast: index === root.systemDetailRows.length - 1
                                     }
                                 }
-
-                                TreeBranchRow {
-                                    visible: root.systemData.ok === true
-                                    icon: "󰾆"
-                                    statName: "RAM"
-                                    statValue: root.systemData.memTotalLabel || ""
-                                    statPercent: Math.round(Number(root.systemData.memPercent || 0)) + "%"
-                                    barFraction: Number(root.systemData.memPercent || 0) / 100
-                                    isLast: false
-                                }
-
-                                TreeBranchRow {
-                                    visible: root.systemData.ok === true
-                                    icon: "󰋊"
-                                    statName: "/"
-                                    statValue: root.systemData.diskTotalLabel || ""
-                                    statPercent: Math.round(Number(root.systemData.diskPercent || 0)) + "%"
-                                    barFraction: Number(root.systemData.diskPercent || 0) / 100
-                                    isLast: false
-                                }
-
-                                TreeBranchRow {
-                                    visible: root.systemData.ok === true && Number(root.systemData.storageTotal || 0) > 0
-                                    icon: "󰋊"
-                                    statName: "storage"
-                                    statValue: root.systemData.storageTotalLabel || ""
-                                    statPercent: Math.round(Number(root.systemData.storagePercent || 0)) + "%"
-                                    barFraction: Number(root.systemData.storagePercent || 0) / 100
-                                    isLast: !(root.systemData.ok === true && Number(root.systemData.externalTotal || 0) > 0)
-                                }
-
-                                TreeBranchRow {
-                                    visible: root.systemData.ok === true && Number(root.systemData.externalTotal || 0) > 0
-                                    icon: "󰋊"
-                                    statName: "external"
-                                    statValue: root.systemData.externalTotalLabel || ""
-                                    statPercent: Math.round(Number(root.systemData.externalPercent || 0)) + "%"
-                                    barFraction: Number(root.systemData.externalPercent || 0) / 100
-                                    isLast: true
-                                }
                             }
+                        }
+
+                        MiniBtop {
+                            id: miniBtop
+                            Layout.fillWidth: true
+                            active: root.active
+                            loading: livePoll.loading
                         }
                     }
                 }
