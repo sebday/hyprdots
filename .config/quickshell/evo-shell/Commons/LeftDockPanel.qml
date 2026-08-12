@@ -59,6 +59,15 @@ Item {
         shown = false
     }
 
+    function resetDockWindow() {
+        var wasShown = shown
+        conceal()
+        Qt.callLater(function() {
+            if (wasShown)
+                reveal()
+        })
+    }
+
     // Dismiss when clicking other monitors while unpinned.
     Variants {
         model: dock.otherScreens
@@ -84,16 +93,37 @@ Item {
         }
     }
 
+    // Fullscreen dismiss catcher on the panel monitor (unpinned only).
     PanelWindow {
-        visible: dock.shown
+        visible: dock.shown && !dock.pinned
         screen: dock.screen
-        // Unpinned: fullscreen so outside clicks hit the catcher below the panel.
-        // Pinned: edge strip with exclusive zone.
         anchors.top: true
         anchors.bottom: true
-        anchors.left: !dock.onRight || !dock.pinned
-        anchors.right: dock.onRight || !dock.pinned
-        implicitWidth: dock.pinned ? dock.panelWidth : 0
+        anchors.left: true
+        anchors.right: true
+        color: "transparent"
+        exclusiveZone: 0
+        exclusionMode: ExclusionMode.Ignore
+        WlrLayershell.namespace: dock.layerNamespace + "-scrim-local"
+        WlrLayershell.layer: WlrLayer.Bottom
+        WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+
+        MouseArea {
+            anchors.fill: parent
+            onClicked: dock.closeRequested()
+        }
+    }
+
+    // Panel chrome — always 350px on the chosen edge.
+    PanelWindow {
+        id: dockWindow
+        visible: dock.shown
+        screen: dock.screen
+        anchors.top: true
+        anchors.bottom: true
+        anchors.left: !dock.onRight
+        anchors.right: dock.onRight
+        implicitWidth: dock.panelWidth
         color: "transparent"
         exclusiveZone: (dock.opened && dock.pinned) ? dock.panelWidth : 0
         exclusionMode: dock.pinned ? ExclusionMode.Normal : ExclusionMode.Ignore
@@ -101,48 +131,13 @@ Item {
         WlrLayershell.layer: WlrLayer.Top
         WlrLayershell.keyboardFocus: dock.opened ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
 
-        MouseArea {
-            anchors.fill: parent
-            enabled: dock.scrimActive
-            onClicked: dock.closeRequested()
-        }
-
         Item {
             id: panelHost
-            z: 1
-            anchors.top: parent.top
-            anchors.bottom: parent.bottom
-            anchors.left: dock.onRight ? undefined : parent.left
-            anchors.right: dock.onRight ? parent.right : undefined
-            width: dock.panelWidth
+            anchors.fill: parent
 
             Rectangle {
                 anchors.fill: parent
                 color: Theme.overlaySurface
-            }
-
-            // Absorb clicks on empty panel chrome so they don't reach the dismiss area.
-            MouseArea {
-                anchors.fill: parent
-                acceptedButtons: Qt.AllButtons
-            }
-
-            ColumnLayout {
-                id: contentLayout
-                anchors.fill: parent
-                anchors.margins: dock.contentMargin
-                spacing: dock.contentSpacing
-                z: 1
-
-                Text {
-                    visible: dock.title !== ""
-                    Layout.fillWidth: true
-                    text: dock.title
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: 14
-                    font.bold: Theme.fontBold
-                }
             }
 
             Row {
@@ -152,7 +147,7 @@ Item {
                 anchors.topMargin: dock.contentMargin - 2
                 anchors.rightMargin: dock.contentMargin - 4
                 spacing: 2
-                z: 2
+                z: 10
                 visible: dock.showCloseButton || dock.showPinButton || dock.showSideButton
 
                 Item {
@@ -227,6 +222,34 @@ Item {
                     }
                 }
             }
+
+            // Block click-through to the dismiss scrim below (not over chrome buttons).
+            MouseArea {
+                anchors.fill: parent
+                anchors.topMargin: chromeButtons.height + dock.contentMargin
+                z: 0
+                acceptedButtons: Qt.AllButtons
+            }
+
+            ColumnLayout {
+                id: contentLayout
+                anchors.fill: parent
+                anchors.margins: dock.contentMargin
+                spacing: dock.contentSpacing
+                z: 1
+
+                Text {
+                    visible: dock.title !== ""
+                    Layout.fillWidth: true
+                    text: dock.title
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 14
+                    font.bold: Theme.fontBold
+                }
+            }
         }
     }
+
+    onSideChanged: if (shown) resetDockWindow()
 }

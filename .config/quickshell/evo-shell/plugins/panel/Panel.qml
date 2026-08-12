@@ -84,6 +84,8 @@ Item {
 
     function toggleSide() {
         if (sideToggleProc.running) return
+        root.pinned = false
+        panelSideLive = panelSideLive === "right" ? "left" : "right"
         sideToggleProc.running = true
     }
 
@@ -93,6 +95,10 @@ Item {
         var panel = shell && shell.shellConfig && shell.shellConfig.panel
         return (panel && String(panel.side) === "right") ? "right" : "left"
     }
+
+    property string panelSideLive: panelSide
+
+    onPanelSideChanged: panelSideLive = panelSide
 
     property var panelScreen: null
 
@@ -132,12 +138,17 @@ Item {
     Process {
         id: sideToggleProc
         command: ["bash", root.layoutScript, "panel", "toggle"]
+        onExited: {
+            root.pinned = false
+            root.panelSideLive = root.panelSide
+            root.panelScreen = root.resolvePanelScreen()
+        }
     }
 
     LeftDockPanel {
         id: dock
         layerNamespace: "evo-panel"
-        side: root.panelSide
+        side: root.panelSideLive
         screen: root.panelScreen
         pinned: root.pinned
         showCloseButton: true
