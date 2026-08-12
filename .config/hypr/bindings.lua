@@ -15,7 +15,7 @@ local function bindd(keys, description, dispatcher, flags)
     hl.bind(keys, dispatcher, flags)
 end
 
-bindd("SUPER + Space", "Launcher menu", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.menu"))
+bindd("SUPER + Space", "Panel settings", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.panel '{\"module\":\"settings\"}'"))
 bindd("SUPER + Return", "Terminal", hl.dsp.exec_cmd(terminal))
 bindd("SUPER + ALT + Return", "Cursor Agent", hl.dsp.exec_cmd(terminal .. " -e " .. bin .. "/agent"))
 bindd("SUPER + Escape", "Power menu", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.menu '{\"mode\":\"power\"}'"))

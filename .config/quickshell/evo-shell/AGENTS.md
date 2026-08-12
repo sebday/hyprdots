@@ -35,7 +35,7 @@ Hypr bindings use full path `~/.local/bin/evo-shell-ipc` (PATH may not include i
 
 ## Bar scripts
 
-`~/.local/bin/evo-bar-*.sh` — source `evo-bar-common.sh`. Cache: `~/.cache/evo-shell/bar/{key}.json` (TTL via `evo_bar_cache_read/write`). Heatmap colours: `~/.themes/current/evo-bar.css`.
+`~/.local/bin/evo-bar-*.sh` — source `evo-bar-common.sh`. Cache: `~/.cache/evo-shell/bar/{key}.json` (TTL via `evo_bar_cache_read/write`). Heatmap colours: `~/.themes/current/evo-bar.css`. Theme apply: `~/.local/bin/evo-theme.sh`; live shell colours via `~/.config/quickshell/evo-shell/theme.json` (watched by `Theme.qml`).
 
 `CommandWidget` expects one JSON line: `{ "text": "…", "class": "…" }`. Native widgets parse their own JSON from scripts.
 

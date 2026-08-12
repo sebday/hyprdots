@@ -1,11 +1,11 @@
 #!/bin/bash
 # Generate VS Code theme extension from colors.toml (Catppuccin Mocha base)
-# Usage: themes-generate-vscode.sh <theme_dir>
+# Usage: evo-theme-generate-vscode.sh <theme_dir>
 # Output: theme_dir/vscode-theme/ with package.json + themes/color-theme.json
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
-source "$SCRIPT_DIR/themes-common.sh"
+source "$SCRIPT_DIR/evo-theme-common.sh"
 
 SHARED_VSCODE="$THEME_DIR/shared/vscode"
 
@@ -128,7 +128,7 @@ sed -i "s/\"name\": \"Catppuccin Mocha\"/\"name\": \"$display_name\"/" "$out_dir
 
 # If we updated current theme, sync to editors so manual regens propagate
 if [ "$theme_dir" = "$HOME/.themes/current" ] || paths_resolved_equal "$theme_dir" "$HOME/.themes/current"; then
-    "$HOME/.local/bin/themes-set-vscode.sh" 2>/dev/null || true
+    "$HOME/.local/bin/evo-theme-set-vscode.sh" 2>/dev/null || true
 fi
 
 # package.json

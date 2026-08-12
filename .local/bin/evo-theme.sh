@@ -3,13 +3,13 @@ set -e
 # Apply a theme: build into staging, promote, activate live consumers, notify apps
 #
 # USAGE:
-#   themes-apply.sh [select]  - Open menu to select a theme (default)
-#   themes-apply.sh refresh   - Regenerate configs for current theme
-#   themes-apply.sh <name>    - Apply theme by name
+#   evo-theme.sh [select]  - Open menu to select a theme (default)
+#   evo-theme.sh refresh   - Regenerate configs for current theme
+#   evo-theme.sh <name>    - Apply theme by name
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
-source "$SCRIPT_DIR/themes-common.sh"
+source "$SCRIPT_DIR/evo-theme-common.sh"
 
 CURRENT_PATH="${CURRENT_PATH:-$THEME_DIR/current}"
 NEXT_PATH="${NEXT_PATH:-$THEME_DIR/next}"
@@ -78,8 +78,8 @@ build_theme() {
     process_theme_template "$NEXT_PATH" "obsidian.css"
     process_theme_template "$NEXT_PATH" "colors.css"
     process_theme_template "$NEXT_PATH" "shoelace-hex.css"
-    THEME_PATH="$NEXT_PATH" "$HOME/.local/bin/themes-set-gtk.sh"
-    "$HOME/.local/bin/themes-generate-vscode.sh" "$NEXT_PATH"
+    THEME_PATH="$NEXT_PATH" "$HOME/.local/bin/evo-theme-set-gtk.sh"
+    "$HOME/.local/bin/evo-theme-generate-vscode.sh" "$NEXT_PATH"
 }
 
 promote_theme() {
@@ -132,10 +132,6 @@ notify_theme_switch() {
     "$HOME/.local/bin/evo-menu-preview-warm.sh" 2>/dev/null &
     pkill -SIGUSR2 btop 2>/dev/null || true
 
-    if [ -x "$HOME/.local/bin/themes-hook-post-switch" ]; then
-        "$HOME/.local/bin/themes-hook-post-switch" "$theme_name" 2>/dev/null || true
-    fi
-
     notify-send "Theme switched to $theme_name" 2>/dev/null || true
 }
 
@@ -154,7 +150,7 @@ COMMAND="${1:-select}"
 case "$COMMAND" in
     select|"")
         trap - EXIT
-        exec "$HOME/.local/bin/evo-shell-ipc" shell toggle evo.menu '{"submenu":"themes"}'
+        exec "$HOME/.local/bin/evo-shell-ipc" shell toggle evo.panel '{"module":"settings"}'
         ;;
 
     refresh)

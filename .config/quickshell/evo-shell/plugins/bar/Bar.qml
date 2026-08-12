@@ -49,7 +49,7 @@ Scope {
             id: barPanel
             required property var modelData
             screen: modelData
-            color: Theme.background
+            color: "transparent"
             implicitHeight: root.position === "top" || root.position === "bottom" ? Theme.barHeight : 0
             implicitWidth: root.position === "left" || root.position === "right" ? Theme.barHeight : 0
 
@@ -60,6 +60,11 @@ Scope {
 
             WlrLayershell.namespace: "evo-bar"
             WlrLayershell.layer: WlrLayer.Top
+
+            Rectangle {
+                anchors.fill: parent
+                color: Theme.overlaySurface
+            }
 
             BarSection {
                 anchors.left: parent.left

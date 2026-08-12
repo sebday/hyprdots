@@ -12,7 +12,7 @@ Item {
     property var shell: null
     property bool opened: false
     property string filterText: ""
-    property string mode: "system"
+    property string mode: "apps"
     property string submenu: ""
     property var commandEntries: []
     property var dynamicEntries: []
@@ -36,7 +36,7 @@ Item {
         return Quickshell.screens.length > 0 ? Quickshell.screens[0] : null
     }
 
-    readonly property bool tileMode: (mode === "system" || mode === "power") && !submenu
+    readonly property bool tileMode: mode === "power" && !submenu
     readonly property bool previewTileMode: submenu === "themes" || submenu === "wallpaper"
     readonly property bool appsGridMode: mode === "apps"
     readonly property bool boxTileMode: tileMode || previewTileMode
@@ -133,17 +133,16 @@ Item {
         if (mode === "runner") return "run: command"
         if (mode === "power") return "Power…"
         if (mode === "apps") return "Applications…"
-        if (mode === "system") return "System…"
         return "Search…"
     }
 
     function open(payloadJson) {
         try {
             var payload = JSON.parse(payloadJson || "{}")
-            mode = String(payload.mode || "system")
+            mode = String(payload.mode || "apps")
             submenu = String(payload.submenu || "")
         } catch (e) {
-            mode = "system"
+            mode = "apps"
             submenu = ""
         }
         filterText = ""
@@ -294,7 +293,7 @@ Item {
             commandEntries = []
             return
         }
-        commandEntries = MenuEntries.systemEntries(home)
+        commandEntries = []
     }
 
     function entryIconSource(entry) {
@@ -363,7 +362,7 @@ Item {
             }
             return UsageMemory.sortByUsage(out, "apps", function(e) { return e.id }, function(e) { return e.name })
         }
-        if (mode === "power" || mode === "system") {
+        if (mode === "power") {
             return MenuEntries.filterEntries(commandEntries, q, 16).map(MenuEntries.mapEntry)
         }
         return []

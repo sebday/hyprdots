@@ -1,5 +1,5 @@
 #!/bin/bash
-# Shared helpers for theme scripts (source from other scripts).
+# Shared helpers for evo theme scripts (source from other scripts).
 
 THEME_DIR="${THEME_DIR:-$HOME/.themes}"
 TEMPLATES_DIR="${TEMPLATES_DIR:-$THEME_DIR/shared/templates}"
@@ -55,70 +55,73 @@ paths_resolved_equal() {
     [ "$a" = "$b" ]
 }
 
-# Expand shared/templates/*.tpl into theme_dir from colors.toml.
-# Skips existing outputs except shoelace-hex.css (regenerated each apply for Violentmonkey).
-process_theme_templates() {
-    local theme_dir="$1"
-    [ -n "$theme_dir" ] || return 1
-    local toml="$theme_dir/colors.toml"
-    [ -f "$toml" ] || return 0
+# Build sed substitution script from colors.toml into the given file.
+_theme_build_sed_script() {
+    local toml="$1"
+    local sed_script="$2"
+    local key value hex
 
-    local sed_script key value hex filename tpl output
-    sed_script=$(mktemp)
+    : >"$sed_script"
     while IFS='=' read -r key value; do
         key="${key//[\"\' ]/}"
         [[ $key && $key != \#* ]] || continue
         value="${value#*[\"\']}"
         value="${value%%[\"\']*}"
-        printf 's|{{ %s }}|%s|g\n' "$key" "$value" >> "$sed_script"
-        printf 's|{{ %s_strip }}|%s|g\n' "$key" "${value#\#}" >> "$sed_script"
+        printf 's|{{ %s }}|%s|g\n' "$key" "$value" >>"$sed_script"
+        printf 's|{{ %s_strip }}|%s|g\n' "$key" "${value#\#}" >>"$sed_script"
         if [[ $value =~ ^# ]]; then
             hex="${value#\#}"
-            printf 's|{{ %s_rgb }}|%d,%d,%d|g\n' "$key" "$(( 0x${hex:0:2} ))" "$(( 0x${hex:2:2} ))" "$(( 0x${hex:4:2} ))" >> "$sed_script"
+            printf 's|{{ %s_rgb }}|%d,%d,%d|g\n' "$key" "$(( 0x${hex:0:2} ))" "$(( 0x${hex:2:2} ))" "$(( 0x${hex:4:2} ))" >>"$sed_script"
         fi
-    done < "$toml"
+    done <"$toml"
+}
+
+# Expand one .tpl into theme_dir. skip_existing=1 skips when output already exists.
+_expand_theme_template() {
+    local theme_dir="$1"
+    local basename="$2"
+    local skip_existing="${3:-0}"
+    local toml="$theme_dir/colors.toml"
+    local tpl="$TEMPLATES_DIR/${basename}.tpl"
+    local output="$theme_dir/$basename"
+    local sed_script
+
+    [ -f "$toml" ] || return 1
+    [ -f "$tpl" ] || return 1
+    if [[ "$skip_existing" == 1 && -f "$output" ]]; then
+        return 0
+    fi
+
+    sed_script=$(mktemp)
+    _theme_build_sed_script "$toml" "$sed_script"
+    sed -f "$sed_script" "$tpl" >"$output"
+    rm -f "$sed_script"
+}
+
+# Expand shared/templates/*.tpl into theme_dir from colors.toml.
+# Skips existing outputs except named templates regenerated via process_theme_template.
+process_theme_templates() {
+    local theme_dir="$1"
+    local filename tpl
+
+    [ -n "$theme_dir" ] || return 1
+    [ -f "$theme_dir/colors.toml" ] || return 0
 
     for tpl in "$TEMPLATES_DIR"/*.tpl; do
         [ -f "$tpl" ] || continue
         filename=$(basename "$tpl" .tpl)
-        [ "$filename" = "obsidian.css" ] && continue
-        [ "$filename" = "colors.css" ] && continue
-        [ "$filename" = "shoelace-hex.css" ] && continue
-        output="$theme_dir/$filename"
-        [ -f "$output" ] && continue
-        sed -f "$sed_script" "$tpl" > "$output"
+        case "$filename" in
+        obsidian.css | colors.css | shoelace-hex.css) continue ;;
+        esac
+        _expand_theme_template "$theme_dir" "$filename" 1
     done
-    rm -f "$sed_script"
 }
 
 # Generate a single template output (always overwrites).
 process_theme_template() {
     local theme_dir="$1"
     local basename="$2"
-    [ -n "$theme_dir" ] || return 1
-    [ -n "$basename" ] || return 1
-    local toml="$theme_dir/colors.toml"
-    local tpl="$TEMPLATES_DIR/${basename}.tpl"
-    [ -f "$toml" ] || return 1
-    [ -f "$tpl" ] || return 1
-
-    local sed_script key value hex output
-    sed_script=$(mktemp)
-    while IFS='=' read -r key value; do
-        key="${key//[\"\' ]/}"
-        [[ $key && $key != \#* ]] || continue
-        value="${value#*[\"\']}"
-        value="${value%%[\"\']*}"
-        printf 's|{{ %s }}|%s|g\n' "$key" "$value" >> "$sed_script"
-        printf 's|{{ %s_strip }}|%s|g\n' "$key" "${value#\#}" >> "$sed_script"
-        if [[ $value =~ ^# ]]; then
-            hex="${value#\#}"
-            printf 's|{{ %s_rgb }}|%d,%d,%d|g\n' "$key" "$(( 0x${hex:0:2} ))" "$(( 0x${hex:2:2} ))" "$(( 0x${hex:4:2} ))" >> "$sed_script"
-        fi
-    done < "$toml"
-    output="$theme_dir/$basename"
-    sed -f "$sed_script" "$tpl" > "$output"
-    rm -f "$sed_script"
+    _expand_theme_template "$theme_dir" "$basename" 0
 }
 
 # Copy theme files from current/ into ~/.config (hypr theme, btop).
@@ -194,8 +197,8 @@ themes_sync_evo_shell() {
         + (if (($prev.fontFamily // $fonts.family // "") | length) > 0 then
             {fontFamily: ($prev.fontFamily // $fonts.family)}
           else {} end)
-        + (if ($prev.fontPixelSize // $fonts.uiSize // null) != null then
-            {fontPixelSize: ($prev.fontPixelSize // $fonts.uiSize)}
+        + (if ($prev.fontPixelSize // $fonts.baseFontSize // null) != null then
+            {fontPixelSize: ($prev.fontPixelSize // $fonts.baseFontSize)}
           else {} end)
         ' \
         > "$out"

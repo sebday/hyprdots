@@ -25,7 +25,7 @@ themes)
             src="$home/.themes/$name/preview.png"
             [[ -f "$src" ]] || continue
             p=$(preview_path "$src" "themes/${name}.png")
-            printf '%s\t%s/.local/bin/themes-apply.sh %s\t%s\n' "$name" "$home" "$name" "$p"
+            printf '%s\t%s/.local/bin/evo-theme.sh %s\t%s\n' "$name" "$home" "$name" "$p"
         done
     ;;
 wallpapers)

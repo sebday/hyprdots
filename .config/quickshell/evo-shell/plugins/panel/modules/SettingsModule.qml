@@ -14,12 +14,16 @@ Item {
     readonly property string barScript: Quickshell.env("HOME") + "/.local/bin/evo-bar-layout.sh"
     readonly property string fontScript: Quickshell.env("HOME") + "/.local/bin/evo-font.sh"
     readonly property string resetScript: Quickshell.env("HOME") + "/.local/bin/evo-settings-reset.sh"
+    readonly property string cleanupScript: Quickshell.env("HOME") + "/.local/bin/evo-cleanup.sh"
+    readonly property string backupScript: Quickshell.env("HOME") + "/.local/bin/evo-backup.sh"
     readonly property string fontStatePath: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/evo-shell/font.json"
     readonly property string themeNamePath: Quickshell.env("HOME") + "/.themes/current/.theme-name"
+    readonly property string evoThemePath: Quickshell.shellDir + "/theme.json"
     readonly property string wallpaperStatePath: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/evo-shell/wallpaper"
 
     property string currentThemeName: ""
     property string currentWallpaperPath: ""
+    property bool evoThemeReady: false
 
     property bool roundingOn: false
     property bool gapsOn: false
@@ -37,7 +41,7 @@ Item {
     readonly property bool ready: hyprReady && barReady && fontReady
     readonly property bool fontBusy: fontSetProc.running
     readonly property bool settingsBusy: fontBusy || hyprToggleProc.running || hyprSetProc.running
-        || barToggleProc.running || resetProc.running
+        || barToggleProc.running || resetProc.running || cleanupProc.running || backupProc.running
 
     function refresh() {
         if (!loadHyprProc.running) loadHyprProc.running = true
@@ -50,15 +54,22 @@ Item {
     }
 
     function reloadPickers() {
-        themePicker.reload()
-        wallpaperPicker.reload()
+        if (host && host.activeModule !== "settings")
+            return
+        Qt.callLater(function() {
+            themePicker.reload()
+            wallpaperPicker.reload()
+        })
     }
 
     function refreshWallpapers() {
+        wallpaperRefreshTimer.restart()
+    }
+
+    function applyThemeState() {
+        themeNameFile.reload()
         wallpaperStateFile.reload()
-        Qt.callLater(function() {
-            wallpaperPicker.reload()
-        })
+        Qt.callLater(reloadPickers)
     }
 
     function toggleHypr(key) {
@@ -183,14 +194,30 @@ Item {
         path: root.themeNamePath
         watchChanges: true
         printErrors: false
+        onLoaded: root.currentThemeName = String(themeNameFile.text() || "").trim()
+        onFileChanged: reload()
+    }
+
+    FileView {
+        id: evoThemeFile
+        path: root.evoThemePath
+        watchChanges: true
+        printErrors: false
         onLoaded: {
-            var next = String(themeNameFile.text() || "").trim()
-            if (next !== root.currentThemeName) {
-                root.currentThemeName = next
-                root.refreshWallpapers()
+            if (!root.evoThemeReady) {
+                root.evoThemeReady = true
+                return
             }
+            root.refreshWallpapers()
         }
         onFileChanged: reload()
+    }
+
+    Timer {
+        id: wallpaperRefreshTimer
+        interval: 200
+        repeat: false
+        onTriggered: root.applyThemeState()
     }
 
     FileView {
@@ -251,6 +278,16 @@ Item {
         id: resetProc
         command: ["bash", root.resetScript]
         onExited: root.refresh()
+    }
+
+    Process {
+        id: cleanupProc
+        command: ["bash", root.cleanupScript]
+    }
+
+    Process {
+        id: backupProc
+        command: ["bash", root.backupScript]
     }
 
     Flickable {
@@ -424,7 +461,6 @@ Item {
                     kind: "themes"
                     selectedKey: root.currentThemeName
                     enabled: !settingsBusy
-                    onActivated: root.refreshWallpapers()
                 }
             }
 
@@ -438,6 +474,57 @@ Item {
                     kind: "wallpapers"
                     selectedKey: root.currentWallpaperPath
                     enabled: !settingsBusy
+                }
+            }
+
+            Item {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 28
+                Layout.topMargin: 2
+                opacity: !settingsBusy ? 1 : 0.35
+
+                Text {
+                    anchors.centerIn: parent
+                    text: cleanupProc.running ? "Clearing cache…" : "Clear cache"
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 12
+                    font.bold: Theme.fontBold
+                    opacity: cleanupMouse.containsMouse ? 1 : 0.72
+                }
+
+                MouseArea {
+                    id: cleanupMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    enabled: !settingsBusy
+                    cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                    onClicked: cleanupProc.running = true
+                }
+            }
+
+            Item {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 28
+                opacity: !settingsBusy ? 1 : 0.35
+
+                Text {
+                    anchors.centerIn: parent
+                    text: backupProc.running ? "Backing up…" : "Backup"
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 12
+                    font.bold: Theme.fontBold
+                    opacity: backupMouse.containsMouse ? 1 : 0.72
+                }
+
+                MouseArea {
+                    id: backupMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    enabled: !settingsBusy
+                    cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                    onClicked: backupProc.running = true
                 }
             }
 

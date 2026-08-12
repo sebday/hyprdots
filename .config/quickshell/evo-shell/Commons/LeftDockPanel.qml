@@ -137,7 +137,7 @@ Item {
 
             Rectangle {
                 anchors.fill: parent
-                color: Theme.overlaySurface
+                color: dockWindow.active ? Theme.overlaySurface : Theme.overlaySurfaceInactive
             }
 
             Row {

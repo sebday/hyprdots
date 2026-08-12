@@ -23,6 +23,6 @@ Item {
         anchors.fill: parent
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onClicked: if (shell) shell.toggle("evo.menu", "")
+        onClicked: if (shell) shell.toggle("evo.panel", '{"module":"settings"}')
     }
 }

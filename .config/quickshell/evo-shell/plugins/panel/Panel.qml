@@ -181,8 +181,8 @@ Item {
                     readonly property string moduleId: modelData.id
 
                     anchors.fill: parent
-                    active: true
-                    visible: moduleId === root.activeModule
+                    active: moduleId === root.activeModule
+                    visible: active
                     sourceComponent: modelData.component
 
                     onLoaded: {

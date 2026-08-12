@@ -16,6 +16,7 @@ Item {
 
     property var entries: []
     property bool loading: false
+    property bool pendingReload: false
 
     signal activated(var entry)
 
@@ -37,7 +38,12 @@ Item {
     opacity: enabled ? 1 : 0.45
 
     function reload() {
-        if (!enabled || loading) return
+        if (!enabled) return
+        if (loading) {
+            pendingReload = true
+            return
+        }
+        pendingReload = false
         loading = true
         entries = []
         if (kind !== "themes" && kind !== "wallpapers") {
@@ -45,6 +51,14 @@ Item {
             return
         }
         listProc.running = true
+    }
+
+    function finishReload() {
+        loading = false
+        if (!pendingReload)
+            return
+        pendingReload = false
+        Qt.callLater(reload)
     }
 
     function parseLines(raw) {
@@ -66,7 +80,7 @@ Item {
             }
         }
         entries = out
-        loading = false
+        finishReload()
     }
 
     function isSelected(entry) {
@@ -103,7 +117,7 @@ Item {
         stdout: StdioCollector {
             onStreamFinished: root.parseLines(text)
         }
-        onExited: root.loading = false
+        onExited: root.finishReload()
     }
 
     Text {

@@ -10,16 +10,6 @@ function powerEntries(home) {
     ]
 }
 
-function systemEntries(home) {
-    return [
-        { name: "Theme", icon: "󰸌", keywords: ["theme", "appearance"], submenu: "themes" },
-        { name: "Wallpaper", icon: "󰏘", keywords: ["wallpaper", "background"], submenu: "wallpaper" },
-        { name: "Settings", icon: "󰒓", keywords: ["settings", "panel", "font", "config"], command: home + "/.local/bin/evo-shell-ipc shell summon evo.panel '{\"module\":\"settings\"}'" },
-        { name: "Clear cache", icon: "󰃢", keywords: ["cache", "cleanup"], command: home + "/.local/bin/evo-cleanup.sh" },
-        { name: "Backup", icon: "󰁯", keywords: ["backup", "env"], command: home + "/.local/bin/evo-backup.sh" }
-    ]
-}
-
 function matchesQuery(entry, query) {
     if (!query) return true
     var q = query.toLowerCase()
