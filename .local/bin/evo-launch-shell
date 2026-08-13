@@ -5,7 +5,6 @@ set -euo pipefail
 
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/evo-shell"
 SUPERVISOR_PID_FILE="${STATE_DIR}/launch-shell.pid"
-LEGACY_MARKER="${STATE_DIR}/legacy-cleaned"
 
 mkdir -p "$STATE_DIR"
 printf '%s\n' "$$" >"$SUPERVISOR_PID_FILE"
@@ -17,13 +16,6 @@ cleanup_pid_file() {
         rm -f "$SUPERVISOR_PID_FILE"
     fi
 }
-
-if [[ ! -f "$LEGACY_MARKER" ]]; then
-    for proc in hyprpaper waybar mako hypridle walker; do
-        pkill -x "$proc" 2>/dev/null || true
-    done
-    touch "$LEGACY_MARKER"
-fi
 
 run_shell() {
     systemd-cat -t evo-shell -- env QS_NO_RELOAD_POPUP=1 quickshell -n -c evo-shell &

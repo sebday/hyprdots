@@ -97,6 +97,7 @@ Item {
     function onActivated() {
         historyRecallIndex = -1
         refreshHistory()
+        tasksBlock.onActivated()
         focusInput()
     }
 
@@ -236,9 +237,8 @@ Item {
 
         Item {
             Layout.fillWidth: true
-            Layout.preferredHeight: 28
+            Layout.preferredHeight: 22
             Layout.topMargin: 2
-            opacity: root.entries.length === 0 || clearProc.running ? 0.35 : 1
 
             Text {
                 anchors.centerIn: parent
@@ -247,7 +247,7 @@ Item {
                 font.family: Theme.fontFamily
                 font.pixelSize: 12
                 font.bold: Theme.fontBold
-                opacity: clearMouse.containsMouse ? 1 : 0.72
+                opacity: !clearMouse.enabled ? 0.35 : (clearMouse.containsMouse ? 1 : 0.72)
             }
 
             MouseArea {
@@ -258,6 +258,15 @@ Item {
                 enabled: root.entries.length > 0 && !clearProc.running
                 onClicked: root.clearHistory()
             }
+        }
+
+        TasksBlock {
+            id: tasksBlock
+            host: root.host
+            Layout.fillWidth: true
+            Layout.preferredHeight: implicitHeight
+            Layout.minimumHeight: 96
+            Layout.maximumHeight: Math.max(96, Math.floor(root.height * 0.42))
         }
     }
 }

@@ -8,7 +8,7 @@ Item {
     id: root
 
     property var host: null
-    property bool active: false
+    readonly property bool active: host && host.opened && host.activeModule === "library"
 
     property string screen: "browse"
     property string browseKind: "shows"
@@ -404,9 +404,16 @@ Item {
         }
     }
 
-    ColumnLayout {
+    FramedPanel {
         anchors.fill: parent
-        spacing: 8
+        anchors.topMargin: 10
+        anchors.bottomMargin: 10
+        label: "Library"
+        contentFill: true
+
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: 8
 
         RowLayout {
             Layout.fillWidth: true
@@ -577,6 +584,7 @@ Item {
                 font.pixelSize: 13
                 opacity: 0.45
             }
+        }
         }
     }
 }

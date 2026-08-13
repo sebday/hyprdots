@@ -131,7 +131,7 @@ Item {
         mediaPoll.runPoll()
         livePoll.runPoll()
         cursorUsage.onActivated()
-        libraryMedia.onActivated()
+        appearance.onActivated()
         Qt.callLater(function() {
             if (root.active)
                 focusSink.forceActiveFocus()
@@ -687,19 +687,12 @@ Item {
                     }
                 }
 
-                FramedPanel {
-                    label: "Library"
-                    contentFill: true
+                ThemeWallpaperBlock {
+                    id: appearance
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     Layout.minimumHeight: 180
-
-                    LibraryModule {
-                        id: libraryMedia
-                        anchors.fill: parent
-                        host: root.host
-                        active: root.active
-                    }
+                    host: root.host
                 }
         }
     }

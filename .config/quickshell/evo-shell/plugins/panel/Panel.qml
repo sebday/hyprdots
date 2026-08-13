@@ -16,13 +16,13 @@ Item {
 
     Component { id: infoComp; InfoModule {} }
     Component { id: calcComp; CalcModule {} }
-    Component { id: notesComp; NotesModule {} }
+    Component { id: libraryComp; LibraryModule {} }
     Component { id: settingsComp; SettingsModule {} }
 
     readonly property var dockModules: [
         { id: "calc", icon: "󰃬", title: "Calculator", component: calcComp },
-        { id: "notes", icon: "󰠮", title: "Notes", component: notesComp },
         { id: "info", icon: "󰋼", title: "Info", component: infoComp },
+        { id: "library", icon: "󰿎", title: "Library", component: libraryComp },
         { id: "settings", icon: "󰒓", title: "Settings", component: settingsComp }
     ]
 
@@ -122,26 +122,14 @@ Item {
         layerNamespace: "evo-panel"
         side: root.panelSideLive
         pinned: true
-        showCloseButton: true
+        showCloseButton: false
         showSideButton: true
         onCloseRequested: root.dismiss()
         onSideRequested: root.toggleSide()
 
-        DockModuleBar {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 30
-            modules: root.modules
-            activeId: root.activeModule
-            onModuleActivated: function(id) {
-                root.activeModule = id
-                root.activateModule()
-            }
-        }
-
         Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            Layout.topMargin: 8
 
             Repeater {
                 id: moduleLoaders

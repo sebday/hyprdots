@@ -17,13 +17,6 @@ Item {
     readonly property string cleanupScript: Quickshell.env("HOME") + "/.local/bin/evo-cleanup.sh"
     readonly property string backupScript: Quickshell.env("HOME") + "/.local/bin/evo-backup.sh"
     readonly property string fontStatePath: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/evo-shell/font.json"
-    readonly property string themeNamePath: Quickshell.env("HOME") + "/.themes/current/.theme-name"
-    readonly property string evoThemePath: Quickshell.shellDir + "/theme.json"
-    readonly property string wallpaperStatePath: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/evo-shell/wallpaper"
-
-    property string currentThemeName: ""
-    property string currentWallpaperPath: ""
-    property bool evoThemeReady: false
 
     property bool roundingOn: false
     property bool gapsOn: false
@@ -49,28 +42,6 @@ Item {
         if (!loadBarProc.running) loadBarProc.running = true
         if (!loadFontProc.running) loadFontProc.running = true
         if (!loadFontListProc.running) loadFontListProc.running = true
-        themeNameFile.reload()
-        wallpaperStateFile.reload()
-        Qt.callLater(reloadPickers)
-    }
-
-    function reloadPickers() {
-        if (host && host.activeModule !== "settings")
-            return
-        Qt.callLater(function() {
-            themePicker.reload()
-            wallpaperPicker.reload()
-        })
-    }
-
-    function refreshWallpapers() {
-        wallpaperRefreshTimer.restart()
-    }
-
-    function applyThemeState() {
-        themeNameFile.reload()
-        wallpaperStateFile.reload()
-        Qt.callLater(reloadPickers)
     }
 
     function toggleHypr(key) {
@@ -191,46 +162,6 @@ Item {
         onFileChanged: reload()
     }
 
-    FileView {
-        id: themeNameFile
-        path: root.themeNamePath
-        watchChanges: true
-        printErrors: false
-        onLoaded: root.currentThemeName = String(themeNameFile.text() || "").trim()
-        onFileChanged: reload()
-    }
-
-    FileView {
-        id: evoThemeFile
-        path: root.evoThemePath
-        watchChanges: true
-        printErrors: false
-        onLoaded: {
-            if (!root.evoThemeReady) {
-                root.evoThemeReady = true
-                return
-            }
-            root.refreshWallpapers()
-        }
-        onFileChanged: reload()
-    }
-
-    Timer {
-        id: wallpaperRefreshTimer
-        interval: 200
-        repeat: false
-        onTriggered: root.applyThemeState()
-    }
-
-    FileView {
-        id: wallpaperStateFile
-        path: root.wallpaperStatePath
-        watchChanges: true
-        printErrors: false
-        onLoaded: root.currentWallpaperPath = String(wallpaperStateFile.text() || "").trim()
-        onFileChanged: reload()
-    }
-
     Process {
         id: loadFontListProc
         command: ["bash", root.fontScript, "list"]
@@ -308,32 +239,6 @@ Item {
             width: parent.width
             y: 10
             spacing: 16
-
-            FramedPanel {
-                label: "Theme"
-                Layout.fillWidth: true
-
-                PreviewPickerGrid {
-                    id: themePicker
-                    width: parent.width
-                    kind: "themes"
-                    selectedKey: root.currentThemeName
-                    enabled: !settingsBusy
-                }
-            }
-
-            FramedPanel {
-                label: "Wallpaper"
-                Layout.fillWidth: true
-
-                PreviewPickerGrid {
-                    id: wallpaperPicker
-                    width: parent.width
-                    kind: "wallpapers"
-                    selectedKey: root.currentWallpaperPath
-                    enabled: !settingsBusy
-                }
-            }
 
             FramedPanel {
                 label: "Font"

@@ -1,7 +1,8 @@
 module modules
 InfoModule 1.0 InfoModule.qml
 LibraryModule 1.0 LibraryModule.qml
+ThemeWallpaperBlock 1.0 ThemeWallpaperBlock.qml
 UsageModule 1.0 UsageModule.qml
 CalcModule 1.0 CalcModule.qml
-NotesModule 1.0 NotesModule.qml
+TasksBlock 1.0 TasksBlock.qml
 SettingsModule 1.0 SettingsModule.qml

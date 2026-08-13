@@ -166,13 +166,12 @@ Item {
 
             Row {
                 id: chromeButtons
-                anchors.top: parent.top
-                anchors.right: parent.right
-                anchors.topMargin: dock.contentMargin - 2
-                anchors.rightMargin: dock.contentMargin - 4
+                anchors.bottom: parent.bottom
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.bottomMargin: dock.contentMargin - 2
                 spacing: 2
                 z: 10
-                visible: dock.showCloseButton || dock.showPinButton || dock.showSideButton
+                visible: dock.showSideButton
 
                 Item {
                     width: 28
@@ -197,60 +196,12 @@ Item {
                         onClicked: dock.sideRequested()
                     }
                 }
-
-                Item {
-                    width: 28
-                    height: 28
-                    visible: dock.showPinButton
-
-                    Text {
-                        anchors.centerIn: parent
-                        text: dock.pinned ? "󰐃" : "󰤱"
-                        color: dock.pinned ? Theme.accent : Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.panelIconFontPixelSize
-                        font.bold: Theme.fontBold
-                        opacity: pinMouse.containsMouse || dock.pinned ? 1 : 0.65
-                    }
-
-                    MouseArea {
-                        id: pinMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: dock.pinRequested()
-                    }
-                }
-
-                Item {
-                    width: 28
-                    height: 28
-                    visible: dock.showCloseButton
-
-                    Text {
-                        anchors.centerIn: parent
-                        text: "󰅖"
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.panelIconFontPixelSize
-                        font.bold: Theme.fontBold
-                        opacity: closeMouse.containsMouse ? 1 : 0.65
-                    }
-
-                    MouseArea {
-                        id: closeMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: dock.closeRequested()
-                    }
-                }
             }
 
             MouseArea {
                 id: blockMouse
                 anchors.fill: parent
-                anchors.topMargin: chromeButtons.height + dock.contentMargin
+                anchors.bottomMargin: chromeButtons.visible ? chromeButtons.height + dock.contentMargin : 0
                 z: 0
                 acceptedButtons: Qt.AllButtons
             }
@@ -259,6 +210,7 @@ Item {
                 id: contentLayout
                 anchors.fill: parent
                 anchors.margins: dock.contentMargin
+                anchors.bottomMargin: dock.contentMargin + (chromeButtons.visible ? chromeButtons.height : 0)
                 spacing: dock.contentSpacing
                 z: 1
 
