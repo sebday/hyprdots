@@ -15,10 +15,10 @@ local function bindd(keys, description, dispatcher, flags)
     hl.bind(keys, dispatcher, flags)
 end
 
-bindd("SUPER + Space", "Panel settings", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.panel '{\"module\":\"settings\"}'"))
-bindd("SUPER + Return", "Terminal", hl.dsp.exec_cmd(terminal))
-bindd("SUPER + ALT + Return", "Cursor Agent", hl.dsp.exec_cmd(terminal .. " -e " .. bin .. "/agent"))
 bindd("SUPER + Escape", "Power menu", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.menu '{\"mode\":\"power\"}'"))
+bindd("SUPER + Return", "Terminal", hl.dsp.exec_cmd(terminal))
+bindd("SUPER + Space", "Panel settings", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.panel '{\"module\":\"settings\"}'"))
+bindd("SUPER + ALT + Return", "Cursor Agent", hl.dsp.exec_cmd(terminal .. " -e " .. bin .. "/agent"))
 bindd("SUPER + W", "Close Active Window", hl.dsp.window.close())
 bindd("SUPER + E", "Editor", hl.dsp.exec_cmd(editor .. " ~/"))
 bindd("SUPER + T", "GUI File Manager", hl.dsp.exec_cmd("thunar"))
@@ -36,10 +36,9 @@ bindd("SUPER + K", "Toggle Floating Window", hl.dsp.window.float({ action = "tog
 bindd("SUPER + L", "Lock Screen", hl.dsp.exec_cmd(bin .. "/evo-system-lock"))
 bindd("SUPER + C", "Calculator", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.panel '{\"module\":\"calc\"}'"))
 bindd("SUPER + N", "Notes", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.panel '{\"module\":\"notes\"}'"))
-bindd("SUPER + I", "Info panel", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.panel '{\"module\":\"info\"}'"))
+bindd("SUPER + B", "Info panel", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.panel '{\"module\":\"info\"}'"))
 bindd("SUPER + V", "Clipboard History", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.clipboard-history"))
 bindd("SUPER + M", "Media library", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.media"))
-bindd("SUPER + B", "Panel settings", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.panel '{\"module\":\"settings\"}'"))
 bindd("SUPER + P", "Colour Picker", hl.dsp.exec_cmd("hyprpicker -al"))
 
 -- Programs

@@ -15,7 +15,7 @@ ShellRoot {
         version: 1,
         idle: { screensaver: 1800, lock: 900 },
         notifications: { durationMs: 3000 },
-        panel: { side: "left", output: "DP-1" },
+        panel: { side: "left" },
         bar: {
             id: "evo.bar",
             position: "bottom",
@@ -35,6 +35,8 @@ ShellRoot {
         "evo.notifications": { kinds: ["service"], path: "plugins/notifications/Service.qml", keepLoaded: true },
         "evo.menu": { kinds: ["menu"], path: "plugins/menu/Menu.qml", keepLoaded: true },
         "evo.calendar": { kinds: ["menu"], path: "plugins/calendar/Calendar.qml", keepLoaded: true },
+        "evo.stats": { kinds: ["menu"], path: "plugins/stats/Stats.qml", keepLoaded: true },
+        "evo.weather": { kinds: ["menu"], path: "plugins/weather/Weather.qml", keepLoaded: true },
         "evo.clipboard-history": { kinds: ["menu"], path: "plugins/clipboard/Clipboard.qml", keepLoaded: true },
         "evo.clipboard": { kinds: ["service"], path: "plugins/clipboard/Service.qml", keepLoaded: true },
         "evo.media": { kinds: ["menu"], path: "plugins/media/Media.qml", keepLoaded: true },
@@ -44,10 +46,6 @@ ShellRoot {
 
     property var shellConfig: builtinShellConfig
     property var barConfig: builtinShellConfig.bar
-    readonly property string overlayOutput: {
-        var panel = shellConfig && shellConfig.panel
-        return panel && panel.output ? String(panel.output) : "DP-1"
-    }
     property string _barLoaderKey: ""
     property var _services: ({})
     property var openPanelIds: ({})
@@ -228,7 +226,7 @@ ShellRoot {
         }
     }
 
-    readonly property var panelPluginIds: ["evo.menu", "evo.panel", "evo.calendar", "evo.clipboard-history", "evo.media"]
+    readonly property var panelPluginIds: ["evo.menu", "evo.panel", "evo.calendar", "evo.stats", "evo.weather", "evo.clipboard-history", "evo.media"]
 
     Instantiator {
         model: shell.panelPluginIds

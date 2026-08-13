@@ -11,7 +11,7 @@ Item {
 
     function open(payloadJson) {
         opened = true
-        clipboardContent.onActivated()
+        weatherContent.onActivated()
     }
 
     function close() {
@@ -19,22 +19,21 @@ Item {
     }
 
     function dismiss() {
-        if (shell) shell.hide("evo.clipboard-history")
+        if (shell) shell.hide("evo.weather")
         else close()
     }
 
     CenteredOverlay {
         opened: root.opened
-        layerNamespace: "evo-clipboard-history"
-        contentWidth: 460
-        contentHeight: 560
+        layerNamespace: "evo-weather"
+        contentWidth: 480
+        contentHeight: 280
         onDismissed: root.dismiss()
 
-        ClipboardModule {
-            id: clipboardContent
+        WeatherModule {
+            id: weatherContent
             anchors.fill: parent
             host: root
-            shell: root.shell
         }
     }
 }

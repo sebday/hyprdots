@@ -1,5 +1,4 @@
 import Quickshell
-import Quickshell.Hyprland
 import Quickshell.Io
 import QtQuick
 import QtQuick.Layouts
@@ -18,13 +17,11 @@ Item {
     Component { id: infoComp; InfoModule {} }
     Component { id: calcComp; CalcModule {} }
     Component { id: notesComp; NotesModule {} }
-    Component { id: statsComp; StatsModule {} }
     Component { id: settingsComp; SettingsModule {} }
 
     readonly property var dockModules: [
         { id: "calc", icon: "󰃬", title: "Calculator", component: calcComp },
         { id: "notes", icon: "󰠮", title: "Notes", component: notesComp },
-        { id: "stats", icon: "󰄪", title: "Stats", component: statsComp },
         { id: "info", icon: "󰋼", title: "Info", component: infoComp },
         { id: "settings", icon: "󰒓", title: "Settings", component: settingsComp }
     ]
@@ -51,9 +48,11 @@ Item {
             nextModule = "calc"
         activeModule = nextModule
         panelScreen = resolvePanelScreen()
-        dock.reveal()
         opened = true
-        activateModule()
+        Qt.callLater(function() {
+            dock.reveal()
+            root.activateModule()
+        })
     }
 
     // Called by shell toggle when panel is already open. Returns true if we
@@ -100,23 +99,7 @@ Item {
     property var panelScreen: null
 
     function resolvePanelScreen() {
-        var panel = shell && shell.shellConfig && shell.shellConfig.panel
-        var output = panel && panel.output ? String(panel.output).trim() : ""
-        if (output) {
-            var configured = Util.screenForOutput(output, false)
-            if (configured) return configured
-        }
-        try {
-            var mon = Hyprland.focusedMonitor
-            if (mon) {
-                for (var i = 0; i < Quickshell.screens.length; i++) {
-                    var s = Quickshell.screens[i]
-                    if (s && s.name === mon.name)
-                        return s
-                }
-            }
-        } catch (e) {}
-        return Util.screenForOutput(output, true)
+        return Util.screenForFocused()
     }
 
     function moduleLoaderFor(id) {

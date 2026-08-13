@@ -11,7 +11,7 @@ Item {
 
     function open(payloadJson) {
         opened = true
-        clipboardContent.onActivated()
+        statsContent.onActivated()
     }
 
     function close() {
@@ -19,22 +19,21 @@ Item {
     }
 
     function dismiss() {
-        if (shell) shell.hide("evo.clipboard-history")
+        if (shell) shell.hide("evo.stats")
         else close()
     }
 
     CenteredOverlay {
         opened: root.opened
-        layerNamespace: "evo-clipboard-history"
-        contentWidth: 460
-        contentHeight: 560
+        layerNamespace: "evo-stats"
+        contentWidth: 720
+        contentHeight: 380
         onDismissed: root.dismiss()
 
-        ClipboardModule {
-            id: clipboardContent
+        StatsModule {
+            id: statsContent
             anchors.fill: parent
             host: root
-            shell: root.shell
         }
     }
 }

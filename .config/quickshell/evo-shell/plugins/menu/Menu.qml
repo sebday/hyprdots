@@ -1,6 +1,5 @@
 import Quickshell
 import Quickshell.Io
-import Quickshell.Hyprland
 import Quickshell.Wayland
 import QtQuick
 import "../../Commons"
@@ -23,17 +22,7 @@ Item {
     property var hostScreen: null
 
     function resolveHostScreen() {
-        try {
-            var mon = Hyprland.focusedMonitor
-            if (mon) {
-                for (var i = 0; i < Quickshell.screens.length; i++) {
-                    var s = Quickshell.screens[i]
-                    if (s && s.name === mon.name)
-                        return s
-                }
-            }
-        } catch (e) {}
-        return Quickshell.screens.length > 0 ? Quickshell.screens[0] : null
+        return Util.screenForOverlay()
     }
 
     readonly property bool tileMode: mode === "power" && !submenu

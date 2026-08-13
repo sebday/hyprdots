@@ -27,6 +27,8 @@ Item {
     readonly property int labelGapRight: hasLabel
         ? Math.min(width, frameLabel.x + frameLabel.width + legendPadH)
         : 0
+    readonly property int verticalChrome: contentPad * 2 + headerPad
+        + (contentFill ? balancedBottomPad : 0)
 
     implicitWidth: 200
     implicitHeight: contentFill

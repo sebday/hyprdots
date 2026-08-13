@@ -414,7 +414,7 @@ Item {
                     ToggleRow {
                         width: parent.width
                         label: "Window gaps"
-                        detail: "On: 10px in / 20px out"
+                        detail: "On: 10px in 20px out"
                         checked: root.gapsOn
                         enabled: root.hyprReady && !settingsBusy
                         onToggled: root.toggleHypr("gaps")
@@ -423,7 +423,7 @@ Item {
                     ToggleRow {
                         width: parent.width
                         label: "Animations"
-                        detail: "Window / workspace motion"
+                        detail: "Bezier sliding"
                         checked: root.animationsOn
                         enabled: root.hyprReady && !settingsBusy
                         onToggled: root.toggleHypr("animations")

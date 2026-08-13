@@ -58,7 +58,7 @@ read_state() {
     gaps_out=$(hypr_option general:gaps_out int 0)
     rounding_on=$([[ "$rounding" -eq "$ROUNDING_ON" ]] && echo true || echo false)
     gaps_on=$([[ "$gaps_in" -eq "$GAPS_IN_ON" && "$gaps_out" -eq "$GAPS_OUT_ON" ]] && echo true || echo false)
-    animations_on=$(hypr_option animations:enabled bool false)
+    animations_on=$(hypr_option animations:enabled bool true)
     active_opacity=$(hypr_option decoration:active_opacity float "$DEFAULT_ACTIVE_OPACITY")
     inactive_opacity=$(hypr_option decoration:inactive_opacity float "$DEFAULT_INACTIVE_OPACITY")
 
@@ -217,8 +217,8 @@ toggle)
     read_state
     ;;
 reset)
-    write_state "false" "false" "false" "$DEFAULT_ACTIVE_OPACITY" "$DEFAULT_INACTIVE_OPACITY"
-    apply_live "false" "false" "false" "$DEFAULT_ACTIVE_OPACITY" "$DEFAULT_INACTIVE_OPACITY"
+    write_state "false" "false" "true" "$DEFAULT_ACTIVE_OPACITY" "$DEFAULT_INACTIVE_OPACITY"
+    apply_live "false" "false" "true" "$DEFAULT_ACTIVE_OPACITY" "$DEFAULT_INACTIVE_OPACITY"
     read_state
     ;;
 *)

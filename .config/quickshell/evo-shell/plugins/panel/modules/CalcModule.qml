@@ -154,19 +154,20 @@ Item {
 
         FramedPanel {
             label: "Input"
-            contentFill: true
             Layout.fillWidth: true
-            Layout.preferredHeight: 58
 
             TextInput {
                 id: inputField
-                anchors.fill: parent
+                width: parent.width
+                height: Math.ceil(font.pixelSize * 1.45)
+                verticalAlignment: TextInput.AlignVCenter
                 color: Theme.foreground
                 font.family: Theme.fontFamily
                 font.pixelSize: root.inputFontSize
                 font.bold: Theme.fontBold
                 selectionColor: Theme.accent
                 selectedTextColor: Theme.background
+                clip: false
                 focus: root.active
 
                 Keys.onPressed: function(event) {

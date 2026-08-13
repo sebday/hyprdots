@@ -11,21 +11,9 @@ Item {
     property var host: null
 
     readonly property string home: Quickshell.env("HOME")
-    readonly property string weatherScript: home + "/.local/bin/evo-panel-weather.sh"
     readonly property string systemScript: home + "/.local/bin/evo-panel-info-system.sh"
     readonly property string mediaScript: home + "/.local/bin/evo-panel-info-media.sh"
     readonly property bool active: host && host.opened === true
-
-    property bool weatherLoading: false
-    property bool weatherOk: false
-    property string weatherError: ""
-    property string location: "Derby"
-    property var current: null
-    property var daily: []
-    property var hourly: []
-    property string sunrise: ""
-    property string sunset: ""
-    property bool hourlyExpanded: false
 
     property bool systemLoading: false
     property var systemData: ({})
@@ -94,12 +82,14 @@ Item {
         if (!liveStatsReady) return []
         var rows = [{
             name: "/",
+            icon: "󰋊",
             percent: Number(systemData.diskPercent || 0),
             total: String(systemData.diskTotalLabel || "")
         }]
         if (Number(systemData.storageTotal || 0) > 0) {
             rows.push({
                 name: "sto",
+                icon: "󰣳",
                 percent: Number(systemData.storagePercent || 0),
                 total: String(systemData.storageTotalLabel || "")
             })
@@ -107,21 +97,12 @@ Item {
         if (Number(systemData.externalTotal || 0) > 0) {
             rows.push({
                 name: "ext",
+                icon: "󰕓",
                 percent: Number(systemData.externalPercent || 0),
                 total: String(systemData.externalTotalLabel || "")
             })
         }
         return rows
-    }
-
-    readonly property int weatherColWidth: 88
-    readonly property int weatherColSpacing: 18
-    readonly property string currentHourLabel: {
-        if (!current || !current.time) return ""
-        var t = String(current.time)
-        var idx = t.indexOf("T")
-        if (idx < 0) return ""
-        return t.slice(idx + 1, idx + 3) + ":00"
     }
 
     readonly property string distroLabel: {
@@ -146,7 +127,6 @@ Item {
     }
 
     function onActivated() {
-        refreshWeather()
         refreshSystem()
         mediaPoll.runPoll()
         livePoll.runPoll()
@@ -157,39 +137,10 @@ Item {
         })
     }
 
-    function refreshWeather() {
-        if (weatherProc.running) return
-        weatherLoading = true
-        weatherProc.running = true
-    }
-
     function refreshSystem() {
         if (systemProc.running) return
         systemLoading = true
         systemProc.running = true
-    }
-
-    function parseWeather(raw) {
-        weatherLoading = false
-        try {
-            var data = JSON.parse(String(raw || "{}"))
-            root.weatherOk = data.ok === true
-            root.weatherError = String(data.error || "")
-            root.location = String(data.location || "Derby")
-            root.current = data.current || null
-            root.daily = Array.isArray(data.daily) ? data.daily : []
-            root.hourly = Array.isArray(data.hourly) ? data.hourly : []
-            root.sunrise = String(data.sunrise || "")
-            root.sunset = String(data.sunset || "")
-        } catch (e) {
-            root.weatherOk = false
-            root.weatherError = "Weather unavailable"
-            root.current = null
-            root.daily = []
-            root.hourly = []
-            root.sunrise = ""
-            root.sunset = ""
-        }
     }
 
     function parseSystem(raw) {
@@ -298,21 +249,6 @@ Item {
         }
 
         barLevels = levels
-    }
-
-    Process {
-        id: weatherProc
-        command: ["bash", root.weatherScript]
-        stdout: StdioCollector {
-            onStreamFinished: root.parseWeather(text)
-        }
-        onExited: function(exitCode) {
-            if (root.weatherLoading && exitCode !== 0) {
-                root.weatherLoading = false
-                root.weatherOk = false
-                root.weatherError = "Weather unavailable"
-            }
-        }
     }
 
     Process {
@@ -711,6 +647,7 @@ Item {
 
                                 TreeStatRow {
                                     visible: root.liveStatsReady
+                                    icon: "󰍛"
                                     statName: "mem"
                                     statPercent: Math.round(Number(root.systemData.memPercent || 0)) + "%"
                                     statValue: String(root.systemData.memTotalLabel || "")
@@ -722,6 +659,7 @@ Item {
 
                                     TreeStatRow {
                                         required property var modelData
+                                        icon: modelData.icon
                                         statName: modelData.name
                                         statPercent: Math.round(modelData.percent) + "%"
                                         statValue: modelData.total
@@ -738,256 +676,6 @@ Item {
                                     font.family: Theme.fontFamily
                                     font.pixelSize: Theme.panelHintFontPixelSize
                                     opacity: 0.55
-                                }
-                            }
-                        }
-                    }
-                }
-
-                FramedPanel {
-                    label: root.location || "Weather"
-                    Layout.fillWidth: true
-
-                    ColumnLayout {
-                        width: parent.width
-                        spacing: 8
-
-                        RowLayout {
-                            id: weatherRow
-                            Layout.alignment: Qt.AlignHCenter
-                            spacing: root.weatherColSpacing
-
-                            ColumnLayout {
-                                Layout.preferredWidth: root.weatherColWidth
-                                spacing: 4
-
-                                Text {
-                                    Layout.fillWidth: true
-                                    horizontalAlignment: Text.AlignHCenter
-                                    text: "Now"
-                                    color: Theme.foreground
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.panelHintFontPixelSize
-                                    opacity: 0.65
-                                }
-
-                                RowLayout {
-                                    Layout.alignment: Qt.AlignHCenter
-                                    Layout.preferredWidth: root.weatherColWidth
-                                    Layout.preferredHeight: 28
-                                    spacing: 6
-
-                                    Text {
-                                        text: root.current ? String(root.current.icon || "󰖐") : "󰖐"
-                                        color: Theme.accent
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: 28
-                                        font.bold: Theme.fontBold
-                                    }
-
-                                    Text {
-                                        text: root.weatherLoading ? "…" : (root.current ? (String(root.current.temp) + "°") : "—")
-                                        color: Theme.foreground
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: 24
-                                        font.bold: Theme.fontBold
-                                    }
-                                }
-
-                                Text {
-                                    Layout.fillWidth: true
-                                    horizontalAlignment: Text.AlignHCenter
-                                    text: root.weatherLoading
-                                        ? "Loading…"
-                                        : (root.weatherOk && root.current
-                                            ? String(root.current.label || "")
-                                            : (root.weatherError || "Unavailable"))
-                                    color: Theme.foreground
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.panelHintFontPixelSize
-                                    opacity: 0.55
-                                    elide: Text.ElideRight
-                                }
-                            }
-
-                            Repeater {
-                                model: root.daily
-
-                                ColumnLayout {
-                                    required property var modelData
-                                    Layout.preferredWidth: root.weatherColWidth
-                                    spacing: 4
-
-                                    Text {
-                                        Layout.fillWidth: true
-                                        horizontalAlignment: Text.AlignHCenter
-                                        text: String(modelData.dow || "")
-                                        color: Theme.foreground
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: Theme.panelHintFontPixelSize
-                                        opacity: 0.65
-                                    }
-
-                                    RowLayout {
-                                        Layout.alignment: Qt.AlignHCenter
-                                        Layout.preferredWidth: root.weatherColWidth
-                                        Layout.preferredHeight: 28
-                                        spacing: 4
-
-                                        Text {
-                                            Layout.alignment: Qt.AlignVCenter
-                                            text: String(modelData.icon || "󰖐")
-                                            color: Theme.accent
-                                            font.family: Theme.fontFamily
-                                            font.pixelSize: 16
-                                        }
-
-                                        Text {
-                                            Layout.alignment: Qt.AlignVCenter
-                                            text: String(modelData.min) + "—" + String(modelData.max) + "°"
-                                            color: Theme.foreground
-                                            font.family: Theme.fontFamily
-                                            font.pixelSize: Theme.panelHintFontPixelSize
-                                            font.bold: Theme.fontBold
-                                        }
-                                    }
-
-                                    Text {
-                                        Layout.fillWidth: true
-                                        horizontalAlignment: Text.AlignHCenter
-                                        text: String(modelData.label || "")
-                                        color: Theme.foreground
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: Theme.panelHintFontPixelSize
-                                        opacity: 0.5
-                                        elide: Text.ElideRight
-                                    }
-                                }
-                            }
-                        }
-
-                        RowLayout {
-                            Layout.alignment: Qt.AlignHCenter
-                            spacing: 18
-                            visible: root.weatherOk && (root.sunrise !== "" || root.sunset !== "")
-
-                            RowLayout {
-                                spacing: 4
-                                visible: root.sunrise !== ""
-
-                                Text {
-                                    text: "󰖜"
-                                    color: Theme.accent
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.panelSmallFontPixelSize
-                                }
-
-                                Text {
-                                    text: root.sunrise
-                                    color: Theme.foreground
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.panelSmallFontPixelSize
-                                    opacity: 0.75
-                                }
-                            }
-
-                            RowLayout {
-                                spacing: 4
-                                visible: root.sunset !== ""
-
-                                Text {
-                                    text: "󰖛"
-                                    color: Theme.accent
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.panelSmallFontPixelSize
-                                }
-
-                                Text {
-                                    text: root.sunset
-                                    color: Theme.foreground
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.panelSmallFontPixelSize
-                                    opacity: 0.75
-                                }
-                            }
-                        }
-
-                        Item {
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 22
-                            visible: root.weatherOk && root.hourly.length > 0
-
-                            RowLayout {
-                                anchors.centerIn: parent
-                                spacing: 6
-
-                                Text {
-                                    text: root.hourlyExpanded ? "−" : "+"
-                                    color: Theme.accent
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.panelSmallFontPixelSize
-                                    font.bold: Theme.fontBold
-                                }
-
-                                Text {
-                                    text: "Show more"
-                                    color: Theme.foreground
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.panelHintFontPixelSize
-                                    opacity: 0.55
-                                }
-                            }
-
-                            MouseArea {
-                                anchors.fill: parent
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: root.hourlyExpanded = !root.hourlyExpanded
-                            }
-                        }
-
-                        GridLayout {
-                            Layout.fillWidth: true
-                            columns: 4
-                            columnSpacing: 8
-                            rowSpacing: 10
-                            visible: root.weatherOk && root.hourlyExpanded && root.hourly.length > 0
-
-                            Repeater {
-                                model: root.hourly
-
-                                ColumnLayout {
-                                    required property var modelData
-                                    Layout.fillWidth: true
-                                    spacing: 2
-
-                                    readonly property bool isNow: String(modelData.time || "") === root.currentHourLabel
-                                    readonly property bool isPast: {
-                                        var hour = String(modelData.time || "")
-                                        var now = root.currentHourLabel
-                                        return hour !== "" && now !== "" && hour < now
-                                    }
-
-                                    Text {
-                                        Layout.fillWidth: true
-                                        horizontalAlignment: Text.AlignHCenter
-                                        text: String(modelData.time || "").slice(0, 2)
-                                        color: parent.isNow ? Theme.accent : Theme.foreground
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: Theme.panelHintFontPixelSize
-                                        font.bold: Theme.fontBold
-                                        opacity: parent.isNow ? 1 : (parent.isPast ? 0.35 : 0.65)
-                                    }
-
-                                    Text {
-                                        Layout.fillWidth: true
-                                        horizontalAlignment: Text.AlignHCenter
-                                        text: (modelData.temp !== undefined ? String(modelData.temp) : "—") + "°"
-                                        color: parent.isNow ? Theme.accent : Theme.foreground
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: Theme.panelHintFontPixelSize
-                                        font.bold: Theme.fontBold
-                                        opacity: parent.isPast && !parent.isNow ? 0.45 : 1
-                                    }
                                 }
                             }
                         }
@@ -1027,6 +715,15 @@ Item {
         }
 
         Text {
+            Layout.preferredWidth: 16
+            text: "󰘚"
+            color: Theme.foreground
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.panelSmallFontPixelSize
+            opacity: 0.85
+        }
+
+        Text {
             Layout.preferredWidth: root.liveStatLabelWidth
             text: "cpu"
             color: Theme.foreground
@@ -1046,45 +743,11 @@ Item {
                 color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.1)
             }
 
-            Canvas {
-                id: cpuChart
-                anchors.fill: parent
-
-                onPaint: {
-                    var ctx = getContext("2d")
-                    ctx.clearRect(0, 0, width, height)
-
-                    var frac = Math.max(0, Math.min(1, root.liveCpuPercent / 100))
-                    if (frac <= 0) return
-
-                    var pad = 1
-                    var gap = 1
-                    var innerW = Math.max(1, width - pad * 2)
-                    var innerH = Math.max(1, height - pad * 2)
-                    var cell = Math.max(1, innerH)
-                    var cols = Math.max(1, Math.floor((innerW + gap) / (cell + gap)))
-                    var filled = Math.round(frac * cols)
-                    var color = root.meterColor(frac)
-
-                    for (var i = 0; i < filled; i++) {
-                        var x = pad + i * (cell + gap)
-                        ctx.fillStyle = color
-                        ctx.fillRect(
-                            Math.round(x),
-                            Math.round(pad),
-                            Math.max(1, Math.floor(cell)),
-                            Math.max(1, Math.floor(cell))
-                        )
-                    }
-                }
-
-                Connections {
-                    target: root
-                    function onLiveCpuPercentChanged() { cpuChart.requestPaint() }
-                }
-
-                onWidthChanged: requestPaint()
-                onHeightChanged: requestPaint()
+            Rectangle {
+                height: parent.height
+                width: parent.width * Math.max(0, Math.min(1, root.liveCpuPercent / 100))
+                radius: 1
+                color: root.meterColor(root.liveCpuPercent / 100)
             }
         }
 
@@ -1107,6 +770,7 @@ Item {
     }
 
     component TreeStatRow: RowLayout {
+        property string icon: ""
         property string statName: ""
         property string statValue: ""
         property string statPercent: ""
@@ -1127,6 +791,15 @@ Item {
                 height: 1
                 color: root.treeLineColor
             }
+        }
+
+        Text {
+            Layout.preferredWidth: 16
+            text: icon
+            color: Theme.foreground
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.panelSmallFontPixelSize
+            opacity: 0.85
         }
 
         Text {

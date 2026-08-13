@@ -14,8 +14,7 @@ Item {
     readonly property int editorFontSize: 15
     readonly property int taskFontSize: 14
     readonly property int taskRowHeight: 28
-    readonly property int taskBottomPad: 14
-    readonly property int taskPanelChrome: 18
+    readonly property int taskBottomPad: 8
     readonly property int layoutTopMargin: 10
     readonly property int layoutSpacing: 10
     readonly property int clearRowHeight: 28
@@ -28,7 +27,7 @@ Item {
     readonly property int taskListHeight: taskModel.count * root.taskRowHeight + root.taskBottomPad
     readonly property int taskPanelHeightCap: Math.floor(root.splitAreaHeight * 0.5)
     readonly property int taskPanelPreferredHeight: Math.min(
-        root.taskListHeight + root.taskPanelChrome,
+        root.taskListHeight + tasksPanel.verticalChrome,
         root.taskPanelHeightCap
     )
 
@@ -347,6 +346,7 @@ Item {
         spacing: root.layoutSpacing
 
         FramedPanel {
+            id: tasksPanel
             label: "Tasks"
             contentFill: true
             Layout.fillWidth: true

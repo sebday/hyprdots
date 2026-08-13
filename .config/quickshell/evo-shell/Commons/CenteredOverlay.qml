@@ -1,5 +1,4 @@
 import Quickshell
-import Quickshell.Hyprland
 import Quickshell.Wayland
 import QtQuick
 
@@ -11,30 +10,13 @@ Item {
     property int contentHeight: 520
     property int contentMargin: 16
     property string layerNamespace: "evo-overlay"
-    property string preferredOutput: ""
     property var hostScreen: null
     signal dismissed()
 
     default property alias content: contentHost.data
 
     function resolveHostScreen() {
-        var preferred = String(root.preferredOutput || "").trim()
-        if (preferred) {
-            var matched = Util.screenForOutput(preferred, false)
-            if (matched) return matched
-        }
-
-        try {
-            var mon = Hyprland.focusedMonitor
-            if (mon) {
-                for (var i = 0; i < Quickshell.screens.length; i++) {
-                    var s = Quickshell.screens[i]
-                    if (s && s.name === mon.name)
-                        return s
-                }
-            }
-        } catch (e) {}
-        return Quickshell.screens.length > 0 ? Quickshell.screens[0] : null
+        return Util.screenForOverlay()
     }
 
     onOpenedChanged: {
