@@ -5,39 +5,43 @@
 
 local browser = "brave"
 local terminal = "ghostty"
-local editor = "ghostty -e nano"
+local editor = terminal .. " -e nvim"
 local bin = (os.getenv("HOME") or "") .. "/.local/bin"
 local shell_ipc = bin .. "/evo-shell-ipc"
 
 local function bindd(keys, description, dispatcher, flags)
-    flags = flags or {}
-    flags.description = description
-    hl.bind(keys, dispatcher, flags)
+	flags = flags or {}
+	flags.description = description
+	hl.bind(keys, dispatcher, flags)
 end
 
-bindd("SUPER + Escape", "Power menu", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.menu '{\"mode\":\"power\"}'"))
+bindd("SUPER + Escape", "Power menu", hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.menu \'{"mode":"power"}\''))
 bindd("SUPER + Return", "Terminal", hl.dsp.exec_cmd(terminal))
 bindd("SUPER + Space", "Theme module", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.theme"))
-bindd("SUPER + B", "Panel settings", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.panel '{\"module\":\"settings\"}'"))
+bindd("SUPER + B", "Panel settings", hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.panel \'{"module":"settings"}\''))
 bindd("SUPER + ALT + Return", "Cursor Agent", hl.dsp.exec_cmd(terminal .. " -e " .. bin .. "/agent"))
 bindd("SUPER + W", "Close Active Window", hl.dsp.window.close())
-bindd("SUPER + E", "Editor", hl.dsp.exec_cmd(editor .. " ~/"))
+bindd("SUPER + E", "Editor", hl.dsp.exec_cmd(editor))
 bindd("SUPER + T", "GUI File Manager", hl.dsp.exec_cmd("thunar"))
-bindd("SUPER + D", "App launcher", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.menu '{\"mode\":\"apps\"}'"))
-bindd("SUPER + R", "Runner", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.menu '{\"mode\":\"runner\"}'"))
+bindd("SUPER + D", "App launcher", hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.menu \'{"mode":"apps"}\''))
+bindd("SUPER + R", "Runner", hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.menu \'{"mode":"runner"}\''))
 bindd("SUPER + F", "Fullscreen", hl.dsp.window.fullscreen({ mode = "fullscreen", action = "set" }))
 bindd("SUPER + H", "Toggle window transparency", function()
-    local window = hl.get_active_window()
-    if window then
-        hl.dispatch(hl.dsp.window.set_prop({ prop = "opaque", value = "toggle", window = window }))
-    end
+	local window = hl.get_active_window()
+	if window then
+		hl.dispatch(hl.dsp.window.set_prop({ prop = "opaque", value = "toggle", window = window }))
+	end
 end)
 bindd("SUPER + J", "Toggle Split Direction", hl.dsp.layout("togglesplit"))
 bindd("SUPER + K", "Toggle Floating Window", hl.dsp.window.float({ action = "toggle" }))
 bindd("SUPER + L", "Lock Screen", hl.dsp.exec_cmd(bin .. "/evo-system-lock"))
-bindd("SUPER + C", "Calculator", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.panel '{\"module\":\"calc\"}'"))
-bindd("SUPER + M", "Library panel", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.panel '{\"module\":\"library\"}'"))
-bindd("SUPER + V", "Clipboard panel", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.panel '{\"module\":\"clipboard\"}'"))
+bindd("SUPER + C", "Calculator", hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.panel \'{"module":"calc"}\''))
+bindd("SUPER + M", "Library panel", hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.panel \'{"module":"library"}\''))
+bindd(
+	"SUPER + V",
+	"Clipboard panel",
+	hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.panel \'{"module":"clipboard"}\'')
+)
 bindd("SUPER + P", "Colour Picker", hl.dsp.exec_cmd("hyprpicker -al"))
 
 -- Programs
@@ -70,23 +74,23 @@ bindd("SUPER + mouse_up", "Cycle to Previous Workspace", hl.dsp.focus({ workspac
 
 -- Move active window to a workspace with numpad (follow = false = silent move)
 for i = 1, 10 do
-    local keys = {
-        [1] = "KP_End",
-        [2] = "KP_Down",
-        [3] = "KP_Next",
-        [4] = "KP_Left",
-        [5] = "KP_Begin",
-        [6] = "KP_Right",
-        [7] = "KP_Home",
-        [8] = "KP_Up",
-        [9] = "KP_Prior",
-        [10] = "KP_Insert",
-    }
-    bindd(
-        "SUPER + SHIFT + " .. keys[i],
-        "Move Active Window to Workspace " .. i,
-        hl.dsp.window.move({ workspace = i, follow = false })
-    )
+	local keys = {
+		[1] = "KP_End",
+		[2] = "KP_Down",
+		[3] = "KP_Next",
+		[4] = "KP_Left",
+		[5] = "KP_Begin",
+		[6] = "KP_Right",
+		[7] = "KP_Home",
+		[8] = "KP_Up",
+		[9] = "KP_Prior",
+		[10] = "KP_Insert",
+	}
+	bindd(
+		"SUPER + SHIFT + " .. keys[i],
+		"Move Active Window to Workspace " .. i,
+		hl.dsp.window.move({ workspace = i, follow = false })
+	)
 end
 
 -- Scratchpad
@@ -102,15 +106,50 @@ bindd("SUPER + SHIFT + up", "Move Window Up", hl.dsp.window.move({ direction = "
 bindd("SUPER + SHIFT + down", "Move Window Down", hl.dsp.window.move({ direction = "down" }))
 
 -- Repeatable binds for resizing the active window
-bindd("SUPER + CTRL + right", "Resize window wider", hl.dsp.window.resize({ x = 20, y = 0, relative = true }), { repeating = true })
-bindd("SUPER + CTRL + left", "Resize window narrower", hl.dsp.window.resize({ x = -20, y = 0, relative = true }), { repeating = true })
-bindd("SUPER + CTRL + up", "Resize window shorter", hl.dsp.window.resize({ x = 0, y = -20, relative = true }), { repeating = true })
-bindd("SUPER + CTRL + down", "Resize window taller", hl.dsp.window.resize({ x = 0, y = 20, relative = true }), { repeating = true })
+bindd(
+	"SUPER + CTRL + right",
+	"Resize window wider",
+	hl.dsp.window.resize({ x = 20, y = 0, relative = true }),
+	{ repeating = true }
+)
+bindd(
+	"SUPER + CTRL + left",
+	"Resize window narrower",
+	hl.dsp.window.resize({ x = -20, y = 0, relative = true }),
+	{ repeating = true }
+)
+bindd(
+	"SUPER + CTRL + up",
+	"Resize window shorter",
+	hl.dsp.window.resize({ x = 0, y = -20, relative = true }),
+	{ repeating = true }
+)
+bindd(
+	"SUPER + CTRL + down",
+	"Resize window taller",
+	hl.dsp.window.resize({ x = 0, y = 20, relative = true }),
+	{ repeating = true }
+)
 
 -- Volume controls (Pipewire via evo-shell)
-bindd("XF86AudioRaiseVolume", "Volume up", hl.dsp.exec_cmd(shell_ipc .. " evo.audio stepUp"), { locked = true, repeating = true })
-bindd("XF86AudioLowerVolume", "Volume down", hl.dsp.exec_cmd(shell_ipc .. " evo.audio stepDown"), { locked = true, repeating = true })
-bindd("XF86AudioMute", "Mute volume", hl.dsp.exec_cmd(shell_ipc .. " evo.audio toggleMute"), { locked = true, repeating = true })
+bindd(
+	"XF86AudioRaiseVolume",
+	"Volume up",
+	hl.dsp.exec_cmd(shell_ipc .. " evo.audio stepUp"),
+	{ locked = true, repeating = true }
+)
+bindd(
+	"XF86AudioLowerVolume",
+	"Volume down",
+	hl.dsp.exec_cmd(shell_ipc .. " evo.audio stepDown"),
+	{ locked = true, repeating = true }
+)
+bindd(
+	"XF86AudioMute",
+	"Mute volume",
+	hl.dsp.exec_cmd(shell_ipc .. " evo.audio toggleMute"),
+	{ locked = true, repeating = true }
+)
 bindd("XF86AudioPlay", "Play/Pause media", hl.dsp.exec_cmd("playerctl play-pause"), { locked = true })
 bindd("XF86AudioNext", "Next media track", hl.dsp.exec_cmd("playerctl next"), { locked = true })
 bindd("XF86AudioPrev", "Previous media track", hl.dsp.exec_cmd("playerctl previous"), { locked = true })
@@ -124,6 +163,10 @@ bindd("SUPER + minus", "Zoom out", hl.dsp.exec_cmd(bin .. "/evo-font.sh step-zoo
 bindd("SUPER + equal", "Zoom in", hl.dsp.exec_cmd(bin .. "/evo-font.sh step-zoom up"))
 
 -- Screenshot
-bindd("PRINT", "Screenshot Region", hl.dsp.exec_cmd("bash -c \"hyprshot -m region -o /tmp/ -f hyprshot.png;\""))
-bindd("ALT + PRINT", "Screenshot Active Monitor", hl.dsp.exec_cmd("bash -c \"hyprshot -m output -m active -o /tmp/ -f hyprshot.png;\""))
+bindd("PRINT", "Screenshot Region", hl.dsp.exec_cmd('bash -c "hyprshot -m region -o /tmp/ -f hyprshot.png;"'))
+bindd(
+	"ALT + PRINT",
+	"Screenshot Active Monitor",
+	hl.dsp.exec_cmd('bash -c "hyprshot -m output -m active -o /tmp/ -f hyprshot.png;"')
+)
 bindd("SUPER + PRINT", "Open Swappy", hl.dsp.exec_cmd("swappy -f /tmp/hyprshot.png"))

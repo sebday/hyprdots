@@ -65,7 +65,8 @@ Scope {
 
             Rectangle {
                 anchors.fill: parent
-                color: Theme.overlaySurfaceInactive
+                color: Theme.mantle
+                opacity: Theme.surfaceOpacityInactive
             }
 
             BarSection {

@@ -111,7 +111,7 @@ process_theme_templates() {
         [ -f "$tpl" ] || continue
         filename=$(basename "$tpl" .tpl)
         case "$filename" in
-        obsidian.css | colors.css | shoelace-hex.css) continue ;;
+        obsidian.css | colors.css | shoelace-hex.css | nvim-icons.lua) continue ;;
         esac
         _expand_theme_template "$theme_dir" "$filename" 1
     done
@@ -153,6 +153,12 @@ EOF
         mkdir -p "$config/btop/themes"
         cp "$current/btop.theme" "$config/btop/themes/current.theme"
         [ -f "$config/btop/btop.conf" ] && sed -i 's|^color_theme =.*|color_theme = "current"|' "$config/btop/btop.conf"
+    fi
+    if [ -f "$current/nvim-icons.lua" ]; then
+        mkdir -p "$config/nvim/lua"
+        cp "$current/nvim-icons.lua" "$config/nvim/lua/theme-icons.lua"
+    else
+        rm -f "$config/nvim/lua/theme-icons.lua"
     fi
 }
 

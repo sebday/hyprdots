@@ -79,4 +79,8 @@ obsidian
 mise
 python
 lazygit
+neovim
+luarocks
+tree-sitter-cli
+ast-grep
 libyaml

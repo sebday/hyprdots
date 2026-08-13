@@ -78,8 +78,10 @@ build_theme() {
     process_theme_template "$NEXT_PATH" "obsidian.css"
     process_theme_template "$NEXT_PATH" "colors.css"
     process_theme_template "$NEXT_PATH" "shoelace-hex.css"
+    process_theme_template "$NEXT_PATH" "nvim-icons.lua"
     THEME_PATH="$NEXT_PATH" "$HOME/.local/bin/evo-theme-set-gtk.sh"
     "$HOME/.local/bin/evo-theme-generate-vscode.sh" "$NEXT_PATH"
+    "$HOME/.local/bin/evo-theme-generate-neovim.sh" "$NEXT_PATH"
 }
 
 promote_theme() {

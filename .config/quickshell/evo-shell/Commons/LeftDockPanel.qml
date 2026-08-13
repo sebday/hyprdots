@@ -133,14 +133,6 @@ Item {
         Item {
             id: panelHost
             anchors.fill: parent
-            opacity: dock.surfaceActive ? Theme.surfaceOpacity : Theme.surfaceOpacityInactive
-
-            Behavior on opacity {
-                NumberAnimation {
-                    duration: 150
-                    easing.type: Easing.OutCubic
-                }
-            }
 
             MouseArea {
                 id: hoverCatcher
@@ -157,9 +149,17 @@ Item {
                 anchors.fill: parent
                 z: -1
                 color: Theme.mantle
+                opacity: dock.surfaceActive ? Theme.surfaceOpacity : Theme.surfaceOpacityInactive
                 border.width: 2
                 border.color: Theme.accent
                 radius: Theme.panelCornerRadius
+
+                Behavior on opacity {
+                    NumberAnimation {
+                        duration: 150
+                        easing.type: Easing.OutCubic
+                    }
+                }
             }
 
             Row {
