@@ -2,13 +2,14 @@ import Quickshell
 import Quickshell.Io
 import QtQuick
 import QtQuick.Layouts
-import "../../../Commons"
+import "../../Commons"
 
 Item {
     id: root
 
-    property var host: null
-
+    readonly property int tileWidth: 192
+    readonly property int tileHeight: 124
+    readonly property int tileGap: 10
     readonly property string themeNamePath: Quickshell.env("HOME") + "/.themes/current/.theme-name"
     readonly property string evoThemePath: Quickshell.shellDir + "/theme.json"
     readonly property string wallpaperStatePath: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/evo-shell/wallpaper"
@@ -20,7 +21,8 @@ Item {
     function onActivated() {
         themeNameFile.reload()
         wallpaperStateFile.reload()
-        Qt.callLater(reloadPickers)
+        if (themePicker.entries.length === 0 || wallpaperPicker.entries.length === 0)
+            Qt.callLater(reloadPickers)
     }
 
     function reloadPickers() {
@@ -33,7 +35,9 @@ Item {
     function applyThemeState() {
         themeNameFile.reload()
         wallpaperStateFile.reload()
-        Qt.callLater(reloadPickers)
+        Qt.callLater(function() {
+            wallpaperPicker.reload()
+        })
     }
 
     FileView {
@@ -76,8 +80,13 @@ Item {
         onFileChanged: reload()
     }
 
+    readonly property int legendPad: 10
+    implicitHeight: column.implicitHeight + legendPad
+
     ColumnLayout {
-        anchors.fill: parent
+        id: column
+        y: root.legendPad
+        width: parent.width
         spacing: 16
 
         FramedPanel {
@@ -88,31 +97,25 @@ Item {
                 id: themePicker
                 width: parent.width
                 kind: "themes"
+                tileWidth: root.tileWidth
+                tileHeight: root.tileHeight
+                spacing: root.tileGap
                 selectedKey: root.currentThemeName
             }
         }
 
         FramedPanel {
             label: "Wallpaper"
-            contentFill: true
             Layout.fillWidth: true
-            Layout.fillHeight: true
-            Layout.minimumHeight: 140
 
-            Flickable {
-                anchors.fill: parent
-                clip: true
-                contentWidth: width
-                contentHeight: wallpaperPicker.implicitHeight
-                boundsBehavior: Flickable.StopAtBounds
-                flickableDirection: Flickable.VerticalFlick
-
-                PreviewPickerGrid {
-                    id: wallpaperPicker
-                    width: parent.width
-                    kind: "wallpapers"
-                    selectedKey: root.currentWallpaperPath
-                }
+            PreviewPickerGrid {
+                id: wallpaperPicker
+                width: parent.width
+                kind: "wallpapers"
+                tileWidth: root.tileWidth
+                tileHeight: root.tileHeight
+                spacing: root.tileGap
+                selectedKey: root.currentWallpaperPath
             }
         }
     }

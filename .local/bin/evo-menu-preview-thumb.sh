@@ -15,7 +15,7 @@ mkdir -p "$(dirname "$dst")"
 
 if [[ ! -f "$dst" ]] || [[ "$src" -nt "$dst" ]]; then
     if command -v magick >/dev/null 2>&1; then
-        magick "$src" -thumbnail 592x384^ -gravity center -extent 592x384 PNG:"$dst" 2>/dev/null || cp -f "$src" "$dst"
+        magick "$src" -thumbnail 384x248^ -gravity center -extent 384x248 PNG:"$dst" 2>/dev/null || cp -f "$src" "$dst"
     else
         cp -f "$src" "$dst"
     fi

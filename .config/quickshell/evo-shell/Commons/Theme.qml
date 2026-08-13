@@ -117,14 +117,8 @@ Singleton {
     readonly property color overlaySurface: withOpacity(mantle, surfaceOpacity)
     readonly property color overlaySurfaceInactive: withOpacity(mantle, surfaceOpacityInactive)
     readonly property color panelBackground: overlaySurface
-    property bool panelSurfaceActive: false
-    readonly property real panelSurfaceOpacity: panelSurfaceActive ? surfaceOpacity : surfaceOpacityInactive
-    // Lift mantle toward foreground so row hover/selection reads on overlaySurface.
     readonly property real panelMantleLift: themeNumber("panelMantleLift", 0.12)
-    readonly property color panelMantle: withOpacity(
-        mixColors(mantle, foreground, panelMantleLift),
-        panelSurfaceOpacity
-    )
+    readonly property color panelMantle: mixColors(mantle, foreground, panelMantleLift)
     readonly property string fontFamily: themeColor("fontFamily", "CaskaydiaMono Nerd Font")
     readonly property bool fontBold: true
     readonly property int fontPixelSize: themeNumber("fontPixelSize", 13)

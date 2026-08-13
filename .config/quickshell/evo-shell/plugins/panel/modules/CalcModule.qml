@@ -264,9 +264,6 @@ Item {
             id: tasksBlock
             host: root.host
             Layout.fillWidth: true
-            Layout.preferredHeight: implicitHeight
-            Layout.minimumHeight: 96
-            Layout.maximumHeight: Math.max(96, Math.floor(root.height * 0.42))
         }
     }
 }

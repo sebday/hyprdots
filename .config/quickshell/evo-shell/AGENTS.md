@@ -19,7 +19,7 @@ Secrets: `~/.local/share/evo-shell/secrets.env` (`chmod 600`). Wallpaper path: `
 | Bar layout | `shell.json` → `bar.layout` |
 | Bar widgets | `BarWidgetCatalog.qml` + `widgets/qmldir`; polled scripts use `type: "command"` / `exec` → `CommandWidget` |
 | Panel dock tabs | `Panel.qml` → `dockModules` + `plugins/panel/modules/qmldir` |
-| Overlay popups | `Calendar.qml`, `Stats.qml`, `Weather.qml`, `Cursor.qml`, `Clipboard.qml`, … + `CenteredOverlay` |
+| Overlay popups | `Calendar.qml`, `Stats.qml`, `Weather.qml`, `Cursor.qml`, `Theme.qml`, … + `CenteredOverlay` |
 
 ## IPC
 
@@ -29,7 +29,7 @@ Hypr bindings use full path `~/.local/bin/evo-shell-ipc` (PATH may not include i
 
 ## Monitors
 
-- **Centered popups** (menu, calendar, stats, weather, cursor, clipboard): always `DP-1` via `Util.screenForOverlay()`
+- **Centered popups** (menu, calendar, stats, weather, cursor, theme): always `DP-1` via `Util.screenForOverlay()`
 - **Left dock** (`evo.panel`): Hyprland focused monitor on each `open()` via `Util.screenForFocused()`
 
 ## Bar scripts
@@ -51,7 +51,7 @@ Hypr bindings use full path `~/.local/bin/evo-shell-ipc` (PATH may not include i
 
 ## Media library
 
-Compact browser at the bottom of the **Info** panel (`LibraryModule`). Super+M and Super+B both open Info.
+Compact browser in the panel (`LibraryModule`). Super+M opens it.
 
 - **Index**: `~/.local/state/evo-shell/media.db` (scan from `/mnt/external/films` + `/mnt/external/tv`)
 - **Posters**: `~/.local/state/evo-shell/media-posters/` — ffmpeg frame grabs (`evo-media-fetch-posters.py`) for films, shows, and episodes
@@ -61,7 +61,7 @@ evo-media.sh scan
 evo-media-fetch-posters.py   # optional, extracts posters from video files
 ```
 
-Re-run `scan` if the external library moves. Select a film or episode → **mpv fullscreen** (Info panel closes).
+Re-run `scan` if the external library moves. Select a film or episode → **mpv fullscreen** (panel closes).
 
 ## User prefs
 

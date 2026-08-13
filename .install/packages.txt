@@ -42,6 +42,7 @@ ufw
 rsync
 btop
 nvtop
+fastfetch
 firefox
 
 # File Management ###########

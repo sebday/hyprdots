@@ -45,7 +45,6 @@ Item {
         }
         pendingReload = false
         loading = true
-        entries = []
         if (kind !== "themes" && kind !== "wallpapers") {
             loading = false
             return
@@ -110,10 +109,7 @@ Item {
 
     Process {
         id: listProc
-        command: ["bash", "-lc",
-            "test -x " + Util.shellQuote(root.listScript) + " && " +
-            Util.shellQuote(root.listScript) + " " + (root.kind === "wallpapers" ? "wallpapers" : "themes")
-        ]
+        command: [root.listScript, root.kind === "wallpapers" ? "wallpapers" : "themes"]
         stdout: StdioCollector {
             onStreamFinished: root.parseLines(text)
         }
@@ -122,7 +118,7 @@ Item {
 
     Text {
         id: statusText
-        visible: loading || entries.length === 0
+        visible: root.entries.length === 0
         anchors.horizontalCenter: parent.horizontalCenter
         width: parent.width
         horizontalAlignment: Text.AlignHCenter
@@ -167,7 +163,7 @@ Item {
                         fillMode: Image.PreserveAspectCrop
                         smooth: true
                         asynchronous: true
-                        cache: false
+                        cache: true
                         mipmap: true
                         sourceSize: Qt.size(
                             Math.ceil(root.tileWidth * root.previewDpr),

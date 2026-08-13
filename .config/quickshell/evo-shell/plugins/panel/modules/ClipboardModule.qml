@@ -2,7 +2,7 @@ import Quickshell
 import Quickshell.Io
 import QtQuick
 import QtQuick.Layouts
-import "../../Commons"
+import "../../../Commons"
 
 Item {
     id: root
@@ -20,7 +20,7 @@ Item {
     readonly property int listLimit: 30
     readonly property int historyFontSize: 13
     readonly property int rowHeight: 44
-    readonly property bool active: host && host.opened === true
+    readonly property bool active: host && host.opened && host.activeModule === "clipboard"
 
     readonly property var visibleEntries: {
         if (!imagesOnly) return entries
@@ -210,6 +210,7 @@ Item {
 
         ColumnLayout {
             anchors.fill: parent
+            anchors.topMargin: 10
             spacing: 10
 
             FramedPanel {

@@ -14,21 +14,19 @@ Item {
 
     readonly property string layoutScript: Quickshell.env("HOME") + "/.local/bin/evo-shell-layout.sh"
 
-    Component { id: infoComp; InfoModule {} }
     Component { id: calcComp; CalcModule {} }
     Component { id: libraryComp; LibraryModule {} }
+    Component { id: clipboardComp; ClipboardModule {} }
     Component { id: settingsComp; SettingsModule {} }
 
     readonly property var dockModules: [
-        { id: "calc", icon: "󰃬", title: "Calculator", component: calcComp },
-        { id: "info", icon: "󰋼", title: "Info", component: infoComp },
-        { id: "library", icon: "󰿎", title: "Library", component: libraryComp },
-        { id: "settings", icon: "󰒓", title: "Settings", component: settingsComp }
+        { id: "calc", component: calcComp },
+        { id: "library", component: libraryComp },
+        { id: "clipboard", component: clipboardComp },
+        { id: "settings", component: settingsComp }
     ]
 
-    readonly property var modules: dockModules.map(function(entry) {
-        return { id: entry.id, icon: entry.icon, title: entry.title }
-    })
+    readonly property var moduleIds: dockModules.map(function(entry) { return entry.id })
 
     function parseModule(payloadJson) {
         if (!payloadJson) return ""
@@ -81,8 +79,6 @@ Item {
         sideToggleProc.running = true
     }
 
-    readonly property var moduleIds: modules.map(function(m) { return m.id })
-
     readonly property string panelSide: {
         var panel = shell && shell.shellConfig && shell.shellConfig.panel
         return (panel && String(panel.side) === "right") ? "right" : "left"
@@ -122,7 +118,6 @@ Item {
         layerNamespace: "evo-panel"
         side: root.panelSideLive
         pinned: true
-        showCloseButton: false
         showSideButton: true
         onCloseRequested: root.dismiss()
         onSideRequested: root.toggleSide()

@@ -14,8 +14,6 @@ Item {
     property bool shown: false
     property bool pinned: false
     property string title: ""
-    property bool showCloseButton: false
-    property bool showPinButton: false
     property bool showSideButton: false
     property int contentSpacing: 10
     property int contentMargin: 12
@@ -45,7 +43,6 @@ Item {
     }
 
     signal closeRequested()
-    signal pinRequested()
     signal sideRequested()
 
     default property alias content: contentLayout.children
@@ -71,10 +68,7 @@ Item {
 
     function syncHover() {
         hovered = hoverCatcher.containsMouse
-        Theme.panelSurfaceActive = surfaceActive
     }
-
-    onSurfaceActiveChanged: Theme.panelSurfaceActive = surfaceActive
 
     Variants {
         model: dock.otherScreens
@@ -139,6 +133,14 @@ Item {
         Item {
             id: panelHost
             anchors.fill: parent
+            opacity: dock.surfaceActive ? Theme.surfaceOpacity : Theme.surfaceOpacityInactive
+
+            Behavior on opacity {
+                NumberAnimation {
+                    duration: 150
+                    easing.type: Easing.OutCubic
+                }
+            }
 
             MouseArea {
                 id: hoverCatcher
@@ -154,14 +156,10 @@ Item {
                 id: panelBg
                 anchors.fill: parent
                 z: -1
-                color: dock.surfaceActive ? Theme.overlaySurface : Theme.overlaySurfaceInactive
-
-                Behavior on color {
-                    ColorAnimation {
-                        duration: 150
-                        easing.type: Easing.OutCubic
-                    }
-                }
+                color: Theme.mantle
+                border.width: 2
+                border.color: Theme.accent
+                radius: Theme.panelCornerRadius
             }
 
             Row {
@@ -229,9 +227,7 @@ Item {
 
     onSideChanged: if (shown) resetDockWindow()
     onShownChanged: {
-        if (!shown) {
+        if (!shown)
             hovered = false
-            Theme.panelSurfaceActive = false
-        }
     }
 }

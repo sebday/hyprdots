@@ -3,7 +3,7 @@ set -e
 # Apply a theme: build into staging, promote, activate live consumers, notify apps
 #
 # USAGE:
-#   evo-theme.sh [select]  - Open menu to select a theme (default)
+#   evo-theme.sh [select]  - Open the theme picker popup
 #   evo-theme.sh refresh   - Regenerate configs for current theme
 #   evo-theme.sh <name>    - Apply theme by name
 
@@ -150,7 +150,7 @@ COMMAND="${1:-select}"
 case "$COMMAND" in
     select|"")
         trap - EXIT
-        exec "$HOME/.local/bin/evo-shell-ipc" shell toggle evo.panel '{"module":"settings"}'
+        exec "$HOME/.local/bin/evo-shell-ipc" shell toggle evo.theme
         ;;
 
     refresh)

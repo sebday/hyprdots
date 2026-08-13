@@ -17,7 +17,7 @@ end
 
 bindd("SUPER + Escape", "Power menu", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.menu '{\"mode\":\"power\"}'"))
 bindd("SUPER + Return", "Terminal", hl.dsp.exec_cmd(terminal))
-bindd("SUPER + Space", "Info panel", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.panel '{\"module\":\"info\"}'"))
+bindd("SUPER + Space", "Theme module", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.theme"))
 bindd("SUPER + B", "Panel settings", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.panel '{\"module\":\"settings\"}'"))
 bindd("SUPER + ALT + Return", "Cursor Agent", hl.dsp.exec_cmd(terminal .. " -e " .. bin .. "/agent"))
 bindd("SUPER + W", "Close Active Window", hl.dsp.window.close())
@@ -37,7 +37,7 @@ bindd("SUPER + K", "Toggle Floating Window", hl.dsp.window.float({ action = "tog
 bindd("SUPER + L", "Lock Screen", hl.dsp.exec_cmd(bin .. "/evo-system-lock"))
 bindd("SUPER + C", "Calculator", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.panel '{\"module\":\"calc\"}'"))
 bindd("SUPER + M", "Library panel", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.panel '{\"module\":\"library\"}'"))
-bindd("SUPER + V", "Clipboard History", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.clipboard-history"))
+bindd("SUPER + V", "Clipboard panel", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.panel '{\"module\":\"clipboard\"}'"))
 bindd("SUPER + P", "Colour Picker", hl.dsp.exec_cmd("hyprpicker -al"))
 
 -- Programs
