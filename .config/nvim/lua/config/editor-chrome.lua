@@ -12,6 +12,7 @@ local tab_hits = {}
 local busy = false
 local HEIGHT = 3
 
+-- Windows that are not the file editor (explorer, pickers, chrome).
 local skip_ft = {
   snacks_dashboard = true,
   snacks_picker_input = true,
@@ -24,6 +25,17 @@ local skip_ft = {
   lazy = true,
   mason = true,
   editor_chrome = true,
+}
+
+-- Full-screen UIs that should replace the tab strip. Explorer is a sidebar
+-- using the same snacks_picker_* filetypes, so it is not listed here.
+local hide_ft = {
+  snacks_dashboard = true,
+  dashboard = true,
+  alpha = true,
+  ministarter = true,
+  lazy = true,
+  mason = true,
 }
 
 local function listed_bufs()
@@ -49,7 +61,7 @@ local function is_editor_win(win)
 end
 
 local function hide_ui()
-  return skip_ft[vim.bo.filetype] == true
+  return hide_ft[vim.bo.filetype] == true
 end
 
 local function blank()
@@ -89,7 +101,7 @@ end
 
 local function render_tabs()
   local cur = vim.api.nvim_get_current_buf()
-  if chrome_buf and vim.api.nvim_buf_is_valid(chrome_buf) and cur == chrome_buf then
+  if not vim.api.nvim_buf_is_valid(cur) or not vim.bo[cur].buflisted or cur == chrome_buf then
     for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
       if is_editor_win(win) then
         cur = vim.api.nvim_win_get_buf(win)
@@ -144,6 +156,42 @@ local function render_tabs()
   vim.bo[chrome_buf].modifiable = false
 end
 
+-- Explorer is a full-height left split, so it sits flush under the tabline.
+-- Pin a blank winbar on the sidebar root so it matches the blank line above tabs.
+local function style_explorer_gap()
+  local ok, picker = pcall(require, "snacks.picker")
+  if not ok then
+    return
+  end
+  local explorers = picker.get({ source = "explorer" })
+  for _, p in ipairs(explorers) do
+    local root = p.layout and p.layout.split and p.layout.root
+    if not (root and root.win and vim.api.nvim_win_is_valid(root.win)) then
+      goto continue
+    end
+    root.opts.wo = root.opts.wo or {}
+    root.opts.wo.winbar = " "
+    local extra = "WinBar:Normal,WinBarNC:Normal"
+    local cur = root.opts.wo.winhighlight
+    if type(cur) == "table" then
+      cur.WinBar = cur.WinBar or "Normal"
+      cur.WinBarNC = cur.WinBarNC or "Normal"
+    else
+      cur = tostring(cur or vim.wo[root.win].winhighlight or "")
+      if not cur:find("WinBar:", 1, true) then
+        root.opts.wo.winhighlight = (cur ~= "" and (cur .. ",") or "") .. extra
+      else
+        root.opts.wo.winhighlight = cur
+      end
+    end
+    vim.wo[root.win].winbar = " "
+    if type(root.opts.wo.winhighlight) == "string" then
+      vim.wo[root.win].winhighlight = root.opts.wo.winhighlight
+    end
+    ::continue::
+  end
+end
+
 local function ensure_chrome()
   hide_status()
   if hide_ui() then
@@ -177,14 +225,109 @@ local function ensure_chrome()
       vim.wo[win].winbar = ""
     end
   end
+
+  style_explorer_gap()
+end
+
+local function editor_wins()
+  local wins = {}
+  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+    if is_editor_win(win) then
+      wins[#wins + 1] = win
+    end
+  end
+  return wins
 end
 
 local function editor_win()
-  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if is_editor_win(win) then
-      return win
+  return editor_wins()[1]
+end
+
+local function explorer_root_win()
+  local ok, picker = pcall(require, "snacks.picker")
+  if not ok then
+    return
+  end
+  for _, p in ipairs(picker.get({ source = "explorer" })) do
+    local root = p.layout and p.layout.split and p.layout.root
+    if root and root.win and vim.api.nvim_win_is_valid(root.win) then
+      return root.win
     end
   end
+end
+
+-- Chrome + explorer are extra windows, so :q closes the editor pane instead of
+-- the buffer tab and leaves the layout broken. Close the tab; quit nvim on the last one.
+function M.close_tab(opts)
+  opts = opts or {}
+  local bang = opts.bang == true
+  local write = opts.write == true
+  local win = vim.api.nvim_get_current_win()
+  local wins = editor_wins()
+
+  if win == chrome_win or not is_editor_win(win) or #wins > 1 then
+    if write then
+      vim.cmd(bang and "wq!" or "wq")
+    else
+      vim.cmd(bang and "quit!" or "quit")
+    end
+    return
+  end
+
+  local buf = vim.api.nvim_get_current_buf()
+  if write then
+    local ok, err = pcall(vim.cmd.write)
+    if not ok then
+      vim.api.nvim_echo({ { tostring(err):gsub("^Vim%(write%):", ""), "ErrorMsg" } }, false, {})
+      return
+    end
+  elseif vim.bo[buf].modified and not bang then
+    vim.api.nvim_echo({ { "E37: No write since last change (add ! to override)", "ErrorMsg" } }, false, {})
+    return
+  end
+
+  local others = 0
+  for _, b in ipairs(listed_bufs()) do
+    if b ~= buf then
+      others = others + 1
+    end
+  end
+  if others == 0 then
+    vim.cmd(bang and "qa!" or "qa")
+    return
+  end
+
+  local ok, snacks = pcall(require, "snacks")
+  if ok and snacks.bufdelete then
+    snacks.bufdelete({ buf = buf, force = true })
+  else
+    pcall(vim.cmd, "bdelete! " .. buf)
+  end
+  vim.schedule(M.refresh)
+end
+
+local function restore_editor()
+  if hide_ui() or busy or vim.v.exiting ~= vim.NIL then
+    return
+  end
+  if editor_win() then
+    return
+  end
+  local bufs = listed_bufs()
+  if #bufs == 0 then
+    return
+  end
+  local buf = bufs[1]
+  local split_win = explorer_root_win()
+  local cfg
+  if split_win then
+    cfg = { split = "right", win = split_win }
+  elseif chrome_win and vim.api.nvim_win_is_valid(chrome_win) then
+    cfg = { split = "below", win = chrome_win }
+  else
+    cfg = { split = "below", win = -1 }
+  end
+  pcall(vim.api.nvim_open_win, buf, true, cfg)
 end
 
 local function bounce_focus()
@@ -251,11 +394,51 @@ function M.hook_lualine()
     if chrome_win and vim.api.nvim_win_is_valid(chrome_win) then
       style_chrome(chrome_win)
     end
+    style_explorer_gap()
   end
 end
 
 function M.setup()
   vim.o.mouse = "a"
+
+  vim.api.nvim_create_user_command("ChromeQuit", function(o)
+    M.close_tab({ bang = o.bang })
+  end, { bang = true, desc = "Close buffer tab or quit" })
+  vim.api.nvim_create_user_command("ChromeWquit", function(o)
+    M.close_tab({ bang = o.bang, write = true })
+  end, { bang = true, desc = "Write and close buffer tab or quit" })
+
+  local function abbrev_cmd(lhs, rhs)
+    vim.keymap.set("ca", lhs, function()
+      if vim.fn.getcmdtype() ~= ":" then
+        return lhs
+      end
+      return vim.fn.getcmdline() == lhs and rhs or lhs
+    end, { expr = true })
+  end
+  abbrev_cmd("q", "ChromeQuit")
+  abbrev_cmd("quit", "ChromeQuit")
+  abbrev_cmd("wq", "ChromeWquit")
+  abbrev_cmd("x", "ChromeWquit")
+  abbrev_cmd("xit", "ChromeWquit")
+  abbrev_cmd("exit", "ChromeWquit")
+
+  vim.keymap.set("n", "ZZ", function()
+    M.close_tab({ write = true })
+  end, { desc = "Write and close buffer tab" })
+  vim.keymap.set("n", "ZQ", function()
+    M.close_tab({ bang = true })
+  end, { desc = "Close buffer tab without writing" })
+  vim.keymap.set("n", "<C-w>q", function()
+    M.close_tab()
+  end, { desc = "Close buffer tab or window" })
+  vim.keymap.set("n", "<C-w>c", function()
+    if is_editor_win(vim.api.nvim_get_current_win()) and #editor_wins() == 1 then
+      M.close_tab()
+    else
+      vim.cmd.close()
+    end
+  end, { desc = "Close buffer tab or window" })
 
   -- LeftMouse runs before mouse position is updated (wincol often 0).
   -- LeftRelease has the real coordinates.
@@ -280,6 +463,7 @@ function M.setup()
     "BufModifiedSet",
     "VimResized",
     "TabEnter",
+    "WinNew",
   }, {
     group = vim.api.nvim_create_augroup("editor_chrome", { clear = true }),
     callback = function(ev)
@@ -300,6 +484,25 @@ function M.setup()
           end
         end, 120)
       end
+    end,
+  })
+
+  vim.api.nvim_create_autocmd("WinClosed", {
+    group = vim.api.nvim_create_augroup("editor_chrome_restore", { clear = true }),
+    callback = function(ev)
+      local closed = tonumber(ev.match)
+      local was_chrome = closed == chrome_win
+      local was_editor = closed and is_editor_win(closed)
+      if was_chrome then
+        chrome_win = nil
+      end
+      if not was_chrome and not was_editor then
+        return
+      end
+      vim.schedule(function()
+        restore_editor()
+        M.refresh()
+      end)
     end,
   })
 

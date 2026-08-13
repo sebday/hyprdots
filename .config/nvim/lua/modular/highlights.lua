@@ -131,8 +131,12 @@ function M.snacks(p)
   return {
     SnacksNormalNC = { fg = p.text, bg = p.base },
     SnacksPicker = { fg = p.text, bg = p.base },
+    SnacksPickerTitle = { fg = p.text, bg = p.base },
+    SnacksPickerBoxTitle = { fg = p.text, bg = p.base },
     SnacksPickerInput = { fg = p.text, bg = p.base },
     SnacksPickerInputBorder = { fg = p.overlay0, bg = p.base },
+    SnacksPickerInputTitle = { fg = p.text, bg = p.base },
+    SnacksPickerToggle = { fg = p.blue, bg = p.base },
     SnacksPickerDir = { fg = p.overlay2 },
     SnacksPickerDimmed = { fg = p.overlay2 },
     SnacksPickerPathHidden = { fg = p.overlay1 },
