@@ -11,7 +11,7 @@ Item {
 
     function open(payloadJson) {
         opened = true
-        cursorContent.onActivated()
+        libraryContent.onActivated()
     }
 
     function close() {
@@ -19,24 +19,25 @@ Item {
     }
 
     function dismiss() {
-        if (shell) shell.hide("evo.cursor")
+        if (shell) shell.hide("evo.library")
         else close()
     }
 
     CenteredOverlay {
         opened: root.opened
-        layerNamespace: "evo-cursor"
-        contentWidth: 704
-        contentHeight: Math.max(720, cursorContent.implicitHeight + 64)
+        layerNamespace: "evo-library"
+        framed: false
+        scrim: true
+        scrimColor: Theme.mantle
+        fillScreen: true
+        contentMargin: 24
+        keysTarget: libraryContent
         onDismissed: root.dismiss()
 
-        CursorModule {
-            id: cursorContent
-            width: parent.width
+        LibraryModule {
+            id: libraryContent
+            anchors.fill: parent
             host: root
-            expandModels: true
-            breakdownInset: 48
-            uiScale: 2
         }
     }
 }

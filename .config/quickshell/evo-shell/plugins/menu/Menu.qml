@@ -35,18 +35,17 @@ Item {
     readonly property bool boxTileMode: tileMode || previewTileMode
     readonly property bool framedMode: !boxTileMode && !appsGridMode
     readonly property string previewFallbackIcon: submenu === "wallpaper" ? "󰏘" : "󰸌"
-    readonly property int tileWidth: 104
-    readonly property int tileHeight: 100
-    readonly property int tileSpacing: 10
-    readonly property int tileIconSize: 32
-    readonly property int systemActionCount: 4
+    readonly property int tileWidth: 160
+    readonly property int tileHeight: 160
+    readonly property int tileSpacing: 24
+    readonly property int tileIconSize: 64
+    readonly property int systemActionCount: 6
     readonly property int appGridColumns: 6
     readonly property int appIconSize: 110
     readonly property int appIconSourceSize: 128
     readonly property int appTileWidth: 160
     readonly property int appTileHeight: 160
     readonly property int appTileSpacing: 24
-    readonly property int appIconTopPadding: 8
     readonly property int previewTileWidth: 296
     readonly property int previewTileHeight: 204
     readonly property int previewImageHeight: 192
@@ -154,7 +153,6 @@ Item {
 
     readonly property string home: Quickshell.env("HOME")
     readonly property string placeholderText: {
-        if (mode === "runner") return "run: command"
         if (mode === "power") return "System…"
         if (mode === "apps") return "Applications…"
         return "Search…"
@@ -326,12 +324,6 @@ Item {
     }
 
     function handleActivateKey() {
-        if (mode === "runner") {
-            var cmd = filterText.trim()
-            if (cmd.indexOf("run:") === 0) cmd = cmd.slice(4).trim()
-            runCommand(cmd)
-            return
-        }
         activateSelection()
     }
 
@@ -353,10 +345,6 @@ Item {
     function refreshCommandEntries() {
         if (mode === "power") {
             commandEntries = MenuEntries.systemEntries(home)
-            return
-        }
-        if (mode === "apps" || mode === "runner") {
-            commandEntries = []
             return
         }
         commandEntries = []
@@ -461,7 +449,6 @@ Item {
 
     function filteredEntries() {
         var q = filterText.trim()
-        if (mode === "runner") return []
         if (submenu) {
             if (dynamicEntries.length === 0) return []
             return MenuEntries.filterEntries(dynamicEntries, q).map(function(e) {
@@ -843,6 +830,7 @@ Item {
                     height: root.appsGridViewportHeight
                     clip: true
                     reuseItems: true
+                    highlightFollowsCurrentItem: false
                     cacheBuffer: root.appTileHeight + root.appTileSpacing
                     cellWidth: root.appTileWidth + root.appTileSpacing
                     cellHeight: root.appTileHeight + root.appTileSpacing
@@ -861,65 +849,79 @@ Item {
 
                         readonly property string appIconSource: modelData.iconSource || root.entryIconSource(modelData)
                         readonly property string glyphIcon: root.entryGlyphIcon(modelData)
+                        readonly property bool appSelected: index === root.selectedIndex
 
-                        Column {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            anchors.top: parent.top
-                            anchors.topMargin: root.appIconTopPadding
-                            spacing: 4
+                        Item {
+                            id: tileFrame
+                            anchors.centerIn: parent
                             width: root.appTileWidth
+                            height: root.appTileHeight
 
-                            Item {
-                                width: parent.width
-                                height: root.appIconSize
+                            Rectangle {
+                                anchors.fill: parent
+                                color: Theme.overlaySurface
+                                border.width: appTile.appSelected ? 2 : 0
+                                border.color: Theme.accent
+                                radius: Theme.panelCornerRadius
+                            }
 
-                                Image {
-                                    id: appIcon
+                            Column {
+                                anchors.centerIn: parent
+                                spacing: 4
+
+                                Item {
                                     anchors.horizontalCenter: parent.horizontalCenter
                                     width: root.appIconSize
                                     height: root.appIconSize
-                                    visible: appTile.appIconSource.length > 0 && status !== Image.Error
-                                    source: appTile.appIconSource
-                                    fillMode: Image.PreserveAspectFit
-                                    smooth: true
-                                    asynchronous: true
-                                    cache: true
-                                    sourceSize: Qt.size(root.appIconSourceSize, root.appIconSourceSize)
+
+                                    Image {
+                                        id: appIcon
+                                        anchors.fill: parent
+                                        visible: appTile.appIconSource.length > 0 && status !== Image.Error
+                                        source: appTile.appIconSource
+                                        fillMode: Image.PreserveAspectFit
+                                        smooth: true
+                                        asynchronous: true
+                                        cache: true
+                                        sourceSize: Qt.size(root.appIconSourceSize, root.appIconSourceSize)
+                                    }
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        visible: appTile.appIconSource.length === 0 || appIcon.status === Image.Error
+                                        text: appTile.glyphIcon
+                                        color: Theme.accent
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: root.appIconSize * 0.5
+                                        font.bold: Theme.fontBold
+                                    }
                                 }
 
                                 Text {
-                                    anchors.centerIn: parent
-                                    visible: appTile.appIconSource.length === 0 || appIcon.status === Image.Error
-                                    text: appTile.glyphIcon
-                                    color: Theme.accent
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    width: Math.min(implicitWidth, root.appTileWidth - 12)
+                                    text: modelData.name || ""
+                                    color: Theme.foreground
                                     font.family: Theme.fontFamily
-                                    font.pixelSize: root.appIconSize * 0.5
+                                    font.pixelSize: Theme.panelHintFontPixelSize
                                     font.bold: Theme.fontBold
+                                    horizontalAlignment: Text.AlignHCenter
+                                    elide: Text.ElideRight
+                                    maximumLineCount: 1
+                                    opacity: 0.8
                                 }
                             }
 
-                            Text {
-                                width: parent.width
-                                text: modelData.name || ""
-                                color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.panelHintFontPixelSize
-                                font.bold: Theme.fontBold
-                                horizontalAlignment: Text.AlignHCenter
-                                elide: Text.ElideRight
-                                maximumLineCount: 1
-                                opacity: 0.8
-                            }
-                        }
-
-                        MouseArea {
-                            id: appMouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                root.selectedIndex = index
-                                root.activateEntry(modelData)
+                            MouseArea {
+                                id: appMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onEntered: root.selectedIndex = index
+                                onClicked: {
+                                    root.selectedIndex = index
+                                    root.activateEntry(modelData)
+                                }
                             }
                         }
                     }
@@ -952,8 +954,7 @@ Item {
 
                                 Column {
                                     anchors.centerIn: parent
-                                    spacing: 8
-                                    width: parent.width - 12
+                                    spacing: 4
 
                                     Text {
                                         text: modelData.icon || "󰍉"
@@ -965,12 +966,13 @@ Item {
                                     }
 
                                     Text {
+                                        anchors.horizontalCenter: parent.horizontalCenter
                                         text: modelData.name
                                         color: Theme.foreground
                                         font.family: Theme.fontFamily
-                                        font.pixelSize: 12
+                                        font.pixelSize: Theme.panelHintFontPixelSize
                                         font.bold: Theme.fontBold
-                                        width: parent.width
+                                        width: Math.min(implicitWidth, root.tileWidth - 12)
                                         horizontalAlignment: Text.AlignHCenter
                                         wrapMode: Text.Wrap
                                         maximumLineCount: 2
@@ -1011,8 +1013,7 @@ Item {
 
                                 Column {
                                     anchors.centerIn: parent
-                                    spacing: 8
-                                    width: parent.width - 12
+                                    spacing: 4
 
                                     Text {
                                         text: modelData.icon || "󰍉"
@@ -1024,12 +1025,13 @@ Item {
                                     }
 
                                     Text {
+                                        anchors.horizontalCenter: parent.horizontalCenter
                                         text: modelData.name
                                         color: Theme.foreground
                                         font.family: Theme.fontFamily
-                                        font.pixelSize: 12
+                                        font.pixelSize: Theme.panelHintFontPixelSize
                                         font.bold: Theme.fontBold
-                                        width: parent.width
+                                        width: Math.min(implicitWidth, root.tileWidth - 12)
                                         horizontalAlignment: Text.AlignHCenter
                                         wrapMode: Text.Wrap
                                         maximumLineCount: 2
@@ -1054,7 +1056,7 @@ Item {
                 ListView {
                     id: entryList
                     width: parent.width
-                    height: parent.height - (root.mode === "runner" ? root.listFilterHeight + 12 : 0)
+                    height: parent.height
                     clip: true
                     visible: root.framedMode
                     model: root.visibleEntries

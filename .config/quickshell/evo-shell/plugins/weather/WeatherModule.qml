@@ -10,7 +10,12 @@ Item {
 
     readonly property string home: Quickshell.env("HOME")
     readonly property bool active: host && host.opened === true
-    readonly property int colWidth: 88
+    readonly property int uiScale: 2
+    readonly property int colWidth: 104 * uiScale
+    readonly property int smallFont: Theme.popupTitleFontPixelSize
+    readonly property int bodyFont: Theme.popupBodyFontPixelSize
+    readonly property int hintFont: Theme.popupHintFontPixelSize
+    readonly property int heroFont: Theme.popupHeroFontPixelSize
 
     property var weather: ({})
     readonly property bool weatherOk: weather.ok === true
@@ -113,13 +118,13 @@ Item {
         id: poll
         active: root.active
         defaultIntervalSec: 600
-        command: ["bash", root.home + "/.local/bin/evo-panel-weather.sh"]
+        command: ["bash", root.home + "/.local/bin/evo-weather.sh"]
         onPolled: function(json) { root.weather = json && json.ok === true ? json : (json || { ok: false, error: "Weather unavailable" }) }
     }
 
     ColumnLayout {
         anchors.fill: parent
-        spacing: 8
+        spacing: 14 * root.uiScale
 
         Text {
             Layout.fillWidth: true
@@ -127,7 +132,7 @@ Item {
             text: root.location
             color: Theme.foreground
             font.family: Theme.fontFamily
-            font.pixelSize: Theme.panelSmallFontPixelSize
+            font.pixelSize: root.smallFont
             font.bold: Theme.fontBold
 
             MouseArea {
@@ -139,7 +144,7 @@ Item {
 
         RowLayout {
             Layout.alignment: Qt.AlignHCenter
-            spacing: 18
+            spacing: 22 * root.uiScale
 
             Repeater {
                 model: root.columns
@@ -147,7 +152,7 @@ Item {
                 ColumnLayout {
                     required property var modelData
                     Layout.preferredWidth: root.colWidth
-                    spacing: 4
+                    spacing: 10 * root.uiScale
 
                     Text {
                         Layout.fillWidth: true
@@ -155,22 +160,21 @@ Item {
                         text: modelData.title
                         color: Theme.foreground
                         font.family: Theme.fontFamily
-                        font.pixelSize: Theme.panelHintFontPixelSize
+                        font.pixelSize: root.hintFont
                         opacity: 0.65
                     }
 
                     RowLayout {
                         Layout.alignment: Qt.AlignHCenter
                         Layout.preferredWidth: root.colWidth
-                        Layout.preferredHeight: 28
-                        spacing: modelData.now ? 6 : 4
+                        spacing: (modelData.now ? 8 : 6) * root.uiScale
 
                         Text {
                             Layout.alignment: Qt.AlignVCenter
                             text: modelData.icon
                             color: Theme.accent
                             font.family: Theme.fontFamily
-                            font.pixelSize: modelData.now ? 28 : 16
+                            font.pixelSize: modelData.now ? root.heroFont : root.smallFont
                             font.bold: modelData.now ? Theme.fontBold : false
                         }
 
@@ -179,7 +183,7 @@ Item {
                             text: modelData.primary
                             color: Theme.foreground
                             font.family: Theme.fontFamily
-                            font.pixelSize: modelData.now ? 24 : Theme.panelHintFontPixelSize
+                            font.pixelSize: modelData.now ? root.heroFont : root.bodyFont
                             font.bold: Theme.fontBold
                         }
                     }
@@ -190,7 +194,7 @@ Item {
                         text: modelData.subtitle
                         color: Theme.foreground
                         font.family: Theme.fontFamily
-                        font.pixelSize: Theme.panelHintFontPixelSize
+                        font.pixelSize: root.hintFont
                         opacity: modelData.now ? 0.55 : 0.5
                         elide: Text.ElideRight
                     }
@@ -200,7 +204,7 @@ Item {
 
         RowLayout {
             Layout.alignment: Qt.AlignHCenter
-            spacing: 18
+            spacing: 18 * root.uiScale
             visible: root.weatherOk && (root.sunrise !== "" || root.sunset !== "")
 
             Repeater {
@@ -211,21 +215,21 @@ Item {
 
                 RowLayout {
                     required property var modelData
-                    spacing: 4
+                    spacing: 4 * root.uiScale
                     visible: modelData.text !== ""
 
                     Text {
                         text: modelData.icon
                         color: Theme.accent
                         font.family: Theme.fontFamily
-                        font.pixelSize: Theme.panelSmallFontPixelSize
+                        font.pixelSize: root.bodyFont
                     }
 
                     Text {
                         text: modelData.text
                         color: Theme.foreground
                         font.family: Theme.fontFamily
-                        font.pixelSize: Theme.panelSmallFontPixelSize
+                        font.pixelSize: root.bodyFont
                         opacity: 0.75
                     }
                 }
@@ -235,7 +239,7 @@ Item {
         Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            Layout.minimumHeight: 72
+            Layout.minimumHeight: 72 * root.uiScale
             visible: root.weatherOk && root.hourly.length > 0
 
             Text {
@@ -244,7 +248,7 @@ Item {
                 text: Math.round(root.hourlyTempRange.rawMax) + "°"
                 color: root.tempColor(root.hourlyTempRange.rawMax)
                 font.family: Theme.fontFamily
-                font.pixelSize: Theme.panelHintFontPixelSize
+                font.pixelSize: root.hintFont
                 font.bold: Theme.fontBold
                 opacity: 0.85
             }
@@ -252,11 +256,11 @@ Item {
             Text {
                 anchors.left: parent.left
                 anchors.bottom: parent.bottom
-                anchors.bottomMargin: 14
+                anchors.bottomMargin: 14 * root.uiScale
                 text: Math.round(root.hourlyTempRange.rawMin) + "°"
                 color: Theme.foreground
                 font.family: Theme.fontFamily
-                font.pixelSize: Theme.panelHintFontPixelSize
+                font.pixelSize: root.hintFont
                 font.bold: Theme.fontBold
                 opacity: 0.5
             }
@@ -264,7 +268,7 @@ Item {
             Canvas {
                 id: hourlyChart
                 anchors.fill: parent
-                anchors.leftMargin: 26
+                anchors.leftMargin: 26 * root.uiScale
 
                 onPaint: {
                     var ctx = getContext("2d")
@@ -276,9 +280,10 @@ Item {
                     var minV = range.min
                     var maxV = range.max
                     var span = maxV - minV || 1
-                    var h = height - 14
-                    var padX = 2
-                    var padY = 4
+                    var scale = root.uiScale
+                    var h = height - 14 * scale
+                    var padX = 2 * scale
+                    var padY = 4 * scale
                     var usableW = Math.max(1, width - padX * 2)
                     var usableH = Math.max(1, h - padY * 2)
                     var step = pts.length > 1 ? usableW / (pts.length - 1) : 0
@@ -318,7 +323,7 @@ Item {
                         ctx.moveTo(x0, y0)
                         ctx.lineTo(x1, y1)
                         ctx.strokeStyle = segColor
-                        ctx.lineWidth = 1.75
+                        ctx.lineWidth = 1.75 * scale
                         ctx.lineJoin = "round"
                         ctx.lineCap = "round"
                         ctx.stroke()
@@ -331,11 +336,11 @@ Item {
                         ctx.moveTo(nx, padY)
                         ctx.lineTo(nx, h)
                         ctx.strokeStyle = Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.18)
-                        ctx.lineWidth = 1
+                        ctx.lineWidth = 1 * scale
                         ctx.stroke()
 
                         ctx.beginPath()
-                        ctx.arc(nx, ny, 3, 0, Math.PI * 2)
+                        ctx.arc(nx, ny, 3 * scale, 0, Math.PI * 2)
                         ctx.fillStyle = root.tempColor(pts[nowIndex].temp)
                         ctx.fill()
                     }
@@ -356,8 +361,8 @@ Item {
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.bottom: parent.bottom
-                anchors.leftMargin: 26
-                height: 12
+                anchors.leftMargin: 26 * root.uiScale
+                height: 18 * root.uiScale
                 spacing: 0
 
                 Repeater {
@@ -369,7 +374,7 @@ Item {
                         text: modelData
                         color: Theme.foreground
                         font.family: Theme.fontFamily
-                        font.pixelSize: Theme.panelHintFontPixelSize
+                        font.pixelSize: root.hintFont
                         opacity: 0.4
                     }
                 }

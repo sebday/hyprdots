@@ -26,8 +26,8 @@ Item {
     CenteredOverlay {
         opened: root.opened
         layerNamespace: "evo-calendar"
-        contentWidth: 520
-        contentHeight: 440
+        contentWidth: 1040
+        contentHeight: 992
         onDismissed: root.dismiss()
 
         CalendarModule {

@@ -3,6 +3,7 @@ import Quickshell.Io
 import QtQuick
 import QtQuick.Layouts
 import "../../../Commons"
+import "../../calendar"
 
 Item {
     id: root
@@ -20,7 +21,7 @@ Item {
     readonly property string script: Quickshell.env("HOME") + "/.local/bin/evo-calc.sh"
     readonly property int inputFontSize: 24
     readonly property int historyFontSize: 15
-    readonly property bool active: host && host.opened && host.activeModule === "calc"
+    readonly property bool active: host && host.opened && host.activeModule === "tools"
 
     function refreshHistory() {
         if (!historyProc.running) historyProc.running = true
@@ -44,6 +45,7 @@ Item {
             })
             exprs.push(expr)
         }
+        out.reverse()
         root.exprHistory = exprs
         root.historyRecallIndex = -1
         return out
@@ -94,11 +96,15 @@ Item {
         })
     }
 
-    function onActivated() {
+    function onActivated(focusTarget) {
         historyRecallIndex = -1
         refreshHistory()
         tasksBlock.onActivated()
-        focusInput()
+        calendarBlock.onActivated()
+        if (focusTarget === "tasks")
+            tasksBlock.focusNewTask()
+        else
+            focusInput()
     }
 
     Process {
@@ -115,7 +121,7 @@ Item {
                 root.entries = root.parseHistory(text)
                 Qt.callLater(function() {
                     if (historyView.count > 0)
-                        historyView.positionViewAtEnd()
+                        historyView.positionViewAtBeginning()
                 })
             }
         }
@@ -169,7 +175,6 @@ Item {
                 selectionColor: Theme.accent
                 selectedTextColor: Theme.background
                 clip: false
-                focus: root.active
 
                 Keys.onPressed: function(event) {
                     if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
@@ -185,14 +190,16 @@ Item {
 
         FramedPanel {
             label: "History"
-            contentFill: true
             Layout.fillWidth: true
-            Layout.fillHeight: true
             Layout.topMargin: 4
+            Layout.fillHeight: false
 
             ListView {
                 id: historyView
-                anchors.fill: parent
+                width: parent.width
+                height: count === 0
+                    ? root.historyFontSize + 8
+                    : Math.min(contentHeight, root.historyFontSize * 8)
                 clip: true
                 model: root.entries
                 boundsBehavior: Flickable.StopAtBounds
@@ -264,6 +271,24 @@ Item {
             id: tasksBlock
             host: root.host
             Layout.fillWidth: true
+            Layout.fillHeight: true
+            Layout.preferredHeight: 0
+            Layout.minimumHeight: 80
+        }
+
+        FramedPanel {
+            label: "Calendar"
+            Layout.fillWidth: true
+            Layout.topMargin: 4
+
+            CalendarModule {
+                id: calendarBlock
+                width: parent.width
+                height: implicitHeight
+                compact: true
+                uiScale: 1
+                host: root.host
+            }
         }
     }
 }

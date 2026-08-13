@@ -18,6 +18,7 @@ Item {
     property bool taskLoading: false
     property bool taskDirty: false
     property bool suppressTaskReload: false
+    property bool pendingNewTaskFocus: false
     property int taskUiTick: 0
 
     readonly property int listHeight: Math.max(root.taskRowMin, taskList.contentHeight)
@@ -163,6 +164,8 @@ Item {
         }
         taskDirty = false
         taskLoading = false
+        if (pendingNewTaskFocus)
+            focusTaskRow(Math.max(0, taskModel.count - 1))
     }
 
     function saveTask() {
@@ -198,12 +201,21 @@ Item {
 
     function focusTaskRow(row) {
         Qt.callLater(function() {
-            var item = taskList.itemAtIndex(row)
-            if (item && item.taskField) {
-                item.taskField.forceActiveFocus()
-                item.taskField.cursorPosition = item.taskField.text.length
-            }
+            taskList.positionViewAtIndex(row, ListView.Contain)
+            Qt.callLater(function() {
+                var item = taskList.itemAtIndex(row)
+                if (item && item.taskField) {
+                    item.taskField.forceActiveFocus()
+                    item.taskField.cursorPosition = item.taskField.text.length
+                    pendingNewTaskFocus = false
+                }
+            })
         })
+    }
+
+    function focusNewTask() {
+        pendingNewTaskFocus = true
+        focusTaskRow(Math.max(0, taskModel.count - 1))
     }
 
     function onActivated() {

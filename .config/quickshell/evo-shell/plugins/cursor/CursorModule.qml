@@ -2,7 +2,7 @@ import Quickshell
 import Quickshell.Io
 import QtQuick
 import QtQuick.Layouts
-import "../../../Commons"
+import "../../Commons"
 
 Item {
     id: root
@@ -28,8 +28,6 @@ Item {
         ? String(detail.otherColor) : Theme.foreground
 
     function onActivated() {
-        if (expandModels)
-            modelSplitExpanded = true
         usagePoll.runPoll()
     }
 
@@ -57,9 +55,14 @@ Item {
     readonly property var modelSplit: Array.isArray(detail.modelSplit) ? detail.modelSplit : []
     readonly property bool hasModelDetails: root.modelSplit.length > 0 || root.detail.onDemand === true
 
-    property bool expandModels: false
-    property bool modelSplitExpanded: expandModels
     property int breakdownInset: 0
+    property int uiScale: 1
+    readonly property int smallFont: uiScale > 1 ? Theme.popupHintFontPixelSize : Theme.panelSmallFontPixelSize
+    readonly property int hintFont: uiScale > 1 ? Theme.popupHintFontPixelSize : Theme.panelHintFontPixelSize
+    readonly property int heroFont: uiScale > 1 ? Theme.popupBodyFontPixelSize : 22
+    readonly property int breakdownFont: uiScale > 1
+        ? Math.max(Theme.panelTitleFontPixelSize, Theme.fontPixelSize + 2)
+        : Theme.panelHintFontPixelSize
 
     function applyPayload(json) {
         loading = false
@@ -98,8 +101,9 @@ Item {
 
     ColumnLayout {
         id: contentColumn
+        anchors.fill: parent
         width: parent.width
-        spacing: 12
+        spacing: 8 * root.uiScale
 
             Text {
                 Layout.fillWidth: true
@@ -107,19 +111,19 @@ Item {
                 text: root.errorText
                 color: Theme.foreground
                 font.family: Theme.fontFamily
-                font.pixelSize: Theme.panelSmallFontPixelSize
+                font.pixelSize: root.smallFont
                 opacity: 0.8
                 wrapMode: Text.WordWrap
             }
 
             Item {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 148
+                Layout.preferredHeight: 118 * root.uiScale
                 visible: !root.isError
 
                 RowLayout {
                     anchors.centerIn: parent
-                    spacing: 14
+                    spacing: 14 * root.uiScale
 
                     UsageGauge {
                         title: "Cursor models"
@@ -137,45 +141,13 @@ Item {
                 }
             }
 
-            Item {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 22
-                visible: !root.isError && root.hasModelDetails
-
-                RowLayout {
-                    anchors.centerIn: parent
-                    spacing: 6
-
-                    Text {
-                        text: root.modelSplitExpanded ? "−" : "+"
-                        color: Theme.accent
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.panelSmallFontPixelSize
-                        font.bold: Theme.fontBold
-                    }
-
-                    Text {
-                        text: "Model breakdown"
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.panelHintFontPixelSize
-                        opacity: 0.55
-                    }
-                }
-
-                MouseArea {
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.modelSplitExpanded = !root.modelSplitExpanded
-                }
-            }
-
             ColumnLayout {
                 Layout.fillWidth: true
+                Layout.fillHeight: true
                 Layout.leftMargin: root.breakdownInset
                 Layout.rightMargin: root.breakdownInset
-                spacing: 8
-                visible: !root.isError && root.hasModelDetails && root.modelSplitExpanded
+                spacing: 10 * root.uiScale
+                visible: !root.isError && root.hasModelDetails
 
                 Repeater {
                     model: root.modelSplit
@@ -183,18 +155,19 @@ Item {
                     ColumnLayout {
                         required property var modelData
                         Layout.fillWidth: true
-                        spacing: 3
+                        Layout.fillHeight: true
+                        spacing: 4 * root.uiScale
 
                         RowLayout {
                             Layout.fillWidth: true
-                            spacing: 8
+                            spacing: 8 * root.uiScale
 
                             Text {
                                 Layout.fillWidth: true
                                 text: root.modelLabel(modelData.model)
                                 color: Theme.foreground
                                 font.family: Theme.fontFamily
-                                font.pixelSize: Theme.panelHintFontPixelSize
+                                font.pixelSize: root.breakdownFont
                                 font.bold: Theme.fontBold
                                 elide: Text.ElideRight
                             }
@@ -206,25 +179,25 @@ Item {
                                         + root.formatTokens(modelData.tokens)
                                 color: modelData.color || Theme.accent
                                 font.family: Theme.fontFamily
-                                font.pixelSize: Theme.panelHintFontPixelSize
+                                font.pixelSize: root.breakdownFont
                                 font.bold: Theme.fontBold
                             }
                         }
 
                         Item {
                             Layout.fillWidth: true
-                            Layout.preferredHeight: 4
+                            Layout.preferredHeight: 4 * root.uiScale
 
                             Rectangle {
                                 anchors.fill: parent
-                                radius: 2
+                                radius: 2 * root.uiScale
                                 color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.12)
                             }
 
                             Rectangle {
                                 height: parent.height
                                 width: parent.width * Math.max(0, Math.min(1, modelData.percent / 100))
-                                radius: 2
+                                radius: 2 * root.uiScale
                                 color: modelData.color || Theme.accent
                                 opacity: 0.9
                             }
@@ -239,7 +212,7 @@ Item {
                         + (root.detail.onDemandUsed ? (" · " + Number(root.detail.onDemandUsed).toLocaleString() + " used") : "")
                     color: Theme.foreground
                     font.family: Theme.fontFamily
-                    font.pixelSize: Theme.panelHintFontPixelSize
+                    font.pixelSize: root.breakdownFont
                     opacity: 0.6
                 }
             }
@@ -258,7 +231,7 @@ Item {
                         text: root.loading ? "…" : (root.formatTokens(root.detail.tokensTotal) + " tokens")
                         color: Theme.foreground
                         font.family: Theme.fontFamily
-                        font.pixelSize: Theme.panelSmallFontPixelSize
+                        font.pixelSize: root.smallFont
                     }
 
                     Text {
@@ -266,7 +239,7 @@ Item {
                         text: " · "
                         color: Theme.foreground
                         font.family: Theme.fontFamily
-                        font.pixelSize: Theme.panelSmallFontPixelSize
+                        font.pixelSize: root.smallFont
                         opacity: 0.45
                     }
 
@@ -275,12 +248,12 @@ Item {
                         text: root.formatTokens(root.detail.tokensToday) + " today"
                         color: Theme.accent
                         font.family: Theme.fontFamily
-                        font.pixelSize: Theme.panelSmallFontPixelSize
+                        font.pixelSize: root.smallFont
                     }
 
                     Item {
                         visible: root.showCycleBar
-                        width: Theme.sparklineChartMargin
+                        width: Theme.sparklineChartMargin * root.uiScale
                         height: 1
                     }
 
@@ -289,6 +262,8 @@ Item {
                         Layout.preferredWidth: implicitWidth
                         Layout.preferredHeight: implicitHeight
                         progress: root.cycleProgress
+                        barWidth: 36 * root.uiScale
+                        barHeight: 4 * root.uiScale
                     }
                 }
             }
@@ -302,13 +277,13 @@ Item {
         property color gaugeColor: Theme.accent
         property bool loading: false
 
-        implicitWidth: 118
-        implicitHeight: 142
+        implicitWidth: 96 * root.uiScale
+        implicitHeight: 118 * root.uiScale
 
         readonly property real sweep: Math.max(0, Math.min(100, percent)) / 100
-        readonly property int ringSize: 104
-        readonly property real ringRadius: 40
-        readonly property real ringLineWidth: 10
+        readonly property int ringSize: 86 * root.uiScale
+        readonly property real ringRadius: 32 * root.uiScale
+        readonly property real ringLineWidth: 8 * root.uiScale
 
         Canvas {
             id: ring
@@ -355,20 +330,20 @@ Item {
             text: gaugeRoot.loading ? "…" : (gaugeRoot.percent + "%")
             color: Theme.foreground
             font.family: Theme.fontFamily
-            font.pixelSize: 22
+            font.pixelSize: root.heroFont
             font.bold: Theme.fontBold
         }
 
         Text {
             anchors.top: ring.bottom
-            anchors.topMargin: 8
+            anchors.topMargin: 4 * root.uiScale
             anchors.horizontalCenter: parent.horizontalCenter
-            width: parent.width - 4
+            width: parent.width - 4 * root.uiScale
             horizontalAlignment: Text.AlignHCenter
             text: gaugeRoot.title
             color: Theme.foreground
             font.family: Theme.fontFamily
-            font.pixelSize: 11
+            font.pixelSize: root.hintFont
             font.bold: Theme.fontBold
             opacity: 0.7
             wrapMode: Text.WordWrap

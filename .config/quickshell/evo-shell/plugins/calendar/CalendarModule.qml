@@ -1,5 +1,6 @@
 import Quickshell
 import QtQuick
+import QtQuick.Layouts
 import "../../Commons"
 import "Model.js" as Model
 
@@ -31,11 +32,31 @@ Item {
         selectedDate.getDate()
     )
 
-    readonly property int cellWidth: 52
-    readonly property int cellHeight: 34
-    readonly property int cellSpacing: 2
-    readonly property int weekColumnWidth: 32
-    readonly property int gutterWidth: 14
+    property int uiScale: 2
+    property bool compact: false
+    readonly property int cellWidth: {
+        if (!compact)
+            return 52 * uiScale
+        var extra = weekColumnWidth + gutterWidth + cellSpacing * 6
+        return Math.max(26, Math.floor((Math.max(200, width) - extra) / 7))
+    }
+    readonly property int cellHeight: compact ? 22 : 34 * uiScale
+    readonly property int cellSpacing: compact ? 2 : 2 * uiScale
+    readonly property int weekColumnWidth: compact ? 22 : 32 * uiScale
+    readonly property int gutterWidth: compact ? 8 : 14 * uiScale
+    readonly property int headerRowHeight: compact ? 16 : 22 * uiScale
+    readonly property int smallFont: compact || uiScale <= 1
+        ? Theme.panelHintFontPixelSize
+        : Theme.popupHintFontPixelSize
+    readonly property int bodyFont: compact || uiScale <= 1
+        ? Theme.panelTitleFontPixelSize
+        : Theme.popupBodyFontPixelSize
+    readonly property int heroFont: compact || uiScale <= 1
+        ? Theme.panelIconFontPixelSize
+        : Theme.popupHeroFontPixelSize
+    readonly property int titleFont: compact || uiScale <= 1
+        ? Theme.panelTitleFontPixelSize
+        : Theme.popupTitleFontPixelSize
 
     function dismissHost() {
         if (host && typeof host.dismiss === "function")
@@ -47,7 +68,7 @@ Item {
         nowTick = new Date()
         goToToday()
         Qt.callLater(function() {
-            if (host && host.opened)
+            if (!root.compact && host && host.opened)
                 focusSink.forceActiveFocus()
         })
     }
@@ -90,11 +111,16 @@ Item {
         }
     }
 
+    implicitHeight: compact ? focusSink.height : 0
+    implicitWidth: 200
+
     Item {
         id: focusSink
-        anchors.fill: parent
-        focus: host && host.opened
-        Keys.enabled: host && host.opened
+        anchors.fill: root.compact ? undefined : parent
+        width: parent.width
+        height: root.compact ? innerCol.implicitHeight : parent.height
+        focus: !root.compact && host && host.opened
+        Keys.enabled: !root.compact && host && host.opened
         Keys.onEscapePressed: root.dismissHost()
         Keys.onPressed: function(event) {
             if (event.key === Qt.Key_Left || event.text === "[") moveMonth(-1)
@@ -104,25 +130,28 @@ Item {
         }
 
         Column {
-            anchors.fill: parent
-            spacing: 8
+            id: innerCol
+            width: parent.width
+            topPadding: root.compact ? 0 : 16 * root.uiScale
+            spacing: root.compact ? 8 : 12 * root.uiScale
 
             // Hero
             Item {
                 width: parent.width
-                height: 56
+                height: 64 * root.uiScale
+                visible: !root.compact
 
                 Row {
                     id: heroRow
                     anchors.horizontalCenter: parent.horizontalCenter
-                    spacing: 16
+                    spacing: 16 * root.uiScale
 
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
                         text: "󰃭"
                         color: heroMouse.containsMouse ? Theme.accent : Theme.foreground
                         font.family: Theme.fontFamily
-                        font.pixelSize: 36
+                        font.pixelSize: root.heroFont
                     }
 
                     Text {
@@ -131,7 +160,7 @@ Item {
                         text: Qt.formatDate(root.today, "MMMM d")
                         color: heroMouse.containsMouse ? Theme.accent : Theme.foreground
                         font.family: Theme.fontFamily
-                        font.pixelSize: 32
+                        font.pixelSize: root.heroFont
                         font.bold: Theme.fontBold
                     }
                 }
@@ -152,27 +181,27 @@ Item {
             // Year progress
             Item {
                 width: parent.width
-                height: 24
+                height: root.compact ? 22 : 24 * root.uiScale
 
-                Row {
+                RowLayout {
                     anchors.fill: parent
-                    spacing: 10
+                    spacing: 10 * root.uiScale
 
                     Text {
-                        anchors.verticalCenter: parent.verticalCenter
+                        Layout.alignment: Qt.AlignVCenter
                         text: String(root.today.getFullYear())
                         color: Theme.foreground
                         opacity: 0.55
                         font.family: Theme.fontFamily
-                        font.pixelSize: 12
-                        font.letterSpacing: 1
+                        font.pixelSize: root.smallFont
+                        font.letterSpacing: 1 * root.uiScale
                     }
 
                     Rectangle {
-                        width: parent.width - 80
-                        height: 6
-                        anchors.verticalCenter: parent.verticalCenter
-                        radius: 3
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 6 * root.uiScale
+                        Layout.alignment: Qt.AlignVCenter
+                        radius: 3 * root.uiScale
                         color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.12)
 
                         Rectangle {
@@ -188,11 +217,11 @@ Item {
                     }
 
                     Text {
-                        anchors.verticalCenter: parent.verticalCenter
+                        Layout.alignment: Qt.AlignVCenter
                         text: root.yearDonePercent + "%"
                         color: Theme.foreground
                         font.family: Theme.fontFamily
-                        font.pixelSize: 12
+                        font.pixelSize: root.smallFont
                     }
                 }
             }
@@ -212,8 +241,8 @@ Item {
                 Column {
                     id: gridCol
                     anchors.horizontalCenter: parent.horizontalCenter
-                    y: 12
-                    spacing: 3
+                    y: root.compact ? 4 : 12 * root.uiScale
+                    spacing: 3 * root.uiScale
 
                     Row {
                         id: headerRow
@@ -221,8 +250,8 @@ Item {
 
                         Rectangle {
                             width: root.weekColumnWidth
-                            height: 16
-                            radius: 4
+                            height: root.headerRowHeight
+                            radius: 4 * root.uiScale
                             color: weekStartMouse.containsMouse ? Theme.panelMantle : "transparent"
 
                             Text {
@@ -231,8 +260,8 @@ Item {
                                 color: weekStartMouse.containsMouse ? Theme.accent : Theme.foreground
                                 opacity: weekStartMouse.containsMouse ? 1 : 0.45
                                 font.family: Theme.fontFamily
-                                font.pixelSize: 10
-                                font.letterSpacing: 1
+                                font.pixelSize: root.smallFont
+                                font.letterSpacing: 1 * root.uiScale
                                 font.bold: Theme.fontBold
                             }
 
@@ -245,22 +274,22 @@ Item {
                             }
                         }
 
-                        Item { width: root.gutterWidth; height: 16 }
+                        Item { width: root.gutterWidth; height: root.headerRowHeight }
 
                         Repeater {
                             model: root.weekdays
                             Text {
                                 required property var modelData
                                 width: root.cellWidth
-                                height: 16
+                                height: root.headerRowHeight
                                 horizontalAlignment: Text.AlignHCenter
                                 verticalAlignment: Text.AlignVCenter
                                 text: root.weekdayLabel(modelData)
                                 color: Theme.foreground
                                 opacity: 0.5
                                 font.family: Theme.fontFamily
-                                font.pixelSize: 10
-                                font.letterSpacing: 1
+                                font.pixelSize: root.smallFont
+                                font.letterSpacing: 1 * root.uiScale
                                 font.bold: Theme.fontBold
                             }
                         }
@@ -281,7 +310,7 @@ Item {
                                 color: Theme.foreground
                                 opacity: 0.35
                                 font.family: Theme.fontFamily
-                                font.pixelSize: 10
+                                font.pixelSize: root.smallFont
                             }
 
                             Item { width: root.gutterWidth; height: root.cellHeight }
@@ -295,11 +324,11 @@ Item {
 
                                     width: root.cellWidth
                                     height: root.cellHeight
-                                    radius: 4
+                                    radius: 4 * root.uiScale
                                     color: selected
                                         ? Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.1)
                                         : "transparent"
-                                    border.width: modelData.today ? 1 : 0
+                                    border.width: modelData.today ? Math.max(1, root.uiScale) : 0
                                     border.color: Theme.accent
 
                                     Text {
@@ -312,7 +341,7 @@ Item {
                                                 : Theme.foreground)
                                             : Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.35)
                                         font.family: Theme.fontFamily
-                                        font.pixelSize: Theme.fontPixelSize
+                                        font.pixelSize: root.bodyFont
                                         font.bold: modelData.today
                                     }
 
@@ -331,7 +360,7 @@ Item {
                 Rectangle {
                     x: gridCol.x + root.weekColumnWidth + root.cellSpacing + Math.round((root.gutterWidth - width) / 2)
                     y: gridCol.y + headerRow.height + gridCol.spacing
-                    width: 1
+                    width: Math.max(1, root.uiScale)
                     height: gridCol.height - headerRow.height - gridCol.spacing
                     color: Theme.foreground
                     opacity: 0.1
@@ -341,50 +370,50 @@ Item {
             // Month nav
             Item {
                 width: parent.width
-                height: 28
+                height: root.compact ? 28 : 36 * root.uiScale
 
                 Text {
                     id: monthLabel
                     anchors.centerIn: parent
-                    width: 130
+                    width: 160 * root.uiScale
                     horizontalAlignment: Text.AlignHCenter
                     text: Qt.formatDate(root.viewDate, "MMMM yyyy").toUpperCase()
                     color: Theme.foreground
                     opacity: 0.6
                     font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontPixelSize
-                    font.letterSpacing: 1
+                    font.pixelSize: root.bodyFont
+                    font.letterSpacing: 1 * root.uiScale
                 }
 
                 MouseArea {
                     anchors.left: parent.left
-                    anchors.leftMargin: gridCol.x - 8
+                    anchors.leftMargin: gridCol.x - 8 * root.uiScale
                     anchors.verticalCenter: parent.verticalCenter
-                    width: 32
-                    height: 32
+                    width: 32 * root.uiScale
+                    height: 32 * root.uiScale
                     onClicked: root.moveMonth(-1)
                     Text {
                         anchors.centerIn: parent
                         text: "󰅁"
                         color: parent.containsMouse ? Theme.accent : Theme.foreground
                         font.family: Theme.fontFamily
-                        font.pixelSize: 14
+                        font.pixelSize: root.titleFont
                     }
                 }
 
                 MouseArea {
                     anchors.right: parent.right
-                    anchors.rightMargin: parent.width - gridCol.x - gridCol.width - 8
+                    anchors.rightMargin: parent.width - gridCol.x - gridCol.width - 8 * root.uiScale
                     anchors.verticalCenter: parent.verticalCenter
-                    width: 32
-                    height: 32
+                    width: 32 * root.uiScale
+                    height: 32 * root.uiScale
                     onClicked: root.moveMonth(1)
                     Text {
                         anchors.centerIn: parent
                         text: "󰅂"
                         color: parent.containsMouse ? Theme.accent : Theme.foreground
                         font.family: Theme.fontFamily
-                        font.pixelSize: 14
+                        font.pixelSize: root.titleFont
                     }
                 }
             }
@@ -395,8 +424,8 @@ Item {
                 color: Theme.foreground
                 opacity: 0.45
                 font.family: Theme.fontFamily
-                font.pixelSize: 11
-                font.letterSpacing: 1
+                font.pixelSize: root.smallFont
+                font.letterSpacing: 1 * root.uiScale
                 font.bold: Theme.fontBold
             }
         }

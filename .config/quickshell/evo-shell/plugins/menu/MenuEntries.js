@@ -5,6 +5,8 @@ function systemActionEntries(home) {
     return [
         { name: "Theme", icon: "󰸌", keywords: ["theme", "appearance", "looks"], command: bin + "/evo-theme.sh" },
         { name: "Wallpaper", icon: "󰏘", keywords: ["wallpaper", "background"], command: bin + "/evo-theme.sh wallpaper" },
+        { name: "Library", icon: "󰎁", keywords: ["library", "media", "films", "tv", "movies"], command: bin + "/evo-shell-ipc shell toggle evo.library" },
+        { name: "Settings", icon: "󰒓", keywords: ["settings", "config", "panel", "gaps", "font"], command: bin + "/evo-shell-ipc shell toggle evo.panel '{\"module\":\"settings\"}'" },
         { name: "Clear cache", icon: "󰃢", keywords: ["cache", "cleanup", "clear"], command: bin + "/evo-cleanup.sh" },
         { name: "Backup", icon: "󰁯", keywords: ["backup", "env"], command: bin + "/evo-backup.sh" }
     ]

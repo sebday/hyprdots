@@ -1,5 +1,5 @@
 #!/bin/bash
-# Panel weather details — Derby (Open-Meteo, no API key).
+# Weather popup details — Derby (Open-Meteo, no API key).
 #
 # Environment:
 #   EVO_WEATHER_LAT / EVO_WEATHER_LON — default Derby, UK
@@ -9,7 +9,7 @@ set -euo pipefail
 source "${HOME}/.local/bin/evo-bar-common.sh"
 source "${HOME}/.local/bin/evo-weather-lib.sh"
 
-if cached=$(evo_bar_cache_read "weather-panel" 600 2>/dev/null); then
+if cached=$(evo_bar_cache_read "weather" 600 2>/dev/null); then
     printf '%s\n' "$cached"
     exit 0
 fi
@@ -129,5 +129,5 @@ def dow($date):
 }
 ')"
 
-printf '%s\n' "$output" | evo_bar_cache_write "weather-panel"
+printf '%s\n' "$output" | evo_bar_cache_write "weather"
 printf '%s\n' "$output"

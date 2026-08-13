@@ -10,35 +10,30 @@ Item {
     property int barWidth: Theme.sparklineExpandedBarWidth
     property int barSpacing: Theme.sparklineExpandedBarSpacing
     property bool fillWidth: true
-    property string valuePrefix: ""
     property color lineColor: Theme.accent
     property int lineWidth: 2
+    property int uiScale: 1
 
     readonly property bool isLine: style === "line"
 
-    readonly property var activeBar: {
-        if (!bars || bars.length === 0) return null
-        return bars[bars.length - 1]
-    }
-
-    readonly property string caption: {
-        if (!activeBar) return ""
-        return Format.formatDay(activeBar.date) + "  " + Format.formatValue(activeBar.value, valuePrefix)
-    }
-
-    implicitHeight: chartHeight + (caption !== "" ? 18 : 0)
-    implicitWidth: fillWidth ? 200 : (bars.length * (barWidth + barSpacing) + 4)
+    implicitHeight: chartHeight
+    implicitWidth: fillWidth ? 200 : (bars.length * (barWidth + barSpacing) * uiScale + 4 * uiScale)
 
     onBarsChanged: if (isLine) lineCanvas.requestPaint()
     onWidthChanged: if (isLine) lineCanvas.requestPaint()
+    onHeightChanged: if (isLine) lineCanvas.requestPaint()
     onChartHeightChanged: if (isLine) lineCanvas.requestPaint()
     onLineColorChanged: if (isLine) lineCanvas.requestPaint()
     onStyleChanged: if (isLine) lineCanvas.requestPaint()
+    onUiScaleChanged: if (isLine) lineCanvas.requestPaint()
+
+    readonly property int scaledBarWidth: barWidth * uiScale
+    readonly property int scaledBarSpacing: barSpacing * uiScale
 
     readonly property real effectiveBarWidth: {
-        if (!fillWidth || bars.length === 0) return barWidth
-        var gaps = Math.max(0, bars.length - 1) * barSpacing
-        return Math.max(4, (width - gaps) / bars.length)
+        if (!fillWidth || bars.length === 0) return scaledBarWidth
+        var gaps = Math.max(0, bars.length - 1) * scaledBarSpacing
+        return Math.max(4 * uiScale, (width - gaps) / bars.length)
     }
 
     function valueRange() {
@@ -60,138 +55,115 @@ Item {
         return { min: minV - span * 0.08, max: maxV + span * 0.08 }
     }
 
-    Column {
+    Row {
+        id: chartRow
+        visible: !root.isLine
         anchors.fill: parent
-        spacing: 4
+        spacing: root.scaledBarSpacing
 
-        Text {
-            width: parent.width
-            visible: root.caption !== ""
-            text: root.caption
-            color: Theme.foreground
-            font.family: Theme.fontFamily
-            font.pixelSize: 11
-            font.bold: Theme.fontBold
-            opacity: 0.7
-            elide: Text.ElideRight
-        }
+        Repeater {
+            model: root.bars
 
-        Item {
-            width: parent.width
-            height: root.chartHeight
+            Item {
+                required property int index
+                required property var modelData
+                width: root.effectiveBarWidth
+                height: chartRow.height
 
-            Row {
-                id: chartRow
-                visible: !root.isLine
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.bottom: parent.bottom
-                height: root.chartHeight
-                spacing: root.barSpacing
-
-                Repeater {
-                    model: root.bars
-
-                    Item {
-                        required property int index
-                        required property var modelData
-                        width: root.effectiveBarWidth
-                        height: chartRow.height
-
-                        Rectangle {
-                            width: parent.width
-                            height: modelData.level > 0
-                                ? Math.max(2, chartRow.height * modelData.level / 7)
-                                : 0
-                            anchors.bottom: parent.bottom
-                            radius: 2
-                            color: modelData.color || Theme.accent
-                            opacity: 0.85
-                        }
-                    }
+                Rectangle {
+                    width: parent.width
+                    height: modelData.level > 0
+                        ? Math.max(2 * root.uiScale, chartRow.height * modelData.level / 7)
+                        : 0
+                    anchors.bottom: parent.bottom
+                    radius: 2 * root.uiScale
+                    color: modelData.color || Theme.accent
+                    opacity: 0.85
                 }
             }
-
-            Canvas {
-                id: lineCanvas
-                visible: root.isLine
-                anchors.fill: parent
-
-                onPaint: {
-                    var ctx = getContext("2d")
-                    ctx.reset()
-                    var pts = root.bars || []
-                    if (pts.length === 0) return
-
-                    var range = root.valueRange()
-                    var minV = range.min
-                    var maxV = range.max
-                    var span = maxV - minV || 1
-                    var w = width
-                    var h = height
-                    var padX = 2
-                    var padY = 3
-                    var usableW = Math.max(1, w - padX * 2)
-                    var usableH = Math.max(1, h - padY * 2)
-                    var step = pts.length > 1 ? usableW / (pts.length - 1) : 0
-
-                    function yAt(v) {
-                        var n = parseFloat(v)
-                        if (isNaN(n)) n = minV
-                        return padY + usableH - ((n - minV) / span) * usableH
-                    }
-
-                    // Soft fill under the line
-                    ctx.beginPath()
-                    for (var i = 0; i < pts.length; i++) {
-                        var x = padX + i * step
-                        var y = yAt(pts[i].value)
-                        if (i === 0) ctx.moveTo(x, y)
-                        else ctx.lineTo(x, y)
-                    }
-                    ctx.lineTo(padX + (pts.length - 1) * step, h)
-                    ctx.lineTo(padX, h)
-                    ctx.closePath()
-                    ctx.globalAlpha = 0.18
-                    ctx.fillStyle = root.lineColor
-                    ctx.fill()
-                    ctx.globalAlpha = 1
-
-                    // Stroke
-                    ctx.beginPath()
-                    for (var j = 0; j < pts.length; j++) {
-                        var x2 = padX + j * step
-                        var y2 = yAt(pts[j].value)
-                        if (j === 0) ctx.moveTo(x2, y2)
-                        else ctx.lineTo(x2, y2)
-                    }
-                    ctx.strokeStyle = root.lineColor
-                    ctx.lineWidth = root.lineWidth
-                    ctx.lineJoin = "round"
-                    ctx.lineCap = "round"
-                    ctx.stroke()
-
-                    // End point
-                    var lastX = padX + (pts.length - 1) * step
-                    var lastY = yAt(pts[pts.length - 1].value)
-                    ctx.beginPath()
-                    ctx.arc(lastX, lastY, 3, 0, Math.PI * 2)
-                    ctx.fillStyle = root.lineColor
-                    ctx.fill()
-                }
-
-                Component.onCompleted: requestPaint()
-            }
-
-            Text {
-                anchors.centerIn: parent
-                visible: root.bars.length === 0
-                text: "No chart data"
-                color: Theme.foreground
-                font.family: Theme.fontFamily
-                font.pixelSize: 12
-                opacity: 0.45
-            }
         }
+    }
+
+    Canvas {
+        id: lineCanvas
+        visible: root.isLine
+        anchors.fill: parent
+
+        onPaint: {
+            var ctx = getContext("2d")
+            ctx.reset()
+            var pts = root.bars || []
+            if (pts.length === 0) return
+
+            var range = root.valueRange()
+            var minV = range.min
+            var maxV = range.max
+            var span = maxV - minV || 1
+            var w = width
+            var h = height
+            var padX = 2 * root.uiScale
+            var padY = 3 * root.uiScale
+            var usableW = Math.max(1, w - padX * 2)
+            var usableH = Math.max(1, h - padY * 2)
+            var step = pts.length > 1 ? usableW / (pts.length - 1) : 0
+
+            function yAt(v) {
+                var n = parseFloat(v)
+                if (isNaN(n)) n = minV
+                return padY + usableH - ((n - minV) / span) * usableH
+            }
+
+            // Soft fill under the line
+            ctx.beginPath()
+            for (var i = 0; i < pts.length; i++) {
+                var x = padX + i * step
+                var y = yAt(pts[i].value)
+                if (i === 0) ctx.moveTo(x, y)
+                else ctx.lineTo(x, y)
+            }
+            ctx.lineTo(padX + (pts.length - 1) * step, h)
+            ctx.lineTo(padX, h)
+            ctx.closePath()
+            ctx.globalAlpha = 0.18
+            ctx.fillStyle = root.lineColor
+            ctx.fill()
+            ctx.globalAlpha = 1
+
+            // Stroke
+            ctx.beginPath()
+            for (var j = 0; j < pts.length; j++) {
+                var x2 = padX + j * step
+                var y2 = yAt(pts[j].value)
+                if (j === 0) ctx.moveTo(x2, y2)
+                else ctx.lineTo(x2, y2)
+            }
+            ctx.strokeStyle = root.lineColor
+            ctx.lineWidth = root.lineWidth * root.uiScale
+            ctx.lineJoin = "round"
+            ctx.lineCap = "round"
+            ctx.stroke()
+
+            // End point
+            var lastX = padX + (pts.length - 1) * step
+            var lastY = yAt(pts[pts.length - 1].value)
+            ctx.beginPath()
+            ctx.arc(lastX, lastY, 3 * root.uiScale, 0, Math.PI * 2)
+            ctx.fillStyle = root.lineColor
+            ctx.fill()
+        }
+
+        Component.onCompleted: requestPaint()
+        onWidthChanged: requestPaint()
+        onHeightChanged: requestPaint()
+    }
+
+    Text {
+        anchors.centerIn: parent
+        visible: root.bars.length === 0
+        text: "No chart data"
+        color: Theme.foreground
+        font.family: Theme.fontFamily
+        font.pixelSize: root.uiScale > 1 ? Theme.popupHintFontPixelSize : Theme.panelHintFontPixelSize
+        opacity: 0.45
     }
 }

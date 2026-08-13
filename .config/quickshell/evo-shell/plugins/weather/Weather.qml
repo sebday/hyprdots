@@ -26,8 +26,8 @@ Item {
     CenteredOverlay {
         opened: root.opened
         layerNamespace: "evo-weather"
-        contentWidth: 480
-        contentHeight: 280
+        contentWidth: 1020
+        contentHeight: 620
         onDismissed: root.dismiss()
 
         WeatherModule {

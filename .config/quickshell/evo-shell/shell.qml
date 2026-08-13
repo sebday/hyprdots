@@ -37,7 +37,7 @@ ShellRoot {
         "evo.calendar": { kinds: ["menu"], path: "plugins/calendar/Calendar.qml", keepLoaded: true },
         "evo.stats": { kinds: ["menu"], path: "plugins/stats/Stats.qml", keepLoaded: true },
         "evo.weather": { kinds: ["menu"], path: "plugins/weather/Weather.qml", keepLoaded: true },
-        "evo.cursor": { kinds: ["menu"], path: "plugins/cursor/Cursor.qml", keepLoaded: true },
+        "evo.library": { kinds: ["menu"], path: "plugins/library/Library.qml", keepLoaded: true },
         "evo.theme": { kinds: ["menu"], path: "plugins/theme/Theme.qml", keepLoaded: true },
         "evo.wallpaper": { kinds: ["menu"], path: "plugins/theme/Wallpaper.qml", keepLoaded: true },
         "evo.clipboard": { kinds: ["service"], path: "plugins/clipboard/Service.qml", keepLoaded: true },
@@ -114,8 +114,15 @@ ShellRoot {
         return _services[String(id)] || null
     }
 
-    function summon(id, payloadJson) {
+    function canonicalPluginId(id) {
         var pluginId = String(id || "")
+        if (pluginId === "evo.cursor")
+            return "evo.stats"
+        return pluginId
+    }
+
+    function summon(id, payloadJson) {
+        var pluginId = canonicalPluginId(id)
         var meta = pluginTable[pluginId]
         if (!meta) return false
         if (meta.kinds.indexOf("menu") !== -1 || meta.kinds.indexOf("panel") !== -1) {
@@ -136,7 +143,7 @@ ShellRoot {
     }
 
     function hide(id) {
-        var pluginId = String(id || "")
+        var pluginId = canonicalPluginId(id)
         if (!openPanelIds[pluginId] && !isPluginOpen(pluginId)) return true
         var next = ({})
         for (var k in openPanelIds) if (k !== pluginId) next[k] = openPanelIds[k]
@@ -146,7 +153,7 @@ ShellRoot {
     }
 
     function toggle(id, payloadJson) {
-        var pluginId = String(id || "")
+        var pluginId = canonicalPluginId(id)
         if (isPluginOpen(pluginId)) {
             var loader = panelLoaders[pluginId]
             if (payloadJson && loader && loader.item && typeof loader.item.reopen === "function") {
@@ -159,9 +166,10 @@ ShellRoot {
     }
 
     function isPluginOpen(id) {
-        var loader = panelLoaders[String(id)]
+        var pluginId = canonicalPluginId(id)
+        var loader = panelLoaders[pluginId]
         if (loader && loader.item && loader.item.opened !== undefined) return loader.item.opened === true
-        return openPanelIds[String(id)] === true
+        return openPanelIds[pluginId] === true
     }
 
     function invokeIfLoaded(id, method, arg) {
@@ -227,7 +235,7 @@ ShellRoot {
         }
     }
 
-    readonly property var panelPluginIds: ["evo.menu", "evo.panel", "evo.calendar", "evo.stats", "evo.weather", "evo.cursor", "evo.theme", "evo.wallpaper"]
+    readonly property var panelPluginIds: ["evo.menu", "evo.panel", "evo.calendar", "evo.stats", "evo.weather", "evo.library", "evo.theme", "evo.wallpaper"]
 
     Instantiator {
         model: shell.panelPluginIds

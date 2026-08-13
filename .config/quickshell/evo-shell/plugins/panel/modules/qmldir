@@ -1,6 +1,4 @@
 module modules
-LibraryModule 1.0 LibraryModule.qml
-UsageModule 1.0 UsageModule.qml
 CalcModule 1.0 CalcModule.qml
 ClipboardModule 1.0 ClipboardModule.qml
 TasksBlock 1.0 TasksBlock.qml

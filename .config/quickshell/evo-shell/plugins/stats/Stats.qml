@@ -26,8 +26,9 @@ Item {
     CenteredOverlay {
         opened: root.opened
         layerNamespace: "evo-stats"
-        contentWidth: 720
-        contentHeight: 380
+        contentWidth: 1760
+        contentHeight: 800
+        contentMargin: 32
         onDismissed: root.dismiss()
 
         StatsModule {

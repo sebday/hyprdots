@@ -60,8 +60,10 @@ Item {
     function notifyVolume() {
         var notif = shell ? shell.serviceFor("evo.notifications") : null
         if (!notif || typeof notif.showBrief !== "function") return
-        var body = muted ? "Muted" : percent + "%"
-        notif.showBrief("Volume", body)
+        if (typeof notif.showVolume === "function")
+            notif.showVolume(percent, muted)
+        else
+            notif.showBrief("Volume", muted ? "Muted" : percent + "%")
     }
 
     IpcHandler {

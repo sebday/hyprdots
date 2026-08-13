@@ -10,41 +10,79 @@ Item {
 
     property var shell: null
     property bool opened: false
-    property string activeModule: "calc"
+    property string activeModule: "tools"
+    property string pendingFocus: ""
 
     readonly property string layoutScript: Quickshell.env("HOME") + "/.local/bin/evo-shell-layout.sh"
 
     Component { id: calcComp; CalcModule {} }
-    Component { id: libraryComp; LibraryModule {} }
     Component { id: clipboardComp; ClipboardModule {} }
     Component { id: settingsComp; SettingsModule {} }
 
     readonly property var dockModules: [
-        { id: "calc", component: calcComp },
-        { id: "library", component: libraryComp },
+        { id: "tools", component: calcComp },
         { id: "clipboard", component: clipboardComp },
         { id: "settings", component: settingsComp }
     ]
 
     readonly property var moduleIds: dockModules.map(function(entry) { return entry.id })
 
-    function parseModule(payloadJson) {
-        if (!payloadJson) return ""
+    readonly property var navItems: [
+        { kind: "module", id: "tools", icon: "󰦬" },
+        { kind: "module", id: "clipboard", icon: "󰅌" },
+        { kind: "module", id: "settings", icon: "󰒓" }
+    ]
+
+    function navActive(item) {
+        if (!item) return false
+        if (item.kind === "module")
+            return activeModule === item.id
+        return shell && shell.isPluginOpen(item.id)
+    }
+
+    function activateNav(item) {
+        if (!item) return
+        if (item.kind === "module") {
+            if (activeModule === item.id)
+                return
+            activeModule = item.id
+            activateModule()
+            return
+        }
+        if (shell)
+            shell.toggle(item.id, "")
+    }
+
+    function parsePayload(payloadJson) {
+        var out = { module: "", focus: "" }
+        if (!payloadJson) return out
         try {
             var payload = JSON.parse(String(payloadJson))
-            if (payload && payload.module)
-                return String(payload.module)
+            if (payload && payload.module) {
+                var id = String(payload.module)
+                if (id === "calc")
+                    id = "tools"
+                out.module = id
+            }
+            if (payload && payload.focus)
+                out.focus = String(payload.focus)
         } catch (e) {}
-        return ""
+        return out
+    }
+
+    function parseModule(payloadJson) {
+        return parsePayload(payloadJson).module
     }
 
     function open(payloadJson) {
-        var nextModule = parseModule(payloadJson)
+        var parsed = parsePayload(payloadJson)
+        var nextModule = parsed.module
         if (moduleIds.indexOf(nextModule) < 0)
             nextModule = activeModule
         if (moduleIds.indexOf(nextModule) < 0)
-            nextModule = "calc"
+            nextModule = "tools"
         activeModule = nextModule
+        pendingFocus = parsed.focus
         dock.reveal()
         opened = true
         activateModule()
@@ -53,11 +91,17 @@ Item {
     // Called by shell toggle when panel is already open. Returns true if we
     // switched modules and stayed open; false means the shell should hide us.
     function reopen(payloadJson) {
-        var nextModule = parseModule(payloadJson)
+        var parsed = parsePayload(payloadJson)
+        var nextModule = parsed.module
         if (!nextModule || moduleIds.indexOf(nextModule) < 0)
             return false
-        if (nextModule === activeModule)
-            return false
+        pendingFocus = parsed.focus
+        if (nextModule === activeModule) {
+            if (!parsed.focus)
+                return false
+            activateModule()
+            return true
+        }
         activeModule = nextModule
         activateModule()
         return true
@@ -100,8 +144,10 @@ Item {
     function activateModule() {
         Qt.callLater(function() {
             var loader = moduleLoaderFor(activeModule)
+            var focus = pendingFocus
+            pendingFocus = ""
             if (loader && loader.item && typeof loader.item.onActivated === "function")
-                loader.item.onActivated()
+                loader.item.onActivated(focus)
         })
     }
 
@@ -121,6 +167,43 @@ Item {
         showSideButton: true
         onCloseRequested: root.dismiss()
         onSideRequested: root.toggleSide()
+
+        RowLayout {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 28
+            spacing: 2
+
+            Repeater {
+                model: root.navItems
+
+                Item {
+                    required property var modelData
+                    required property int index
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 28
+
+                    readonly property bool current: root.navActive(modelData)
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: modelData.icon
+                        color: parent.current ? Theme.accent : Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.panelIconFontPixelSize
+                        font.bold: Theme.fontBold
+                        opacity: navMouse.containsMouse || parent.current ? 1 : 0.62
+                    }
+
+                    MouseArea {
+                        id: navMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.activateNav(modelData)
+                    }
+                }
+            }
+        }
 
         Item {
             Layout.fillWidth: true

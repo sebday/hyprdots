@@ -130,6 +130,8 @@ Singleton {
         return isNaN(n) ? themeNumber("surfaceOpacityInactive", 0.88) : n
     }
     readonly property bool roundingOn: looksData.roundingOn === true
+    readonly property bool gapsOn: looksData.gapsOn === true
+    readonly property int gapsOut: gapsOn ? 20 : 0
     readonly property int panelCornerRadius: roundingOn ? 4 : 0
     readonly property real overlayScrimOpacity: themeNumber("overlayScrimOpacity", 0.72)
     readonly property color overlayScrim: withOpacity(mantle, overlayScrimOpacity)
@@ -147,6 +149,11 @@ Singleton {
     readonly property int panelSmallFontPixelSize: Math.max(9, fontPixelSize - 1)
     readonly property int panelDetailFontPixelSize: Math.max(9, fontPixelSize - 2)
     readonly property int panelHintFontPixelSize: Math.max(8, fontPixelSize - 3)
+    readonly property int popupHeroFontPixelSize: fontPixelSize * 4
+    readonly property int popupTitleFontPixelSize: fontPixelSize * 3
+    readonly property int popupBodyFontPixelSize: fontPixelSize * 2
+    readonly property int popupSmallFontPixelSize: Math.max(9, fontPixelSize - 1) * 2
+    readonly property int popupHintFontPixelSize: Math.max(8, fontPixelSize - 3) * 2
     readonly property int barHeight: 32
     readonly property int barPaddingX: 16
     readonly property int barGap: 8
@@ -160,11 +167,14 @@ Singleton {
     readonly property int sparklineExpandedHeight: 52
     readonly property int sparklineExpandedBarWidth: 10
     readonly property int sparklineExpandedBarSpacing: 3
-    readonly property int notificationWidth: 440
-    readonly property int notificationPadding: 18
+    readonly property int notificationWidth: 500
+    readonly property int notificationPadding: 16
     readonly property int notificationTitleSize: 22
     readonly property int notificationBodySize: 18
     readonly property int notificationIconSize: 28
+    readonly property int notificationArtSize: 80
+    readonly property int notificationVolumeHeight: 80
+    readonly property int notificationMediaPad: 22
     readonly property int notificationStackSlot: 104
 
     Component.onCompleted: {

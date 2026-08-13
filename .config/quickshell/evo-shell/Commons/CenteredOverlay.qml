@@ -10,6 +10,9 @@ Item {
     property int contentHeight: 520
     property int contentMargin: 16
     property bool framed: true
+    property bool scrim: true
+    property color scrimColor: Theme.overlayScrim
+    property bool fillScreen: false
     property string layerNamespace: "evo-overlay"
     property var hostScreen: null
     property Item keysTarget: null
@@ -38,7 +41,8 @@ Item {
 
         Rectangle {
             anchors.fill: parent
-            color: Theme.overlayScrim
+            visible: root.scrim
+            color: root.scrimColor
         }
 
         MouseArea {
@@ -49,9 +53,10 @@ Item {
         Item {
             id: contentFrame
             z: 1
-            anchors.centerIn: parent
-            width: root.contentWidth
-            height: root.contentHeight
+            anchors.centerIn: root.fillScreen ? undefined : parent
+            anchors.fill: root.fillScreen ? parent : undefined
+            width: root.fillScreen ? undefined : root.contentWidth
+            height: root.fillScreen ? undefined : root.contentHeight
             focus: root.opened
 
             Keys.forwardTo: root.keysTarget ? [root.keysTarget] : []

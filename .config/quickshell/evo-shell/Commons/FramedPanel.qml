@@ -6,6 +6,7 @@ Item {
     property string label: ""
     property int contentPad: 10
     property int cornerRadius: Theme.panelCornerRadius
+    property int uiScale: 1
     property color frameBorder: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.32)
     property int legendPadH: 0
     property int legendPadV: 0
@@ -14,11 +15,12 @@ Item {
     default property alias content: contentHost.data
 
     readonly property bool hasLabel: label !== ""
+    readonly property int scaledPad: contentPad * uiScale
     readonly property int labelTopOffset: hasLabel
         ? -Math.round(frameLabel.implicitHeight / 2)
         : 0
     readonly property int headerPad: hasLabel
-        ? Math.round(frameLabel.implicitHeight / 2) + 4
+        ? Math.round(frameLabel.implicitHeight / 2) + 4 * uiScale
         : 0
     readonly property int balancedBottomPad: hasLabel ? headerPad : 0
     readonly property int labelGapLeft: hasLabel
@@ -27,13 +29,13 @@ Item {
     readonly property int labelGapRight: hasLabel
         ? Math.min(width, frameLabel.x + frameLabel.width + legendPadH)
         : 0
-    readonly property int verticalChrome: contentPad * 2 + headerPad
+    readonly property int verticalChrome: scaledPad * 2 + headerPad
         + (contentFill ? balancedBottomPad : 0)
 
     implicitWidth: 200
     implicitHeight: contentFill
-        ? (contentPad * 2 + headerPad + balancedBottomPad)
-        : (contentPad * 2 + headerPad + balancedBottomPad + contentHost.childrenRect.height)
+        ? (scaledPad * 2 + headerPad + balancedBottomPad)
+        : (scaledPad * 2 + headerPad + balancedBottomPad + contentHost.childrenRect.height)
 
     Rectangle {
         visible: !root.hasLabel
@@ -106,12 +108,12 @@ Item {
         id: frameLabel
         z: 2
         visible: root.hasLabel
-        x: root.contentPad
+        x: root.scaledPad
         y: root.labelTopOffset
         text: root.label
         color: Theme.foreground
         font.family: Theme.fontFamily
-        font.pixelSize: Theme.panelSmallFontPixelSize
+        font.pixelSize: root.uiScale > 1 ? Theme.popupSmallFontPixelSize : Theme.panelSmallFontPixelSize
         font.bold: Theme.fontBold
         opacity: 0.72
     }
@@ -124,10 +126,10 @@ Item {
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.bottom: root.contentFill ? parent.bottom : undefined
-        anchors.leftMargin: contentPad
-        anchors.rightMargin: contentPad
-        anchors.topMargin: contentPad + headerPad
-        anchors.bottomMargin: contentPad + (root.contentFill ? balancedBottomPad : 0)
+        anchors.leftMargin: scaledPad
+        anchors.rightMargin: scaledPad
+        anchors.topMargin: scaledPad + headerPad
+        anchors.bottomMargin: scaledPad + (root.contentFill ? balancedBottomPad : 0)
         height: root.contentFill ? undefined : childrenRect.height
     }
 }

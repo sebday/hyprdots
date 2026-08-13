@@ -17,12 +17,10 @@ end
 
 bindd("SUPER + Return", "Terminal", hl.dsp.exec_cmd(terminal))
 bindd("SUPER + Space", "System menu", hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.menu \'{"mode":"power"}\''))
-bindd("SUPER + B", "Panel settings", hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.panel \'{"module":"settings"}\''))
 bindd("SUPER + W", "Close Active Window", hl.dsp.window.close())
 bindd("SUPER + E", "Editor", hl.dsp.exec_cmd(editor))
 bindd("SUPER + T", "GUI File Manager", hl.dsp.exec_cmd("thunar"))
 bindd("SUPER + D", "App launcher", hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.menu \'{"mode":"apps"}\''))
-bindd("SUPER + R", "Runner", hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.menu \'{"mode":"runner"}\''))
 bindd("SUPER + F", "Fullscreen", hl.dsp.window.fullscreen({ mode = "fullscreen", action = "set" }))
 bindd("SUPER + H", "Toggle window transparency", function()
 	local window = hl.get_active_window()
@@ -33,8 +31,10 @@ end)
 bindd("SUPER + J", "Toggle Split Direction", hl.dsp.layout("togglesplit"))
 bindd("SUPER + K", "Toggle Floating Window", hl.dsp.window.float({ action = "toggle" }))
 bindd("SUPER + L", "Lock Screen", hl.dsp.exec_cmd(bin .. "/evo-system-lock"))
-bindd("SUPER + C", "Calculator", hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.panel \'{"module":"calc"}\''))
-bindd("SUPER + M", "Library panel", hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.panel \'{"module":"library"}\''))
+bindd("SUPER + C", "Tools panel", hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.panel \'{"module":"tools"}\''))
+bindd("SUPER + N", "New task", hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.panel \'{"module":"tools","focus":"tasks"}\''))
+bindd("SUPER + B", "Settings panel", hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.panel \'{"module":"settings"}\''))
+bindd("SUPER + M", "Library", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.library"))
 bindd(
 	"SUPER + V",
 	"Clipboard panel",

@@ -20,6 +20,7 @@ Item {
     property bool hovered: false
 
     readonly property bool onRight: side === "right"
+    readonly property int edgeGap: Theme.gapsOut
     readonly property bool surfaceActive: dock.hovered
     readonly property bool scrimActive: shown && opened && !pinned
 
@@ -122,6 +123,10 @@ Item {
         anchors.bottom: true
         anchors.left: !dock.onRight
         anchors.right: dock.onRight
+        margins.top: dock.edgeGap
+        margins.bottom: dock.edgeGap
+        margins.left: dock.onRight ? 0 : dock.edgeGap
+        margins.right: dock.onRight ? dock.edgeGap : 0
         implicitWidth: dock.panelWidth
         color: "transparent"
         exclusiveZone: (dock.opened && dock.pinned) ? dock.panelWidth : 0

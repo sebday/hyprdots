@@ -3,6 +3,7 @@ import Quickshell.Io
 import QtQuick
 import QtQuick.Layouts
 import "../../Commons"
+import "../cursor"
 
 Item {
     id: root
@@ -11,6 +12,8 @@ Item {
 
     readonly property string home: Quickshell.env("HOME")
     readonly property bool active: host && host.opened === true
+    readonly property int uiScale: 2
+    readonly property int headerFont: Theme.popupBodyFontPixelSize
 
     property var diyData: ({})
     property var tgsData: ({})
@@ -19,6 +22,7 @@ Item {
 
     function onActivated() {
         refreshAll()
+        cursorBlock.onActivated()
     }
 
     function refreshAll() {
@@ -26,6 +30,14 @@ Item {
         tgsPoll.runPoll()
         btcPoll.runPoll()
         spcxPoll.runPoll()
+    }
+
+    function headerLines(parts, fallback) {
+        if (!parts || parts.length === 0)
+            return fallback
+        if (parts.length === 1)
+            return parts[0]
+        return parts[0] + "\n" + parts.slice(1).join(" · ")
     }
 
     function shopifyHeader(data, fallbackName) {
@@ -36,22 +48,77 @@ Item {
         var revenue = data.revenue !== undefined
             ? Format.formatRevenue(data.revenue, sym)
             : String(data.label || "").replace(/^[A-Z]\s+/, "")
-        var parts = [revenue, cos]
+        var rest = [cos]
         if (typeof data.orders === "number")
-            parts.push(data.orders + " orders")
-        return parts.join(" · ")
+            rest.push(data.orders + " orders")
+        return headerLines([revenue].concat(rest), fallbackName + " …")
     }
 
     function marketHeader(data, fallbackName) {
         if (!data) return fallbackName + " …"
-        if (data.detail) return String(data.detail)
-        if (data.text) return String(data.text)
-        return fallbackName + " …"
+        var raw = data.detail ? String(data.detail) : (data.text ? String(data.text) : "")
+        if (!raw)
+            return fallbackName + " …"
+        return headerLines(raw.split(" · "), fallbackName + " …")
     }
 
     function openUrl(url) {
         if (!url) return
         Quickshell.execDetached(["bash", "-lc", "xdg-open " + Util.shellQuote(url)])
+    }
+
+    component ChartHeader: Item {
+        id: header
+        property string value: ""
+        property string href: ""
+
+        Layout.fillWidth: true
+        implicitHeight: headerCol.implicitHeight
+        implicitWidth: headerCol.implicitWidth
+
+        readonly property string primary: {
+            var parts = String(header.value).split("\n")
+            return parts[0] || ""
+        }
+        readonly property string secondary: {
+            var parts = String(header.value).split("\n")
+            return parts.slice(1).join(" · ")
+        }
+
+        ColumnLayout {
+            id: headerCol
+            anchors.left: parent.left
+            anchors.right: parent.right
+            spacing: 6 * root.uiScale
+
+            Text {
+                Layout.fillWidth: true
+                text: header.primary
+                color: Theme.foreground
+                font.family: Theme.fontFamily
+                font.pixelSize: root.headerFont
+                font.bold: Theme.fontBold
+                elide: Text.ElideRight
+            }
+
+            Text {
+                Layout.fillWidth: true
+                visible: header.secondary !== ""
+                text: header.secondary
+                color: Theme.foreground
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.popupHintFontPixelSize
+                font.bold: Theme.fontBold
+                opacity: 0.72
+                elide: Text.ElideRight
+            }
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.openUrl(header.href)
+        }
     }
 
     JsonPollRunner {
@@ -88,42 +155,34 @@ Item {
 
     GridLayout {
         anchors.fill: parent
-        columns: 2
-        columnSpacing: 12
-        rowSpacing: 12
+        anchors.margins: 8 * root.uiScale
+        columns: 3
+        columnSpacing: 12 * root.uiScale
+        rowSpacing: 12 * root.uiScale
 
         FramedPanel {
             label: "DIY"
             contentFill: true
+            uiScale: root.uiScale
             Layout.fillWidth: true
             Layout.fillHeight: true
+            Layout.column: 0
+            Layout.row: 0
 
-            Column {
+            ColumnLayout {
                 anchors.fill: parent
-                spacing: 8
+                spacing: 14 * root.uiScale
 
-                Text {
-                    width: parent.width
-                    text: root.shopifyHeader(root.diyData, "DIY")
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.panelSmallFontPixelSize
-                    font.bold: Theme.fontBold
-                    elide: Text.ElideRight
-
-                    MouseArea {
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.openUrl("https://admin.shopify.com/store/diy-buildingsupplies/analytics/live")
-                    }
+                ChartHeader {
+                    value: root.shopifyHeader(root.diyData, "DIY")
+                    href: "https://admin.shopify.com/store/diy-buildingsupplies/analytics/live"
                 }
 
                 SparklineChart {
-                    width: parent.width
-                    height: 72
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    uiScale: root.uiScale
                     bars: root.diyData.bars || []
-                    valuePrefix: root.diyData.symbol || "£"
-                    chartHeight: 54
                 }
             }
         }
@@ -131,35 +190,26 @@ Item {
         FramedPanel {
             label: "TGS"
             contentFill: true
+            uiScale: root.uiScale
             Layout.fillWidth: true
             Layout.fillHeight: true
+            Layout.column: 1
+            Layout.row: 0
 
-            Column {
+            ColumnLayout {
                 anchors.fill: parent
-                spacing: 8
+                spacing: 14 * root.uiScale
 
-                Text {
-                    width: parent.width
-                    text: root.shopifyHeader(root.tgsData, "TGS")
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.panelSmallFontPixelSize
-                    font.bold: Theme.fontBold
-                    elide: Text.ElideRight
-
-                    MouseArea {
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.openUrl("https://admin.shopify.com/store/thegoodsheet-uk/analytics/live")
-                    }
+                ChartHeader {
+                    value: root.shopifyHeader(root.tgsData, "TGS")
+                    href: "https://admin.shopify.com/store/thegoodsheet-uk/analytics/live"
                 }
 
                 SparklineChart {
-                    width: parent.width
-                    height: 72
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    uiScale: root.uiScale
                     bars: root.tgsData.bars || []
-                    valuePrefix: root.tgsData.symbol || "£"
-                    chartHeight: 54
                 }
             }
         }
@@ -167,35 +217,26 @@ Item {
         FramedPanel {
             label: "BTC"
             contentFill: true
+            uiScale: root.uiScale
             Layout.fillWidth: true
             Layout.fillHeight: true
+            Layout.column: 0
+            Layout.row: 1
 
-            Column {
+            ColumnLayout {
                 anchors.fill: parent
-                spacing: 8
+                spacing: 14 * root.uiScale
 
-                Text {
-                    width: parent.width
-                    text: root.marketHeader(root.btcData, "BTC")
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.panelSmallFontPixelSize
-                    font.bold: Theme.fontBold
-                    elide: Text.ElideRight
-
-                    MouseArea {
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.openUrl("https://www.tradingview.com/symbols/BTCUSD/")
-                    }
+                ChartHeader {
+                    value: root.marketHeader(root.btcData, "BTC")
+                    href: "https://www.tradingview.com/symbols/BTCUSD/"
                 }
 
                 SparklineChart {
-                    width: parent.width
-                    height: 72
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    uiScale: root.uiScale
                     bars: root.btcData.bars || []
-                    valuePrefix: "$"
-                    chartHeight: 54
                     style: "line"
                 }
             }
@@ -204,37 +245,49 @@ Item {
         FramedPanel {
             label: "SPCX"
             contentFill: true
+            uiScale: root.uiScale
             Layout.fillWidth: true
             Layout.fillHeight: true
+            Layout.column: 1
+            Layout.row: 1
 
-            Column {
+            ColumnLayout {
                 anchors.fill: parent
-                spacing: 8
+                spacing: 14 * root.uiScale
 
-                Text {
-                    width: parent.width
-                    text: root.marketHeader(root.spcxData, "SPCX")
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.panelSmallFontPixelSize
-                    font.bold: Theme.fontBold
-                    elide: Text.ElideRight
-
-                    MouseArea {
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.openUrl("https://app.trading212.com/")
-                    }
+                ChartHeader {
+                    value: root.marketHeader(root.spcxData, "SPCX")
+                    href: "https://app.trading212.com/"
                 }
 
                 SparklineChart {
-                    width: parent.width
-                    height: 72
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    uiScale: root.uiScale
                     bars: root.spcxData.bars || []
-                    valuePrefix: "$"
-                    chartHeight: 54
                     style: "line"
                 }
+            }
+        }
+
+        FramedPanel {
+            label: "Cursor"
+            contentFill: true
+            uiScale: root.uiScale
+            Layout.fillHeight: true
+            Layout.rowSpan: 2
+            Layout.column: 2
+            Layout.row: 0
+            Layout.preferredWidth: 560
+            Layout.minimumWidth: 560
+            Layout.maximumWidth: 560
+
+            CursorModule {
+                id: cursorBlock
+                anchors.fill: parent
+                host: root.host
+                uiScale: root.uiScale
+                breakdownInset: 8 * root.uiScale
             }
         }
     }
