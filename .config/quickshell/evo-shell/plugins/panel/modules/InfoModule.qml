@@ -22,8 +22,10 @@ Item {
     property string location: "Derby"
     property var current: null
     property var daily: []
+    property var hourly: []
     property string sunrise: ""
     property string sunset: ""
+    property bool hourlyExpanded: false
 
     property bool systemLoading: false
     property var systemData: ({})
@@ -60,12 +62,6 @@ Item {
     readonly property real transientMargin: 0.02
     readonly property real sustainedCap: 0.28
 
-    readonly property int statBarHeight: 4
-    readonly property int statBarRadius: 2
-    readonly property int statBarWidth: 48
-    readonly property int statNameColWidth: 58
-    readonly property int statValueColWidth: 72
-    readonly property int statPercentColWidth: 34
     readonly property int treeGutter: 18
     readonly property int treeStemX: 8
     readonly property int treeRowHeight: 22
@@ -83,25 +79,65 @@ Item {
             { icon: "󰏖", label: systemData.packages ? (systemData.packages + " packages") : "" },
             { icon: "󰍹", label: String(systemData.gpu || "") },
             { icon: "󰻠", label: String(systemData.cpu || "") },
-            { icon: "󰌢", label: String(systemData.host || "") },
-            { icon: "󰍹", label: String(systemData.wm || "") },
-            { icon: "󰅐", label: String(systemData.uptime || "") }
+            { icon: "󰍹", label: String(systemData.wm || "") }
         ].filter(function(row) { return row.label })
     }
 
-    readonly property var systemMonitors: Array.isArray(systemData.monitors) ? systemData.monitors : []
+    readonly property bool liveStatsReady: systemData && systemData.ok === true
+        && systemData.cpuPercent !== undefined
+    readonly property real liveCpuPercent: liveStatsReady ? Number(systemData.cpuPercent || 0) : 0
+    readonly property int liveStatLabelWidth: 26
+    readonly property int liveStatPercentWidth: 34
+    readonly property int liveStatSizeWidth: 72
 
-    readonly property string primaryMonitor: {
-        var panel = host && host.shell && host.shell.shellConfig && host.shell.shellConfig.panel
-        return panel && panel.output ? String(panel.output) : "DP-1"
+    readonly property var liveDiskRows: {
+        if (!liveStatsReady) return []
+        var rows = [{
+            name: "/",
+            percent: Number(systemData.diskPercent || 0),
+            total: String(systemData.diskTotalLabel || "")
+        }]
+        if (Number(systemData.storageTotal || 0) > 0) {
+            rows.push({
+                name: "sto",
+                percent: Number(systemData.storagePercent || 0),
+                total: String(systemData.storageTotalLabel || "")
+            })
+        }
+        if (Number(systemData.externalTotal || 0) > 0) {
+            rows.push({
+                name: "ext",
+                percent: Number(systemData.externalPercent || 0),
+                total: String(systemData.externalTotalLabel || "")
+            })
+        }
+        return rows
     }
 
     readonly property int weatherColWidth: 88
     readonly property int weatherColSpacing: 18
+    readonly property string currentHourLabel: {
+        if (!current || !current.time) return ""
+        var t = String(current.time)
+        var idx = t.indexOf("T")
+        if (idx < 0) return ""
+        return t.slice(idx + 1, idx + 3) + ":00"
+    }
 
     readonly property string distroLabel: {
         if (!systemData || systemData.ok !== true) return ""
-        return [systemData.os, systemData.installAge].filter(Boolean).join(" · ")
+        var parts = []
+        if (systemData.os)
+            parts.push(String(systemData.os))
+        var age = String(systemData.installAge || "")
+        var uptime = String(systemData.uptime || "")
+        if (age && uptime)
+            parts.push(age + ", up " + uptime)
+        else if (age)
+            parts.push(age)
+        else if (uptime)
+            parts.push("up " + uptime)
+        return parts.join(" · ")
     }
 
     function dismissHost() {
@@ -142,6 +178,7 @@ Item {
             root.location = String(data.location || "Derby")
             root.current = data.current || null
             root.daily = Array.isArray(data.daily) ? data.daily : []
+            root.hourly = Array.isArray(data.hourly) ? data.hourly : []
             root.sunrise = String(data.sunrise || "")
             root.sunset = String(data.sunset || "")
         } catch (e) {
@@ -149,6 +186,7 @@ Item {
             root.weatherError = "Weather unavailable"
             root.current = null
             root.daily = []
+            root.hourly = []
             root.sunrise = ""
             root.sunset = ""
         }
@@ -180,76 +218,17 @@ Item {
         next.externalTotal = json.externalTotal
         next.externalPercent = json.externalPercent
         next.externalTotalLabel = json.externalTotalLabel
-        if (Array.isArray(json.monitors)) next.monitors = json.monitors
         if (json.cpuPercent !== undefined) next.cpuPercent = json.cpuPercent
-        if (json.load1 !== undefined) next.load1 = json.load1
-        if (json.host !== undefined) next.host = json.host
+        if (json.uptime !== undefined) next.uptime = json.uptime
         next.ok = true
         root.systemData = next
     }
 
-    function shortMonitorName(name) {
-        var n = String(name || "")
-        if (n.indexOf("HDMI-A-") === 0) return n.replace("HDMI-A-", "A-")
-        return n
-    }
-
-    function monitorLayoutRects(monitors, areaW, areaH) {
-        if (!monitors || monitors.length === 0 || areaW <= 0 || areaH <= 0) return []
-
-        var pad = 4
-        var gap = 3
-        var minX = Infinity
-        var minY = Infinity
-        var maxX = -Infinity
-        var maxY = -Infinity
-
-        for (var i = 0; i < monitors.length; i++) {
-            var m = monitors[i]
-            var sc = Number(m.scale) || 1
-            var lw = Number(m.width) / sc
-            var lh = Number(m.height) / sc
-            var mx = Number(m.x)
-            var my = Number(m.y)
-            if (mx < minX) minX = mx
-            if (my < minY) minY = my
-            if (mx + lw > maxX) maxX = mx + lw
-            if (my + lh > maxY) maxY = my + lh
-        }
-
-        var totalW = maxX - minX
-        var totalH = maxY - minY
-        if (totalW <= 0 || totalH <= 0) return []
-
-        var innerW = areaW - pad * 2
-        var innerH = areaH - pad * 2
-        var scale = Math.min(innerW / totalW, innerH / totalH)
-        var drawnW = totalW * scale
-        var drawnH = totalH * scale
-        var offsetX = pad + (innerW - drawnW) / 2
-        var offsetY = pad + (innerH - drawnH) / 2
-        var out = []
-
-        for (var j = 0; j < monitors.length; j++) {
-            var mon = monitors[j]
-            var monScale = Number(mon.scale) || 1
-            var monW = Number(mon.width) / monScale
-            var monH = Number(mon.height) / monScale
-            var res = mon.resolution
-                ? String(mon.resolution)
-                : (String(mon.width) + "×" + String(mon.height))
-            out.push({
-                name: mon.name,
-                resolution: res,
-                primary: String(mon.name) === root.primaryMonitor,
-                x: offsetX + (Number(mon.x) - minX) * scale + gap / 2,
-                y: offsetY + (Number(mon.y) - minY) * scale + gap / 2,
-                w: Math.max(10, monW * scale - gap),
-                h: Math.max(8, monH * scale - gap)
-            })
-        }
-
-        return out
+    function meterColor(fraction) {
+        var f = Math.max(0, Math.min(1, fraction))
+        if (f >= 0.9) return Theme.urgent
+        if (f >= 0.7) return Theme.accent
+        return Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.82)
     }
 
     function applyMedia(json) {
@@ -370,11 +349,10 @@ Item {
         active: root.active
         defaultIntervalSec: 3
         command: ["bash", root.systemScript, "--live"]
-        onPolled: function(json) {
-            root.applyLiveStats(json)
-            miniBtop.pushSample(json)
-        }
+        onPolled: function(json) { root.applyLiveStats(json) }
     }
+
+    onActiveChanged: if (!active) resetBars()
 
     PwObjectTracker {
         objects: root.sink ? [root.sink] : []
@@ -398,8 +376,6 @@ Item {
         repeat: true
         onTriggered: root.applyPeak(peakMonitor.peak)
     }
-
-    onActiveChanged: if (!active) resetBars()
 
     FileView {
         id: themeNameFile
@@ -608,6 +584,40 @@ Item {
                         width: parent.width
                         spacing: 10
 
+                        Text {
+                            Layout.fillWidth: true
+                            visible: root.systemLoading && root.distroLabel === "" && root.systemDetailRows.length === 0
+                            text: "Loading…"
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.panelSmallFontPixelSize
+                            opacity: 0.5
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 6
+                            visible: root.distroLabel !== ""
+
+                            Text {
+                                text: "󰣇"
+                                color: Theme.accent
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.panelSmallFontPixelSize
+                                font.bold: Theme.fontBold
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: root.distroLabel
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.panelSmallFontPixelSize
+                                font.bold: Theme.fontBold
+                                elide: Text.ElideRight
+                            }
+                        }
+
                         Rectangle {
                             Layout.fillWidth: true
                             Layout.preferredHeight: 96
@@ -666,100 +676,6 @@ Item {
 
                         Item {
                             Layout.fillWidth: true
-                            Layout.preferredHeight: 88
-                            visible: root.systemMonitors.length > 0
-
-                            Repeater {
-                                model: root.monitorLayoutRects(root.systemMonitors, parent.width, parent.height)
-
-                                Item {
-                                    required property var modelData
-                                    x: modelData.x
-                                    y: modelData.y
-                                    width: modelData.w
-                                    height: modelData.h
-
-                                    Rectangle {
-                                        anchors.fill: parent
-                                        radius: 2
-                                        color: modelData.primary
-                                            ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.18)
-                                            : Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.07)
-                                        border.color: modelData.primary
-                                            ? Theme.accent
-                                            : Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.28)
-                                        border.width: modelData.primary ? 1.5 : 1
-                                    }
-
-                                    Column {
-                                        anchors.centerIn: parent
-                                        width: parent.width - 4
-                                        spacing: 1
-
-                                        Text {
-                                            width: parent.width
-                                            horizontalAlignment: Text.AlignHCenter
-                                            text: root.shortMonitorName(modelData.name)
-                                            color: modelData.primary ? Theme.accent : Theme.foreground
-                                            font.family: Theme.fontFamily
-                                            font.pixelSize: 8
-                                            font.bold: modelData.primary
-                                            opacity: modelData.primary ? 0.9 : 0.55
-                                            elide: Text.ElideRight
-                                        }
-
-                                        Text {
-                                            width: parent.width
-                                            horizontalAlignment: Text.AlignHCenter
-                                            text: modelData.resolution
-                                            color: modelData.primary ? Theme.foreground : Theme.foreground
-                                            font.family: Theme.fontFamily
-                                            font.pixelSize: Theme.panelHintFontPixelSize
-                                            font.bold: modelData.primary
-                                            opacity: modelData.primary ? 0.95 : 0.65
-                                            elide: Text.ElideRight
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        Text {
-                            Layout.fillWidth: true
-                            visible: root.systemLoading && root.distroLabel === "" && root.systemDetailRows.length === 0
-                            text: "Loading…"
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.panelSmallFontPixelSize
-                            opacity: 0.5
-                        }
-
-                        RowLayout {
-                            Layout.fillWidth: true
-                            spacing: 6
-                            visible: root.distroLabel !== ""
-
-                            Text {
-                                text: "󰣇"
-                                color: Theme.accent
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.panelSmallFontPixelSize
-                                font.bold: Theme.fontBold
-                            }
-
-                            Text {
-                                Layout.fillWidth: true
-                                text: root.distroLabel
-                                color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.panelSmallFontPixelSize
-                                font.bold: Theme.fontBold
-                                elide: Text.ElideRight
-                            }
-                        }
-
-                        Item {
-                            Layout.fillWidth: true
                             visible: root.systemDetailRows.length > 0 || root.systemData.ok === true
                             implicitHeight: systemTreeColumn.implicitHeight
 
@@ -786,17 +702,44 @@ Item {
                                         required property var modelData
                                         icon: modelData.icon
                                         label: modelData.label
-                                        isLast: index === root.systemDetailRows.length - 1
                                     }
                                 }
-                            }
-                        }
 
-                        MiniBtop {
-                            id: miniBtop
-                            Layout.fillWidth: true
-                            active: root.active
-                            loading: livePoll.loading
+                                TreeCpuStatRow {
+                                    visible: root.liveStatsReady || livePoll.loading
+                                }
+
+                                TreeStatRow {
+                                    visible: root.liveStatsReady
+                                    statName: "mem"
+                                    statPercent: Math.round(Number(root.systemData.memPercent || 0)) + "%"
+                                    statValue: String(root.systemData.memTotalLabel || "")
+                                    barFraction: Number(root.systemData.memPercent || 0) / 100
+                                }
+
+                                Repeater {
+                                    model: root.liveDiskRows
+
+                                    TreeStatRow {
+                                        required property var modelData
+                                        statName: modelData.name
+                                        statPercent: Math.round(modelData.percent) + "%"
+                                        statValue: modelData.total
+                                        barFraction: modelData.percent / 100
+                                    }
+                                }
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    Layout.leftMargin: root.treeGutter
+                                    visible: !root.liveStatsReady && livePoll.loading
+                                    text: "Loading…"
+                                    color: Theme.foreground
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.panelHintFontPixelSize
+                                    opacity: 0.55
+                                }
+                            }
                         }
                     }
                 }
@@ -968,6 +911,86 @@ Item {
                                 }
                             }
                         }
+
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 22
+                            visible: root.weatherOk && root.hourly.length > 0
+
+                            RowLayout {
+                                anchors.centerIn: parent
+                                spacing: 6
+
+                                Text {
+                                    text: root.hourlyExpanded ? "−" : "+"
+                                    color: Theme.accent
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.panelSmallFontPixelSize
+                                    font.bold: Theme.fontBold
+                                }
+
+                                Text {
+                                    text: "Show more"
+                                    color: Theme.foreground
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.panelHintFontPixelSize
+                                    opacity: 0.55
+                                }
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.hourlyExpanded = !root.hourlyExpanded
+                            }
+                        }
+
+                        GridLayout {
+                            Layout.fillWidth: true
+                            columns: 4
+                            columnSpacing: 8
+                            rowSpacing: 10
+                            visible: root.weatherOk && root.hourlyExpanded && root.hourly.length > 0
+
+                            Repeater {
+                                model: root.hourly
+
+                                ColumnLayout {
+                                    required property var modelData
+                                    Layout.fillWidth: true
+                                    spacing: 2
+
+                                    readonly property bool isNow: String(modelData.time || "") === root.currentHourLabel
+                                    readonly property bool isPast: {
+                                        var hour = String(modelData.time || "")
+                                        var now = root.currentHourLabel
+                                        return hour !== "" && now !== "" && hour < now
+                                    }
+
+                                    Text {
+                                        Layout.fillWidth: true
+                                        horizontalAlignment: Text.AlignHCenter
+                                        text: String(modelData.time || "").slice(0, 2)
+                                        color: parent.isNow ? Theme.accent : Theme.foreground
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.panelHintFontPixelSize
+                                        font.bold: Theme.fontBold
+                                        opacity: parent.isNow ? 1 : (parent.isPast ? 0.35 : 0.65)
+                                    }
+
+                                    Text {
+                                        Layout.fillWidth: true
+                                        horizontalAlignment: Text.AlignHCenter
+                                        text: (modelData.temp !== undefined ? String(modelData.temp) : "—") + "°"
+                                        color: parent.isNow ? Theme.accent : Theme.foreground
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.panelHintFontPixelSize
+                                        font.bold: Theme.fontBold
+                                        opacity: parent.isPast && !parent.isNow ? 0.45 : 1
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -978,8 +1001,6 @@ Item {
                     UsageModule {
                         id: cursorUsage
                         width: parent.width
-                        embedded: true
-                        embeddedActive: root.active
                         host: root.host
                     }
                 }
@@ -987,18 +1008,109 @@ Item {
         }
     }
 
-    component TreeBranchRow: RowLayout {
-        id: branchRow
+    component TreeCpuStatRow: RowLayout {
+        Layout.fillWidth: true
+        Layout.preferredHeight: root.treeRowHeight
+        spacing: 6
 
-        property string icon: ""
-        property string label: ""
+        Item {
+            Layout.preferredWidth: root.treeGutter
+            Layout.preferredHeight: root.treeRowHeight
+
+            Rectangle {
+                x: root.treeStemX
+                anchors.verticalCenter: parent.verticalCenter
+                width: root.treeGutter - root.treeStemX - 2
+                height: 1
+                color: root.treeLineColor
+            }
+        }
+
+        Text {
+            Layout.preferredWidth: root.liveStatLabelWidth
+            text: "cpu"
+            color: Theme.foreground
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.panelHintFontPixelSize
+            font.bold: Theme.fontBold
+            opacity: 0.8
+        }
+
+        Item {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 8
+
+            Rectangle {
+                anchors.fill: parent
+                radius: 1
+                color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.1)
+            }
+
+            Canvas {
+                id: cpuChart
+                anchors.fill: parent
+
+                onPaint: {
+                    var ctx = getContext("2d")
+                    ctx.clearRect(0, 0, width, height)
+
+                    var frac = Math.max(0, Math.min(1, root.liveCpuPercent / 100))
+                    if (frac <= 0) return
+
+                    var pad = 1
+                    var gap = 1
+                    var innerW = Math.max(1, width - pad * 2)
+                    var innerH = Math.max(1, height - pad * 2)
+                    var cell = Math.max(1, innerH)
+                    var cols = Math.max(1, Math.floor((innerW + gap) / (cell + gap)))
+                    var filled = Math.round(frac * cols)
+                    var color = root.meterColor(frac)
+
+                    for (var i = 0; i < filled; i++) {
+                        var x = pad + i * (cell + gap)
+                        ctx.fillStyle = color
+                        ctx.fillRect(
+                            Math.round(x),
+                            Math.round(pad),
+                            Math.max(1, Math.floor(cell)),
+                            Math.max(1, Math.floor(cell))
+                        )
+                    }
+                }
+
+                Connections {
+                    target: root
+                    function onLiveCpuPercentChanged() { cpuChart.requestPaint() }
+                }
+
+                onWidthChanged: requestPaint()
+                onHeightChanged: requestPaint()
+            }
+        }
+
+        Text {
+            Layout.preferredWidth: root.liveStatPercentWidth
+            horizontalAlignment: Text.AlignRight
+            text: livePoll.loading && !root.liveStatsReady
+                ? "…"
+                : Math.round(root.liveCpuPercent) + "%"
+            color: root.meterColor(root.liveCpuPercent / 100)
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.panelHintFontPixelSize
+            font.bold: Theme.fontBold
+        }
+
+        Item {
+            Layout.preferredWidth: root.liveStatSizeWidth
+            Layout.preferredHeight: 1
+        }
+    }
+
+    component TreeStatRow: RowLayout {
         property string statName: ""
         property string statValue: ""
         property string statPercent: ""
         property real barFraction: -1
-        property bool isLast: false
-
-        readonly property bool isStatRow: statName !== ""
 
         Layout.fillWidth: true
         Layout.preferredHeight: root.treeRowHeight
@@ -1018,7 +1130,78 @@ Item {
         }
 
         Text {
-            text: branchRow.icon
+            Layout.preferredWidth: root.liveStatLabelWidth
+            text: statName
+            color: Theme.foreground
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.panelHintFontPixelSize
+            font.bold: Theme.fontBold
+            opacity: 0.8
+        }
+
+        Item {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 8
+            visible: barFraction >= 0
+
+            Rectangle {
+                anchors.fill: parent
+                radius: 1
+                color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.1)
+            }
+
+            Rectangle {
+                height: parent.height
+                width: parent.width * Math.max(0, Math.min(1, barFraction))
+                radius: 1
+                color: root.meterColor(barFraction)
+            }
+        }
+
+        Text {
+            Layout.preferredWidth: root.liveStatPercentWidth
+            horizontalAlignment: Text.AlignRight
+            text: statPercent
+            color: Theme.foreground
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.panelHintFontPixelSize
+        }
+
+        Text {
+            Layout.preferredWidth: root.liveStatSizeWidth
+            horizontalAlignment: Text.AlignRight
+            visible: statValue !== ""
+            text: statValue
+            color: Theme.foreground
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.panelHintFontPixelSize
+            opacity: 0.72
+        }
+    }
+
+    component TreeBranchRow: RowLayout {
+        property string icon: ""
+        property string label: ""
+
+        Layout.fillWidth: true
+        Layout.preferredHeight: root.treeRowHeight
+        spacing: 6
+
+        Item {
+            Layout.preferredWidth: root.treeGutter
+            Layout.preferredHeight: root.treeRowHeight
+
+            Rectangle {
+                x: root.treeStemX
+                anchors.verticalCenter: parent.verticalCenter
+                width: root.treeGutter - root.treeStemX - 2
+                height: 1
+                color: root.treeLineColor
+            }
+        }
+
+        Text {
+            text: icon
             color: Theme.foreground
             font.family: Theme.fontFamily
             font.pixelSize: Theme.panelSmallFontPixelSize
@@ -1026,68 +1209,12 @@ Item {
         }
 
         Text {
-            visible: !branchRow.isStatRow
             Layout.fillWidth: true
-            text: branchRow.label
+            text: label
             color: Theme.foreground
             font.family: Theme.fontFamily
             font.pixelSize: Theme.panelSmallFontPixelSize
             elide: Text.ElideRight
-        }
-
-        Text {
-            visible: branchRow.isStatRow
-            Layout.preferredWidth: root.statNameColWidth
-            text: branchRow.statName
-            color: Theme.foreground
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.panelSmallFontPixelSize
-            elide: Text.ElideRight
-        }
-
-        Text {
-            visible: branchRow.isStatRow
-            Layout.preferredWidth: root.statValueColWidth
-            text: branchRow.statValue
-            color: Theme.foreground
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.panelSmallFontPixelSize
-            elide: Text.ElideRight
-        }
-
-        Text {
-            visible: branchRow.isStatRow
-            Layout.preferredWidth: root.statPercentColWidth
-            horizontalAlignment: Text.AlignRight
-            text: branchRow.statPercent
-            color: Theme.foreground
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.panelSmallFontPixelSize
-        }
-
-        Item {
-            visible: branchRow.isStatRow
-            Layout.fillWidth: true
-        }
-
-        Item {
-            visible: branchRow.barFraction >= 0
-            Layout.preferredWidth: root.statBarWidth
-            Layout.preferredHeight: root.statBarHeight
-
-            Rectangle {
-                anchors.fill: parent
-                radius: root.statBarRadius
-                color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.12)
-            }
-
-            Rectangle {
-                height: parent.height
-                width: parent.width * Math.max(0, Math.min(1, branchRow.barFraction))
-                radius: root.statBarRadius
-                color: Theme.accent
-                opacity: 0.9
-            }
         }
     }
 }

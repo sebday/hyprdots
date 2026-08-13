@@ -6,8 +6,8 @@
   },
   "bar": {
     "id": "evo.bar",
-    "position": "top",
-    "output": "DP-1",
+    "position": "bottom",
+    "output": "HDMI-A-1",
     "layout": {
       "left": [
         {
@@ -35,6 +35,13 @@
           "interval": 1800,
           "onClick": "~/.local/bin/evo-shell-ipc shell toggle evo.panel '{\"module\":\"info\"}'",
           "onClickRight": "xdg-open https://weather.metoffice.gov.uk/forecast/gcqvn6pq4"
+        },
+        {
+          "id": "cursor",
+          "type": "command",
+          "exec": "~/.local/bin/evo-bar-cursor.sh",
+          "interval": 300,
+          "onClick": "~/.local/bin/evo-shell-ipc shell toggle evo.panel '{\"module\":\"info\"}'"
         }
       ],
       "right": [

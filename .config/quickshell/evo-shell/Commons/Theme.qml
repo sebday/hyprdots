@@ -64,14 +64,6 @@ Singleton {
         looksFile.reload()
     }
 
-    function looksNumber(key, fallback) {
-        var value = looksData[key]
-        if (value === undefined || value === null || value === "")
-            return fallback
-        var n = Number(value)
-        return isNaN(n) ? fallback : n
-    }
-
     function themeColor(key, fallback) {
         var value = themeData[key]
         return value ? value : fallback
@@ -149,14 +141,12 @@ Singleton {
     readonly property int sparklineGap: 6
     readonly property int sparklineChartMargin: 10
     readonly property int sparklineHeight: 12
-    readonly property int sparklineBarWidth: 3
     readonly property int sparklineWideBarWidth: 8
     readonly property int sparklineCellSize: 7
     readonly property int sparklineBarSpacing: 1
     readonly property int sparklineExpandedHeight: 52
     readonly property int sparklineExpandedBarWidth: 10
     readonly property int sparklineExpandedBarSpacing: 3
-    readonly property int sparklineExpandedPadding: 10
     readonly property int notificationWidth: 440
     readonly property int notificationPadding: 18
     readonly property int notificationTitleSize: 22

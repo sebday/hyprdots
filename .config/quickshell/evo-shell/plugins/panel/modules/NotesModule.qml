@@ -8,7 +8,6 @@ Item {
     id: root
 
     property var host: null
-    property var shell: null
 
     readonly property string notesPath: Quickshell.env("HOME") + "/.local/state/evo-shell/notes.txt"
     readonly property string taskPath: Quickshell.env("HOME") + "/.local/state/evo-shell/notes-task.json"
@@ -16,8 +15,22 @@ Item {
     readonly property int taskFontSize: 14
     readonly property int taskRowHeight: 28
     readonly property int taskBottomPad: 14
-    readonly property int taskPanelMaxHeight: 196
+    readonly property int taskPanelChrome: 18
+    readonly property int layoutTopMargin: 10
+    readonly property int layoutSpacing: 10
+    readonly property int clearRowHeight: 28
     readonly property bool active: host && host.opened && host.activeModule === "notes"
+
+    readonly property int splitAreaHeight: Math.max(
+        0,
+        root.height - root.layoutTopMargin - root.clearRowHeight - root.layoutSpacing * 2
+    )
+    readonly property int taskListHeight: taskModel.count * root.taskRowHeight + root.taskBottomPad
+    readonly property int taskPanelHeightCap: Math.floor(root.splitAreaHeight * 0.5)
+    readonly property int taskPanelPreferredHeight: Math.min(
+        root.taskListHeight + root.taskPanelChrome,
+        root.taskPanelHeightCap
+    )
 
     property bool loading: false
     property bool dirty: false
@@ -329,19 +342,17 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        anchors.topMargin: 10
+        anchors.topMargin: root.layoutTopMargin
         anchors.bottom: parent.bottom
-        spacing: 10
+        spacing: root.layoutSpacing
 
         FramedPanel {
             label: "Tasks"
             contentFill: true
             Layout.fillWidth: true
             Layout.bottomMargin: 4
-            Layout.preferredHeight: Math.min(
-                root.taskPanelMaxHeight,
-                taskModel.count * root.taskRowHeight + root.taskBottomPad + 18
-            )
+            Layout.preferredHeight: root.taskPanelPreferredHeight
+            Layout.maximumHeight: root.taskPanelHeightCap
 
             ListView {
                 id: taskList
@@ -439,6 +450,7 @@ Item {
             contentFill: true
             Layout.fillWidth: true
             Layout.fillHeight: true
+            Layout.minimumHeight: Math.max(0, root.splitAreaHeight - root.taskPanelPreferredHeight)
 
             Flickable {
                 id: flick
@@ -490,7 +502,7 @@ Item {
 
         Item {
             Layout.fillWidth: true
-            Layout.preferredHeight: 28
+            Layout.preferredHeight: root.clearRowHeight
 
             Row {
                 anchors.centerIn: parent

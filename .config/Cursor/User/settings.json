@@ -1,10 +1,10 @@
 {
-    "workbench.colorTheme": "Catppuccin",
+    "workbench.colorTheme": "Dracula",
     "editor.fontFamily": "'CaskaydiaMono Nerd Font', 'monospace', monospace",
     "editor.inlayHints.fontFamily": "'CaskaydiaMono Nerd Font', 'monospace', monospace",
     "window.menuBarVisibility": "compact",
     "workbench.agentsWindowButton.enabled": false,
     "workbench.layoutControl.enabled": false,
     "editor.fontSize": 18,
-    "window.zoomLevel": 0.0
+    "window.zoomLevel": 0.00
 }

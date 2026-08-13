@@ -55,14 +55,9 @@ read_live_stats() {
     local mem_total mem_used mem_avail disk_used disk_total disk_pct
     local storage_used storage_total storage_pct
     local external_used external_total external_pct
-    local monitors_json cpu_pct load1 host uptime_short
+    local cpu_pct uptime_short
 
-    monitors_json="$(read_monitors_json)"
     cpu_pct="$(read_cpu_percent)"
-    load1="$(awk '{print $1}' /proc/loadavg 2>/dev/null || echo 0)"
-    host="$(hostname -s 2>/dev/null || true)"
-    [[ -z "$host" ]] && host="$(hostname 2>/dev/null || true)"
-    [[ -z "$host" && -f /etc/hostname ]] && host="$(tr -d '\n' < /etc/hostname)"
     uptime_short="$(read_uptime_short)"
 
     read -r mem_total mem_avail < <(awk '
@@ -112,17 +107,12 @@ read_live_stats() {
         --argjson externalTotal "$external_total" \
         --arg externalPercent "$external_pct" \
         --arg externalTotalLabel "$(fmt_bytes "$external_total")" \
-        --argjson monitors "$monitors_json" \
         --arg cpuPercent "$cpu_pct" \
-        --arg load1 "$load1" \
-        --arg host "$host" \
         --arg uptime "$uptime_short" \
         '{
             ok: true,
-            host: $host,
             uptime: $uptime,
             cpuPercent: ($cpuPercent | tonumber),
-            load1: ($load1 | tonumber),
             memTotal: $memTotal,
             memPercent: ($memPercent | tonumber),
             memTotalLabel: $memTotalLabel,
@@ -136,8 +126,7 @@ read_live_stats() {
             externalUsed: $externalUsed,
             externalTotal: $externalTotal,
             externalPercent: ($externalPercent | tonumber),
-            externalTotalLabel: $externalTotalLabel,
-            monitors: $monitors
+            externalTotalLabel: $externalTotalLabel
         }'
 }
 
@@ -152,24 +141,6 @@ fmt_uptime() {
         else if (h > 0) printf "%dh %dm", h, m
         else printf "%dm", m
     }'
-}
-
-read_monitors_json() {
-    hyprctl monitors -j 2>/dev/null | jq -c '
-        if type == "array" then
-            [.[] | {
-                name: .name,
-                width: .width,
-                height: .height,
-                resolution: "\(.width)×\(.height)",
-                x: .x,
-                y: .y,
-                scale: (if (.scale // 1) == 0 then 1 else .scale end)
-            }] | sort_by(.y, .x)
-        else
-            []
-        end
-    ' 2>/dev/null || echo '[]'
 }
 
 read_snapshot() {

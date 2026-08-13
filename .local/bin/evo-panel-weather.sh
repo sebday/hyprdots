@@ -24,7 +24,7 @@ error_out() {
         '{ok:false, location:$location, error:$error, metOfficeUrl:$url, sunrise:"", sunset:"", current:null, daily:[], hourly:[]}'
 }
 
-API_URL="https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&timezone=Europe%2FLondon&forecast_days=2&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset&hourly=temperature_2m,weather_code,precipitation_probability"
+API_URL="https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&timezone=Europe%2FLondon&forecast_days=2&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset&hourly=temperature_2m,weather_code"
 
 DATA=$(curl -sf --max-time 12 "$API_URL" 2>/dev/null) || DATA=""
 
@@ -82,8 +82,7 @@ def clock($iso):
 def dow($date):
   ($date + "T12:00:00Z" | fromdateiso8601 | strftime("%a"));
 
-(.current.time // now | tostring) as $now_iso |
-([range(0; .hourly.time | length) as $i | select(.hourly.time[$i] <= $now_iso) | $i] | last // 0) as $start |
+(.daily.time[0]) as $today |
 {
   ok: true,
   location: $location,
@@ -115,13 +114,13 @@ def dow($date):
     }
   ],
   hourly: [
-    range($start; ([.hourly.time | length, $start + 24] | min)) as $i |
+    range(0; .hourly.time | length) as $i |
+    select((.hourly.time[$i] | split("T")[0]) == $today) |
     (.hourly.weather_code[$i] // 0) as $code |
     {
       time: hour_label(.hourly.time[$i]),
       iso: .hourly.time[$i],
       temp: temp(.hourly.temperature_2m[$i]),
-      precip: ((.hourly.precipitation_probability[$i] // 0) | round),
       code: $code,
       label: wlabel($code),
       icon: icon($code)

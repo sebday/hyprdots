@@ -11,6 +11,9 @@ PINS_DATA_DIR="${STATE_DIR}/clipboard-pins-data"
 PID_FILE="${STATE_DIR}/clipboard-watch.pid"
 STORE_SCRIPT="${STATE_DIR}/clipboard-store.sh"
 
+declare -A CLIPHIST_BY_ID
+declare -a CLIPHIST_ORDER
+
 stop_watch() {
     if [[ -f "$PID_FILE" ]]; then
         local pid
@@ -37,280 +40,322 @@ EOF
     echo "$!" >"$PID_FILE"
 }
 
-pins_py() {
-    python3 - "$@" <<'PY'
-import json
-import os
-import subprocess
-import sys
-import uuid
+generate_pin_id() {
+    openssl rand -hex 6
+}
 
-pins_path = sys.argv[2]
-data_dir = sys.argv[3]
-cmd = sys.argv[1]
+save_pins() {
+    local pins="$1"
+    mkdir -p "$(dirname "$PINS_FILE")" "$PINS_DATA_DIR"
+    jq -n --argjson pins "$pins" '{version: 2, pins: $pins}' --indent 2 >"$PINS_FILE"
+}
 
+cliphist_list() {
+    CLIPHIST_BY_ID=()
+    CLIPHIST_ORDER=()
 
-def cliphist_list():
-    try:
-        raw = subprocess.check_output(["cliphist", "list"], text=True, stderr=subprocess.DEVNULL)
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        raw = ""
-    by_id = {}
-    order = []
-    for line in raw.splitlines():
-        if "\t" not in line:
+    local line entry_id text
+    while IFS= read -r line; do
+        [[ "$line" == *$'\t'* ]] || continue
+        entry_id="${line%%$'\t'*}"
+        text="${line#*$'\t'}"
+        [[ "$entry_id" =~ ^[0-9]+$ ]] || continue
+        CLIPHIST_BY_ID["$entry_id"]="$text"
+        CLIPHIST_ORDER+=("$entry_id")
+    done < <(cliphist list 2>/dev/null || true)
+}
+
+write_pin_blob() {
+    local pin_id="$1" blob_file="$2"
+    local fname="${pin_id}.bin"
+    mkdir -p "$PINS_DATA_DIR"
+    cp "$blob_file" "${PINS_DATA_DIR}/${fname}"
+    printf '%s\n' "$fname"
+}
+
+store_blob_file() {
+    local blob_file="$1"
+    cliphist store <"$blob_file" 2>/dev/null || true
+}
+
+read_pin_blob_file() {
+    local pin_file="$1" dest="$2"
+    [[ -f "${PINS_DATA_DIR}/${pin_file}" ]] || return 1
+    cp "${PINS_DATA_DIR}/${pin_file}" "$dest"
+}
+
+migrate_v1_pins() {
+    local v1_data="$1"
+    cliphist_list
+
+    local pins='[]' entry_id blob_tmp pin_id fname label new_pin
+    while IFS= read -r entry_id; do
+        [[ -n "${CLIPHIST_BY_ID[$entry_id]:-}" ]] || continue
+
+        blob_tmp=$(mktemp)
+        if ! cliphist decode "$entry_id" >"$blob_tmp" 2>/dev/null; then
+            rm -f "$blob_tmp"
             continue
-        entry_id, text = line.split("\t", 1)
-        if not entry_id.isdigit():
+        fi
+
+        pin_id=$(generate_pin_id)
+        fname=$(write_pin_blob "$pin_id" "$blob_tmp")
+        rm -f "$blob_tmp"
+
+        label="${CLIPHIST_BY_ID[$entry_id]}"
+        new_pin=$(
+            jq -n \
+                --arg pinId "$pin_id" \
+                --arg cliphistId "$entry_id" \
+                --arg label "$label" \
+                --arg file "$fname" \
+                '{pinId: $pinId, cliphistId: $cliphistId, label: $label, file: $file}'
+        )
+        pins=$(jq --argjson pin "$new_pin" '. += [$pin]' <<<"$pins")
+    done < <(jq -r '.[] | tostring | select(test("^[0-9]+$"))' <<<"$v1_data")
+
+    save_pins "$pins"
+    printf '%s\n' "$pins"
+}
+
+load_pins_json() {
+    if [[ ! -f "$PINS_FILE" ]]; then
+        printf '%s\n' '[]'
+        return
+    fi
+
+    local data data_type
+    if ! data=$(jq -c . "$PINS_FILE" 2>/dev/null); then
+        printf '%s\n' '[]'
+        return
+    fi
+
+    data_type=$(jq -r 'type' <<<"$data")
+    if [[ "$data_type" == "array" ]]; then
+        migrate_v1_pins "$data"
+        return
+    fi
+
+    if [[ "$data_type" == "object" ]] && [[ $(jq -r '.pins | type // "null"' <<<"$data") == "array" ]]; then
+        jq -c '.pins' <<<"$data"
+        return
+    fi
+
+    printf '%s\n' '[]'
+}
+
+sync_pins_into_cliphist() {
+    local pins count i entry_id label pin_file blob_tmp changed=false
+    pins=$(load_pins_json)
+    cliphist_list
+
+    count=$(jq 'length' <<<"$pins")
+    for ((i = 0; i < count; i++)); do
+        entry_id=$(jq -r ".[$i].cliphistId // \"\"" <<<"$pins")
+        label=$(jq -r ".[$i].label // \"\"" <<<"$pins")
+        pin_file=$(jq -r ".[$i].file // \"\"" <<<"$pins")
+
+        if [[ -n "${CLIPHIST_BY_ID[$entry_id]:-}" && "${CLIPHIST_BY_ID[$entry_id]}" == "$label" ]]; then
             continue
-        by_id[entry_id] = text
-        order.append(entry_id)
-    return by_id, order
+        fi
 
+        blob_tmp=$(mktemp)
+        if ! read_pin_blob_file "$pin_file" "$blob_tmp"; then
+            rm -f "$blob_tmp"
+            continue
+        fi
+        store_blob_file "$blob_tmp"
+        rm -f "$blob_tmp"
+        changed=true
+    done
 
-def save_pins(pins):
-    os.makedirs(os.path.dirname(pins_path) or ".", exist_ok=True)
-    os.makedirs(data_dir, exist_ok=True)
-    with open(pins_path, "w", encoding="utf-8") as f:
-        json.dump({"version": 2, "pins": pins}, f, indent=2)
-        f.write("\n")
+    if [[ "$changed" == false ]]; then
+        printf '%s\n' "$pins"
+        return
+    fi
 
+    cliphist_list
 
-def read_pin_blob(pin):
-    with open(os.path.join(data_dir, pin["file"]), "rb") as f:
-        return f.read()
+    declare -A LABELS_TO_ID
+    local eid
+    for eid in "${CLIPHIST_ORDER[@]}"; do
+        LABELS_TO_ID["${CLIPHIST_BY_ID[$eid]}"]="$eid"
+    done
 
-
-def write_pin_blob(pin_id, blob):
-    fname = f"{pin_id}.bin"
-    path = os.path.join(data_dir, fname)
-    os.makedirs(data_dir, exist_ok=True)
-    with open(path, "wb") as f:
-        f.write(blob)
-    return fname
-
-
-def store_blob(blob):
-    subprocess.run(
-        ["cliphist", "store"],
-        input=blob,
-        check=False,
-        stderr=subprocess.DEVNULL,
-    )
-
-
-def load_pins():
-    if not os.path.isfile(pins_path):
-        return []
-
-    try:
-        with open(pins_path, encoding="utf-8") as f:
-            data = json.load(f)
-    except (OSError, json.JSONDecodeError, TypeError, ValueError):
-        return []
-
-    if isinstance(data, list):
-        by_id, _ = cliphist_list()
-        pins = []
-        for entry_id in [str(x) for x in data if str(x).isdigit()]:
-            if entry_id not in by_id:
-                continue
-            try:
-                blob = subprocess.check_output(
-                    ["cliphist", "decode", entry_id], stderr=subprocess.DEVNULL
-                )
-            except subprocess.CalledProcessError:
-                continue
-            pin_id = uuid.uuid4().hex[:12]
-            fname = write_pin_blob(pin_id, blob)
-            pins.append(
-                {
-                    "pinId": pin_id,
-                    "cliphistId": entry_id,
-                    "label": by_id[entry_id],
-                    "file": fname,
-                }
+    local updated="$pins"
+    for ((i = 0; i < count; i++)); do
+        label=$(jq -r ".[$i].label // \"\"" <<<"$pins")
+        if [[ -n "${LABELS_TO_ID[$label]:-}" ]]; then
+            updated=$(
+                jq --arg label "$label" --arg id "${LABELS_TO_ID[$label]}" \
+                    'map(if .label == $label then .cliphistId = $id else . end)' <<<"$updated"
             )
-        save_pins(pins)
-        return pins
+        fi
+    done
 
-    if isinstance(data, dict) and isinstance(data.get("pins"), list):
-        return data["pins"]
+    save_pins "$updated"
+    printf '%s\n' "$updated"
+}
 
-    return []
+pins_list_cmd() {
+    local limit="$1"
+    local pins count i entry_id unpinned=0
+    pins=$(sync_pins_into_cliphist)
+    cliphist_list
 
+    declare -A PINNED_IDS
+    local -a out_lines=()
 
-def sync_pins_into_cliphist(pins):
-    by_id, _ = cliphist_list()
-    changed = False
-    for pin in pins:
-        entry_id = str(pin.get("cliphistId", ""))
-        label = pin.get("label", "")
-        if entry_id in by_id and by_id[entry_id] == label:
-            continue
-        try:
-            blob = read_pin_blob(pin)
-        except OSError:
-            continue
-        store_blob(blob)
-        changed = True
+    count=$(jq 'length' <<<"$pins")
+    for ((i = 0; i < count; i++)); do
+        entry_id=$(jq -r ".[$i].cliphistId // \"\"" <<<"$pins")
+        [[ -n "${CLIPHIST_BY_ID[$entry_id]:-}" ]] || continue
+        PINNED_IDS["$entry_id"]=1
+        out_lines+=("${entry_id}"$'\t'"${CLIPHIST_BY_ID[$entry_id]}"$'\t'"1")
+    done
 
-    if not changed:
-        return pins
-
-    by_id, _ = cliphist_list()
-    labels_to_id = {}
-    for entry_id, text in by_id.items():
-        labels_to_id[text] = entry_id
-
-    for pin in pins:
-        label = pin.get("label", "")
-        if label in labels_to_id:
-            pin["cliphistId"] = labels_to_id[label]
-
-    save_pins(pins)
-    return pins
-
-
-if cmd == "list":
-    limit = int(sys.argv[4])
-    pins = sync_pins_into_cliphist(load_pins())
-    by_id, order = cliphist_list()
-    pinned_ids = set()
-    out = []
-
-    for pin in pins:
-        entry_id = str(pin.get("cliphistId", ""))
-        if entry_id not in by_id:
-            continue
-        pinned_ids.add(entry_id)
-        out.append(f"{entry_id}\t{by_id[entry_id]}\t1")
-
-    unpinned = 0
-    for entry_id in order:
-        if entry_id in pinned_ids:
-            continue
-        out.append(f"{entry_id}\t{by_id[entry_id]}\t0")
-        unpinned += 1
-        if unpinned >= limit:
+    for entry_id in "${CLIPHIST_ORDER[@]}"; do
+        [[ -n "${PINNED_IDS[$entry_id]:-}" ]] && continue
+        out_lines+=("${entry_id}"$'\t'"${CLIPHIST_BY_ID[$entry_id]}"$'\t'"0")
+        unpinned=$((unpinned + 1))
+        if ((unpinned >= limit)); then
             break
+        fi
+    done
 
-    print("\n".join(out))
-    raise SystemExit
+    if ((${#out_lines[@]} > 0)); then
+        printf '%s\n' "${out_lines[@]}"
+    fi
+}
 
-if cmd == "read":
-    pins = load_pins()
-    print(json.dumps([str(p.get("cliphistId")) for p in pins if str(p.get("cliphistId", "")).isdigit()]))
-    raise SystemExit
+pins_read_cmd() {
+    local pins
+    pins=$(load_pins_json)
+    jq -c '[.[] | .cliphistId | tostring | select(test("^[0-9]+$"))]' <<<"$pins"
+}
 
-if cmd == "toggle":
-    entry_id = sys.argv[4]
-    if not entry_id.isdigit():
-        print(json.dumps({"ok": False, "error": "invalid id"}))
-        raise SystemExit
+pins_toggle_cmd() {
+    local entry_id="$1"
+    local pins idx pin_file blob_tmp pin_id fname label new_pin
+    pins=$(load_pins_json)
+    cliphist_list
 
-    pins = load_pins()
-    by_id, _ = cliphist_list()
-
-    for index, pin in enumerate(pins):
-        if str(pin.get("cliphistId")) == entry_id:
-            try:
-                os.remove(os.path.join(data_dir, pin["file"]))
-            except OSError:
-                pass
-            pins.pop(index)
-            save_pins(pins)
-            print(json.dumps({"ok": True, "pinned": False, "id": entry_id}))
-            raise SystemExit
-
-    if entry_id not in by_id:
-        print(json.dumps({"ok": False, "error": "not found"}))
-        raise SystemExit
-
-    try:
-        blob = subprocess.check_output(["cliphist", "decode", entry_id], stderr=subprocess.DEVNULL)
-    except subprocess.CalledProcessError:
-        print(json.dumps({"ok": False, "error": "decode failed"}))
-        raise SystemExit
-
-    pin_id = uuid.uuid4().hex[:12]
-    fname = write_pin_blob(pin_id, blob)
-    pins.insert(
-        0,
-        {
-            "pinId": pin_id,
-            "cliphistId": entry_id,
-            "label": by_id[entry_id],
-            "file": fname,
-        },
+    idx=$(
+        jq -r --arg id "$entry_id" \
+            '[to_entries[] | select(.value.cliphistId | tostring == $id)] | if length > 0 then .[0].key else empty end' \
+            <<<"$pins"
     )
-    save_pins(pins)
-    print(json.dumps({"ok": True, "pinned": True, "id": entry_id}))
-    raise SystemExit
 
-if cmd == "clear":
-    preview_dir = sys.argv[4]
-    pins = load_pins()
-    snapshots = []
-    for pin in pins:
-        try:
-            snapshots.append({"pin": pin, "data": read_pin_blob(pin)})
-        except OSError:
-            pass
+    if [[ -n "$idx" ]]; then
+        pin_file=$(jq -r ".[$idx].file" <<<"$pins")
+        rm -f "${PINS_DATA_DIR}/${pin_file}"
+        pins=$(jq "del(.[$idx])" <<<"$pins")
+        save_pins "$pins"
+        jq -n --arg id "$entry_id" '{ok: true, pinned: false, id: $id}'
+        return
+    fi
 
-    subprocess.run(["cliphist", "wipe"], check=False, stderr=subprocess.DEVNULL)
+    if [[ -z "${CLIPHIST_BY_ID[$entry_id]:-}" ]]; then
+        jq -n '{ok: false, error: "not found"}'
+        return
+    fi
 
-    for item in reversed(snapshots):
-        store_blob(item["data"])
+    blob_tmp=$(mktemp)
+    if ! cliphist decode "$entry_id" >"$blob_tmp" 2>/dev/null; then
+        rm -f "$blob_tmp"
+        jq -n '{ok: false, error: "decode failed"}'
+        return
+    fi
 
-    kept_pins = []
-    if snapshots:
-        by_id, _ = cliphist_list()
-        labels_to_id = {}
-        for entry_id, text in by_id.items():
-            labels_to_id[text] = entry_id
+    pin_id=$(generate_pin_id)
+    fname=$(write_pin_blob "$pin_id" "$blob_tmp")
+    rm -f "$blob_tmp"
 
-        for item in snapshots:
-            pin = item["pin"]
-            label = pin.get("label", "")
-            if label in labels_to_id:
-                pin["cliphistId"] = labels_to_id[label]
-                kept_pins.append(pin)
+    label="${CLIPHIST_BY_ID[$entry_id]}"
+    new_pin=$(
+        jq -n \
+            --arg pinId "$pin_id" \
+            --arg cliphistId "$entry_id" \
+            --arg label "$label" \
+            --arg file "$fname" \
+            '{pinId: $pinId, cliphistId: $cliphistId, label: $label, file: $file}'
+    )
+    pins=$(jq --argjson pin "$new_pin" '. = [$pin] + .' <<<"$pins")
+    save_pins "$pins"
+    jq -n --arg id "$entry_id" '{ok: true, pinned: true, id: $id}'
+}
 
-    save_pins(kept_pins)
+pins_clear_cmd() {
+    local pins count i snapshots_dir pin_json pin_file label kept_pins kcount name entry_id
+    pins=$(load_pins_json)
+    snapshots_dir=$(mktemp -d)
 
-    valid_ids = {str(p.get("cliphistId")) for p in kept_pins}
-    if os.path.isdir(preview_dir):
-        for name in os.listdir(preview_dir):
-            path = os.path.join(preview_dir, name)
-            entry_id = name.split(".", 1)[0]
-            if entry_id not in valid_ids:
-                try:
-                    os.remove(path)
-                except OSError:
-                    pass
-    else:
-        os.makedirs(preview_dir, exist_ok=True)
-    raise SystemExit
+    count=$(jq 'length' <<<"$pins")
+    for ((i = 0; i < count; i++)); do
+        pin_file=$(jq -r ".[$i].file // \"\"" <<<"$pins")
+        [[ -n "$pin_file" && -f "${PINS_DATA_DIR}/${pin_file}" ]] || continue
+        cp "${PINS_DATA_DIR}/${pin_file}" "${snapshots_dir}/${i}.bin"
+        jq -c ".[$i]" <<<"$pins" >"${snapshots_dir}/${i}.pin.json"
+    done
 
-print(json.dumps({"ok": False, "error": "unknown command"}), file=sys.stderr)
-raise SystemExit(1)
-PY
+    cliphist wipe 2>/dev/null || true
+
+    for ((i = count - 1; i >= 0; i--)); do
+        [[ -f "${snapshots_dir}/${i}.bin" ]] || continue
+        store_blob_file "${snapshots_dir}/${i}.bin"
+    done
+
+    cliphist_list
+
+    declare -A LABELS_TO_ID
+    local eid
+    for eid in "${CLIPHIST_ORDER[@]}"; do
+        LABELS_TO_ID["${CLIPHIST_BY_ID[$eid]}"]="$eid"
+    done
+
+    kept_pins='[]'
+    for ((i = 0; i < count; i++)); do
+        [[ -f "${snapshots_dir}/${i}.pin.json" ]] || continue
+        pin_json=$(<"${snapshots_dir}/${i}.pin.json")
+        label=$(jq -r '.label // ""' <<<"$pin_json")
+        if [[ -n "${LABELS_TO_ID[$label]:-}" ]]; then
+            pin_json=$(jq --arg id "${LABELS_TO_ID[$label]}" '.cliphistId = $id' <<<"$pin_json")
+            kept_pins=$(jq --argjson pin "$pin_json" '. += [$pin]' <<<"$kept_pins")
+        fi
+    done
+
+    save_pins "$kept_pins"
+    rm -rf "$snapshots_dir"
+
+    mkdir -p "$PREVIEW_DIR"
+    declare -A VALID_IDS
+    kcount=$(jq 'length' <<<"$kept_pins")
+    for ((i = 0; i < kcount; i++)); do
+        VALID_IDS[$(jq -r ".[$i].cliphistId" <<<"$kept_pins")]=1
+    done
+
+    shopt -s nullglob
+    for name in "$PREVIEW_DIR"/*; do
+        entry_id="${name##*/}"
+        entry_id="${entry_id%%.*}"
+        [[ -n "${VALID_IDS[$entry_id]:-}" ]] || rm -f "$name"
+    done
+    shopt -u nullglob
 }
 
 list_entries() {
     local limit="${1:-$LIMIT_DEFAULT}"
-    pins_py list "$PINS_FILE" "$PINS_DATA_DIR" "$limit"
+    pins_list_cmd "$limit"
 }
 
 read_pins() {
-    pins_py read "$PINS_FILE" "$PINS_DATA_DIR"
+    pins_read_cmd
 }
 
 toggle_pin() {
     local id="${1:-}"
     [[ "$id" =~ ^[0-9]+$ ]] || return 1
-    pins_py toggle "$PINS_FILE" "$PINS_DATA_DIR" "$id"
+    pins_toggle_cmd "$id"
 }
 
 copy_id() {
@@ -343,7 +388,7 @@ write_preview() {
     ext=$(preview_extension "$format") || return 1
     mkdir -p "$PREVIEW_DIR"
     local out="${PREVIEW_DIR}/${id}.${ext}"
-  if [[ -s "$out" ]]; then
+    if [[ -s "$out" ]]; then
         printf '%s\n' "$out"
         return 0
     fi
@@ -382,7 +427,7 @@ cache_previews() {
 }
 
 clear_history() {
-    pins_py clear "$PINS_FILE" "$PINS_DATA_DIR" "$PREVIEW_DIR"
+    pins_clear_cmd
 }
 
 case "${1:-}" in

@@ -31,7 +31,6 @@ eval_expr() {
         return 1
     fi
     result="${result//$'\n'/}"
-    # Strip trailing fractional zeros only (20000 must stay 20000, not become 2).
     if [[ "$result" == *.* ]]; then
         result=$(printf '%s' "$result" | sed -E 's/0+$//; s/\.$//')
     fi
@@ -43,66 +42,38 @@ eval_expr() {
 }
 
 history_list() {
-    python3 - "$HISTORY_FILE" "$HISTORY_LIMIT" <<'PY'
-import json
-import sys
-
-path, limit = sys.argv[1], int(sys.argv[2])
-try:
-    with open(path, encoding="utf-8") as f:
-        data = json.load(f)
-except (FileNotFoundError, json.JSONDecodeError):
-    data = []
-
-if not isinstance(data, list):
-    data = []
-
-for entry in data[-limit:]:
-    if not isinstance(entry, dict):
-        continue
-    expr = str(entry.get("expr", ""))
-    result = str(entry.get("result", ""))
-    if expr:
-        print(f"{expr}\t{result}")
-PY
+    local limit="$HISTORY_LIMIT"
+    if [[ ! -f "$HISTORY_FILE" ]]; then
+        return 0
+    fi
+    jq -r --argjson limit "$limit" '
+        if type == "array" then .[-$limit:] else [] end
+        | .[]
+        | select(type == "object")
+        | select((.expr // "") != "")
+        | "\(.expr)\t\(.result // "")"
+    ' "$HISTORY_FILE" 2>/dev/null || true
 }
 
 add_history() {
     local expr="${1:-}" result="${2:-}"
+    local tmp
     [[ -n "$expr" && -n "$result" ]] || return 1
-    python3 - "$HISTORY_FILE" "$MAX_ITEMS" "$expr" "$result" <<'PY'
-import json
-import sys
-
-path, max_items, expr, result = sys.argv[1], int(sys.argv[2]), sys.argv[3], sys.argv[4]
-try:
-    with open(path, encoding="utf-8") as f:
-        data = json.load(f)
-except (FileNotFoundError, json.JSONDecodeError):
-    data = []
-
-if not isinstance(data, list):
-    data = []
-
-data.append({"expr": expr, "result": result})
-data = data[-max_items:]
-
-with open(path, "w", encoding="utf-8") as f:
-    json.dump(data, f, ensure_ascii=False)
-    f.write("\n")
-PY
+    tmp="$(mktemp)"
+    if [[ -f "$HISTORY_FILE" ]]; then
+        jq --arg expr "$expr" --arg result "$result" --argjson max "$MAX_ITEMS" '
+            (if type == "array" then . else [] end)
+            + [{expr: $expr, result: $result}]
+            | .[-$max:]
+        ' "$HISTORY_FILE" >"$tmp" 2>/dev/null || echo "[]" >"$tmp"
+    else
+        jq -n --arg expr "$expr" --arg result "$result" '[{expr: $expr, result: $result}]' >"$tmp"
+    fi
+    mv "$tmp" "$HISTORY_FILE"
 }
 
 clear_history() {
-    python3 - "$HISTORY_FILE" <<'PY'
-import json
-import sys
-
-path = sys.argv[1]
-with open(path, "w", encoding="utf-8") as f:
-    json.dump([], f, ensure_ascii=False)
-    f.write("\n")
-PY
+    echo '[]' >"$HISTORY_FILE"
 }
 
 case "${1:-}" in

@@ -8,14 +8,10 @@ Item {
     id: root
 
     property var host: null
-    property bool embedded: false
-    property bool embeddedActive: false
 
     readonly property string home: Quickshell.env("HOME")
     readonly property string script: home + "/.local/bin/evo-bar-cursor.sh"
-    readonly property bool active: embedded
-        ? (embeddedActive && host && host.opened === true)
-        : (host && host.opened === true)
+    readonly property bool active: host && host.opened === true
 
     property bool loading: false
     property bool isError: false
@@ -30,11 +26,6 @@ Item {
         ? String(detail.cursorColor) : Theme.accent
     readonly property string otherColor: detail && detail.otherColor
         ? String(detail.otherColor) : Theme.foreground
-
-    function dismissHost() {
-        if (host && typeof host.dismiss === "function")
-            host.dismiss()
-    }
 
     function onActivated() {
         usagePoll.runPoll()
@@ -119,15 +110,14 @@ Item {
 
             Item {
                 Layout.fillWidth: true
-                Layout.preferredHeight: root.embedded ? 148 : 168
+                Layout.preferredHeight: 148
                 visible: !root.isError
 
                 RowLayout {
                     anchors.centerIn: parent
-                    spacing: root.embedded ? 14 : 28
+                    spacing: 14
 
                     UsageGauge {
-                        compact: root.embedded
                         title: "Cursor models"
                         percent: root.cursorPercent
                         gaugeColor: root.cursorColor
@@ -135,7 +125,6 @@ Item {
                     }
 
                     UsageGauge {
-                        compact: root.embedded
                         title: "Other models"
                         percent: root.otherPercent
                         gaugeColor: root.otherColor
@@ -306,15 +295,14 @@ Item {
         property int percent: 0
         property color gaugeColor: Theme.accent
         property bool loading: false
-        property bool compact: false
 
-        implicitWidth: compact ? 118 : 132
-        implicitHeight: compact ? 142 : 156
+        implicitWidth: 118
+        implicitHeight: 142
 
         readonly property real sweep: Math.max(0, Math.min(100, percent)) / 100
-        readonly property int ringSize: compact ? 104 : 120
-        readonly property real ringRadius: compact ? 40 : 46
-        readonly property real ringLineWidth: compact ? 10 : 11
+        readonly property int ringSize: 104
+        readonly property real ringRadius: 40
+        readonly property real ringLineWidth: 10
 
         Canvas {
             id: ring

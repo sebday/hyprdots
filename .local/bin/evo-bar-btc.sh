@@ -111,74 +111,64 @@ LAST=$(echo "$TICKER" | jq -r '.result | to_entries[0].value.c[0]')
 PRICE_S=$(fmt_price "$LAST")
 BARS_JSON=$(build_bars "$LAST")
 
+kraken_private() {
+    local api_path="$1"
+    local extra_data="${2:-}"
+    local nonce postdata sha256_bin message sig secret_hex
+    nonce=$(date +%s%3N)
+    postdata="nonce=${nonce}"
+    [[ -n "$extra_data" ]] && postdata="${postdata}&${extra_data}"
+    secret_hex=$(printf '%s' "$KRAKEN_SECRET" | base64 -d | xxd -p -c 256)
+    sha256_bin=$(printf '%s%s' "$nonce" "$postdata" | openssl dgst -sha256 -binary)
+    message=$(printf '%s' "$api_path"; printf '%s' "$sha256_bin")
+    sig=$(printf '%s' "$message" | openssl dgst -sha512 -mac HMAC -macopt "hexkey:${secret_hex}" -binary | base64 -w0 2>/dev/null \
+        || printf '%s' "$message" | openssl dgst -sha512 -mac HMAC -macopt "hexkey:${secret_hex}" -binary | base64)
+    curl -sf --max-time 15 -X POST "https://api.kraken.com${api_path}" \
+        -d "$postdata" \
+        -H "API-Key: ${KRAKEN_API_KEY}" \
+        -H "API-Sign: ${sig}"
+}
+
+kraken_upnl_pct() {
+    local price bal_resp bal trades_resp buy_vol buy_cost
+    price=$(curl -sf --max-time 10 'https://api.kraken.com/0/public/Ticker?pair=XBTUSD' | jq -r '.result | to_entries[0].value.c[0]')
+    [[ -n "$price" && "$price" != "null" ]] || return 1
+    bal_resp=$(kraken_private "/0/private/Balance") || return 1
+    bal=$(jq -r '.result.XXBT // 0' <<<"$bal_resp")
+    awk -v b="$bal" 'BEGIN { exit (b > 0) ? 0 : 1 }' || {
+        echo 0
+        return 0
+    }
+    trades_resp=$(kraken_private "/0/private/TradesHistory" "trades=true") || return 1
+    buy_vol=$(jq -r '
+        [.result.trades // {} | to_entries[].value
+         | select((.pair | test("XBT")) and (.pair | test("USD|ZUSD")))
+         | select(.type == "buy")
+         | .vol | tonumber] | add // 0
+    ' <<<"$trades_resp")
+    buy_cost=$(jq -r '
+        [.result.trades // {} | to_entries[].value
+         | select((.pair | test("XBT")) and (.pair | test("USD|ZUSD")))
+         | select(.type == "buy")
+         | .cost | tonumber] | add // 0
+    ' <<<"$trades_resp")
+    awk -v v="$buy_vol" 'BEGIN { exit (v > 0) ? 0 : 1 }' || {
+        echo 0
+        return 0
+    }
+    awk -v price="$price" -v buy_cost="$buy_cost" -v buy_vol="$buy_vol" 'BEGIN {
+        avg = buy_cost / buy_vol
+        printf "%.2f", (price - avg) / avg * 100
+    }'
+}
+
 # --- Unrealized P/L % (Kraken private API) ---
 if [[ -z "${KRAKEN_API_KEY:-}" || -z "${KRAKEN_SECRET:-}" ]]; then
     KRAKEN_ERR="set KRAKEN_API_KEY and KRAKEN_SECRET in secrets.env"
 else
     KRAKEN_ERR=""
     export KRAKEN_API_KEY KRAKEN_SECRET
-    UPNL_PCT=$(python3 - 2>/dev/null <<'PY'
-import base64, hashlib, hmac, json, os, time, urllib.parse, urllib.request
-
-
-def kraken_private(path, data=None):
-    api_key = os.environ["KRAKEN_API_KEY"]
-    secret = base64.b64decode(os.environ["KRAKEN_SECRET"])
-    data = dict(data or {})
-    data["nonce"] = str(int(time.time() * 1000))
-    postdata = urllib.parse.urlencode(data)
-    encoded = (str(data["nonce"]) + postdata).encode()
-    message = path.encode() + hashlib.sha256(encoded).digest()
-    sig = hmac.new(secret, message, hashlib.sha512)
-    req = urllib.request.Request(
-        "https://api.kraken.com" + path,
-        data=postdata.encode(),
-        headers={
-            "API-Key": api_key,
-            "API-Sign": base64.b64encode(sig.digest()).decode(),
-        },
-    )
-    with urllib.request.urlopen(req, timeout=15) as resp:
-        return json.load(resp)
-
-
-def main():
-    pub = json.load(
-        urllib.request.urlopen(
-            "https://api.kraken.com/0/public/Ticker?pair=XBTUSD", timeout=10
-        )
-    )
-    price = float(next(iter(pub["result"].values()))["c"][0])
-
-    bal = float(kraken_private("/0/private/Balance")["result"].get("XXBT", 0) or 0)
-    if bal <= 0:
-        print("0")
-        return
-
-    trades = kraken_private("/0/private/TradesHistory", {"trades": True})
-    buy_cost = buy_vol = 0.0
-    for t in trades.get("result", {}).get("trades", {}).values():
-        pair = t.get("pair", "")
-        if "XBT" not in pair or ("USD" not in pair and "ZUSD" not in pair):
-            continue
-        if t.get("type") != "buy":
-            continue
-        buy_vol += float(t["vol"])
-        buy_cost += float(t["cost"])
-
-    if buy_vol <= 0:
-        print("0")
-        return
-
-    avg_entry = buy_cost / buy_vol
-    upnl = (price - avg_entry) / avg_entry * 100.0
-    print(f"{upnl:.2f}")
-
-
-if __name__ == "__main__":
-    main()
-PY
-    ) || KRAKEN_ERR="kraken api request failed"
+    UPNL_PCT=$(kraken_upnl_pct 2>/dev/null) || KRAKEN_ERR="kraken api request failed"
 fi
 
 if [[ -n "${UPNL_PCT:-}" && "$UPNL_PCT" =~ ^-?[0-9]+\.?[0-9]*$ ]]; then

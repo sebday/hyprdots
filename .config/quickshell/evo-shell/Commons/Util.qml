@@ -16,10 +16,6 @@ Singleton {
         return "'" + s.replace(/'/g, "'\\''") + "'"
     }
 
-    function decodeBase64(value) {
-        try { return Qt.atob(String(value || "")) } catch (e) { return "" }
-    }
-
     function isPlainObject(value) {
         return value !== null && typeof value === "object" && !Array.isArray(value)
     }

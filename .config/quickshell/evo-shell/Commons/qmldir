@@ -10,7 +10,6 @@ SliderSetting 1.0 SliderSetting.qml
 ToggleRow 1.0 ToggleRow.qml
 FontFamilyPicker 1.0 FontFamilyPicker.qml
 PreviewPickerGrid 1.0 PreviewPickerGrid.qml
-MiniBtop 1.0 MiniBtop.qml
 SparklineChart 1.0 SparklineChart.qml
 CycleProgressBar 1.0 CycleProgressBar.qml
 JsonPollRunner 1.0 JsonPollRunner.qml

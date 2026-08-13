@@ -116,52 +116,31 @@ evo_bar_cache_write() {
 evo_bar_merge_history() {
     local path="$1"
     local keep="${2:-30}"
+    local stdin_data existing merged tmp line d v
     mkdir -p "$(dirname "$path")"
+    stdin_data="$(cat)"
 
-    python3 -c '
-import json, os, sys
+    if [[ -f "$path" ]]; then
+        existing=$(jq -c 'if type == "array" then map(select(type == "object" and (.date // "") != "")) else [] end' "$path" 2>/dev/null || echo '[]')
+    else
+        existing='[]'
+    fi
 
-path, keep = sys.argv[1], int(sys.argv[2])
-by_day = {}
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        line="${line//$'\r'/}"
+        [[ "$line" == *"|"* ]] || continue
+        d="${line%%|*}"
+        v="${line#*|}"
+        d="${d//[[:space:]]/}"
+        [[ -n "$d" ]] || continue
+        existing=$(jq -c --arg d "$d" --arg v "$v" '
+            (map(select(.date != $d)) + [{date: $d, value: ($v | tonumber)}])
+        ' <<<"$existing" 2>/dev/null || echo "$existing")
+    done <<<"$stdin_data"
 
-if os.path.isfile(path):
-    try:
-        with open(path, encoding="utf-8") as f:
-            loaded = json.load(f)
-        if isinstance(loaded, list):
-            for row in loaded:
-                if not isinstance(row, dict):
-                    continue
-                d = str(row.get("date") or "")
-                if not d:
-                    continue
-                try:
-                    by_day[d] = float(row.get("value") or 0)
-                except (TypeError, ValueError):
-                    pass
-    except (OSError, json.JSONDecodeError):
-        pass
-
-for line in sys.stdin:
-    line = line.strip()
-    if not line or "|" not in line:
-        continue
-    d, _, v = line.partition("|")
-    d = d.strip()
-    if not d:
-        continue
-    try:
-        by_day[d] = float(v)
-    except ValueError:
-        continue
-
-ordered = sorted(by_day.items())[-keep:]
-out = [{"date": d, "value": v} for d, v in ordered]
-with open(path, "w", encoding="utf-8") as f:
-    json.dump(out, f, indent=2)
-    f.write("\n")
-
-for d, v in ordered:
-    print(f"{d}|{v}")
-' "$path" "$keep"
+    merged=$(jq -c --argjson keep "$keep" 'sort_by(.date) | .[-$keep:]' <<<"$existing")
+    tmp="$(mktemp)"
+    printf '%s\n' "$merged" | jq '.' >"$tmp"
+    mv "$tmp" "$path"
+    jq -r '.[] | "\(.date)|\(.value)"' <<<"$merged"
 }

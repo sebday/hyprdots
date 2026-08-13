@@ -29,7 +29,7 @@ Hypr bindings use full path `~/.local/bin/evo-shell-ipc` (PATH may not include i
 
 ## Monitors
 
-- **Overlays** (calendar, clipboard): `CenteredOverlay.preferredOutput` → `shell.overlayOutput` from `shell.json` `panel.output` (default `DP-1`)
+- **Clipboard overlay**: `CenteredOverlay.preferredOutput` → `shell.overlayOutput` from `shell.json` `panel.output` (default `DP-1`)
 - **Left dock** (`evo.panel`): `shell.json` `panel.output` when set, else Hyprland focused monitor on each `open()`
 - **Menu / calendar**: focused monitor (no `preferredOutput`)
 

@@ -11,7 +11,7 @@ Item {
     property var shell: null
 
     readonly property string hyprScript: Quickshell.env("HOME") + "/.local/bin/evo-hypr-looks.sh"
-    readonly property string barScript: Quickshell.env("HOME") + "/.local/bin/evo-bar-layout.sh"
+    readonly property string barScript: Quickshell.env("HOME") + "/.local/bin/evo-shell-layout.sh"
     readonly property string fontScript: Quickshell.env("HOME") + "/.local/bin/evo-font.sh"
     readonly property string resetScript: Quickshell.env("HOME") + "/.local/bin/evo-settings-reset.sh"
     readonly property string cleanupScript: Quickshell.env("HOME") + "/.local/bin/evo-cleanup.sh"
@@ -168,7 +168,7 @@ Item {
 
     Process {
         id: loadBarProc
-        command: ["bash", root.barScript, "get"]
+        command: ["bash", root.barScript, "bar", "get"]
         stdout: StdioCollector {
             onStreamFinished: root.parseBarState(text)
         }
@@ -262,7 +262,7 @@ Item {
 
     Process {
         id: barToggleProc
-        command: ["bash", root.barScript, "toggle"]
+        command: ["bash", root.barScript, "bar", "toggle"]
         stdout: StdioCollector {
             onStreamFinished: root.parseBarState(text)
         }

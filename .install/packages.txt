@@ -37,6 +37,7 @@ fzf
 bat
 ripgrep
 fd
+jq
 ufw
 rsync
 btop

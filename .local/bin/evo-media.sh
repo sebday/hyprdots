@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Local film/TV library index + playback for evo-shell.
+# Poster fetching stays in evo-media-fetch-posters.py (separate).
 
 set -euo pipefail
 
@@ -24,399 +25,417 @@ EOF
     exit 1
 }
 
-media_py() {
-    python3 - "$@" <<'PY'
-import json
-import os
-import re
-import sqlite3
-import subprocess
-import sys
-from pathlib import Path
+sql_escape() {
+    local s="$1"
+    s="${s//\'/\'\'}"
+    printf '%s' "$s"
+}
 
-cmd = sys.argv[1]
-db_path = sys.argv[2]
-poster_dir = sys.argv[3]
-films_root = Path(sys.argv[4])
-tv_root = Path(sys.argv[5])
-video_exts = {f".{x.strip()}" for x in sys.argv[6].split() if x.strip()}
+sql_null_int() {
+    if [[ -z "${1:-}" ]]; then
+        printf 'NULL'
+    else
+        printf '%s' "$1"
+    fi
+}
 
-SEASON_EP_RE = re.compile(r"(?i)\bS(\d{1,2})E(\d{1,3})\b")
-YEAR_RE = re.compile(r"(?:\((\d{4})\)|\b(\d{4})\b)\s*$")
+init_db() {
+    mkdir -p "$STATE_DIR"
+    sqlite3 "$DB_PATH" <<'SQL'
+CREATE TABLE IF NOT EXISTS films (
+    id INTEGER PRIMARY KEY,
+    path TEXT NOT NULL UNIQUE,
+    title TEXT NOT NULL,
+    year INTEGER,
+    sort_title TEXT NOT NULL,
+    poster_path TEXT
+);
+CREATE TABLE IF NOT EXISTS shows (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    folder_path TEXT NOT NULL UNIQUE,
+    poster_path TEXT
+);
+CREATE TABLE IF NOT EXISTS episodes (
+    id INTEGER PRIMARY KEY,
+    show_id INTEGER NOT NULL,
+    path TEXT NOT NULL UNIQUE,
+    season INTEGER,
+    episode INTEGER,
+    title TEXT NOT NULL,
+    sort_key TEXT NOT NULL,
+    poster_path TEXT,
+    FOREIGN KEY (show_id) REFERENCES shows(id)
+);
+CREATE INDEX IF NOT EXISTS idx_episodes_show ON episodes(show_id);
+SQL
+    sqlite3 "$DB_PATH" "ALTER TABLE episodes ADD COLUMN poster_path TEXT" 2>/dev/null || true
+}
 
+is_video() {
+    local path="$1"
+    [[ -f "$path" ]] || return 1
+    local ext="${path##*.}"
+    ext="${ext,,}"
+    local allowed
+    for allowed in $VIDEO_EXTS; do
+        if [[ "$ext" == "$allowed" ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
 
-def connect():
-    os.makedirs(os.path.dirname(db_path) or ".", exist_ok=True)
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    return conn
+clean_name() {
+    local text="$1"
+    text="${text//./ }"
+    text="${text//_/ }"
+    text="$(printf '%s' "$text" | sed -E 's/[[:space:]]+/ /g; s/^[[:space:]]+//; s/[[:space:]]+$//')"
+    printf '%s' "$text"
+}
 
+strip_video_ext() {
+    local text="$1"
+    local lower="${text,,}"
+    local ext dotext
+    for ext in $VIDEO_EXTS; do
+        dotext=".${ext}"
+        if [[ "$lower" == *"$dotext" ]]; then
+            printf '%s' "${text:0:$((${#text} - ${#dotext}))}"
+            return 0
+        fi
+    done
+    printf '%s' "$text"
+}
 
-def init_db(conn):
-    conn.executescript(
-        """
-        CREATE TABLE IF NOT EXISTS films (
-            id INTEGER PRIMARY KEY,
-            path TEXT NOT NULL UNIQUE,
-            title TEXT NOT NULL,
-            year INTEGER,
-            sort_title TEXT NOT NULL,
-            poster_path TEXT
-        );
-        CREATE TABLE IF NOT EXISTS shows (
-            id INTEGER PRIMARY KEY,
-            name TEXT NOT NULL UNIQUE,
-            folder_path TEXT NOT NULL UNIQUE,
-            poster_path TEXT
-        );
-        CREATE TABLE IF NOT EXISTS episodes (
-            id INTEGER PRIMARY KEY,
-            show_id INTEGER NOT NULL,
-            path TEXT NOT NULL UNIQUE,
-            season INTEGER,
-            episode INTEGER,
-            title TEXT NOT NULL,
-            sort_key TEXT NOT NULL,
-            poster_path TEXT,
-            FOREIGN KEY (show_id) REFERENCES shows(id)
-        );
-        CREATE INDEX IF NOT EXISTS idx_episodes_show ON episodes(show_id);
-        """
-    )
-    try:
-        conn.execute("ALTER TABLE episodes ADD COLUMN poster_path TEXT")
-    except sqlite3.OperationalError:
-        pass
-    conn.commit()
+display_title() {
+    local text="$1"
+    local out
+    out="$(strip_video_ext "$text")"
+    out="$(clean_name "$out")"
+    if [[ -z "$out" ]]; then
+        out="$text"
+    fi
+    printf '%s' "$out"
+}
 
+parse_film() {
+    local path="$1"
+    local filename stem title year="" sort_title
 
-def is_video(path: Path) -> bool:
-    return path.is_file() and path.suffix.lower() in video_exts
+    filename="$(basename "$path")"
+    stem="$(strip_video_ext "$filename")"
+    title="$stem"
 
+    local year_paren year_space
+    year_paren="$(printf '%s' "$stem" | sed -nE 's/.*\(([0-9]{4})\)[[:space:]]*$/\1/p')"
+    if [[ -n "$year_paren" ]]; then
+        year="$year_paren"
+        title="$(printf '%s' "$stem" | sed -E 's/[[:space:]]*\([0-9]{4}\)[[:space:]]*$//')"
+        title="$(printf '%s' "$title" | sed -E 's/[ -._]+$//')"
+    else
+        year_space="$(printf '%s' "$stem" | sed -nE 's/.*[[:space:]]([0-9]{4})[[:space:]]*$/\1/p')"
+        if [[ -n "$year_space" ]]; then
+            year="$year_space"
+            title="$(printf '%s' "$stem" | sed -E 's/[[:space:]][0-9]{4}[[:space:]]*$//')"
+            title="$(printf '%s' "$title" | sed -E 's/[ -._]+$//')"
+        fi
+    fi
 
-def clean_name(text: str) -> str:
-    text = re.sub(r"[._]+", " ", text)
-    text = re.sub(r"\s+", " ", text).strip()
-    return text
+    title="$(clean_name "$title")"
+    [[ -z "$title" ]] && title="$stem"
+    sort_title="$(printf '%s' "$title" | tr '[:upper:]' '[:lower:]')"
 
+    FILM_TITLE="$title"
+    FILM_YEAR="$year"
+    FILM_SORT_TITLE="$sort_title"
+}
 
-def strip_video_ext(text: str) -> str:
-    lower = text.lower()
-    for ext in video_exts:
-        if lower.endswith(ext):
-            return text[: -len(ext)]
-    return text
+parse_episode() {
+    local filename="$1"
+    local season="" episode="" title sort_key season_ep
 
+    season_ep="$(printf '%s' "$filename" | grep -oiE 'S[0-9]{1,2}E[0-9]{1,3}' | head -1 || true)"
+    if [[ -n "$season_ep" ]]; then
+        season="$(printf '%s' "$season_ep" | sed -E 's/^S([0-9]+)E.*/\1/i')"
+        episode="$(printf '%s' "$season_ep" | sed -E 's/^S[0-9]+E([0-9]+)$/\1/i')"
+        title="$(printf '%s' "$filename" | sed -E 's/.*S[0-9]{1,2}E[0-9]{1,3}//i' | sed -E 's/^[ -._]+//')"
+    else
+        title="$filename"
+    fi
 
-def display_title(text: str) -> str:
-    return clean_name(strip_video_ext(text)) or text
+    title="$(display_title "$title")"
+    [[ -z "$title" ]] && title="$(display_title "$filename")"
+    [[ -z "$title" ]] && title="$filename"
 
+    if [[ -n "$season" && -n "$episode" ]]; then
+        sort_key="$(printf '%02d-%04d-%s' "$season" "$episode" "$(printf '%s' "$title" | tr '[:upper:]' '[:lower:]')")"
+    else
+        sort_key="$(printf '%s' "$title" | tr '[:upper:]' '[:lower:]')"
+    fi
 
-def parse_film(path: Path):
-    stem = path.stem
-    year = None
-    m = YEAR_RE.search(stem)
-    title = stem
-    if m:
-        year = int(m.group(1) or m.group(2))
-        title = stem[: m.start()].strip(" -._")
-    title = clean_name(title) or stem
-    sort_title = title.lower()
-    return title, year, sort_title
+    EP_SEASON="$season"
+    EP_EPISODE="$episode"
+    EP_TITLE="$title"
+    EP_SORT_KEY="$sort_key"
+}
 
+poster_url() {
+    local path="${1:-}"
+    if [[ -n "$path" && -f "$path" ]]; then
+        local resolved uri
+        resolved="$(realpath "$path")"
+        uri="file://${resolved// /%20}"
+        printf '%s' "$uri"
+    else
+        printf ''
+    fi
+}
 
-def parse_episode(filename: str, show_name: str):
-    m = SEASON_EP_RE.search(filename)
-    season = int(m.group(1)) if m else None
-    episode = int(m.group(2)) if m else None
-    title = filename
-    if m:
-        title = filename[m.end() :].strip(" -._")
-    title = display_title(title) or display_title(filename) or filename
-    if season is not None and episode is not None:
-        sort_key = f"{season:02d}-{episode:04d}-{title.lower()}"
-    else:
-        sort_key = title.lower()
-    return season, episode, title, sort_key
+format_episode_label() {
+    local season="${1:-}"
+    local episode="${2:-}"
+    local title="$3"
+    local display
+    display="$(display_title "$title")"
+    [[ -z "$display" ]] && display="$title"
+    if [[ -n "$season" && -n "$episode" ]]; then
+        printf 'S%02dE%02d · %s' "$season" "$episode" "$display"
+    else
+        printf '%s' "$display"
+    fi
+}
 
+find_video_files() {
+    local dir="$1"
+    local -a find_args=("$dir" -type f '(')
+    local ext first=true
+    for ext in $VIDEO_EXTS; do
+        if $first; then
+            first=false
+        else
+            find_args+=(-o)
+        fi
+        find_args+=(-iname "*.${ext}")
+    done
+    find_args+=(')')
+    find "${find_args[@]}" 2>/dev/null | LC_ALL=C sort
+}
 
-def scan():
-    conn = connect()
-    init_db(conn)
-    conn.execute("DELETE FROM episodes")
-    conn.execute("DELETE FROM shows")
-    conn.execute("DELETE FROM films")
+enrich_rows() {
+    jq -c '.[]' | while IFS= read -r row; do
+        local title pp poster display label season episode
+        title="$(jq -r '.title // .name // empty' <<<"$row")"
+        pp="$(jq -r '.poster_path // empty' <<<"$row")"
+        poster="$(poster_url "$pp")"
+        if [[ "${1:-}" == "episode" ]]; then
+            season="$(jq -r '.season // empty' <<<"$row")"
+            episode="$(jq -r '.episode // empty' <<<"$row")"
+            display="$(display_title "$title")"
+            label="$(format_episode_label "$season" "$episode" "$title")"
+            jq -n --argjson row "$row" --arg poster "$poster" --arg display "$display" --arg label "$label" \
+                '$row | . + {poster_path: (.poster_path // ""), poster: $poster, title: $display, label: $label}'
+        elif [[ "${1:-}" == "show" ]]; then
+            jq -n --argjson row "$row" --arg poster "$poster" \
+                '$row | {id: .id, name: .name, poster_path: (.poster_path // ""), poster: $poster, episodes: .episodes}'
+        else
+            display="$(display_title "$title")"
+            jq -n --argjson row "$row" --arg poster "$poster" --arg display "$display" \
+                '$row | {id: .id, title: $display, year: .year, poster_path: (.poster_path // ""), poster: $poster, path: .path}'
+        fi
+    done | jq -s '.'
+}
 
-    film_count = 0
-    if films_root.is_dir():
-        for path in sorted(films_root.iterdir()):
-            if not is_video(path):
-                continue
-            title, year, sort_title = parse_film(path)
-            conn.execute(
-                """
-                INSERT INTO films(path, title, year, sort_title, poster_path)
-                VALUES (?, ?, ?, ?, NULL)
-                """,
-                (str(path.resolve()), title, year, sort_title),
-            )
-            film_count += 1
+cmd_scan() {
+    init_db
+    sqlite3 "$DB_PATH" "DELETE FROM episodes; DELETE FROM shows; DELETE FROM films;"
 
-    show_count = 0
-    episode_count = 0
-    if tv_root.is_dir():
-        for show_dir in sorted(p for p in tv_root.iterdir() if p.is_dir()):
-            show_name = clean_name(show_dir.name) or show_dir.name
-            cur = conn.execute(
-                """
-                INSERT INTO shows(name, folder_path, poster_path)
-                VALUES (?, ?, NULL)
-                """,
-                (show_name, str(show_dir.resolve())),
-            )
-            show_id = cur.lastrowid
-            show_count += 1
-            for path in sorted(show_dir.rglob("*")):
-                if not is_video(path):
-                    continue
-                season, episode, title, sort_key = parse_episode(path.name, show_name)
-                conn.execute(
-                    """
-                    INSERT INTO episodes(show_id, path, season, episode, title, sort_key, poster_path)
-                    VALUES (?, ?, ?, ?, ?, ?, NULL)
-                    """,
-                    (show_id, str(path.resolve()), season, episode, title, sort_key),
-                )
-                episode_count += 1
+    local film_count=0 show_count=0 episode_count=0 path show_dir show_name show_id resolved
 
-    conn.commit()
-    conn.close()
-    print(
-        json.dumps(
-            {
-                "ok": True,
-                "films": film_count,
-                "shows": show_count,
-                "episodes": episode_count,
-            }
+    if [[ -d "$FILMS_ROOT" ]]; then
+        while IFS= read -r path; do
+            [[ -n "$path" ]] || continue
+            parse_film "$path"
+            resolved="$(realpath "$path")"
+            sqlite3 "$DB_PATH" \
+                "INSERT INTO films(path, title, year, sort_title, poster_path) VALUES ('$(sql_escape "$resolved")', '$(sql_escape "$FILM_TITLE")', $(sql_null_int "$FILM_YEAR"), '$(sql_escape "$FILM_SORT_TITLE")', NULL);"
+            film_count=$((film_count + 1))
+        done < <(
+            for path in "$FILMS_ROOT"/*; do
+                [[ -f "$path" ]] && is_video "$path" && printf '%s\n' "$path"
+            done | LC_ALL=C sort
         )
-    )
+    fi
 
+    if [[ -d "$TV_ROOT" ]]; then
+        while IFS= read -r show_dir; do
+            [[ -n "$show_dir" ]] || continue
+            show_name="$(clean_name "$(basename "$show_dir")")"
+            [[ -z "$show_name" ]] && show_name="$(basename "$show_dir")"
+            resolved="$(realpath "$show_dir")"
+            show_id="$(sqlite3 "$DB_PATH" \
+                "INSERT INTO shows(name, folder_path, poster_path) VALUES ('$(sql_escape "$show_name")', '$(sql_escape "$resolved")', NULL); SELECT last_insert_rowid();")"
+            show_count=$((show_count + 1))
 
-def status():
-    if not os.path.isfile(db_path):
-        print(json.dumps({"ok": True, "exists": False, "films": 0, "shows": 0, "episodes": 0}))
-        return
-    conn = connect()
-    init_db(conn)
-    films = conn.execute("SELECT COUNT(*) FROM films").fetchone()[0]
-    shows = conn.execute("SELECT COUNT(*) FROM shows").fetchone()[0]
-    episodes = conn.execute("SELECT COUNT(*) FROM episodes").fetchone()[0]
-    conn.close()
-    print(json.dumps({"ok": True, "exists": True, "films": films, "shows": shows, "episodes": episodes}))
-
-
-def poster_url(path):
-    if not path:
-        return ""
-    p = Path(path)
-    if p.is_file():
-        return p.resolve().as_uri()
-    return ""
-
-
-def list_films():
-    conn = connect()
-    init_db(conn)
-    rows = conn.execute(
-        """
-        SELECT id, title, year, poster_path, path
-        FROM films
-        ORDER BY sort_title COLLATE NOCASE
-        """
-    ).fetchall()
-    conn.close()
-    out = []
-    for row in rows:
-        out.append(
-            {
-                "id": row["id"],
-                "title": display_title(row["title"]),
-                "year": row["year"],
-                "poster_path": row["poster_path"] or "",
-                "poster": poster_url(row["poster_path"]),
-                "path": row["path"],
-            }
+            while IFS= read -r path; do
+                [[ -n "$path" ]] || continue
+                parse_episode "$(basename "$path")" "$show_name"
+                resolved="$(realpath "$path")"
+                sqlite3 "$DB_PATH" \
+                    "INSERT INTO episodes(show_id, path, season, episode, title, sort_key, poster_path) VALUES ($show_id, '$(sql_escape "$resolved")', $(sql_null_int "$EP_SEASON"), $(sql_null_int "$EP_EPISODE"), '$(sql_escape "$EP_TITLE")', '$(sql_escape "$EP_SORT_KEY")', NULL);"
+                episode_count=$((episode_count + 1))
+            done < <(find_video_files "$show_dir")
+        done < <(
+            for show_dir in "$TV_ROOT"/*; do
+                [[ -d "$show_dir" ]] && printf '%s\n' "$show_dir"
+            done | LC_ALL=C sort
         )
-    print(json.dumps(out))
+    fi
 
+    jq -n \
+        --argjson films "$film_count" \
+        --argjson shows "$show_count" \
+        --argjson episodes "$episode_count" \
+        '{ok: true, films: $films, shows: $shows, episodes: $episodes}'
+}
 
-def list_shows():
-    conn = connect()
-    init_db(conn)
-    rows = conn.execute(
-        """
-        SELECT s.id, s.name, s.poster_path,
-               (SELECT COUNT(*) FROM episodes e WHERE e.show_id = s.id) AS episodes
-        FROM shows s
-        ORDER BY s.name COLLATE NOCASE
-        """
-    ).fetchall()
-    conn.close()
-    out = []
-    for row in rows:
-        out.append(
-            {
-                "id": row["id"],
-                "name": row["name"],
-                "poster_path": row["poster_path"] or "",
-                "poster": poster_url(row["poster_path"]),
-                "episodes": row["episodes"],
-            }
-        )
-    print(json.dumps(out))
+cmd_status() {
+    if [[ ! -f "$DB_PATH" ]]; then
+        jq -n '{ok: true, exists: false, films: 0, shows: 0, episodes: 0}'
+        return 0
+    fi
+    init_db
+    local films shows episodes
+    films="$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM films")"
+    shows="$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM shows")"
+    episodes="$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM episodes")"
+    jq -n \
+        --argjson films "$films" \
+        --argjson shows "$shows" \
+        --argjson episodes "$episodes" \
+        '{ok: true, exists: true, films: $films, shows: $shows, episodes: $episodes}'
+}
 
+cmd_list_films() {
+    init_db
+    local raw
+    raw="$(sqlite3 -json "$DB_PATH" \
+        "SELECT id, title, year, poster_path, path FROM films ORDER BY sort_title COLLATE NOCASE")"
+    [[ -z "$raw" ]] && raw='[]'
+    printf '%s\n' "$raw" | enrich_rows
+}
 
-def list_episodes(show_name: str):
-    conn = connect()
-    init_db(conn)
-    row = conn.execute(
-        "SELECT id, name FROM shows WHERE name = ? COLLATE NOCASE",
-        (show_name,),
-    ).fetchone()
-    if not row:
-        print(json.dumps({"ok": False, "error": "show not found", "show": show_name, "seasons": []}))
-        conn.close()
-        return
-    show_id = row["id"]
-    episodes = conn.execute(
-        """
-        SELECT id, season, episode, title, path, poster_path
-        FROM episodes
-        WHERE show_id = ?
-        ORDER BY sort_key COLLATE NOCASE
-        """,
-        (show_id,),
-    ).fetchall()
-    conn.close()
+cmd_list_shows() {
+    init_db
+    local raw
+    raw="$(sqlite3 -json "$DB_PATH" \
+        "SELECT s.id, s.name, s.poster_path, (SELECT COUNT(*) FROM episodes e WHERE e.show_id = s.id) AS episodes FROM shows s ORDER BY s.name COLLATE NOCASE")"
+    [[ -z "$raw" ]] && raw='[]'
+    printf '%s\n' "$raw" | enrich_rows show
+}
 
-    flat = []
-    seasons = {}
-    for ep in episodes:
-        item = {
-            "id": ep["id"],
-            "season": ep["season"],
-            "episode": ep["episode"],
-            "title": display_title(ep["title"]),
-            "path": ep["path"],
-            "poster_path": ep["poster_path"] or "",
-            "poster": poster_url(ep["poster_path"]),
-            "label": format_episode_label(ep["season"], ep["episode"], ep["title"]),
-        }
-        flat.append(item)
-        season = ep["season"] if ep["season"] is not None else 0
-        seasons.setdefault(season, []).append(item)
+cmd_list_episodes() {
+    local show_query="$1"
+    local escaped show_data show_id show_name raw enriched
 
-    season_list = []
-    for season in sorted(seasons.keys()):
-        season_list.append(
-            {
-                "season": season if season != 0 else None,
-                "label": f"Season {season:02d}" if season else "Episodes",
-                "episodes": seasons[season],
-            }
-        )
+    init_db
+    escaped="$(sql_escape "$show_query")"
+    show_data="$(sqlite3 "$DB_PATH" \
+        "SELECT id, name FROM shows WHERE name = '$escaped' COLLATE NOCASE LIMIT 1")"
 
-    print(
-        json.dumps(
-            {
-                "ok": True,
-                "show": row["name"],
-                "showId": show_id,
-                "episodes": flat,
-                "seasons": season_list,
-            }
-        )
-    )
+    if [[ -z "$show_data" ]]; then
+        jq -n --arg show "$show_query" '{ok: false, error: "show not found", show: $show, seasons: []}'
+        return 0
+    fi
 
+    show_id="${show_data%%|*}"
+    show_name="${show_data#*|}"
+    raw="$(sqlite3 -json "$DB_PATH" \
+        "SELECT id, season, episode, title, path, poster_path FROM episodes WHERE show_id = $show_id ORDER BY sort_key COLLATE NOCASE")"
+    [[ -z "$raw" ]] && raw='[]'
+    enriched="$(printf '%s\n' "$raw" | enrich_rows episode)"
 
-def format_episode_label(season, episode, title):
-    title = display_title(title) or title
-    if season is not None and episode is not None:
-        return f"S{season:02d}E{episode:02d} · {title}"
-    return title
+    jq -n \
+        --arg show "$show_name" \
+        --argjson showId "$show_id" \
+        --argjson episodes "$enriched" \
+        --argjson seasons "$(
+            jq '
+                group_by(.season // 0)
+                | map({
+                    season: (if (.[0].season // 0) == 0 then null else .[0].season end),
+                    label: (
+                        if (.[0].season // 0) == 0 then "Episodes"
+                        else "Season " + (
+                            if (.[0].season < 10) then "0" + (.[0].season | tostring)
+                            else (.[0].season | tostring) end
+                        ) end
+                    ),
+                    episodes: .
+                })
+                | sort_by(.season // 0)
+            ' <<<"$enriched"
+        )" \
+        '{ok: true, show: $show, showId: $showId, episodes: $episodes, seasons: $seasons}'
+}
 
+cmd_play() {
+    local kind="$1"
+    local entry_id="$2"
+    local path
 
-def play(kind: str, entry_id: str):
-    if not entry_id.isdigit():
-        print(json.dumps({"ok": False, "error": "invalid id"}))
-        return
-    conn = connect()
-    init_db(conn)
-    if kind == "film":
-        row = conn.execute("SELECT path FROM films WHERE id = ?", (entry_id,)).fetchone()
-    elif kind == "episode":
-        row = conn.execute("SELECT path FROM episodes WHERE id = ?", (entry_id,)).fetchone()
-    else:
-        print(json.dumps({"ok": False, "error": "invalid kind"}))
-        conn.close()
-        return
-    conn.close()
-    if not row:
-        print(json.dumps({"ok": False, "error": "not found"}))
-        return
-    path = row["path"]
-    if not os.path.isfile(path):
-        print(json.dumps({"ok": False, "error": "file missing", "path": path}))
-        return
-    subprocess.Popen(
-        ["mpv", "--fs", "--really-quiet", path],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        start_new_session=True,
-    )
-    print(json.dumps({"ok": True, "path": path}))
+    if ! [[ "$entry_id" =~ ^[0-9]+$ ]]; then
+        jq -n '{ok: false, error: "invalid id"}'
+        return 0
+    fi
 
+    init_db
 
-if cmd == "scan":
-    scan()
-elif cmd == "status":
-    status()
-elif cmd == "list-films":
-    list_films()
-elif cmd == "list-shows":
-    list_shows()
-elif cmd == "list-episodes":
-    list_episodes(sys.argv[7])
-elif cmd == "play":
-    play(sys.argv[7], sys.argv[8])
-else:
-    print(json.dumps({"ok": False, "error": "unknown command"}), file=sys.stderr)
-    raise SystemExit(1)
-PY
+    if [[ "$kind" == "film" ]]; then
+        path="$(sqlite3 "$DB_PATH" "SELECT path FROM films WHERE id = $entry_id")"
+    elif [[ "$kind" == "episode" ]]; then
+        path="$(sqlite3 "$DB_PATH" "SELECT path FROM episodes WHERE id = $entry_id")"
+    else
+        jq -n '{ok: false, error: "invalid kind"}'
+        return 0
+    fi
+
+    if [[ -z "$path" ]]; then
+        jq -n '{ok: false, error: "not found"}'
+        return 0
+    fi
+
+    if [[ ! -f "$path" ]]; then
+        jq -n --arg path "$path" '{ok: false, error: "file missing", path: $path}'
+        return 0
+    fi
+
+    nohup mpv --fs --really-quiet "$path" >/dev/null 2>&1 &
+    disown
+    jq -n --arg path "$path" '{ok: true, path: $path}'
 }
 
 cmd="${1:-}"
 case "$cmd" in
 scan)
-    media_py scan "$DB_PATH" "$POSTER_DIR" "$FILMS_ROOT" "$TV_ROOT" "$VIDEO_EXTS"
+    cmd_scan
     ;;
 status)
-    media_py status "$DB_PATH" "$POSTER_DIR" "$FILMS_ROOT" "$TV_ROOT" "$VIDEO_EXTS"
+    cmd_status
     ;;
 list)
     sub="${2:-}"
     case "$sub" in
     films)
-        media_py list-films "$DB_PATH" "$POSTER_DIR" "$FILMS_ROOT" "$TV_ROOT" "$VIDEO_EXTS"
+        cmd_list_films
         ;;
     shows)
-        media_py list-shows "$DB_PATH" "$POSTER_DIR" "$FILMS_ROOT" "$TV_ROOT" "$VIDEO_EXTS"
+        cmd_list_shows
         ;;
     episodes)
         show="${3:-}"
         [[ -n "$show" ]] || usage
-        media_py list-episodes "$DB_PATH" "$POSTER_DIR" "$FILMS_ROOT" "$TV_ROOT" "$VIDEO_EXTS" "$show"
+        cmd_list_episodes "$show"
         ;;
     *)
         usage
@@ -428,7 +447,7 @@ play)
     entry_id="${3:-}"
     [[ "$kind" == "film" || "$kind" == "episode" ]] || usage
     [[ "$entry_id" =~ ^[0-9]+$ ]] || usage
-    media_py play "$DB_PATH" "$POSTER_DIR" "$FILMS_ROOT" "$TV_ROOT" "$VIDEO_EXTS" "$kind" "$entry_id"
+    cmd_play "$kind" "$entry_id"
     ;;
 *)
     usage
