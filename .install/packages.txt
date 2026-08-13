@@ -12,15 +12,9 @@ hyprshot
 
 # Desktop ###################
 quickshell
-swappy
 cliphist
 wl-clipboard
-
-# Theming ###################
 darkhttpd
-sassc
-librsvg
-bc
 
 # Fonts #####################
 noto-fonts
@@ -35,6 +29,7 @@ eza
 fzf
 bat
 ripgrep
+bc
 fd
 jq
 ufw

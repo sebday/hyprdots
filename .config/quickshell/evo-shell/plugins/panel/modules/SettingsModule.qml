@@ -17,8 +17,10 @@ Item {
     readonly property string cleanupScript: Quickshell.env("HOME") + "/.local/bin/evo-cleanup.sh"
     readonly property string backupScript: Quickshell.env("HOME") + "/.local/bin/evo-backup.sh"
     readonly property string fontStatePath: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/evo-shell/font.json"
+    readonly property string themeNamePath: Quickshell.env("HOME") + "/.themes/current/.theme-name"
 
     property bool roundingOn: false
+    property string currentThemeName: ""
     property bool gapsOn: false
     property bool animationsOn: false
     property int activeOpacityPercent: 97
@@ -70,6 +72,8 @@ Item {
     }
 
     function onActivated() {
+        themeNameFile.reload()
+        themePicker.reload()
         refresh()
     }
 
@@ -159,6 +163,15 @@ Item {
         watchChanges: true
         printErrors: false
         onLoaded: root.parseFontState(fontStateFile.text())
+        onFileChanged: reload()
+    }
+
+    FileView {
+        id: themeNameFile
+        path: root.themeNamePath
+        watchChanges: true
+        printErrors: false
+        onLoaded: root.currentThemeName = String(themeNameFile.text() || "").trim()
         onFileChanged: reload()
     }
 
@@ -383,6 +396,24 @@ Item {
                     checked: root.barOnDp1Top
                     enabled: root.barReady && !settingsBusy
                     onToggled: root.toggleBar()
+                }
+            }
+
+            FramedPanel {
+                label: "Theme"
+                Layout.fillWidth: true
+
+                PreviewPickerGrid {
+                    id: themePicker
+                    width: parent.width
+                    kind: "themes"
+                    columns: 3
+                    tileWidth: 96
+                    tileHeight: 58
+                    spacing: 8
+                    previewDpr: 1.5
+                    selectedKey: root.currentThemeName
+                    keyboardFocus: false
                 }
             }
 

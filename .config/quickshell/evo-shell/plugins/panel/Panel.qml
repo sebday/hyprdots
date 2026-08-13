@@ -12,6 +12,7 @@ Item {
     property bool opened: false
     property string activeModule: "tools"
     property string pendingFocus: ""
+    property string focusTarget: ""
 
     readonly property string layoutScript: Quickshell.env("HOME") + "/.local/bin/evo-shell-layout.sh"
 
@@ -46,6 +47,8 @@ Item {
             if (activeModule === item.id)
                 return
             activeModule = item.id
+            pendingFocus = ""
+            focusTarget = ""
             activateModule()
             return
         }
@@ -83,26 +86,26 @@ Item {
             nextModule = "tools"
         activeModule = nextModule
         pendingFocus = parsed.focus
+        focusTarget = parsed.focus || ""
         dock.reveal()
         opened = true
         activateModule()
     }
 
     // Called by shell toggle when panel is already open. Returns true if we
-    // switched modules and stayed open; false means the shell should hide us.
+    // switched modules/focus and stayed open; false means the shell should hide us.
     function reopen(payloadJson) {
         var parsed = parsePayload(payloadJson)
         var nextModule = parsed.module
         if (!nextModule || moduleIds.indexOf(nextModule) < 0)
             return false
+        var nextFocus = parsed.focus || ""
+        if (nextModule === activeModule && nextFocus === focusTarget)
+            return false
         pendingFocus = parsed.focus
-        if (nextModule === activeModule) {
-            if (!parsed.focus)
-                return false
-            activateModule()
-            return true
-        }
-        activeModule = nextModule
+        focusTarget = nextFocus
+        if (nextModule !== activeModule)
+            activeModule = nextModule
         activateModule()
         return true
     }
@@ -110,6 +113,8 @@ Item {
     function close() {
         dock.conceal()
         opened = false
+        pendingFocus = ""
+        focusTarget = ""
     }
 
     function dismiss() {

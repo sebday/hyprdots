@@ -32,7 +32,7 @@ bindd("SUPER + J", "Toggle Split Direction", hl.dsp.layout("togglesplit"))
 bindd("SUPER + K", "Toggle Floating Window", hl.dsp.window.float({ action = "toggle" }))
 bindd("SUPER + L", "Lock Screen", hl.dsp.exec_cmd(bin .. "/evo-system-lock"))
 bindd("SUPER + C", "Tools panel", hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.panel \'{"module":"tools"}\''))
-bindd("SUPER + N", "New task", hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.panel \'{"module":"tools","focus":"tasks"}\''))
+bindd("SUPER + N", "Tasks panel", hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.panel \'{"module":"tools","focus":"tasks"}\''))
 bindd("SUPER + B", "Settings panel", hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.panel \'{"module":"settings"}\''))
 bindd("SUPER + M", "Library", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.library"))
 bindd(
@@ -167,4 +167,8 @@ bindd(
 	"Screenshot Active Monitor",
 	hl.dsp.exec_cmd('bash -c "hyprshot -m output -m active -o /tmp/ -f hyprshot.png;"')
 )
-bindd("SUPER + PRINT", "Open Swappy", hl.dsp.exec_cmd("swappy -f /tmp/hyprshot.png"))
+bindd(
+	"SUPER + PRINT",
+	"Annotate screenshot",
+	hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.screenshot \'{"path":"/tmp/hyprshot.png"}\'')
+)
