@@ -155,6 +155,11 @@ case "$COMMAND" in
         exec "$HOME/.local/bin/evo-shell-ipc" shell toggle evo.theme
         ;;
 
+    wallpaper)
+        trap - EXIT
+        exec "$HOME/.local/bin/evo-shell-ipc" shell toggle evo.wallpaper
+        ;;
+
     refresh)
         current_theme=$(get_current_theme)
         if [ -z "$current_theme" ]; then

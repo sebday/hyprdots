@@ -13,6 +13,9 @@ Singleton {
     property var looksData: ({})
 
     readonly property string looksStatePath: (Quickshell.env("HOME") || "") + "/.local/state/evo-shell/hypr-looks.json"
+    readonly property string iconsThemePath: (Quickshell.env("HOME") || "") + "/.themes/current/icons.theme"
+
+    property string iconThemeName: ""
 
     FileView {
         id: themeFile
@@ -31,6 +34,16 @@ Singleton {
         printErrors: false
         onLoaded: root.applyLooksFile()
         onLoadFailed: root.applyLooksFile()
+        onFileChanged: reload()
+    }
+
+    FileView {
+        id: iconsThemeFile
+        path: root.iconsThemePath
+        watchChanges: true
+        printErrors: false
+        onLoaded: root.applyIconsThemeFile()
+        onLoadFailed: root.iconThemeName = ""
         onFileChanged: reload()
     }
 
@@ -58,6 +71,12 @@ Singleton {
         } catch (e) {
             looksData = {}
         }
+    }
+
+    function applyIconsThemeFile() {
+        var text = iconsThemeFile.text() || ""
+        var line = text.split("\n")[0] || ""
+        iconThemeName = line.trim()
     }
 
     function reloadLooks() {
@@ -151,5 +170,6 @@ Singleton {
     Component.onCompleted: {
         applyThemeFile()
         applyLooksFile()
+        applyIconsThemeFile()
     }
 }

@@ -15,6 +15,7 @@ Item {
     property string submenu: ""
     property var commandEntries: []
     property var dynamicEntries: []
+    property var visibleEntries: []
     property bool dynamicLoading: false
     property int selectedIndex: 0
     property real previewAreaMaxWidth: 1600
@@ -35,12 +36,19 @@ Item {
     readonly property int tileHeight: 100
     readonly property int tileSpacing: 10
     readonly property int tileIconSize: 32
+    readonly property int systemActionCount: 4
     readonly property int appGridColumns: 6
-    readonly property int appTileWidth: 96
-    readonly property int appTileHeight: 108
-    readonly property int appIconSize: 44
-    readonly property int appIconTopPadding: 10
-    readonly property int appLabelFontSize: Theme.panelSmallFontPixelSize
+    readonly property int appIconSize: 88
+    readonly property int appIconSourceSize: {
+        var dpr = 1
+        if (hostScreen && hostScreen.devicePixelRatio)
+            dpr = hostScreen.devicePixelRatio
+        return Math.round(appIconSize * dpr)
+    }
+    readonly property int appTileWidth: 128
+    readonly property int appTileHeight: 128
+    readonly property int appTileSpacing: 24
+    readonly property int appIconTopPadding: 8
     readonly property int previewTileWidth: 296
     readonly property int previewTileHeight: 204
     readonly property int previewImageHeight: 192
@@ -51,7 +59,7 @@ Item {
     readonly property int listFilterHeight: 38
     readonly property int listFilterFontSize: Theme.panelTitleFontPixelSize
     readonly property int previewMenuMargin: 48
-    readonly property int appsMenuPadding: 14
+    readonly property int appsMenuPadding: 22
     readonly property int appsMenuRadius: Theme.panelCornerRadius
 
     readonly property int previewGridColumns: 5
@@ -60,11 +68,11 @@ Item {
     readonly property int activeTileHeight: previewTileMode ? previewTileHeight : (appsGridMode ? appTileHeight : tileHeight)
 
     readonly property int gridColumnCount: {
-        var n = filteredEntries().length
-        if (n <= 0) return 1
-        if (tileMode) return n
+        var n = visibleEntries.length
+        if (tileMode) return Math.max(1, n)
         if (appsGridMode)
-            return Math.max(1, Math.min(n, appGridColumns))
+            return appGridColumns
+        if (n <= 0) return 1
         if (previewTileMode)
             return Math.max(1, Math.min(n, previewGridColumns))
         var maxW = panel.previewAreaMaxWidth
@@ -73,9 +81,9 @@ Item {
     }
 
     readonly property int gridRowCount: {
-        var n = filteredEntries().length
+        var n = visibleEntries.length
         if (n <= 0) return 1
-        if (tileMode) return 1
+        if (tileMode) return 2
         return Math.ceil(n / gridColumnCount)
     }
 
@@ -83,46 +91,73 @@ Item {
         var cols = gridColumnCount
         if (cols <= 0) return activeTileWidth
         if (appsGridMode)
-            return cols * (appTileWidth + tileSpacing)
+            return cols * (appTileWidth + appTileSpacing)
         return cols * activeTileWidth + (cols - 1) * tileSpacing
     }
 
     readonly property int gridHeight: {
         var rows = gridRowCount
         if (rows <= 0) return activeTileHeight
+        if (appsGridMode)
+            return rows * (appTileHeight + appTileSpacing)
         return rows * activeTileHeight + (rows - 1) * tileSpacing
     }
 
-    readonly property int appsGridViewportHeight: Math.max(
-        appTileHeight * 3,
-        panel.previewAreaMaxHeight - listFilterHeight - previewMenuMargin
-    )
+    readonly property int appsGridViewportHeight: {
+        var chrome = appsMenuPadding * 2
+        var available = Math.max(appTileHeight + appTileSpacing,
+            panel.previewAreaMaxHeight - chrome)
+        return Math.min(gridHeight, available)
+    }
 
     readonly property int previewRowCount: gridRowCount
     readonly property int previewGridWidth: gridWidth
     readonly property int previewGridHeight: gridHeight
 
     readonly property int tileRowWidth: {
-        var n = filteredEntries().length
+        var n = visibleEntries.length
         if (n <= 0) return tileWidth
+        if (tileMode) {
+            var actionN = Math.min(systemActionCount, n)
+            var powerN = Math.max(0, n - systemActionCount)
+            var cols = Math.max(actionN, powerN, 1)
+            return cols * tileWidth + (cols - 1) * tileSpacing
+        }
         return n * tileWidth + (n - 1) * tileSpacing
     }
 
     readonly property int previewRowWidth: {
-        var n = filteredEntries().length
+        var n = visibleEntries.length
         if (n <= 0) return previewTileWidth
         return n * previewTileWidth + (n - 1) * tileSpacing
     }
 
     readonly property int boxRowWidth: previewTileMode ? gridWidth : tileRowWidth
-    readonly property int boxRowHeight: previewTileMode ? gridHeight : tileHeight
+    readonly property int boxRowHeight: previewTileMode
+        ? gridHeight
+        : (tileMode ? tileHeight * 2 + tileSpacing : tileHeight)
+    readonly property var systemActionTiles: {
+        var list = visibleEntries
+        var out = []
+        var n = Math.min(systemActionCount, list.length)
+        for (var i = 0; i < n; i++)
+            out.push(list[i])
+        return out
+    }
+    readonly property var systemPowerTiles: {
+        var list = visibleEntries
+        var out = []
+        for (var i = systemActionCount; i < list.length; i++)
+            out.push(list[i])
+        return out
+    }
     readonly property int appsHostWidth: gridWidth + appsMenuPadding * 2
-    readonly property int appsHostHeight: listFilterHeight + 16 + Math.min(gridHeight, appsGridViewportHeight) + appsMenuPadding * 2 + 8
+    readonly property int appsHostHeight: appsMenuPadding * 2 + appsGridViewportHeight
 
     readonly property string home: Quickshell.env("HOME")
     readonly property string placeholderText: {
         if (mode === "runner") return "run: command"
-        if (mode === "power") return "Power…"
+        if (mode === "power") return "System…"
         if (mode === "apps") return "Applications…"
         return "Search…"
     }
@@ -138,17 +173,19 @@ Item {
         }
         filterText = ""
         selectedIndex = 0
-        UsageMemory.reload()
         refreshCommandEntries()
         if (submenu) loadDynamicEntries(submenu)
         else dynamicEntries = []
         hostScreen = resolveHostScreen()
+        refreshVisibleEntries()
         opened = true
         Qt.callLater(function() {
             root.previewAreaMaxWidth = panel.previewAreaMaxWidth
             root.previewAreaMaxHeight = panel.previewAreaMaxHeight
             if (root.boxTileMode)
                 menuHost.forceActiveFocus()
+            else if (root.appsGridMode)
+                appsFilterField.forceActiveFocus()
             else
                 filterField.forceActiveFocus()
         })
@@ -169,7 +206,7 @@ Item {
     }
 
     function moveSelection(delta) {
-        var count = filteredEntries().length
+        var count = visibleEntries.length
         if (count <= 0) {
             selectedIndex = 0
             return
@@ -190,7 +227,7 @@ Item {
     }
 
     function moveGridSelection(dx, dy) {
-        var count = filteredEntries().length
+        var count = visibleEntries.length
         if (count <= 0) {
             selectedIndex = 0
             return
@@ -227,26 +264,50 @@ Item {
 
     function handlePreviewLeft() {
         if (previewTileMode || appsGridMode) moveGridSelection(-1, 0)
-        else if (tileMode) moveSelection(-1)
+        else if (tileMode) moveTileSelection(-1, 0)
     }
 
     function handlePreviewRight() {
         if (previewTileMode || appsGridMode) moveGridSelection(1, 0)
-        else if (tileMode) moveSelection(1)
+        else if (tileMode) moveTileSelection(1, 0)
     }
 
     function handlePreviewUp() {
         if (previewTileMode || appsGridMode) moveGridSelection(0, -1)
+        else if (tileMode) moveTileSelection(0, -1)
         else if (framedMode) moveSelection(-1)
     }
 
     function handlePreviewDown() {
         if (previewTileMode || appsGridMode) moveGridSelection(0, 1)
+        else if (tileMode) moveTileSelection(0, 1)
         else if (framedMode) moveSelection(1)
     }
 
+    function moveTileSelection(dx, dy) {
+        var n = visibleEntries.length
+        if (n <= 0) return
+        var row = selectedIndex < systemActionCount ? 0 : 1
+        var start = row === 0 ? 0 : systemActionCount
+        var len = row === 0 ? Math.min(systemActionCount, n) : Math.max(0, n - start)
+        if (len <= 0) return
+        var col = selectedIndex - start
+
+        if (dx !== 0) {
+            selectedIndex = start + ((col + dx) % len + len) % len
+            return
+        }
+        if (dy === 0) return
+        var nextRow = row + dy
+        if (nextRow < 0 || nextRow > 1) return
+        var nextStart = nextRow === 0 ? 0 : systemActionCount
+        var nextLen = nextRow === 0 ? Math.min(systemActionCount, n) : Math.max(0, n - nextStart)
+        if (nextLen <= 0) return
+        selectedIndex = nextStart + Math.min(col, nextLen - 1)
+    }
+
     function activateSelection() {
-        var list = filteredEntries()
+        var list = visibleEntries
         if (list.length === 0) return
         var idx = Math.max(0, Math.min(selectedIndex, list.length - 1))
         activateEntry(list[idx])
@@ -271,13 +332,24 @@ Item {
         activateSelection()
     }
 
-    onFilterTextChanged: selectedIndex = 0
-    onSubmenuChanged: selectedIndex = 0
-    onModeChanged: selectedIndex = 0
+    onFilterTextChanged: {
+        selectedIndex = 0
+        refreshVisibleEntries()
+    }
+    onSubmenuChanged: {
+        selectedIndex = 0
+        refreshVisibleEntries()
+    }
+    onModeChanged: {
+        selectedIndex = 0
+        refreshVisibleEntries()
+    }
+    onCommandEntriesChanged: refreshVisibleEntries()
+    onDynamicEntriesChanged: refreshVisibleEntries()
 
     function refreshCommandEntries() {
         if (mode === "power") {
-            commandEntries = MenuEntries.powerEntries(home)
+            commandEntries = MenuEntries.systemEntries(home)
             return
         }
         if (mode === "apps" || mode === "runner") {
@@ -287,11 +359,28 @@ Item {
         commandEntries = []
     }
 
+    function steamThemedIconName(name) {
+        if (name === "steam_icon_220") return "half-life2"
+        if (name === "steam_icon_2536520") return "diablo-2"
+        return ""
+    }
+
     function entryIconSource(entry) {
         if (!entry) return ""
-        if (entry.kind === "app" && entry.entryRef && entry.entryRef.icon)
-            return Quickshell.iconPath(String(entry.entryRef.icon), true) || ""
-        return ""
+        if (entry.kind !== "app" || !entry.entryRef || !entry.entryRef.icon)
+            return ""
+        var name = String(entry.entryRef.icon)
+        if (name.indexOf("/") !== -1)
+            return name.indexOf("file://") === 0 ? name : ("file://" + name)
+        var themed = steamThemedIconName(name)
+        if (themed) {
+            var home = Quickshell.env("HOME") || ""
+            var theme = Theme.iconThemeName
+            if (home && theme)
+                return "file://" + home + "/.local/share/icons/" + theme + "/apps/64/" + themed + ".svg"
+            return Quickshell.iconPath(themed, true) || ""
+        }
+        return Quickshell.iconPath(name, true) || ""
     }
 
     function entryGlyphIcon(entry) {
@@ -317,13 +406,23 @@ Item {
         } catch (e) {
             console.warn("evo.menu app list failed:", e)
         }
-        list.sort(function(a, b) {
-            var sa = UsageMemory.score("apps", a.id)
-            var sb = UsageMemory.score("apps", b.id)
-            if (sa !== sb) return sb - sa
-            return a.name.localeCompare(b.name)
-        })
         return list
+    }
+
+    function entryListsEqual(a, b) {
+        if (!a || !b || a.length !== b.length) return false
+        for (var i = 0; i < a.length; i++) {
+            if ((a[i].id || a[i].name) !== (b[i].id || b[i].name))
+                return false
+        }
+        return true
+    }
+
+    function refreshVisibleEntries() {
+        var next = filteredEntries()
+        if (entryListsEqual(visibleEntries, next))
+            return
+        visibleEntries = next
     }
 
     function filteredEntries() {
@@ -479,6 +578,11 @@ Item {
                 anchors.fill: parent
                 color: Theme.overlayScrim
             }
+
+            MouseArea {
+                anchors.fill: parent
+                onClicked: root.dismiss()
+            }
         }
     }
 
@@ -561,44 +665,54 @@ Item {
                 border.width: 1
             }
 
+            TextInput {
+                id: appsFilterField
+                x: 0
+                y: 0
+                width: 1
+                height: 1
+                opacity: 0
+                visible: root.appsGridMode
+                enabled: root.appsGridMode
+                color: "transparent"
+                cursorVisible: false
+                text: root.filterText
+                onTextEdited: root.filterText = text
+                Keys.onEscapePressed: root.handleEscapeKey()
+                Keys.onLeftPressed: root.handlePreviewLeft()
+                Keys.onRightPressed: root.handlePreviewRight()
+                Keys.onUpPressed: root.handlePreviewUp()
+                Keys.onDownPressed: root.handlePreviewDown()
+                Keys.onReturnPressed: root.handleActivateKey()
+                onActiveFocusChanged: {
+                    if (activeFocus || !root.opened || !root.appsGridMode)
+                        return
+                    Qt.callLater(function() {
+                        if (root.opened && root.appsGridMode)
+                            appsFilterField.forceActiveFocus()
+                    })
+                }
+            }
+
             Column {
                 anchors.fill: parent
                 anchors.margins: root.boxTileMode ? 0 : (root.appsGridMode ? root.appsMenuPadding : 16)
-                spacing: root.appsGridMode ? 10 : 12
+                spacing: 12
 
                 Item {
-                    width: root.appsGridMode ? root.gridWidth : parent.width
-                    anchors.horizontalCenter: root.appsGridMode ? parent.horizontalCenter : undefined
+                    width: parent.width
                     height: root.listFilterHeight
-                    visible: root.framedMode || root.appsGridMode
+                    visible: root.framedMode
 
                     Rectangle {
                         anchors.fill: parent
-                        radius: root.appsGridMode ? root.appsMenuRadius : 0
-                        color: root.appsGridMode ? Theme.panelMantle : Theme.overlaySurface
-                        border.color: root.appsGridMode
-                            ? Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.18)
-                            : "transparent"
-                        border.width: root.appsGridMode ? 1 : 0
-                    }
-
-                    Text {
-                        visible: root.appsGridMode
-                        anchors.left: parent.left
-                        anchors.leftMargin: 12
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: "󰍉"
-                        color: Theme.accent
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.panelIconFontPixelSize
-                        font.bold: Theme.fontBold
-                        opacity: 0.85
+                        color: Theme.overlaySurface
                     }
 
                     Text {
                         visible: filterField.text.length === 0 && !filterField.activeFocus
                         anchors.left: parent.left
-                        anchors.leftMargin: root.appsGridMode ? 36 : 12
+                        anchors.leftMargin: 12
                         anchors.verticalCenter: parent.verticalCenter
                         text: root.placeholderText
                         color: Theme.foreground
@@ -608,24 +722,11 @@ Item {
                         font.bold: Theme.fontBold
                     }
 
-                    Text {
-                        visible: root.appsGridMode && root.filteredEntries().length > 0
-                        anchors.right: parent.right
-                        anchors.rightMargin: 12
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: String(root.filteredEntries().length)
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.panelHintFontPixelSize
-                        font.bold: Theme.fontBold
-                        opacity: 0.5
-                    }
-
                     TextInput {
                         id: filterField
                         anchors.fill: parent
-                        anchors.leftMargin: root.appsGridMode ? 36 : 12
-                        anchors.rightMargin: root.appsGridMode ? 40 : 12
+                        anchors.leftMargin: 12
+                        anchors.rightMargin: 12
                         color: Theme.foreground
                         font.family: Theme.fontFamily
                         font.pixelSize: root.listFilterFontSize
@@ -661,7 +762,7 @@ Item {
                     flow: Flow.LeftToRight
 
                     Repeater {
-                        model: root.filteredEntries()
+                        model: root.visibleEntries
 
                         Rectangle {
                             required property var modelData
@@ -723,9 +824,9 @@ Item {
                 }
 
                 Text {
-                    visible: root.appsGridMode && !root.dynamicLoading && root.filteredEntries().length === 0
+                    visible: root.appsGridMode && !root.dynamicLoading && root.visibleEntries.length === 0
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: filterField.text.trim() === "" ? "No applications" : "No matches"
+                    text: root.filterText.trim() === "" ? "No applications" : "No matches"
                     color: Theme.foreground
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.panelSmallFontPixelSize
@@ -735,87 +836,55 @@ Item {
 
                 GridView {
                     id: appGrid
-                    visible: root.appsGridMode && root.filteredEntries().length > 0
+                    visible: root.appsGridMode && root.visibleEntries.length > 0
                     anchors.horizontalCenter: parent.horizontalCenter
                     width: root.gridWidth
-                    height: parent.height - root.listFilterHeight - (root.appsGridMode ? 26 : 12)
+                    height: root.appsGridViewportHeight
                     clip: true
-                    cellWidth: root.appTileWidth + root.tileSpacing
-                    cellHeight: root.appTileHeight + root.tileSpacing
-                    model: root.filteredEntries()
+                    reuseItems: true
+                    cellWidth: root.appTileWidth + root.appTileSpacing
+                    cellHeight: root.appTileHeight + root.appTileSpacing
+                    model: root.visibleEntries
                     currentIndex: root.selectedIndex
 
                     onCountChanged: if (root.selectedIndex >= count) root.selectedIndex = Math.max(0, count - 1)
 
-                    delegate: Rectangle {
+                    delegate: Item {
                         id: appTile
                         required property var modelData
                         required property int index
-                        width: root.appTileWidth
-                        height: root.appTileHeight
-                        radius: root.appsMenuRadius
-                        color: index === root.selectedIndex || appMouse.containsMouse
-                            ? Theme.panelMantle
-                            : Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.04)
-                        border.color: index === root.selectedIndex
-                            ? Theme.accent
-                            : Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.12)
-                        border.width: 1
+                        width: root.appTileWidth + root.appTileSpacing
+                        height: root.appTileHeight + root.appTileSpacing
                         opacity: appMouse.containsMouse || index === root.selectedIndex ? 1 : 0.88
+                        scale: appMouse.containsMouse || index === root.selectedIndex ? 1.06 : 1
 
-                        readonly property string appIconSource: root.entryIconSource(modelData)
+                        readonly property string appIconSource: {
+                            var _theme = Theme.iconThemeName
+                            return root.entryIconSource(modelData)
+                        }
                         readonly property string glyphIcon: root.entryGlyphIcon(modelData)
 
-                        Column {
-                            anchors.fill: parent
-                            anchors.leftMargin: 6
-                            anchors.rightMargin: 6
-                            anchors.bottomMargin: 8
-                            anchors.topMargin: root.appIconTopPadding
-                            spacing: 6
+                        Image {
+                            anchors.centerIn: parent
+                            width: root.appIconSize
+                            height: root.appIconSize
+                            visible: appTile.appIconSource.length > 0
+                            source: appTile.appIconSource
+                            fillMode: Image.PreserveAspectFit
+                            smooth: true
+                            asynchronous: true
+                            cache: true
+                            sourceSize: Qt.size(root.appIconSourceSize, root.appIconSourceSize)
+                        }
 
-                            Item {
-                                width: parent.width
-                                height: root.appIconSize
-                                anchors.horizontalCenter: parent.horizontalCenter
-
-                                Image {
-                                    anchors.centerIn: parent
-                                    width: root.appIconSize
-                                    height: root.appIconSize
-                                    visible: appTile.appIconSource.length > 0
-                                    source: appTile.appIconSource
-                                    fillMode: Image.PreserveAspectFit
-                                    smooth: true
-                                    asynchronous: true
-                                    cache: true
-                                    sourceSize: Qt.size(root.appIconSize * 2, root.appIconSize * 2)
-                                }
-
-                                Text {
-                                    anchors.centerIn: parent
-                                    visible: appTile.appIconSource.length === 0
-                                    text: appTile.glyphIcon
-                                    color: Theme.accent
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: root.appIconSize * 0.5
-                                    font.bold: Theme.fontBold
-                                }
-                            }
-
-                            Text {
-                                text: modelData.name
-                                color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: root.appLabelFontSize
-                                font.bold: Theme.fontBold
-                                width: parent.width
-                                horizontalAlignment: Text.AlignHCenter
-                                wrapMode: Text.Wrap
-                                maximumLineCount: 2
-                                elide: Text.ElideRight
-                                opacity: appMouse.containsMouse || index === root.selectedIndex ? 1 : 0.78
-                            }
+                        Text {
+                            anchors.centerIn: parent
+                            visible: appTile.appIconSource.length === 0
+                            text: appTile.glyphIcon
+                            color: Theme.accent
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.appIconSize * 0.5
+                            font.bold: Theme.fontBold
                         }
 
                         MouseArea {
@@ -831,60 +900,126 @@ Item {
                     }
                 }
 
-                Row {
+                Column {
                     id: tileRow
                     visible: root.tileMode
                     anchors.horizontalCenter: parent.horizontalCenter
                     spacing: root.tileSpacing
-                    height: root.tileHeight
+                    width: root.tileRowWidth
+                    height: root.tileHeight * 2 + root.tileSpacing
 
-                    Repeater {
-                        model: root.filteredEntries()
+                    Row {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        spacing: root.tileSpacing
+                        height: root.tileHeight
 
-                        Rectangle {
-                            required property var modelData
-                            required property int index
-                            width: root.tileWidth
-                            height: root.tileHeight
-                            color: Theme.overlaySurface
-                            border.color: index === root.selectedIndex ? Theme.accent : Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.35)
-                            border.width: index === root.selectedIndex ? 2 : 1
+                        Repeater {
+                            model: root.systemActionTiles
 
-                            Column {
-                                anchors.centerIn: parent
-                                spacing: 8
-                                width: parent.width - 12
+                            Rectangle {
+                                required property var modelData
+                                required property int index
+                                width: root.tileWidth
+                                height: root.tileHeight
+                                color: Theme.overlaySurface
+                                border.color: index === root.selectedIndex ? Theme.accent : Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.35)
+                                border.width: index === root.selectedIndex ? 2 : 1
 
-                                Text {
-                                    text: modelData.icon || "󰍉"
-                                    color: Theme.accent
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: root.tileIconSize
-                                    font.bold: Theme.fontBold
-                                    anchors.horizontalCenter: parent.horizontalCenter
+                                Column {
+                                    anchors.centerIn: parent
+                                    spacing: 8
+                                    width: parent.width - 12
+
+                                    Text {
+                                        text: modelData.icon || "󰍉"
+                                        color: Theme.accent
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: root.tileIconSize
+                                        font.bold: Theme.fontBold
+                                        anchors.horizontalCenter: parent.horizontalCenter
+                                    }
+
+                                    Text {
+                                        text: modelData.name
+                                        color: Theme.foreground
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: 12
+                                        font.bold: Theme.fontBold
+                                        width: parent.width
+                                        horizontalAlignment: Text.AlignHCenter
+                                        wrapMode: Text.Wrap
+                                        maximumLineCount: 2
+                                        elide: Text.ElideRight
+                                    }
                                 }
 
-                                Text {
-                                    text: modelData.name
-                                    color: Theme.foreground
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: 12
-                                    font.bold: Theme.fontBold
-                                    width: parent.width
-                                    horizontalAlignment: Text.AlignHCenter
-                                    wrapMode: Text.Wrap
-                                    maximumLineCount: 2
-                                    elide: Text.ElideRight
+                                MouseArea {
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    onEntered: root.selectedIndex = index
+                                    onClicked: {
+                                        root.selectedIndex = index
+                                        root.activateEntry(modelData)
+                                    }
                                 }
                             }
+                        }
+                    }
 
-                            MouseArea {
-                                id: tileMouse
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                onClicked: {
-                                    root.selectedIndex = index
-                                    root.activateEntry(modelData)
+                    Row {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        spacing: root.tileSpacing
+                        height: root.tileHeight
+
+                        Repeater {
+                            model: root.systemPowerTiles
+
+                            Rectangle {
+                                required property var modelData
+                                required property int index
+                                readonly property int tileIndex: index + root.systemActionCount
+                                width: root.tileWidth
+                                height: root.tileHeight
+                                color: Theme.overlaySurface
+                                border.color: tileIndex === root.selectedIndex ? Theme.accent : Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.35)
+                                border.width: tileIndex === root.selectedIndex ? 2 : 1
+
+                                Column {
+                                    anchors.centerIn: parent
+                                    spacing: 8
+                                    width: parent.width - 12
+
+                                    Text {
+                                        text: modelData.icon || "󰍉"
+                                        color: Theme.accent
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: root.tileIconSize
+                                        font.bold: Theme.fontBold
+                                        anchors.horizontalCenter: parent.horizontalCenter
+                                    }
+
+                                    Text {
+                                        text: modelData.name
+                                        color: Theme.foreground
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: 12
+                                        font.bold: Theme.fontBold
+                                        width: parent.width
+                                        horizontalAlignment: Text.AlignHCenter
+                                        wrapMode: Text.Wrap
+                                        maximumLineCount: 2
+                                        elide: Text.ElideRight
+                                    }
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    onEntered: root.selectedIndex = tileIndex
+                                    onClicked: {
+                                        root.selectedIndex = tileIndex
+                                        root.activateEntry(modelData)
+                                    }
                                 }
                             }
                         }
@@ -897,7 +1032,7 @@ Item {
                     height: parent.height - (root.mode === "runner" ? root.listFilterHeight + 12 : 0)
                     clip: true
                     visible: root.framedMode
-                    model: root.filteredEntries()
+                    model: root.visibleEntries
                     currentIndex: root.selectedIndex
 
                     onCountChanged: if (root.selectedIndex >= count) root.selectedIndex = Math.max(0, count - 1)
@@ -910,7 +1045,10 @@ Item {
                         height: root.listRowHeight
                         color: index === entryList.currentIndex || mouseArea.containsMouse ? Theme.panelMantle : "transparent"
 
-                        readonly property string appIconSource: root.entryIconSource(modelData)
+                        readonly property string appIconSource: {
+                            var _theme = Theme.iconThemeName
+                            return root.entryIconSource(modelData)
+                        }
                         readonly property string glyphIcon: root.entryGlyphIcon(modelData)
 
                         Row {

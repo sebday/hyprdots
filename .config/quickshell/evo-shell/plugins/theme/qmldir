@@ -1,2 +1,3 @@
 module theme
 ThemeModule 1.0 ThemeModule.qml
+PreviewOverlay 1.0 PreviewOverlay.qml

@@ -17,8 +17,11 @@ Item {
     property var entries: []
     property bool loading: false
     property bool pendingReload: false
+    property int cursorIndex: 0
+    property bool keyboardFocus: false
 
     signal activated(var entry)
+    signal focused()
 
     readonly property string listScript: Quickshell.env("HOME") + "/.local/bin/evo-menu-list-previews.sh"
     readonly property string fallbackIcon: kind === "wallpapers" ? "󰏘" : "󰸌"
@@ -31,6 +34,7 @@ Item {
         ? rowCount * tileHeight + Math.max(0, rowCount - 1) * spacing
         : 0
 
+    readonly property int tileInset: 0
     implicitWidth: gridWidth
     implicitHeight: statusText.visible
         ? statusText.implicitHeight
@@ -79,7 +83,65 @@ Item {
             }
         }
         entries = out
+        syncCursorToSelected()
         finishReload()
+    }
+
+    function indexOfSelected() {
+        for (var i = 0; i < entries.length; i++) {
+            if (isSelected(entries[i]))
+                return i
+        }
+        return -1
+    }
+
+    function syncCursorToSelected() {
+        var idx = indexOfSelected()
+        if (idx >= 0)
+            cursorIndex = idx
+        else if (cursorIndex >= entries.length)
+            cursorIndex = Math.max(0, entries.length - 1)
+    }
+
+    function moveCursor(dx, dy) {
+        var n = entries.length
+        if (n <= 0) return false
+        var cols = Math.max(1, columns)
+        var rows = Math.ceil(n / cols)
+        var idx = Math.max(0, Math.min(cursorIndex, n - 1))
+        var row = Math.floor(idx / cols)
+        var col = idx % cols
+
+        if (dx !== 0) {
+            var next = idx + dx
+            if (next < 0 || next >= n)
+                return false
+            cursorIndex = next
+            focused()
+            return true
+        }
+
+        if (dy === 0) return false
+        var targetRow = row + dy
+        if (targetRow < 0 || targetRow >= rows)
+            return false
+        var targetIdx = targetRow * cols + col
+        if (targetIdx >= n) targetIdx = n - 1
+        cursorIndex = targetIdx
+        focused()
+        return true
+    }
+
+    function activateCursor() {
+        if (cursorIndex < 0 || cursorIndex >= entries.length)
+            return
+        runEntry(entries[cursorIndex])
+    }
+
+    function cursorRowY() {
+        var cols = Math.max(1, columns)
+        var row = Math.floor(Math.max(0, cursorIndex) / cols)
+        return row * (tileHeight + spacing)
     }
 
     function isSelected(entry) {
@@ -133,6 +195,8 @@ Item {
     Flow {
         id: previewFlow
         visible: !statusText.visible
+        x: root.tileInset
+        y: root.tileInset
         width: root.gridWidth
         spacing: root.spacing
         flow: Flow.LeftToRight
@@ -140,52 +204,50 @@ Item {
         Repeater {
             model: root.entries
 
-            Rectangle {
+            Item {
                 required property var modelData
                 required property int index
                 width: root.tileWidth
                 height: root.tileHeight
-                color: Theme.overlaySurface
-                border.color: root.isSelected(modelData)
-                    ? Theme.accent
-                    : Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.35)
-                border.width: root.isSelected(modelData) ? 2 : 1
+                clip: true
 
-                Item {
+                Image {
+                    id: previewImage
                     anchors.fill: parent
-                    anchors.margins: 4
-                    clip: true
+                    source: Util.fileUrl(modelData.preview)
+                    fillMode: Image.PreserveAspectCrop
+                    smooth: true
+                    asynchronous: true
+                    cache: true
+                    mipmap: true
+                    sourceSize: Qt.size(
+                        Math.ceil(root.tileWidth * root.previewDpr),
+                        Math.ceil(root.tileHeight * root.previewDpr)
+                    )
+                }
 
-                    Image {
-                        id: previewImage
-                        anchors.fill: parent
-                        source: Util.fileUrl(modelData.preview)
-                        fillMode: Image.PreserveAspectCrop
-                        smooth: true
-                        asynchronous: true
-                        cache: true
-                        mipmap: true
-                        sourceSize: Qt.size(
-                            Math.ceil(root.tileWidth * root.previewDpr),
-                            Math.ceil(root.tileHeight * root.previewDpr)
-                        )
-                    }
+                Rectangle {
+                    anchors.fill: parent
+                    color: Theme.overlaySurface
+                    visible: !modelData.preview || previewImage.status === Image.Error
+                }
 
-                    Rectangle {
-                        anchors.fill: parent
-                        color: Theme.overlaySurface
-                        visible: !modelData.preview || previewImage.status === Image.Error
-                    }
+                Text {
+                    anchors.centerIn: parent
+                    visible: !modelData.preview || previewImage.status === Image.Error
+                    text: root.fallbackIcon
+                    color: Theme.accent
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.tileIconSize
+                    font.bold: Theme.fontBold
+                }
 
-                    Text {
-                        anchors.centerIn: parent
-                        visible: !modelData.preview || previewImage.status === Image.Error
-                        text: root.fallbackIcon
-                        color: Theme.accent
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.tileIconSize
-                        font.bold: Theme.fontBold
-                    }
+                Rectangle {
+                    anchors.fill: parent
+                    color: "transparent"
+                    border.color: Theme.accent
+                    border.width: 2
+                    visible: (root.keyboardFocus && index === root.cursorIndex) || root.isSelected(modelData)
                 }
 
                 MouseArea {
@@ -193,7 +255,14 @@ Item {
                     enabled: root.enabled
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: root.runEntry(modelData)
+                    onEntered: {
+                        root.cursorIndex = index
+                        root.focused()
+                    }
+                    onClicked: {
+                        root.cursorIndex = index
+                        root.runEntry(modelData)
+                    }
                 }
             }
         }

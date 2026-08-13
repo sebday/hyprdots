@@ -1,5 +1,4 @@
 # Tools ######################
-brave-bin
 cursor-bin
 
 # File Management ###########

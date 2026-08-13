@@ -29,7 +29,6 @@ ttf-cascadia-mono-nerd
 vimix-cursors
 
 # Tools ######################
-nano
 ghostty
 git
 eza

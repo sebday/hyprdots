@@ -15,6 +15,7 @@ alias pub='(cd /home/seb/projects/client-docs && npm run publish)'
 alias reports='(cd /home/seb/projects/ecommerce-reports && ruby bin/generate-reports weekly)'
 
 # Git
+alias ga="git add"
 alias gcm='git commit -m'
 alias gcam='git add -A && git commit -m'
 alias gs='git status'

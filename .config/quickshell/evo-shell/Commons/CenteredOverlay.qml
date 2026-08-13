@@ -9,8 +9,10 @@ Item {
     property int contentWidth: 420
     property int contentHeight: 520
     property int contentMargin: 16
+    property bool framed: true
     property string layerNamespace: "evo-overlay"
     property var hostScreen: null
+    property Item keysTarget: null
     signal dismissed()
 
     default property alias content: contentHost.data
@@ -41,6 +43,11 @@ Item {
             Rectangle {
                 anchors.fill: parent
                 color: Theme.overlayScrim
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                onClicked: root.dismissed()
             }
         }
     }
@@ -73,10 +80,12 @@ Item {
             height: root.contentHeight
             focus: root.opened
 
+            Keys.forwardTo: root.keysTarget ? [root.keysTarget] : []
             Keys.onEscapePressed: root.dismissed()
 
             Rectangle {
                 z: 0
+                visible: root.framed
                 anchors.fill: parent
                 color: Theme.overlaySurface
                 border.color: Theme.accent

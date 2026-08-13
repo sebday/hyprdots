@@ -16,6 +16,7 @@ return {
           files = {
             hidden = true,
             ignored = true,
+            exclude = { "node_modules" },
           },
           explorer = {
             hidden = true,

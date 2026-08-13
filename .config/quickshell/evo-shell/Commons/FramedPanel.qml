@@ -118,8 +118,8 @@ Item {
 
     Item {
         id: contentHost
-        z: 0
-        clip: true
+        z: 1
+        clip: false
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
@@ -127,7 +127,7 @@ Item {
         anchors.leftMargin: contentPad
         anchors.rightMargin: contentPad
         anchors.topMargin: contentPad + headerPad
-        anchors.bottomMargin: root.contentFill ? (contentPad + balancedBottomPad) : 0
+        anchors.bottomMargin: contentPad + (root.contentFill ? balancedBottomPad : 0)
         height: root.contentFill ? undefined : childrenRect.height
     }
 }
