@@ -180,29 +180,12 @@ parse_episode() {
     EP_SORT_KEY="$sort_key"
 }
 
-poster_url() {
-    local path="${1:-}"
-    if [[ -n "$path" && -f "$path" ]]; then
-        local resolved uri
-        resolved="$(realpath "$path")"
-        uri="file://${resolved// /%20}"
-        printf '%s' "$uri"
+json_or_empty() {
+    local raw="${1:-}"
+    if [[ -z "$raw" ]]; then
+        printf '%s\n' '[]'
     else
-        printf ''
-    fi
-}
-
-format_episode_label() {
-    local season="${1:-}"
-    local episode="${2:-}"
-    local title="$3"
-    local display
-    display="$(display_title "$title")"
-    [[ -z "$display" ]] && display="$title"
-    if [[ -n "$season" && -n "$episode" ]]; then
-        printf 'S%02dE%02d · %s' "$season" "$episode" "$display"
-    else
-        printf '%s' "$display"
+        printf '%s\n' "$raw"
     fi
 }
 
@@ -220,30 +203,6 @@ find_video_files() {
     done
     find_args+=(')')
     find "${find_args[@]}" 2>/dev/null | LC_ALL=C sort
-}
-
-enrich_rows() {
-    jq -c '.[]' | while IFS= read -r row; do
-        local title pp poster display label season episode
-        title="$(jq -r '.title // .name // empty' <<<"$row")"
-        pp="$(jq -r '.poster_path // empty' <<<"$row")"
-        poster="$(poster_url "$pp")"
-        if [[ "${1:-}" == "episode" ]]; then
-            season="$(jq -r '.season // empty' <<<"$row")"
-            episode="$(jq -r '.episode // empty' <<<"$row")"
-            display="$(display_title "$title")"
-            label="$(format_episode_label "$season" "$episode" "$title")"
-            jq -n --argjson row "$row" --arg poster "$poster" --arg display "$display" --arg label "$label" \
-                '$row | . + {poster_path: (.poster_path // ""), poster: $poster, title: $display, label: $label}'
-        elif [[ "${1:-}" == "show" ]]; then
-            jq -n --argjson row "$row" --arg poster "$poster" \
-                '$row | {id: .id, name: .name, poster_path: (.poster_path // ""), poster: $poster, episodes: .episodes}'
-        else
-            display="$(display_title "$title")"
-            jq -n --argjson row "$row" --arg poster "$poster" --arg display "$display" \
-                '$row | {id: .id, title: $display, year: .year, poster_path: (.poster_path // ""), poster: $poster, path: .path}'
-        fi
-    done | jq -s '.'
 }
 
 cmd_scan() {
@@ -318,25 +277,19 @@ cmd_status() {
 
 cmd_list_films() {
     init_db
-    local raw
-    raw="$(sqlite3 -json "$DB_PATH" \
+    json_or_empty "$(sqlite3 -json "$DB_PATH" \
         "SELECT id, title, year, poster_path, path FROM films ORDER BY sort_title COLLATE NOCASE")"
-    [[ -z "$raw" ]] && raw='[]'
-    printf '%s\n' "$raw" | enrich_rows
 }
 
 cmd_list_shows() {
     init_db
-    local raw
-    raw="$(sqlite3 -json "$DB_PATH" \
-        "SELECT s.id, s.name, s.poster_path, (SELECT COUNT(*) FROM episodes e WHERE e.show_id = s.id) AS episodes FROM shows s ORDER BY s.name COLLATE NOCASE")"
-    [[ -z "$raw" ]] && raw='[]'
-    printf '%s\n' "$raw" | enrich_rows show
+    json_or_empty "$(sqlite3 -json "$DB_PATH" \
+        "SELECT id, name, poster_path FROM shows ORDER BY name COLLATE NOCASE")"
 }
 
 cmd_list_episodes() {
     local show_query="$1"
-    local escaped show_data show_id show_name raw enriched
+    local escaped show_data show_id show_name raw
 
     init_db
     escaped="$(sql_escape "$show_query")"
@@ -344,7 +297,7 @@ cmd_list_episodes() {
         "SELECT id, name FROM shows WHERE name = '$escaped' COLLATE NOCASE LIMIT 1")"
 
     if [[ -z "$show_data" ]]; then
-        jq -n --arg show "$show_query" '{ok: false, error: "show not found", show: $show, seasons: []}'
+        jq -n --arg show "$show_query" '{ok: false, error: "show not found", show: $show, episodes: []}'
         return 0
     fi
 
@@ -352,31 +305,20 @@ cmd_list_episodes() {
     show_name="${show_data#*|}"
     raw="$(sqlite3 -json "$DB_PATH" \
         "SELECT id, season, episode, title, path, poster_path FROM episodes WHERE show_id = $show_id ORDER BY sort_key COLLATE NOCASE")"
-    [[ -z "$raw" ]] && raw='[]'
-    enriched="$(printf '%s\n' "$raw" | enrich_rows episode)"
 
-    jq -n \
-        --arg show "$show_name" \
-        --argjson showId "$show_id" \
-        --argjson episodes "$enriched" \
-        --argjson seasons "$(
-            jq '
-                group_by(.season // 0)
-                | map({
-                    season: (if (.[0].season // 0) == 0 then null else .[0].season end),
-                    label: (
-                        if (.[0].season // 0) == 0 then "Episodes"
-                        else "Season " + (
-                            if (.[0].season < 10) then "0" + (.[0].season | tostring)
-                            else (.[0].season | tostring) end
-                        ) end
-                    ),
-                    episodes: .
-                })
-                | sort_by(.season // 0)
-            ' <<<"$enriched"
-        )" \
-        '{ok: true, show: $show, showId: $showId, episodes: $episodes, seasons: $seasons}'
+    jq -c --arg show "$show_name" --argjson showId "$show_id" '
+        def pad2: tostring | if length < 2 then "0" + . else . end;
+        def ep_label:
+            if (.season != null and .episode != null) then
+                "S" + (.season | pad2) + "E" + (.episode | pad2) + " · " + (.title // "")
+            else (.title // "") end;
+        {
+            ok: true,
+            show: $show,
+            showId: $showId,
+            episodes: ((. // []) | map(. + {label: ep_label, poster_path: (.poster_path // "")}))
+        }
+    ' <<<"$(json_or_empty "$raw")"
 }
 
 cmd_play() {

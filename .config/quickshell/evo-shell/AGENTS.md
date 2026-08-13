@@ -29,7 +29,7 @@ Hypr bindings use full path `~/.local/bin/evo-shell-ipc` (PATH may not include i
 
 ## Monitors
 
-- **Menu, media, and centered popups** (calendar, stats, weather, cursor, clipboard): always `DP-1` via `Util.screenForOverlay()`
+- **Centered popups** (menu, calendar, stats, weather, cursor, clipboard): always `DP-1` via `Util.screenForOverlay()`
 - **Left dock** (`evo.panel`): Hyprland focused monitor on each `open()` via `Util.screenForFocused()`
 
 ## Bar scripts
@@ -49,19 +49,19 @@ Hypr bindings use full path `~/.local/bin/evo-shell-ipc` (PATH may not include i
 - New overlay plugins need `shell.qml` entry + `panelPluginIds` if `keepLoaded`; restart shell to pick up new plugins (not just `reloadConfig`)
 - Layer namespaces (`evo-bar`, `evo-panel`, …) → `~/.config/hypr/evo-shell.lua`
 
-## Media library (`evo.media`)
+## Media library
 
-- **Super+M** — full-screen film/TV browser
+Compact browser at the bottom of the **Info** panel (`LibraryModule`). Super+M and Super+B both open Info.
+
 - **Index**: `~/.local/state/evo-shell/media.db` (scan from `/mnt/external/films` + `/mnt/external/tv`)
 - **Posters**: `~/.local/state/evo-shell/media-posters/` — ffmpeg frame grabs (`evo-media-fetch-posters.py`) for films, shows, and episodes
 
 ```bash
 evo-media.sh scan
 evo-media-fetch-posters.py   # optional, extracts posters from video files
-evo-shell-ipc shell toggle evo.media
 ```
 
-Re-run `scan` if the external library moves. Select a film or episode → **mpv fullscreen** (UI closes).
+Re-run `scan` if the external library moves. Select a film or episode → **mpv fullscreen** (Info panel closes).
 
 ## User prefs
 

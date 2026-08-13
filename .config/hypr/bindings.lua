@@ -38,7 +38,6 @@ bindd("SUPER + C", "Calculator", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo
 bindd("SUPER + N", "Notes", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.panel '{\"module\":\"notes\"}'"))
 bindd("SUPER + B", "Info panel", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.panel '{\"module\":\"info\"}'"))
 bindd("SUPER + V", "Clipboard History", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.clipboard-history"))
-bindd("SUPER + M", "Media library", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.media"))
 bindd("SUPER + P", "Colour Picker", hl.dsp.exec_cmd("hyprpicker -al"))
 
 -- Programs

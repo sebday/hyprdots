@@ -131,6 +131,7 @@ Item {
         mediaPoll.runPoll()
         livePoll.runPoll()
         cursorUsage.onActivated()
+        libraryMedia.onActivated()
         Qt.callLater(function() {
             if (root.active)
                 focusSink.forceActiveFocus()
@@ -345,19 +346,12 @@ Item {
         Keys.enabled: root.active
         Keys.onEscapePressed: root.dismissHost()
 
-        Flickable {
+        ColumnLayout {
+            id: infoColumn
             anchors.fill: parent
-            clip: true
-            contentWidth: width
-            contentHeight: infoColumn.implicitHeight + 10
-            boundsBehavior: Flickable.StopAtBounds
-            flickableDirection: Flickable.VerticalFlick
-
-            ColumnLayout {
-                id: infoColumn
-                width: parent.width
-                y: 10
-                spacing: 14
+            anchors.topMargin: 10
+            anchors.bottomMargin: 10
+            spacing: 14
 
                 FramedPanel {
                     label: "Now playing"
@@ -692,7 +686,21 @@ Item {
                         host: root.host
                     }
                 }
-            }
+
+                FramedPanel {
+                    label: "Library"
+                    contentFill: true
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Layout.minimumHeight: 180
+
+                    LibraryModule {
+                        id: libraryMedia
+                        anchors.fill: parent
+                        host: root.host
+                        active: root.active
+                    }
+                }
         }
     }
 

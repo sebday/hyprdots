@@ -26,7 +26,7 @@ Item {
     CenteredOverlay {
         opened: root.opened
         layerNamespace: "evo-cursor"
-        contentWidth: 440
+        contentWidth: 352
         contentHeight: Math.max(360, cursorContent.implicitHeight + 32)
         onDismissed: root.dismiss()
 
@@ -35,6 +35,7 @@ Item {
             width: parent.width
             host: root
             expandModels: true
+            breakdownInset: 24
         }
     }
 }

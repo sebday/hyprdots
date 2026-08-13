@@ -1,5 +1,6 @@
 module modules
 InfoModule 1.0 InfoModule.qml
+LibraryModule 1.0 LibraryModule.qml
 UsageModule 1.0 UsageModule.qml
 CalcModule 1.0 CalcModule.qml
 NotesModule 1.0 NotesModule.qml

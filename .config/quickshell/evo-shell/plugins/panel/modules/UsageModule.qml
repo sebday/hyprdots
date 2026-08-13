@@ -59,6 +59,7 @@ Item {
 
     property bool expandModels: false
     property bool modelSplitExpanded: expandModels
+    property int breakdownInset: 0
 
     function applyPayload(json) {
         loading = false
@@ -171,6 +172,8 @@ Item {
 
             ColumnLayout {
                 Layout.fillWidth: true
+                Layout.leftMargin: root.breakdownInset
+                Layout.rightMargin: root.breakdownInset
                 spacing: 8
                 visible: !root.isError && root.hasModelDetails && root.modelSplitExpanded
 

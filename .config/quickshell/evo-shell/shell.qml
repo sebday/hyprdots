@@ -40,7 +40,6 @@ ShellRoot {
         "evo.cursor": { kinds: ["menu"], path: "plugins/cursor/Cursor.qml", keepLoaded: true },
         "evo.clipboard-history": { kinds: ["menu"], path: "plugins/clipboard/Clipboard.qml", keepLoaded: true },
         "evo.clipboard": { kinds: ["service"], path: "plugins/clipboard/Service.qml", keepLoaded: true },
-        "evo.media": { kinds: ["menu"], path: "plugins/media/Media.qml", keepLoaded: true },
         "evo.panel": { kinds: ["panel"], path: "plugins/panel/Panel.qml", keepLoaded: true },
         "evo.bar": { kinds: ["bar"], path: "plugins/bar/Bar.qml" }
     })
@@ -227,7 +226,7 @@ ShellRoot {
         }
     }
 
-    readonly property var panelPluginIds: ["evo.menu", "evo.panel", "evo.calendar", "evo.stats", "evo.weather", "evo.cursor", "evo.clipboard-history", "evo.media"]
+    readonly property var panelPluginIds: ["evo.menu", "evo.panel", "evo.calendar", "evo.stats", "evo.weather", "evo.cursor", "evo.clipboard-history"]
 
     Instantiator {
         model: shell.panelPluginIds
