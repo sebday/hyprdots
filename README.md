@@ -13,15 +13,35 @@ Thank you to [Bjarne](https://github.com/bjarneo) for some gorgeous themes.
 ## Features
 
 - Master `colors.toml`
-- Auto generated themes for Obsidian
-- Themed websites (Soundcloud, Grok X etc) 
-- Quickshell
+- Auto generated themes for Obsidian and Neovim
+  - Themed websites (Soundcloud, Grok, X etc)  
+
+## Quickshell 
+
+  - Bar with widgets for
+    - Sales
+    - Calendar
+    - Weather
+    - Usage
+  
+  - Panel with
+    - Hypr settings
+    - Calculator & tasks
+    - Clipboard history
+
+  - Replacement
+    - Lock screen
+    - Screenshot editor
+    - Notifications
+    - System zoom level
+
+  
 
 ## Install 
 
 `wget -qO- sebday.dev/installer | bash`
 
-### Brave
+ ### Brave
 
 In `brave://flags/` search for "ozone" and set to *Wayland*  
 In `brave://settings/` search for "fonts" and set the default to *Caskaydia*  
@@ -29,10 +49,9 @@ In `brave://settings/appearance` set the theme to *GTK*
 
 #### Extensions 
 Auto loaded through my Brave sync but also needed on Firefox:
-Replaced ViolentMonkey with [OrangeMonkey ](https://chromewebstore.google.com/detail/orangemonkey/ekmeppjgajofkpiofbebgcbohbmfldaf)
-for theming websites and [PopupWindow](https://addons.mozilla.org/en-GB/firefox/addon/popup-window/) to pop Soundcloud or Youtube into a window with no titlebar.
+Replaced ViolentMonkey with [OrangeMonkey](https://chromewebstore.google.com/detail/orangemonkey/ekmeppjgajofkpiofbebgcbohbmfldaf) for theming websites and [PopupWindow](https://addons.mozilla.org/en-GB/firefox/addon/popup-window/) to pop Soundcloud or Youtube into a window with no titlebar.
 
-Load the violentmonkey script from `.themes/shared/` and set it to auto-update.
+Load the orangemonkey script from `.themes/shared/` and set it to auto-update.
 
 ## Apps
 

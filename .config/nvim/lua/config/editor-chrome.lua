@@ -12,6 +12,73 @@ local tab_hits = {}
 local busy = false
 local HEIGHT = 3
 
+local function tab_at_col(col)
+  for _, hit in ipairs(tab_hits) do
+    if col >= hit.start and col < hit.stop then
+      return hit
+    end
+  end
+end
+
+local function listed_bufs()
+  local bufs = {}
+  for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+    if vim.api.nvim_buf_is_valid(buf) and vim.bo[buf].buflisted then
+      bufs[#bufs + 1] = buf
+    end
+  end
+  return bufs
+end
+
+local function close_buffer(buf, opts)
+  opts = opts or {}
+  local bang = opts.bang == true
+  local write = opts.write == true
+  local force = opts.force == true
+
+  if not vim.api.nvim_buf_is_valid(buf) or not vim.bo[buf].buflisted or buf == chrome_buf then
+    return
+  end
+
+  if write then
+    local ok, err = pcall(vim.cmd.write, { args = { buf } })
+    if not ok then
+      vim.api.nvim_echo({ { tostring(err):gsub("^Vim%(write%):", ""), "ErrorMsg" } }, false, {})
+      return
+    end
+  elseif vim.bo[buf].modified and not bang and not force then
+    vim.api.nvim_echo({ { "E37: No write since last change (add ! to override)", "ErrorMsg" } }, false, {})
+    return
+  end
+
+  local others = 0
+  for _, b in ipairs(listed_bufs()) do
+    if b ~= buf then
+      others = others + 1
+    end
+  end
+  if others == 0 then
+    vim.cmd((bang or force) and "qa!" or "qa")
+    return
+  end
+
+  local ok, snacks = pcall(require, "snacks")
+  if ok and snacks.bufdelete then
+    snacks.bufdelete({ buf = buf, force = bang or force })
+  else
+    pcall(vim.cmd, ((bang or force) and "bdelete! " or "bdelete ") .. buf)
+  end
+end
+
+local function delete_tab_buffer(buf)
+  local ok, snacks = pcall(require, "snacks")
+  if ok and snacks.bufdelete then
+    snacks.bufdelete({ buf = buf })
+    return
+  end
+  close_buffer(buf)
+end
+
 -- Windows that are not the file editor (explorer, pickers, chrome).
 local skip_ft = {
   snacks_dashboard = true,
@@ -37,16 +104,6 @@ local hide_ft = {
   lazy = true,
   mason = true,
 }
-
-local function listed_bufs()
-  local bufs = {}
-  for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-    if vim.api.nvim_buf_is_valid(buf) and vim.bo[buf].buflisted then
-      bufs[#bufs + 1] = buf
-    end
-  end
-  return bufs
-end
 
 local function is_editor_win(win)
   if not vim.api.nvim_win_is_valid(win) or win == chrome_win then
@@ -286,23 +343,7 @@ function M.close_tab(opts)
     return
   end
 
-  local others = 0
-  for _, b in ipairs(listed_bufs()) do
-    if b ~= buf then
-      others = others + 1
-    end
-  end
-  if others == 0 then
-    vim.cmd(bang and "qa!" or "qa")
-    return
-  end
-
-  local ok, snacks = pcall(require, "snacks")
-  if ok and snacks.bufdelete then
-    snacks.bufdelete({ buf = buf, force = true })
-  else
-    pcall(vim.cmd, "bdelete! " .. buf)
-  end
+  close_buffer(buf, { bang = bang, write = write })
   vim.schedule(M.refresh)
 end
 
@@ -337,25 +378,44 @@ local function bounce_focus()
   end
 end
 
-local function click_tab(mouse)
+local function chrome_tab_hit(mouse)
   if not chrome_win or mouse.winid ~= chrome_win then
-    return false
+    return
   end
   -- wincol is 1-based screen column; hits are 0-based display widths.
   -- Accept any of the 3 chrome rows so a slightly high/low click still works.
   local col = math.max((mouse.wincol or 1) - 1, 0)
-  local win = editor_win()
-  for _, hit in ipairs(tab_hits) do
-    if col >= hit.start and col < hit.stop then
-      if win then
-        pcall(vim.api.nvim_win_set_buf, win, hit.buf)
-        pcall(vim.api.nvim_set_current_win, win)
-      else
-        pcall(vim.cmd.buffer, hit.buf)
-      end
-      vim.schedule(M.refresh)
-      return true
+  return tab_at_col(col)
+end
+
+local function click_tab(mouse)
+  local hit = chrome_tab_hit(mouse)
+  if not hit and mouse.winid ~= chrome_win then
+    return false
+  end
+  if hit then
+    local win = editor_win()
+    if win then
+      pcall(vim.api.nvim_win_set_buf, win, hit.buf)
+      pcall(vim.api.nvim_set_current_win, win)
+    else
+      pcall(vim.cmd.buffer, hit.buf)
     end
+    vim.schedule(M.refresh)
+    return true
+  end
+  bounce_focus()
+  return true
+end
+
+local function middle_click_tab(mouse)
+  local hit = chrome_tab_hit(mouse)
+  if not hit and mouse.winid ~= chrome_win then
+    return false
+  end
+  if hit then
+    delete_tab_buffer(hit.buf)
+    return true
   end
   bounce_focus()
   return true
@@ -442,9 +502,15 @@ function M.setup()
 
   -- LeftMouse runs before mouse position is updated (wincol often 0).
   -- LeftRelease has the real coordinates.
-  vim.keymap.set({ "n", "v", "i" }, "<LeftRelease>", function()
+  local mouse_modes = { "n", "v", "i" }
+  local mouse_opts = { silent = true }
+  vim.keymap.set(mouse_modes, "<LeftRelease>", function()
     click_tab(vim.fn.getmousepos())
-  end, { silent = true, desc = "Select chrome buffer tab" })
+  end, vim.tbl_extend("force", mouse_opts, { desc = "Select chrome buffer tab" }))
+  -- Release only: press + release both fire and would close two tabs.
+  vim.keymap.set(mouse_modes, "<MiddleRelease>", function()
+    middle_click_tab(vim.fn.getmousepos())
+  end, vim.tbl_extend("force", mouse_opts, { desc = "Close chrome buffer tab" }))
 
   vim.api.nvim_create_autocmd("OptionSet", {
     group = vim.api.nvim_create_augroup("editor_chrome_status", { clear = true }),
