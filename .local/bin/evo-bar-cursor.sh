@@ -1,9 +1,8 @@
 #!/bin/bash
-# Cursor usage for the bar widget and stats tooltip — GET https://cursor.com/api/usage-summary
+# Cursor usage for the bar widget — GET https://cursor.com/api/usage-summary
 # Cursor Models = autoPercentUsed · Other Models = apiPercentUsed
 source "${HOME}/.local/bin/evo-bar-common.sh"
 
-CACHE_KEY="cursor-api"
 CURSOR_STATE_DB="${CURSOR_STATE_DB:-$HOME/.config/Cursor/User/globalStorage/state.vscdb}"
 
 json_error() {
@@ -80,11 +79,6 @@ sum_aggregated_tokens() {
       ((.totalCacheWriteTokens // 0) | tonumber)
     ' 2>/dev/null <<< "${1:-{}}"
 }
-
-if cached=$(evo_bar_cache_read "$CACHE_KEY" 300 2>/dev/null); then
-    printf '%s\n' "$cached"
-    exit 0
-fi
 
 token=$(read_local_access_token || true)
 session_cookie=$(build_session_cookie "$token") || session_cookie=""
@@ -231,5 +225,4 @@ output=$(jq -cn \
     --argjson detail "$detail_json" \
     '{text: $text, class: "cursor-usage", chips: $chips, cursorPercent: $cursorPercent, otherPercent: $otherPercent, cycleDaysUsed: $cycleDaysUsed, cycleDaysTotal: $cycleDaysTotal, cycleProgress: $cycleProgress, detail: $detail}')
 
-printf '%s\n' "$output" | evo_bar_cache_write "$CACHE_KEY"
 printf '%s\n' "$output"

@@ -9,8 +9,9 @@ Item {
     property int contentWidth: 420
     property int contentHeight: 320
     property int contentMargin: 12
-    property int caretWidth: 28
+    property int caretWidth: 56
     property int caretHeight: 20
+    readonly property int borderWidth: 2
     property var anchorItem: null
     property var anchorWindow: null
     property string barPosition: "bottom"
@@ -94,7 +95,7 @@ Item {
             height: root.contentHeight
             color: Theme.mantle
             border.color: Theme.accent
-            border.width: 1
+            border.width: root.borderWidth
             radius: Theme.panelCornerRadius
         }
 
@@ -103,7 +104,7 @@ Item {
             width: root.caretWidth
             height: root.caretHeight + 1
             x: root.caretX - width / 2
-            y: root.barOnBottom ? box.height - 1 : 0
+            y: root.barOnBottom ? box.height - root.borderWidth : -root.borderWidth
             z: 1
 
             onPaint: {
@@ -112,23 +113,38 @@ Item {
                 var w = width
                 var h = height
                 var mid = w / 2
+                var bw = root.borderWidth
                 var tipY = root.barOnBottom ? h - 0.5 : 0.5
                 var baseY = root.barOnBottom ? 0 : h
+                var overlap = bw
 
                 ctx.beginPath()
-                ctx.moveTo(0, baseY)
-                ctx.lineTo(w, baseY)
-                ctx.lineTo(mid, tipY)
+                if (root.barOnBottom) {
+                    ctx.moveTo(0, -overlap)
+                    ctx.lineTo(w, -overlap)
+                    ctx.lineTo(mid, tipY)
+                } else {
+                    ctx.moveTo(0, baseY + overlap)
+                    ctx.lineTo(w, baseY + overlap)
+                    ctx.lineTo(mid, tipY)
+                }
                 ctx.closePath()
                 ctx.fillStyle = Theme.mantle
                 ctx.fill()
 
-                ctx.beginPath()
-                ctx.moveTo(0.5, baseY)
-                ctx.lineTo(mid, tipY)
-                ctx.lineTo(w - 0.5, baseY)
+                ctx.lineWidth = bw
                 ctx.strokeStyle = Theme.accent
-                ctx.lineWidth = 1
+                ctx.lineCap = "butt"
+                ctx.lineJoin = "miter"
+
+                ctx.beginPath()
+                ctx.moveTo(0, baseY)
+                ctx.lineTo(mid, tipY)
+                ctx.stroke()
+
+                ctx.beginPath()
+                ctx.moveTo(w, baseY)
+                ctx.lineTo(mid, tipY)
                 ctx.stroke()
             }
 

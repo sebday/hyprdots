@@ -13,16 +13,11 @@ method="${2:-ping}"
 arg1="${3:-}"
 arg2="${4:-}"
 
-if [[ "$target" == "background" ]]; then
-    if [[ -n "$arg2" ]]; then
-        quickshell ipc -c evo-shell call "$target" "$method" "$arg1" "$arg2"
-    elif [[ -n "$arg1" ]]; then
-        quickshell ipc -c evo-shell call "$target" "$method" "$arg1"
-    else
-        quickshell ipc -c evo-shell call "$target" "$method"
-    fi
-    exit 0
-fi
+case "$target" in
+background) target="evo.background" ;;
+idle) target="evo.idle" ;;
+lock) target="evo.lock" ;;
+esac
 
 # Direct plugin IPC (e.g. evo.audio stepUp)
 if [[ "$target" != "shell" ]]; then

@@ -20,7 +20,7 @@ Item {
     readonly property bool viewingCurrentMonth: viewYear === today.getFullYear() && viewMonth === today.getMonth()
     readonly property int weekStart: Model.normalizedWeekStart(weekStartOverride, Qt.locale().firstDayOfWeek)
     readonly property var weekdays: Model.weekdayOrder(weekStart)
-    readonly property var weeks: Model.monthGrid(viewYear, viewMonth, weekStart, todayKey, ({}))
+    readonly property var weeks: Model.monthGrid(viewYear, viewMonth, weekStart, todayKey)
     readonly property int yearDonePercent: Model.yearProgressPercent(today.getFullYear(), today.getMonth(), today.getDate())
     readonly property real yearDone: Model.yearProgress(today.getFullYear(), today.getMonth(), today.getDate())
     readonly property date selectedDate: Model.dateFromKey(selectedDayKey, today)

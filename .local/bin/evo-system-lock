@@ -3,4 +3,4 @@
 
 set -euo pipefail
 
-exec "${HOME}/.local/bin/evo-shell-ipc" lock lock
+exec "${HOME}/.local/bin/evo-shell-ipc" evo.lock lock

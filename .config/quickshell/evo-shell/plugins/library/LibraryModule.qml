@@ -552,7 +552,7 @@ Item {
 
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 64
+                Layout.preferredHeight: 40
                 radius: Theme.panelCornerRadius
                 color: Theme.panelMantle
                 border.width: searchField.activeFocus ? 2 : 1
@@ -565,15 +565,15 @@ Item {
 
                 RowLayout {
                     anchors.fill: parent
-                    anchors.leftMargin: 14
-                    anchors.rightMargin: 14
-                    spacing: 18
+                    anchors.leftMargin: 12
+                    anchors.rightMargin: 12
+                    spacing: 10
 
                     Text {
                         text: "󰍉"
                         color: Theme.foreground
                         font.family: Theme.fontFamily
-                        font.pixelSize: Theme.popupTitleFontPixelSize
+                        font.pixelSize: Theme.popupSmallFontPixelSize
                         opacity: 0.55
                     }
 
@@ -586,7 +586,7 @@ Item {
                             anchors.fill: parent
                             color: Theme.foreground
                             font.family: Theme.fontFamily
-                            font.pixelSize: Theme.popupTitleFontPixelSize
+                            font.pixelSize: Theme.popupSmallFontPixelSize
                             font.bold: Theme.fontBold
                             verticalAlignment: TextInput.AlignVCenter
                             selectByMouse: true
@@ -617,7 +617,7 @@ Item {
                             text: root.searchPlaceholder
                             color: Theme.foreground
                             font.family: Theme.fontFamily
-                            font.pixelSize: Theme.popupTitleFontPixelSize
+                            font.pixelSize: Theme.popupSmallFontPixelSize
                             opacity: 0.35
                         }
                     }
@@ -627,7 +627,7 @@ Item {
                         text: "󰅖"
                         color: Theme.foreground
                         font.family: Theme.fontFamily
-                        font.pixelSize: Theme.popupTitleFontPixelSize
+                        font.pixelSize: Theme.popupSmallFontPixelSize
                         opacity: clearSearchMouse.containsMouse ? 1 : 0.55
 
                         MouseArea {

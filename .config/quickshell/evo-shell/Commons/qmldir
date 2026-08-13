@@ -14,4 +14,5 @@ CycleProgressBar 1.0 CycleProgressBar.qml
 JsonPollRunner 1.0 JsonPollRunner.qml
 CenteredOverlay 1.0 CenteredOverlay.qml
 AttachedOverlay 1.0 AttachedOverlay.qml
+BarHoverPopup 1.0 BarHoverPopup.qml
 BarWidgetRegistry 1.0 BarWidgetRegistry.qml

@@ -25,7 +25,7 @@
       ],
       "center": [
         {
-          "id": "weather",
+          "id": "evo.weather",
           "type": "command",
           "exec": "~/.local/bin/evo-bar-weather.sh",
           "interval": 1800,
@@ -37,7 +37,7 @@
           "format": "%a %d %H:%M"
         },
         {
-          "id": "cursor",
+          "id": "evo.cursor",
           "type": "command",
           "exec": "~/.local/bin/evo-bar-cursor.sh",
           "interval": 300,

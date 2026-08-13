@@ -10,7 +10,6 @@ Item {
 
     readonly property string home: Quickshell.env("HOME")
     readonly property bool active: host && host.opened === true
-    readonly property int uiScale: 1
     readonly property int headerFont: Theme.panelTitleFontPixelSize
 
     property var diyData: ({})
@@ -86,7 +85,7 @@ Item {
             id: headerCol
             anchors.left: parent.left
             anchors.right: parent.right
-            spacing: 6 * root.uiScale
+            spacing: 6
 
             Text {
                 Layout.fillWidth: true
@@ -152,15 +151,14 @@ Item {
 
     GridLayout {
         anchors.fill: parent
-        anchors.margins: 8 * root.uiScale
+        anchors.margins: 8
         columns: 2
-        columnSpacing: 12 * root.uiScale
-        rowSpacing: 12 * root.uiScale
+        columnSpacing: 12
+        rowSpacing: 12
 
         FramedPanel {
             label: "DIY"
             contentFill: true
-            uiScale: root.uiScale
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.column: 0
@@ -168,7 +166,7 @@ Item {
 
             ColumnLayout {
                 anchors.fill: parent
-                spacing: 14 * root.uiScale
+                spacing: 14
 
                 ChartHeader {
                     value: root.shopifyHeader(root.diyData, "DIY")
@@ -178,7 +176,6 @@ Item {
                 SparklineChart {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    uiScale: root.uiScale
                     bars: root.diyData.bars || []
                 }
             }
@@ -187,7 +184,6 @@ Item {
         FramedPanel {
             label: "TGS"
             contentFill: true
-            uiScale: root.uiScale
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.column: 1
@@ -195,7 +191,7 @@ Item {
 
             ColumnLayout {
                 anchors.fill: parent
-                spacing: 14 * root.uiScale
+                spacing: 14
 
                 ChartHeader {
                     value: root.shopifyHeader(root.tgsData, "TGS")
@@ -205,7 +201,6 @@ Item {
                 SparklineChart {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    uiScale: root.uiScale
                     bars: root.tgsData.bars || []
                 }
             }
@@ -214,7 +209,6 @@ Item {
         FramedPanel {
             label: "BTC"
             contentFill: true
-            uiScale: root.uiScale
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.column: 0
@@ -222,7 +216,7 @@ Item {
 
             ColumnLayout {
                 anchors.fill: parent
-                spacing: 14 * root.uiScale
+                spacing: 14
 
                 ChartHeader {
                     value: root.marketHeader(root.btcData, "BTC")
@@ -232,7 +226,6 @@ Item {
                 SparklineChart {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    uiScale: root.uiScale
                     bars: root.btcData.bars || []
                     style: "line"
                 }
@@ -242,7 +235,6 @@ Item {
         FramedPanel {
             label: "SPCX"
             contentFill: true
-            uiScale: root.uiScale
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.column: 1
@@ -250,7 +242,7 @@ Item {
 
             ColumnLayout {
                 anchors.fill: parent
-                spacing: 14 * root.uiScale
+                spacing: 14
 
                 ChartHeader {
                     value: root.marketHeader(root.spcxData, "SPCX")
@@ -260,7 +252,6 @@ Item {
                 SparklineChart {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    uiScale: root.uiScale
                     bars: root.spcxData.bars || []
                     style: "line"
                 }

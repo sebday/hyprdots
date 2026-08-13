@@ -193,7 +193,7 @@ Item {
     }
 
     IpcHandler {
-        target: "lock"
+        target: "evo.lock"
 
         function lock(): string {
             if (!root.locked && !root.beginLock()) return "failed"

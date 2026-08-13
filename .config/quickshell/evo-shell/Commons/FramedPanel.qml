@@ -6,7 +6,6 @@ Item {
     property string label: ""
     property int contentPad: 10
     property int cornerRadius: Theme.panelCornerRadius
-    property int uiScale: 1
     property color frameBorder: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.32)
     property int legendPadH: 0
     property int legendPadV: 0
@@ -15,12 +14,12 @@ Item {
     default property alias content: contentHost.data
 
     readonly property bool hasLabel: label !== ""
-    readonly property int scaledPad: contentPad * uiScale
+    readonly property int scaledPad: contentPad
     readonly property int labelTopOffset: hasLabel
         ? -Math.round(frameLabel.implicitHeight / 2)
         : 0
     readonly property int headerPad: hasLabel
-        ? Math.round(frameLabel.implicitHeight / 2) + 4 * uiScale
+        ? Math.round(frameLabel.implicitHeight / 2) + 4
         : 0
     readonly property int balancedBottomPad: hasLabel ? headerPad : 0
     readonly property int labelGapLeft: hasLabel

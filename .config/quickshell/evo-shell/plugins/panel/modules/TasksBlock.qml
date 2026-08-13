@@ -298,16 +298,17 @@ Item {
                         spacing: 8
 
                         Item {
-                            Layout.preferredWidth: 24
-                            Layout.preferredHeight: 24
-                            Layout.alignment: Qt.AlignTop
+                            Layout.preferredWidth: 20
+                            Layout.preferredHeight: 20
+                            Layout.alignment: Qt.AlignVCenter
 
                             Text {
                                 anchors.centerIn: parent
+                                anchors.verticalCenterOffset: -1
                                 text: taskRow.done ? "󰄲" : "󰄱"
                                 color: taskRow.done ? Theme.accent : Theme.foreground
                                 font.family: Theme.fontFamily
-                                font.pixelSize: 18
+                                font.pixelSize: root.taskFontSize + 1
                                 font.bold: Theme.fontBold
                                 opacity: taskCheckMouse.containsMouse ? 1 : 0.85
                             }
@@ -323,10 +324,12 @@ Item {
 
                         Item {
                             Layout.fillWidth: true
-                            Layout.preferredHeight: Math.max(root.taskRowMin, taskInput.implicitHeight)
+                            Layout.alignment: Qt.AlignVCenter
+                            Layout.preferredHeight: Math.max(root.taskFontSize + 6, taskInput.implicitHeight)
 
                             TextInput {
                                 id: taskInput
+                                anchors.verticalCenter: parent.verticalCenter
                                 width: parent.width
                                 color: Theme.foreground
                                 font.family: Theme.fontFamily
@@ -348,7 +351,7 @@ Item {
                             }
 
                             Text {
-                                anchors.top: parent.top
+                                anchors.verticalCenter: parent.verticalCenter
                                 anchors.left: parent.left
                                 visible: taskInput.text.length === 0 && !taskInput.activeFocus
                                 text: index === taskModel.count - 1 ? "Add a task…" : "Task"

@@ -23,20 +23,4 @@ Singleton {
         }
         return String(symbol || "£") + out
     }
-
-    function formatValue(val, prefix) {
-        var n = parseFloat(val)
-        if (isNaN(n)) return String(val || "")
-        var sym = String(prefix || "")
-        if (Math.abs(n) >= 1000) {
-            var s = String(Math.round(n))
-            var out = ""
-            for (var i = 0; i < s.length; i++) {
-                if (i > 0 && (s.length - i) % 3 === 0) out += ","
-                out += s.charAt(i)
-            }
-            return sym + out
-        }
-        return sym + n.toFixed(2)
-    }
 }

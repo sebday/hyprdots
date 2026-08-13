@@ -112,7 +112,7 @@ Item {
     }
 
     IpcHandler {
-        target: "background"
+        target: "evo.background"
 
         function refresh(): void { root.refreshBackground() }
         function set(path: string): void { root.setBackground(path, false) }

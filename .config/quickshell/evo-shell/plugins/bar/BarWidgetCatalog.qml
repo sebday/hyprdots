@@ -18,7 +18,7 @@ Item {
 
     function registerAll() {
         if (!registry) return
-        registry.register("evo.menu", menuWidgetComp, { displayName: "Menu" })
+        registry.register("evo.settings", menuWidgetComp, { displayName: "Settings" })
         registry.register("evo.workspaces", workspacesComp, { displayName: "Workspaces" })
         registry.register("evo.clock", clockComp, { displayName: "Clock" })
         registry.register("evo.audio", audioComp, { displayName: "Audio" })

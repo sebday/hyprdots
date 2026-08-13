@@ -9,7 +9,7 @@ STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/evo-shell"
 SUPERVISOR_PID_FILE="${STATE_DIR}/launch-shell.pid"
 
 was_locked="false"
-if status="$("$IPC" lock status 2>/dev/null || true)"; then
+if status="$("$IPC" evo.lock status 2>/dev/null || true)"; then
     was_locked="$(printf '%s' "$status" | jq -r '.locked // false' 2>/dev/null || echo false)"
 fi
 
@@ -38,7 +38,7 @@ disown 2>/dev/null || true
 if [[ "$was_locked" == "true" ]]; then
     for _ in {1..20}; do
         if "$IPC" shell ping >/dev/null 2>&1; then
-            "$IPC" lock lock >/dev/null 2>&1 || true
+            "$IPC" evo.lock lock >/dev/null 2>&1 || true
             break
         fi
         sleep 0.2

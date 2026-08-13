@@ -12,12 +12,11 @@ Item {
     property bool fillWidth: true
     property color lineColor: Theme.accent
     property int lineWidth: 2
-    property int uiScale: 1
 
     readonly property bool isLine: style === "line"
 
     implicitHeight: chartHeight
-    implicitWidth: fillWidth ? 200 : (bars.length * (barWidth + barSpacing) * uiScale + 4 * uiScale)
+    implicitWidth: fillWidth ? 200 : (bars.length * (barWidth + barSpacing) + 4)
 
     onBarsChanged: if (isLine) lineCanvas.requestPaint()
     onWidthChanged: if (isLine) lineCanvas.requestPaint()
@@ -25,15 +24,14 @@ Item {
     onChartHeightChanged: if (isLine) lineCanvas.requestPaint()
     onLineColorChanged: if (isLine) lineCanvas.requestPaint()
     onStyleChanged: if (isLine) lineCanvas.requestPaint()
-    onUiScaleChanged: if (isLine) lineCanvas.requestPaint()
 
-    readonly property int scaledBarWidth: barWidth * uiScale
-    readonly property int scaledBarSpacing: barSpacing * uiScale
+    readonly property int scaledBarWidth: barWidth
+    readonly property int scaledBarSpacing: barSpacing
 
     readonly property real effectiveBarWidth: {
         if (!fillWidth || bars.length === 0) return scaledBarWidth
         var gaps = Math.max(0, bars.length - 1) * scaledBarSpacing
-        return Math.max(4 * uiScale, (width - gaps) / bars.length)
+        return Math.max(4, (width - gaps) / bars.length)
     }
 
     function valueRange() {
@@ -73,10 +71,10 @@ Item {
                 Rectangle {
                     width: parent.width
                     height: modelData.level > 0
-                        ? Math.max(2 * root.uiScale, chartRow.height * modelData.level / 7)
+                        ? Math.max(2, chartRow.height * modelData.level / 7)
                         : 0
                     anchors.bottom: parent.bottom
-                    radius: 2 * root.uiScale
+                    radius: 2
                     color: modelData.color || Theme.accent
                     opacity: 0.85
                 }
@@ -101,8 +99,8 @@ Item {
             var span = maxV - minV || 1
             var w = width
             var h = height
-            var padX = 2 * root.uiScale
-            var padY = 3 * root.uiScale
+            var padX = 2
+            var padY = 3
             var usableW = Math.max(1, w - padX * 2)
             var usableH = Math.max(1, h - padY * 2)
             var step = pts.length > 1 ? usableW / (pts.length - 1) : 0
@@ -138,7 +136,7 @@ Item {
                 else ctx.lineTo(x2, y2)
             }
             ctx.strokeStyle = root.lineColor
-            ctx.lineWidth = root.lineWidth * root.uiScale
+            ctx.lineWidth = root.lineWidth
             ctx.lineJoin = "round"
             ctx.lineCap = "round"
             ctx.stroke()
@@ -147,7 +145,7 @@ Item {
             var lastX = padX + (pts.length - 1) * step
             var lastY = yAt(pts[pts.length - 1].value)
             ctx.beginPath()
-            ctx.arc(lastX, lastY, 3 * root.uiScale, 0, Math.PI * 2)
+            ctx.arc(lastX, lastY, 3, 0, Math.PI * 2)
             ctx.fillStyle = root.lineColor
             ctx.fill()
         }

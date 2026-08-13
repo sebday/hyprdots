@@ -1,5 +1,3 @@
-import Quickshell
-import Quickshell.Io
 import QtQuick
 import QtQuick.Layouts
 import "../../Commons"
@@ -9,9 +7,8 @@ Item {
 
     property var host: null
 
-    readonly property string home: Quickshell.env("HOME")
-    readonly property string script: home + "/.local/bin/evo-bar-cursor.sh"
     readonly property bool active: host && host.opened === true
+    readonly property var barSource: host && host.shell ? host.shell.popupAnchorItem : null
 
     property bool loading: false
     property bool isError: false
@@ -28,7 +25,19 @@ Item {
         ? String(detail.otherColor) : Theme.foreground
 
     function onActivated() {
-        usagePoll.runPoll()
+        syncFromBar()
+    }
+
+    function syncFromBar() {
+        var item = barSource
+        if (item && item.polling) {
+            loading = true
+            return
+        }
+        if (item && item.lastPayload)
+            applyPayload(item.lastPayload)
+        else
+            applyPayload(null)
     }
 
     readonly property int cycleDaysTotal: detail && detail.cycleDaysTotal !== undefined
@@ -56,11 +65,11 @@ Item {
     readonly property bool hasModelDetails: root.modelSplit.length > 0 || root.detail.onDemand === true
 
     property int breakdownInset: 0
-    property int uiScale: 1
     readonly property int smallFont: Theme.panelIconFontPixelSize
     readonly property int hintFont: Theme.panelTitleFontPixelSize
     readonly property int heroFont: 28
     readonly property int breakdownFont: Theme.panelHintFontPixelSize
+    readonly property int tokensFont: Theme.panelHintFontPixelSize
 
     function applyPayload(json) {
         loading = false
@@ -81,17 +90,18 @@ Item {
         detail = json.detail && typeof json.detail === "object" ? json.detail : ({})
     }
 
-    JsonPollRunner {
-        id: usagePoll
-        active: root.active
-        defaultIntervalSec: 300
-        command: ["bash", root.script]
-        onPolled: function(json) { root.applyPayload(json) }
-    }
+    onActiveChanged: if (active) syncFromBar()
+    onBarSourceChanged: if (active) syncFromBar()
 
     Connections {
-        target: usagePoll
-        function onLoadingChanged() { root.loading = usagePoll.loading }
+        target: root.barSource
+        enabled: root.barSource !== null
+        function onLastPayloadChanged() {
+            if (root.active) root.syncFromBar()
+        }
+        function onPollingChanged() {
+            if (root.active) root.syncFromBar()
+        }
     }
 
     implicitHeight: contentColumn.implicitHeight
@@ -101,7 +111,7 @@ Item {
         id: contentColumn
         anchors.fill: parent
         width: parent.width
-        spacing: 8 * root.uiScale
+        spacing: 8
 
             Text {
                 Layout.fillWidth: true
@@ -116,12 +126,12 @@ Item {
 
             Item {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 160 * root.uiScale
+                Layout.preferredHeight: 160
                 visible: !root.isError
 
                 RowLayout {
                     anchors.centerIn: parent
-                    spacing: 14 * root.uiScale
+                    spacing: 14
 
                     UsageGauge {
                         title: "Cursor models"
@@ -144,7 +154,7 @@ Item {
                 Layout.fillHeight: true
                 Layout.leftMargin: root.breakdownInset
                 Layout.rightMargin: root.breakdownInset
-                spacing: 10 * root.uiScale
+                spacing: 10
                 visible: !root.isError && root.hasModelDetails
 
                 Repeater {
@@ -154,11 +164,11 @@ Item {
                         required property var modelData
                         Layout.fillWidth: true
                         Layout.fillHeight: true
-                        spacing: 4 * root.uiScale
+                        spacing: 4
 
                         RowLayout {
                             Layout.fillWidth: true
-                            spacing: 8 * root.uiScale
+                            spacing: 8
 
                             Text {
                                 Layout.fillWidth: true
@@ -184,18 +194,18 @@ Item {
 
                         Item {
                             Layout.fillWidth: true
-                            Layout.preferredHeight: 4 * root.uiScale
+                            Layout.preferredHeight: 4
 
                             Rectangle {
                                 anchors.fill: parent
-                                radius: 2 * root.uiScale
+                                radius: 2
                                 color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.12)
                             }
 
                             Rectangle {
                                 height: parent.height
                                 width: parent.width * Math.max(0, Math.min(1, modelData.percent / 100))
-                                radius: 2 * root.uiScale
+                                radius: 2
                                 color: modelData.color || Theme.accent
                                 opacity: 0.9
                             }
@@ -229,7 +239,7 @@ Item {
                         text: root.loading ? "…" : (root.formatTokens(root.detail.tokensTotal) + " tokens")
                         color: Theme.foreground
                         font.family: Theme.fontFamily
-                        font.pixelSize: root.smallFont
+                        font.pixelSize: root.tokensFont
                     }
 
                     Text {
@@ -237,7 +247,7 @@ Item {
                         text: " · "
                         color: Theme.foreground
                         font.family: Theme.fontFamily
-                        font.pixelSize: root.smallFont
+                        font.pixelSize: root.tokensFont
                         opacity: 0.45
                     }
 
@@ -246,12 +256,12 @@ Item {
                         text: root.formatTokens(root.detail.tokensToday) + " today"
                         color: Theme.accent
                         font.family: Theme.fontFamily
-                        font.pixelSize: root.smallFont
+                        font.pixelSize: root.tokensFont
                     }
 
                     Item {
                         visible: root.showCycleBar
-                        width: Theme.sparklineChartMargin * root.uiScale
+                        width: Theme.sparklineChartMargin
                         height: 1
                     }
 
@@ -260,8 +270,8 @@ Item {
                         Layout.preferredWidth: implicitWidth
                         Layout.preferredHeight: implicitHeight
                         progress: root.cycleProgress
-                        barWidth: 36 * root.uiScale
-                        barHeight: 4 * root.uiScale
+                        barWidth: 36
+                        barHeight: 4
                     }
                 }
             }
@@ -275,13 +285,13 @@ Item {
         property color gaugeColor: Theme.accent
         property bool loading: false
 
-        implicitWidth: 130 * root.uiScale
-        implicitHeight: 160 * root.uiScale
+        implicitWidth: 130
+        implicitHeight: 160
 
         readonly property real sweep: Math.max(0, Math.min(100, percent)) / 100
-        readonly property int ringSize: 118 * root.uiScale
-        readonly property real ringRadius: 44 * root.uiScale
-        readonly property real ringLineWidth: 10 * root.uiScale
+        readonly property int ringSize: 118
+        readonly property real ringRadius: 44
+        readonly property real ringLineWidth: 10
 
         Canvas {
             id: ring
@@ -334,9 +344,9 @@ Item {
 
         Text {
             anchors.top: ring.bottom
-            anchors.topMargin: 4 * root.uiScale
+            anchors.topMargin: 4
             anchors.horizontalCenter: parent.horizontalCenter
-            width: parent.width - 4 * root.uiScale
+            width: parent.width - 4
             horizontalAlignment: Text.AlignHCenter
             text: gaugeRoot.title
             color: Theme.foreground

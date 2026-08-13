@@ -10,7 +10,6 @@ Item {
 
     readonly property string home: Quickshell.env("HOME")
     readonly property bool active: host && host.opened === true
-    readonly property int uiScale: 1
     readonly property int colWidth: 72
     readonly property int smallFont: Theme.panelTitleFontPixelSize
     readonly property int bodyFont: Theme.panelTitleFontPixelSize
@@ -138,7 +137,7 @@ Item {
                 ColumnLayout {
                     required property var modelData
                     Layout.preferredWidth: root.colWidth
-                    spacing: 10 * root.uiScale
+                    spacing: 10
 
                     Text {
                         Layout.fillWidth: true
@@ -153,7 +152,7 @@ Item {
                     RowLayout {
                         Layout.alignment: Qt.AlignHCenter
                         Layout.preferredWidth: root.colWidth
-                        spacing: (modelData.now ? 8 : 6) * root.uiScale
+                        spacing: (modelData.now ? 8 : 6)
 
                         Text {
                             Layout.alignment: Qt.AlignVCenter
@@ -190,7 +189,7 @@ Item {
 
         RowLayout {
             Layout.alignment: Qt.AlignHCenter
-            spacing: 18 * root.uiScale
+            spacing: 18
             visible: root.weatherOk && (root.sunrise !== "" || root.sunset !== "")
 
             Repeater {
@@ -201,7 +200,7 @@ Item {
 
                 RowLayout {
                     required property var modelData
-                    spacing: 4 * root.uiScale
+                    spacing: 4
                     visible: modelData.text !== ""
 
                     Text {
@@ -225,7 +224,7 @@ Item {
         Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            Layout.minimumHeight: 72 * root.uiScale
+            Layout.minimumHeight: 72
             visible: root.weatherOk && root.hourly.length > 0
 
             Text {
@@ -242,7 +241,7 @@ Item {
             Text {
                 anchors.left: parent.left
                 anchors.bottom: parent.bottom
-                anchors.bottomMargin: 14 * root.uiScale
+                anchors.bottomMargin: 14
                 text: Math.round(root.hourlyTempRange.rawMin) + "°"
                 color: Theme.foreground
                 font.family: Theme.fontFamily
@@ -254,7 +253,7 @@ Item {
             Canvas {
                 id: hourlyChart
                 anchors.fill: parent
-                anchors.leftMargin: 26 * root.uiScale
+                anchors.leftMargin: 26
 
                 onPaint: {
                     var ctx = getContext("2d")
@@ -266,7 +265,7 @@ Item {
                     var minV = range.min
                     var maxV = range.max
                     var span = maxV - minV || 1
-                    var scale = root.uiScale
+                    var scale = 1
                     var h = height - 14 * scale
                     var padX = 2 * scale
                     var padY = 4 * scale
@@ -347,8 +346,8 @@ Item {
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.bottom: parent.bottom
-                anchors.leftMargin: 26 * root.uiScale
-                height: 18 * root.uiScale
+                anchors.leftMargin: 26
+                height: 18
                 spacing: 0
 
                 Repeater {

@@ -15,6 +15,8 @@ Item {
     property string displayRichText: ""
     property bool useRichText: false
     property string className: ""
+    property var lastPayload: null
+    property bool polling: false
     property bool hideWhenEmpty: settings.hideEmpty === true || settings.hideEmptyText === true
 
     implicitWidth: (hideWhenEmpty && displayText === "") ? 0 : Math.max(label.implicitWidth, label.contentWidth) + Theme.barPaddingX * 2
@@ -39,24 +41,28 @@ Item {
     }
 
     function startExecProc() {
+        polling = true
         execProc.command = ["bash", "-lc", String(settings.exec)]
         execProc.running = false
         execProc.running = true
     }
 
     function applyOutput(raw) {
+        polling = false
         var line = String(raw || "").trim()
         if (!line) {
             displayText = ""
             displayRichText = ""
             useRichText = false
             className = ""
+            lastPayload = null
             return
         }
 
         if (line.charAt(0) === "{") {
             try {
                 var json = JSON.parse(line)
+                lastPayload = json
                 var text = String(json.text || json.content || "")
                 className = String(json.class || "")
                 if (text.indexOf("<span") !== -1) {
@@ -78,6 +84,7 @@ Item {
         displayRichText = ""
         displayText = line
         className = ""
+        lastPayload = null
     }
 
     Text {

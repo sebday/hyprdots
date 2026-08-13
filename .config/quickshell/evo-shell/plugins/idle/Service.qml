@@ -101,7 +101,7 @@ Item {
 
     Process {
         id: lockProc
-        command: ["bash", "-lc", "$HOME/.local/bin/evo-shell-ipc lock lock"]
+        command: ["bash", "-lc", "$HOME/.local/bin/evo-shell-ipc evo.lock lock"]
     }
 
     Process {
@@ -115,7 +115,7 @@ Item {
     }
 
     IpcHandler {
-        target: "idle"
+        target: "evo.idle"
 
         function status(): string {
             return JSON.stringify({
