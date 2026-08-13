@@ -85,11 +85,11 @@ Item {
             anchors.right: true
             WlrLayershell.namespace: dock.layerNamespace + "-scrim"
             WlrLayershell.layer: WlrLayer.Top
-            WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+            WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
 
             MouseArea {
                 anchors.fill: parent
-                onClicked: dock.closeRequested()
+                onPressed: dock.closeRequested()
             }
         }
     }

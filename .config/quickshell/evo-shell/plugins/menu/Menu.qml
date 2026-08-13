@@ -16,6 +16,9 @@ Item {
     property var commandEntries: []
     property var dynamicEntries: []
     property var visibleEntries: []
+    property var cachedApps: []
+    property var iconPathCache: ({})
+    property int iconWarmIndex: 0
     property bool dynamicLoading: false
     property int selectedIndex: 0
     property real previewAreaMaxWidth: 1600
@@ -38,15 +41,10 @@ Item {
     readonly property int tileIconSize: 32
     readonly property int systemActionCount: 4
     readonly property int appGridColumns: 6
-    readonly property int appIconSize: 88
-    readonly property int appIconSourceSize: {
-        var dpr = 1
-        if (hostScreen && hostScreen.devicePixelRatio)
-            dpr = hostScreen.devicePixelRatio
-        return Math.round(appIconSize * dpr)
-    }
-    readonly property int appTileWidth: 128
-    readonly property int appTileHeight: 128
+    readonly property int appIconSize: 110
+    readonly property int appIconSourceSize: 128
+    readonly property int appTileWidth: 160
+    readonly property int appTileHeight: 160
     readonly property int appTileSpacing: 24
     readonly property int appIconTopPadding: 8
     readonly property int previewTileWidth: 296
@@ -59,7 +57,7 @@ Item {
     readonly property int listFilterHeight: 38
     readonly property int listFilterFontSize: Theme.panelTitleFontPixelSize
     readonly property int previewMenuMargin: 48
-    readonly property int appsMenuPadding: 22
+    readonly property int appsMenuPadding: 0
     readonly property int appsMenuRadius: Theme.panelCornerRadius
 
     readonly property int previewGridColumns: 5
@@ -177,8 +175,13 @@ Item {
         if (submenu) loadDynamicEntries(submenu)
         else dynamicEntries = []
         hostScreen = resolveHostScreen()
-        refreshVisibleEntries()
         opened = true
+        if (mode === "apps" && cachedApps.length === 0) {
+            rebuildAppCache()
+            refreshVisibleEntries()
+        } else {
+            refreshVisibleEntries()
+        }
         Qt.callLater(function() {
             root.previewAreaMaxWidth = panel.previewAreaMaxWidth
             root.previewAreaMaxHeight = panel.previewAreaMaxHeight
@@ -360,27 +363,43 @@ Item {
     }
 
     function steamThemedIconName(name) {
-        if (name === "steam_icon_220") return "half-life2"
-        if (name === "steam_icon_2536520") return "diablo-2"
+        if (name === "steam_icon_220" || name === "half-life2") return "half-life2"
+        if (name === "steam_icon_2536520" || name === "diablo-2") return "diablo-2"
         return ""
+    }
+
+    function cachedIconPath(name) {
+        var key = String(name || "") + "|" + String(Theme.iconThemeName || "")
+        if (iconPathCache[key] !== undefined)
+            return iconPathCache[key]
+        var path = Quickshell.iconPath(name, true) || ""
+        iconPathCache[key] = path
+        return path
     }
 
     function entryIconSource(entry) {
         if (!entry) return ""
+        if (entry.iconSource)
+            return entry.iconSource
         if (entry.kind !== "app" || !entry.entryRef || !entry.entryRef.icon)
             return ""
         var name = String(entry.entryRef.icon)
         if (name.indexOf("/") !== -1)
             return name.indexOf("file://") === 0 ? name : ("file://" + name)
         var themed = steamThemedIconName(name)
+        var src = ""
         if (themed) {
             var home = Quickshell.env("HOME") || ""
             var theme = Theme.iconThemeName
             if (home && theme)
-                return "file://" + home + "/.local/share/icons/" + theme + "/apps/64/" + themed + ".svg"
-            return Quickshell.iconPath(themed, true) || ""
+                src = "file://" + home + "/.local/share/icons/" + theme + "/apps/64/" + themed + ".svg"
+            else
+                src = cachedIconPath(themed)
+        } else {
+            src = cachedIconPath(name)
         }
-        return Quickshell.iconPath(name, true) || ""
+        entry.iconSource = src
+        return src
     }
 
     function entryGlyphIcon(entry) {
@@ -389,24 +408,39 @@ Item {
         return "󰍉"
     }
 
-    function appEntries() {
+    function rebuildAppCache() {
         var list = []
         try {
             var values = DesktopEntries.applications.values || []
             for (var i = 0; i < values.length; i++) {
                 var entry = values[i]
                 if (!entry || !entry.id) continue
-                list.push({
+                var item = {
                     kind: "app",
                     name: String(entry.name || entry.id),
                     id: entry.id,
                     entryRef: entry
-                })
+                }
+                list.push(item)
             }
         } catch (e) {
             console.warn("evo.menu app list failed:", e)
         }
-        return list
+        cachedApps = UsageMemory.sortByUsage(list, "apps", function(e) { return e.id }, function(e) { return e.name })
+        iconWarmIndex = 0
+        iconWarmTimer.running = cachedApps.length > 0
+    }
+
+    function resortCachedApps() {
+        if (cachedApps.length === 0)
+            return
+        cachedApps = UsageMemory.sortByUsage(cachedApps, "apps", function(e) { return e.id }, function(e) { return e.name })
+    }
+
+    function appEntries() {
+        if (cachedApps.length === 0)
+            rebuildAppCache()
+        return cachedApps
     }
 
     function entryListsEqual(a, b) {
@@ -444,13 +478,15 @@ Item {
         var out = []
         if (mode === "apps") {
             var apps = appEntries()
+            if (!q)
+                return apps
+            var needle = q.toLowerCase()
             for (var i = 0; i < apps.length; i++) {
                 var app = apps[i]
-                if (!q) out.push(app)
-                else if (app.name.toLowerCase().indexOf(q.toLowerCase()) !== -1 || app.id.toLowerCase().indexOf(q.toLowerCase()) !== -1)
+                if (app.name.toLowerCase().indexOf(needle) !== -1 || app.id.toLowerCase().indexOf(needle) !== -1)
                     out.push(app)
             }
-            return UsageMemory.sortByUsage(out, "apps", function(e) { return e.id }, function(e) { return e.name })
+            return out
         }
         if (mode === "power") {
             return MenuEntries.filterEntries(commandEntries, q, 16).map(MenuEntries.mapEntry)
@@ -560,32 +596,6 @@ Item {
         id: previewWarmProc
     }
 
-    Variants {
-        model: Quickshell.screens
-
-        PanelWindow {
-            required property var modelData
-            screen: modelData
-            visible: root.opened && root.hostScreen && modelData && modelData.name !== root.hostScreen.name
-            anchors { top: true; bottom: true; left: true; right: true }
-            color: "transparent"
-            WlrLayershell.namespace: "evo-menu"
-            WlrLayershell.layer: WlrLayer.Overlay
-            WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
-            exclusionMode: ExclusionMode.Ignore
-
-            Rectangle {
-                anchors.fill: parent
-                color: Theme.overlayScrim
-            }
-
-            MouseArea {
-                anchors.fill: parent
-                onClicked: root.dismiss()
-            }
-        }
-    }
-
     PanelWindow {
         id: panel
         screen: root.hostScreen
@@ -647,15 +657,6 @@ Item {
             Keys.onUpPressed: root.handlePreviewUp()
             Keys.onDownPressed: root.handlePreviewDown()
             Keys.onReturnPressed: root.handleActivateKey()
-
-            Rectangle {
-                anchors.fill: parent
-                visible: root.appsGridMode
-                color: Theme.overlaySurfaceInactive
-                radius: root.appsMenuRadius
-                border.color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.22)
-                border.width: 1
-            }
 
             Rectangle {
                 anchors.fill: parent
@@ -842,6 +843,7 @@ Item {
                     height: root.appsGridViewportHeight
                     clip: true
                     reuseItems: true
+                    cacheBuffer: root.appTileHeight + root.appTileSpacing
                     cellWidth: root.appTileWidth + root.appTileSpacing
                     cellHeight: root.appTileHeight + root.appTileSpacing
                     model: root.visibleEntries
@@ -856,35 +858,58 @@ Item {
                         width: root.appTileWidth + root.appTileSpacing
                         height: root.appTileHeight + root.appTileSpacing
                         opacity: appMouse.containsMouse || index === root.selectedIndex ? 1 : 0.88
-                        scale: appMouse.containsMouse || index === root.selectedIndex ? 1.06 : 1
 
-                        readonly property string appIconSource: {
-                            var _theme = Theme.iconThemeName
-                            return root.entryIconSource(modelData)
-                        }
+                        readonly property string appIconSource: modelData.iconSource || root.entryIconSource(modelData)
                         readonly property string glyphIcon: root.entryGlyphIcon(modelData)
 
-                        Image {
-                            anchors.centerIn: parent
-                            width: root.appIconSize
-                            height: root.appIconSize
-                            visible: appTile.appIconSource.length > 0
-                            source: appTile.appIconSource
-                            fillMode: Image.PreserveAspectFit
-                            smooth: true
-                            asynchronous: true
-                            cache: true
-                            sourceSize: Qt.size(root.appIconSourceSize, root.appIconSourceSize)
-                        }
+                        Column {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            anchors.top: parent.top
+                            anchors.topMargin: root.appIconTopPadding
+                            spacing: 4
+                            width: root.appTileWidth
 
-                        Text {
-                            anchors.centerIn: parent
-                            visible: appTile.appIconSource.length === 0
-                            text: appTile.glyphIcon
-                            color: Theme.accent
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.appIconSize * 0.5
-                            font.bold: Theme.fontBold
+                            Item {
+                                width: parent.width
+                                height: root.appIconSize
+
+                                Image {
+                                    id: appIcon
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    width: root.appIconSize
+                                    height: root.appIconSize
+                                    visible: appTile.appIconSource.length > 0 && status !== Image.Error
+                                    source: appTile.appIconSource
+                                    fillMode: Image.PreserveAspectFit
+                                    smooth: true
+                                    asynchronous: true
+                                    cache: true
+                                    sourceSize: Qt.size(root.appIconSourceSize, root.appIconSourceSize)
+                                }
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    visible: appTile.appIconSource.length === 0 || appIcon.status === Image.Error
+                                    text: appTile.glyphIcon
+                                    color: Theme.accent
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: root.appIconSize * 0.5
+                                    font.bold: Theme.fontBold
+                                }
+                            }
+
+                            Text {
+                                width: parent.width
+                                text: modelData.name || ""
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.panelHintFontPixelSize
+                                font.bold: Theme.fontBold
+                                horizontalAlignment: Text.AlignHCenter
+                                elide: Text.ElideRight
+                                maximumLineCount: 1
+                                opacity: 0.8
+                            }
                         }
 
                         MouseArea {
@@ -1111,7 +1136,29 @@ Item {
     }
 
     Component.onCompleted: {
+        hostScreen = resolveHostScreen()
         refreshCommandEntries()
+        Qt.callLater(rebuildAppCache)
         Qt.callLater(warmPreviewCache)
+    }
+
+    Timer {
+        id: iconWarmTimer
+        interval: 16
+        repeat: true
+        running: false
+        onTriggered: {
+            var n = root.cachedApps.length
+            if (root.iconWarmIndex >= n) {
+                running = false
+                return
+            }
+            var end = Math.min(n, root.iconWarmIndex + 6)
+            for (var i = root.iconWarmIndex; i < end; i++)
+                root.entryIconSource(root.cachedApps[i])
+            root.iconWarmIndex = end
+            if (root.iconWarmIndex >= n)
+                running = false
+        }
     }
 }

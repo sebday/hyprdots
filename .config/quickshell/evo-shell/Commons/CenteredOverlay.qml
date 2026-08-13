@@ -26,32 +26,6 @@ Item {
             hostScreen = resolveHostScreen()
     }
 
-    Variants {
-        model: Quickshell.screens
-
-        PanelWindow {
-            required property var modelData
-            screen: modelData
-            visible: root.opened && root.hostScreen && modelData && modelData.name !== root.hostScreen.name
-            anchors { top: true; bottom: true; left: true; right: true }
-            color: "transparent"
-            WlrLayershell.namespace: root.layerNamespace
-            WlrLayershell.layer: WlrLayer.Overlay
-            WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
-            exclusionMode: ExclusionMode.Ignore
-
-            Rectangle {
-                anchors.fill: parent
-                color: Theme.overlayScrim
-            }
-
-            MouseArea {
-                anchors.fill: parent
-                onClicked: root.dismissed()
-            }
-        }
-    }
-
     PanelWindow {
         screen: root.hostScreen
         visible: root.opened
