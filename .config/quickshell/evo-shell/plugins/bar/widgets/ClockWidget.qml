@@ -5,8 +5,10 @@ Item {
     id: root
 
     property var bar: null
+    property var barPanel: null
     property var shell: null
     property var settings: ({})
+    readonly property string hoverPopupId: settings.onHover ? String(settings.onHover) : "evo.calendar"
 
     implicitWidth: label.implicitWidth + Theme.barSectionGap * 2
     implicitHeight: Theme.barHeight
@@ -49,12 +51,14 @@ Item {
         font.bold: Theme.fontBold
     }
 
-    MouseArea {
-        anchors.fill: parent
-        hoverEnabled: true
-        cursorShape: Qt.PointingHandCursor
-        onClicked: {
-            if (shell) shell.toggle("evo.calendar", "")
+    HoverHandler {
+        enabled: root.hoverPopupId !== ""
+        onHoveredChanged: {
+            if (!root.shell || !root.hoverPopupId) return
+            if (hovered)
+                root.shell.hoverEnter(root.hoverPopupId, root, root.barPanel)
+            else
+                root.shell.hoverLeave(root.hoverPopupId)
         }
     }
 

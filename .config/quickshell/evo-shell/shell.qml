@@ -36,6 +36,7 @@ ShellRoot {
         "evo.menu": { kinds: ["menu"], path: "plugins/menu/Menu.qml", keepLoaded: true },
         "evo.calendar": { kinds: ["menu"], path: "plugins/calendar/Calendar.qml", keepLoaded: true },
         "evo.stats": { kinds: ["menu"], path: "plugins/stats/Stats.qml", keepLoaded: true },
+        "evo.cursor": { kinds: ["menu"], path: "plugins/cursor/Cursor.qml", keepLoaded: true },
         "evo.weather": { kinds: ["menu"], path: "plugins/weather/Weather.qml", keepLoaded: true },
         "evo.library": { kinds: ["menu"], path: "plugins/library/Library.qml", keepLoaded: true },
         "evo.theme": { kinds: ["menu"], path: "plugins/theme/Theme.qml", keepLoaded: true },
@@ -52,6 +53,12 @@ ShellRoot {
     property var openPanelIds: ({})
     property var panelLoaders: ({})
     property var pendingPayloads: ({})
+    property var popupAnchorItem: null
+    property var popupAnchorWindow: null
+    property string hoverPopupId: ""
+    property string pendingHoverId: ""
+    property var pendingHoverItem: null
+    property var pendingHoverWindow: null
 
     FileView {
         id: userConfigFile
@@ -115,10 +122,7 @@ ShellRoot {
     }
 
     function canonicalPluginId(id) {
-        var pluginId = String(id || "")
-        if (pluginId === "evo.cursor")
-            return "evo.stats"
-        return pluginId
+        return String(id || "")
     }
 
     function summon(id, payloadJson) {
@@ -144,12 +148,99 @@ ShellRoot {
 
     function hide(id) {
         var pluginId = canonicalPluginId(id)
+        if (hoverPopupId === pluginId) {
+            hoverPopupId = ""
+            popupAnchorItem = null
+            popupAnchorWindow = null
+        }
         if (!openPanelIds[pluginId] && !isPluginOpen(pluginId)) return true
         var next = ({})
         for (var k in openPanelIds) if (k !== pluginId) next[k] = openPanelIds[k]
         openPanelIds = next
         invokeIfLoaded(pluginId, "close", null)
         return true
+    }
+
+    function hoverEnter(id, item, barPanel) {
+        var pluginId = canonicalPluginId(id)
+        hoverHideTimer.stop()
+        pendingHoverId = pluginId
+        pendingHoverItem = item
+        pendingHoverWindow = barPanel
+        if (hoverPopupId === pluginId) {
+            popupAnchorItem = item
+            popupAnchorWindow = barPanel
+            return
+        }
+        hoverShowTimer.restart()
+    }
+
+    function hoverLeave(id) {
+        var pluginId = canonicalPluginId(id)
+        if (pluginId === pendingHoverId) {
+            hoverShowTimer.stop()
+            pendingHoverId = ""
+            pendingHoverItem = null
+            pendingHoverWindow = null
+        }
+        if (pluginId === hoverPopupId)
+            hoverHideTimer.restart()
+    }
+
+    function popupHoverEnter() {
+        hoverHideTimer.stop()
+        hoverShowTimer.stop()
+    }
+
+    function popupHoverLeave() {
+        if (hoverPopupId)
+            hoverHideTimer.restart()
+    }
+
+    function applyPendingHover() {
+        var pluginId = pendingHoverId
+        if (!pluginId)
+            return
+        var item = pendingHoverItem
+        var win = pendingHoverWindow
+        var previous = hoverPopupId
+        pendingHoverId = ""
+        pendingHoverItem = null
+        pendingHoverWindow = null
+        if (previous && previous !== pluginId)
+            hide(previous)
+        hoverPopupId = pluginId
+        popupAnchorItem = item
+        popupAnchorWindow = win
+        if (!isPluginOpen(pluginId))
+            summon(pluginId, "")
+    }
+
+    function clearHoverPopup() {
+        hoverShowTimer.stop()
+        hoverHideTimer.stop()
+        if (hoverPopupId)
+            hide(hoverPopupId)
+        hoverPopupId = ""
+        pendingHoverId = ""
+        pendingHoverItem = null
+        pendingHoverWindow = null
+        popupAnchorItem = null
+        popupAnchorWindow = null
+    }
+
+    Timer {
+        id: hoverShowTimer
+        interval: 90
+        repeat: false
+        onTriggered: shell.applyPendingHover()
+    }
+
+    Timer {
+        id: hoverHideTimer
+        interval: 220
+        repeat: false
+        onTriggered: shell.clearHoverPopup()
     }
 
     function toggle(id, payloadJson) {
@@ -235,7 +326,7 @@ ShellRoot {
         }
     }
 
-    readonly property var panelPluginIds: ["evo.menu", "evo.panel", "evo.calendar", "evo.stats", "evo.weather", "evo.library", "evo.theme", "evo.wallpaper"]
+    readonly property var panelPluginIds: ["evo.menu", "evo.panel", "evo.calendar", "evo.stats", "evo.cursor", "evo.weather", "evo.library", "evo.theme", "evo.wallpaper"]
 
     Instantiator {
         model: shell.panelPluginIds

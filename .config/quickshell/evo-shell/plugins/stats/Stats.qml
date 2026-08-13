@@ -1,4 +1,3 @@
-import Quickshell
 import QtQuick
 import "../../Commons"
 import "."
@@ -18,18 +17,19 @@ Item {
         opened = false
     }
 
-    function dismiss() {
-        if (shell) shell.hide("evo.stats")
-        else close()
-    }
-
-    CenteredOverlay {
+    AttachedOverlay {
         opened: root.opened
         layerNamespace: "evo-stats"
-        contentWidth: 1760
-        contentHeight: 800
-        contentMargin: 32
-        onDismissed: root.dismiss()
+        contentWidth: 580
+        contentHeight: 380
+        contentMargin: 10
+        anchorItem: root.shell ? root.shell.popupAnchorItem : null
+        anchorWindow: root.shell ? root.shell.popupAnchorWindow : null
+        barPosition: root.shell && root.shell.barConfig && root.shell.barConfig.position
+            ? String(root.shell.barConfig.position)
+            : "bottom"
+        onHoverEntered: if (root.shell) root.shell.popupHoverEnter()
+        onHoverLeft: if (root.shell) root.shell.popupHoverLeave()
 
         StatsModule {
             id: statsContent

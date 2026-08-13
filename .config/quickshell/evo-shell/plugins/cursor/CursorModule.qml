@@ -57,12 +57,10 @@ Item {
 
     property int breakdownInset: 0
     property int uiScale: 1
-    readonly property int smallFont: uiScale > 1 ? Theme.popupHintFontPixelSize : Theme.panelSmallFontPixelSize
-    readonly property int hintFont: uiScale > 1 ? Theme.popupHintFontPixelSize : Theme.panelHintFontPixelSize
-    readonly property int heroFont: uiScale > 1 ? Theme.popupBodyFontPixelSize : 22
-    readonly property int breakdownFont: uiScale > 1
-        ? Math.max(Theme.panelTitleFontPixelSize, Theme.fontPixelSize + 2)
-        : Theme.panelHintFontPixelSize
+    readonly property int smallFont: Theme.panelIconFontPixelSize
+    readonly property int hintFont: Theme.panelTitleFontPixelSize
+    readonly property int heroFont: 28
+    readonly property int breakdownFont: Theme.panelHintFontPixelSize
 
     function applyPayload(json) {
         loading = false
@@ -118,7 +116,7 @@ Item {
 
             Item {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 118 * root.uiScale
+                Layout.preferredHeight: 160 * root.uiScale
                 visible: !root.isError
 
                 RowLayout {
@@ -277,13 +275,13 @@ Item {
         property color gaugeColor: Theme.accent
         property bool loading: false
 
-        implicitWidth: 96 * root.uiScale
-        implicitHeight: 118 * root.uiScale
+        implicitWidth: 130 * root.uiScale
+        implicitHeight: 160 * root.uiScale
 
         readonly property real sweep: Math.max(0, Math.min(100, percent)) / 100
-        readonly property int ringSize: 86 * root.uiScale
-        readonly property real ringRadius: 32 * root.uiScale
-        readonly property real ringLineWidth: 8 * root.uiScale
+        readonly property int ringSize: 118 * root.uiScale
+        readonly property real ringRadius: 44 * root.uiScale
+        readonly property real ringLineWidth: 10 * root.uiScale
 
         Canvas {
             id: ring

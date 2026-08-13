@@ -13,9 +13,9 @@ Item {
     property string layerNamespace: "evo-theme"
 
     readonly property int maxPopupHeight: {
-        var screen = overlay.hostScreen
-        if (screen && screen.height)
-            return Math.max(480, screen.height - 80)
+        var screens = Quickshell.screens
+        if (screens && screens.length > 0 && screens[0].height)
+            return Math.max(480, screens[0].height - 80)
         return 1000
     }
     readonly property int popupWidth: Math.max(pickerContent.implicitWidth, 200)

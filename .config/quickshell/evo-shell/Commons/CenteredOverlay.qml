@@ -14,23 +14,12 @@ Item {
     property color scrimColor: Theme.overlayScrim
     property bool fillScreen: false
     property string layerNamespace: "evo-overlay"
-    property var hostScreen: null
     property Item keysTarget: null
     signal dismissed()
 
     default property alias content: contentHost.data
 
-    function resolveHostScreen() {
-        return Util.screenForOverlay()
-    }
-
-    onOpenedChanged: {
-        if (opened)
-            hostScreen = resolveHostScreen()
-    }
-
     PanelWindow {
-        screen: root.hostScreen
         visible: root.opened
         anchors { top: true; bottom: true; left: true; right: true }
         color: "transparent"

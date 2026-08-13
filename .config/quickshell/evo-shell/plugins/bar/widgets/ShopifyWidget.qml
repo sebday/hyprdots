@@ -7,7 +7,9 @@ Item {
     id: root
     property var bar: null
     property var barPanel: null
+    property var shell: null
     property var settings: ({})
+    readonly property string hoverPopupId: settings.onHover ? String(settings.onHover) : ""
 
     property bool loading: false
     property string mainText: ""
@@ -147,11 +149,22 @@ Item {
         }
     }
 
+    HoverHandler {
+        enabled: root.hoverPopupId !== ""
+        onHoveredChanged: {
+            if (!root.shell || !root.hoverPopupId) return
+            if (hovered)
+                root.shell.hoverEnter(root.hoverPopupId, root, root.barPanel)
+            else
+                root.shell.hoverLeave(root.hoverPopupId)
+        }
+    }
+
     MouseArea {
         z: -1
         anchors.fill: parent
         hoverEnabled: true
-        cursorShape: root.settings.onClick ? Qt.PointingHandCursor : Qt.ArrowCursor
+        cursorShape: (root.settings.onClick || root.hoverPopupId) ? Qt.PointingHandCursor : Qt.ArrowCursor
         onClicked: if (root.settings.onClick)
             Quickshell.execDetached(["bash", "-lc", String(root.settings.onClick)])
     }

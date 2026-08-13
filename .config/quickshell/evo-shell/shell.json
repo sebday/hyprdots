@@ -14,13 +14,13 @@
           "id": "evo.shopify",
           "store": "DIY",
           "interval": 300,
-          "onClick": "~/.local/bin/evo-shell-ipc shell toggle evo.stats"
+          "onHover": "evo.stats"
         },
         {
           "id": "evo.shopify",
           "store": "TGS",
           "interval": 300,
-          "onClick": "~/.local/bin/evo-shell-ipc shell toggle evo.stats"
+          "onHover": "evo.stats"
         }
       ],
       "center": [
@@ -29,7 +29,7 @@
           "type": "command",
           "exec": "~/.local/bin/evo-bar-weather.sh",
           "interval": 1800,
-          "onClick": "~/.local/bin/evo-shell-ipc shell toggle evo.weather",
+          "onHover": "evo.weather",
           "onClickRight": "xdg-open https://weather.metoffice.gov.uk/forecast/gcqvn6pq4"
         },
         {
@@ -41,7 +41,7 @@
           "type": "command",
           "exec": "~/.local/bin/evo-bar-cursor.sh",
           "interval": 300,
-          "onClick": "~/.local/bin/evo-shell-ipc shell toggle evo.stats"
+          "onHover": "evo.cursor"
         }
       ],
       "right": [

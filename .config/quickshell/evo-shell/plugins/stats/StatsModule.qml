@@ -1,9 +1,7 @@
 import Quickshell
-import Quickshell.Io
 import QtQuick
 import QtQuick.Layouts
 import "../../Commons"
-import "../cursor"
 
 Item {
     id: root
@@ -12,8 +10,8 @@ Item {
 
     readonly property string home: Quickshell.env("HOME")
     readonly property bool active: host && host.opened === true
-    readonly property int uiScale: 2
-    readonly property int headerFont: Theme.popupBodyFontPixelSize
+    readonly property int uiScale: 1
+    readonly property int headerFont: Theme.panelTitleFontPixelSize
 
     property var diyData: ({})
     property var tgsData: ({})
@@ -22,7 +20,6 @@ Item {
 
     function onActivated() {
         refreshAll()
-        cursorBlock.onActivated()
     }
 
     function refreshAll() {
@@ -107,7 +104,7 @@ Item {
                 text: header.secondary
                 color: Theme.foreground
                 font.family: Theme.fontFamily
-                font.pixelSize: Theme.popupHintFontPixelSize
+                font.pixelSize: Theme.panelHintFontPixelSize
                 font.bold: Theme.fontBold
                 opacity: 0.72
                 elide: Text.ElideRight
@@ -156,7 +153,7 @@ Item {
     GridLayout {
         anchors.fill: parent
         anchors.margins: 8 * root.uiScale
-        columns: 3
+        columns: 2
         columnSpacing: 12 * root.uiScale
         rowSpacing: 12 * root.uiScale
 
@@ -267,27 +264,6 @@ Item {
                     bars: root.spcxData.bars || []
                     style: "line"
                 }
-            }
-        }
-
-        FramedPanel {
-            label: "Cursor"
-            contentFill: true
-            uiScale: root.uiScale
-            Layout.fillHeight: true
-            Layout.rowSpan: 2
-            Layout.column: 2
-            Layout.row: 0
-            Layout.preferredWidth: 560
-            Layout.minimumWidth: 560
-            Layout.maximumWidth: 560
-
-            CursorModule {
-                id: cursorBlock
-                anchors.fill: parent
-                host: root.host
-                uiScale: root.uiScale
-                breakdownInset: 8 * root.uiScale
             }
         }
     }

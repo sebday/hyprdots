@@ -10,12 +10,12 @@ Item {
 
     readonly property string home: Quickshell.env("HOME")
     readonly property bool active: host && host.opened === true
-    readonly property int uiScale: 2
-    readonly property int colWidth: 104 * uiScale
-    readonly property int smallFont: Theme.popupTitleFontPixelSize
-    readonly property int bodyFont: Theme.popupBodyFontPixelSize
-    readonly property int hintFont: Theme.popupHintFontPixelSize
-    readonly property int heroFont: Theme.popupHeroFontPixelSize
+    readonly property int uiScale: 1
+    readonly property int colWidth: 72
+    readonly property int smallFont: Theme.panelTitleFontPixelSize
+    readonly property int bodyFont: Theme.panelTitleFontPixelSize
+    readonly property int hintFont: Theme.panelHintFontPixelSize
+    readonly property int heroFont: Theme.panelIconFontPixelSize + 4
 
     property var weather: ({})
     readonly property bool weatherOk: weather.ok === true
@@ -86,10 +86,6 @@ Item {
 
     function onActivated() {
         poll.runPoll()
-        Qt.callLater(function() {
-            if (root.active)
-                focusSink.forceActiveFocus()
-        })
     }
 
     function tempColor(temp) {
@@ -104,16 +100,6 @@ Item {
         Quickshell.execDetached(["bash", "-lc", "xdg-open " + Util.shellQuote(metOfficeUrl)])
     }
 
-    Item {
-        id: focusSink
-        anchors.fill: parent
-        focus: root.active
-        Keys.onEscapePressed: {
-            if (host && typeof host.dismiss === "function")
-                host.dismiss()
-        }
-    }
-
     JsonPollRunner {
         id: poll
         active: root.active
@@ -124,7 +110,7 @@ Item {
 
     ColumnLayout {
         anchors.fill: parent
-        spacing: 14 * root.uiScale
+        spacing: 8
 
         Text {
             Layout.fillWidth: true
@@ -144,7 +130,7 @@ Item {
 
         RowLayout {
             Layout.alignment: Qt.AlignHCenter
-            spacing: 22 * root.uiScale
+            spacing: 10
 
             Repeater {
                 model: root.columns

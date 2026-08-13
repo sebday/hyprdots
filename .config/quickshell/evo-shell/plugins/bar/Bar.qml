@@ -40,8 +40,7 @@ Scope {
             if (s && String(s.name) === output) matched.push(s)
         }
         if (matched.length > 0) return matched
-        var fallback = Util.screenForOutput("", true)
-        return fallback ? [fallback] : screens
+        return screens
     }
 
     Variants {

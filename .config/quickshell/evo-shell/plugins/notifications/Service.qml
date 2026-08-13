@@ -9,6 +9,7 @@ Scope {
 
     property var shell: null
     property var activePopups: []
+    property var popupHeights: ({})
 
     readonly property int popupGap: 10
     readonly property int popupMarginAboveBar: 14
@@ -16,18 +17,6 @@ Scope {
         var cfg = shell && shell.shellConfig && shell.shellConfig.notifications
         return Math.max(500, parseInt(cfg && cfg.durationMs, 10) || 3000)
     }
-
-    readonly property string barOutput: {
-        if (shell && shell.barConfig && shell.barConfig.output)
-            return String(shell.barConfig.output).trim()
-        return ""
-    }
-
-    function screenForOutput(outputName) {
-        return Util.screenForOutput(outputName, true)
-    }
-
-    readonly property var popupScreen: screenForOutput(barOutput)
 
     NotificationServer {
         id: server
@@ -254,25 +243,47 @@ Scope {
         return "default"
     }
 
-    function entryHeight(entry) {
+    function estimatedHeight(entry) {
         var kind = entryKind(entry)
-        if (kind === "volume") return Theme.notificationVolumeHeight
+        if (kind === "volume")
+            return Theme.notificationVolumeHeight
         if (kind === "media")
             return Theme.notificationArtSize + Theme.notificationMediaPad * 2
-        return Theme.notificationStackSlot - popupGap
+        return Theme.notificationPadding * 2 + Theme.notificationTitleSize + 6 + Theme.notificationBodySize
+    }
+
+    function measuredHeight(entry) {
+        if (entry && typeof popupHeights[entry.key] === "number" && popupHeights[entry.key] > 0)
+            return popupHeights[entry.key]
+        return estimatedHeight(entry)
+    }
+
+    function setPopupHeight(key, height) {
+        var h = Math.round(height)
+        if (!key || popupHeights[key] === h)
+            return
+        var next = ({})
+        for (var k in popupHeights)
+            next[k] = popupHeights[k]
+        next[key] = h
+        popupHeights = next
+    }
+
+    readonly property var stackBottoms: {
+        var heights = popupHeights
+        var list = activePopups
+        var out = []
+        var y = Theme.barHeight + popupMarginAboveBar
+        for (var i = 0; i < list.length; i++) {
+            out.push(y)
+            y += measuredHeight(list[i]) + popupGap
+        }
+        return out
     }
 
     function popupMarginLeft(screen) {
         if (!screen) return 0
         return Math.max(0, Math.round((screen.width - Theme.notificationWidth) / 2))
-    }
-
-    function popupMarginBottom(screen, stackIndex) {
-        var y = Theme.barHeight + popupMarginAboveBar
-        var stack = Math.max(0, stackIndex)
-        for (var i = 0; i < stack && i < activePopups.length; i++)
-            y += entryHeight(activePopups[i]) + popupGap
-        return y
     }
 
     Timer {
@@ -297,15 +308,19 @@ Scope {
             readonly property bool volMuted: kind === "volume" && root.isMuted(modelData)
             readonly property real volFill: volMuted ? 0 : Math.min(1, volPercent / 100)
 
-            screen: root.popupScreen
             color: "transparent"
             implicitWidth: Theme.notificationWidth
             implicitHeight: card.height
 
             anchors.bottom: true
             anchors.left: true
-            margins.bottom: root.popupMarginBottom(root.popupScreen, index)
-            margins.left: root.popupMarginLeft(root.popupScreen)
+            margins.bottom: index < root.stackBottoms.length
+                ? root.stackBottoms[index]
+                : Theme.barHeight + root.popupMarginAboveBar
+            margins.left: root.popupMarginLeft(screen)
+
+            onImplicitHeightChanged: if (modelData) root.setPopupHeight(modelData.key, implicitHeight)
+            Component.onCompleted: if (modelData) root.setPopupHeight(modelData.key, card.height)
 
             WlrLayershell.namespace: "evo-notifications"
             WlrLayershell.layer: WlrLayer.Overlay

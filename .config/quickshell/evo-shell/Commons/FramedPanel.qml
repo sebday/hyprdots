@@ -113,7 +113,7 @@ Item {
         text: root.label
         color: Theme.foreground
         font.family: Theme.fontFamily
-        font.pixelSize: root.uiScale > 1 ? Theme.popupSmallFontPixelSize : Theme.panelSmallFontPixelSize
+        font.pixelSize: Theme.panelSmallFontPixelSize
         font.bold: Theme.fontBold
         opacity: 0.72
     }

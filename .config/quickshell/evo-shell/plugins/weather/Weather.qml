@@ -1,4 +1,3 @@
-import Quickshell
 import QtQuick
 import "../../Commons"
 import "."
@@ -18,17 +17,19 @@ Item {
         opened = false
     }
 
-    function dismiss() {
-        if (shell) shell.hide("evo.weather")
-        else close()
-    }
-
-    CenteredOverlay {
+    AttachedOverlay {
         opened: root.opened
         layerNamespace: "evo-weather"
-        contentWidth: 1020
-        contentHeight: 620
-        onDismissed: root.dismiss()
+        contentWidth: 560
+        contentHeight: 300
+        contentMargin: 12
+        anchorItem: root.shell ? root.shell.popupAnchorItem : null
+        anchorWindow: root.shell ? root.shell.popupAnchorWindow : null
+        barPosition: root.shell && root.shell.barConfig && root.shell.barConfig.position
+            ? String(root.shell.barConfig.position)
+            : "bottom"
+        onHoverEntered: if (root.shell) root.shell.popupHoverEnter()
+        onHoverLeft: if (root.shell) root.shell.popupHoverLeave()
 
         WeatherModule {
             id: weatherContent

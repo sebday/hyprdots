@@ -6,7 +6,10 @@ import "../../../Commons"
 Item {
     id: commandRoot
     property var bar: null
+    property var barPanel: null
+    property var shell: null
     property var settings: ({})
+    readonly property string hoverPopupId: settings.onHover ? String(settings.onHover) : ""
 
     property string displayText: ""
     property string displayRichText: ""
@@ -133,6 +136,17 @@ Item {
     }
 
     onSettingsChanged: restartPolling()
+
+    HoverHandler {
+        enabled: commandRoot.hoverPopupId !== ""
+        onHoveredChanged: {
+            if (!commandRoot.shell || !commandRoot.hoverPopupId) return
+            if (hovered)
+                commandRoot.shell.hoverEnter(commandRoot.hoverPopupId, commandRoot, commandRoot.barPanel)
+            else
+                commandRoot.shell.hoverLeave(commandRoot.hoverPopupId)
+        }
+    }
 
     MouseArea {
         id: mouseArea

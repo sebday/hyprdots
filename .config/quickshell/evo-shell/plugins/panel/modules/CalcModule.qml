@@ -285,8 +285,6 @@ Item {
                 id: calendarBlock
                 width: parent.width
                 height: implicitHeight
-                compact: true
-                uiScale: 1
                 host: root.host
             }
         }

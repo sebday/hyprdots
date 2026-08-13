@@ -1,5 +1,5 @@
 #!/bin/bash
-# Cursor usage for the evo cursor popup — GET https://cursor.com/api/usage-summary
+# Cursor usage for the bar widget and stats tooltip — GET https://cursor.com/api/usage-summary
 # Cursor Models = autoPercentUsed · Other Models = apiPercentUsed
 source "${HOME}/.local/bin/evo-bar-common.sh"
 

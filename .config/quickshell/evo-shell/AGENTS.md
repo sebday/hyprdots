@@ -19,7 +19,7 @@ Secrets: `~/.local/share/evo-shell/secrets.env` (`chmod 600`). Wallpaper path: `
 | Bar layout | `shell.json` → `bar.layout` |
 | Bar widgets | `BarWidgetCatalog.qml` + `widgets/qmldir`; polled scripts use `type: "command"` / `exec` → `CommandWidget` |
 | Panel dock tabs | `Panel.qml` → `dockModules` + `plugins/panel/modules/qmldir` |
-| Overlay popups | `Calendar.qml`, `Stats.qml`, `Weather.qml`, `Cursor.qml`, `Theme.qml`, … + `CenteredOverlay` |
+| Overlay popups | Theme / wallpaper / library / menu use `CenteredOverlay`. Calendar / weather / stats / cursor use `AttachedOverlay` |
 
 ## IPC
 
@@ -27,23 +27,18 @@ Secrets: `~/.local/share/evo-shell/secrets.env` (`chmod 600`). Wallpaper path: `
 
 Hypr bindings use full path `~/.local/bin/evo-shell-ipc` (PATH may not include it). Volume keys call `evo-shell-ipc evo.audio` directly, not `shell call`.
 
-## Monitors
-
-- **Centered popups** (menu, calendar, stats, weather, cursor, theme): always `DP-1` via `Util.screenForOverlay()`
-- **Left dock** (`evo.panel`): Hyprland focused monitor on each `open()` via `Util.screenForFocused()`
-
 ## Bar scripts
 
 `~/.local/bin/evo-bar-*.sh` — source `evo-bar-common.sh`. Cache: `~/.cache/evo-shell/bar/{key}.json` (TTL via `evo_bar_cache_read/write`). Heatmap colours: `~/.themes/current/evo-bar.css`. Theme apply: `~/.local/bin/evo-theme.sh`; live shell colours via `~/.config/quickshell/evo-shell/theme.json` (watched by `Theme.qml`).
 
-`CommandWidget` expects one JSON line: `{ "text": "…", "class": "…" }`. Native widgets parse their own JSON from scripts.
+`CommandWidget` expects one JSON line: `{ "text": "…", "class": "…" }`. Native widgets parse their own JSON from scripts. Bar hover popups use `onHover`: `"evo.calendar"` / `"evo.weather"` / `"evo.stats"` / `"evo.cursor"`.
 
 ## Pitfalls (already hit)
 
 - `BarWidgetCatalog` root must be `Item`, not `QtObject`
 - New bar widgets: `widgets/qmldir` + `BarWidgetCatalog` — not `BarSection.qml`
 - `import Quickshell` needed for `Quickshell.execDetached` / env
-- No `ToolTip` on bar items (broke load)
+- No Qt `ToolTip` on bar items (broke load); use `AttachedOverlay` + `onHover` instead
 - Clock `format`: Qt tokens (`%a %d %H:%M`), not strftime
 - Streaming bar data (cava): `SplitParser`, not interval polling
 - New overlay plugins need `shell.qml` entry + `panelPluginIds` if `keepLoaded`; restart shell to pick up new plugins (not just `reloadConfig`)

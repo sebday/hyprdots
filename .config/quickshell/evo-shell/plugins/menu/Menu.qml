@@ -23,11 +23,6 @@ Item {
     property int selectedIndex: 0
     property real previewAreaMaxWidth: 1600
     property real previewAreaMaxHeight: 900
-    property var hostScreen: null
-
-    function resolveHostScreen() {
-        return Util.screenForOverlay()
-    }
 
     readonly property bool tileMode: mode === "power" && !submenu
     readonly property bool previewTileMode: submenu === "themes" || submenu === "wallpaper"
@@ -172,7 +167,6 @@ Item {
         refreshCommandEntries()
         if (submenu) loadDynamicEntries(submenu)
         else dynamicEntries = []
-        hostScreen = resolveHostScreen()
         opened = true
         if (mode === "apps" && cachedApps.length === 0) {
             rebuildAppCache()
@@ -585,7 +579,6 @@ Item {
 
     PanelWindow {
         id: panel
-        screen: root.hostScreen
         visible: root.opened
         anchors { top: true; bottom: true; left: true; right: true }
         color: "transparent"
@@ -1138,7 +1131,6 @@ Item {
     }
 
     Component.onCompleted: {
-        hostScreen = resolveHostScreen()
         refreshCommandEntries()
         Qt.callLater(rebuildAppCache)
         Qt.callLater(warmPreviewCache)

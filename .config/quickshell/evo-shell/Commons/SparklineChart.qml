@@ -163,7 +163,7 @@ Item {
         text: "No chart data"
         color: Theme.foreground
         font.family: Theme.fontFamily
-        font.pixelSize: root.uiScale > 1 ? Theme.popupHintFontPixelSize : Theme.panelHintFontPixelSize
+        font.pixelSize: Theme.panelHintFontPixelSize
         opacity: 0.45
     }
 }
