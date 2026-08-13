@@ -59,6 +59,11 @@
           "id": "evo.audio"
         },
         {
+          "id": "evo.network",
+          "interval": 5,
+          "onHover": "evo.network"
+        },
+        {
           "id": "evo.tray"
         }
       ]

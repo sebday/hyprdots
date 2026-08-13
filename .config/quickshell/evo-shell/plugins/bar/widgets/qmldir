@@ -9,4 +9,5 @@ MenuBarWidget 1.0 MenuBarWidget.qml
 GithubWidget 1.0 GithubWidget.qml
 ShopifyWidget 1.0 ShopifyWidget.qml
 CavaWidget 1.0 CavaWidget.qml
+NetworkWidget 1.0 NetworkWidget.qml
 BarSection 1.0 BarSection.qml

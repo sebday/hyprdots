@@ -15,6 +15,7 @@ Item {
     Component { id: githubComp; GithubWidget {} }
     Component { id: shopifyComp; ShopifyWidget {} }
     Component { id: cavaComp; CavaWidget {} }
+    Component { id: networkComp; NetworkWidget {} }
 
     function registerAll() {
         if (!registry) return
@@ -22,6 +23,7 @@ Item {
         registry.register("evo.workspaces", workspacesComp, { displayName: "Workspaces" })
         registry.register("evo.clock", clockComp, { displayName: "Clock" })
         registry.register("evo.audio", audioComp, { displayName: "Audio" })
+        registry.register("evo.network", networkComp, { displayName: "Network" })
         registry.register("evo.tray", trayComp, { displayName: "Tray" })
         registry.register("evo.github", githubComp, { displayName: "GitHub" })
         registry.register("evo.shopify", shopifyComp, { displayName: "Shopify" })

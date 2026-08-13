@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
 import "../../../Commons"
@@ -19,7 +20,27 @@ Item {
     property bool polling: false
     property bool hideWhenEmpty: settings.hideEmpty === true || settings.hideEmptyText === true
 
-    implicitWidth: (hideWhenEmpty && displayText === "") ? 0 : Math.max(label.implicitWidth, label.contentWidth) + Theme.barPaddingX * 2
+    readonly property string tooltipText: lastPayload && lastPayload.tooltip
+        ? String(lastPayload.tooltip).trim()
+        : ""
+    readonly property bool iconOnly: {
+        if (className === "icon")
+            return true
+        var t = displayText
+        if (!t || t.length !== 1)
+            return false
+        var code = t.charCodeAt(0)
+        return code >= 0xE000
+    }
+
+    implicitWidth: {
+        if (hideWhenEmpty && displayText === "")
+            return 0
+        var textWidth = Math.max(label.implicitWidth, label.contentWidth)
+        if (iconOnly)
+            textWidth = Math.max(textWidth, Theme.barFontPixelSize)
+        return textWidth + Theme.barPaddingX * 2
+    }
     implicitHeight: Theme.barHeight
 
     function pangoToRichText(raw) {
@@ -94,9 +115,18 @@ Item {
         textFormat: commandRoot.useRichText ? Text.RichText : Text.PlainText
         color: Theme.foreground
         font.family: Theme.fontFamily
-        font.pixelSize: Theme.barFontPixelSize
-        font.bold: Theme.fontBold
+        font.pixelSize: commandRoot.iconOnly ? Theme.panelIconFontPixelSize : Theme.barFontPixelSize
+        font.bold: Theme.fontBold && !commandRoot.iconOnly
         visible: !commandRoot.hideWhenEmpty || commandRoot.displayText !== ""
+    }
+
+    ToolTip {
+        visible: commandRoot.tooltipText !== ""
+            && mouseArea.containsMouse
+            && commandRoot.hoverPopupId === ""
+        delay: 400
+        timeout: 8000
+        text: commandRoot.tooltipText
     }
 
     Process {

@@ -38,6 +38,7 @@ ShellRoot {
         "evo.stats": { kinds: ["menu"], path: "plugins/stats/Stats.qml", keepLoaded: true },
         "evo.cursor": { kinds: ["menu"], path: "plugins/cursor/Cursor.qml", keepLoaded: true },
         "evo.weather": { kinds: ["menu"], path: "plugins/weather/Weather.qml", keepLoaded: true },
+        "evo.network": { kinds: ["menu"], path: "plugins/network/Network.qml", keepLoaded: true },
         "evo.library": { kinds: ["menu"], path: "plugins/library/Library.qml", keepLoaded: true },
         "evo.theme": { kinds: ["menu"], path: "plugins/theme/Theme.qml", keepLoaded: true },
         "evo.wallpaper": { kinds: ["menu"], path: "plugins/theme/Wallpaper.qml", keepLoaded: true },
@@ -327,7 +328,7 @@ ShellRoot {
         }
     }
 
-    readonly property var panelPluginIds: ["evo.menu", "evo.panel", "evo.calendar", "evo.stats", "evo.cursor", "evo.weather", "evo.library", "evo.theme", "evo.wallpaper", "evo.screenshot"]
+    readonly property var panelPluginIds: ["evo.menu", "evo.panel", "evo.calendar", "evo.stats", "evo.cursor", "evo.weather", "evo.network", "evo.library", "evo.theme", "evo.wallpaper", "evo.screenshot"]
 
     Instantiator {
         model: shell.panelPluginIds
