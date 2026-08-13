@@ -57,8 +57,10 @@ Item {
 
     readonly property string themeNamePath: home + "/.themes/current/.theme-name"
     readonly property string themePreviewPath: home + "/.themes/current/preview.png"
+    readonly property string themePreviewUrl: Util.fileUrl(themePreviewPath) + "?t=" + previewTick
 
     property string themeName: ""
+    property int previewTick: 0
 
     readonly property var systemDetailRows: {
         if (!systemData || systemData.ok !== true) return []
@@ -132,6 +134,7 @@ Item {
         livePoll.runPoll()
         cursorUsage.onActivated()
         appearance.onActivated()
+        root.reloadThemePreview()
         Qt.callLater(function() {
             if (root.active)
                 focusSink.forceActiveFocus()
@@ -320,24 +323,30 @@ Item {
         watchChanges: true
         printErrors: false
         onLoaded: root.themeName = String(text() || "").trim()
-        onLoadFailed: root.themeName = ""
         onFileChanged: reload()
     }
 
-    FileView {
-        id: themePreviewFile
-        path: root.themePreviewPath
-        watchChanges: true
-        printErrors: false
-        onFileChanged: root.reloadThemePreview()
+    Connections {
+        target: Theme
+        function onThemeDataChanged() {
+            previewRefreshTimer.restart()
+        }
+    }
+
+    Timer {
+        id: previewRefreshTimer
+        interval: 150
+        repeat: false
+        onTriggered: root.reloadThemePreview()
     }
 
     function reloadThemePreview() {
-        themePreviewImage.source = ""
-        themePreviewImage.source = Util.fileUrl(themePreviewPath)
+        previewTick++
+        themeNameFile.reload()
+        // ~/.themes/current is replaced on swap; bounce the path to re-attach the watch.
+        themeNameFile.path = ""
+        themeNameFile.path = root.themeNamePath
     }
-
-    onThemeNameChanged: reloadThemePreview()
 
     Item {
         id: focusSink
@@ -560,7 +569,7 @@ Item {
                             Image {
                                 id: themePreviewImage
                                 anchors.fill: parent
-                                source: Util.fileUrl(root.themePreviewPath)
+                                source: root.themePreviewUrl
                                 fillMode: Image.PreserveAspectCrop
                                 asynchronous: true
                                 cache: false

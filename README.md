@@ -16,9 +16,8 @@ Thank you to [Bjarne](https://github.com/bjarneo) for some gorgeous themes.
 - Auto generated themes for
     - Obsidian
     - Cursor
-    - Neovim
 - Themed websites (Soundcloud, Grok X etc) 
-- Walker system menu
+- Quickshell
 
 ## Install 
 
@@ -50,12 +49,6 @@ Load the violentmonkey script from `.themes/shared/` and set it to auto-update.
 ### Cursor
 
 [![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/dracula/screenshots/dracula_cursor.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/dracula/screenshots/dracula_cursor.png)
-
-### Walker & Elephant
-
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/dracula/screenshots/dracula_walker.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/dracula/screenshots/dracula_walker.png)
-
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/dracula/screenshots/dracula_walker_wallpapers.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/dracula/screenshots/dracula_walker_wallpapers.png)
 
 ## Themes
 
