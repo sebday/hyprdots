@@ -535,23 +535,6 @@ Item {
                 kind: "shows"
                 current: root.browseKind === "shows" || root.screen === "episodes"
             }
-
-            Text {
-                text: scanProc.running ? "󰔟" : "󰑐"
-                color: Theme.foreground
-                font.family: Theme.fontFamily
-                font.pixelSize: Theme.panelHintFontPixelSize
-                opacity: scanProc.running ? 0.4 : (scanMouse.containsMouse ? 1 : 0.55)
-
-                MouseArea {
-                    id: scanMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    enabled: !scanProc.running
-                    cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                    onClicked: root.startLibraryScan()
-                }
-            }
         }
 
         Text {

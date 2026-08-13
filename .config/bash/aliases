@@ -6,15 +6,12 @@ alias df='/usr/bin/df -hT -xtmpfs -xdevtmpfs -xefivarfs'
 alias lock='fusermount3 -u /mnt/secure'
 alias unlock='gocryptfs /mnt/external/.crypt /mnt/secure'
 
-# Tools
-alias ff='fastfetch'
-alias lg='lazygit'
-
 # Projects
 alias pub='(cd /home/seb/projects/client-docs && npm run publish)'
 alias reports='(cd /home/seb/projects/ecommerce-reports && ruby bin/generate-reports weekly)'
 
 # Git
+alias lg='lazygit'
 alias gcm='git commit -m'
 alias gcam='git add -A && git commit -m'
 alias gs='git status'

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Evo panel: fastfetch-style system snapshot + live mem/disk stats.
+# Evo panel: system snapshot + live mem/disk stats.
 #
 # Usage:
 #   evo-panel-info-system.sh         — full snapshot JSON
@@ -48,7 +48,7 @@ read_cpu_percent() {
 }
 
 read_uptime_short() {
-    awk '{printf "%dh %dm", int($1 / 3600), int(($1 % 3600) / 60)}' /proc/uptime 2>/dev/null || echo ""
+    fmt_uptime "$(awk '{print int($1)}' /proc/uptime 2>/dev/null || echo 0)"
 }
 
 read_live_stats() {
@@ -131,9 +131,9 @@ read_live_stats() {
 }
 
 fmt_uptime() {
-    local ms="${1:-0}"
-    awk -v ms="$ms" 'BEGIN {
-        s = int(ms / 1000)
+    awk -v s="${1:-0}" 'BEGIN {
+        s = int(s)
+        if (s < 0) s = 0
         d = int(s / 86400); s %= 86400
         h = int(s / 3600); s %= 3600
         m = int(s / 60)
@@ -143,29 +143,117 @@ fmt_uptime() {
     }'
 }
 
+read_os() {
+    local pretty=""
+    # shellcheck disable=SC1091
+    if [[ -r /etc/os-release ]]; then
+        pretty="$(. /etc/os-release && printf '%s' "${PRETTY_NAME:-}")"
+    fi
+    printf '%s' "$pretty"
+}
+
+read_install_age() {
+    local birth current days
+    birth="$(stat -c %W / 2>/dev/null || echo 0)"
+    if ! [[ "$birth" =~ ^[0-9]+$ ]] || (( birth <= 0 )); then
+        return 0
+    fi
+    current="$(date +%s)"
+    days=$(( (current - birth) / 86400 ))
+    (( days < 0 )) && days=0
+    printf '%s days old' "$days"
+}
+
+read_kernel() {
+    uname -r
+}
+
+read_packages() {
+    local n
+    n="$(pacman -Qq 2>/dev/null | wc -l)"
+    n="${n// /}"
+    printf '%s' "${n:-0}"
+}
+
+read_wm() {
+    local line
+    line="$(hyprctl version 2>/dev/null | awk 'NR==1 {print $1, $2; exit}')"
+    line="${line%"${line##*[![:space:]]}"}"
+    if [[ -n "$line" ]]; then
+        printf '%s' "$line"
+        return
+    fi
+    printf '%s' "${XDG_CURRENT_DESKTOP:-Hyprland}"
+}
+
+read_host() {
+    local vendor product
+    vendor="$(tr -d '\0' < /sys/devices/virtual/dmi/id/sys_vendor 2>/dev/null || true)"
+    product="$(tr -d '\0' < /sys/devices/virtual/dmi/id/product_name 2>/dev/null || true)"
+    vendor="${vendor//$'\n'/}"
+    product="${product//$'\n'/}"
+    vendor="${vendor#"${vendor%%[![:space:]]*}"}"
+    vendor="${vendor%"${vendor##*[![:space:]]}"}"
+    product="${product#"${product%%[![:space:]]*}"}"
+    product="${product%"${product##*[![:space:]]}"}"
+    if [[ -z "$vendor" || "$vendor" == "To be filled by O.E.M." ]]; then
+        printf '%s' "$product"
+        return
+    fi
+    if [[ -z "$product" || "$product" == "To be filled by O.E.M." ]]; then
+        printf '%s' "$vendor"
+        return
+    fi
+    printf '%s %s' "$vendor" "$product"
+}
+
+read_cpu() {
+    local name
+    name="$(awk -F': ' '/^model name/ {print $2; exit}' /proc/cpuinfo)"
+    name="${name// CPU / }"
+    name="${name%% @ *}"
+    name="${name#"${name%%[![:space:]]*}"}"
+    name="${name%"${name##*[![:space:]]}"}"
+    printf '%s' "$name"
+}
+
+read_gpu() {
+    local line name brand=""
+    line="$(lspci 2>/dev/null | grep -E 'VGA compatible controller|3D controller|Display controller' | head -1)"
+    [[ -z "$line" ]] && return 0
+    if [[ "$line" == *NVIDIA* ]]; then
+        brand="NVIDIA"
+    elif [[ "$line" == *AMD* || "$line" == *ATI* ]]; then
+        brand="AMD"
+    elif [[ "$line" == *Intel* ]]; then
+        brand="Intel"
+    fi
+    name="$(grep -oE '\[[^]]+\]' <<<"$line" | sed 's/^\[//;s/\]$//' | grep -Ev '^[0-9a-fA-F]+:[0-9a-fA-F]+$|^AMD/ATI$' | tail -1)"
+    name="${name%%/*}"
+    name="${name%"${name##*[![:space:]]}"}"
+    if [[ -n "$brand" && -n "$name" ]]; then
+        printf '%s %s' "$brand" "$name"
+    elif [[ -n "$name" ]]; then
+        printf '%s' "$name"
+    else
+        printf '%s' "${line#*: }"
+    fi
+}
+
 read_snapshot() {
-    local ff os install_age kernel packages wm host cpu gpu uptime_text
+    local os install_age kernel packages wm host cpu gpu uptime_text
     local live_json
 
     live_json="$(read_live_stats)"
-
-    if ! ff="$(fastfetch --json 2>/dev/null)"; then
-        jq -cn --arg error "System info unavailable" \
-            '{ok:false, error:$error}'
-        exit 0
-    fi
-
-    os="$(echo "$ff" | jq -r '.[] | select(.type=="OS") | .result.prettyName // .result.name // ""' | head -1)"
-    install_age="$(echo "$ff" | jq -r '.[] | select(.type=="Command") | .result // ""' | head -1)"
-    kernel="$(echo "$ff" | jq -r '.[] | select(.type=="Kernel") | .result.release // ""' | head -1)"
-    packages="$(echo "$ff" | jq -r '.[] | select(.type=="Packages") | .result.all // .result.pacman // 0' | head -1)"
-    wm="$(echo "$ff" | jq -r '.[] | select(.type=="WM") | "\(.result.prettyName // .result.processName // "") \(.result.version // "")"' | head -1 | sed 's/ $//')"
-    host="$(echo "$ff" | jq -r '.[] | select(.type=="Host") | "\(.result.vendor // "") \(.result.name // "")"' | head -1 | sed 's/^ //;s/ $//')"
-    cpu="$(echo "$ff" | jq -r '.[] | select(.type=="CPU") | .result.cpu // ""' | head -1)"
-    gpu="$(echo "$ff" | jq -r '.[] | select(.type=="GPU") | .result[0].name // ""' | head -1)"
-    local uptime_ms
-    uptime_ms="$(echo "$ff" | jq -r '.[] | select(.type=="Uptime") | .result.uptime // 0' | head -1)"
-    uptime_text="$(fmt_uptime "$uptime_ms")"
+    os="$(read_os)"
+    install_age="$(read_install_age)"
+    kernel="$(read_kernel)"
+    packages="$(read_packages)"
+    wm="$(read_wm)"
+    host="$(read_host)"
+    cpu="$(read_cpu)"
+    gpu="$(read_gpu)"
+    uptime_text="$(read_uptime_short)"
 
     jq -cn \
         --argjson live "$live_json" \
