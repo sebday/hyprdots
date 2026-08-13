@@ -248,39 +248,3 @@ themes_sync_obsidian_modular() {
     echo "$updated_json" > "$appearance"
 }
 
-# Install ~/.themes/current/vscode-theme into editor extension dirs and set workbench.colorTheme.
-themes_sync_vscode_generated_extension() {
-    local SRC="${1:-$HOME/.themes/current/vscode-theme}"
-    [ -f "$SRC/package.json" ] || return 0
-
-    local publisher name version theme_label ext_id safe_label ext_dir settings
-    publisher=$(jq -r '.publisher // "sebday"' "$SRC/package.json")
-    name=$(jq -r '.name // empty' "$SRC/package.json")
-    version=$(jq -r '.version // "1.0.0"' "$SRC/package.json")
-    theme_label=$(jq -r '.contributes.themes[0].label // empty' "$SRC/package.json")
-    [ -n "$name" ] && [ -n "$theme_label" ] || return 0
-    ext_id="${publisher}.${name}-${version}"
-    safe_label=$(printf '%s' "$theme_label" | sed 's/[&\]/\\&/g')
-
-    for pair in \
-        "$HOME/.cursor/extensions|$HOME/.config/Cursor/User/settings.json" \
-        "$HOME/.vscode/extensions|$HOME/.config/Code/User/settings.json" \
-        "$HOME/.vscode-oss/extensions|$HOME/.config/VSCodium/User/settings.json"
-    do
-        ext_dir="${pair%%|*}"
-        settings="${pair#*|}"
-        [ -n "$ext_dir" ] && [ -n "$settings" ] || continue
-        [ -d "$(dirname "$settings")" ] || continue
-
-        mkdir -p "$ext_dir"
-        rm -rf "$ext_dir/$ext_id"
-        cp -r "$SRC" "$ext_dir/$ext_id"
-
-        [ -f "$settings" ] || echo '{}' > "$settings"
-        if grep -q '"workbench.colorTheme"' "$settings"; then
-            sed -i --follow-symlinks -E "s/(\"workbench\\.colorTheme\"[[:space:]]*:[[:space:]]*\")[^\"]*(\")/\\1${safe_label}\\2/" "$settings"
-        else
-            sed -i --follow-symlinks -E '0,/\{/{s/\{/{\n    "workbench.colorTheme": "'"$safe_label"'",/}' "$settings"
-        fi
-    done
-}

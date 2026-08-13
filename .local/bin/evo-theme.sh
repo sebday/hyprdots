@@ -80,7 +80,6 @@ build_theme() {
     process_theme_template "$NEXT_PATH" "shoelace-hex.css"
     process_theme_template "$NEXT_PATH" "nvim-icons.lua"
     THEME_PATH="$NEXT_PATH" "$HOME/.local/bin/evo-theme-set-gtk.sh"
-    "$HOME/.local/bin/evo-theme-generate-vscode.sh" "$NEXT_PATH"
     "$HOME/.local/bin/evo-theme-generate-neovim.sh" "$NEXT_PATH"
 }
 
@@ -102,7 +101,6 @@ activate_theme() {
     fi
 
     themes_sync_icon_theme_gsettings
-    themes_sync_vscode_generated_extension
     themes_sync_obsidian_modular
     # GTK font settings only; theme.json was written by themes_sync_evo_shell.
     "$HOME/.local/bin/evo-font.sh" apply-gtk >/dev/null 2>&1 || true

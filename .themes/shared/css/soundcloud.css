@@ -85,7 +85,15 @@ section[aria-label="Track header"] {
 .backgroundGradient,
 .imageChooser,
 .l-fixed-left,
-a[data-menu-name="home"] {
+a[data-menu-name="home"],
+[aria-label="More actions"],
+[aria-label="Share"] {
+    display: none!important;
+}
+
+/* Comment composer: classic BEM + MUI field (placeholder text is not stable) */
+.commentForm,
+.MuiTextField-root:has([aria-label="Add a comment to this track"]) {
     display: none!important;
 }
 

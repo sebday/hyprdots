@@ -13,6 +13,16 @@ Scope {
 
     readonly property int popupGap: 10
     readonly property int popupMarginAboveBar: 14
+    readonly property string popupOutput: "HDMI-A-1"
+    readonly property var popupScreen: {
+        var screens = Quickshell.screens
+        if (!screens) return null
+        for (var i = 0; i < screens.length; i++) {
+            if (screens[i] && String(screens[i].name) === popupOutput)
+                return screens[i]
+        }
+        return null
+    }
     readonly property int durationMs: {
         var cfg = shell && shell.shellConfig && shell.shellConfig.notifications
         return Math.max(500, parseInt(cfg && cfg.durationMs, 10) || 3000)
@@ -308,6 +318,7 @@ Scope {
             readonly property bool volMuted: kind === "volume" && root.isMuted(modelData)
             readonly property real volFill: volMuted ? 0 : Math.min(1, volPercent / 100)
 
+            screen: root.popupScreen
             color: "transparent"
             implicitWidth: Theme.notificationWidth
             implicitHeight: card.height

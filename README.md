@@ -13,9 +13,7 @@ Thank you to [Bjarne](https://github.com/bjarneo) for some gorgeous themes.
 ## Features
 
 - Master `colors.toml`
-- Auto generated themes for
-    - Obsidian
-    - Cursor
+- Auto generated themes for Obsidian
 - Themed websites (Soundcloud, Grok X etc) 
 - Quickshell
 
@@ -41,10 +39,6 @@ Load the violentmonkey script from `.themes/shared/` and set it to auto-update.
 ### Brave
 
 [![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/dracula/screenshots/dracula_brave.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/dracula/screenshots/dracula_brave.png)
-
-### Cursor
-
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/dracula/screenshots/dracula_cursor.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/dracula/screenshots/dracula_cursor.png)
 
 ## Themes
 
