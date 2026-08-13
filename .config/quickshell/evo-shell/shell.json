@@ -41,7 +41,7 @@
           "type": "command",
           "exec": "~/.local/bin/evo-bar-cursor.sh",
           "interval": 300,
-          "onClick": "~/.local/bin/evo-shell-ipc shell toggle evo.panel '{\"module\":\"info\"}'"
+          "onClick": "~/.local/bin/evo-shell-ipc shell toggle evo.cursor"
         }
       ],
       "right": [

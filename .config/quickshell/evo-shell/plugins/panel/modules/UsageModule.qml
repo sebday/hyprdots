@@ -28,6 +28,8 @@ Item {
         ? String(detail.otherColor) : Theme.foreground
 
     function onActivated() {
+        if (expandModels)
+            modelSplitExpanded = true
         usagePoll.runPoll()
     }
 
@@ -55,7 +57,8 @@ Item {
     readonly property var modelSplit: Array.isArray(detail.modelSplit) ? detail.modelSplit : []
     readonly property bool hasModelDetails: root.modelSplit.length > 0 || root.detail.onDemand === true
 
-    property bool modelSplitExpanded: false
+    property bool expandModels: false
+    property bool modelSplitExpanded: expandModels
 
     function applyPayload(json) {
         loading = false

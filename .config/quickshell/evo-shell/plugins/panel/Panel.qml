@@ -47,12 +47,9 @@ Item {
         if (moduleIds.indexOf(nextModule) < 0)
             nextModule = "calc"
         activeModule = nextModule
-        panelScreen = resolvePanelScreen()
+        dock.reveal()
         opened = true
-        Qt.callLater(function() {
-            dock.reveal()
-            root.activateModule()
-        })
+        activateModule()
     }
 
     // Called by shell toggle when panel is already open. Returns true if we
@@ -64,7 +61,6 @@ Item {
         if (nextModule === activeModule)
             return false
         activeModule = nextModule
-        panelScreen = resolvePanelScreen()
         activateModule()
         return true
     }
@@ -96,12 +92,6 @@ Item {
 
     onPanelSideChanged: panelSideLive = panelSide
 
-    property var panelScreen: null
-
-    function resolvePanelScreen() {
-        return Util.screenForFocused()
-    }
-
     function moduleLoaderFor(id) {
         for (var i = 0; i < moduleLoaders.count; i++) {
             var loader = moduleLoaders.itemAt(i)
@@ -124,7 +114,6 @@ Item {
         command: ["bash", root.layoutScript, "panel", "toggle"]
         onExited: {
             root.panelSideLive = root.panelSide
-            root.panelScreen = root.resolvePanelScreen()
         }
     }
 
@@ -132,7 +121,6 @@ Item {
         id: dock
         layerNamespace: "evo-panel"
         side: root.panelSideLive
-        screen: root.panelScreen
         pinned: true
         showCloseButton: true
         showSideButton: true

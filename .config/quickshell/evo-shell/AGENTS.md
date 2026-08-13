@@ -19,7 +19,7 @@ Secrets: `~/.local/share/evo-shell/secrets.env` (`chmod 600`). Wallpaper path: `
 | Bar layout | `shell.json` → `bar.layout` |
 | Bar widgets | `BarWidgetCatalog.qml` + `widgets/qmldir`; polled scripts use `type: "command"` / `exec` → `CommandWidget` |
 | Panel dock tabs | `Panel.qml` → `dockModules` + `plugins/panel/modules/qmldir` |
-| Overlay popups | `Calendar.qml`, `Stats.qml`, `Weather.qml`, `Clipboard.qml`, … + `CenteredOverlay` |
+| Overlay popups | `Calendar.qml`, `Stats.qml`, `Weather.qml`, `Cursor.qml`, `Clipboard.qml`, … + `CenteredOverlay` |
 
 ## IPC
 
@@ -29,7 +29,7 @@ Hypr bindings use full path `~/.local/bin/evo-shell-ipc` (PATH may not include i
 
 ## Monitors
 
-- **Menu, media, and centered popups** (calendar, stats, weather, clipboard): always `DP-1` via `Util.screenForOverlay()`
+- **Menu, media, and centered popups** (calendar, stats, weather, cursor, clipboard): always `DP-1` via `Util.screenForOverlay()`
 - **Left dock** (`evo.panel`): Hyprland focused monitor on each `open()` via `Util.screenForFocused()`
 
 ## Bar scripts
