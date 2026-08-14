@@ -6,6 +6,7 @@
 local browser = "brave"
 local terminal = "ghostty"
 local editor = terminal .. " -e nvim"
+local agent = terminal .. ' --title="Cursor Agent" -e agent'
 local bin = (os.getenv("HOME") or "") .. "/.local/bin"
 local shell_ipc = bin .. "/evoshell-ipc"
 
@@ -16,6 +17,7 @@ local function bindd(keys, description, dispatcher, flags)
 end
 
 bindd("SUPER + Return", "Terminal", hl.dsp.exec_cmd(terminal))
+bindd("SUPER + ALT + Return", "Cursor Agent", hl.dsp.exec_cmd(agent))
 bindd("SUPER + Space", "System menu", hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.menu \'{"mode":"power"}\''))
 bindd("SUPER + W", "Close Active Window", hl.dsp.window.close())
 bindd("SUPER + E", "Editor", hl.dsp.exec_cmd(editor))
@@ -90,10 +92,6 @@ for i = 1, 10 do
 		hl.dsp.window.move({ workspace = i, follow = false })
 	)
 end
-
--- Scratchpad
-bindd("SUPER + S", "Toggle Scratchpad", hl.dsp.workspace.toggle_special("magic"))
-bindd("SUPER + SHIFT + S", "Move Window to Scratchpad", hl.dsp.window.move({ workspace = "special:magic" }))
 
 -- Move/resize windows with mainMod + LMB/RMB and dragging
 bindd("SUPER + mouse:272", "Move window with mouse", hl.dsp.window.drag(), { mouse = true })

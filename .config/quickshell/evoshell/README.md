@@ -2,8 +2,6 @@
 
 A Quickshell desktop shell for Hyprland — bar, panel, plugins, IPC, and layer integration.
 
-![Evoshell architecture diagram](diagram.svg)
-
 ## What this is
 
 Evoshell is a custom desktop environment layer built on [Quickshell](https://quickshell.org). It renders a configurable status bar, a left dock panel, launcher menu, hover tooltips, and fullscreen overlays. Background services handle audio, wallpaper, lock screen, idle detection, clipboard history, and notifications.

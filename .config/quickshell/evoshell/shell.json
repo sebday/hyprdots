@@ -6,8 +6,8 @@
   },
   "bar": {
     "id": "evo.bar",
-    "position": "top",
-    "output": "DP-1",
+    "position": "bottom",
+    "output": "HDMI-A-1",
     "layout": {
       "left": [
         {

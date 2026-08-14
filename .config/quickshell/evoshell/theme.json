@@ -1,9 +1,9 @@
 {
-  "foreground": "#cdd6f4",
-  "background": "#1e1e2e",
-  "accent": "#89b4fa",
-  "mantle": "#181825",
-  "urgent": "#f38ba8",
+  "foreground": "#d8dee9",
+  "background": "#2e3440",
+  "accent": "#81a1c1",
+  "mantle": "#3b4252",
+  "urgent": "#bf616a",
   "fontFamily": "CaskaydiaMono Nerd Font",
   "fontPixelSize": 13
 }
