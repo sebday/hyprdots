@@ -1,6 +1,5 @@
 *
 !.gitignore
-!.config/quickshell/evo-shell/secrets.env.example
 .themes/current/
 **/__pycache__/
 *.pyc

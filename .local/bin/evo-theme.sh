@@ -110,6 +110,7 @@ notify_theme_switch() {
     local theme_name="$1"
 
     rm -rf "${HOME}/.cache/evo-shell/bar" 2>/dev/null || true
+    "$HOME/.local/bin/evo-restart-shell.sh" >/dev/null 2>&1 &
 
     local ghostty_addresses
     ghostty_addresses=$(hyprctl clients -j 2>/dev/null | jq -r '.[] | select(.class == "com.mitchellh.ghostty") | .address' 2>/dev/null) || true

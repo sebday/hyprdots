@@ -104,7 +104,9 @@ Item {
             width: root.caretWidth
             height: root.caretHeight + 1
             x: root.caretX - width / 2
-            y: root.barOnBottom ? box.height - root.borderWidth : -root.borderWidth
+            y: root.barOnBottom
+                ? (box.y + box.height - root.borderWidth)
+                : (box.y - height + root.borderWidth)
             z: 1
 
             onPaint: {
@@ -114,9 +116,9 @@ Item {
                 var h = height
                 var mid = w / 2
                 var bw = root.borderWidth
-                var tipY = root.barOnBottom ? h - 0.5 : 0.5
-                var baseY = root.barOnBottom ? 0 : h
                 var overlap = bw
+                var tipY = root.barOnBottom ? (h - 0.5) : 0.5
+                var baseY = root.barOnBottom ? 0 : h
 
                 ctx.beginPath()
                 if (root.barOnBottom) {
@@ -124,8 +126,8 @@ Item {
                     ctx.lineTo(w, -overlap)
                     ctx.lineTo(mid, tipY)
                 } else {
-                    ctx.moveTo(0, baseY + overlap)
-                    ctx.lineTo(w, baseY + overlap)
+                    ctx.moveTo(0, h + overlap)
+                    ctx.lineTo(w, h + overlap)
                     ctx.lineTo(mid, tipY)
                 }
                 ctx.closePath()
@@ -151,7 +153,20 @@ Item {
             onWidthChanged: requestPaint()
             onHeightChanged: requestPaint()
             onXChanged: requestPaint()
+            onYChanged: requestPaint()
             Component.onCompleted: requestPaint()
+        }
+
+        Connections {
+            target: box
+            function onYChanged() { caret.requestPaint() }
+            function onHeightChanged() { caret.requestPaint() }
+        }
+
+        Connections {
+            target: root
+            function onCaretXChanged() { caret.requestPaint() }
+            function onBarOnBottomChanged() { caret.requestPaint() }
         }
 
         Connections {

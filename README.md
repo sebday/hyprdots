@@ -55,9 +55,21 @@ Load the orangemonkey script from `.themes/shared/` and set it to auto-update.
 
 ## Apps
 
-### Brave
+### Neovim
 
-[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/dracula/screenshots/dracula_brave.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/dracula/screenshots/dracula_brave.png)
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/shared/screenshots/neovim.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/shared/screenshots/neovim.png)
+
+### Media library
+
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/shared/screenshots/media-library.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/shared/screenshots/media-library.png)
+
+### Screenshot editor
+
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/shared/screenshots/screenshot-editor.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/shared/screenshots/screenshot-editor.png)
+
+### Theme switcher
+
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/shared/screenshots/theme-switcher.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/shared/screenshots/theme-switcher.png)
 
 ## Themes
 
@@ -84,6 +96,10 @@ Load the orangemonkey script from `.themes/shared/` and set it to auto-update.
 ### Matte Black
 
 [![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/matte-black/preview.png)](https://github.com/sebday/hyprdots/blob/master/.themes/matte-black/preview.png)
+
+### Miasma
+
+[![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/miasma/preview.png)](https://github.com/sebday/hyprdots/blob/master/.themes/miasma/preview.png)
 
 ### Nord
 
