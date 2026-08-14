@@ -14,7 +14,8 @@ Thank you to [Bjarne](https://github.com/bjarneo) for some gorgeous themes.
 
 - Master `colors.toml`
 - Auto generated themes for Obsidian and Neovim
-  - Themed websites (Soundcloud, Grok, X etc)  
+- Everything I need for a desktop now in Quickshell
+- Themed websites (Soundcloud, Grok, X etc)  
 
 ## Quickshell 
 
