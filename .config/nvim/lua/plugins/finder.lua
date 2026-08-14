@@ -25,7 +25,7 @@ return {
       dashboard = { enabled = false },
       explorer = {
         hidden = true,
-        ignored = true,
+        ignored = false,
         git_status = false,
         layout = {
           preset = "sidebar",
@@ -40,12 +40,15 @@ return {
         sources = {
           files = {
             hidden = true,
-            ignored = true,
-            exclude = { "node_modules" },
+            ignored = false,
+            config = function(opts)
+              local cwd = opts.cwd or vim.fn.getcwd()
+              return vim.tbl_deep_extend("force", opts, require("config.finder-filter").files_opts(cwd))
+            end,
           },
           explorer = {
             hidden = true,
-            ignored = true,
+            ignored = false,
             git_status = false,
             layout = {
               preset = "sidebar",
@@ -56,9 +59,10 @@ return {
               },
             },
             config = function(opts)
-              local home = require("config.explorer-home")
-              if home.is_home(vim.fn.getcwd()) then
-                opts = vim.tbl_deep_extend("force", opts, home.explorer_opts())
+              local cwd = opts.cwd or vim.fn.getcwd()
+              local filter = require("config.finder-filter")
+              if filter.is_home(cwd) or filter.is_project(cwd) then
+                opts = vim.tbl_deep_extend("force", opts, filter.explorer_opts(cwd))
               end
               return require("snacks.picker.source.explorer").setup(opts)
             end,
@@ -72,7 +76,7 @@ return {
       },
     },
     init = function()
-      local explorer_home = require("config.explorer-home")
+      local finder_filter = require("config.finder-filter")
 
       local skip = {
         snacks_dashboard = true,
@@ -130,7 +134,7 @@ return {
         end
         opening = true
         local prev = vim.api.nvim_get_current_win()
-        pcall(Snacks.explorer.open, explorer_home.explorer_opts())
+        pcall(Snacks.explorer.open, finder_filter.explorer_opts())
         vim.schedule(function()
           opening = false
           if vim.api.nvim_win_is_valid(prev) then
@@ -159,9 +163,7 @@ return {
               vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Esc>", true, false, true), "n", true)
             end
             if explorer_open() then
-              if explorer_home.is_home(vim.fn.getcwd()) then
-                explorer_home.refresh_explorer()
-              end
+              finder_filter.refresh_explorer(vim.fn.getcwd())
               pcall(require("config.editor-chrome").refresh)
             else
               open_explorer()
@@ -184,8 +186,8 @@ return {
 
       vim.api.nvim_create_autocmd({ "BufEnter", "BufDelete" }, {
         callback = function()
-          if explorer_home.is_home(vim.fn.getcwd()) then
-            vim.defer_fn(explorer_home.refresh_explorer, 50)
+          if finder_filter.is_home(vim.fn.getcwd()) then
+            vim.defer_fn(finder_filter.refresh_explorer, 50)
           end
         end,
       })
