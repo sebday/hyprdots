@@ -117,18 +117,40 @@ local function is_editor_win(win)
   return vim.bo[buf].buflisted and not skip_ft[vim.bo[buf].filetype]
 end
 
-local function hide_ui()
-  return hide_ft[vim.bo.filetype] == true
-end
-
-local function blank()
-  return string.rep(" ", math.max(vim.o.columns, 1))
-end
-
 local function hide_status()
   vim.o.laststatus = 0
   vim.o.ruler = false
   vim.o.winbar = ""
+end
+
+local function explorer_root_win()
+  local ok, picker = pcall(require, "snacks.picker")
+  if not ok then
+    return
+  end
+  for _, p in ipairs(picker.get({ source = "explorer" })) do
+    local root = p.layout and p.layout.split and p.layout.root
+    if root and root.win and vim.api.nvim_win_is_valid(root.win) then
+      return root.win
+    end
+  end
+end
+
+local function hide_ui()
+  if hide_ft[vim.bo.filetype] ~= true then
+    return false
+  end
+  -- Dashboard/lazy share the tabpage with the explorer sidebar. Hiding chrome on
+  -- dashboard focus removes the tab strip and shifts the main pane up while the
+  -- explorer stays full-height — keep chrome when the explorer is open.
+  if explorer_root_win() then
+    return false
+  end
+  return true
+end
+
+local function blank()
+  return string.rep(" ", math.max(vim.o.columns, 1))
 end
 
 local function style_chrome(win)
@@ -215,7 +237,29 @@ end
 
 -- Explorer is a full-height left split, so it sits flush under the tabline.
 -- Pin a blank winbar on the sidebar root so it matches the blank line above tabs.
+local function clear_explorer_gap()
+  local ok, picker = pcall(require, "snacks.picker")
+  if not ok then
+    return
+  end
+  for _, p in ipairs(picker.get({ source = "explorer" })) do
+    local root = p.layout and p.layout.split and p.layout.root
+    if not (root and root.win and vim.api.nvim_win_is_valid(root.win)) then
+      goto continue
+    end
+    if root.opts and root.opts.wo then
+      root.opts.wo.winbar = nil
+    end
+    vim.wo[root.win].winbar = ""
+    ::continue::
+  end
+end
+
 local function style_explorer_gap()
+  if not chrome_win or not vim.api.nvim_win_is_valid(chrome_win) then
+    clear_explorer_gap()
+    return
+  end
   local ok, picker = pcall(require, "snacks.picker")
   if not ok then
     return
@@ -253,6 +297,7 @@ local function ensure_chrome()
   hide_status()
   if hide_ui() then
     close_chrome()
+    style_explorer_gap()
     return
   end
 
@@ -298,19 +343,6 @@ end
 
 local function editor_win()
   return editor_wins()[1]
-end
-
-local function explorer_root_win()
-  local ok, picker = pcall(require, "snacks.picker")
-  if not ok then
-    return
-  end
-  for _, p in ipairs(picker.get({ source = "explorer" })) do
-    local root = p.layout and p.layout.split and p.layout.root
-    if root and root.win and vim.api.nvim_win_is_valid(root.win) then
-      return root.win
-    end
-  end
 end
 
 -- Chrome + explorer are extra windows, so :q closes the editor pane instead of
@@ -502,7 +534,7 @@ function M.setup()
 
   -- LeftMouse runs before mouse position is updated (wincol often 0).
   -- LeftRelease has the real coordinates.
-  local mouse_modes = { "n", "v", "i" }
+  local mouse_modes = { "n", "i" }
   local mouse_opts = { silent = true }
   vim.keymap.set(mouse_modes, "<LeftRelease>", function()
     click_tab(vim.fn.getmousepos())
@@ -569,6 +601,14 @@ function M.setup()
         restore_editor()
         M.refresh()
       end)
+    end,
+  })
+
+  vim.api.nvim_create_autocmd("User", {
+    group = vim.api.nvim_create_augroup("editor_chrome_session", { clear = true }),
+    pattern = "PersistenceLoadPost",
+    callback = function()
+      vim.defer_fn(M.refresh, 100)
     end,
   })
 

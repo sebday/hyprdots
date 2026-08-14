@@ -28,6 +28,7 @@ eza
 fzf
 bat
 ripgrep
+fd
 bc
 jq
 ufw

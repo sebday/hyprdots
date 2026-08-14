@@ -6,7 +6,6 @@
 local browser = "brave"
 local terminal = "ghostty"
 local editor = terminal .. " -e nvim"
-local agent = terminal .. ' --title="Cursor Agent" -e agent'
 local bin = (os.getenv("HOME") or "") .. "/.local/bin"
 local shell_ipc = bin .. "/evoshell-ipc"
 
@@ -17,7 +16,6 @@ local function bindd(keys, description, dispatcher, flags)
 end
 
 bindd("SUPER + Return", "Terminal", hl.dsp.exec_cmd(terminal))
-bindd("SUPER + ALT + Return", "Cursor Agent", hl.dsp.exec_cmd(agent))
 bindd("SUPER + Space", "System menu", hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.menu \'{"mode":"power"}\''))
 bindd("SUPER + W", "Close Active Window", hl.dsp.window.close())
 bindd("SUPER + E", "Editor", hl.dsp.exec_cmd(editor))
@@ -34,7 +32,11 @@ bindd("SUPER + J", "Toggle Split Direction", hl.dsp.layout("togglesplit"))
 bindd("SUPER + K", "Toggle Floating Window", hl.dsp.window.float({ action = "toggle" }))
 bindd("SUPER + L", "Lock Screen", hl.dsp.exec_cmd(bin .. "/evo-system-lock"))
 bindd("SUPER + C", "Tools panel", hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.panel \'{"module":"tools"}\''))
-bindd("SUPER + N", "Tasks panel", hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.panel \'{"module":"tools","focus":"tasks"}\''))
+bindd(
+	"SUPER + N",
+	"Tasks panel",
+	hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.panel \'{"module":"tools","focus":"tasks"}\'')
+)
 bindd("SUPER + B", "Settings panel", hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.panel \'{"module":"settings"}\''))
 bindd("SUPER + M", "Library", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.library"))
 bindd(
@@ -47,7 +49,7 @@ bindd("SUPER + P", "Colour Picker", hl.dsp.exec_cmd("hyprpicker -al"))
 -- Programs
 bindd("SUPER + 1", "Brave Browser", hl.dsp.exec_cmd(browser))
 bindd("SUPER + 2", "Brave Incognito", hl.dsp.exec_cmd(browser .. " --incognito"))
-bindd("SUPER + 3", "Brave Incognito", hl.dsp.exec_cmd(browser .. " --tor"))
+bindd("SUPER + 3", "Brave Tor", hl.dsp.exec_cmd(browser .. " --tor"))
 
 -- Switch workspaces with numpad keys
 bindd("SUPER + KP_End", "Workspace 1", hl.dsp.focus({ workspace = 1 }))
@@ -60,6 +62,8 @@ bindd("SUPER + KP_Home", "Workspace 7", hl.dsp.focus({ workspace = 7 }))
 bindd("SUPER + KP_Up", "Workspace 8", hl.dsp.focus({ workspace = 8 }))
 bindd("SUPER + KP_Prior", "Workspace 9", hl.dsp.focus({ workspace = 9 }))
 bindd("SUPER + KP_Insert", "Workspace 10", hl.dsp.focus({ workspace = 10 }))
+bindd("SUPER + KP_Add", "Toggle Scratchpad", hl.dsp.workspace.toggle_special("magic"))
+bindd("SUPER + SHIFT + KP_Add", "Move Window to Scratchpad", hl.dsp.window.move({ workspace = "special:magic" }))
 
 -- Move focus with arrow keys
 bindd("SUPER + left", "Move Focus Left", hl.dsp.focus({ direction = "left" }))
