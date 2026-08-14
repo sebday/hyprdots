@@ -41,7 +41,7 @@ install_yay() {
 }
 
 # Install packages from the official Arch repositories using pacman.
-# Lines in packages.txt that are not in sync (e.g. AUR-only walker/elephant) are skipped.
+# Lines in packages.txt that are not in the official repos (e.g. AUR-only brave-bin) are skipped.
 install_pacman_packages() {
     log "Updating system and installing pacman packages from packages.txt..."
     local sync_packages=()
@@ -107,19 +107,6 @@ configure_darkhttpd() {
     log "Enabling darkhttpd user service..."
     systemctl --user daemon-reload
     systemctl --user enable --now darkhttpd
-}
-
-# Elephant backend for Walker (must run in the graphical user session; lingering helps at boot).
-configure_elephant_service() {
-    log "Enabling Elephant user service..."
-    if ! command -v elephant >/dev/null 2>&1; then
-        log "elephant not installed; skip Elephant service (install AUR packages first)"
-        return 0
-    fi
-    elephant service enable || log "note: elephant service enable exited non-zero (may already exist)"
-    systemctl --user daemon-reload
-    systemctl --user enable elephant.service 2>/dev/null || true
-    systemctl --user start elephant.service 2>/dev/null || true
 }
 
 # Configure networking with systemd-networkd.
@@ -268,7 +255,6 @@ main() {
     install_pacman_packages
     install_yay
     install_aur_packages
-    configure_elephant_service
     configure_greetd
     install_mise_tools
     set_boot_screen

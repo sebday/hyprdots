@@ -60,7 +60,7 @@
         },
         {
           "id": "evo.network",
-          "interval": 5,
+          "interval": 2,
           "onHover": "evo.network"
         },
         {

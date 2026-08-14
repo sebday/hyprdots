@@ -14,11 +14,29 @@ Item {
     readonly property string home: Quickshell.env("HOME") || ""
     readonly property string script: home + "/.local/bin/evo-bar-network.sh"
     readonly property string hoverPopupId: settings.onHover ? String(settings.onHover) : "evo.network"
+    readonly property real rateThreshold: 1048576
 
-    property string displayText: "󰈀 net"
+    property string iconText: "󰈀"
+    property string labelText: "net"
     property string tooltipText: ""
+    property bool connected: false
+    property real downloadRate: 0
+    property real uploadRate: 0
 
-    implicitWidth: label.implicitWidth + Theme.barPaddingX * 2
+    readonly property color dotIdleColor: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.28)
+    readonly property color dotColor: {
+        if (!connected)
+            return dotIdleColor
+        if (downloadRate > rateThreshold && uploadRate > rateThreshold)
+            return downloadRate >= uploadRate ? "#a6e3a1" : Theme.urgent
+        if (downloadRate > rateThreshold)
+            return "#a6e3a1"
+        if (uploadRate > rateThreshold)
+            return Theme.urgent
+        return dotIdleColor
+    }
+
+    implicitWidth: barRow.implicitWidth + Theme.barPaddingX * 2
     implicitHeight: Theme.barHeight
 
     function applyJson(line) {
@@ -26,9 +44,14 @@ Item {
         if (!raw) return
         try {
             var json = JSON.parse(raw)
-            var text = String(json.text || json.content || "󰈀 net").trim()
-            displayText = text || "󰈀 net"
+            iconText = String(json.icon || "󰤮")
+            labelText = String(json.label || "off")
             tooltipText = String(json.tooltip || "").trim()
+            connected = json.connected === true
+            downloadRate = parseFloat(json.download_bps || "0")
+            uploadRate = parseFloat(json.upload_bps || "0")
+            if (!isFinite(downloadRate)) downloadRate = 0
+            if (!isFinite(uploadRate)) uploadRate = 0
         } catch (e) {
             console.warn("network widget parse failed:", e)
         }
@@ -41,14 +64,34 @@ Item {
         proc.running = true
     }
 
-    Text {
-        id: label
+    Row {
+        id: barRow
         anchors.centerIn: parent
-        text: root.displayText
-        color: Theme.foreground
-        font.family: Theme.fontFamily
-        font.pixelSize: Theme.barFontPixelSize
-        font.bold: Theme.fontBold
+        spacing: 4
+
+        Text {
+            text: root.iconText
+            color: Theme.foreground
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.barFontPixelSize
+            font.bold: Theme.fontBold
+        }
+
+        Rectangle {
+            width: 5
+            height: 5
+            radius: 2.5
+            color: root.dotColor
+            anchors.verticalCenter: parent.verticalCenter
+        }
+
+        Text {
+            text: root.labelText
+            color: Theme.foreground
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.barFontPixelSize
+            font.bold: Theme.fontBold
+        }
     }
 
     Process {
@@ -87,13 +130,13 @@ Item {
 
     Timer {
         id: intervalTimer
-        interval: Math.max(1, parseInt(root.settings.interval, 10) || 5) * 1000
+        interval: Math.max(1, parseInt(root.settings.interval, 10) || 2) * 1000
         repeat: true
         onTriggered: root.poll()
     }
 
     function restartPolling() {
-        intervalTimer.interval = Math.max(1, parseInt(settings.interval, 10) || 5) * 1000
+        intervalTimer.interval = Math.max(1, parseInt(settings.interval, 10) || 2) * 1000
         intervalTimer.stop()
         poll()
         intervalTimer.start()

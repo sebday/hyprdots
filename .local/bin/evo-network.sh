@@ -7,18 +7,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
 source "$SCRIPT_DIR/evo-network-lib.sh"
 
-SELF_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
-
-require_root() {
-    if ((EUID == 0)); then
-        return
-    fi
-    if [[ -t 0 ]]; then
-        exec sudo "$SELF_PATH" "$@"
-    fi
-    exec pkexec "$SELF_PATH" "$@"
-}
-
 print_status() {
     local device
     device=$(active_iface)
@@ -142,67 +130,12 @@ print_top_processes() {
     rm -f "$sample_a" "$sample_b"
 }
 
-write_resolved_conf() {
-    local provider="$1"
-    case "$provider" in
-    Cloudflare)
-        tee /etc/systemd/resolved.conf >/dev/null <<'EOF'
-[Resolve]
-DNS=1.1.1.1#cloudflare-dns.com 1.0.0.1#cloudflare-dns.com 2606:4700:4700::1111#cloudflare-dns.com 2606:4700:4700::1001#cloudflare-dns.com
-FallbackDNS=9.9.9.9#dns.quad9.net 149.112.112.112#dns.quad9.net 2620:fe::fe#dns.quad9.net 2620:fe::9#dns.quad9.net
-DNSOverTLS=opportunistic
-EOF
-        ;;
-    Google)
-        tee /etc/systemd/resolved.conf >/dev/null <<'EOF'
-[Resolve]
-DNS=8.8.8.8#dns.google 8.8.4.4#dns.google 2001:4860:4860::8888#dns.google 2001:4860:4860::8844#dns.google
-FallbackDNS=9.9.9.9#dns.quad9.net 149.112.112.112#dns.quad9.net 2620:fe::fe#dns.quad9.net 2620:fe::9#dns.quad9.net
-DNSOverTLS=opportunistic
-EOF
-        ;;
-    DHCP)
-        tee /etc/systemd/resolved.conf >/dev/null <<'EOF'
-[Resolve]
-DNSOverTLS=no
-EOF
-        ;;
-    *)
-        echo "unsupported dns provider: $provider" >&2
-        exit 1
-        ;;
-    esac
-    systemctl reload systemd-resolved.service 2>/dev/null || systemctl restart systemd-resolved.service
-}
-
 case "${1:-}" in
 status) print_status ;;
 verbose) print_verbose ;;
 processes) print_top_processes ;;
-dns)
-    case "${2:-}" in
-    "") read_dns_provider ;;
-    set)
-        provider="${3:-}"
-        case "$provider" in
-        Cloudflare | Google | DHCP) ;;
-        *)
-            echo "usage: evo-network.sh dns set Cloudflare|Google|DHCP" >&2
-            exit 2
-            ;;
-        esac
-        require_root dns set "$provider"
-        write_resolved_conf "$provider"
-        read_dns_provider
-        ;;
-    *)
-        echo "usage: evo-network.sh dns|dns set <provider>" >&2
-        exit 2
-        ;;
-    esac
-    ;;
 *)
-    echo "usage: evo-network.sh status|verbose|processes|dns|dns set <provider>" >&2
+    echo "usage: evo-network.sh status|verbose|processes" >&2
     exit 2
     ;;
 esac

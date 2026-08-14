@@ -14,8 +14,6 @@ Item {
     readonly property string barScript: Quickshell.env("HOME") + "/.local/bin/evo-shell-layout.sh"
     readonly property string fontScript: Quickshell.env("HOME") + "/.local/bin/evo-font.sh"
     readonly property string resetScript: Quickshell.env("HOME") + "/.local/bin/evo-settings-reset.sh"
-    readonly property string cleanupScript: Quickshell.env("HOME") + "/.local/bin/evo-cleanup.sh"
-    readonly property string backupScript: Quickshell.env("HOME") + "/.local/bin/evo-backup.sh"
     readonly property string fontStatePath: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/evo-shell/font.json"
     readonly property string themeNamePath: Quickshell.env("HOME") + "/.themes/current/.theme-name"
 
@@ -36,7 +34,7 @@ Item {
     readonly property bool ready: hyprReady && barReady && fontReady
     readonly property bool fontBusy: fontSetProc.running
     readonly property bool settingsBusy: fontBusy || hyprToggleProc.running || hyprSetProc.running
-        || barToggleProc.running || resetProc.running || cleanupProc.running || backupProc.running
+        || barToggleProc.running || resetProc.running
 
     function refresh() {
         Theme.reloadLooks()
@@ -228,16 +226,6 @@ Item {
         onExited: root.refresh()
     }
 
-    Process {
-        id: cleanupProc
-        command: ["bash", root.cleanupScript]
-    }
-
-    Process {
-        id: backupProc
-        command: ["bash", root.backupScript]
-    }
-
     Flickable {
         anchors.fill: parent
         clip: true
@@ -425,58 +413,6 @@ Item {
                 Row {
                     anchors.centerIn: parent
                     spacing: 20
-
-                    Item {
-                        width: cleanupText.implicitWidth
-                        height: 28
-                        opacity: !settingsBusy ? 1 : 0.35
-
-                        Text {
-                            id: cleanupText
-                            anchors.centerIn: parent
-                            text: cleanupProc.running ? "Clearing…" : "Clear"
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: 12
-                            font.bold: Theme.fontBold
-                            opacity: cleanupMouse.containsMouse ? 1 : 0.72
-                        }
-
-                        MouseArea {
-                            id: cleanupMouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            enabled: !settingsBusy
-                            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                            onClicked: cleanupProc.running = true
-                        }
-                    }
-
-                    Item {
-                        width: backupText.implicitWidth
-                        height: 28
-                        opacity: !settingsBusy ? 1 : 0.35
-
-                        Text {
-                            id: backupText
-                            anchors.centerIn: parent
-                            text: backupProc.running ? "Backing up…" : "Backup"
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: 12
-                            font.bold: Theme.fontBold
-                            opacity: backupMouse.containsMouse ? 1 : 0.72
-                        }
-
-                        MouseArea {
-                            id: backupMouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            enabled: !settingsBusy
-                            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                            onClicked: backupProc.running = true
-                        }
-                    }
 
                     Item {
                         width: resetText.implicitWidth

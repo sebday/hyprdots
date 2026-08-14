@@ -3,7 +3,6 @@ import Quickshell.Io
 import QtQuick
 import QtQuick.Layouts
 import "../../../Commons"
-import "../../calendar"
 
 Item {
     id: root
@@ -100,7 +99,6 @@ Item {
         historyRecallIndex = -1
         refreshHistory()
         tasksBlock.onActivated()
-        calendarBlock.onActivated()
         if (focusTarget === "tasks")
             tasksBlock.focusNewTask()
         else
@@ -274,19 +272,6 @@ Item {
             Layout.fillHeight: true
             Layout.preferredHeight: 0
             Layout.minimumHeight: 80
-        }
-
-        FramedPanel {
-            label: "Calendar"
-            Layout.fillWidth: true
-            Layout.topMargin: 4
-
-            CalendarModule {
-                id: calendarBlock
-                width: parent.width
-                height: implicitHeight
-                host: root.host
-            }
         }
     }
 }

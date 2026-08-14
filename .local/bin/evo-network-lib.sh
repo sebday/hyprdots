@@ -51,37 +51,44 @@ format_link_speed() {
     fi
 }
 
-read_dns_provider() {
-    local dns compact
-    if [[ -f /etc/systemd/resolved.conf ]]; then
-        dns=$(awk -F= '
-            /^[[:space:]]*#/ { next }
-            /^[[:space:]]*DNS[[:space:]]*=/ {
-                value=$0
-                sub(/^[^=]*=/, "", value)
-                print value
-                exit
-            }
-        ' /etc/systemd/resolved.conf 2>/dev/null || true)
-    fi
-    compact=$(printf '%s' "$dns" | tr -d '[:space:],')
-    if [[ -z "$compact" ]]; then
-        printf '%s' "DHCP"
-    elif [[ "$dns" == *"cloudflare-dns.com"* || "$dns" == *"1.1.1.1"* || "$dns" == *"2606:4700:4700::1111"* ]]; then
-        printf '%s' "Cloudflare"
-    elif [[ "$dns" == *"dns.google"* || "$dns" == *"8.8.8.8"* || "$dns" == *"2001:4860:4860::8888"* ]]; then
-        printf '%s' "Google"
-    else
-        printf '%s' "Custom"
-    fi
-}
-
 connection_icon() {
     local kind="${1:-disconnected}"
     case "$kind" in
     ethernet) printf '%s' "󰈀" ;;
     *) printf '%s' "󰤮" ;;
     esac
+}
+
+read_iface_bytes() {
+    local iface="$1"
+    local rx_path="/sys/class/net/$iface/statistics/rx_bytes"
+    local tx_path="/sys/class/net/$iface/statistics/tx_bytes"
+    [[ -n "$iface" && -r "$rx_path" && -r "$tx_path" ]] || return 1
+    printf '%s\t%s\n' "$(cat "$rx_path" 2>/dev/null || echo 0)" "$(cat "$tx_path" 2>/dev/null || echo 0)"
+}
+
+# Sample interface throughput in bytes/sec (interval defaults to 1s).
+sample_iface_rates() {
+    local iface="$1"
+    local interval="${2:-1}"
+    local rx1 tx1 rx2 tx2 download_bps upload_bps
+
+    [[ "$interval" =~ ^[0-9]+$ && "$interval" -gt 0 ]] || interval=1
+
+    if ! read_iface_bytes "$iface" >/dev/null 2>&1; then
+        printf '0\t0\n'
+        return 0
+    fi
+
+    IFS=$'\t' read -r rx1 tx1 <<<"$(read_iface_bytes "$iface")"
+    sleep "$interval"
+    IFS=$'\t' read -r rx2 tx2 <<<"$(read_iface_bytes "$iface")"
+
+    download_bps=$(( (rx2 - rx1) / interval ))
+    upload_bps=$(( (tx2 - tx1) / interval ))
+    if (( download_bps < 0 )); then download_bps=0; fi
+    if (( upload_bps < 0 )); then upload_bps=0; fi
+    printf '%s\t%s\n' "$download_bps" "$upload_bps"
 }
 
 sample_socket_traffic() {

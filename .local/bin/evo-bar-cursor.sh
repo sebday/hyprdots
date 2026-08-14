@@ -1,9 +1,18 @@
 #!/bin/bash
 # Cursor usage for the bar widget — GET https://cursor.com/api/usage-summary
 # Cursor Models = autoPercentUsed · Other Models = apiPercentUsed
+#
+# Auth (first match wins):
+#   CURSOR_ACCESS_TOKEN in ~/.local/share/evo-shell/secrets.env
+#   ~/.config/cursor/auth.json from `agent login`
 source "${HOME}/.local/bin/evo-bar-common.sh"
 
-CURSOR_STATE_DB="${CURSOR_STATE_DB:-$HOME/.config/Cursor/User/globalStorage/state.vscdb}"
+CURSOR_AUTH_JSON="${CURSOR_AUTH_JSON:-$HOME/.config/cursor/auth.json}"
+
+if [[ -f "$EVO_SECRETS_FILE" ]]; then
+    # shellcheck disable=SC1090
+    source "$EVO_SECRETS_FILE"
+fi
 
 json_error() {
     jq -cn --arg text "$1" --arg message "${2:-}" \
@@ -33,9 +42,21 @@ workos_user_from_sub() {
 }
 
 read_local_access_token() {
-    [[ -f "$CURSOR_STATE_DB" ]] || return 1
-    command -v sqlite3 >/dev/null 2>&1 || return 1
-    sqlite3 "$CURSOR_STATE_DB" "SELECT value FROM ItemTable WHERE key='cursorAuth/accessToken' LIMIT 1;" 2>/dev/null
+    if [[ -n "${CURSOR_ACCESS_TOKEN:-}" ]]; then
+        printf '%s' "$CURSOR_ACCESS_TOKEN"
+        return 0
+    fi
+
+    if [[ -f "$CURSOR_AUTH_JSON" ]] && command -v jq >/dev/null 2>&1; then
+        local token
+        token=$(jq -r '.accessToken // empty' "$CURSOR_AUTH_JSON" 2>/dev/null)
+        if [[ -n "$token" && "$token" != "null" ]]; then
+            printf '%s' "$token"
+            return 0
+        fi
+    fi
+
+    return 1
 }
 
 build_session_cookie() {
@@ -84,7 +105,7 @@ token=$(read_local_access_token || true)
 session_cookie=$(build_session_cookie "$token") || session_cookie=""
 
 if [[ -z "$session_cookie" ]]; then
-    json_error "󰆧 …" "Sign in to Cursor IDE"
+    json_error "󰆧 …" "Run agent login or set CURSOR_ACCESS_TOKEN in secrets.env"
     exit 0
 fi
 
@@ -104,7 +125,7 @@ fi
 
 if echo "$response" | jq -e '.error' >/dev/null 2>&1; then
     msg=$(echo "$response" | jq -r '.description // .error // "not authenticated"')
-    json_error "󰆧 auth" "$msg — sign in to Cursor IDE again"
+    json_error "󰆧 auth" "$msg — run agent login again"
     exit 0
 fi
 

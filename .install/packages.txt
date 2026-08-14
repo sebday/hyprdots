@@ -8,12 +8,13 @@ hyprland
 hyprland-protocols
 hyprwayland-scanner
 xorg-xwayland
-hyprshot
 
 # Desktop ###################
 quickshell
-cliphist
+hyprshot
+hyprpicker
 wl-clipboard
+cliphist
 darkhttpd
 
 # Fonts #####################
