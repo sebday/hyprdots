@@ -23,6 +23,8 @@ Item {
     readonly property int edgeGap: Theme.gapsOut
     readonly property bool surfaceActive: dock.hovered
     readonly property bool scrimActive: shown && opened && !pinned
+    readonly property color panelBorderIdle: Theme.inactiveBorder
+    readonly property color panelBorderActive: Theme.accent
 
     readonly property var otherScreens: {
         if (!dock.scrimActive)
@@ -156,11 +158,18 @@ Item {
                 color: Theme.mantle
                 opacity: dock.surfaceActive ? Theme.surfaceOpacity : Theme.surfaceOpacityInactive
                 border.width: 2
-                border.color: Theme.accent
+                border.color: dock.surfaceActive ? dock.panelBorderActive : dock.panelBorderIdle
                 radius: Theme.panelCornerRadius
 
                 Behavior on opacity {
                     NumberAnimation {
+                        duration: 150
+                        easing.type: Easing.OutCubic
+                    }
+                }
+
+                Behavior on border.color {
+                    ColorAnimation {
                         duration: 150
                         easing.type: Easing.OutCubic
                     }

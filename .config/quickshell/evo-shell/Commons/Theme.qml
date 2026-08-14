@@ -113,6 +113,8 @@ Singleton {
     readonly property color background: themeColor("background", "#2d353b")
     readonly property color accent: themeColor("accent", "#7fbbb3")
     readonly property color urgent: themeColor("urgent", "#e67e80")
+    // Hyprland general:col.inactive_border default when unset (ff444444).
+    readonly property color inactiveBorder: themeColor("inactiveBorder", "#444444")
     readonly property color mantle: themeColor("mantle", "#252b30")
     // Match hyprland decoration.active_opacity / inactive_opacity (evo settings → hypr-looks.json)
     readonly property real surfaceOpacity: {
