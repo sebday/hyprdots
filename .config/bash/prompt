@@ -6,10 +6,10 @@ parse_git_branch() {
   git branch 2> /dev/null | sed -e '/^[^*]/d' -e 's/\* \(.*\)/ (\1)/'
 }
 
-# Prompt with user, host, path and caret — red over SSH, green locally
+# Prompt — full user@host over SSH; locally just dirname + caret
 if [[ -n "$SSH_CONNECTION" ]]; then
   PROMPT_COLOR='\[\e[0;31m\]'
+  PS1="${PROMPT_COLOR}\u@\h\[\e[0m\]:\[\e[0;34m\]\w\[\e[0;35m\]\$(parse_git_branch)\[\e[0m\] "$'\uf0a9  '
 else
-  PROMPT_COLOR='\[\e[0;32m\]'
+  PS1="\[\e[0;34m\]\W\[\e[0;35m\]\$(parse_git_branch)\[\e[0m\] "$'\uf0a9  '
 fi
-PS1="${PROMPT_COLOR}\u@\h\[\e[0m\]:\[\e[0;34m\]\w\[\e[0;35m\]\$(parse_git_branch)\[\e[0m\] "$'\uf0a9  '
