@@ -13,7 +13,7 @@ Item {
     readonly property int tileGap: 10
     readonly property string themeNamePath: Quickshell.env("HOME") + "/.themes/current/.theme-name"
     readonly property string evoThemePath: Quickshell.shellDir + "/theme.json"
-    readonly property string wallpaperStatePath: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/evo-shell/wallpaper"
+    readonly property string wallpaperStatePath: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/evoshell/wallpaper"
     readonly property bool isWallpaper: kind === "wallpapers"
 
     property string currentThemeName: ""

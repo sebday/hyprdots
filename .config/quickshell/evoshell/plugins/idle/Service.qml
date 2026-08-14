@@ -101,7 +101,7 @@ Item {
 
     Process {
         id: lockProc
-        command: ["bash", "-lc", "$HOME/.local/bin/evo-shell-ipc evo.lock lock"]
+        command: ["bash", "-lc", "$HOME/.local/bin/evoshell-ipc evo.lock lock"]
     }
 
     Process {

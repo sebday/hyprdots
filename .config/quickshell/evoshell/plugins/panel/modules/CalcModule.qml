@@ -158,7 +158,7 @@ Item {
         spacing: 10
 
         FramedPanel {
-            label: "Input"
+            label: "Calculator"
             Layout.fillWidth: true
 
             TextInput {

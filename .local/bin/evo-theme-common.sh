@@ -162,13 +162,13 @@ EOF
     fi
 }
 
-# Write ~/.config/quickshell/evo-shell/theme.json from colors.toml for Quickshell Theme.qml.
+# Write ~/.config/quickshell/evoshell/theme.json from colors.toml for Quickshell Theme.qml.
 # Preserves fontFamily / fontPixelSize from an existing theme.json or evo-font state.
 themes_sync_evo_shell() {
     local current="${CURRENT_PATH:-$THEME_DIR/current}"
     local toml="$current/colors.toml"
-    local out="${HOME}/.config/quickshell/evo-shell/theme.json"
-    local font_state="${XDG_STATE_HOME:-$HOME/.local/state}/evo-shell/font.json"
+    local out="${HOME}/.config/quickshell/evoshell/theme.json"
+    local font_state="${XDG_STATE_HOME:-$HOME/.local/state}/evoshell/font.json"
     [ -f "$toml" ] || return 0
 
     local fg bg accent mantle urgent

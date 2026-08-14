@@ -1,5 +1,5 @@
 #!/bin/bash
-# Session exit / reboot / shutdown (evo-shell power menu).
+# Session exit / reboot / shutdown (evoshell power menu).
 
 ACTION=$1
 

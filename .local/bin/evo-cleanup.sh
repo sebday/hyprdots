@@ -4,7 +4,7 @@
 set -euo pipefail
 
 EVO_CLIPBOARD="${HOME}/.local/bin/evo-clipboard.sh"
-EVO_SHELL_CACHE="${XDG_CACHE_HOME:-${HOME}/.cache}/evo-shell"
+EVO_SHELL_CACHE="${XDG_CACHE_HOME:-${HOME}/.cache}/evoshell"
 
 cleared=()
 
@@ -17,7 +17,7 @@ fi
 # Evo-shell cache (bar widget JSON, etc.)
 if [[ -d "$EVO_SHELL_CACHE" ]]; then
   rm -rf "$EVO_SHELL_CACHE"
-  cleared+=("evo-shell cache")
+  cleared+=("evoshell cache")
 fi
 
 # Other ~/.cache entries — keep cliphist db (pinned history lives there)

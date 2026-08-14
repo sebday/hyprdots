@@ -494,14 +494,14 @@ Item {
 
                 Repeater {
                     model: [
-                        { name: "arrow", label: "Arrow" },
-                        { name: "rect", label: "Rect" },
-                        { name: "text", label: "Text" }
+                        { name: "arrow", icon: "󰁝" },
+                        { name: "rect", icon: "󰹞" },
+                        { name: "text", icon: "󰉼" }
                     ]
 
                     Rectangle {
                         required property var modelData
-                        width: toolLabel.implicitWidth + 16
+                        width: 28
                         height: 28
                         radius: 3
                         color: root.tool === modelData.name ? Theme.accent : Theme.panelMantle
@@ -509,10 +509,10 @@ Item {
                         Text {
                             id: toolLabel
                             anchors.centerIn: parent
-                            text: modelData.label
+                            text: modelData.icon
                             color: root.tool === modelData.name ? Theme.mantle : Theme.foreground
                             font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontPixelSize
+                            font.pixelSize: 16
                             font.bold: Theme.fontBold
                         }
 

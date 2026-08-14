@@ -16,7 +16,7 @@ Item {
     property bool imagesOnly: false
 
     readonly property string script: Quickshell.env("HOME") + "/.local/bin/evo-clipboard.sh"
-    readonly property string previewDir: Quickshell.env("HOME") + "/.local/state/evo-shell/clipboard-previews"
+    readonly property string previewDir: Quickshell.env("HOME") + "/.local/state/evoshell/clipboard-previews"
     readonly property int listLimit: 30
     readonly property int historyFontSize: 13
     readonly property int rowHeight: 44

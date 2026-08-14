@@ -109,7 +109,7 @@ activate_theme() {
 notify_theme_switch() {
     local theme_name="$1"
 
-    rm -rf "${HOME}/.cache/evo-shell/bar" 2>/dev/null || true
+    rm -rf "${HOME}/.cache/evoshell/bar" 2>/dev/null || true
     "$HOME/.local/bin/evo-restart-shell.sh" >/dev/null 2>&1 &
 
     local ghostty_addresses
@@ -151,12 +151,12 @@ COMMAND="${1:-select}"
 case "$COMMAND" in
     select|"")
         trap - EXIT
-        exec "$HOME/.local/bin/evo-shell-ipc" shell toggle evo.theme
+        exec "$HOME/.local/bin/evoshell-ipc" shell toggle evo.theme
         ;;
 
     wallpaper)
         trap - EXIT
-        exec "$HOME/.local/bin/evo-shell-ipc" shell toggle evo.wallpaper
+        exec "$HOME/.local/bin/evoshell-ipc" shell toggle evo.wallpaper
         ;;
 
     refresh)

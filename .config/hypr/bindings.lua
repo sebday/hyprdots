@@ -7,7 +7,7 @@ local browser = "brave"
 local terminal = "ghostty"
 local editor = terminal .. " -e nvim"
 local bin = (os.getenv("HOME") or "") .. "/.local/bin"
-local shell_ipc = bin .. "/evo-shell-ipc"
+local shell_ipc = bin .. "/evoshell-ipc"
 
 local function bindd(keys, description, dispatcher, flags)
 	flags = flags or {}
@@ -129,7 +129,7 @@ bindd(
 	{ repeating = true }
 )
 
--- Volume controls (Pipewire via evo-shell)
+-- Volume controls (Pipewire via evoshell)
 bindd(
 	"XF86AudioRaiseVolume",
 	"Volume up",

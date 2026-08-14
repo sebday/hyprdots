@@ -12,7 +12,7 @@ Item {
 
     readonly property string home: Quickshell.env("HOME")
     readonly property string userName: Quickshell.env("USER") || Quickshell.env("LOGNAME")
-    readonly property string statePath: home + "/.local/state/evo-shell/wallpaper"
+    readonly property string statePath: home + "/.local/state/evoshell/wallpaper"
     readonly property string themeNamePath: home + "/.themes/current/.theme-name"
 
     readonly property string defaultWallpaperCommand: [

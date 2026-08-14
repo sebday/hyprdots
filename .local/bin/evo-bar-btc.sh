@@ -2,7 +2,7 @@
 # Evo stats panel: Kraken BTC/USD price + unrealized P/L % on XXBT holdings.
 # Persists daily closes (seeded from Kraken OHLC) for stats-panel charts.
 #
-# Credentials: ~/.local/share/evo-shell/secrets.env (KRAKEN_API_KEY, KRAKEN_SECRET)
+# Credentials: ~/.local/share/evoshell/secrets.env (KRAKEN_API_KEY, KRAKEN_SECRET)
 
 source "${HOME}/.local/bin/evo-bar-common.sh"
 
@@ -12,7 +12,7 @@ if cached=$(evo_bar_cache_read "btc" 60 2>/dev/null); then
 fi
 
 SECRETS_FILE="$EVO_SECRETS_FILE"
-STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/evo-shell"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/evoshell"
 HISTORY_FILE="${STATE_DIR}/btc-history.json"
 HISTORY_KEEP=30
 

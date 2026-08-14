@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Persist launch/pick counts for frecency sorting in evo-shell menus.
+# Persist launch/pick counts for frecency sorting in evoshell menus.
 
 set -euo pipefail
 
-STATE_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/evo-shell"
+STATE_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/evoshell"
 STATE_FILE="${STATE_DIR}/usage.json"
 
 usage_load() {

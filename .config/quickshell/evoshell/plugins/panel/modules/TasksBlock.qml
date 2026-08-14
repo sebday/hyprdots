@@ -9,7 +9,7 @@ Item {
 
     property var host: null
 
-    readonly property string taskPath: Quickshell.env("HOME") + "/.local/state/evo-shell/notes-task.json"
+    readonly property string taskPath: Quickshell.env("HOME") + "/.local/state/evoshell/notes-task.json"
     readonly property int taskFontSize: 14
     readonly property int taskRowMin: 28
     readonly property int taskBottomPad: 8

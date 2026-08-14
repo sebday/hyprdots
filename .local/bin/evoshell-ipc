@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# IPC wrapper for the running evo-shell Quickshell instance.
+# IPC wrapper for the running evoshell Quickshell instance.
 
 set -euo pipefail
 
@@ -22,25 +22,25 @@ esac
 # Direct plugin IPC (e.g. evo.audio stepUp)
 if [[ "$target" != "shell" ]]; then
     if [[ -n "$arg2" ]]; then
-        quickshell ipc -c evo-shell call "$target" "$method" "$arg1" "$arg2"
+        quickshell ipc -c evoshell call "$target" "$method" "$arg1" "$arg2"
     elif [[ -n "$arg1" ]]; then
-        quickshell ipc -c evo-shell call "$target" "$method" "$arg1"
+        quickshell ipc -c evoshell call "$target" "$method" "$arg1"
     else
-        quickshell ipc -c evo-shell call "$target" "$method"
+        quickshell ipc -c evoshell call "$target" "$method"
     fi
     exit 0
 fi
 
 # toggle/summon always need a payloadJson argument (use "" when omitted)
 if [[ "$method" == "toggle" || "$method" == "summon" ]]; then
-    quickshell ipc -c evo-shell call "$target" "$method" "$arg1" "${arg2:-}"
+    quickshell ipc -c evoshell call "$target" "$method" "$arg1" "${arg2:-}"
     exit 0
 fi
 
 if [[ -n "$arg2" ]]; then
-    quickshell ipc -c evo-shell call "$target" "$method" "$arg1" "$arg2"
+    quickshell ipc -c evoshell call "$target" "$method" "$arg1" "$arg2"
 elif [[ -n "$arg1" ]]; then
-    quickshell ipc -c evo-shell call "$target" "$method" "$arg1"
+    quickshell ipc -c evoshell call "$target" "$method" "$arg1"
 else
-    quickshell ipc -c evo-shell call "$target" "$method"
+    quickshell ipc -c evoshell call "$target" "$method"
 fi

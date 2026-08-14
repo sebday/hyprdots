@@ -3,7 +3,7 @@
 # Cursor Models = autoPercentUsed · Other Models = apiPercentUsed
 #
 # Auth (first match wins):
-#   CURSOR_ACCESS_TOKEN in ~/.local/share/evo-shell/secrets.env
+#   CURSOR_ACCESS_TOKEN in ~/.local/share/evoshell/secrets.env
 #   ~/.config/cursor/auth.json from `agent login`
 source "${HOME}/.local/bin/evo-bar-common.sh"
 

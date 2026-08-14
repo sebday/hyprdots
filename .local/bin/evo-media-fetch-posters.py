@@ -17,7 +17,7 @@ import fcntl
 from contextlib import contextmanager
 from pathlib import Path
 
-STATE_DIR = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local/state")) / "evo-shell"
+STATE_DIR = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local/state")) / "evoshell"
 DB_PATH = STATE_DIR / "media.db"
 LOCK_PATH = STATE_DIR / "media-fetch-posters.lock"
 POSTER_DIR = STATE_DIR / "media-posters"

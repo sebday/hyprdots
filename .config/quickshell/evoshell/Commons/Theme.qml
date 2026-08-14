@@ -12,7 +12,7 @@ Singleton {
     property var themeData: ({})
     property var looksData: ({})
 
-    readonly property string looksStatePath: (Quickshell.env("HOME") || "") + "/.local/state/evo-shell/hypr-looks.json"
+    readonly property string looksStatePath: (Quickshell.env("HOME") || "") + "/.local/state/evoshell/hypr-looks.json"
     readonly property string iconsThemePath: (Quickshell.env("HOME") || "") + "/.themes/current/icons.theme"
 
     property string iconThemeName: ""

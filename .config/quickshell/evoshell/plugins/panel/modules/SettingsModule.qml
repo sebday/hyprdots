@@ -11,10 +11,10 @@ Item {
     property var shell: null
 
     readonly property string hyprScript: Quickshell.env("HOME") + "/.local/bin/evo-hypr-looks.sh"
-    readonly property string barScript: Quickshell.env("HOME") + "/.local/bin/evo-shell-layout.sh"
+    readonly property string barScript: Quickshell.env("HOME") + "/.local/bin/evoshell-layout.sh"
     readonly property string fontScript: Quickshell.env("HOME") + "/.local/bin/evo-font.sh"
     readonly property string resetScript: Quickshell.env("HOME") + "/.local/bin/evo-settings-reset.sh"
-    readonly property string fontStatePath: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/evo-shell/font.json"
+    readonly property string fontStatePath: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/evoshell/font.json"
     readonly property string themeNamePath: Quickshell.env("HOME") + "/.themes/current/.theme-name"
 
     property bool roundingOn: false

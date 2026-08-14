@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Shared network helpers for evo-shell bar + popup.
+# Shared network helpers for evoshell bar + popup.
 
 INTERNET_PROBE="${INTERNET_PROBE:-1.1.1.1}"
 

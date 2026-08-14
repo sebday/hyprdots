@@ -2,7 +2,7 @@
 # Evo stats panel: SPCX USD price + Trading 212 unrealized P/L %.
 # Seeds/persists daily closes (Yahoo chart + live T212 price) for stats-panel charts.
 #
-# Credentials: ~/.local/share/evo-shell/secrets.env (T212_API_KEY, T212_API_SECRET)
+# Credentials: ~/.local/share/evoshell/secrets.env (T212_API_KEY, T212_API_SECRET)
 # App: Settings → API (Beta) → account + portfolio read permissions
 
 source "${HOME}/.local/bin/evo-bar-common.sh"
@@ -13,7 +13,7 @@ if cached=$(evo_bar_cache_read "spcx" 60 2>/dev/null); then
 fi
 
 SECRETS_FILE="$EVO_SECRETS_FILE"
-STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/evo-shell"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/evoshell"
 HISTORY_FILE="${STATE_DIR}/spcx-history.json"
 HISTORY_KEEP=30
 
@@ -109,7 +109,7 @@ bars_from_cache() {
 }
 
 if [[ -z "${T212_API_KEY:-}" || -z "${T212_API_SECRET:-}" ]]; then
-    json_out "SPCX —" "Set T212_API_KEY and T212_API_SECRET in ~/.local/share/evo-shell/secrets.env" "" "$(bars_from_cache)"
+    json_out "SPCX —" "Set T212_API_KEY and T212_API_SECRET in ~/.local/share/evoshell/secrets.env" "" "$(bars_from_cache)"
     exit 0
 fi
 

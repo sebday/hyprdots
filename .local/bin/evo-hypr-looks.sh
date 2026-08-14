@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Hyprland looks toggles + window/panel opacity for evo-shell settings.
+# Hyprland looks toggles + window/panel opacity for evoshell settings.
 
 set -euo pipefail
 
-STATE_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/evo-shell"
+STATE_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/evoshell"
 STATE_FILE="${STATE_DIR}/hypr-looks-overrides.lua"
 STATE_JSON="${STATE_DIR}/hypr-looks.json"
 

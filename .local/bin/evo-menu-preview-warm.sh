@@ -5,7 +5,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 thumb="$SCRIPT_DIR/evo-menu-preview-thumb.sh"
 theme_dir="${HOME}/.themes"
-cache_root="${XDG_STATE_HOME:-$HOME/.local/state}/evo-shell/menu-cache"
+cache_root="${XDG_STATE_HOME:-$HOME/.local/state}/evoshell/menu-cache"
 
 thumb_one() {
     local src="$1"

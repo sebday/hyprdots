@@ -8,7 +8,7 @@ key="${2:-}"
 [[ -n "$src" && -n "$key" ]] || exit 1
 [[ -f "$src" ]] || exit 1
 
-cache_root="${XDG_STATE_HOME:-$HOME/.local/state}/evo-shell/menu-cache"
+cache_root="${XDG_STATE_HOME:-$HOME/.local/state}/evoshell/menu-cache"
 dst="$cache_root/$key"
 
 mkdir -p "$(dirname "$dst")"

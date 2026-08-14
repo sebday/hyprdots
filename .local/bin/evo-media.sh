@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Local film/TV library index + playback for evo-shell.
+# Local film/TV library index + playback for evoshell.
 # Poster fetching stays in evo-media-fetch-posters.py (separate).
 
 set -euo pipefail
 
-STATE_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/evo-shell"
+STATE_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/evoshell"
 DB_PATH="${STATE_DIR}/media.db"
 POSTER_DIR="${STATE_DIR}/media-posters"
 FILMS_ROOT="${EVO_MEDIA_FILMS:-/mnt/external/films}"

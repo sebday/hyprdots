@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Restart the evo-shell Quickshell process, preserving lock state when possible.
+# Restart the evoshell Quickshell process, preserving lock state when possible.
 
 set -euo pipefail
 
 BIN="${HOME}/.local/bin"
-IPC="${BIN}/evo-shell-ipc"
-STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/evo-shell"
+IPC="${BIN}/evoshell-ipc"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/evoshell"
 SUPERVISOR_PID_FILE="${STATE_DIR}/launch-shell.pid"
 
 was_locked="false"
@@ -28,8 +28,8 @@ if [[ -f "$SUPERVISOR_PID_FILE" ]]; then
     stop_pid "$(cat "$SUPERVISOR_PID_FILE" 2>/dev/null || true)"
 fi
 
-pkill -f "systemd-cat -t evo-shell" 2>/dev/null || true
-pkill -f "quickshell.*evo-shell" 2>/dev/null || true
+pkill -f "systemd-cat -t evoshell" 2>/dev/null || true
+pkill -f "quickshell.*evoshell" 2>/dev/null || true
 sleep 0.3
 
 nohup "${BIN}/evo-launch-shell" >/dev/null 2>&1 &

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Shared layout helpers for evo-shell bar and panel.
+# Shared layout helpers for evoshell bar and panel.
 
 set -euo pipefail
 
-SHELL_JSON="${HOME}/.config/quickshell/evo-shell/shell.json"
-SHELL_IPC="${HOME}/.local/bin/evo-shell-ipc"
+SHELL_JSON="${HOME}/.config/quickshell/evoshell/shell.json"
+SHELL_IPC="${HOME}/.local/bin/evoshell-ipc"
 
 read_bar_state() {
     jq -c '{barOnDp1Top: ((.bar.output // "") == "DP-1" and (.bar.position // "") == "top")}' "$SHELL_JSON"
@@ -45,8 +45,8 @@ reload_shell_config() {
 usage() {
     cat >&2 <<'EOF'
 usage:
-  evo-shell-layout.sh bar get|toggle|reset
-  evo-shell-layout.sh panel get|toggle
+  evoshell-layout.sh bar get|toggle|reset
+  evoshell-layout.sh panel get|toggle
 EOF
     exit 1
 }

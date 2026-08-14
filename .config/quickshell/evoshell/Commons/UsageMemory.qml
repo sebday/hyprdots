@@ -7,7 +7,7 @@ import QtQuick
 Singleton {
     id: root
 
-    readonly property string statePath: (Quickshell.env("HOME") || "") + "/.local/state/evo-shell/usage.json"
+    readonly property string statePath: (Quickshell.env("HOME") || "") + "/.local/state/evoshell/usage.json"
     readonly property string bumpScript: (Quickshell.env("HOME") || "") + "/.local/bin/evo-usage.sh"
 
     property var counts: ({ apps: {} })

@@ -391,14 +391,14 @@ ShellRoot {
             Quickshell.inhibitReloadPopup()
             var notif = shell.serviceFor("evo.notifications")
             if (notif && typeof notif.showBrief === "function")
-                notif.showBrief("evo-shell", "reloaded")
+                notif.showBrief("evoshell", "reloaded")
         }
 
         function onReloadFailed() {
             Quickshell.inhibitReloadPopup()
             var notif = shell.serviceFor("evo.notifications")
             if (notif && typeof notif.showBrief === "function")
-                notif.showBrief("evo-shell", "reload failed")
+                notif.showBrief("evoshell", "reload failed")
         }
     }
 }

@@ -3,7 +3,7 @@
 set -euo pipefail
 
 mode="${1:-}"
-cache_root="${XDG_STATE_HOME:-$HOME/.local/state}/evo-shell/menu-cache"
+cache_root="${XDG_STATE_HOME:-$HOME/.local/state}/evoshell/menu-cache"
 home="${HOME:?}"
 
 preview_path() {

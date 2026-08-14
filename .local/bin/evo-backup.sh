@@ -1,12 +1,12 @@
 #!/bin/bash
-# Backup project .env files and evo-shell secrets, preserving paths.
+# Backup project .env files and evoshell secrets, preserving paths.
 
 set -euo pipefail
 
 PROJECTS="${HOME}/projects"
 STAMP="$(date +%Y-%m-%d_%H%M%S)"
 OUT="${PROJECTS}/env-backup-${STAMP}.zip"
-EVO_SECRETS="${XDG_DATA_HOME:-$HOME/.local/share}/evo-shell/secrets.env"
+EVO_SECRETS="${XDG_DATA_HOME:-$HOME/.local/share}/evoshell/secrets.env"
 
 if [ ! -d "$PROJECTS" ]; then
   echo "projects directory not found: $PROJECTS" >&2
@@ -42,8 +42,8 @@ if [ "${#rel_files[@]}" -gt 0 ]; then
 fi
 
 if [ "$extra" -eq 1 ]; then
-  # Keep ~/.local/share/evo-shell path inside the archive.
-  (cd "$HOME" && zip -q "$OUT" ".local/share/evo-shell/secrets.env")
+  # Keep ~/.local/share/evoshell path inside the archive.
+  (cd "$HOME" && zip -q "$OUT" ".local/share/evoshell/secrets.env")
 fi
 
 count=$((${#rel_files[@]} + extra))

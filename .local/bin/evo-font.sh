@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Global font family + unified text size for evo-shell settings.
-# Applies to GTK (incl. Firefox UI), evo-shell, Ghostty, Cursor, and Obsidian.
+# Global font family + unified text size for evoshell settings.
+# Applies to GTK (incl. Firefox UI), evoshell, Ghostty, Cursor, and Obsidian.
 
 set -euo pipefail
 
-STATE_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/evo-shell"
+STATE_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/evoshell"
 STATE_FILE="${STATE_DIR}/font.json"
-THEME_JSON="${HOME}/.config/quickshell/evo-shell/theme.json"
+THEME_JSON="${HOME}/.config/quickshell/evoshell/theme.json"
 GHOSTTY_CONF="${HOME}/.config/ghostty/config"
 GKEY_SCHEMA="org.gnome.desktop.interface"
 GKEY_SCALING="text-scaling-factor"

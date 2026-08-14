@@ -69,7 +69,7 @@ hl.animation({ leaf = "fade", enabled = true, speed = 7, bezier = "default" })
 hl.animation({ leaf = "workspaces", enabled = true, speed = 6, bezier = "myBezier", style = "slidevert" })
 
 do
-    local path = (os.getenv("HOME") or "") .. "/.local/state/evo-shell/hypr-looks-overrides.lua"
+    local path = (os.getenv("HOME") or "") .. "/.local/state/evoshell/hypr-looks-overrides.lua"
     local chunk = loadfile(path)
     if chunk then
         local ok, data = pcall(chunk)

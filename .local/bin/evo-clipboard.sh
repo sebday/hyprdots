@@ -4,7 +4,7 @@
 set -euo pipefail
 
 LIMIT_DEFAULT=30
-STATE_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/evo-shell"
+STATE_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/evoshell"
 PREVIEW_DIR="${STATE_DIR}/clipboard-previews"
 PINS_FILE="${STATE_DIR}/clipboard-pins.json"
 PINS_DATA_DIR="${STATE_DIR}/clipboard-pins-data"

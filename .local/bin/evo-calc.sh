@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Calculator eval + history for evo-shell calc panel.
+# Calculator eval + history for evoshell calc panel.
 
 set -euo pipefail
 
-STATE_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/evo-shell"
+STATE_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/evoshell"
 HISTORY_FILE="${STATE_DIR}/calc-history.json"
 MAX_ITEMS=100
 HISTORY_LIMIT=50

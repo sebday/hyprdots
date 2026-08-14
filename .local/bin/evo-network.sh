@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Network status and per-process traffic for evo-shell.
+# Network status and per-process traffic for evoshell.
 
 set -euo pipefail
 

@@ -14,7 +14,7 @@ Item {
     property string pendingFocus: ""
     property string focusTarget: ""
 
-    readonly property string layoutScript: Quickshell.env("HOME") + "/.local/bin/evo-shell-layout.sh"
+    readonly property string layoutScript: Quickshell.env("HOME") + "/.local/bin/evoshell-layout.sh"
 
     Component { id: calcComp; CalcModule {} }
     Component { id: clipboardComp; ClipboardModule {} }

@@ -1,0 +1,213 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 720" font-family="ui-monospace, 'Cascadia Code', 'SF Mono', Menlo, monospace">
+  <defs>
+    <pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <line x1="0" y1="0" x2="0" y2="6" stroke="#1a1a1a" stroke-width="1"/>
+    </pattern>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="#1a1a1a"/>
+    </marker>
+  </defs>
+
+  <!-- background -->
+  <rect width="1180" height="720" fill="#e4d8c4"/>
+  <rect x="18" y="18" width="1144" height="684" fill="none" stroke="#1a1a1a" stroke-width="2"/>
+
+  <!-- title bar -->
+  <text x="40" y="52" font-size="22" font-weight="700" fill="#1a1a1a">EVOSHELL</text>
+  <text x="40" y="74" font-size="11" fill="#3a3a3a">quickshell desktop · bar · panel · plugins · hyprland</text>
+  <line x1="40" y1="86" x2="1140" y2="86" stroke="#1a1a1a" stroke-width="1"/>
+
+  <!-- left legend -->
+  <text x="40" y="118" font-size="10" font-weight="700" fill="#1a1a1a">THE SHELL CORE</text>
+  <text x="40" y="136" font-size="10" fill="#1a1a1a"><tspan font-weight="700">S</tspan>  shell.qml · pluginTable · summon/toggle</text>
+  <text x="40" y="152" font-size="10" fill="#1a1a1a"><tspan font-weight="700">I</tspan>  evoshell-ipc · IpcHandler</text>
+  <text x="40" y="168" font-size="10" fill="#1a1a1a"><tspan font-weight="700">C</tspan>  shell.json · bar layout</text>
+
+  <text x="40" y="198" font-size="10" font-weight="700" fill="#1a1a1a">THE SURFACES</text>
+  <text x="40" y="216" font-size="10" fill="#1a1a1a"><tspan font-weight="700">B</tspan>  evo.bar · widgets · hover targets</text>
+  <text x="40" y="232" font-size="10" fill="#1a1a1a"><tspan font-weight="700">P</tspan>  evo.panel · tools · clipboard · settings</text>
+  <text x="40" y="248" font-size="10" fill="#1a1a1a"><tspan font-weight="700">M</tspan>  evo.menu · launcher</text>
+
+  <text x="40" y="278" font-size="10" font-weight="700" fill="#1a1a1a">SERVICES</text>
+  <text x="40" y="296" font-size="10" fill="#1a1a1a"><tspan font-weight="700">A</tspan>  audio · <tspan font-weight="700">G</tspan>  background · <tspan font-weight="700">L</tspan>  lock</text>
+  <text x="40" y="312" font-size="10" fill="#1a1a1a"><tspan font-weight="700">D</tspan>  idle · <tspan font-weight="700">N</tspan>  notifications · <tspan font-weight="700">K</tspan>  clipboard</text>
+
+  <text x="40" y="342" font-size="10" font-weight="700" fill="#1a1a1a">BAR DATA</text>
+  <text x="40" y="360" font-size="10" fill="#1a1a1a"><tspan font-weight="700">X</tspan>  evo-bar-*.sh · JSON line</text>
+  <text x="40" y="376" font-size="10" fill="#1a1a1a"><tspan font-weight="700">T</tspan>  theme.json · Theme.qml</text>
+  <text x="40" y="392" font-size="10" fill="#1a1a1a"><tspan font-weight="700">H</tspan>  hypr evoshell.lua · layer rules</text>
+
+  <text x="40" y="422" font-size="10" font-weight="700" fill="#1a1a1a">OVERLAYS</text>
+  <text x="40" y="440" font-size="10" fill="#1a1a1a"><tspan font-weight="700">W</tspan>  weather · stats · network · cursor</text>
+  <text x="40" y="456" font-size="10" fill="#1a1a1a"><tspan font-weight="700">O</tspan>  library · theme · wallpaper</text>
+  <text x="40" y="472" font-size="10" fill="#1a1a1a"><tspan font-weight="700">R</tspan>  screenshot</text>
+
+  <text x="40" y="510" font-size="9" fill="#5a5a5a">tall stacks = config / state</text>
+  <text x="40" y="524" font-size="9" fill="#5a5a5a">hatched blocks = runtime services</text>
+  <text x="40" y="538" font-size="9" fill="#5a5a5a">slabs = on-screen surfaces</text>
+
+  <!-- isometric helpers: iso(x,y,z) => screen coords, z up -->
+  <!-- center origin ~ (620, 420) -->
+
+  <!-- C: shell.json stack -->
+  <g transform="translate(300, 260)">
+    <rect x="0" y="0" width="88" height="8" fill="#f0e8d8" stroke="#1a1a1a"/>
+    <rect x="4" y="10" width="88" height="8" fill="#f0e8d8" stroke="#1a1a1a"/>
+    <rect x="8" y="20" width="88" height="8" fill="#f0e8d8" stroke="#1a1a1a"/>
+    <rect x="12" y="30" width="88" height="8" fill="#f0e8d8" stroke="#1a1a1a"/>
+    <rect x="16" y="40" width="88" height="8" fill="#f0e8d8" stroke="#1a1a1a"/>
+    <rect x="20" y="50" width="88" height="8" fill="#f0e8d8" stroke="#1a1a1a"/>
+    <text x="52" y="78" text-anchor="middle" font-size="16" font-weight="700">C</text>
+    <text x="52" y="94" text-anchor="middle" font-size="8">shell.json</text>
+  </g>
+
+  <!-- T: theme.json stack -->
+  <g transform="translate(300, 430)">
+    <rect x="0" y="0" width="72" height="7" fill="#f0e8d8" stroke="#1a1a1a"/>
+    <rect x="4" y="9" width="72" height="7" fill="#f0e8d8" stroke="#1a1a1a"/>
+    <rect x="8" y="18" width="72" height="7" fill="#f0e8d8" stroke="#1a1a1a"/>
+    <rect x="12" y="27" width="72" height="7" fill="#f0e8d8" stroke="#1a1a1a"/>
+    <text x="44" y="52" text-anchor="middle" font-size="16" font-weight="700">T</text>
+    <text x="44" y="66" text-anchor="middle" font-size="8">theme.json</text>
+  </g>
+
+  <!-- I: IPC block -->
+  <g transform="translate(430, 500)">
+    <polygon points="0,30 26,15 52,30 26,45" fill="#f0e8d8" stroke="#1a1a1a"/>
+    <polygon points="0,30 0,0 26,-15 26,15" fill="#d8ccb8" stroke="#1a1a1a"/>
+    <polygon points="26,15 26,-15 52,0 52,30" fill="#c8bcaa" stroke="#1a1a1a"/>
+    <text x="26" y="8" text-anchor="middle" font-size="16" font-weight="700">I</text>
+    <text x="26" y="62" text-anchor="middle" font-size="8">evoshell-ipc</text>
+  </g>
+
+  <!-- S: shell.qml central cube -->
+  <g transform="translate(470, 300)">
+    <polygon points="0,50 40,25 80,50 40,75" fill="#f0e8d8" stroke="#1a1a1a" stroke-width="1.5"/>
+    <polygon points="0,50 0,0 40,-25 40,25" fill="#d8ccb8" stroke="#1a1a1a" stroke-width="1.5"/>
+    <polygon points="40,25 40,-25 80,0 80,50" fill="url(#hatch)" stroke="#1a1a1a" stroke-width="1.5"/>
+    <text x="40" y="18" text-anchor="middle" font-size="22" font-weight="700">S</text>
+    <text x="40" y="98" text-anchor="middle" font-size="9">shell.qml</text>
+  </g>
+
+  <!-- B: bar slab -->
+  <g transform="translate(600, 360)">
+    <polygon points="0,20 120,10 240,20 120,30" fill="#f0e8d8" stroke="#1a1a1a" stroke-width="1.5"/>
+    <polygon points="0,20 0,0 120,-10 120,10" fill="#d8ccb8" stroke="#1a1a1a" stroke-width="1.5"/>
+    <polygon points="120,10 120,-10 240,0 240,20" fill="#c8bcaa" stroke="#1a1a1a" stroke-width="1.5"/>
+    <text x="120" y="6" text-anchor="middle" font-size="18" font-weight="700">B</text>
+    <text x="120" y="48" text-anchor="middle" font-size="9">evo.bar</text>
+  </g>
+
+  <!-- P: panel block -->
+  <g transform="translate(600, 220)">
+    <polygon points="0,40 28,20 56,40 28,60" fill="#f0e8d8" stroke="#1a1a1a"/>
+    <polygon points="0,40 0,0 28,-20 28,20" fill="#d8ccb8" stroke="#1a1a1a"/>
+    <polygon points="28,20 28,-20 56,0 56,40" fill="url(#hatch)" stroke="#1a1a1a"/>
+    <text x="28" y="8" text-anchor="middle" font-size="16" font-weight="700">P</text>
+    <text x="28" y="78" text-anchor="middle" font-size="8">evo.panel</text>
+  </g>
+
+  <!-- M: menu block -->
+  <g transform="translate(700, 200)">
+    <polygon points="0,30 22,15 44,30 22,45" fill="#f0e8d8" stroke="#1a1a1a"/>
+    <polygon points="0,30 0,0 22,-15 22,15" fill="#d8ccb8" stroke="#1a1a1a"/>
+    <polygon points="22,15 22,-15 44,0 44,30" fill="#c8bcaa" stroke="#1a1a1a"/>
+    <text x="22" y="6" text-anchor="middle" font-size="14" font-weight="700">M</text>
+    <text x="22" y="62" text-anchor="middle" font-size="8">evo.menu</text>
+  </g>
+
+  <!-- X: bar scripts -->
+  <g transform="translate(860, 390)">
+    <polygon points="0,30 24,15 48,30 24,45" fill="#f0e8d8" stroke="#1a1a1a"/>
+    <polygon points="0,30 0,0 24,-15 24,15" fill="#d8ccb8" stroke="#1a1a1a"/>
+    <polygon points="24,15 24,-15 48,0 48,30" fill="url(#hatch)" stroke="#1a1a1a"/>
+    <text x="24" y="6" text-anchor="middle" font-size="14" font-weight="700">X</text>
+    <text x="24" y="62" text-anchor="middle" font-size="8">evo-bar-*.sh</text>
+  </g>
+
+  <!-- H: hyprland -->
+  <g transform="translate(860, 500)">
+    <polygon points="0,35 30,17 60,35 30,53" fill="#f0e8d8" stroke="#1a1a1a"/>
+    <polygon points="0,35 0,0 30,-18 30,17" fill="#d8ccb8" stroke="#1a1a1a"/>
+    <polygon points="30,17 30,-18 60,0 60,35" fill="#c8bcaa" stroke="#1a1a1a"/>
+    <text x="30" y="4" text-anchor="middle" font-size="16" font-weight="700">H</text>
+    <text x="30" y="72" text-anchor="middle" font-size="8">hyprland</text>
+  </g>
+
+  <!-- Services cluster -->
+  <g transform="translate(470, 470)">
+    <polygon points="0,28 22,14 44,28 22,42" fill="#f0e8d8" stroke="#1a1a1a"/>
+    <polygon points="0,28 0,0 22,-14 22,14" fill="#d8ccb8" stroke="#1a1a1a"/>
+    <polygon points="22,14 22,-14 44,0 44,28" fill="url(#hatch)" stroke="#1a1a1a"/>
+    <text x="22" y="4" text-anchor="middle" font-size="11" font-weight="700">Sv</text>
+    <text x="22" y="58" text-anchor="middle" font-size="7">A G L D N K</text>
+  </g>
+
+  <!-- W: hover overlays -->
+  <g transform="translate(780, 300)">
+    <polygon points="0,25 20,12 40,25 20,38" fill="#f0e8d8" stroke="#1a1a1a"/>
+    <polygon points="0,25 0,0 20,-13 20,12" fill="#d8ccb8" stroke="#1a1a1a"/>
+    <polygon points="20,12 20,-13 40,0 40,25" fill="#c8bcaa" stroke="#1a1a1a"/>
+    <text x="20" y="2" text-anchor="middle" font-size="13" font-weight="700">W</text>
+    <text x="20" y="54" text-anchor="middle" font-size="7">hover popups</text>
+  </g>
+
+  <!-- O: fullscreen overlays -->
+  <g transform="translate(780, 160)">
+    <polygon points="0,30 24,15 48,30 24,45" fill="#f0e8d8" stroke="#1a1a1a"/>
+    <polygon points="0,30 0,0 24,-15 24,15" fill="#d8ccb8" stroke="#1a1a1a"/>
+    <polygon points="24,15 24,-15 48,0 48,30" fill="url(#hatch)" stroke="#1a1a1a"/>
+    <text x="24" y="4" text-anchor="middle" font-size="14" font-weight="700">O</text>
+    <text x="24" y="62" text-anchor="middle" font-size="7">library · theme</text>
+  </g>
+
+  <!-- R: screenshot -->
+  <g transform="translate(880, 160)">
+    <polygon points="0,22 18,11 36,22 18,33" fill="#f0e8d8" stroke="#1a1a1a"/>
+    <polygon points="0,22 0,0 18,-11 18,11" fill="#d8ccb8" stroke="#1a1a1a"/>
+    <polygon points="18,11 18,-11 36,0 36,22" fill="#c8bcaa" stroke="#1a1a1a"/>
+    <text x="18" y="0" text-anchor="middle" font-size="12" font-weight="700">R</text>
+    <text x="18" y="48" text-anchor="middle" font-size="7">screenshot</text>
+  </g>
+
+  <!-- state stack -->
+  <g transform="translate(980, 420)">
+    <rect x="0" y="0" width="64" height="6" fill="#f0e8d8" stroke="#1a1a1a"/>
+    <rect x="3" y="8" width="64" height="6" fill="#f0e8d8" stroke="#1a1a1a"/>
+    <rect x="6" y="16" width="64" height="6" fill="#f0e8d8" stroke="#1a1a1a"/>
+    <rect x="9" y="24" width="64" height="6" fill="#f0e8d8" stroke="#1a1a1a"/>
+    <rect x="12" y="32" width="64" height="6" fill="#f0e8d8" stroke="#1a1a1a"/>
+    <text x="44" y="56" text-anchor="middle" font-size="8">~/.local/state/evoshell</text>
+  </g>
+
+  <!-- flow lines -->
+  <g fill="none" stroke="#1a1a1a" stroke-width="1.2" marker-end="url(#arrow)">
+    <path d="M 388 310 L 468 330"/>
+    <path d="M 344 470 L 468 390" stroke-dasharray="4 3" marker-end="none"/>
+    <path d="M 388 455 L 468 420" stroke-dasharray="4 3"/>
+    <path d="M 456 520 L 468 390"/>
+    <path d="M 552 340 L 598 360"/>
+    <path d="M 552 310 L 626 250"/>
+    <path d="M 552 370 L 626 380"/>
+    <path d="M 552 400 L 492 470"/>
+    <path d="M 840 375 L 858 405"/>
+    <path d="M 840 340 L 798 320"/>
+    <path d="M 552 290 L 778 185"/>
+    <path d="M 552 290 L 878 175" stroke-dasharray="4 3"/>
+    <path d="M 908 405 L 978 440" stroke-dasharray="4 3" marker-end="none"/>
+    <path d="M 888 530 L 720 395" stroke-dasharray="4 3" marker-end="none"/>
+  </g>
+
+  <!-- loop label -->
+  <text x="620" y="580" text-anchor="middle" font-size="10" fill="#3a3a3a">config ’ shell ’ surfaces ’ scripts ’ state ’ back</text>
+
+  <!-- right panel: what it does -->
+  <rect x="820" y="560" width="320" height="130" fill="#f0e8d8" stroke="#1a1a1a"/>
+  <text x="836" y="582" font-size="10" font-weight="700" fill="#1a1a1a">WHAT IT DOES</text>
+  <text x="836" y="600" font-size="9" fill="#1a1a1a">A Quickshell desktop shell for Hyprland.</text>
+  <text x="836" y="616" font-size="9" fill="#1a1a1a">Bar widgets poll scripts; hover opens tooltips;</text>
+  <text x="836" y="632" font-size="9" fill="#1a1a1a">keybinds and IPC toggle panels and overlays.</text>
+  <text x="836" y="648" font-size="9" fill="#1a1a1a">Services run in the background: audio, wallpaper,</text>
+  <text x="836" y="664" font-size="9" fill="#1a1a1a">lock, idle, clipboard, notifications.</text>
+  <text x="836" y="680" font-size="9" fill="#5a5a5a">quickshell -c evoshell · journalctl -t evoshell</text>
+</svg>

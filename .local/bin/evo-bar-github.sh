@@ -10,7 +10,7 @@ fi
 # GitHub username
 USERNAME="sebday"
 
-# Secrets: ~/.local/share/evo-shell/secrets.env (chmod 600), e.g. GITHUB_TOKEN=ghp_...
+# Secrets: ~/.local/share/evoshell/secrets.env (chmod 600), e.g. GITHUB_TOKEN=ghp_...
 SECRETS_FILE="$EVO_SECRETS_FILE"
 if [[ -f "$SECRETS_FILE" ]]; then
     # shellcheck disable=SC1090
@@ -62,7 +62,7 @@ build_heatmap_json() {
 
 # --- Token Validation ---
 if [[ -z "$TOKEN" ]]; then
-    json_error " Token Err" "Set GITHUB_TOKEN in ~/.local/share/evo-shell/secrets.env (chmod 600)"
+    json_error " Token Err" "Set GITHUB_TOKEN in ~/.local/share/evoshell/secrets.env (chmod 600)"
     exit 1
 fi
 

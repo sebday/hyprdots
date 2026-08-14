@@ -3,8 +3,8 @@
 # Heatmap colours come from ~/.themes/current/evo-bar.css (generated from colors.toml).
 
 EVO_BAR_THEME_CSS="${EVO_BAR_THEME_CSS:-$HOME/.themes/current/evo-bar.css}"
-EVO_SECRETS_FILE="${EVO_SECRETS_FILE:-${XDG_DATA_HOME:-$HOME/.local/share}/evo-shell/secrets.env}"
-EVO_BAR_CACHE_DIR="${EVO_BAR_CACHE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/evo-shell/bar}"
+EVO_SECRETS_FILE="${EVO_SECRETS_FILE:-${XDG_DATA_HOME:-$HOME/.local/share}/evoshell/secrets.env}"
+EVO_BAR_CACHE_DIR="${EVO_BAR_CACHE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/evoshell/bar}"
 
 # Fill global GITHUB_COLORS[0..4] from @define-color github-N in theme evo-bar.css.
 evo_bar_load_heatmap_colors() {
