@@ -15,6 +15,43 @@ Item {
     property string kind: "themes"
     property string layerNamespace: "evo-theme"
 
+    readonly property string pickerOutput: {
+        if (shell && shell.shellConfig && shell.shellConfig.notifications
+                && shell.shellConfig.notifications.output)
+            return String(shell.shellConfig.notifications.output).trim()
+        return "DP-1"
+    }
+
+    readonly property var hostScreen: {
+        var screens = Quickshell.screens
+        if (!screens || screens.length === 0)
+            return null
+        var wanted = pickerOutput
+        for (var i = 0; i < screens.length; i++) {
+            var s = screens[i]
+            if (s && String(s.name) === wanted)
+                return s
+        }
+        return screens[0]
+    }
+
+    readonly property var otherScreens: {
+        if (!opened)
+            return []
+        var screens = Quickshell.screens
+        if (!screens || screens.length === 0)
+            return []
+        var hostName = hostScreen ? String(hostScreen.name) : ""
+        var out = []
+        for (var i = 0; i < screens.length; i++) {
+            var s = screens[i]
+            if (!s || (hostName && String(s.name) === hostName))
+                continue
+            out.push(s)
+        }
+        return out
+    }
+
     readonly property bool isWallpaper: kind === "wallpapers"
     readonly property string listScript: Quickshell.env("HOME") + "/.local/bin/evo-menu-list"
     readonly property string themeNamePath: Quickshell.env("HOME") + "/.themes/current/.theme-name"
@@ -28,7 +65,9 @@ Item {
     property var entries: []
     property bool loading: false
     property bool pendingListReload: false
+    property bool pendingListSilent: false
     property bool layoutReady: false
+    property bool selectionTouched: false
     property string currentThemeName: ""
     property string currentWallpaperPath: ""
     property int selectedIndex: 0
@@ -47,26 +86,31 @@ Item {
     function open(payloadJson) {
         opened = true
         layoutReady = false
-        warmPreviewCache()
+        selectionTouched = false
         if (isWallpaper)
             wallpaperStateFile.reload()
         else
             themeNameFile.reload()
-        if (entries.length === 0)
+        if (entries.length === 0) {
+            warmPreviewCache()
             reloadEntries()
-        else
+        } else {
             syncSelectedIndex()
+            backdrop.show(previewAt(selectedIndex), true)
+        }
         revealWhenReady()
     }
 
     function warmPreviewCache() {
-        if (warmProc.running) return
+        if (warmProc.running)
+            return
         warmProc.running = true
     }
 
     function close() {
         opened = false
         layoutReady = false
+        selectionTouched = false
     }
 
     function dismiss() {
@@ -78,7 +122,7 @@ Item {
 
     function revealWhenReady() {
         Qt.callLater(function() {
-            if (root.opened && !root.loading && root.entries.length > 0) {
+            if (root.opened && root.hostScreen && !root.loading && root.entries.length > 0) {
                 root.layoutReady = true
                 carousel.forceActiveFocus()
             }
@@ -88,9 +132,11 @@ Item {
     function reloadEntries(silent) {
         if (listProc.running) {
             pendingListReload = true
+            pendingListSilent = pendingListSilent && !!silent
             return
         }
         pendingListReload = false
+        pendingListSilent = !!silent
         if (!silent)
             loading = true
         listProc.running = true
@@ -101,7 +147,8 @@ Item {
         var out = []
         for (var i = 0; i < lines.length; i++) {
             var line = lines[i].trim()
-            if (!line) continue
+            if (!line)
+                continue
             var parts = line.split("\t")
             out.push({
                 name: parts[0] || "",
@@ -109,27 +156,47 @@ Item {
                 preview: parts[2] || ""
             })
         }
+        var silent = pendingListSilent
+        pendingListSilent = false
         entries = out
-        syncSelectedIndex()
         loading = false
+        if (!silent)
+            syncSelectedIndex()
+        if (opened)
+            backdrop.show(previewAt(selectedIndex), true)
         revealWhenReady()
     }
 
-    function isSelected(entry) {
-        if (!entry) return false
+    function activeKey() {
+        if (isWallpaper)
+            return String(currentWallpaperPath || "").trim()
+        return String(currentThemeName || "").trim()
+    }
+
+    function entryKey(entry) {
+        if (!entry)
+            return ""
         if (isWallpaper) {
-            var key = String(currentWallpaperPath || "").trim()
-            if (!key) return false
-            if (entry.preview && key === String(entry.preview))
-                return true
             var cmd = String(entry.command || "")
-            if (cmd.indexOf(key) >= 0)
-                return true
-            var name = String(entry.name || "")
-            return key.endsWith("/" + name) || key === name
+            var marker = "evo-wallpaper set "
+            var pos = cmd.indexOf(marker)
+            if (pos >= 0)
+                return cmd.slice(pos + marker.length).trim()
+            return String(entry.name || "")
         }
-        var theme = String(currentThemeName || "").trim()
-        return theme && String(entry.name) === theme
+        return String(entry.name || "")
+    }
+
+    function isSelected(entry) {
+        var key = activeKey()
+        if (!key || !entry)
+            return false
+        var entryKeyValue = entryKey(entry)
+        if (!entryKeyValue)
+            return false
+        if (isWallpaper)
+            return key === entryKeyValue || key.endsWith("/" + entry.name)
+        return key === entryKeyValue
     }
 
     function indexOfSelected() {
@@ -141,6 +208,8 @@ Item {
     }
 
     function syncSelectedIndex() {
+        if (selectionTouched)
+            return
         var idx = indexOfSelected()
         if (idx >= 0)
             selectedIndex = idx
@@ -149,31 +218,37 @@ Item {
     }
 
     function select(index) {
-        if (entries.length === 0) return
-        if (index < 0) index = 0
-        else if (index >= entries.length) index = entries.length - 1
-        if (index === selectedIndex) return
+        if (entries.length === 0)
+            return
+        if (index < 0)
+            index = 0
+        else if (index >= entries.length)
+            index = entries.length - 1
+        if (index === selectedIndex)
+            return
+        selectionTouched = true
         selectedIndex = index
+        backdrop.show(previewAt(index), false)
     }
 
     function selectAdjacent(direction) {
         var count = entries.length
-        if (count === 0) return
+        if (count === 0)
+            return
         select((selectedIndex + direction + count) % count)
+    }
+
+    function previewAt(index) {
+        if (index < 0 || index >= entries.length)
+            return ""
+        var entry = entries[index]
+        return entry ? String(entry.preview || "") : ""
     }
 
     function currentEntry() {
         if (selectedIndex < 0 || selectedIndex >= entries.length)
             return null
         return entries[selectedIndex]
-    }
-
-    function entryPreview(entry) {
-        return entry ? String(entry.preview || "") : ""
-    }
-
-    function currentPreview() {
-        return entryPreview(currentEntry())
     }
 
     function applySelected() {
@@ -196,8 +271,11 @@ Item {
         path: root.themeNamePath
         watchChanges: true
         printErrors: false
-        onLoaded: root.currentThemeName = String(themeNameFile.text() || "").trim()
-        onFileChanged: reload()
+        onLoaded: {
+            root.currentThemeName = String(themeNameFile.text() || "").trim()
+            if (root.opened && !root.selectionTouched)
+                root.syncSelectedIndex()
+        }
     }
 
     FileView {
@@ -205,15 +283,18 @@ Item {
         path: root.wallpaperStatePath
         watchChanges: true
         printErrors: false
-        onLoaded: root.currentWallpaperPath = String(wallpaperStateFile.text() || "").trim()
-        onFileChanged: reload()
+        onLoaded: {
+            root.currentWallpaperPath = String(wallpaperStateFile.text() || "").trim()
+            if (root.opened && !root.selectionTouched)
+                root.syncSelectedIndex()
+        }
     }
 
     Process {
         id: warmProc
         command: ["bash", "-lc", "test -x " + Util.shellQuote(root.warmScript) + " && " + Util.shellQuote(root.warmScript)]
         onExited: {
-            if (root.opened)
+            if (root.opened && root.entries.length === 0)
                 root.reloadEntries(true)
         }
     }
@@ -231,8 +312,35 @@ Item {
         }
     }
 
+    Variants {
+        model: root.otherScreens
+
+        PanelWindow {
+            required property var modelData
+            screen: modelData
+            visible: root.opened
+            anchors { top: true; bottom: true; left: true; right: true }
+            color: "transparent"
+            WlrLayershell.namespace: root.layerNamespace + "-scrim"
+            WlrLayershell.layer: WlrLayer.Overlay
+            WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+            exclusionMode: ExclusionMode.Ignore
+
+            Rectangle {
+                anchors.fill: parent
+                color: Theme.withOpacity(root.dimColor, 0.72)
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                onClicked: root.dismiss()
+            }
+        }
+    }
+
     PanelWindow {
-        visible: root.opened
+        screen: root.hostScreen
+        visible: root.opened && root.hostScreen
         anchors { top: true; bottom: true; left: true; right: true }
         color: "transparent"
         WlrLayershell.namespace: root.layerNamespace
@@ -243,25 +351,82 @@ Item {
         Item {
             id: backdrop
             anchors.fill: parent
-            visible: root.opened
+
+            property string basePath: ""
+            property string overlayPath: ""
+            property bool crossfading: false
+
+            function show(path, instant) {
+                path = String(path || "").trim()
+                if (!path)
+                    return
+                if (!basePath || instant) {
+                    crossfade.stop()
+                    crossfading = false
+                    overlayImage.opacity = 0
+                    overlayPath = ""
+                    basePath = path
+                    return
+                }
+                if (path === basePath && !crossfading)
+                    return
+                if (path === overlayPath && crossfading)
+                    return
+                overlayPath = path
+                crossfading = true
+                overlayImage.opacity = 0
+                if (overlayImage.status === Image.Ready)
+                    crossfade.start()
+            }
 
             Image {
-                id: backdropImage
+                id: baseImage
                 anchors.fill: parent
-                source: Util.fileUrl(root.currentPreview())
+                source: backdrop.basePath ? Util.fileUrl(backdrop.basePath) : ""
                 fillMode: Image.PreserveAspectCrop
                 asynchronous: true
                 cache: true
                 smooth: true
                 mipmap: true
-                visible: status === Image.Ready
             }
 
-            layer.enabled: backdropImage.visible
-            layer.effect: MultiEffect {
-                blurEnabled: true
-                blurMax: 48
-                blur: 0.9
+            Image {
+                id: overlayImage
+                anchors.fill: parent
+                opacity: 0
+                visible: opacity > 0 || backdrop.crossfading
+                source: backdrop.overlayPath ? Util.fileUrl(backdrop.overlayPath) : ""
+                fillMode: Image.PreserveAspectCrop
+                asynchronous: true
+                cache: true
+                smooth: true
+                mipmap: true
+                onStatusChanged: {
+                    if (backdrop.crossfading && status === Image.Ready && !crossfade.running)
+                        crossfade.start()
+                }
+            }
+
+            NumberAnimation {
+                id: crossfade
+                target: overlayImage
+                property: "opacity"
+                from: 0
+                to: 1
+                duration: 220
+                easing.type: Easing.InOutQuad
+                onFinished: {
+                    backdrop.basePath = backdrop.overlayPath
+                    overlayImage.opacity = 0
+                    backdrop.overlayPath = ""
+                    backdrop.crossfading = false
+                }
+            }
+
+            Rectangle {
+                anchors.fill: parent
+                color: root.dimColor
+                opacity: 0.55
             }
         }
 
@@ -313,13 +478,11 @@ Item {
                 anchors.bottomMargin: root.bottomChromeHeight
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: root.expandedWidth + 13 * (root.sliceWidth + root.sliceSpacing)
-                clip: false
                 focus: true
 
                 readonly property real itemStep: root.sliceWidth + root.sliceSpacing
                 readonly property real previewX: (width - root.expandedWidth) / 2
 
-                Keys.priority: Keys.BeforeItem
                 Keys.onPressed: function(event) {
                     if (event.key === Qt.Key_Escape) {
                         root.dismiss()
@@ -327,13 +490,10 @@ Item {
                     } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
                         root.applySelected()
                         event.accepted = true
-                    } else if (event.key === Qt.Key_Left || event.key === Qt.Key_Backtab
-                               || (event.key === Qt.Key_Tab && event.modifiers & Qt.ShiftModifier)
-                               || event.key === Qt.Key_Comma) {
+                    } else if (event.key === Qt.Key_Left) {
                         root.selectAdjacent(-1)
                         event.accepted = true
-                    } else if (event.key === Qt.Key_Right || event.key === Qt.Key_Tab
-                               || event.key === Qt.Key_Period) {
+                    } else if (event.key === Qt.Key_Right) {
                         root.selectAdjacent(1)
                         event.accepted = true
                     }
@@ -352,12 +512,8 @@ Item {
                         readonly property int relativeIndex: index - root.selectedIndex
                         readonly property bool selected: index === root.selectedIndex
                         readonly property bool nearby: Math.abs(relativeIndex) <= 16
-                        readonly property bool preload: Math.abs(relativeIndex) <= 2
-                        readonly property string imageSource: root.entryPreview(entry)
-                        property bool sourceActivated: nearby || preload
-
-                        onNearbyChanged: if (nearby) sourceActivated = true
-                        onPreloadChanged: if (preload) sourceActivated = true
+                        readonly property string imageSource: root.previewAt(index)
+                        readonly property bool showImage: nearby || Math.abs(relativeIndex) <= 2
 
                         visible: nearby
                         z: selected ? 100 : 50 - Math.min(Math.abs(relativeIndex), 40)
@@ -416,7 +572,7 @@ Item {
 
                             Image {
                                 anchors.fill: parent
-                                source: item.sourceActivated && imageSource ? Util.fileUrl(imageSource) : ""
+                                source: item.showImage && imageSource ? Util.fileUrl(imageSource) : ""
                                 fillMode: Image.PreserveAspectCrop
                                 asynchronous: !item.selected
                                 cache: true
@@ -457,7 +613,6 @@ Item {
             }
 
             Row {
-                id: pager
                 anchors.top: carousel.bottom
                 anchors.topMargin: 18
                 anchors.horizontalCenter: parent.horizontalCenter

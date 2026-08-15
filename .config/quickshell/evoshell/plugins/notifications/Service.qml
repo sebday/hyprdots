@@ -177,6 +177,51 @@ Scope {
         return title.indexOf("scrobbler") !== -1 || app.indexOf("scrobbler") !== -1
     }
 
+    function isHyprshot(entry) {
+        if (!entry || entry.local) return false
+        var app = String(entry.notification && entry.notification.appName || "").toLowerCase()
+        return app === "hyprshot"
+    }
+
+    function normalizeLocalPath(path) {
+        var s = String(path || "").trim()
+        if (!s) return ""
+        if (s.indexOf("file://") === 0) {
+            try {
+                s = decodeURIComponent(s.slice(7))
+            } catch (e) {
+                s = s.slice(7)
+            }
+        }
+        if (s.charAt(0) !== "/") return ""
+        return s
+    }
+
+    function screenshotPath(entry) {
+        var n = entry && entry.notification
+        if (!n) return "/tmp/hyprshot.png"
+
+        var candidates = []
+        var match = String(n.body || "").match(/<i>([^<]+)<\/i>/)
+        if (match) candidates.push(match[1])
+        if (n.appIcon) candidates.push(n.appIcon)
+        if (n.image) candidates.push(n.image)
+
+        for (var i = 0; i < candidates.length; i++) {
+            var p = normalizeLocalPath(candidates[i])
+            if (p) return p
+        }
+        return "/tmp/hyprshot.png"
+    }
+
+    function openScreenshotEditor(entry) {
+        if (!entry) return
+        var home = String(Quickshell.env("HOME") || "")
+        var editor = home ? home + "/.local/bin/evo-screenshot-edit" : "evo-screenshot-edit"
+        Quickshell.execDetached([editor, screenshotPath(entry)])
+        dismissEntry(entry.key)
+    }
+
     function isMedia(entry) {
         if (!entry || entry.local) return false
         if (isScrobbler(entry)) return true
@@ -518,10 +563,15 @@ Scope {
 
             MouseArea {
                 anchors.fill: parent
-                acceptedButtons: Qt.RightButton
+                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                cursorShape: root.isHyprshot(modelData) ? Qt.PointingHandCursor : Qt.ArrowCursor
                 onClicked: function(mouse) {
-                    if (mouse.button === Qt.RightButton && modelData)
+                    if (!modelData) return
+                    if (mouse.button === Qt.RightButton) {
                         root.dismissEntry(modelData.key)
+                    } else if (mouse.button === Qt.LeftButton && root.isHyprshot(modelData)) {
+                        root.openScreenshotEditor(modelData)
+                    }
                 }
             }
         }

@@ -35,19 +35,17 @@ Item {
     property var downHistory: []
     property var upHistory: []
 
-    readonly property color gapIdleColor: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.2)
-    readonly property color gapColor: {
+    readonly property color iconColor: {
         if (!connected)
-            return "transparent"
+            return Theme.foreground
         if (downloadRate > rateThreshold && uploadRate > rateThreshold)
             return downloadRate >= uploadRate ? "#a6e3a1" : Theme.urgent
         if (downloadRate > rateThreshold)
             return "#a6e3a1"
         if (uploadRate > rateThreshold)
             return Theme.urgent
-        return gapIdleColor
+        return Theme.foreground
     }
-    readonly property bool showGap: connected
     readonly property bool trafficActive: connected
         && (downloadRate > rateThreshold || uploadRate > rateThreshold)
 
@@ -144,55 +142,41 @@ Item {
             width: root.trayMode ? root.trayIconSize : netIcon.implicitWidth
             height: root.trayMode ? root.trayIconSize : netIcon.implicitHeight
 
-            readonly property int ringSize: Math.max(width, height) + 5
-
-            Rectangle {
-                id: activityRing
-                anchors.centerIn: parent
-                anchors.horizontalCenterOffset: 1
-                width: iconBox.ringSize
-                height: width
-                radius: 2
-                color: "transparent"
-                border.width: 1
-                border.color: root.gapColor
-                opacity: root.trafficActive ? ringPulse.opacity : 0.3
-                visible: root.showGap
-                Behavior on border.color { ColorAnimation { duration: 220 } }
-
-                SequentialAnimation {
-                    id: ringPulse
-                    running: root.trafficActive && root.showGap
-                    loops: Animation.Infinite
-                    NumberAnimation {
-                        target: activityRing
-                        property: "opacity"
-                        from: 0.42
-                        to: 0.95
-                        duration: 700
-                        easing.type: Easing.InOutSine
-                    }
-                    NumberAnimation {
-                        target: activityRing
-                        property: "opacity"
-                        from: 0.95
-                        to: 0.42
-                        duration: 700
-                        easing.type: Easing.InOutSine
-                    }
-                }
-            }
-
             Text {
                 id: netIcon
                 anchors.centerIn: parent
                 text: root.iconText
-                color: Theme.foreground
-                opacity: root.connected ? 1 : 0.4
+                color: root.iconColor
+                opacity: root.connected
+                    ? (root.trafficActive ? iconPulse.opacity : 1)
+                    : 0.4
                 font.family: Theme.fontFamily
                 font.pixelSize: root.trayMode ? root.trayIconSize
                     : (root.iconOnly ? Theme.panelIconFontPixelSize : Theme.barFontPixelSize)
                 font.bold: Theme.fontBold
+                Behavior on color { ColorAnimation { duration: 220 } }
+
+                SequentialAnimation {
+                    id: iconPulse
+                    running: root.trafficActive
+                    loops: Animation.Infinite
+                    NumberAnimation {
+                        target: netIcon
+                        property: "opacity"
+                        from: 0.55
+                        to: 1
+                        duration: 700
+                        easing.type: Easing.InOutSine
+                    }
+                    NumberAnimation {
+                        target: netIcon
+                        property: "opacity"
+                        from: 1
+                        to: 0.55
+                        duration: 700
+                        easing.type: Easing.InOutSine
+                    }
+                }
             }
         }
 

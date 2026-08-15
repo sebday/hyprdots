@@ -16,11 +16,12 @@ local function bindd(keys, description, dispatcher, flags)
 end
 
 bindd("SUPER + Return", "Terminal", hl.dsp.exec_cmd(terminal))
-bindd("SUPER + Space", "System menu", hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.menu \'{"mode":"power"}\''))
+bindd("SUPER + Space", "Wallpaper switcher", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.wallpaper"))
 bindd("SUPER + W", "Close Active Window", hl.dsp.window.close())
 bindd("SUPER + E", "Editor", hl.dsp.exec_cmd(editor))
 bindd("SUPER + T", "GUI File Manager", hl.dsp.exec_cmd("thunar"))
 bindd("SUPER + D", "App launcher", hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.menu \'{"mode":"apps"}\''))
+bindd("SUPER + Escape", "System menu", hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.menu \'{"mode":"power"}\''))
 bindd("SUPER + F", "Fullscreen", hl.dsp.window.fullscreen({ mode = "fullscreen", action = "set" }))
 bindd("SUPER + H", "Toggle window transparency", function()
 	local window = hl.get_active_window()
@@ -155,10 +156,7 @@ bindd("XF86AudioNext", "Next media track", hl.dsp.exec_cmd("playerctl next"), { 
 bindd("XF86AudioPrev", "Previous media track", hl.dsp.exec_cmd("playerctl previous"), { locked = true })
 
 -- Wallpaper / theme switchers
-bindd("SUPER + comma", "Wallpaper switcher", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.wallpaper"))
-bindd("SUPER + period", "Wallpaper switcher", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.wallpaper"))
-bindd("SUPER + ALT + comma", "Theme switcher", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.theme"))
-bindd("SUPER + ALT + period", "Theme switcher", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.theme"))
+bindd("SUPER + ALT + Space", "Theme switcher", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.theme"))
 
 -- Zoom level (evo panel settings)
 bindd("SUPER + minus", "Zoom out", hl.dsp.exec_cmd(bin .. "/evo-font step-zoom down"))

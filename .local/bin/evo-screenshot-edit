@@ -35,6 +35,8 @@ if [[ -n "$CAPTURE" ]]; then
 	esac
 fi
 
+SHOT="${SHOT#file://}"
+
 if [[ ! -f "$SHOT" ]]; then
 	notify-send -a evoshell screenshot "no capture — press Print first" 2>/dev/null || true
 	exit 1
