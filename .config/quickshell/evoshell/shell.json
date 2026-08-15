@@ -27,7 +27,7 @@
         {
           "id": "evo.weather",
           "type": "command",
-          "exec": "~/.local/bin/evo-bar-weather.sh",
+          "exec": "~/.local/bin/evo-weather",
           "interval": 1800,
           "onHover": "evo.weather",
           "onClickRight": "xdg-open https://weather.metoffice.gov.uk/forecast/gcqvn6pq4"
@@ -39,7 +39,7 @@
         {
           "id": "evo.cursor",
           "type": "command",
-          "exec": "~/.local/bin/evo-bar-cursor.sh",
+          "exec": "~/.local/bin/evo-bar-cursor",
           "interval": 300,
           "onHover": "evo.cursor"
         }
@@ -70,6 +70,6 @@
     }
   },
   "panel": {
-    "side": "left"
+    "side": "right"
   }
 }

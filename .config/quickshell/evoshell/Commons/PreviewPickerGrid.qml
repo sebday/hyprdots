@@ -23,7 +23,7 @@ Item {
     signal activated(var entry)
     signal focused()
 
-    readonly property string listScript: Quickshell.env("HOME") + "/.local/bin/evo-menu-list-previews.sh"
+    readonly property string listScript: Quickshell.env("HOME") + "/.local/bin/evo-menu-list"
     readonly property string fallbackIcon: kind === "wallpapers" ? "󰏘" : "󰸌"
     readonly property int tileIconSize: 22
     readonly property int rowCount: entries.length > 0

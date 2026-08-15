@@ -3,22 +3,22 @@
 function systemActionEntries(home) {
     var bin = home + "/.local/bin"
     return [
-        { name: "Theme", icon: "󰸌", keywords: ["theme", "appearance", "looks"], command: bin + "/evo-theme.sh" },
-        { name: "Wallpaper", icon: "󰏘", keywords: ["wallpaper", "background"], command: bin + "/evo-theme.sh wallpaper" },
-        { name: "Library", icon: "󰎁", keywords: ["library", "media", "films", "tv", "movies"], command: bin + "/evoshell-ipc shell toggle evo.library" },
-        { name: "Settings", icon: "󰒓", keywords: ["settings", "config", "panel", "gaps", "font"], command: bin + "/evoshell-ipc shell toggle evo.panel '{\"module\":\"settings\"}'" },
-        { name: "Clear cache", icon: "󰃢", keywords: ["cache", "cleanup", "clear"], command: bin + "/evo-cleanup.sh" },
-        { name: "Backup", icon: "󰁯", keywords: ["backup", "env"], command: bin + "/evo-backup.sh" }
+        { name: "Theme", icon: "󰸌", keywords: ["theme", "appearance", "looks"], command: bin + "/evo-theme" },
+        { name: "Wallpaper", icon: "󰏘", keywords: ["wallpaper", "background"], command: bin + "/evo-theme wallpaper" },
+        { name: "Library", icon: "󰎁", keywords: ["library", "media", "films", "tv", "movies"], command: bin + "/evo-ipc shell toggle evo.library" },
+        { name: "Settings", icon: "󰒓", keywords: ["settings", "config", "panel", "gaps", "font"], command: bin + "/evo-ipc shell toggle evo.panel '{\"module\":\"settings\"}'" },
+        { name: "Clear cache", icon: "󰃢", keywords: ["cache", "cleanup", "clear"], command: bin + "/evo-system-cleanup" },
+        { name: "Backup", icon: "󰁯", keywords: ["backup", "env"], command: bin + "/evo-system-backup" }
     ]
 }
 
 function powerEntries(home) {
     return [
-        { name: "Lock", icon: "󰌾", keywords: ["lock", "screen"], command: "evo-system-lock" },
-        { name: "Evo", icon: "󰑐", keywords: ["evo", "shell", "bar", "quickshell", "refresh", "restart shell"], command: home + "/.local/bin/evo-restart-shell.sh" },
-        { name: "Hypr", icon: "󰑐", keywords: ["hypr", "hyprland", "relaunch", "logout", "session"], command: home + "/.local/bin/evo-logout.sh relaunch" },
-        { name: "Restart", icon: "󰜉", keywords: ["reboot", "restart"], command: home + "/.local/bin/evo-logout.sh reboot" },
-        { name: "Shutdown", icon: "󰐥", keywords: ["shutdown", "power off"], command: home + "/.local/bin/evo-logout.sh shutdown" }
+        { name: "Lock", icon: "󰌾", keywords: ["lock", "screen"], command: home + "/.local/bin/evo-system lock" },
+        { name: "Evo", icon: "󰑐", keywords: ["evo", "shell", "bar", "quickshell", "refresh", "restart shell"], command: home + "/.local/bin/evo-system restart" },
+        { name: "Hypr", icon: "󰑐", keywords: ["hypr", "hyprland", "relaunch", "logout", "session"], command: home + "/.local/bin/evo-system relaunch" },
+        { name: "Restart", icon: "󰜉", keywords: ["reboot", "restart"], command: home + "/.local/bin/evo-system reboot" },
+        { name: "Shutdown", icon: "󰐥", keywords: ["shutdown", "power off"], command: home + "/.local/bin/evo-system shutdown" }
     ]
 }
 

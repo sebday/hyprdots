@@ -9,7 +9,7 @@ Item {
 
     property var host: null
 
-    readonly property string script: Quickshell.env("HOME") + "/.local/bin/evo-network.sh"
+    readonly property string script: Quickshell.env("HOME") + "/.local/bin/evo-network"
     readonly property bool active: host && host.opened === true
     readonly property int bodyFont: Theme.panelTitleFontPixelSize
     readonly property int hintFont: Theme.panelHintFontPixelSize

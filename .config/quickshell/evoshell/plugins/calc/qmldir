@@ -1,0 +1,3 @@
+module calc
+AppCalc 1.0 AppCalc.qml
+AppTasks 1.0 AppTasks.qml

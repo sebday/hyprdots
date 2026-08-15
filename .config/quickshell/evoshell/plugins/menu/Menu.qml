@@ -408,15 +408,9 @@ Item {
         } catch (e) {
             console.warn("evo.menu app list failed:", e)
         }
-        cachedApps = UsageMemory.sortByUsage(list, "apps", function(e) { return e.id }, function(e) { return e.name })
+        cachedApps = list
         iconWarmIndex = 0
         iconWarmTimer.running = cachedApps.length > 0
-    }
-
-    function resortCachedApps() {
-        if (cachedApps.length === 0)
-            return
-        cachedApps = UsageMemory.sortByUsage(cachedApps, "apps", function(e) { return e.id }, function(e) { return e.name })
     }
 
     function appEntries() {
@@ -495,7 +489,6 @@ Item {
     function activateEntry(entry) {
         if (!entry) return
         if (entry.kind === "app") {
-            UsageMemory.bump("apps", entry.id)
             launchDesktopEntry(entry.entryRef, entry.id)
             dismiss()
             return
@@ -519,7 +512,7 @@ Item {
     }
 
     function warmPreviewCache() {
-        var warmScript = home + "/.local/bin/evo-menu-preview-warm.sh"
+        var warmScript = home + "/.local/bin/evo-menu-warm"
         previewWarmProc.command = ["bash", "-lc", "test -x " + Util.shellQuote(warmScript) + " && " + Util.shellQuote(warmScript)]
         previewWarmProc.running = true
     }
@@ -527,7 +520,7 @@ Item {
     function loadDynamicEntries(kind) {
         dynamicLoading = true
         dynamicEntries = []
-        var listScript = home + "/.local/bin/evo-menu-list-previews.sh"
+        var listScript = home + "/.local/bin/evo-menu-list"
         if (kind !== "themes" && kind !== "wallpaper") {
             dynamicLoading = false
             return

@@ -92,7 +92,7 @@ Item {
         WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
         exclusionMode: ExclusionMode.Ignore
 
-        ScreenshotModule {
+        AppScreenshot {
             id: content
             anchors.fill: parent
             host: root

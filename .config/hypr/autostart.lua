@@ -1,6 +1,6 @@
 hl.on("hyprland.start", function()
     hl.exec_cmd("xrandr --output DP-1 --primary")
-    hl.exec_cmd((os.getenv("HOME") or "") .. "/.local/bin/evo-launch-shell")
+    hl.exec_cmd((os.getenv("HOME") or "") .. "/.local/bin/evo-system start")
     hl.dispatch(hl.dsp.exec_cmd("brave --disable-features=WaylandWpColorManagerV1", { workspace = "2" }))
     hl.dispatch(hl.dsp.exec_cmd("obsidian", { workspace = "6 silent" }))
     hl.dispatch(hl.dsp.exec_cmd("ghostty -e btop", { workspace = "10 silent" }))

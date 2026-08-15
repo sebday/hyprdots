@@ -1,0 +1,186 @@
+#!/usr/bin/env bash
+# Session and power actions for evoshell.
+
+set -euo pipefail
+
+BIN="${HOME}/.local/bin"
+IPC="${BIN}/evo-ipc"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/evoshell"
+SUPERVISOR_PID_FILE="${STATE_DIR}/launch-shell.pid"
+
+usage() {
+    cat <<'EOF'
+usage: evo-system <command>
+
+commands:
+  start      launch the evoshell quickshell supervisor
+  lock       lock the session
+  restart    restart the evoshell quickshell process
+  relaunch   exit hyprland (session end)
+  reboot     reboot the machine
+  shutdown   power off (runs evo-system-cleanup first)
+EOF
+}
+
+close_brave() {
+    if pgrep -i "brave" &>/dev/null; then
+        pkill -TERM -i "brave"
+        while pgrep -i "brave" &>/dev/null; do
+            sleep 0.1
+        done
+    fi
+}
+
+stop_pid() {
+    local pid="$1"
+    [[ -n "$pid" ]] || return 0
+    kill -TERM "$pid" 2>/dev/null || true
+    for _ in {1..30}; do
+        kill -0 "$pid" 2>/dev/null || return 0
+        sleep 0.1
+    done
+    kill -KILL "$pid" 2>/dev/null || true
+}
+
+stop_shell_supervisor() {
+    if [[ -f "$SUPERVISOR_PID_FILE" ]]; then
+        stop_pid "$(cat "$SUPERVISOR_PID_FILE" 2>/dev/null || true)"
+    fi
+    pkill -f "systemd-cat -t evoshell" 2>/dev/null || true
+    pkill -f "quickshell.*evoshell" 2>/dev/null || true
+}
+
+cmd_start() {
+    mkdir -p "$STATE_DIR"
+    printf '%s\n' "$$" >"$SUPERVISOR_PID_FILE"
+
+    cleanup_pid_file() {
+        local current
+        current="$(cat "$SUPERVISOR_PID_FILE" 2>/dev/null || true)"
+        if [[ "$current" == "$$" ]]; then
+            rm -f "$SUPERVISOR_PID_FILE"
+        fi
+    }
+
+    run_shell() {
+        systemd-cat -t evoshell -- env QS_NO_RELOAD_POPUP=1 quickshell -n -c evoshell &
+        shell_pid=$!
+
+        local status
+        while true; do
+            wait "$shell_pid"
+            status=$?
+            kill -0 "$shell_pid" 2>/dev/null || break
+        done
+
+        shell_pid=""
+        return "$status"
+    }
+
+    compositor_alive() {
+        local attempt
+        for attempt in 1 2 3; do
+            hyprctl -j monitors >/dev/null 2>&1 && return 0
+            (( attempt < 3 )) && sleep 0.5
+        done
+        return 1
+    }
+
+    local terminating=0
+    local shell_pid=""
+    local attempts=0
+    local window_started=$SECONDS
+    local status
+
+    stop() {
+        terminating=1
+        [[ -n "$shell_pid" ]] && kill -TERM "$shell_pid" 2>/dev/null
+        cleanup_pid_file
+        return 0
+    }
+    trap stop HUP INT TERM EXIT
+
+    while true; do
+        (( terminating )) && exit 0
+
+        run_shell
+        status=$?
+
+        (( terminating )) && exit 0
+        (( status == 0 )) && exit 0
+
+        compositor_alive || exit 0
+
+        if (( SECONDS - window_started > 60 )); then
+            attempts=0
+            window_started=$SECONDS
+        fi
+
+        if (( ++attempts > 5 )); then
+            logger -t evoshell "Giving up on evoshell after $attempts relaunches in under a minute."
+            exit 1
+        fi
+
+        logger -t evoshell "evoshell exited with status $status; relaunching."
+        sleep 1
+    done
+}
+
+cmd_lock() {
+    exec "$IPC" evo.lock lock
+}
+
+cmd_restart() {
+    local was_locked="false"
+    if status="$("$IPC" evo.lock status 2>/dev/null || true)"; then
+        was_locked="$(printf '%s' "$status" | jq -r '.locked // false' 2>/dev/null || echo false)"
+    fi
+
+    stop_shell_supervisor
+    sleep 0.3
+
+    nohup "${BIN}/evo-system" start >/dev/null 2>&1 &
+    disown 2>/dev/null || true
+
+    if [[ "$was_locked" == "true" ]]; then
+        for _ in {1..20}; do
+            if "$IPC" shell ping >/dev/null 2>&1; then
+                "$IPC" evo.lock lock >/dev/null 2>&1 || true
+                break
+            fi
+            sleep 0.2
+        done
+    fi
+}
+
+cmd_relaunch() {
+    close_brave
+    hyprctl dispatch exit
+}
+
+cmd_reboot() {
+    close_brave
+    systemctl reboot
+}
+
+cmd_shutdown() {
+    close_brave
+    bash "${BIN}/evo-system-cleanup"
+    systemctl poweroff
+}
+
+ACTION="${1:-}"
+case "$ACTION" in
+    start) cmd_start ;;
+    lock) cmd_lock ;;
+    restart) cmd_restart ;;
+    relaunch) cmd_relaunch ;;
+    reboot) cmd_reboot ;;
+    shutdown) cmd_shutdown ;;
+    -h|--help|help|"") usage ;;
+    *)
+        echo "evo-system: unknown command: $ACTION" >&2
+        usage >&2
+        exit 1
+        ;;
+esac

@@ -10,10 +10,9 @@ Item {
     property var host: null
     property var shell: null
 
-    readonly property string hyprScript: Quickshell.env("HOME") + "/.local/bin/evo-hypr-looks.sh"
-    readonly property string barScript: Quickshell.env("HOME") + "/.local/bin/evoshell-layout.sh"
-    readonly property string fontScript: Quickshell.env("HOME") + "/.local/bin/evo-font.sh"
-    readonly property string resetScript: Quickshell.env("HOME") + "/.local/bin/evo-settings-reset.sh"
+    readonly property string hyprScript: Quickshell.env("HOME") + "/.local/bin/evo-hyprland"
+    readonly property string barScript: Quickshell.env("HOME") + "/.local/bin/evo-layout"
+    readonly property string fontScript: Quickshell.env("HOME") + "/.local/bin/evo-font"
     readonly property string fontStatePath: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/evoshell/font.json"
     readonly property string themeNamePath: Quickshell.env("HOME") + "/.themes/current/.theme-name"
 
@@ -34,7 +33,7 @@ Item {
     readonly property bool ready: hyprReady && barReady && fontReady
     readonly property bool fontBusy: fontSetProc.running
     readonly property bool settingsBusy: fontBusy || hyprToggleProc.running || hyprSetProc.running
-        || barToggleProc.running || resetProc.running
+        || barToggleProc.running
 
     function refresh() {
         Theme.reloadLooks()
@@ -73,11 +72,6 @@ Item {
         themeNameFile.reload()
         themePicker.reload()
         refresh()
-    }
-
-    function resetDefaults() {
-        if (!ready || settingsBusy) return
-        resetProc.running = true
     }
 
     function parseHyprState(raw) {
@@ -218,12 +212,6 @@ Item {
         stdout: StdioCollector {
             onStreamFinished: root.parseFontState(text)
         }
-    }
-
-    Process {
-        id: resetProc
-        command: ["bash", root.resetScript]
-        onExited: root.refresh()
     }
 
     Flickable {
@@ -402,43 +390,6 @@ Item {
                     previewDpr: 1.5
                     selectedKey: root.currentThemeName
                     keyboardFocus: false
-                }
-            }
-
-            Item {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 28
-                Layout.topMargin: 2
-
-                Row {
-                    anchors.centerIn: parent
-                    spacing: 20
-
-                    Item {
-                        width: resetText.implicitWidth
-                        height: 28
-                        opacity: root.ready && !settingsBusy ? 1 : 0.35
-
-                        Text {
-                            id: resetText
-                            anchors.centerIn: parent
-                            text: resetProc.running ? "Resetting…" : "Reset"
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: 12
-                            font.bold: Theme.fontBold
-                            opacity: resetMouse.containsMouse ? 1 : 0.72
-                        }
-
-                        MouseArea {
-                            id: resetMouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            enabled: root.ready && !settingsBusy
-                            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                            onClicked: root.resetDefaults()
-                        }
-                    }
                 }
             }
         }

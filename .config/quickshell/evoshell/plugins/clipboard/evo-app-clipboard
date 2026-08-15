@@ -1,0 +1,446 @@
+#!/usr/bin/env bash
+# Clipboard history via cliphist + wl-clipboard.
+
+set -euo pipefail
+
+LIMIT_DEFAULT=30
+STATE_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/evoshell"
+PREVIEW_DIR="${STATE_DIR}/clipboard-previews"
+PINS_FILE="${STATE_DIR}/clipboard-pins.json"
+PINS_DATA_DIR="${STATE_DIR}/clipboard-pins-data"
+PID_FILE="${STATE_DIR}/clipboard-watch.pid"
+STORE_SCRIPT="${STATE_DIR}/clipboard-store.sh"
+
+declare -A CLIPHIST_BY_ID
+declare -a CLIPHIST_ORDER
+
+stop_watch() {
+    if [[ -f "$PID_FILE" ]]; then
+        local pid
+        pid=$(<"$PID_FILE")
+        kill "$pid" 2>/dev/null || true
+        rm -f "$PID_FILE"
+    fi
+}
+
+watch() {
+    mkdir -p "$STATE_DIR"
+
+    cat >"$STORE_SCRIPT" <<'EOF'
+#!/usr/bin/env bash
+cliphist store
+EOF
+    chmod +x "$STORE_SCRIPT"
+
+    stop_watch
+    pkill -f 'wl-paste --watch cliphist store' 2>/dev/null || true
+    pkill -f 'wl-paste --watch bash -c cliphist store' 2>/dev/null || true
+
+    wl-paste --watch "$STORE_SCRIPT" &
+    echo "$!" >"$PID_FILE"
+}
+
+generate_pin_id() {
+    openssl rand -hex 6
+}
+
+save_pins() {
+    local pins="$1"
+    mkdir -p "$(dirname "$PINS_FILE")" "$PINS_DATA_DIR"
+    jq -n --argjson pins "$pins" '{version: 2, pins: $pins}' --indent 2 >"$PINS_FILE"
+}
+
+cliphist_list() {
+    CLIPHIST_BY_ID=()
+    CLIPHIST_ORDER=()
+
+    local line entry_id text
+    while IFS= read -r line; do
+        [[ "$line" == *$'\t'* ]] || continue
+        entry_id="${line%%$'\t'*}"
+        text="${line#*$'\t'}"
+        [[ "$entry_id" =~ ^[0-9]+$ ]] || continue
+        CLIPHIST_BY_ID["$entry_id"]="$text"
+        CLIPHIST_ORDER+=("$entry_id")
+    done < <(cliphist list 2>/dev/null || true)
+}
+
+write_pin_blob() {
+    local pin_id="$1" blob_file="$2"
+    local fname="${pin_id}.bin"
+    mkdir -p "$PINS_DATA_DIR"
+    cp "$blob_file" "${PINS_DATA_DIR}/${fname}"
+    printf '%s\n' "$fname"
+}
+
+store_blob_file() {
+    local blob_file="$1"
+    cliphist store <"$blob_file" 2>/dev/null || true
+}
+
+read_pin_blob_file() {
+    local pin_file="$1" dest="$2"
+    [[ -f "${PINS_DATA_DIR}/${pin_file}" ]] || return 1
+    cp "${PINS_DATA_DIR}/${pin_file}" "$dest"
+}
+
+migrate_v1_pins() {
+    local v1_data="$1"
+    cliphist_list
+
+    local pins='[]' entry_id blob_tmp pin_id fname label new_pin
+    while IFS= read -r entry_id; do
+        [[ -n "${CLIPHIST_BY_ID[$entry_id]:-}" ]] || continue
+
+        blob_tmp=$(mktemp)
+        if ! cliphist decode "$entry_id" >"$blob_tmp" 2>/dev/null; then
+            rm -f "$blob_tmp"
+            continue
+        fi
+
+        pin_id=$(generate_pin_id)
+        fname=$(write_pin_blob "$pin_id" "$blob_tmp")
+        rm -f "$blob_tmp"
+
+        label="${CLIPHIST_BY_ID[$entry_id]}"
+        new_pin=$(
+            jq -n \
+                --arg pinId "$pin_id" \
+                --arg cliphistId "$entry_id" \
+                --arg label "$label" \
+                --arg file "$fname" \
+                '{pinId: $pinId, cliphistId: $cliphistId, label: $label, file: $file}'
+        )
+        pins=$(jq --argjson pin "$new_pin" '. += [$pin]' <<<"$pins")
+    done < <(jq -r '.[] | tostring | select(test("^[0-9]+$"))' <<<"$v1_data")
+
+    save_pins "$pins"
+    printf '%s\n' "$pins"
+}
+
+load_pins_json() {
+    if [[ ! -f "$PINS_FILE" ]]; then
+        printf '%s\n' '[]'
+        return
+    fi
+
+    local data data_type
+    if ! data=$(jq -c . "$PINS_FILE" 2>/dev/null); then
+        printf '%s\n' '[]'
+        return
+    fi
+
+    data_type=$(jq -r 'type' <<<"$data")
+    if [[ "$data_type" == "array" ]]; then
+        migrate_v1_pins "$data"
+        return
+    fi
+
+    if [[ "$data_type" == "object" ]] && [[ $(jq -r '.pins | type // "null"' <<<"$data") == "array" ]]; then
+        jq -c '.pins' <<<"$data"
+        return
+    fi
+
+    printf '%s\n' '[]'
+}
+
+sync_pins_into_cliphist() {
+    local pins count i entry_id label pin_file blob_tmp changed=false
+    pins=$(load_pins_json)
+    cliphist_list
+
+    count=$(jq 'length' <<<"$pins")
+    for ((i = 0; i < count; i++)); do
+        entry_id=$(jq -r ".[$i].cliphistId // \"\"" <<<"$pins")
+        label=$(jq -r ".[$i].label // \"\"" <<<"$pins")
+        pin_file=$(jq -r ".[$i].file // \"\"" <<<"$pins")
+
+        if [[ -n "${CLIPHIST_BY_ID[$entry_id]:-}" && "${CLIPHIST_BY_ID[$entry_id]}" == "$label" ]]; then
+            continue
+        fi
+
+        blob_tmp=$(mktemp)
+        if ! read_pin_blob_file "$pin_file" "$blob_tmp"; then
+            rm -f "$blob_tmp"
+            continue
+        fi
+        store_blob_file "$blob_tmp"
+        rm -f "$blob_tmp"
+        changed=true
+    done
+
+    if [[ "$changed" == false ]]; then
+        printf '%s\n' "$pins"
+        return
+    fi
+
+    cliphist_list
+
+    declare -A LABELS_TO_ID
+    local eid
+    for eid in "${CLIPHIST_ORDER[@]}"; do
+        LABELS_TO_ID["${CLIPHIST_BY_ID[$eid]}"]="$eid"
+    done
+
+    local updated="$pins"
+    for ((i = 0; i < count; i++)); do
+        label=$(jq -r ".[$i].label // \"\"" <<<"$pins")
+        if [[ -n "${LABELS_TO_ID[$label]:-}" ]]; then
+            updated=$(
+                jq --arg label "$label" --arg id "${LABELS_TO_ID[$label]}" \
+                    'map(if .label == $label then .cliphistId = $id else . end)' <<<"$updated"
+            )
+        fi
+    done
+
+    save_pins "$updated"
+    printf '%s\n' "$updated"
+}
+
+pins_list_cmd() {
+    local limit="$1"
+    local pins count i entry_id unpinned=0
+    pins=$(sync_pins_into_cliphist)
+    cliphist_list
+
+    declare -A PINNED_IDS
+    local -a out_lines=()
+
+    count=$(jq 'length' <<<"$pins")
+    for ((i = 0; i < count; i++)); do
+        entry_id=$(jq -r ".[$i].cliphistId // \"\"" <<<"$pins")
+        [[ -n "${CLIPHIST_BY_ID[$entry_id]:-}" ]] || continue
+        PINNED_IDS["$entry_id"]=1
+        out_lines+=("${entry_id}"$'\t'"${CLIPHIST_BY_ID[$entry_id]}"$'\t'"1")
+    done
+
+    for entry_id in "${CLIPHIST_ORDER[@]}"; do
+        [[ -n "${PINNED_IDS[$entry_id]:-}" ]] && continue
+        out_lines+=("${entry_id}"$'\t'"${CLIPHIST_BY_ID[$entry_id]}"$'\t'"0")
+        unpinned=$((unpinned + 1))
+        if ((unpinned >= limit)); then
+            break
+        fi
+    done
+
+    if ((${#out_lines[@]} > 0)); then
+        printf '%s\n' "${out_lines[@]}"
+    fi
+}
+
+pins_read_cmd() {
+    local pins
+    pins=$(load_pins_json)
+    jq -c '[.[] | .cliphistId | tostring | select(test("^[0-9]+$"))]' <<<"$pins"
+}
+
+pins_toggle_cmd() {
+    local entry_id="$1"
+    local pins idx pin_file blob_tmp pin_id fname label new_pin
+    pins=$(load_pins_json)
+    cliphist_list
+
+    idx=$(
+        jq -r --arg id "$entry_id" \
+            '[to_entries[] | select(.value.cliphistId | tostring == $id)] | if length > 0 then .[0].key else empty end' \
+            <<<"$pins"
+    )
+
+    if [[ -n "$idx" ]]; then
+        pin_file=$(jq -r ".[$idx].file" <<<"$pins")
+        rm -f "${PINS_DATA_DIR}/${pin_file}"
+        pins=$(jq "del(.[$idx])" <<<"$pins")
+        save_pins "$pins"
+        jq -n --arg id "$entry_id" '{ok: true, pinned: false, id: $id}'
+        return
+    fi
+
+    if [[ -z "${CLIPHIST_BY_ID[$entry_id]:-}" ]]; then
+        jq -n '{ok: false, error: "not found"}'
+        return
+    fi
+
+    blob_tmp=$(mktemp)
+    if ! cliphist decode "$entry_id" >"$blob_tmp" 2>/dev/null; then
+        rm -f "$blob_tmp"
+        jq -n '{ok: false, error: "decode failed"}'
+        return
+    fi
+
+    pin_id=$(generate_pin_id)
+    fname=$(write_pin_blob "$pin_id" "$blob_tmp")
+    rm -f "$blob_tmp"
+
+    label="${CLIPHIST_BY_ID[$entry_id]}"
+    new_pin=$(
+        jq -n \
+            --arg pinId "$pin_id" \
+            --arg cliphistId "$entry_id" \
+            --arg label "$label" \
+            --arg file "$fname" \
+            '{pinId: $pinId, cliphistId: $cliphistId, label: $label, file: $file}'
+    )
+    pins=$(jq --argjson pin "$new_pin" '. = [$pin] + .' <<<"$pins")
+    save_pins "$pins"
+    jq -n --arg id "$entry_id" '{ok: true, pinned: true, id: $id}'
+}
+
+pins_clear_cmd() {
+    local pins count i snapshots_dir pin_json pin_file label kept_pins kcount name entry_id
+    pins=$(load_pins_json)
+    snapshots_dir=$(mktemp -d)
+
+    count=$(jq 'length' <<<"$pins")
+    for ((i = 0; i < count; i++)); do
+        pin_file=$(jq -r ".[$i].file // \"\"" <<<"$pins")
+        [[ -n "$pin_file" && -f "${PINS_DATA_DIR}/${pin_file}" ]] || continue
+        cp "${PINS_DATA_DIR}/${pin_file}" "${snapshots_dir}/${i}.bin"
+        jq -c ".[$i]" <<<"$pins" >"${snapshots_dir}/${i}.pin.json"
+    done
+
+    cliphist wipe 2>/dev/null || true
+
+    for ((i = count - 1; i >= 0; i--)); do
+        [[ -f "${snapshots_dir}/${i}.bin" ]] || continue
+        store_blob_file "${snapshots_dir}/${i}.bin"
+    done
+
+    cliphist_list
+
+    declare -A LABELS_TO_ID
+    local eid
+    for eid in "${CLIPHIST_ORDER[@]}"; do
+        LABELS_TO_ID["${CLIPHIST_BY_ID[$eid]}"]="$eid"
+    done
+
+    kept_pins='[]'
+    for ((i = 0; i < count; i++)); do
+        [[ -f "${snapshots_dir}/${i}.pin.json" ]] || continue
+        pin_json=$(<"${snapshots_dir}/${i}.pin.json")
+        label=$(jq -r '.label // ""' <<<"$pin_json")
+        if [[ -n "${LABELS_TO_ID[$label]:-}" ]]; then
+            pin_json=$(jq --arg id "${LABELS_TO_ID[$label]}" '.cliphistId = $id' <<<"$pin_json")
+            kept_pins=$(jq --argjson pin "$pin_json" '. += [$pin]' <<<"$kept_pins")
+        fi
+    done
+
+    save_pins "$kept_pins"
+    rm -rf "$snapshots_dir"
+
+    mkdir -p "$PREVIEW_DIR"
+    declare -A VALID_IDS
+    kcount=$(jq 'length' <<<"$kept_pins")
+    for ((i = 0; i < kcount; i++)); do
+        VALID_IDS[$(jq -r ".[$i].cliphistId" <<<"$kept_pins")]=1
+    done
+
+    shopt -s nullglob
+    for name in "$PREVIEW_DIR"/*; do
+        entry_id="${name##*/}"
+        entry_id="${entry_id%%.*}"
+        [[ -n "${VALID_IDS[$entry_id]:-}" ]] || rm -f "$name"
+    done
+    shopt -u nullglob
+}
+
+list_entries() {
+    local limit="${1:-$LIMIT_DEFAULT}"
+    pins_list_cmd "$limit"
+}
+
+read_pins() {
+    pins_read_cmd
+}
+
+toggle_pin() {
+    local id="${1:-}"
+    [[ "$id" =~ ^[0-9]+$ ]] || return 1
+    pins_toggle_cmd "$id"
+}
+
+copy_id() {
+    local id="${1:-}"
+    [[ "$id" =~ ^[0-9]+$ ]] || return 1
+    cliphist decode "$id" | wl-copy
+}
+
+image_format_from_text() {
+    local text="$1"
+    if [[ "$text" =~ binary[[:space:]]data.*[[:space:]](png|jpe?g)[[:space:]]([0-9]+)x([0-9]+) ]]; then
+        printf '%s\n' "${BASH_REMATCH[1]}"
+        return 0
+    fi
+    return 1
+}
+
+preview_extension() {
+    local format="$1"
+    case "$format" in
+    jpg | jpeg) printf 'jpg' ;;
+    png) printf 'png' ;;
+    *) return 1 ;;
+    esac
+}
+
+write_preview() {
+    local id="$1" format="$2"
+    local ext
+    ext=$(preview_extension "$format") || return 1
+    mkdir -p "$PREVIEW_DIR"
+    local out="${PREVIEW_DIR}/${id}.${ext}"
+    if [[ -s "$out" ]]; then
+        printf '%s\n' "$out"
+        return 0
+    fi
+    local tmp="${out}.tmp"
+    if ! cliphist decode "$id" >"$tmp" 2>/dev/null; then
+        rm -f "$tmp"
+        return 1
+    fi
+    if [[ ! -s "$tmp" ]]; then
+        rm -f "$tmp"
+        return 1
+    fi
+    mv "$tmp" "$out"
+    printf '%s\n' "$out"
+}
+
+preview_file() {
+    local id="${1:-}"
+    [[ "$id" =~ ^[0-9]+$ ]] || return 1
+    local line text format
+    line=$(cliphist list 2>/dev/null | awk -F '\t' -v id="$id" '$1 == id { print; exit }')
+    [[ -n "$line" ]] || return 1
+    text="${line#*$'\t'}"
+    format=$(image_format_from_text "$text") || return 1
+    write_preview "$id" "$format"
+}
+
+cache_previews() {
+    local limit="${1:-$LIMIT_DEFAULT}"
+    mkdir -p "$PREVIEW_DIR"
+    while IFS=$'\t' read -r id text; do
+        [[ "$id" =~ ^[0-9]+$ ]] || continue
+        format=$(image_format_from_text "$text") || continue
+        write_preview "$id" "$format" >/dev/null || true
+    done < <(cliphist list 2>/dev/null | head -n "$limit")
+}
+
+clear_history() {
+    pins_clear_cmd
+}
+
+case "${1:-}" in
+watch) watch ;;
+list) list_entries "${2:-$LIMIT_DEFAULT}" ;;
+copy) copy_id "${2:-}" ;;
+preview) preview_file "${2:-}" ;;
+cache-previews) cache_previews "${2:-$LIMIT_DEFAULT}" ;;
+toggle-pin) toggle_pin "${2:-}" ;;
+pins) read_pins ;;
+clear) clear_history ;;
+*)
+    echo "usage: evo-app-clipboard watch|list [n]|copy <id>|preview <id>|cache-previews [n]|toggle-pin <id>|pins|clear" >&2
+    exit 1
+    ;;
+esac

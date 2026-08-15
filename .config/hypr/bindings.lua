@@ -7,7 +7,7 @@ local browser = "brave"
 local terminal = "ghostty"
 local editor = terminal .. " -e nvim"
 local bin = (os.getenv("HOME") or "") .. "/.local/bin"
-local shell_ipc = bin .. "/evoshell-ipc"
+local shell_ipc = bin .. "/evo-ipc"
 
 local function bindd(keys, description, dispatcher, flags)
 	flags = flags or {}
@@ -30,12 +30,12 @@ bindd("SUPER + H", "Toggle window transparency", function()
 end)
 bindd("SUPER + J", "Toggle Split Direction", hl.dsp.layout("togglesplit"))
 bindd("SUPER + K", "Toggle Floating Window", hl.dsp.window.float({ action = "toggle" }))
-bindd("SUPER + L", "Lock Screen", hl.dsp.exec_cmd(bin .. "/evo-system-lock"))
-bindd("SUPER + C", "Tools panel", hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.panel \'{"module":"tools"}\''))
+bindd("SUPER + L", "Lock Screen", hl.dsp.exec_cmd(bin .. "/evo-system lock"))
+bindd("SUPER + C", "Calc panel", hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.panel \'{"module":"calc"}\''))
 bindd(
 	"SUPER + N",
 	"Tasks panel",
-	hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.panel \'{"module":"tools","focus":"tasks"}\'')
+	hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.panel \'{"module":"calc","focus":"tasks"}\'')
 )
 bindd("SUPER + B", "Settings panel", hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.panel \'{"module":"settings"}\''))
 bindd("SUPER + M", "Library", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.library"))
@@ -159,8 +159,8 @@ bindd("SUPER + comma", "Previous Wallpaper", hl.dsp.exec_cmd(shell_ipc .. " evo.
 bindd("SUPER + period", "Next Wallpaper", hl.dsp.exec_cmd(shell_ipc .. " evo.background next"))
 
 -- Zoom level (evo panel settings)
-bindd("SUPER + minus", "Zoom out", hl.dsp.exec_cmd(bin .. "/evo-font.sh step-zoom down"))
-bindd("SUPER + equal", "Zoom in", hl.dsp.exec_cmd(bin .. "/evo-font.sh step-zoom up"))
+bindd("SUPER + minus", "Zoom out", hl.dsp.exec_cmd(bin .. "/evo-font step-zoom down"))
+bindd("SUPER + equal", "Zoom in", hl.dsp.exec_cmd(bin .. "/evo-font step-zoom up"))
 
 -- Screenshot
 bindd("PRINT", "Screenshot Region", hl.dsp.exec_cmd('bash -c "hyprshot -m region -o /tmp/ -f hyprshot.png;"'))

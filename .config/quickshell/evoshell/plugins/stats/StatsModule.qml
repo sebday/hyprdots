@@ -121,7 +121,7 @@ Item {
         id: diyPoll
         active: root.active
         defaultIntervalSec: 300
-        command: ["bash", root.home + "/.local/bin/evo-bar-shopify.sh", "DIY"]
+        command: ["bash", root.home + "/.local/bin/evo-bar-shopify", "DIY"]
         onPolled: function(json) { root.diyData = json }
     }
 
@@ -129,7 +129,7 @@ Item {
         id: tgsPoll
         active: root.active
         defaultIntervalSec: 300
-        command: ["bash", root.home + "/.local/bin/evo-bar-shopify.sh", "TGS"]
+        command: ["bash", root.home + "/.local/bin/evo-bar-shopify", "TGS"]
         onPolled: function(json) { root.tgsData = json }
     }
 
@@ -137,7 +137,7 @@ Item {
         id: btcPoll
         active: root.active
         defaultIntervalSec: 60
-        command: ["bash", root.home + "/.local/bin/evo-bar-btc.sh"]
+        command: ["bash", root.home + "/.local/bin/evo-bar-btc"]
         onPolled: function(json) { root.btcData = json }
     }
 
@@ -145,7 +145,7 @@ Item {
         id: spcxPoll
         active: root.active
         defaultIntervalSec: 60
-        command: ["bash", root.home + "/.local/bin/evo-bar-spcx.sh"]
+        command: ["bash", root.home + "/.local/bin/evo-bar-spcx"]
         onPolled: function(json) { root.spcxData = json }
     }
 

@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-# Lock the session via evoshell.
-
-set -euo pipefail
-
-exec "${HOME}/.local/bin/evoshell-ipc" evo.lock lock

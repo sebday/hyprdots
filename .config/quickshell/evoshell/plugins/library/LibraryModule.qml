@@ -24,8 +24,7 @@ Item {
     property var episodeCache: ({})
     property int selectedIndex: 0
 
-    readonly property string script: Quickshell.env("HOME") + "/.local/bin/evo-media.sh"
-    readonly property string posterScript: Quickshell.env("HOME") + "/.local/bin/evo-media-fetch-posters.py"
+    readonly property string script: Quickshell.env("HOME") + "/.local/bin/evo-media"
     readonly property int gridColumns: {
         var w = gridView.width
         if (w <= 0)
@@ -414,10 +413,9 @@ Item {
                     if (data.ok !== true)
                         throw new Error("scan failed")
                     root.episodeCache = ({})
-                    Quickshell.execDetached(["python3", "-u", root.posterScript])
                     root.reloadLibrary()
                     root.refreshCurrentShowEpisodes()
-                    root.statusText = "Scan complete — fetching covers in background"
+                    root.statusText = "Scan complete"
                 } catch (e) {
                     root.statusText = "Library scan failed"
                 }

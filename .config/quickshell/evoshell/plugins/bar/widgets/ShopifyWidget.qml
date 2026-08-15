@@ -20,7 +20,7 @@ Item {
 
     readonly property string home: Quickshell.env("HOME") || ""
     readonly property string store: settings.store ? String(settings.store) : ""
-    readonly property string script: home + "/.local/bin/evo-bar-shopify.sh"
+    readonly property string script: home + "/.local/bin/evo-bar-shopify"
     readonly property string hoverCaption: {
         if (hoveredBarIndex < 0 || hoveredBarIndex >= bars.length) return "14-day revenue"
         var cell = bars[hoveredBarIndex]

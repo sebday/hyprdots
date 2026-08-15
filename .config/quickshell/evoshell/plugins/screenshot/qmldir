@@ -1,2 +1,2 @@
 module screenshot
-ScreenshotModule 1.0 ScreenshotModule.qml
+AppScreenshot 1.0 AppScreenshot.qml

@@ -15,7 +15,7 @@ Item {
     property var cells: []
 
     readonly property string home: Quickshell.env("HOME") || ""
-    readonly property string script: home + "/.local/bin/evo-bar-github.sh"
+    readonly property string script: home + "/.local/bin/evo-bar-github"
 
     implicitWidth: contentRow.implicitWidth + Theme.barPaddingX * 2
     implicitHeight: Theme.barHeight

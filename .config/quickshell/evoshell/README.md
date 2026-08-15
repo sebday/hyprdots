@@ -6,7 +6,7 @@ A Quickshell desktop shell for Hyprland — bar, panel, plugins, IPC, and layer 
 
 Evoshell is a custom desktop environment layer built on [Quickshell](https://quickshell.org). It renders a configurable status bar, a left dock panel, launcher menu, hover tooltips, and fullscreen overlays. Background services handle audio, wallpaper, lock screen, idle detection, clipboard history, and notifications.
 
-Hyprland keybinds and `evoshell-ipc` commands talk to a single running Quickshell instance (`quickshell -c evoshell`).
+Hyprland keybinds and `evo-ipc` commands talk to a single running Quickshell instance (`quickshell -c evoshell`).
 
 ## How it works
 
@@ -35,7 +35,7 @@ Letters match the diagram.
 | | Component | Role |
 |---|-----------|------|
 | **S** | `shell.qml` | Plugin table, service sync, summon/toggle/hover API, bar loader |
-| **I** | `evoshell-ipc` | CLI wrapper → `quickshell ipc -c evoshell call …` |
+| **I** | `evo-ipc` | CLI wrapper → `quickshell ipc -c evoshell call …` |
 | **C** | `shell.json` | Bar layout, idle timeouts, panel side |
 
 ### The surfaces
@@ -62,7 +62,7 @@ Letters match the diagram.
 | | Component | Role |
 |---|-----------|------|
 | **X** | `evo-bar-*.sh` | Poll scripts → `{ "text", "class", … }` JSON |
-| **T** | `theme.json` | Live shell colours (written by `evo-theme-common.sh`) |
+| **T** | `theme.json` | Live shell colours (written by `evo-theme-lib.sh`) |
 | **H** | `evoshell.lua` | Hyprland layer rules for `evo-*` namespaces |
 
 ### Overlays
@@ -97,7 +97,7 @@ evoshell/
 |------|--------|
 | Shell config | `~/.config/quickshell/evoshell/` |
 | Bar/panel scripts | `~/.local/bin/evo-*` |
-| IPC | `~/.local/bin/evoshell-ipc` |
+| IPC | `~/.local/bin/evo-ipc` |
 | Hypr integration | `~/.config/hypr/{autostart,bindings,evoshell}.lua` |
 | Secrets | `~/.local/share/evoshell/secrets.env` |
 | State | `~/.local/state/evoshell/` |
@@ -106,11 +106,11 @@ evoshell/
 ## Quick commands
 
 ```bash
-evo-launch-shell                              # start (via autostart)
-~/.local/bin/evo-restart-shell.sh             # restart
-~/.local/bin/evoshell-ipc shell ping          # health check
-~/.local/bin/evoshell-ipc shell reloadConfig  # reload shell.json only
-~/.local/bin/evoshell-ipc shell toggle evo.panel '{"module":"settings"}'
+evo-launch                              # start (via autostart)
+~/.local/bin/evo-restart             # restart
+~/.local/bin/evo-ipc shell ping          # health check
+~/.local/bin/evo-ipc shell reloadConfig  # reload shell.json only
+~/.local/bin/evo-ipc shell toggle evo.panel '{"module":"settings"}'
 journalctl -t evoshell -f
 ```
 
@@ -137,25 +137,25 @@ CommandWidget → exec scripts (evo-bar-*.sh) → JSON line
 | Hover tooltip | `evo.calendar`, `evo.stats`, `evo.weather`, `evo.cursor` | `BarHoverPopup` + `*Module.qml` |
 | Fullscreen overlay | `evo.library`, `evo.theme`, `evo.wallpaper` | `CenteredOverlay` / `PreviewOverlay` |
 | Menu | `evo.menu` | Custom `PanelWindow` (`evo-menu`) |
-| Panel | `evo.panel` | `Panel.qml` → dock modules `tools`, `clipboard`, `settings` |
+| Panel | `evo.panel` | `Panel.qml` → dock modules `calc`, `clipboard`, `settings` |
 
 ## Naming conventions
 
 - **Plugin IDs**: `evo.<feature>` (`evo.calendar`, `evo.panel`)
 - **Bar widgets**: `evo.<feature>` in `BarWidgetCatalog` and `shell.json` layout
 - **Layer namespaces**: `evo-<kebab>` (`evo-bar`, `evo-calendar`, …) — rules in `evoshell.lua`
-- **IPC service targets**: `evo.audio`, `evo.background`, `evo.idle`, `evo.lock` (legacy `background`/`idle`/`lock` still accepted by `evoshell-ipc`)
+- **IPC service targets**: `evo.audio`, `evo.background`, `evo.idle`, `evo.lock` (legacy `background`/`idle`/`lock` still accepted by `evo-ipc`)
 
 ## IPC
 
 ```bash
-~/.local/bin/evoshell-ipc shell toggle <pluginId> [payloadJson]
-~/.local/bin/evoshell-ipc evo.audio stepUp
-~/.local/bin/evoshell-ipc evo.background next
-~/.local/bin/evoshell-ipc evo.lock lock
+~/.local/bin/evo-ipc shell toggle <pluginId> [payloadJson]
+~/.local/bin/evo-ipc evo.audio stepUp
+~/.local/bin/evo-ipc evo.background next
+~/.local/bin/evo-ipc evo.lock lock
 ```
 
-Hypr bindings use the full path `~/.local/bin/evoshell-ipc` (PATH may not include it).
+Hypr bindings use the full path `~/.local/bin/evo-ipc` (PATH may not include it).
 
 ## Bar scripts
 
@@ -174,7 +174,7 @@ Hypr bindings use the full path `~/.local/bin/evoshell-ipc` (PATH may not includ
 
 ## Media library
 
-`evo.library` — Super+M. Index: `~/.local/state/evoshell/media.db`. Scan: `evo-media.sh scan`.
+`evo.library` — Super+M. Index: `~/.local/state/evoshell/media.db`. Scan: `evo-media scan`.
 
 ## Adding things
 
@@ -193,4 +193,9 @@ Hypr bindings use the full path `~/.local/bin/evoshell-ipc` (PATH may not includ
 - Clock `format`: Qt tokens (`%a %d %H:%M`), not strftime
 - Streaming bar data (cava): `SplitParser`, not interval polling
 - New overlay plugins need full shell **restart**, not just `reloadConfig`
-- Panel payload alias: `"calc"` → `"tools"`
+- Panel payload alias: legacy `"tools"` → `"calc"`
+
+
+## App layout
+
+Panel mini-apps live under `plugins/<name>/` (`calc/` combines `AppCalc` + `AppTasks` in one dock tab; `clipboard/` also hosts the clipboard service). Backends: `evo-app-calc`, `evo-app-clipboard` colocated with QML. State: `~/.local/state/evoshell/apps/`.

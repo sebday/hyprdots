@@ -1,5 +1,2 @@
 module modules
-CalcModule 1.0 CalcModule.qml
-ClipboardModule 1.0 ClipboardModule.qml
-TasksBlock 1.0 TasksBlock.qml
 SettingsModule 1.0 SettingsModule.qml

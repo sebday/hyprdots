@@ -8,8 +8,8 @@ Item {
 
     property var host: null
 
-    readonly property string home: Quickshell.env("HOME")
     readonly property bool active: host && host.opened === true
+    readonly property var barSource: host && host.shell ? host.shell.popupAnchorItem : null
     readonly property int colWidth: 72
     readonly property int smallFont: Theme.panelTitleFontPixelSize
     readonly property int bodyFont: Theme.panelTitleFontPixelSize
@@ -17,6 +17,7 @@ Item {
     readonly property int heroFont: Theme.panelIconFontPixelSize + 4
 
     property var weather: ({})
+    property bool loading: false
     readonly property bool weatherOk: weather.ok === true
     readonly property string location: String(weather.location || "Derby")
     readonly property string metOfficeUrl: String(weather.metOfficeUrl || "https://weather.metoffice.gov.uk/forecast/gcqvn6pq4")
@@ -25,7 +26,7 @@ Item {
     readonly property var hourly: Array.isArray(weather.hourly) ? weather.hourly : []
     readonly property string sunrise: String(weather.sunrise || "")
     readonly property string sunset: String(weather.sunset || "")
-    readonly property string statusText: poll.loading
+    readonly property string statusText: loading
         ? "Loading…"
         : (weatherOk && current ? String(current.label || "") : String(weather.error || "Unavailable"))
 
@@ -34,7 +35,7 @@ Item {
             now: true,
             title: "Now",
             icon: current ? String(current.icon || "󰖐") : "󰖐",
-            primary: poll.loading ? "…" : (current ? String(current.temp) + "°" : "—"),
+            primary: loading ? "…" : (current ? String(current.temp) + "°" : "—"),
             subtitle: statusText
         }]
         for (var i = 0; i < daily.length; i++) {
@@ -84,7 +85,42 @@ Item {
     }
 
     function onActivated() {
-        poll.runPoll()
+        syncFromBar()
+    }
+
+    function syncFromBar() {
+        var item = barSource
+        if (item && item.polling) {
+            loading = true
+            return
+        }
+        if (item && item.lastPayload)
+            applyPayload(item.lastPayload)
+        else
+            applyPayload(null)
+    }
+
+    function applyPayload(json) {
+        loading = false
+        if (!json || typeof json !== "object") {
+            weather = { ok: false, error: "Weather unavailable" }
+            return
+        }
+        weather = json
+    }
+
+    onActiveChanged: if (active) syncFromBar()
+    onBarSourceChanged: if (active) syncFromBar()
+
+    Connections {
+        target: root.barSource
+        enabled: root.barSource !== null
+        function onLastPayloadChanged() {
+            if (root.active) root.syncFromBar()
+        }
+        function onPollingChanged() {
+            if (root.active) root.syncFromBar()
+        }
     }
 
     function tempColor(temp) {
@@ -97,14 +133,6 @@ Item {
     function openMetOffice() {
         if (!metOfficeUrl) return
         Quickshell.execDetached(["bash", "-lc", "xdg-open " + Util.shellQuote(metOfficeUrl)])
-    }
-
-    JsonPollRunner {
-        id: poll
-        active: root.active
-        defaultIntervalSec: 600
-        command: ["bash", root.home + "/.local/bin/evo-weather.sh"]
-        onPolled: function(json) { root.weather = json && json.ok === true ? json : (json || { ok: false, error: "Weather unavailable" }) }
     }
 
     ColumnLayout {

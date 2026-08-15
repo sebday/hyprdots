@@ -3,6 +3,8 @@ import Quickshell.Io
 import QtQuick
 import QtQuick.Layouts
 import "../../Commons"
+import "../calc" as Calc
+import "../clipboard" as Clipboard
 import "modules"
 
 Item {
@@ -10,18 +12,18 @@ Item {
 
     property var shell: null
     property bool opened: false
-    property string activeModule: "tools"
+    property string activeModule: "calc"
     property string pendingFocus: ""
     property string focusTarget: ""
 
-    readonly property string layoutScript: Quickshell.env("HOME") + "/.local/bin/evoshell-layout.sh"
+    readonly property string layoutScript: Quickshell.env("HOME") + "/.local/bin/evo-layout"
 
-    Component { id: calcComp; CalcModule {} }
-    Component { id: clipboardComp; ClipboardModule {} }
+    Component { id: calcComp; Calc.AppCalc {} }
+    Component { id: clipboardComp; Clipboard.AppClipboard {} }
     Component { id: settingsComp; SettingsModule {} }
 
     readonly property var dockModules: [
-        { id: "tools", component: calcComp },
+        { id: "calc", component: calcComp },
         { id: "clipboard", component: clipboardComp },
         { id: "settings", component: settingsComp }
     ]
@@ -29,7 +31,7 @@ Item {
     readonly property var moduleIds: dockModules.map(function(entry) { return entry.id })
 
     readonly property var navItems: [
-        { kind: "module", id: "tools", icon: "󰦬" },
+        { kind: "module", id: "calc", icon: "󰦬" },
         { kind: "module", id: "clipboard", icon: "󰅌" },
         { kind: "module", id: "settings", icon: "󰒓" }
     ]
@@ -63,8 +65,8 @@ Item {
             var payload = JSON.parse(String(payloadJson))
             if (payload && payload.module) {
                 var id = String(payload.module)
-                if (id === "calc")
-                    id = "tools"
+                if (id === "tools")
+                    id = "calc"
                 out.module = id
             }
             if (payload && payload.focus)
@@ -83,7 +85,7 @@ Item {
         if (moduleIds.indexOf(nextModule) < 0)
             nextModule = activeModule
         if (moduleIds.indexOf(nextModule) < 0)
-            nextModule = "tools"
+            nextModule = "calc"
         activeModule = nextModule
         pendingFocus = parsed.focus
         focusTarget = parsed.focus || ""
