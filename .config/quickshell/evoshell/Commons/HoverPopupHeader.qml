@@ -19,12 +19,19 @@ Item {
 
     readonly property bool hasIcon: root.iconUrl !== "" || root.iconFallback !== ""
 
+    readonly property int textBlockHeight: {
+        var h = titleText.implicitHeight
+        if (secondaryText.visible && secondaryText.text !== "")
+            h += headerCol.spacing + secondaryText.implicitHeight
+        return h
+    }
+
     readonly property int resolvedIconSize: {
         if (!hasIcon)
             return 0
         if (iconSize > 0)
             return iconSize
-        return Math.max(1, headerCol.implicitHeight)
+        return Math.max(1, textBlockHeight)
     }
 
     readonly property string primary: {
@@ -34,7 +41,7 @@ Item {
 
     readonly property string secondary: {
         var parts = String(root.value).split("\n")
-        return parts.slice(1).join(" · ")
+        return parts.slice(1).join("\n")
     }
 
     function openUrl(url) {
@@ -59,13 +66,15 @@ Item {
             clip: true
 
             Text {
-                anchors.centerIn: parent
+                anchors.fill: parent
                 visible: !root.iconUrl || favicon.status !== Image.Ready
                 text: root.iconFallback
                 color: Theme.foreground
                 font.family: Theme.fontFamily
-                font.pixelSize: root.titleFont
+                font.pixelSize: Math.max(root.titleFont, Math.round(root.resolvedIconSize * 0.82))
                 font.bold: Theme.fontBold
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
                 opacity: 0.9
             }
 
@@ -89,6 +98,7 @@ Item {
             spacing: 6
 
             Text {
+                id: titleText
                 Layout.fillWidth: true
                 text: root.primary
                 color: Theme.foreground
@@ -99,6 +109,7 @@ Item {
             }
 
             Text {
+                id: secondaryText
                 Layout.fillWidth: true
                 visible: root.secondary !== ""
                 text: root.secondary

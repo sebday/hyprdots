@@ -152,7 +152,7 @@ Item {
         }
 
         SectionPanel {
-            label: "Model usage"
+            label: ""
             visible: !root.isError
 
             Item {
@@ -186,7 +186,7 @@ Item {
         }
 
         SectionPanel {
-            label: "Breakdown"
+            label: ""
             visible: !root.isError && root.hasModelDetails
 
             Repeater {
@@ -259,7 +259,7 @@ Item {
         }
 
         SectionPanel {
-            label: "Token usage"
+            label: ""
             visible: !root.isError && (root.showTokens || root.showCycleBar)
 
             ColumnLayout {

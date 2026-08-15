@@ -3,8 +3,10 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "$SCRIPT_DIR/evo-theme-lib"
 thumb="$SCRIPT_DIR/evo-menu-thumb"
-theme_dir="${HOME}/.themes"
+theme_dir="${THEME_DIR}"
 cache_root="${XDG_STATE_HOME:-$HOME/.local/state}/evoshell/menu-cache"
 
 thumb_one() {
@@ -22,18 +24,13 @@ while IFS= read -r name; do
     thumb_one "$theme_dir/$name/preview.png" "themes/${name}.png"
 done < <(find "$theme_dir" -mindepth 1 -maxdepth 1 -type d ! -name current ! -name shared ! -name next -printf '%f\n' 2>/dev/null | sort)
 
-current="$theme_dir/current"
-theme_name=""
-[[ -f "$current/.theme-name" ]] && theme_name=$(tr -d '\n' < "$current/.theme-name")
-bg_dir="$current/backgrounds"
-
-if [[ -n "$theme_name" && -d "$bg_dir" ]]; then
+if [[ -d "$WALLPAPERS_DIR" ]]; then
     while IFS= read -r file; do
         [[ -n "$file" ]] || continue
         bn="${file##*/}"
-        valid_keys+=("wallpapers/${theme_name}/${bn}")
-        thumb_one "$file" "wallpapers/${theme_name}/${bn}"
-    done < <(find "$bg_dir" -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) 2>/dev/null | sort)
+        valid_keys+=("wallpapers/${bn}")
+        thumb_one "$file" "wallpapers/${bn}"
+    done < <(find "$WALLPAPERS_DIR" -maxdepth 1 -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) 2>/dev/null | sort)
 fi
 
 if [[ -d "$cache_root" ]]; then

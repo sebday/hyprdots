@@ -45,6 +45,8 @@ Item {
         return gapIdleColor
     }
     readonly property bool showGap: connected
+    readonly property bool trafficActive: connected
+        && (downloadRate > rateThreshold || uploadRate > rateThreshold)
 
     implicitWidth: trayMode ? trayCellWidth : barRow.implicitWidth + Theme.barPaddingX * 2
     implicitHeight: Theme.barHeight
@@ -81,16 +83,46 @@ Item {
         spacing: 4
 
         Item {
-            width: netIcon.implicitWidth
-            height: netIcon.implicitHeight
+            id: iconBox
+            width: root.trayMode ? root.trayIconSize : netIcon.implicitWidth
+            height: root.trayMode ? root.trayIconSize : netIcon.implicitHeight
+
+            readonly property int ringSize: Math.max(width, height) + 6
 
             Rectangle {
+                id: activityRing
                 anchors.centerIn: parent
-                width: Math.max(4, Math.round(root.trayIconSize * 0.28))
+                width: iconBox.ringSize
                 height: width
                 radius: width / 2
-                color: root.gapColor
+                color: "transparent"
+                border.width: root.trafficActive ? 2 : 1
+                border.color: root.gapColor
+                opacity: root.trafficActive ? ringPulse.opacity : 0.3
                 visible: root.showGap
+                Behavior on border.color { ColorAnimation { duration: 220 } }
+
+                SequentialAnimation {
+                    id: ringPulse
+                    running: root.trafficActive && root.showGap
+                    loops: Animation.Infinite
+                    NumberAnimation {
+                        target: activityRing
+                        property: "opacity"
+                        from: 0.42
+                        to: 0.95
+                        duration: 700
+                        easing.type: Easing.InOutSine
+                    }
+                    NumberAnimation {
+                        target: activityRing
+                        property: "opacity"
+                        from: 0.95
+                        to: 0.42
+                        duration: 700
+                        easing.type: Easing.InOutSine
+                    }
+                }
             }
 
             Text {

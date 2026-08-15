@@ -17,6 +17,7 @@ Item {
     readonly property bool active: host && host.opened === true
     readonly property int bodyFont: Theme.hoverPopupBodyFontPixelSize
     readonly property int hintFont: Theme.hoverPopupHintFontPixelSize
+    readonly property int statFont: Theme.hoverPopupLabelFontPixelSize
     readonly property int maxHistory: 36
 
     property var info: ({})
@@ -38,21 +39,12 @@ Item {
 
     implicitHeight: column.implicitHeight
 
-    readonly property string connectionTitle: {
-        if (!info.iface)
-            return "Disconnected"
-        var parts = [String(info.iface)]
-        if (info.ip)
-            parts.push(String(info.ip))
-        return parts.join(" · ")
-    }
-
-    readonly property string linkDetail: {
+    readonly property string linkSpeedLabel: {
         if (!info.speed)
-            return info.gateway ? "Gateway " + info.gateway : ""
+            return "—"
         var mbps = parseInt(info.speed, 10)
         if (isNaN(mbps) || mbps <= 0)
-            return info.gateway ? "Gateway " + info.gateway : ""
+            return "—"
         var label = mbps >= 1000
             ? (mbps / 1000).toFixed(mbps % 1000 === 0 ? 0 : 1) + " gbit"
             : mbps + " mbit"
@@ -61,11 +53,45 @@ Item {
         return label
     }
 
-    readonly property string pingDetail: {
-        if (!hasPingStats)
-            return ""
-        return "Gateway " + formatPing(root.info.router_ping_ms, true)
-            + " · Internet " + formatPing(root.info.internet_ping_ms, true)
+    readonly property var networkStatRow1: {
+        if (root.loading) {
+            return [
+                { label: "Link", value: "…" },
+                { label: "Gateway", value: "…" },
+                { label: "Internet", value: "…" }
+            ]
+        }
+        if (!info.iface) {
+            return [
+                { label: "Link", value: "—" },
+                { label: "Gateway", value: "—" },
+                { label: "Internet", value: "—" }
+            ]
+        }
+        return [
+            { label: "Link", value: root.linkSpeedLabel },
+            { label: "Gateway", value: root.formatPing(root.info.router_ping_ms, root.hasPingStats) },
+            { label: "Internet", value: root.formatPing(root.info.internet_ping_ms, root.hasPingStats) }
+        ]
+    }
+
+    readonly property var networkStatRow2: {
+        if (root.loading) {
+            return [
+                { label: "Interface", value: "…" },
+                { label: "IP", value: "…" }
+            ]
+        }
+        if (!info.iface) {
+            return [
+                { label: "Interface", value: "Offline" },
+                { label: "IP", value: "—" }
+            ]
+        }
+        return [
+            { label: "Interface", value: String(info.iface) },
+            { label: "IP", value: info.ip ? String(info.ip) : "—" }
+        ]
     }
 
     function onActivated() {
@@ -304,37 +330,101 @@ Item {
         SectionPanel {
             label: ""
             Layout.fillWidth: true
-            sectionSpacing: 2
+            visible: !root.loading || root.info.iface
 
-            Text {
+            ColumnLayout {
                 Layout.fillWidth: true
-                text: root.connectionTitle
-                color: Theme.foreground
-                font.family: Theme.fontFamily
-                font.pixelSize: root.bodyFont + 1
-                font.bold: Theme.fontBold
-                elide: Text.ElideRight
-            }
+                spacing: 8
 
-            Text {
-                Layout.fillWidth: true
-                text: root.loading ? "Loading…" : root.linkDetail
-                color: Theme.foreground
-                font.family: Theme.fontFamily
-                font.pixelSize: root.hintFont
-                opacity: 0.72
-                elide: Text.ElideRight
-            }
+                GridLayout {
+                    Layout.fillWidth: true
+                    columns: 3
+                    columnSpacing: 8
 
-            Text {
-                Layout.fillWidth: true
-                visible: root.pingDetail !== ""
-                text: root.pingDetail
-                color: Theme.foreground
-                font.family: Theme.fontFamily
-                font.pixelSize: root.hintFont
-                opacity: 0.55
-                elide: Text.ElideRight
+                    Repeater {
+                        model: root.networkStatRow1
+
+                        SectionPanel {
+                            required property var modelData
+                            Layout.fillWidth: true
+                            label: ""
+                            filled: true
+                            contentPad: 10
+
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 2
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    horizontalAlignment: Text.AlignHCenter
+                                    text: String(modelData.value)
+                                    color: Theme.accent
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: root.statFont + 1
+                                    font.bold: Theme.fontBold
+                                    elide: Text.ElideRight
+                                }
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    horizontalAlignment: Text.AlignHCenter
+                                    text: modelData.label
+                                    color: Theme.foreground
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: root.hintFont
+                                    opacity: 0.55
+                                    elide: Text.ElideRight
+                                }
+                            }
+                        }
+                    }
+                }
+
+                GridLayout {
+                    Layout.fillWidth: true
+                    columns: 2
+                    columnSpacing: 8
+
+                    Repeater {
+                        model: root.networkStatRow2
+
+                        SectionPanel {
+                            required property var modelData
+                            Layout.fillWidth: true
+                            label: ""
+                            filled: true
+                            contentPad: 10
+
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 2
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    horizontalAlignment: Text.AlignHCenter
+                                    text: String(modelData.value)
+                                    color: Theme.accent
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: root.statFont + 1
+                                    font.bold: Theme.fontBold
+                                    elide: Text.ElideRight
+                                }
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    horizontalAlignment: Text.AlignHCenter
+                                    text: modelData.label
+                                    color: Theme.foreground
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: root.hintFont
+                                    opacity: 0.55
+                                    elide: Text.ElideRight
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
 

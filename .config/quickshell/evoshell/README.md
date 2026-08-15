@@ -182,6 +182,10 @@ Hypr bindings use the full path `~/.local/bin/evo-ipc` (PATH may not include it)
 
 `evo.library` — Super+M. Index: `~/.local/state/evoshell/media.db`. Scan: `evo-media scan`.
 
+## Wallpapers
+
+Wallpapers live in `~/onedrive/pictures/Wallpapers` (override with `WALLPAPERS_DIR`). The picker (`evo.wallpaper`), cycle (`evo-wallpaper next|prev`), and theme apply default all read from there.
+
 ## Adding things
 
 | Change | Update |

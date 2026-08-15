@@ -41,10 +41,25 @@ Singleton {
 
     function usagePercentColor(percent) {
         var p = Number(percent)
-        if (isNaN(p)) return Theme.foreground
-        if (p >= 80) return Theme.urgent
-        if (p >= 50) return Theme.mixColors(Theme.accent, Theme.urgent, 0.62)
-        return Theme.accent
+        if (isNaN(p))
+            return Theme.foreground
+        p = Math.max(0, Math.min(100, p))
+        if (p >= 80)
+            return Theme.urgent
+        if (p >= 40)
+            return Theme.mixColors(Theme.accent, Theme.urgent, (p - 40) / 40)
+        return Theme.mixColors(Theme.foreground, Theme.accent, p / 40)
+    }
+
+    function loadPercentColor(percent) {
+        var p = Number(percent)
+        if (isNaN(p))
+            return Theme.foreground
+        p = Math.max(0, Math.min(100, p))
+        var green = "#a6e3a1"
+        if (p <= 50)
+            return Theme.mixColors(green, Theme.accent, p / 50)
+        return Theme.mixColors(Theme.accent, Theme.urgent, (p - 50) / 50)
     }
 
     function contributionColor(count) {

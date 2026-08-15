@@ -163,8 +163,8 @@ kraken_position_json() {
     bal_resp=$(kraken_private "/0/private/Balance") || return 1
     bal=$(kraken_btc_balance "$bal_resp")
     awk -v b="$bal" 'BEGIN { exit (b > 0) ? 0 : 1 }' || {
-        jq -cn --argjson balance 0 --argjson valueUsd 0 --argjson upnlPct 0 \
-            '{balance: $balance, valueUsd: $valueUsd, upnlPct: $upnlPct}'
+        jq -cn --argjson balance 0 --argjson valueUsd 0 --argjson upnlPct 0 --argjson averagePrice 0 \
+            '{balance: $balance, valueUsd: $valueUsd, upnlPct: $upnlPct, averagePrice: $averagePrice}'
         return 0
     }
 
@@ -188,7 +188,9 @@ kraken_position_json() {
     fi
 
     upnl_pct=0
+    avg_price=0
     if awk -v v="$buy_vol" 'BEGIN { exit (v > 0) ? 0 : 1 }'; then
+        avg_price=$(awk -v buy_cost="$buy_cost" -v buy_vol="$buy_vol" 'BEGIN { printf "%.2f", buy_cost / buy_vol }')
         upnl_pct=$(awk -v price="$price" -v buy_cost="$buy_cost" -v buy_vol="$buy_vol" 'BEGIN {
             avg = buy_cost / buy_vol
             printf "%.4f", (price - avg) / avg * 100
@@ -199,7 +201,8 @@ kraken_position_json() {
         --argjson balance "$(awk -v b="$bal" 'BEGIN { printf "%.8f", b + 0 }')" \
         --argjson valueUsd "$value_usd" \
         --argjson upnlPct "$upnl_pct" \
-        '{balance: $balance, valueUsd: $valueUsd, upnlPct: $upnlPct}'
+        --argjson averagePrice "$avg_price" \
+        '{balance: $balance, valueUsd: $valueUsd, upnlPct: $upnlPct, averagePrice: $averagePrice}'
 }
 
 # --- Kraken public ticker ---

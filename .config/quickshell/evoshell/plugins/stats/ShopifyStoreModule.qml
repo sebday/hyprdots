@@ -207,6 +207,9 @@ Item {
                 SectionPanel {
                     required property var modelData
                     Layout.fillWidth: true
+                    label: ""
+                    filled: true
+                    contentPad: 10
 
                     ColumnLayout {
                         Layout.fillWidth: true
@@ -257,6 +260,9 @@ Item {
                 SectionPanel {
                     required property var modelData
                     Layout.fillWidth: true
+                    label: ""
+                    filled: true
+                    contentPad: 10
 
                     ColumnLayout {
                         Layout.fillWidth: true

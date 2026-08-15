@@ -19,6 +19,16 @@ Item {
     readonly property int bodyFont: Theme.hoverPopupBodyFontPixelSize
     readonly property int hintFont: Theme.hoverPopupHintFontPixelSize
     readonly property int statFont: Theme.hoverPopupLabelFontPixelSize
+    readonly property int chartBlockHeight: 96
+    readonly property int headerMinHeight: Theme.hoverPopupTitleFontPixelSize
+        + (Theme.hoverPopupLabelFontPixelSize + 4) * 2 + 8
+    readonly property int sourceRowHeight: Theme.hoverPopupHintFontPixelSize + 6
+    readonly property int statRowHeight: Theme.hoverPopupLabelFontPixelSize
+        + Theme.hoverPopupHintFontPixelSize + 36
+    readonly property int marketPanelMinHeight: headerMinHeight + sourceRowHeight
+        + statRowHeight + chartBlockHeight + Theme.hoverPopupSectionSpacing * 3
+    readonly property int stableContentHeight: (marketPanelMinHeight + 48) * 2
+        + Theme.hoverPopupSectionSpacing
 
     property var btcData: ({})
     property var spcxData: ({})
@@ -37,6 +47,8 @@ Item {
         if (spcx && typeof spcx === "object")
             spcxData = spcx
     }
+
+    Component.onCompleted: bootstrapFromCache()
 
     function refreshAll() {
         btcPoll.runPoll()
@@ -98,6 +110,20 @@ Item {
         return bars.slice(bars.length - chartHistoryDays)
     }
 
+    function marketStatBoxes(market) {
+        var position = market.position || {}
+        var quantityValue = market.name === "BTC"
+            ? root.fmtBtc(position.balance)
+            : root.fmtQty(position.quantity)
+        var quantityLabel = market.name === "BTC" ? "BTC" : "Shares"
+        return [
+            { label: "Value", value: root.fmtUsd(position.valueUsd) },
+            { label: quantityLabel, value: quantityValue },
+            { label: "Avg cost", value: root.fmtUsd(position.averagePrice) },
+            { label: "P/L", value: root.fmtSignedPct(position.upnlPct) }
+        ]
+    }
+
     function chartDays(data) {
         var period = data.period || {}
         if (period.days)
@@ -144,7 +170,7 @@ Item {
         onPolled: function(json) { root.spcxData = json }
     }
 
-    implicitHeight: column.implicitHeight
+    implicitHeight: Math.max(root.stableContentHeight, column.implicitHeight)
 
     component MarketPanel: SectionPanel {
         id: panel
@@ -156,43 +182,40 @@ Item {
 
             HoverPopupHeader {
                 Layout.fillWidth: true
+                Layout.minimumHeight: root.headerMinHeight
                 value: panel.market.header
                 href: panel.market.href
             }
 
             Text {
                 Layout.fillWidth: true
-                visible: panel.market.source !== ""
-                text: panel.market.source + (panel.market.quote.pair ? " · " + panel.market.quote.pair : "")
+                Layout.preferredHeight: root.sourceRowHeight
+                text: panel.market.source !== ""
+                    ? panel.market.source + (panel.market.quote.pair ? " · " + panel.market.quote.pair : "")
+                    : "\u00a0"
                 color: Theme.foreground
                 font.family: Theme.fontFamily
                 font.pixelSize: root.hintFont
-                opacity: 0.55
+                opacity: panel.market.source !== "" ? 0.55 : 0
+                elide: Text.ElideRight
             }
 
             GridLayout {
                 Layout.fillWidth: true
+                Layout.minimumHeight: root.statRowHeight
                 columns: 4
                 columnSpacing: 8
                 rowSpacing: 8
 
                 Repeater {
-                    model: panel.market.name === "BTC" ? [
-                        { label: "24h", value: root.fmtSignedPct(panel.market.quote.changePct) },
-                        { label: "24h high", value: root.fmtUsd(panel.market.quote.high24h) },
-                        { label: "24h low", value: root.fmtUsd(panel.market.quote.low24h) },
-                        { label: "24h vol", value: panel.market.quote.volume24h !== undefined
-                            ? (parseFloat(panel.market.quote.volume24h).toFixed(1) + " BTC") : "—" }
-                    ] : [
-                        { label: "Price", value: root.fmtUsd(panel.market.quote.price) },
-                        { label: "Shares", value: root.fmtQty(panel.market.position.quantity) },
-                        { label: "Avg cost", value: root.fmtUsd(panel.market.position.averagePrice) },
-                        { label: "P/L", value: root.fmtSignedPct(panel.market.position.upnlPct) }
-                    ]
+                    model: root.marketStatBoxes(panel.market)
 
                     SectionPanel {
                         required property var modelData
                         Layout.fillWidth: true
+                        label: ""
+                        filled: true
+                        contentPad: 10
 
                         ColumnLayout {
                             Layout.fillWidth: true
@@ -223,64 +246,27 @@ Item {
                 }
             }
 
-            GridLayout {
+            Item {
                 Layout.fillWidth: true
-                columns: 3
-                columnSpacing: 8
-                rowSpacing: 8
-                visible: panel.market.period && panel.market.period.days
+                Layout.preferredHeight: root.chartBlockHeight
+                Layout.minimumHeight: root.chartBlockHeight
 
-                Repeater {
-                    model: panel.market.name === "BTC" ? [
-                        { label: "Holdings", value: root.fmtBtc(panel.market.position.balance) },
-                        { label: "Value", value: root.fmtUsd(panel.market.position.valueUsd) },
-                        { label: "Unrealized", value: root.fmtSignedPct(panel.market.position.upnlPct) }
-                    ] : [
-                        { label: "Value", value: root.fmtUsd(panel.market.position.valueUsd) },
-                        { label: "Cost basis", value: root.fmtUsd(panel.market.position.totalCost) },
-                        { label: panel.market.days + "d change", value: root.fmtSignedPct(panel.market.period.changePct) }
-                    ]
+                SparklineChart {
+                    anchors.fill: parent
+                    style: "line"
+                    lineColor: panel.market.chartColor
+                    chartHeight: root.chartBlockHeight
+                    bars: panel.market.bars
+                    showEmptyLabel: false
+                    opacity: panel.market.bars.length > 0 ? 1 : 0.18
 
-                    SectionPanel {
-                        required property var modelData
-                        Layout.fillWidth: true
-
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: 2
-
-                            Text {
-                                Layout.fillWidth: true
-                                horizontalAlignment: Text.AlignHCenter
-                                text: String(modelData.value)
-                                color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: root.statFont + 1
-                                font.bold: Theme.fontBold
-                                elide: Text.ElideRight
-                            }
-
-                            Text {
-                                Layout.fillWidth: true
-                                horizontalAlignment: Text.AlignHCenter
-                                text: modelData.label
-                                color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: root.hintFont
-                                opacity: 0.55
-                            }
+                    Behavior on opacity {
+                        NumberAnimation {
+                            duration: 150
+                            easing.type: Easing.OutCubic
                         }
                     }
                 }
-            }
-
-            SparklineChart {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 96
-                chartHeight: 96
-                style: "line"
-                lineColor: panel.market.chartColor
-                bars: panel.market.bars
             }
         }
     }

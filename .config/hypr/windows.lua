@@ -41,8 +41,8 @@ hl.window_rule({
     match = { class = "^(TUI.btop)$" },
     float = true,
     monitor = "HDMI-A-1",
-    size = { 1248, 671 },
-    move = { "22", "monitor_h - 671 - 53" },
+    size = { 1248, 670 },
+    move = { "22", "monitor_h - 670 - 54" },
     no_initial_focus = true,
 })
 
@@ -107,7 +107,7 @@ hl.window_rule({
 })
 
 hl.window_rule({
-    name = "shopify-dash-tile",
+    name = "shopify-tile",
     match = { title = "^shopify$" },
     tile = true,
     workspace = "10",

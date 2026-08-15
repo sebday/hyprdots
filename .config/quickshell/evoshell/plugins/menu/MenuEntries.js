@@ -4,7 +4,6 @@ function powerEntries(home) {
     return [
         { name: "Lock", icon: "󰌾", keywords: ["lock", "screen"], command: home + "/.local/bin/evo-system lock" },
         { name: "Evo", icon: "󰑐", keywords: ["evo", "shell", "bar", "quickshell", "refresh", "restart shell"], command: home + "/.local/bin/evo-system restart" },
-        { name: "Hypr", icon: "󰑐", keywords: ["hypr", "hyprland", "relaunch", "logout", "session"], command: home + "/.local/bin/evo-system relaunch" },
         { name: "Restart", icon: "󰜉", keywords: ["reboot", "restart"], command: home + "/.local/bin/evo-system reboot" },
         { name: "Shutdown", icon: "󰐥", keywords: ["shutdown", "power off"], command: home + "/.local/bin/evo-system shutdown" }
     ]

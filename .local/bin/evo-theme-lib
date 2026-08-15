@@ -3,6 +3,7 @@
 
 THEME_DIR="${THEME_DIR:-$HOME/.themes}"
 TEMPLATES_DIR="${TEMPLATES_DIR:-$THEME_DIR/shared/templates}"
+WALLPAPERS_DIR="${WALLPAPERS_DIR:-$HOME/onedrive/pictures/Wallpapers}"
 
 toml_val() {
     local key="$1" toml="$2"
@@ -36,9 +37,9 @@ theme_display_name() {
     printf '%s' "${display_name% }"
 }
 
-# Default wallpaper: first lexicographically sorted image in backgrounds/ (1- prefix promotes default).
+# Default wallpaper: first lexicographically sorted image in WALLPAPERS_DIR (1- prefix promotes default).
 themes_default_wallpaper() {
-    local dir="${CURRENT_PATH:-$THEME_DIR/current}/backgrounds"
+    local dir="${WALLPAPERS_DIR}"
     local candidate
     [ -d "$dir" ] || return 1
     candidate=$(find "$dir" -maxdepth 1 -type f \

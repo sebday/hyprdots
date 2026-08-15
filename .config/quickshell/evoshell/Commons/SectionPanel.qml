@@ -10,6 +10,8 @@ Item {
     property int labelFontSize: Theme.hoverPopupLabelFontPixelSize
     property int contentPad: Theme.hoverPopupContentPad
     property color legendBackground: Theme.mantle
+    property bool filled: false
+    property color fillColor: Theme.panelMantle
     property real labelOpacity: 0.72
     property bool labelProminent: false
     property bool labelClickable: false
@@ -33,6 +35,8 @@ Item {
         labelFontSize: root.labelFontSize
         contentPad: root.contentPad
         labelBackground: root.legendBackground
+        filled: root.filled
+        fillColor: root.fillColor
         labelOpacity: root.labelOpacity
         labelProminent: root.labelProminent
         labelClickable: root.labelClickable

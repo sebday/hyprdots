@@ -38,7 +38,7 @@ Item {
         color: Theme.background
         minimumSize: Qt.size(720, 520)
 
-        ShopifyDashModule {
+        ShopifyModule {
             anchors.fill: parent
             shell: root.shell
         }

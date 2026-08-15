@@ -11,7 +11,7 @@ Item {
 
     readonly property string home: Quickshell.env("HOME")
     readonly property string statePath: home + "/.local/state/evoshell/wallpaper"
-    readonly property string themeNamePath: home + "/.themes/current/.theme-name"
+    readonly property string wallpapersDir: home + "/onedrive/pictures/Wallpapers"
     readonly property int wallpaperFadeMs: 480
 
     property string currentWallpaper: ""
@@ -20,15 +20,15 @@ Item {
     property bool wallpaperSkipFade: false
 
     readonly property string defaultWallpaperCommand: [
-        "dir=" + Util.shellQuote(home + "/.themes/current/backgrounds"),
+        "dir=" + Util.shellQuote(wallpapersDir),
         "find \"$dir\" -maxdepth 1 -type f \\( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \\) 2>/dev/null | sort | head -n1"
     ].join("\n")
 
     readonly property string cycleScriptBody: [
-        "dir=\"$HOME/.themes/current/backgrounds\"",
+        "dir=\"" + wallpapersDir + "\"",
         "state=\"" + statePath + "\"",
         "if [[ ! -d \"$dir\" ]]; then exit 1; fi",
-        "mapfile -d '' files < <(find \"$dir\" -type f -print0 | sort -z)",
+        "mapfile -d '' files < <(find \"$dir\" -maxdepth 1 -type f \\( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \\) -print0 | sort -z)",
         "[[ ${#files[@]} -eq 0 ]] && exit 1",
         "cur=\"\"",
         "[[ -f \"$state\" ]] && cur=\"$(cat \"$state\")\"",
@@ -87,7 +87,15 @@ Item {
     Process {
         id: readStateProc
         command: ["bash", "-c",
-            "if [[ -f " + Util.shellQuote(root.statePath) + " ]]; then cat " + Util.shellQuote(root.statePath) + "; else " + root.defaultWallpaperCommand + "; fi"]
+            "state=" + Util.shellQuote(root.statePath) + "\n" +
+            "dir=" + Util.shellQuote(root.wallpapersDir) + "\n" +
+            "if [[ -f \"$state\" ]]; then\n" +
+            "  path=\"$(cat \"$state\")\"\n" +
+            "  if [[ -f \"$path\" ]]; then printf '%s' \"$path\"; exit 0; fi\n" +
+            "  candidate=\"$dir/$(basename \"$path\")\"\n" +
+            "  [[ -f \"$candidate\" ]] && printf '%s' \"$candidate\" && exit 0\n" +
+            "fi\n" +
+            root.defaultWallpaperCommand]
         stdout: StdioCollector {
             onStreamFinished: {
                 var path = String(text || "").trim()

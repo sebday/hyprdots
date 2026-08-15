@@ -11,6 +11,7 @@ Item {
     property int barWidth: Theme.sparklineExpandedBarWidth
     property int barSpacing: Theme.sparklineExpandedBarSpacing
     property bool fillWidth: true
+    property bool showEmptyLabel: true
     property color lineColor: Theme.accent
     property color secondaryLineColor: "#a6e3a1"
     property int lineWidth: 2
@@ -188,7 +189,7 @@ Item {
 
     Text {
         anchors.centerIn: parent
-        visible: root.bars.length === 0
+        visible: root.showEmptyLabel && root.bars.length === 0
         text: "No chart data"
         color: Theme.foreground
         font.family: Theme.fontFamily

@@ -60,7 +60,7 @@ Item {
         var lines = ["@" + username, todayLine]
         if (summaryLine !== "")
             lines.push(summaryLine)
-        return Format.headerLines(lines, "@" + username)
+        return lines.join("\n")
     }
 
     readonly property int trendMax: 40
@@ -274,6 +274,9 @@ Item {
                 SectionPanel {
                     required property var modelData
                     Layout.fillWidth: true
+                    label: ""
+                    filled: true
+                    contentPad: 10
 
                     ColumnLayout {
                         Layout.fillWidth: true

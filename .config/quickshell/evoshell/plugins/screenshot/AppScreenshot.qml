@@ -21,6 +21,7 @@ Item {
     property real textImageY: 0
     property int imageNativeW: 0
     property int imageNativeH: 0
+    property bool zoomActualSize: false
 
     readonly property var palette: [Theme.urgent, Theme.accent, Theme.foreground, "#ffffff", "#111111"]
     readonly property int toolbarHeight: 44
@@ -53,7 +54,8 @@ Item {
         var maxH = screenH - padding * 2 - toolbarHeight - 24
         return Math.min(1, maxW / logicalW, maxH / logicalH)
     }
-    readonly property int displayW: logicalW > 0 ? Math.round(logicalW * fitScale) : 1
+    readonly property real viewScale: root.zoomActualSize ? 1 : fitScale
+    readonly property int displayW: logicalW > 0 ? Math.round(logicalW * viewScale) : 1
     readonly property int displayH: logicalH > 0 ? Math.round(logicalH * fitScale) : 1
     readonly property real imgScale: pixelW > 0 ? displayW / pixelW : 1
     readonly property real paintedW: displayW
@@ -89,6 +91,7 @@ Item {
         pendingAction = ""
         imageNativeW = 0
         imageNativeH = 0
+        zoomActualSize = false
         tool = "arrow"
         strokeColor = Theme.urgent
         overlayCanvas.requestPaint()
@@ -384,7 +387,7 @@ Item {
                     fillMode: Image.Pad
                     asynchronous: false
                     cache: false
-                    smooth: root.fitScale < 1
+                    smooth: root.viewScale < 1
                     mipmap: false
                     scale: root.imgScale
                     transformOrigin: Item.TopLeft
@@ -547,6 +550,31 @@ Item {
                                 onClicked: root.strokeColor = parent.parent.modelData
                             }
                         }
+                    }
+                }
+
+                Item { width: 8; height: 28 }
+
+                Rectangle {
+                    width: 28
+                    height: 28
+                    radius: 3
+                    color: root.zoomActualSize ? Theme.accent : Theme.panelMantle
+                    opacity: root.busy ? 0.5 : 1
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: "󰋩"
+                        color: root.zoomActualSize ? Theme.mantle : Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: 16
+                        font.bold: Theme.fontBold
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        enabled: !root.busy
+                        onClicked: root.zoomActualSize = !root.zoomActualSize
                     }
                 }
 

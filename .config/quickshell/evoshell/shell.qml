@@ -49,7 +49,7 @@ ShellRoot {
         "evo.clipboard": { kinds: ["menu", "service"], path: "plugins/clipboard/Clipboard.qml", servicePath: "plugins/clipboard/Service.qml", keepLoaded: true },
         "evo.panel": { kinds: ["panel"], path: "plugins/panel/Panel.qml", keepLoaded: true },
         "evo.bar": { kinds: ["bar"], path: "plugins/bar/Bar.qml" },
-        "evo.shopify-dash": { kinds: ["dashboard"], path: "plugins/shopify-dash/ShopifyDash.qml", keepLoaded: true }
+        "evo.shopify": { kinds: ["dashboard"], path: "plugins/shopify/Shopify.qml", keepLoaded: true }
     })
 
     property var shellConfig: builtinShellConfig
@@ -373,14 +373,14 @@ ShellRoot {
     }
 
     Loader {
-        id: shopifyDashLoader
+        id: shopifyLoader
         active: true
-        source: shell.pluginUrl(shell.pluginTable["evo.shopify-dash"].path)
+        source: shell.pluginUrl(shell.pluginTable["evo.shopify"].path)
         onLoaded: {
             if (item && "shell" in item) item.shell = shell
         }
         onStatusChanged: {
-            if (status === Loader.Error) console.warn("shopify dash load error:", String(shopifyDashLoader.errorString))
+            if (status === Loader.Error) console.warn("shopify load error:", String(shopifyLoader.errorString))
         }
     }
 

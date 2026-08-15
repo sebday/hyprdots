@@ -7,6 +7,8 @@ source "${HOME}/.local/bin/evo-bar-common"
 
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/evoshell"
 CPU_STAT_FILE="${STATE_DIR}/cpu-stat.prev"
+CPU_PCT_FILE="${STATE_DIR}/cpu-stat.pct"
+CPU_MIN_TOTAL_DELTA=50
 
 fmt_days() {
     local sec="${1:-0}"
@@ -28,18 +30,26 @@ read_cpu_idle_total() {
 }
 
 cpu_percent() {
-    local idle total prev_idle prev_total idle_d total_d pct=0
+    local idle total prev_idle prev_total idle_d total_d pct=0 last_pct=0
     read -r idle total < <(read_cpu_idle_total)
 
     mkdir -p "$STATE_DIR"
+    if [[ -f "$CPU_PCT_FILE" ]]; then
+        last_pct=$(cat "$CPU_PCT_FILE" 2>/dev/null || echo 0)
+        [[ "$last_pct" =~ ^[0-9]+$ ]] || last_pct=0
+    fi
+
     if [[ -f "$CPU_STAT_FILE" ]]; then
         read -r prev_idle prev_total < "$CPU_STAT_FILE"
         idle_d=$((idle - prev_idle))
         total_d=$((total - prev_total))
-        if (( total_d > 0 )); then
+        if (( total_d >= CPU_MIN_TOTAL_DELTA )); then
             pct=$(( (1000 * (total_d - idle_d) / total_d + 5) / 10 ))
             if (( pct < 0 )); then pct=0; fi
             if (( pct > 100 )); then pct=100; fi
+            printf '%s\n' "$pct" >"$CPU_PCT_FILE"
+        else
+            pct=$last_pct
         fi
     fi
 

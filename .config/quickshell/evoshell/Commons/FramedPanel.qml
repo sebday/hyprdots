@@ -11,6 +11,8 @@ Item {
     property bool contentFill: false
     property int labelFontSize: Theme.panelSmallFontPixelSize
     property color labelBackground: Theme.mantle
+    property bool filled: false
+    property color fillColor: Theme.panelMantle
     property int labelPadH: 6
     property real labelOpacity: 0.72
     property bool labelProminent: false
@@ -46,9 +48,9 @@ Item {
 
         Rectangle {
             anchors.fill: parent
-            color: "transparent"
-            border.color: root.frameBorder
-            border.width: 1
+            color: root.filled ? root.fillColor : "transparent"
+            border.color: root.filled ? "transparent" : root.frameBorder
+            border.width: root.filled ? 0 : 1
             radius: root.cornerRadius
         }
 

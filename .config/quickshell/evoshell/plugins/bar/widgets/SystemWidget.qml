@@ -20,7 +20,7 @@ Item {
     readonly property string script: home + "/.local/bin/evo-bar-system"
     readonly property string btopScript: home + "/.local/bin/evo-system-btop"
     readonly property string cpuIcon: "󰍛"
-    readonly property color cpuColor: Format.usagePercentColor(cpuPercent)
+    readonly property color cpuColor: Format.loadPercentColor(cpuPercent)
 
     implicitWidth: contentRow.implicitWidth + Theme.barPaddingX * 2
     implicitHeight: Theme.barHeight
@@ -42,7 +42,6 @@ Item {
 
     function poll() {
         if (!script) return
-        loading = true
         proc.command = ["bash", "-lc", script]
         proc.running = false
         proc.running = true
@@ -55,8 +54,22 @@ Item {
         intervalTimer.start()
     }
 
-    function toggleBtop() {
-        Quickshell.execDetached(["bash", btopScript, "toggle"])
+    function showBtop() {
+        Quickshell.execDetached(["bash", btopScript, "show"])
+    }
+
+    function hideBtop() {
+        Quickshell.execDetached(["bash", btopScript, "hide"])
+    }
+
+    function onBtopHoverChanged(hovered) {
+        if (hovered) {
+            btopHideTimer.stop()
+            btopShowTimer.restart()
+            return
+        }
+        btopShowTimer.stop()
+        btopHideTimer.restart()
     }
 
     RowLayout {
@@ -65,13 +78,21 @@ Item {
         spacing: 6
 
         Text {
+            id: cpuIconText
             text: root.cpuIcon
-            color: root.loading ? Theme.foreground : root.cpuColor
+            color: root.cpuColor
             font.family: Theme.fontFamily
             font.pixelSize: Theme.barFontPixelSize
             font.bold: Theme.fontBold
             Layout.alignment: Qt.AlignVCenter
             opacity: root.loading ? 0.55 : 1
+
+            Behavior on color {
+                ColorAnimation {
+                    duration: 300
+                    easing.type: Easing.OutCubic
+                }
+            }
         }
 
         Text {
@@ -100,12 +121,26 @@ Item {
         onTriggered: root.poll()
     }
 
-    MouseArea {
-        anchors.fill: parent
-        cursorShape: Qt.PointingHandCursor
-        onClicked: root.toggleBtop()
+    HoverHandler {
+        id: btopHover
+        onHoveredChanged: root.onBtopHoverChanged(hovered)
+    }
+
+    Timer {
+        id: btopShowTimer
+        interval: 90
+        repeat: false
+        onTriggered: root.showBtop()
+    }
+
+    Timer {
+        id: btopHideTimer
+        interval: 300
+        repeat: false
+        onTriggered: root.hideBtop()
     }
 
     onSettingsChanged: restartPolling()
     Component.onCompleted: restartPolling()
+    Component.onDestruction: hideBtop()
 }
