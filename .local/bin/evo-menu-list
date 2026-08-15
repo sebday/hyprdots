@@ -1,19 +1,25 @@
 #!/usr/bin/env bash
-# Fast TSV listing for Evo menu theme/wallpaper previews (no ImageMagick).
+# Fast TSV listing for Evo menu theme/wallpaper previews.
 set -euo pipefail
 
 mode="${1:-}"
 cache_root="${XDG_STATE_HOME:-$HOME/.local/state}/evoshell/menu-cache"
 home="${HOME:?}"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+thumb="${script_dir}/evo-menu-thumb"
 
 preview_path() {
     local src="$1" key="$2"
     local cached="$cache_root/$key"
     if [[ -f "$cached" ]]; then
         printf '%s' "$cached"
-    else
-        printf '%s' "$src"
+        return
     fi
+    if [[ -x "$thumb" ]]; then
+        "$thumb" "$src" "$key"
+        return
+    fi
+    printf '%s' "$src"
 }
 
 case "$mode" in

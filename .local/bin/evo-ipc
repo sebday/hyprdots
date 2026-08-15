@@ -14,7 +14,7 @@ arg1="${3:-}"
 arg2="${4:-}"
 
 case "$target" in
-background) target="evo.background" ;;
+background|wallpaper) target="evo.wallpaper" ;;
 idle) target="evo.idle" ;;
 lock) target="evo.lock" ;;
 esac

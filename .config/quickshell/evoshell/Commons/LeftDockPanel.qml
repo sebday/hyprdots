@@ -22,6 +22,10 @@ Item {
     readonly property bool onRight: side === "right"
     readonly property int edgeGap: Theme.gapsOut
     readonly property bool surfaceActive: dock.hovered
+    readonly property color surfaceFill: Theme.withOpacity(
+        Theme.background,
+        surfaceActive ? Theme.surfaceOpacity : Theme.surfaceOpacityInactive
+    )
     readonly property bool scrimActive: shown && opened && !pinned
     readonly property color panelBorderIdle: Theme.inactiveBorder
     readonly property color panelBorderActive: Theme.accent
@@ -155,14 +159,13 @@ Item {
                 id: panelBg
                 anchors.fill: parent
                 z: -1
-                color: Theme.mantle
-                opacity: dock.surfaceActive ? Theme.surfaceOpacity : Theme.surfaceOpacityInactive
+                color: dock.surfaceFill
                 border.width: 2
                 border.color: dock.surfaceActive ? dock.panelBorderActive : dock.panelBorderIdle
                 radius: Theme.panelCornerRadius
 
-                Behavior on opacity {
-                    NumberAnimation {
+                Behavior on color {
+                    ColorAnimation {
                         duration: 150
                         easing.type: Easing.OutCubic
                     }

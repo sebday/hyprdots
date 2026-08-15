@@ -51,7 +51,7 @@ Letters match the diagram.
 | | Plugin | Role |
 |---|--------|------|
 | **A** | `evo.audio` | PipeWire volume control |
-| **G** | `evo.background` | Wallpaper cycling |
+| **G** | `evo.wallpaper` | Wallpaper display + cycling |
 | **L** | `evo.lock` | Lock screen |
 | **D** | `evo.idle` | Screensaver + auto-lock |
 | **N** | `evo.notifications` | Brief toast notifications |
@@ -86,7 +86,7 @@ evoshell/
 │   ├── panel/         # Panel.qml + modules/
 │   ├── menu/          # launcher
 │   ├── audio/         # service plugins
-│   ├── background/
+│   ├── wallpaper/
 │   ├── …
 └── diagram.svg        # architecture diagram
 ```
@@ -121,7 +121,7 @@ shell.qml
 ├── pluginTable + panelPluginIds
 ├── barLoader → plugins/bar/Bar.qml
 ├── Instantiator → menu/panel/hover plugins
-└── syncServices → background, audio, idle, lock, notifications, clipboard
+└── syncServices → wallpaper, audio, idle, lock, notifications, clipboard
 
 shell.json → bar.layout (widgets, intervals, onHover)
 BarWidgetCatalog → native widgets (evo.clock, evo.github, …)
@@ -132,10 +132,10 @@ CommandWidget → exec scripts (evo-bar-*.sh) → JSON line
 
 | Kind | Examples | Entry |
 |------|----------|-------|
-| Service | `evo.audio`, `evo.background`, `evo.idle`, `evo.lock` | `Service.qml` / `Background.qml` |
+| Service | `evo.audio`, `evo.wallpaper`, `evo.idle`, `evo.lock` | `Service.qml` |
 | Bar | `evo.bar` | `Bar.qml` + `shell.json` layout |
 | Hover tooltip | `evo.calendar`, `evo.stats`, `evo.weather`, `evo.cursor` | `BarHoverPopup` + `*Module.qml` |
-| Fullscreen overlay | `evo.library`, `evo.theme`, `evo.wallpaper` | `CenteredOverlay` / `PreviewOverlay` |
+| Fullscreen overlay | `evo.library`, `evo.theme`, `evo.wallpaper` | `CenteredOverlay` / `CarouselOverlay` |
 | Menu | `evo.menu` | Custom `PanelWindow` (`evo-menu`) |
 | Panel | `evo.panel` | `Panel.qml` → dock modules `calc`, `clipboard`, `settings` |
 
@@ -144,14 +144,14 @@ CommandWidget → exec scripts (evo-bar-*.sh) → JSON line
 - **Plugin IDs**: `evo.<feature>` (`evo.calendar`, `evo.panel`)
 - **Bar widgets**: `evo.<feature>` in `BarWidgetCatalog` and `shell.json` layout
 - **Layer namespaces**: `evo-<kebab>` (`evo-bar`, `evo-calendar`, …) — rules in `evoshell.lua`
-- **IPC service targets**: `evo.audio`, `evo.background`, `evo.idle`, `evo.lock` (legacy `background`/`idle`/`lock` still accepted by `evo-ipc`)
+- **IPC service targets**: `evo.audio`, `evo.wallpaper`, `evo.idle`, `evo.lock` (legacy `background`/`wallpaper`/`idle`/`lock` still accepted by `evo-ipc`)
 
 ## IPC
 
 ```bash
 ~/.local/bin/evo-ipc shell toggle <pluginId> [payloadJson]
 ~/.local/bin/evo-ipc evo.audio stepUp
-~/.local/bin/evo-ipc evo.background next
+~/.local/bin/evo-ipc evo.wallpaper next
 ~/.local/bin/evo-ipc evo.lock lock
 ```
 

@@ -14,8 +14,8 @@ Item {
     readonly property string themeNamePath: home + "/.themes/current/.theme-name"
     readonly property int wallpaperFadeMs: 480
 
-    property string currentBackground: ""
-    property string displayedBackground: ""
+    property string currentWallpaper: ""
+    property string displayedWallpaper: ""
     property string queuedWrite: ""
     property bool wallpaperSkipFade: false
 
@@ -46,17 +46,17 @@ Item {
         return Util.fileUrl(path)
     }
 
-    function refreshBackground() {
+    function refreshWallpaper() {
         if (!readStateProc.running) readStateProc.running = true
     }
 
-    function setBackground(path, instant) {
+    function setWallpaper(path, instant) {
         path = String(path || "").trim()
         if (!path) return
-        if (path === currentBackground && path === displayedBackground) return
-        currentBackground = path
-        wallpaperSkipFade = instant || !displayedBackground
-        displayedBackground = path
+        if (path === currentWallpaper && path === displayedWallpaper) return
+        currentWallpaper = path
+        wallpaperSkipFade = instant || !displayedWallpaper
+        displayedWallpaper = path
         persistState(path)
         if (wallpaperSkipFade)
             Qt.callLater(function() { root.wallpaperSkipFade = false })
@@ -91,7 +91,7 @@ Item {
         stdout: StdioCollector {
             onStreamFinished: {
                 var path = String(text || "").trim()
-                if (path) root.setBackground(path, !root.displayedBackground)
+                if (path) root.setWallpaper(path, !root.displayedWallpaper)
             }
         }
     }
@@ -106,28 +106,28 @@ Item {
         stdout: StdioCollector {
             onStreamFinished: {
                 var path = String(text || "").trim()
-                if (path) root.setBackground(path, false)
+                if (path) root.setWallpaper(path, false)
             }
         }
     }
 
     IpcHandler {
-        target: "evo.background"
+        target: "evo.wallpaper"
 
-        function refresh(): void { root.refreshBackground() }
-        function set(path: string): void { root.setBackground(path, false) }
-        function setInstant(path: string): void { root.setBackground(path, true) }
+        function refresh(): void { root.refreshWallpaper() }
+        function set(path: string): void { root.setWallpaper(path, false) }
+        function setInstant(path: string): void { root.setWallpaper(path, true) }
         function next(): string { root.cycleWallpapers("next"); return "ok" }
         function prev(): string { root.cycleWallpapers("prev"); return "ok" }
     }
 
-    Component.onCompleted: refreshBackground()
+    Component.onCompleted: refreshWallpaper()
 
     component WallpaperLayer: Item {
         id: layer
         anchors.fill: parent
 
-        readonly property string imagePath: root.displayedBackground
+        readonly property string imagePath: root.displayedWallpaper
         readonly property int fadeMs: root.wallpaperFadeMs
 
         property string basePath: ""
@@ -201,8 +201,8 @@ Item {
 
         Connections {
             target: root
-            function onDisplayedBackgroundChanged() {
-                layer.applyPath(root.displayedBackground, root.wallpaperSkipFade)
+            function onDisplayedWallpaperChanged() {
+                layer.applyPath(root.displayedWallpaper, root.wallpaperSkipFade)
             }
         }
 
@@ -219,7 +219,7 @@ Item {
             anchors { top: true; bottom: true; left: true; right: true }
             color: "transparent"
             aboveWindows: false
-            WlrLayershell.namespace: "evo-background"
+            WlrLayershell.namespace: "evo-wallpaper"
             WlrLayershell.layer: WlrLayer.Background
             WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
             exclusionMode: ExclusionMode.Ignore

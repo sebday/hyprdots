@@ -10,10 +10,10 @@ cmd="${1:-next}"
 
 case "$cmd" in
     next|prev)
-        exec "$IPC" evo.background "$cmd"
+        exec "$IPC" evo.wallpaper "$cmd"
         ;;
     set)
-        [[ -n "${2:-}" ]] && exec "$IPC" evo.background set "$2"
+        [[ -n "${2:-}" ]] && exec "$IPC" evo.wallpaper set "$2"
         exit 1
         ;;
     *)

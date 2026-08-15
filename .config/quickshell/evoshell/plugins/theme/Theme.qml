@@ -1,7 +1,7 @@
 import QtQuick
 import "."
 
-PreviewOverlay {
+CarouselOverlay {
     pluginId: "evo.theme"
     kind: "themes"
     layerNamespace: "evo-theme"

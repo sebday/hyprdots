@@ -28,7 +28,7 @@ ShellRoot {
     })
 
     readonly property var pluginTable: ({
-        "evo.background": { kinds: ["service"], path: "plugins/background/Background.qml", keepLoaded: true },
+        "evo.wallpaper": { kinds: ["menu", "service"], path: "plugins/wallpaper/Picker.qml", servicePath: "plugins/wallpaper/Service.qml", keepLoaded: true },
         "evo.audio": { kinds: ["service"], path: "plugins/audio/Service.qml", keepLoaded: true },
         "evo.idle": { kinds: ["service"], path: "plugins/idle/Service.qml" },
         "evo.lock": { kinds: ["service"], path: "plugins/lock/Service.qml", keepLoaded: true },
@@ -41,7 +41,6 @@ ShellRoot {
         "evo.network": { kinds: ["menu"], path: "plugins/network/Network.qml", keepLoaded: true },
         "evo.library": { kinds: ["menu"], path: "plugins/library/Library.qml", keepLoaded: true },
         "evo.theme": { kinds: ["menu"], path: "plugins/theme/Theme.qml", keepLoaded: true },
-        "evo.wallpaper": { kinds: ["menu"], path: "plugins/theme/Wallpaper.qml", keepLoaded: true },
         "evo.screenshot": { kinds: ["menu"], path: "plugins/screenshot/Screenshot.qml", keepLoaded: true },
         "evo.clipboard": { kinds: ["menu", "service"], path: "plugins/clipboard/Clipboard.qml", servicePath: "plugins/clipboard/Service.qml", keepLoaded: true },
         "evo.panel": { kinds: ["panel"], path: "plugins/panel/Panel.qml", keepLoaded: true },

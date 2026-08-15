@@ -218,15 +218,13 @@ Item {
         anchors.fill: parent
         clip: true
         contentWidth: width
-        // Extra top pad so FramedPanel labels (y: -7) aren't clipped.
-        contentHeight: settingsColumn.implicitHeight + 10
+        contentHeight: settingsColumn.implicitHeight
         boundsBehavior: Flickable.StopAtBounds
         flickableDirection: Flickable.VerticalFlick
 
         ColumnLayout {
             id: settingsColumn
             width: parent.width
-            y: 10
             spacing: 16
 
             FramedPanel {

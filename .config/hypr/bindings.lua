@@ -155,8 +155,8 @@ bindd("XF86AudioNext", "Next media track", hl.dsp.exec_cmd("playerctl next"), { 
 bindd("XF86AudioPrev", "Previous media track", hl.dsp.exec_cmd("playerctl previous"), { locked = true })
 
 -- Wallpaper
-bindd("SUPER + comma", "Previous Wallpaper", hl.dsp.exec_cmd(shell_ipc .. " evo.background prev"))
-bindd("SUPER + period", "Next Wallpaper", hl.dsp.exec_cmd(shell_ipc .. " evo.background next"))
+bindd("SUPER + comma", "Previous Wallpaper", hl.dsp.exec_cmd(shell_ipc .. " evo.wallpaper prev"))
+bindd("SUPER + period", "Next Wallpaper", hl.dsp.exec_cmd(shell_ipc .. " evo.wallpaper next"))
 
 -- Zoom level (evo panel settings)
 bindd("SUPER + minus", "Zoom out", hl.dsp.exec_cmd(bin .. "/evo-font step-zoom down"))
