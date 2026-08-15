@@ -3,8 +3,9 @@ import "../../Commons"
 import "."
 
 BarHoverTooltip {
-    layerNamespace: "evo-weather"
+    layerNamespace: "evo-stocks"
     contentWidth: Theme.tooltipWidthWide
+    contentMargin: 10
 
-    WeatherModule {}
+    StocksModule {}
 }

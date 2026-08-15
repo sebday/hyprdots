@@ -8,11 +8,12 @@ Item {
     id: root
 
     property var host: null
+    property int tooltipWidth: 0
 
     readonly property string script: Quickshell.env("HOME") + "/.local/bin/evo-network"
     readonly property bool active: host && host.opened === true
-    readonly property int bodyFont: Theme.panelTitleFontPixelSize
-    readonly property int hintFont: Theme.panelHintFontPixelSize
+    readonly property int bodyFont: Theme.tooltipBodyFontPixelSize
+    readonly property int hintFont: Theme.tooltipHintFontPixelSize
     readonly property int maxHistory: 36
 
     property var info: ({})
@@ -31,7 +32,6 @@ Item {
     property var topUp: []
     property bool processesLoading: false
 
-    implicitWidth: column.implicitWidth
     implicitHeight: column.implicitHeight
 
     readonly property string connectionTitle: {
@@ -251,8 +251,8 @@ Item {
 
     ColumnLayout {
         id: column
-        width: parent.width
-        spacing: 10
+        width: root.tooltipWidth
+        spacing: Theme.tooltipSectionSpacing
 
         ColumnLayout {
             Layout.fillWidth: true
@@ -290,15 +290,10 @@ Item {
             }
         }
 
-        FramedPanel {
+        SectionPanel {
             label: "Download"
-            Layout.fillWidth: true
 
-            ColumnLayout {
-                width: parent.width
-                spacing: 8
-
-                Text {
+            Text {
                     text: root.hasTransferStats ? root.formatRate(root.downloadRate) : "--"
                     color: Theme.accent
                     font.family: Theme.fontFamily
@@ -313,18 +308,12 @@ Item {
                     lineColor: Theme.accent
                     chartHeight: Theme.sparklineExpandedHeight
                 }
-            }
         }
 
-        FramedPanel {
+        SectionPanel {
             label: "Upload"
-            Layout.fillWidth: true
 
-            ColumnLayout {
-                width: parent.width
-                spacing: 8
-
-                Text {
+            Text {
                     text: root.hasTransferStats ? root.formatRate(root.uploadRate) : "--"
                     color: Theme.foreground
                     font.family: Theme.fontFamily
@@ -340,18 +329,12 @@ Item {
                     lineColor: Theme.foreground
                     chartHeight: Theme.sparklineExpandedHeight
                 }
-            }
         }
 
-        FramedPanel {
+        SectionPanel {
             label: "Top processes"
-            Layout.fillWidth: true
 
-            ColumnLayout {
-                width: parent.width
-                spacing: 10
-
-                Text {
+            Text {
                     visible: root.processesLoading && root.topDown.length === 0 && root.topUp.length === 0
                     text: "Sampling…"
                     color: Theme.foreground
@@ -455,7 +438,6 @@ Item {
                         }
                     }
                 }
-            }
         }
     }
 }

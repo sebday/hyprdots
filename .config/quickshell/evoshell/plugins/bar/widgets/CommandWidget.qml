@@ -11,6 +11,30 @@ Item {
     property var shell: null
     property var settings: ({})
     readonly property string hoverPopupId: settings.onHover ? String(settings.onHover) : ""
+    readonly property bool trayMode: settings.trayMode === true
+    readonly property int trayIconSize: {
+        var n = parseInt(settings.trayIconSize, 10)
+        return isNaN(n) || n <= 0 ? 18 : n
+    }
+    readonly property int trayCellWidth: {
+        var n = parseInt(settings.trayCellWidth, 10)
+        return isNaN(n) || n <= 0 ? trayIconSize + 4 : n
+    }
+    readonly property string trayDisplay: {
+        if (settings.trayDisplay)
+            return String(settings.trayDisplay)
+        if (hoverPopupId === "evo.cursor")
+            return "dial"
+        if (hoverPopupId === "evo.weather")
+            return "icon"
+        return "text"
+    }
+    readonly property real trayDialPercent: {
+        if (!lastPayload || lastPayload.cursorPercent === undefined)
+            return 0
+        var n = Number(lastPayload.cursorPercent)
+        return isFinite(n) ? Math.max(0, Math.min(100, n)) : 0
+    }
 
     property string displayText: ""
     property string displayRichText: ""
@@ -33,7 +57,57 @@ Item {
         return code >= 0xE000
     }
 
+    function leadingIconFromText(text) {
+        var t = String(text || "")
+        if (!t)
+            return ""
+        if (t.charCodeAt(0) >= 0xE000)
+            return t.charAt(0)
+        return ""
+    }
+
+    readonly property string trayIconText: {
+        if (!trayMode)
+            return ""
+        if (lastPayload && lastPayload.current && lastPayload.current.icon)
+            return String(lastPayload.current.icon)
+        if (lastPayload && lastPayload.cursorPercent !== undefined)
+            return leadingIconFromText(displayText) || "󰆧"
+        if (lastPayload && lastPayload.trayIcon)
+            return String(lastPayload.trayIcon)
+        return leadingIconFromText(displayText)
+    }
+
+    readonly property string trayValueText: {
+        if (!trayMode)
+            return ""
+        if (lastPayload && lastPayload.current && lastPayload.current.temp !== undefined)
+            return String(lastPayload.current.temp) + "°"
+        if (lastPayload && lastPayload.cursorPercent !== undefined)
+            return String(lastPayload.cursorPercent) + "%"
+        if (lastPayload && lastPayload.trayValue !== undefined)
+            return String(lastPayload.trayValue)
+        return ""
+    }
+
+    readonly property bool trayHasContent: {
+        if (polling)
+            return true
+        if (trayDisplay === "dial")
+            return lastPayload !== null
+        if (trayDisplay === "icon")
+            return trayIconText !== ""
+        return trayIconText !== "" || trayValueText !== ""
+    }
+
     implicitWidth: {
+        if (trayMode) {
+            if (hideWhenEmpty && !trayHasContent)
+                return 0
+            if (trayDisplay === "icon" || trayDisplay === "dial")
+                return trayCellWidth
+            return Math.max(trayTextRow.implicitWidth, trayIconSize)
+        }
         if (hideWhenEmpty && displayText === "")
             return 0
         var textWidth = Math.max(label.implicitWidth, label.contentWidth)
@@ -42,6 +116,8 @@ Item {
         return textWidth + Theme.barPaddingX * 2
     }
     implicitHeight: Theme.barHeight
+    width: trayMode && parent ? parent.width : implicitWidth
+    height: Theme.barHeight
 
     function pangoToRichText(raw) {
         var s = String(raw || "")
@@ -108,22 +184,98 @@ Item {
         lastPayload = null
     }
 
+    function setHoverPopup(active) {
+        if (!shell || !hoverPopupId) return
+        if (active)
+            shell.hoverEnter(hoverPopupId, commandRoot, barPanel)
+        else
+            shell.hoverLeave(hoverPopupId)
+    }
+
+    function handleClick(mouse) {
+        if (mouse.button === Qt.RightButton && settings.onClickRight)
+            Quickshell.execDetached(["bash", "-lc", String(settings.onClickRight)])
+        else if (settings.onClick)
+            Quickshell.execDetached(["bash", "-lc", String(settings.onClick)])
+    }
+
+    Item {
+        id: trayHost
+        anchors.centerIn: parent
+        visible: commandRoot.trayMode && commandRoot.trayHasContent
+        width: commandRoot.trayDisplay === "text"
+            ? trayTextRow.implicitWidth
+            : commandRoot.trayCellWidth
+        height: Theme.barHeight
+
+        Row {
+            id: trayTextRow
+            anchors.centerIn: parent
+            height: parent.height
+            spacing: 3
+            visible: commandRoot.trayDisplay === "text"
+
+            Text {
+                height: trayTextRow.height
+                verticalAlignment: Text.AlignVCenter
+                text: commandRoot.trayIconText
+                color: Theme.foreground
+                font.family: Theme.fontFamily
+                font.pixelSize: commandRoot.trayIconSize
+                font.bold: Theme.fontBold
+            }
+
+            Text {
+                height: trayTextRow.height
+                verticalAlignment: Text.AlignVCenter
+                text: commandRoot.trayValueText
+                visible: commandRoot.trayValueText !== ""
+                color: Theme.foreground
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.barFontPixelSize - 1
+                font.bold: Theme.fontBold
+            }
+        }
+
+        Text {
+            anchors.centerIn: parent
+            visible: commandRoot.trayDisplay === "icon"
+            text: commandRoot.trayIconText
+            color: Theme.foreground
+            font.family: Theme.fontFamily
+            font.pixelSize: commandRoot.trayIconSize
+            font.bold: Theme.fontBold
+        }
+
+        TrayUsageDial {
+            anchors.centerIn: parent
+            visible: commandRoot.trayDisplay === "dial"
+            size: commandRoot.trayIconSize
+            percent: commandRoot.trayDialPercent
+            color: Theme.foreground
+            lineWidth: 3
+            loading: commandRoot.polling
+        }
+    }
+
     Text {
         id: label
         anchors.centerIn: parent
+        visible: !commandRoot.trayMode
+            && (!commandRoot.hideWhenEmpty || commandRoot.displayText !== "")
         text: commandRoot.useRichText ? commandRoot.displayRichText : commandRoot.displayText
         textFormat: commandRoot.useRichText ? Text.RichText : Text.PlainText
         color: Theme.foreground
         font.family: Theme.fontFamily
         font.pixelSize: commandRoot.iconOnly ? Theme.panelIconFontPixelSize : Theme.barFontPixelSize
         font.bold: Theme.fontBold && !commandRoot.iconOnly
-        visible: !commandRoot.hideWhenEmpty || commandRoot.displayText !== ""
     }
 
     ToolTip {
         visible: commandRoot.tooltipText !== ""
-            && mouseArea.containsMouse
+            && barMouseArea.containsMouse
             && commandRoot.hoverPopupId === ""
+            && !commandRoot.trayMode
         delay: 400
         timeout: 8000
         text: commandRoot.tooltipText
@@ -174,29 +326,30 @@ Item {
 
     onSettingsChanged: restartPolling()
 
-    HoverHandler {
-        enabled: commandRoot.hoverPopupId !== ""
-        onHoveredChanged: {
-            if (!commandRoot.shell || !commandRoot.hoverPopupId) return
-            if (hovered)
-                commandRoot.shell.hoverEnter(commandRoot.hoverPopupId, commandRoot, commandRoot.barPanel)
-            else
-                commandRoot.shell.hoverLeave(commandRoot.hoverPopupId)
-        }
-    }
-
     MouseArea {
-        id: mouseArea
+        id: trayMouseArea
         anchors.fill: parent
+        visible: commandRoot.trayMode
         hoverEnabled: true
         acceptedButtons: Qt.LeftButton | Qt.RightButton
         cursorShape: (settings.onClick || settings.onClickRight) ? Qt.PointingHandCursor : Qt.ArrowCursor
-        onClicked: function(mouse) {
-            if (mouse.button === Qt.RightButton && settings.onClickRight)
-                Quickshell.execDetached(["bash", "-lc", String(settings.onClickRight)])
-            else if (settings.onClick)
-                Quickshell.execDetached(["bash", "-lc", String(settings.onClick)])
-        }
+        onContainsMouseChanged: commandRoot.setHoverPopup(containsMouse)
+        onClicked: function(mouse) { commandRoot.handleClick(mouse) }
+    }
+
+    HoverHandler {
+        enabled: !commandRoot.trayMode && commandRoot.hoverPopupId !== "" && commandRoot.shell
+        onHoveredChanged: commandRoot.setHoverPopup(hovered)
+    }
+
+    MouseArea {
+        id: barMouseArea
+        anchors.fill: parent
+        visible: !commandRoot.trayMode
+        hoverEnabled: true
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
+        cursorShape: (settings.onClick || settings.onClickRight) ? Qt.PointingHandCursor : Qt.ArrowCursor
+        onClicked: function(mouse) { commandRoot.handleClick(mouse) }
     }
 
     Component.onCompleted: restartPolling()

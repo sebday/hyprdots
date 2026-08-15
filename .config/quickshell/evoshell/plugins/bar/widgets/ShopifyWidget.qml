@@ -1,56 +1,76 @@
 import QtQuick
+import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
 import "../../../Commons"
 
 Item {
     id: root
+
     property var bar: null
     property var barPanel: null
     property var shell: null
     property var settings: ({})
+
     readonly property string hoverPopupId: settings.onHover ? String(settings.onHover) : ""
+    readonly property string store: settings.store ? String(settings.store) : ""
 
     property bool loading: false
-    property string mainText: ""
-    property var bars: []
     property string storeLabel: ""
     property string currencySymbol: "£"
-    property int hoveredBarIndex: -1
+    property real todayRevenue: 0
+    property var lastPayload: null
 
     readonly property string home: Quickshell.env("HOME") || ""
-    readonly property string store: settings.store ? String(settings.store) : ""
     readonly property string script: home + "/.local/bin/evo-bar-shopify"
-    readonly property string hoverCaption: {
-        if (hoveredBarIndex < 0 || hoveredBarIndex >= bars.length) return "14-day revenue"
-        var cell = bars[hoveredBarIndex]
-        if (!cell) return "14-day revenue"
-        return Format.formatDay(cell.date) + "  " + Format.formatRevenue(cell.value, currencySymbol)
+    readonly property string storeIconUrl: {
+        if (settings.iconUrl)
+            return String(settings.iconUrl)
+        if (store === "DIY")
+            return "https://diybuildingsupplies.co.uk/cdn/shop/files/diy-square-logo-trans.png?crop=center&height=48&v=1770480698&width=48"
+        if (store === "TGS")
+            return "https://thegoodsheet.co.uk/cdn/shop/files/logo_osb.png?crop=center&height=48&v=1752889811&width=48"
+        return ""
+    }
+    readonly property int storeIconSize: 18
+    readonly property string storeIcon: {
+        var label = storeLabel.trim()
+        if (label)
+            return label.charAt(0)
+        if (store === "DIY") return "D"
+        if (store === "TGS") return "T"
+        return store ? store.charAt(0) : ""
+    }
+    readonly property string revenueText: {
+        if (loading) return "…"
+        if (todayRevenue > 0 || lastPayload)
+            return Format.formatRevenue(todayRevenue, currencySymbol)
+        return "—"
     }
 
-    clip: false
     implicitWidth: contentRow.implicitWidth + Theme.barPaddingX * 2
     implicitHeight: Theme.barHeight
 
     function applyJson(line) {
         loading = false
         var raw = String(line || "").trim()
-        if (!raw) return
+        if (!raw) {
+            lastPayload = null
+            return
+        }
         try {
             var json = JSON.parse(raw)
-            if (json.label)
-                mainText = String(json.label)
-            else
-                mainText = String(json.text || "").split("<span")[0].trim()
-
+            lastPayload = json
             if (json.store)
                 storeLabel = String(json.store).trim()
             if (json.symbol)
                 currencySymbol = String(json.symbol)
-
-            bars = Array.isArray(json.bars) ? json.bars : []
+            todayRevenue = parseFloat(json.revenue)
+            if (!isFinite(todayRevenue))
+                todayRevenue = 0
         } catch (e) {
             console.warn("shopify widget parse failed:", store, e)
+            lastPayload = null
         }
     }
 
@@ -70,6 +90,62 @@ Item {
         intervalTimer.start()
     }
 
+    function setHoverPopup(active) {
+        if (!shell || !hoverPopupId) return
+        if (active)
+            shell.hoverEnter(hoverPopupId, root, barPanel)
+        else
+            shell.hoverLeave(hoverPopupId)
+    }
+
+    RowLayout {
+        id: contentRow
+        anchors.centerIn: parent
+        spacing: 5
+
+        Text {
+            visible: !root.storeIconUrl || favicon.status !== Image.Ready
+            text: root.storeIcon
+            color: Theme.foreground
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.barFontPixelSize
+            font.bold: Theme.fontBold
+            Layout.alignment: Qt.AlignVCenter
+            opacity: 0.9
+        }
+
+        Item {
+            Layout.preferredWidth: root.storeIconSize
+            Layout.preferredHeight: root.storeIconSize
+            Layout.maximumWidth: root.storeIconSize
+            Layout.maximumHeight: root.storeIconSize
+            Layout.alignment: Qt.AlignVCenter
+            visible: root.storeIconUrl !== "" && favicon.status === Image.Ready
+            clip: true
+
+            Image {
+                id: favicon
+                anchors.fill: parent
+                source: root.storeIconUrl
+                fillMode: Image.PreserveAspectFit
+                asynchronous: true
+                cache: true
+                smooth: true
+                mipmap: true
+                sourceSize: Qt.size(root.storeIconSize * 2, root.storeIconSize * 2)
+            }
+        }
+
+        Text {
+            text: root.revenueText
+            color: Theme.foreground
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.barFontPixelSize
+            font.bold: Theme.fontBold
+            Layout.alignment: Qt.AlignVCenter
+        }
+    }
+
     Process {
         id: proc
         stdout: StdioCollector {
@@ -78,90 +154,12 @@ Item {
         onExited: root.loading = false
     }
 
-    Row {
-        id: contentRow
-        anchors.centerIn: parent
-        spacing: Theme.sparklineGap
-        clip: false
-
-        Text {
-            text: root.loading ? "…" : root.mainText
-            color: Theme.foreground
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.barFontPixelSize
-            font.bold: Theme.fontBold
-        }
-
-        Item {
-            id: chartHost
-            visible: !root.loading && root.bars.length > 0
-            width: nativeSparkline.width
-            height: nativeSparkline.height
-            anchors.verticalCenter: parent.verticalCenter
-            clip: false
-
-            Row {
-                id: nativeSparkline
-                spacing: Theme.sparklineBarSpacing
-                height: Theme.sparklineHeight
-                anchors.centerIn: parent
-
-                Item {
-                    width: Theme.sparklineChartMargin
-                    height: 1
-                }
-
-                Repeater {
-                    model: root.bars
-                    Item {
-                        required property int index
-                        required property var modelData
-                        width: Theme.sparklineWideBarWidth
-                        height: nativeSparkline.height
-
-                        Rectangle {
-                            width: Theme.sparklineWideBarWidth
-                            height: modelData.level > 0
-                                ? Math.max(1, nativeSparkline.height * modelData.level / 7)
-                                : 0
-                            anchors.bottom: parent.bottom
-                            color: modelData.color || Theme.foreground
-                            opacity: chartHoverArea.containsMouse && root.hoveredBarIndex === index ? 1 : 0.75
-                        }
-
-                        MouseArea {
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            acceptedButtons: Qt.NoButton
-                            onEntered: root.hoveredBarIndex = index
-                            onExited: root.hoveredBarIndex = -1
-                        }
-                    }
-                }
-            }
-
-            MouseArea {
-                id: chartHoverArea
-                anchors.fill: parent
-                hoverEnabled: true
-                acceptedButtons: Qt.NoButton
-            }
-        }
-    }
-
     HoverHandler {
-        enabled: root.hoverPopupId !== ""
-        onHoveredChanged: {
-            if (!root.shell || !root.hoverPopupId) return
-            if (hovered)
-                root.shell.hoverEnter(root.hoverPopupId, root, root.barPanel)
-            else
-                root.shell.hoverLeave(root.hoverPopupId)
-        }
+        enabled: root.hoverPopupId !== "" && root.shell
+        onHoveredChanged: root.setHoverPopup(hovered)
     }
 
     MouseArea {
-        z: -1
         anchors.fill: parent
         hoverEnabled: true
         cursorShape: (root.settings.onClick || root.hoverPopupId) ? Qt.PointingHandCursor : Qt.ArrowCursor

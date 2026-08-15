@@ -4,6 +4,7 @@ singleton Theme 1.0 Theme.qml
 singleton Util 1.0 Util.qml
 LeftDockPanel 1.0 LeftDockPanel.qml
 FramedPanel 1.0 FramedPanel.qml
+SectionPanel 1.0 SectionPanel.qml
 SliderSetting 1.0 SliderSetting.qml
 ToggleRow 1.0 ToggleRow.qml
 FontFamilyPicker 1.0 FontFamilyPicker.qml
@@ -14,4 +15,6 @@ JsonPollRunner 1.0 JsonPollRunner.qml
 CenteredOverlay 1.0 CenteredOverlay.qml
 AttachedOverlay 1.0 AttachedOverlay.qml
 BarHoverPopup 1.0 BarHoverPopup.qml
+BarHoverTooltip 1.0 BarHoverTooltip.qml
+TooltipHeader 1.0 TooltipHeader.qml
 BarWidgetRegistry 1.0 BarWidgetRegistry.qml

@@ -14,55 +14,55 @@
           "id": "evo.shopify",
           "store": "DIY",
           "interval": 300,
-          "onHover": "evo.stats"
+          "onHover": "evo.stats_diy"
         },
         {
           "id": "evo.shopify",
           "store": "TGS",
           "interval": 300,
-          "onHover": "evo.stats"
+          "onHover": "evo.stats_tgs"
         }
       ],
       "center": [
         {
-          "id": "evo.weather",
-          "type": "command",
-          "exec": "~/.local/bin/evo-weather",
-          "interval": 1800,
-          "onHover": "evo.weather",
-          "onClickRight": "xdg-open https://weather.metoffice.gov.uk/forecast/gcqvn6pq4"
-        },
-        {
-          "id": "evo.clock",
-          "format": "%a %d %H:%M"
-        },
-        {
-          "id": "evo.cursor",
-          "type": "command",
-          "exec": "~/.local/bin/evo-bar-cursor",
-          "interval": 300,
-          "onHover": "evo.cursor"
+          "id": "evo.tray",
+          "weather": {
+            "type": "command",
+            "exec": "~/.local/bin/evo-weather",
+            "interval": 1800,
+            "onHover": "evo.weather",
+            "onClickRight": "xdg-open https://weather.metoffice.gov.uk/forecast/gcqvn6pq4"
+          },
+          "cursor": {
+            "type": "command",
+            "exec": "~/.local/bin/evo-bar-cursor",
+            "interval": 300,
+            "onHover": "evo.cursor"
+          },
+          "github": {
+            "interval": 300,
+            "onHover": "evo.github",
+            "onClick": "xdg-open https://github.com/sebday"
+          },
+          "stocks": {
+            "onHover": "evo.stocks"
+          },
+          "audio": {
+            "onHover": "evo.sound",
+            "onClick": "ghostty --class=TUI.main -e wiremix",
+            "onClickRight": "ghostty --class=TUI.main -e alsamixer"
+          },
+          "network": {
+            "interval": 2,
+            "onHover": "evo.network",
+            "iconOnly": true
+          }
         }
       ],
       "right": [
         {
-          "id": "evo.github",
-          "interval": 300,
-          "onClick": "xdg-open https://github.com/sebday"
-        },
-        {
-          "id": "evo.audio",
-          "onHover": "evo.sound",
-          "onClick": "ghostty --class=TUI.main -e wiremix",
-          "onClickRight": "ghostty --class=TUI.main -e alsamixer"
-        },
-        {
-          "id": "evo.network",
-          "interval": 2,
-          "onHover": "evo.network"
-        },
-        {
-          "id": "evo.tray"
+          "id": "evo.clock",
+          "format": "%a %d %H:%M"
         }
       ]
     }

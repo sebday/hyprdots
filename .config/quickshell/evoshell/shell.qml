@@ -35,11 +35,14 @@ ShellRoot {
         "evo.notifications": { kinds: ["service"], path: "plugins/notifications/Service.qml", keepLoaded: true },
         "evo.menu": { kinds: ["menu"], path: "plugins/menu/Menu.qml", keepLoaded: true },
         "evo.calendar": { kinds: ["menu"], path: "plugins/calendar/Calendar.qml", keepLoaded: true },
-        "evo.stats": { kinds: ["menu"], path: "plugins/stats/Stats.qml", keepLoaded: true },
+        "evo.stats_diy": { kinds: ["menu"], path: "plugins/stats_diy/StatsDiy.qml", keepLoaded: true },
+        "evo.stats_tgs": { kinds: ["menu"], path: "plugins/stats_tgs/StatsTgs.qml", keepLoaded: true },
         "evo.cursor": { kinds: ["menu"], path: "plugins/cursor/Cursor.qml", keepLoaded: true },
         "evo.weather": { kinds: ["menu"], path: "plugins/weather/Weather.qml", keepLoaded: true },
         "evo.network": { kinds: ["menu"], path: "plugins/network/Network.qml", keepLoaded: true },
         "evo.sound": { kinds: ["menu"], path: "plugins/sound/Sound.qml", keepLoaded: true },
+        "evo.github": { kinds: ["menu"], path: "plugins/github/Github.qml", keepLoaded: true },
+        "evo.stocks": { kinds: ["menu"], path: "plugins/stocks/Stocks.qml", keepLoaded: true },
         "evo.library": { kinds: ["menu"], path: "plugins/library/Library.qml", keepLoaded: true },
         "evo.theme": { kinds: ["menu"], path: "plugins/theme/Theme.qml", keepLoaded: true },
         "evo.screenshot": { kinds: ["menu"], path: "plugins/screenshot/Screenshot.qml", keepLoaded: true },
@@ -328,7 +331,7 @@ ShellRoot {
         }
     }
 
-    readonly property var panelPluginIds: ["evo.menu", "evo.panel", "evo.calendar", "evo.stats", "evo.cursor", "evo.weather", "evo.network", "evo.sound", "evo.library", "evo.theme", "evo.wallpaper", "evo.screenshot", "evo.clipboard"]
+    readonly property var panelPluginIds: ["evo.menu", "evo.panel", "evo.calendar", "evo.stats_diy", "evo.stats_tgs", "evo.cursor", "evo.weather", "evo.network", "evo.sound", "evo.github", "evo.stocks", "evo.library", "evo.theme", "evo.wallpaper", "evo.screenshot", "evo.clipboard"]
 
     Instantiator {
         model: shell.panelPluginIds

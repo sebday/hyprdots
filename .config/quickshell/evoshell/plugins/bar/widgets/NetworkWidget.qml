@@ -14,6 +14,16 @@ Item {
     readonly property string home: Quickshell.env("HOME") || ""
     readonly property string script: home + "/.local/bin/evo-network bar"
     readonly property string hoverPopupId: settings.onHover ? String(settings.onHover) : "evo.network"
+    readonly property bool iconOnly: settings.iconOnly !== false
+    readonly property bool trayMode: settings.trayMode === true
+    readonly property int trayIconSize: {
+        var n = parseInt(settings.trayIconSize, 10)
+        return isNaN(n) || n <= 0 ? 18 : n
+    }
+    readonly property int trayCellWidth: {
+        var n = parseInt(settings.trayCellWidth, 10)
+        return isNaN(n) || n <= 0 ? trayIconSize + 4 : n
+    }
     readonly property real rateThreshold: 1048576
 
     property string iconText: "󰈀"
@@ -23,21 +33,24 @@ Item {
     property real downloadRate: 0
     property real uploadRate: 0
 
-    readonly property color dotIdleColor: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.28)
-    readonly property color dotColor: {
+    readonly property color gapIdleColor: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.2)
+    readonly property color gapColor: {
         if (!connected)
-            return dotIdleColor
+            return "transparent"
         if (downloadRate > rateThreshold && uploadRate > rateThreshold)
             return downloadRate >= uploadRate ? "#a6e3a1" : Theme.urgent
         if (downloadRate > rateThreshold)
             return "#a6e3a1"
         if (uploadRate > rateThreshold)
             return Theme.urgent
-        return dotIdleColor
+        return gapIdleColor
     }
+    readonly property bool showGap: connected
 
-    implicitWidth: barRow.implicitWidth + Theme.barPaddingX * 2
+    implicitWidth: trayMode ? trayCellWidth : barRow.implicitWidth + Theme.barPaddingX * 2
     implicitHeight: Theme.barHeight
+    width: trayMode && parent ? parent.width : implicitWidth
+    height: Theme.barHeight
 
     function applyJson(line) {
         var raw = String(line || "").trim()
@@ -69,23 +82,34 @@ Item {
         anchors.centerIn: parent
         spacing: 4
 
-        Text {
-            text: root.iconText
-            color: Theme.foreground
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.barFontPixelSize
-            font.bold: Theme.fontBold
+        Item {
+            width: netIcon.implicitWidth
+            height: netIcon.implicitHeight
+
+            Rectangle {
+                anchors.centerIn: parent
+                width: Math.max(4, Math.round(root.trayIconSize * 0.28))
+                height: width
+                radius: width / 2
+                color: root.gapColor
+                visible: root.showGap
+            }
+
+            Text {
+                id: netIcon
+                anchors.centerIn: parent
+                text: root.iconText
+                color: Theme.foreground
+                opacity: root.connected ? 1 : 0.4
+                font.family: Theme.fontFamily
+                font.pixelSize: root.trayMode ? root.trayIconSize
+                    : (root.iconOnly ? Theme.panelIconFontPixelSize : Theme.barFontPixelSize)
+                font.bold: Theme.fontBold
+            }
         }
 
-        Rectangle {
-            width: 5
-            height: 5
-            radius: 2.5
-            color: root.dotColor
-            anchors.verticalCenter: parent.verticalCenter
-        }
-
         Text {
+            visible: !root.iconOnly
             text: root.labelText
             color: Theme.foreground
             font.family: Theme.fontFamily
@@ -111,21 +135,17 @@ Item {
         }
     }
 
-    HoverHandler {
-        enabled: root.hoverPopupId !== "" && root.shell
-        onHoveredChanged: {
-            if (!root.shell || !root.hoverPopupId) return
-            if (hovered)
-                root.shell.hoverEnter(root.hoverPopupId, root, root.barPanel)
-            else
-                root.shell.hoverLeave(root.hoverPopupId)
-        }
-    }
-
     MouseArea {
         anchors.fill: parent
+        visible: root.trayMode
         hoverEnabled: true
         acceptedButtons: Qt.NoButton
+        onContainsMouseChanged: root.setHoverPopup(containsMouse)
+    }
+
+    HoverHandler {
+        enabled: !root.trayMode && root.hoverPopupId !== "" && root.shell
+        onHoveredChanged: root.setHoverPopup(hovered)
     }
 
     Timer {
@@ -140,6 +160,14 @@ Item {
         intervalTimer.stop()
         poll()
         intervalTimer.start()
+    }
+
+    function setHoverPopup(active) {
+        if (!shell || !hoverPopupId) return
+        if (active)
+            shell.hoverEnter(hoverPopupId, root, barPanel)
+        else
+            shell.hoverLeave(hoverPopupId)
     }
 
     onSettingsChanged: restartPolling()

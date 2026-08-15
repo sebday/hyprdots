@@ -9,8 +9,7 @@ Item {
     property int contentWidth: 420
     property int contentHeight: 320
     property int contentMargin: 12
-    property int caretWidth: 56
-    property int caretHeight: 20
+    readonly property int barOffset: 20
     readonly property int borderWidth: 2
     property var anchorItem: null
     property var anchorWindow: null
@@ -31,7 +30,6 @@ Item {
     }
 
     property int boxX: 0
-    property int caretX: 0
 
     function resolveAnchorWindow() {
         if (anchorWindow)
@@ -47,19 +45,15 @@ Item {
         var width = contentWidth
         var x = Math.round((screenW - width) / 2)
         var win = resolveAnchorWindow()
-        var anchorCenter = x + width / 2
         if (anchorItem && win && win.contentItem) {
             var point = anchorItem.mapToItem(win.contentItem, 0, 0)
             x = Math.round(point.x + (anchorItem.width - width) / 2)
-            anchorCenter = point.x + anchorItem.width / 2
         }
         if (x < 8)
             x = 8
         if (x + width > screenW - 8)
             x = Math.max(8, screenW - width - 8)
         boxX = x
-        var pad = Math.ceil(caretWidth / 2) + 8
-        caretX = Math.round(Math.max(pad, Math.min(width - pad, anchorCenter - x)))
     }
 
     onOpenedChanged: if (opened) Qt.callLater(reposition)
@@ -74,12 +68,12 @@ Item {
         visible: root.opened
         color: "transparent"
         implicitWidth: root.contentWidth
-        implicitHeight: root.contentHeight + root.caretHeight
+        implicitHeight: root.contentHeight
         anchors.bottom: root.barOnBottom
         anchors.top: !root.barOnBottom
         anchors.left: true
-        margins.bottom: root.barOnBottom ? Theme.barHeight : 0
-        margins.top: root.barOnBottom ? 0 : Theme.barHeight
+        margins.bottom: root.barOnBottom ? Theme.barHeight + root.barOffset : 0
+        margins.top: root.barOnBottom ? 0 : Theme.barHeight + root.barOffset
         margins.left: root.boxX
         WlrLayershell.namespace: root.layerNamespace
         WlrLayershell.layer: WlrLayer.Overlay
@@ -97,82 +91,6 @@ Item {
             border.color: Theme.accent
             border.width: root.borderWidth
             radius: Theme.panelCornerRadius
-        }
-
-        Canvas {
-            id: caret
-            width: root.caretWidth
-            height: root.caretHeight + 1
-            x: root.caretX - width / 2
-            y: root.barOnBottom
-                ? (box.y + box.height - root.borderWidth)
-                : (box.y - height + root.borderWidth)
-            z: 1
-
-            onPaint: {
-                var ctx = getContext("2d")
-                ctx.reset()
-                var w = width
-                var h = height
-                var mid = w / 2
-                var bw = root.borderWidth
-                var overlap = bw
-                var tipY = root.barOnBottom ? (h - 0.5) : 0.5
-                var baseY = root.barOnBottom ? 0 : h
-
-                ctx.beginPath()
-                if (root.barOnBottom) {
-                    ctx.moveTo(0, -overlap)
-                    ctx.lineTo(w, -overlap)
-                    ctx.lineTo(mid, tipY)
-                } else {
-                    ctx.moveTo(0, h + overlap)
-                    ctx.lineTo(w, h + overlap)
-                    ctx.lineTo(mid, tipY)
-                }
-                ctx.closePath()
-                ctx.fillStyle = Theme.mantle
-                ctx.fill()
-
-                ctx.lineWidth = bw
-                ctx.strokeStyle = Theme.accent
-                ctx.lineCap = "butt"
-                ctx.lineJoin = "miter"
-
-                ctx.beginPath()
-                ctx.moveTo(0, baseY)
-                ctx.lineTo(mid, tipY)
-                ctx.stroke()
-
-                ctx.beginPath()
-                ctx.moveTo(w, baseY)
-                ctx.lineTo(mid, tipY)
-                ctx.stroke()
-            }
-
-            onWidthChanged: requestPaint()
-            onHeightChanged: requestPaint()
-            onXChanged: requestPaint()
-            onYChanged: requestPaint()
-            Component.onCompleted: requestPaint()
-        }
-
-        Connections {
-            target: box
-            function onYChanged() { caret.requestPaint() }
-            function onHeightChanged() { caret.requestPaint() }
-        }
-
-        Connections {
-            target: root
-            function onCaretXChanged() { caret.requestPaint() }
-            function onBarOnBottomChanged() { caret.requestPaint() }
-        }
-
-        Connections {
-            target: Theme
-            function onMantleChanged() { caret.requestPaint() }
-            function onAccentChanged() { caret.requestPaint() }
         }
 
         HoverHandler {

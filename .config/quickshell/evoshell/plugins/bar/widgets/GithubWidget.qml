@@ -5,31 +5,62 @@ import "../../../Commons"
 
 Item {
     id: root
+
     property var bar: null
+    property var barPanel: null
+    property var shell: null
     property var settings: ({})
+
+    readonly property string hoverPopupId: settings.onHover
+        ? String(settings.onHover)
+        : (trayMode ? "evo.github" : "")
+    readonly property bool trayMode: settings.trayMode === true
+    readonly property int trayIconSize: {
+        var n = parseInt(settings.trayIconSize, 10)
+        return isNaN(n) || n <= 0 ? 18 : n
+    }
+    readonly property int trayCellWidth: {
+        var n = parseInt(settings.trayCellWidth, 10)
+        return isNaN(n) || n <= 0 ? trayIconSize + 4 : n
+    }
 
     property bool loading: false
     property bool isError: false
     property string statusText: ""
     property int todayCount: 0
     property var cells: []
+    property var lastPayload: null
 
     readonly property string home: Quickshell.env("HOME") || ""
     readonly property string script: home + "/.local/bin/evo-bar-github"
+    readonly property string trayIconText: ""
+    readonly property bool trayHasContent: trayIconText !== "" || loading
+    readonly property real trayIconOpacity: {
+        if (loading || isError)
+            return 1
+        return todayCount > 0 ? 1 : 0.35
+    }
+    readonly property color trayIconColor: isError ? Theme.urgent : Theme.foreground
 
-    implicitWidth: contentRow.implicitWidth + Theme.barPaddingX * 2
+    implicitWidth: trayMode ? trayCellWidth : contentRow.implicitWidth + Theme.barPaddingX * 2
     implicitHeight: Theme.barHeight
+    width: trayMode && parent ? parent.width : implicitWidth
+    height: Theme.barHeight
 
     function applyJson(line) {
         loading = false
         var raw = String(line || "").trim()
-        if (!raw) return
+        if (!raw) {
+            lastPayload = null
+            return
+        }
         try {
             var json = JSON.parse(raw)
+            lastPayload = json
 
             if (json.class === "error") {
                 isError = true
-                statusText = String(json.text || "GitHub error").replace(/<[^>]+>/g, "").trim()
+                statusText = String(json.tooltip || json.text || "GitHub error").replace(/<[^>]+>/g, "").trim()
                 cells = []
                 return
             }
@@ -40,6 +71,7 @@ Item {
             cells = Array.isArray(json.cells) ? json.cells : []
         } catch (e) {
             console.warn("github widget parse failed:", e)
+            lastPayload = null
         }
     }
 
@@ -51,28 +83,38 @@ Item {
         proc.running = true
     }
 
-    Process {
-        id: proc
-        property string stdoutText: ""
-        property string stderrText: ""
-        stdout: StdioCollector {
-            onStreamFinished: proc.stdoutText = text
-        }
-        stderr: StdioCollector {
-            onStreamFinished: proc.stderrText = text
-        }
-        onExited: {
-            root.loading = false
-            var raw = String(proc.stdoutText || "").trim()
-            if (!raw) raw = String(proc.stderrText || "").trim()
-            root.applyJson(raw)
-        }
+    function setHoverPopup(active) {
+        if (!shell || !hoverPopupId) return
+        if (active)
+            shell.hoverEnter(hoverPopupId, root, barPanel)
+        else
+            shell.hoverLeave(hoverPopupId)
+    }
+
+    function openGithub() {
+        if (settings.onClick)
+            Quickshell.execDetached(["bash", "-lc", String(settings.onClick)])
+        else
+            Quickshell.execDetached(["xdg-open", "https://github.com/sebday"])
+    }
+
+    Text {
+        id: trayIcon
+        anchors.centerIn: parent
+        visible: root.trayMode && root.trayHasContent
+        text: root.trayIconText
+        color: root.trayIconColor
+        opacity: root.trayIconOpacity
+        font.family: Theme.fontFamily
+        font.pixelSize: root.trayIconSize
+        font.bold: Theme.fontBold
     }
 
     Row {
         id: contentRow
         anchors.centerIn: parent
         spacing: Theme.sparklineGap
+        visible: !root.trayMode
 
         Text {
             text: root.loading ? " …" : root.isError ? root.statusText : "  " + root.todayCount
@@ -106,16 +148,44 @@ Item {
         }
     }
 
+    Process {
+        id: proc
+        property string stdoutText: ""
+        property string stderrText: ""
+        stdout: StdioCollector {
+            onStreamFinished: proc.stdoutText = text
+        }
+        stderr: StdioCollector {
+            onStreamFinished: proc.stderrText = text
+        }
+        onExited: {
+            root.loading = false
+            var raw = String(proc.stdoutText || "").trim()
+            if (!raw) raw = String(proc.stderrText || "").trim()
+            root.applyJson(raw)
+        }
+    }
+
     MouseArea {
         anchors.fill: parent
+        visible: root.trayMode
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onClicked: {
-            if (root.settings.onClick)
-                Quickshell.execDetached(["bash", "-lc", String(root.settings.onClick)])
-            else
-                Quickshell.execDetached(["xdg-open", "https://github.com/sebday"])
-        }
+        onContainsMouseChanged: root.setHoverPopup(containsMouse)
+        onClicked: root.openGithub()
+    }
+
+    HoverHandler {
+        enabled: !root.trayMode && root.hoverPopupId !== "" && root.shell
+        onHoveredChanged: root.setHoverPopup(hovered)
+    }
+
+    MouseArea {
+        anchors.fill: parent
+        visible: !root.trayMode
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+        onClicked: root.openGithub()
     }
 
     function restartPolling() {

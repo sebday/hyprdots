@@ -13,6 +13,14 @@ Singleton {
         return days[d.getDay()] + " " + d.getDate()
     }
 
+    function headerLines(parts, fallback) {
+        if (!parts || parts.length === 0)
+            return fallback
+        if (parts.length === 1)
+            return parts[0]
+        return parts[0] + "\n" + parts.slice(1).join(" · ")
+    }
+
     function formatRevenue(val, symbol) {
         var n = Math.round(parseFloat(val) || 0)
         var s = String(n)

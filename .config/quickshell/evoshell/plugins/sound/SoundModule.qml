@@ -9,6 +9,7 @@ Item {
     id: root
 
     property var host: null
+    property int tooltipWidth: 0
 
     readonly property bool active: host && host.opened === true
     readonly property var audio: host && host.shell ? host.shell.serviceFor("evo.audio") : null
@@ -23,9 +24,9 @@ Item {
         return String(sink.name || "Output")
     }
 
-    readonly property int bodyFont: Theme.panelTitleFontPixelSize
-    readonly property int hintFont: Theme.panelHintFontPixelSize
-    readonly property int iconFont: Theme.panelIconFontPixelSize
+    readonly property int bodyFont: Theme.tooltipBodyFontPixelSize
+    readonly property int hintFont: Theme.tooltipHintFontPixelSize
+    readonly property int iconFont: Theme.tooltipIconFontPixelSize
 
     property MprisPlayer trackedPlayer: null
     property real positionTick: 0
@@ -93,7 +94,6 @@ Item {
     })()
     readonly property bool outputActive: sinkReady && linkTracker.linkGroups.length > 0
 
-    implicitWidth: column.implicitWidth
     implicitHeight: column.implicitHeight
 
     function playerInList(candidate, list) {
@@ -217,25 +217,21 @@ Item {
 
     ColumnLayout {
         id: column
-        anchors.fill: parent
-        spacing: 10
+        width: root.tooltipWidth
+        spacing: Theme.tooltipSectionSpacing
 
-        FramedPanel {
+        SectionPanel {
             label: "Now playing"
-            Layout.fillWidth: true
             visible: root.hasPlayer
-
-            ColumnLayout {
-                width: parent.width
-                spacing: 10
 
             Item {
                 Layout.fillWidth: true
-                Layout.preferredHeight: nowPlayingRow.implicitHeight
+                implicitHeight: nowPlayingRow.implicitHeight
 
                 RowLayout {
                     id: nowPlayingRow
-                    width: parent.width
+                    anchors.left: parent.left
+                    anchors.right: parent.right
                     spacing: 12
 
                 Item {
@@ -330,7 +326,7 @@ Item {
             }
 
             ColumnLayout {
-                width: parent.width
+                Layout.fillWidth: true
                 spacing: 6
                 visible: root.trackLength > 0 || root.playerPlaying
 
@@ -449,7 +445,6 @@ Item {
 
                 Item { Layout.fillWidth: true }
             }
-            }
         }
 
         Text {
@@ -462,15 +457,10 @@ Item {
             opacity: 0.55
         }
 
-        FramedPanel {
+        SectionPanel {
             label: "Volume"
-            Layout.fillWidth: true
 
-            ColumnLayout {
-                width: parent.width
-                spacing: 8
-
-                Text {
+            Text {
                     Layout.fillWidth: true
                     text: root.sinkLabel
                     color: Theme.foreground
@@ -539,19 +529,13 @@ Item {
                     opacity: 0.38
                     wrapMode: Text.Wrap
                 }
-            }
         }
 
-        FramedPanel {
+        SectionPanel {
             label: "Output"
-            Layout.fillWidth: true
             visible: root.sinkReady
 
-            ColumnLayout {
-                width: parent.width
-                spacing: 8
-
-                Text {
+            Text {
                     text: root.outputActive
                         ? linkTracker.linkGroups.length + " active stream" + (linkTracker.linkGroups.length === 1 ? "" : "s")
                         : "Idle"
@@ -583,19 +567,13 @@ Item {
                         }
                     }
                 }
-            }
         }
 
-        FramedPanel {
+        SectionPanel {
             label: "Players"
-            Layout.fillWidth: true
             visible: root.allPlayers.length > 1
 
-            ColumnLayout {
-                width: parent.width
-                spacing: 4
-
-                Repeater {
+            Repeater {
                     model: root.allPlayers
 
                     Item {
@@ -605,11 +583,13 @@ Item {
 
                         RowLayout {
                             id: playerRow
-                            width: parent.width
+                            anchors.left: parent.left
+                            anchors.right: parent.right
                             spacing: 8
 
                             Text {
                                 Layout.fillWidth: true
+                                Layout.minimumWidth: 120
                                 text: String(modelData.identity || "Player")
                                 color: root.trackedPlayer === modelData ? Theme.accent : Theme.foreground
                                 font.family: Theme.fontFamily
@@ -620,6 +600,7 @@ Item {
                             }
 
                             Text {
+                                Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
                                 text: modelData.isPlaying ? "Playing" : "Idle"
                                 color: Theme.foreground
                                 font.family: Theme.fontFamily
@@ -634,7 +615,6 @@ Item {
                             onClicked: root.trackedPlayer = modelData
                         }
                     }
-                }
             }
         }
     }

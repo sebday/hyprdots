@@ -6,6 +6,7 @@ Item {
     id: root
 
     property var host: null
+    property int tooltipWidth: 0
 
     readonly property bool active: host && host.opened === true
     readonly property var barSource: host && host.shell ? host.shell.popupAnchorItem : null
@@ -64,12 +65,14 @@ Item {
     readonly property var modelSplit: Array.isArray(detail.modelSplit) ? detail.modelSplit : []
     readonly property bool hasModelDetails: root.modelSplit.length > 0 || root.detail.onDemand === true
 
-    property int breakdownInset: 0
-    readonly property int smallFont: Theme.panelIconFontPixelSize
-    readonly property int hintFont: Theme.panelTitleFontPixelSize
+    readonly property int smallFont: Theme.tooltipIconFontPixelSize
+    readonly property int hintFont: Theme.tooltipBodyFontPixelSize
     readonly property int heroFont: 28
-    readonly property int breakdownFont: Theme.panelHintFontPixelSize
-    readonly property int tokensFont: Theme.panelHintFontPixelSize
+    readonly property int breakdownFont: Theme.panelDetailFontPixelSize
+    readonly property int tokensFont: Theme.tooltipHintFontPixelSize
+    readonly property int gaugeLabelFont: Theme.panelHintFontPixelSize
+    readonly property int gaugeSize: 130
+    readonly property int gaugeSpacing: 14
 
     function applyPayload(json) {
         loading = false
@@ -105,39 +108,42 @@ Item {
     }
 
     implicitHeight: contentColumn.implicitHeight
-    implicitWidth: contentColumn.implicitWidth
 
     ColumnLayout {
         id: contentColumn
-        anchors.fill: parent
-        width: parent.width
-        spacing: 8
+        width: root.tooltipWidth
+        spacing: Theme.tooltipSectionSpacing
 
-            Text {
-                Layout.fillWidth: true
-                visible: root.isError
-                text: root.errorText
-                color: Theme.foreground
-                font.family: Theme.fontFamily
-                font.pixelSize: root.smallFont
-                opacity: 0.8
-                wrapMode: Text.WordWrap
-            }
+        Text {
+            Layout.fillWidth: true
+            visible: root.isError
+            text: root.errorText
+            color: Theme.foreground
+            font.family: Theme.fontFamily
+            font.pixelSize: root.smallFont
+            opacity: 0.8
+            wrapMode: Text.WordWrap
+        }
+
+        SectionPanel {
+            label: "Model usage"
+            visible: !root.isError
 
             Item {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 160
-                visible: !root.isError
+                implicitHeight: gaugeRow.implicitHeight
 
                 RowLayout {
-                    anchors.centerIn: parent
-                    spacing: 14
+                    id: gaugeRow
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    spacing: root.gaugeSpacing
 
                     UsageGauge {
                         title: "Cursor models"
                         percent: root.cursorPercent
                         gaugeColor: root.cursorColor
                         loading: root.loading
+                        labelFont: root.gaugeLabelFont
                     }
 
                     UsageGauge {
@@ -145,136 +151,128 @@ Item {
                         percent: root.otherPercent
                         gaugeColor: root.otherColor
                         loading: root.loading
+                        labelFont: root.gaugeLabelFont
                     }
                 }
             }
+        }
 
-            ColumnLayout {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                Layout.leftMargin: root.breakdownInset
-                Layout.rightMargin: root.breakdownInset
-                spacing: 10
-                visible: !root.isError && root.hasModelDetails
+        SectionPanel {
+            label: "Breakdown"
+            visible: !root.isError && root.hasModelDetails
 
-                Repeater {
-                    model: root.modelSplit
+            Repeater {
+                model: root.modelSplit
 
-                    ColumnLayout {
-                        required property var modelData
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        spacing: 4
-
-                        RowLayout {
-                            Layout.fillWidth: true
-                            spacing: 8
-
-                            Text {
-                                Layout.fillWidth: true
-                                text: root.modelLabel(modelData.model)
-                                color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: root.breakdownFont
-                                font.bold: Theme.fontBold
-                                elide: Text.ElideRight
-                            }
-
-                            Text {
-                                text: root.loading
-                                    ? "…"
-                                    : Math.round(modelData.percent) + "% · "
-                                        + root.formatTokens(modelData.tokens)
-                                color: modelData.color || Theme.accent
-                                font.family: Theme.fontFamily
-                                font.pixelSize: root.breakdownFont
-                                font.bold: Theme.fontBold
-                            }
-                        }
-
-                        Item {
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 4
-
-                            Rectangle {
-                                anchors.fill: parent
-                                radius: 2
-                                color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.12)
-                            }
-
-                            Rectangle {
-                                height: parent.height
-                                width: parent.width * Math.max(0, Math.min(1, modelData.percent / 100))
-                                radius: 2
-                                color: modelData.color || Theme.accent
-                                opacity: 0.9
-                            }
-                        }
-                    }
-                }
-
-                Text {
+                ColumnLayout {
+                    required property var modelData
                     Layout.fillWidth: true
-                    visible: root.detail.onDemand === true
-                    text: "On-demand usage enabled"
-                        + (root.detail.onDemandUsed ? (" · " + Number(root.detail.onDemandUsed).toLocaleString() + " used") : "")
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.breakdownFont
-                    opacity: 0.6
-                }
-            }
+                    spacing: 4
 
-            Item {
-                Layout.fillWidth: true
-                Layout.preferredHeight: tokensRow.implicitHeight
-                visible: root.showTokens
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 12
 
-                RowLayout {
-                    id: tokensRow
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    spacing: 0
+                        Text {
+                            Layout.fillWidth: true
+                            Layout.minimumWidth: 140
+                            text: root.modelLabel(modelData.model)
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.breakdownFont
+                            font.bold: Theme.fontBold
+                            elide: Text.ElideRight
+                        }
 
-                    Text {
-                        text: root.loading ? "…" : (root.formatTokens(root.detail.tokensTotal) + " tokens")
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.tokensFont
-                    }
-
-                    Text {
-                        visible: !root.loading
-                        text: " · "
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.tokensFont
-                        opacity: 0.45
-                    }
-
-                    Text {
-                        visible: !root.loading
-                        text: root.formatTokens(root.detail.tokensToday) + " today"
-                        color: Theme.accent
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.tokensFont
+                        Text {
+                            Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+                            text: root.loading
+                                ? "…"
+                                : Math.round(modelData.percent) + "% · "
+                                    + root.formatTokens(modelData.tokens)
+                            color: modelData.color || Theme.accent
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.breakdownFont
+                            font.bold: Theme.fontBold
+                        }
                     }
 
                     Item {
-                        visible: root.showCycleBar
-                        width: Theme.sparklineChartMargin
-                        height: 1
-                    }
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 4
 
-                    CycleProgressBar {
-                        visible: root.showCycleBar
-                        Layout.preferredWidth: implicitWidth
-                        Layout.preferredHeight: implicitHeight
-                        progress: root.cycleProgress
-                        barWidth: 36
-                        barHeight: 4
+                        Rectangle {
+                            anchors.fill: parent
+                            radius: 2
+                            color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.12)
+                        }
+
+                        Rectangle {
+                            height: parent.height
+                            width: parent.width * Math.max(0, Math.min(1, modelData.percent / 100))
+                            radius: 2
+                            color: modelData.color || Theme.accent
+                            opacity: 0.9
+                        }
                     }
                 }
             }
+
+            Text {
+                Layout.fillWidth: true
+                visible: root.detail.onDemand === true
+                text: "On-demand usage enabled"
+                    + (root.detail.onDemandUsed ? (" · " + Number(root.detail.onDemandUsed).toLocaleString() + " used") : "")
+                color: Theme.foreground
+                font.family: Theme.fontFamily
+                font.pixelSize: root.breakdownFont
+                opacity: 0.6
+            }
+        }
+
+        SectionPanel {
+            label: "Tokens"
+            visible: root.showTokens
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+
+                Text {
+                    text: root.loading ? "…" : (root.formatTokens(root.detail.tokensTotal) + " tokens")
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.tokensFont
+                }
+
+                Text {
+                    visible: !root.loading
+                    text: " · "
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.tokensFont
+                    opacity: 0.45
+                }
+
+                Text {
+                    visible: !root.loading
+                    text: root.formatTokens(root.detail.tokensToday) + " today"
+                    color: Theme.accent
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.tokensFont
+                }
+
+                CycleProgressBar {
+                    visible: root.showCycleBar
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 4
+                    Layout.minimumWidth: 48
+                    Layout.alignment: Qt.AlignVCenter
+                    progress: root.cycleProgress
+                    barHeight: 4
+                }
+            }
+        }
     }
 
     component UsageGauge: Item {
@@ -284,10 +282,12 @@ Item {
         property int percent: 0
         property color gaugeColor: Theme.accent
         property bool loading: false
+        property int labelFont: Theme.panelHintFontPixelSize
 
-        implicitWidth: 130
+        implicitWidth: gaugeRoot.gaugeSize
         implicitHeight: 160
 
+        readonly property int gaugeSize: 130
         readonly property real sweep: Math.max(0, Math.min(100, percent)) / 100
         readonly property int ringSize: 118
         readonly property real ringRadius: 44
@@ -351,9 +351,9 @@ Item {
             text: gaugeRoot.title
             color: Theme.foreground
             font.family: Theme.fontFamily
-            font.pixelSize: root.hintFont
+            font.pixelSize: gaugeRoot.labelFont
             font.bold: Theme.fontBold
-            opacity: 0.7
+            opacity: 0.65
             wrapMode: Text.WordWrap
         }
     }

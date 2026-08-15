@@ -7,8 +7,10 @@ Item {
     id: root
 
     property var barPanel: null
+    property var bar: null
     property bool opened: false
     property var activeMenu: null
+    property var rootMenu: null
     property Item anchorItem: null
     property int menuX: 0
     property int menuY: 0
@@ -24,19 +26,39 @@ Item {
         menu: root.activeMenu
     }
 
+    readonly property bool barOnBottom: {
+        if (bar && bar.barConfig && bar.barConfig.position)
+            return String(bar.barConfig.position) !== "top"
+        return true
+    }
+
     function reposition() {
-        if (!anchorItem || !barPanel)
+        if (!anchorItem || !barPanel || !menuOverlay.screen)
             return
-        var point = anchorItem.mapToItem(barPanel.contentItem, 0, 0)
+        var point = anchorItem.mapToItem(barPanel.contentItem, anchorItem.width / 2, 0)
         var width = menuBox.width
         var height = menuBox.height
-        var x = point.x + (anchorItem.width - width) / 2
-        var y = point.y - height - 4
-        if (x < 8) x = 8
-        if (x + width > barPanel.width - 8)
-            x = barPanel.width - width - 8
-        if (y < 8)
-            y = point.y + anchorItem.height + 4
+        var screenW = menuOverlay.screen.width
+        var screenH = menuOverlay.screen.height
+        var barH = barPanel.height
+        var x = Math.round(point.x - width / 2)
+        var y
+        if (barOnBottom) {
+            var barTopY = screenH - barH + point.y
+            y = Math.round(barTopY - height - 6)
+            if (y < 8)
+                y = Math.round(barTopY + anchorItem.height + 6)
+        } else {
+            y = Math.round(point.y + anchorItem.height + 6)
+            if (y + height > screenH - 8)
+                y = Math.round(Math.max(8, point.y - height - 6))
+        }
+        if (x < 8)
+            x = 8
+        if (x + width > screenW - 8)
+            x = Math.max(8, screenW - width - 8)
+        if (y + height > screenH - 8)
+            y = Math.max(8, screenH - height - 8)
         menuX = x
         menuY = y
     }
@@ -44,6 +66,7 @@ Item {
     function open(menu, anchor) {
         if (!menu || !anchor)
             return
+        rootMenu = menu
         activeMenu = menu
         anchorItem = anchor
         if (menu.menu)
@@ -53,10 +76,12 @@ Item {
     }
 
     function close() {
-        if (activeMenu && activeMenu.menu)
-            activeMenu.menu.sendClosed()
+        var handle = rootMenu || activeMenu
+        if (handle && handle.menu)
+            handle.menu.sendClosed()
         opened = false
         activeMenu = null
+        rootMenu = null
         anchorItem = null
     }
 
@@ -68,14 +93,25 @@ Item {
             Qt.callLater(reposition)
             return
         }
-        entry.sendTriggered()
+        entry.triggered()
         close()
     }
 
+    Connections {
+        target: menuOpener
+        function onChildrenChanged() {
+            if (root.opened)
+                Qt.callLater(root.reposition)
+        }
+    }
+
     PanelWindow {
+        id: menuOverlay
         visible: root.opened && root.barPanel
         screen: root.barPanel ? root.barPanel.screen : null
         color: "transparent"
+        implicitWidth: screen ? screen.width : 1920
+        implicitHeight: screen ? screen.height : 1080
         WlrLayershell.namespace: "evo-bar-tray-menu"
         WlrLayershell.layer: WlrLayer.Overlay
         WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
@@ -95,7 +131,14 @@ Item {
             color: Theme.background
             border.color: Theme.accent
             border.width: 1
+            radius: Theme.panelCornerRadius
 
+            MouseArea {
+                anchors.fill: parent
+                onClicked: function(mouse) { mouse.accepted = true }
+            }
+
+            onWidthChanged: Qt.callLater(root.reposition)
             onHeightChanged: Qt.callLater(root.reposition)
 
             ListView {

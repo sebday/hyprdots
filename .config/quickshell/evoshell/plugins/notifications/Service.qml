@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Services.Notifications
+import Quickshell.Services.Mpris
 import Quickshell.Wayland
 import "../../Commons"
 
@@ -12,7 +13,7 @@ Scope {
     property var popupHeights: ({})
 
     readonly property int popupGap: 10
-    readonly property int popupMarginAboveBar: 14
+    readonly property int popupMarginAboveBar: 20
     readonly property string popupOutput: "HDMI-A-1"
     readonly property var popupScreen: {
         var screens = Quickshell.screens
@@ -253,10 +254,54 @@ Scope {
         return "default"
     }
 
+    function activeMprisPlayer() {
+        var players = Mpris.players.values
+        if (!players || players.length === 0)
+            return null
+        for (var i = 0; i < players.length; i++) {
+            if (players[i] && players[i].isPlaying)
+                return players[i]
+        }
+        for (var j = 0; j < players.length; j++) {
+            if (players[j] && String(players[j].trackTitle || "").trim())
+                return players[j]
+        }
+        return players.length > 0 ? players[0] : null
+    }
+
+    function popupImageFromMpris(player) {
+        if (!player) return ""
+        return imageSource(player.trackArtUrl)
+    }
+
+    readonly property int volumeArtSize: 96
+
+    function volumeMediaFields(player, entry) {
+        var fields = {
+            kicker: "Volume",
+            title: isMuted(entry) ? "Muted" : volumePercent(entry) + "%",
+            subtitle: "",
+            footer: ""
+        }
+        if (!player)
+            return fields
+
+        var track = String(player.trackTitle || "").trim()
+        var artist = String(player.trackArtist || "").trim()
+        var album = String(player.trackAlbum || "").trim()
+        if (track)
+            fields.kicker = track
+        if (artist)
+            fields.subtitle = artist
+        if (album)
+            fields.footer = album
+        return fields
+    }
+
     function estimatedHeight(entry) {
         var kind = entryKind(entry)
         if (kind === "volume")
-            return Theme.notificationVolumeHeight
+            return root.volumeArtSize + Theme.notificationMediaPad * 2
         if (kind === "media")
             return Theme.notificationArtSize + Theme.notificationMediaPad * 2
         return Theme.notificationPadding * 2 + Theme.notificationTitleSize + 6 + Theme.notificationBodySize
@@ -303,6 +348,135 @@ Scope {
         onTriggered: root.dismissOldest()
     }
 
+    component NotificationArtworkCard: Item {
+        id: artworkRoot
+
+        property string art: ""
+        property string fallbackIcon: "󰎆"
+        property var fields: ({})
+        property int artSize: Theme.notificationArtSize
+        property bool blurredBackground: true
+
+        width: Theme.notificationWidth
+        implicitHeight: innerRow.height + Theme.notificationMediaPad * 2
+
+        Image {
+            visible: artworkRoot.blurredBackground && artworkRoot.art !== ""
+            anchors.fill: parent
+            source: artworkRoot.art
+            fillMode: Image.PreserveAspectCrop
+            asynchronous: true
+            cache: true
+            opacity: 0.18
+        }
+
+        Rectangle {
+            visible: artworkRoot.blurredBackground && artworkRoot.art !== ""
+            anchors.fill: parent
+            color: Qt.rgba(Theme.mantle.r, Theme.mantle.g, Theme.mantle.b, 0.55)
+        }
+
+        Row {
+            id: innerRow
+            x: Theme.notificationPadding
+            y: Theme.notificationMediaPad
+            width: parent.width - Theme.notificationPadding * 2
+            height: Math.max(artworkRoot.artSize, textCol.height)
+            spacing: 16
+
+            Item {
+                width: artworkRoot.artSize
+                height: artworkRoot.artSize
+                anchors.verticalCenter: parent.verticalCenter
+                clip: true
+
+                Rectangle {
+                    anchors.fill: parent
+                    color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.16)
+                    radius: Theme.panelCornerRadius
+                }
+
+                Text {
+                    anchors.centerIn: parent
+                    visible: artworkRoot.art === "" || artImage.status !== Image.Ready
+                    text: artworkRoot.fallbackIcon
+                    color: Theme.accent
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Math.round(artworkRoot.artSize * 0.45)
+                    font.bold: Theme.fontBold
+                }
+
+                Image {
+                    id: artImage
+                    anchors.fill: parent
+                    visible: artworkRoot.art !== ""
+                    source: artworkRoot.art
+                    fillMode: Image.PreserveAspectCrop
+                    asynchronous: true
+                    cache: true
+                }
+            }
+
+            Column {
+                id: textCol
+                width: parent.width - artworkRoot.artSize - parent.spacing
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 6
+
+                Text {
+                    width: parent.width
+                    visible: artworkRoot.fields.kicker !== undefined && artworkRoot.fields.kicker !== ""
+                    text: artworkRoot.fields.kicker || ""
+                    color: Theme.accent
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.popupHintFontPixelSize
+                    font.bold: Theme.fontBold
+                    font.letterSpacing: 1
+                    elide: Text.ElideRight
+                    maximumLineCount: 1
+                    opacity: 0.9
+                }
+
+                Text {
+                    width: parent.width
+                    text: artworkRoot.fields.title || ""
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.notificationTitleSize
+                    font.bold: Theme.fontBold
+                    elide: Text.ElideRight
+                    maximumLineCount: 1
+                }
+
+                Text {
+                    width: parent.width
+                    visible: artworkRoot.fields.subtitle !== undefined && artworkRoot.fields.subtitle !== ""
+                    text: artworkRoot.fields.subtitle || ""
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.notificationBodySize
+                    font.bold: Theme.fontBold
+                    elide: Text.ElideRight
+                    maximumLineCount: 1
+                    opacity: 0.82
+                }
+
+                Text {
+                    width: parent.width
+                    visible: artworkRoot.fields.footer !== undefined && artworkRoot.fields.footer !== ""
+                    text: artworkRoot.fields.footer || ""
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.popupHintFontPixelSize
+                    font.bold: Theme.fontBold
+                    elide: Text.ElideRight
+                    maximumLineCount: 1
+                    opacity: 0.55
+                }
+            }
+        }
+    }
+
     Instantiator {
         model: root.activePopups
         active: true
@@ -314,6 +488,14 @@ Scope {
             readonly property string kind: root.entryKind(modelData)
             readonly property var media: kind === "media" ? root.mediaFields(modelData) : ({})
             readonly property string art: kind === "media" ? root.popupImage(modelData) : ""
+            readonly property var mprisPlayer: kind === "volume" ? root.activeMprisPlayer() : null
+            readonly property var artworkFields: kind === "media"
+                ? media
+                : (kind === "volume" ? root.volumeMediaFields(mprisPlayer, modelData) : ({}))
+            readonly property string artworkSource: kind === "media"
+                ? art
+                : (kind === "volume" ? root.popupImageFromMpris(mprisPlayer) : "")
+            readonly property string artworkIcon: kind === "volume" ? root.popupIcon(modelData) : "󰎆"
             readonly property int volPercent: kind === "volume" ? root.volumePercent(modelData) : 0
             readonly property bool volMuted: kind === "volume" && root.isMuted(modelData)
             readonly property real volFill: volMuted ? 0 : Math.min(1, volPercent / 100)
@@ -341,185 +523,42 @@ Scope {
             Item {
                 id: card
                 width: Theme.notificationWidth
-                height: kind === "volume"
-                    ? Theme.notificationVolumeHeight
-                    : (kind === "media"
-                        ? innerMedia.height + Theme.notificationMediaPad * 2
-                        : innerDefault.height + Theme.notificationPadding * 2)
-                clip: kind === "volume"
+                height: (kind === "media" || kind === "volume")
+                    ? artworkCard.implicitHeight
+                    : innerDefault.height + Theme.notificationPadding * 2
+                clip: true
 
                 Rectangle {
                     anchors.fill: parent
-                    color: Theme.overlaySurface
-                    border.color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.45)
-                    border.width: 1
                     radius: Theme.panelCornerRadius
+                    color: kind === "volume" ? Theme.mantle : Theme.overlaySurface
                 }
 
-                // Volume fill
                 Rectangle {
                     visible: kind === "volume"
-                    width: parent.width * volFill
-                    height: parent.height
-                    color: Theme.accent
-                    opacity: 0.38
-                    radius: Theme.panelCornerRadius
-                }
-
-                Text {
-                    visible: kind === "volume"
-                    anchors.right: parent.right
-                    anchors.rightMargin: 18
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: volMuted ? "MUTE" : (volPercent + "%")
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: 56
-                    font.bold: Theme.fontBold
-                    opacity: 0.16
-                }
-
-                Row {
-                    visible: kind === "volume"
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
                     anchors.left: parent.left
-                    anchors.leftMargin: 20
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: 14
-
-                    Text {
-                        text: root.popupIcon(modelData)
-                        color: Theme.accent
-                        font.family: Theme.fontFamily
-                        font.pixelSize: 32
-                        font.bold: Theme.fontBold
-                    }
-
-                    Text {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: volMuted ? "Muted" : "Volume"
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.notificationTitleSize
-                        font.bold: Theme.fontBold
-                    }
-                }
-
-                // Media / artwork
-                Image {
-                    visible: kind === "media" && art !== ""
-                    anchors.fill: parent
-                    source: art
-                    fillMode: Image.PreserveAspectCrop
-                    asynchronous: true
-                    cache: true
-                    opacity: 0.18
+                    width: parent.width * volFill
+                    color: Theme.accent
                 }
 
                 Rectangle {
-                    visible: kind === "media" && art !== ""
                     anchors.fill: parent
-                    color: Qt.rgba(Theme.mantle.r, Theme.mantle.g, Theme.mantle.b, 0.55)
+                    radius: Theme.panelCornerRadius
+                    color: "transparent"
+                    border.color: Theme.accent
+                    border.width: 2
                 }
 
-                Row {
-                    id: innerMedia
-                    visible: kind === "media"
-                    x: Theme.notificationPadding
-                    y: Theme.notificationMediaPad
-                    width: parent.width - Theme.notificationPadding * 2
-                    height: Math.max(Theme.notificationArtSize, mediaCol.height)
-                    spacing: 16
-
-                    Item {
-                        width: Theme.notificationArtSize
-                        height: Theme.notificationArtSize
-                        anchors.verticalCenter: parent.verticalCenter
-                        clip: true
-
-                        Rectangle {
-                            anchors.fill: parent
-                            color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.16)
-                            radius: Theme.panelCornerRadius
-                        }
-
-                        Text {
-                            anchors.centerIn: parent
-                            visible: art === "" || artImage.status !== Image.Ready
-                            text: "󰎆"
-                            color: Theme.accent
-                            font.family: Theme.fontFamily
-                            font.pixelSize: 36
-                            font.bold: Theme.fontBold
-                        }
-
-                        Image {
-                            id: artImage
-                            anchors.fill: parent
-                            visible: art !== ""
-                            source: art
-                            fillMode: Image.PreserveAspectCrop
-                            asynchronous: true
-                            cache: true
-                        }
-                    }
-
-                    Column {
-                        id: mediaCol
-                        width: parent.width - Theme.notificationArtSize - parent.spacing
-                        anchors.verticalCenter: parent.verticalCenter
-                        spacing: 6
-
-                        Text {
-                            width: parent.width
-                            visible: media.kicker !== ""
-                            text: media.kicker
-                            color: Theme.accent
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.popupHintFontPixelSize
-                            font.bold: Theme.fontBold
-                            font.letterSpacing: 1
-                            elide: Text.ElideRight
-                            maximumLineCount: 1
-                            opacity: 0.9
-                        }
-
-                        Text {
-                            width: parent.width
-                            text: media.title || ""
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.notificationTitleSize
-                            font.bold: Theme.fontBold
-                            elide: Text.ElideRight
-                            maximumLineCount: 1
-                        }
-
-                        Text {
-                            width: parent.width
-                            visible: media.subtitle !== ""
-                            text: media.subtitle
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.notificationBodySize
-                            font.bold: Theme.fontBold
-                            elide: Text.ElideRight
-                            maximumLineCount: 1
-                            opacity: 0.82
-                        }
-
-                        Text {
-                            width: parent.width
-                            visible: media.footer !== ""
-                            text: media.footer
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.popupHintFontPixelSize
-                            font.bold: Theme.fontBold
-                            elide: Text.ElideRight
-                            maximumLineCount: 1
-                            opacity: 0.55
-                        }
-                    }
+                NotificationArtworkCard {
+                    id: artworkCard
+                    visible: kind === "media" || kind === "volume"
+                    art: artworkSource
+                    fallbackIcon: artworkIcon
+                    fields: artworkFields
+                    artSize: kind === "volume" ? root.volumeArtSize : Theme.notificationArtSize
+                    blurredBackground: kind !== "volume"
                 }
 
                 // Default

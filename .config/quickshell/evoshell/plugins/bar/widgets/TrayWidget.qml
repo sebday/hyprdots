@@ -5,30 +5,163 @@ import "../../../Commons"
 
 Item {
     id: root
+
     property var bar: null
     property var barPanel: null
+    property var shell: null
     property var settings: ({})
 
     readonly property real dpr: barPanel ? barPanel.devicePixelRatio : 1.0
     readonly property int trayIconSize: 18
     readonly property int trayIconSource: Math.max(trayIconSize, Math.round(trayIconSize * dpr))
     readonly property int trayCellWidth: trayIconSize + 4
+    readonly property bool showWeather: settings.weather !== false
+    readonly property bool showCursor: settings.cursor !== false
+    readonly property bool showGithub: settings.github != null && settings.github !== false
+    readonly property bool showStocks: settings.stocks != null && settings.stocks !== false
+    readonly property bool showAudio: settings.audio !== false
+    readonly property bool showNetwork: settings.network !== false
 
-    implicitWidth: trayRow.width + Theme.barSectionGap
+    implicitWidth: trayRow.implicitWidth + Theme.barSectionGap
     implicitHeight: Theme.barHeight
+
+    function mergeSettings(base, fallbackHover) {
+        var out = {}
+        if (base && typeof base === "object") {
+            for (var key in base)
+                out[key] = base[key]
+        }
+        if (!out.onHover && fallbackHover)
+            out.onHover = fallbackHover
+        out.trayMode = true
+        out.trayIconSize = root.trayIconSize
+        out.trayCellWidth = root.trayCellWidth
+        return out
+    }
+
+    function wireBarWidget(item, entrySettings, fallbackHover) {
+        if (!item) return
+        if ("bar" in item) item.bar = root.bar
+        if ("barPanel" in item) item.barPanel = root.barPanel
+        if ("shell" in item) item.shell = root.shell
+        if ("settings" in item) item.settings = mergeSettings(entrySettings, fallbackHover)
+        if (typeof item.restartPolling === "function") item.restartPolling()
+    }
+
+    function rewireTrayWidgets() {
+        if (weatherLoader.item) wireBarWidget(weatherLoader.item, settings.weather, "evo.weather")
+        if (cursorLoader.item) wireBarWidget(cursorLoader.item, settings.cursor, "evo.cursor")
+        if (githubLoader.item) wireBarWidget(githubLoader.item, settings.github, "evo.github")
+        if (stocksLoader.item) wireBarWidget(stocksLoader.item, settings.stocks, "evo.stocks")
+        if (soundLoader.item) wireBarWidget(soundLoader.item, settings.audio, "evo.sound")
+        if (networkLoader.item) wireBarWidget(networkLoader.item, settings.network, "evo.network")
+    }
+
+    onSettingsChanged: rewireTrayWidgets()
+    onShellChanged: rewireTrayWidgets()
 
     TrayContextMenu {
         id: trayContextMenu
+        bar: root.bar
         barPanel: root.barPanel
     }
 
+    Component { id: commandComp; CommandWidget {} }
+    Component { id: githubComp; GithubWidget {} }
+    Component { id: stocksComp; StocksWidget {} }
+    Component { id: soundComp; SoundWidget {} }
+    Component { id: networkComp; NetworkWidget {} }
+
     Row {
         id: trayRow
-        anchors.left: parent.left
-        anchors.leftMargin: Theme.barSectionGap
+        anchors.horizontalCenter: parent.horizontalCenter
         anchors.verticalCenter: parent.verticalCenter
         spacing: 8
         height: Theme.barHeight
+
+        Item {
+            width: root.showWeather ? root.trayCellWidth : 0
+            height: Theme.barHeight
+            visible: root.showWeather
+
+            Loader {
+                id: weatherLoader
+                anchors.fill: parent
+                active: root.showWeather
+                sourceComponent: commandComp
+                onLoaded: root.wireBarWidget(item, root.settings.weather, "evo.weather")
+            }
+        }
+
+        Item {
+            width: root.showCursor ? root.trayCellWidth : 0
+            height: Theme.barHeight
+            visible: root.showCursor
+
+            Loader {
+                id: cursorLoader
+                anchors.fill: parent
+                active: root.showCursor
+                sourceComponent: commandComp
+                onLoaded: root.wireBarWidget(item, root.settings.cursor, "evo.cursor")
+            }
+        }
+
+        Item {
+            width: root.showGithub ? root.trayCellWidth : 0
+            height: Theme.barHeight
+            visible: root.showGithub
+
+            Loader {
+                id: githubLoader
+                anchors.fill: parent
+                active: root.showGithub
+                sourceComponent: githubComp
+                onLoaded: root.wireBarWidget(item, root.settings.github, "evo.github")
+            }
+        }
+
+        Item {
+            width: root.showStocks ? root.trayCellWidth : 0
+            height: Theme.barHeight
+            visible: root.showStocks
+
+            Loader {
+                id: stocksLoader
+                anchors.fill: parent
+                active: root.showStocks
+                sourceComponent: stocksComp
+                onLoaded: root.wireBarWidget(item, root.settings.stocks, "evo.stocks")
+            }
+        }
+
+        Item {
+            width: root.showAudio ? root.trayCellWidth : 0
+            height: Theme.barHeight
+            visible: root.showAudio
+
+            Loader {
+                id: soundLoader
+                anchors.fill: parent
+                active: root.showAudio
+                sourceComponent: soundComp
+                onLoaded: root.wireBarWidget(item, root.settings.audio, "evo.sound")
+            }
+        }
+
+        Item {
+            width: root.showNetwork ? root.trayCellWidth : 0
+            height: Theme.barHeight
+            visible: root.showNetwork
+
+            Loader {
+                id: networkLoader
+                anchors.fill: parent
+                active: root.showNetwork
+                sourceComponent: networkComp
+                onLoaded: root.wireBarWidget(item, root.settings.network, "evo.network")
+            }
+        }
 
         Repeater {
             model: SystemTray.items

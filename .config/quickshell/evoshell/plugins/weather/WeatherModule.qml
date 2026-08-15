@@ -7,17 +7,22 @@ Item {
     id: root
 
     property var host: null
+    property int tooltipWidth: 0
 
     readonly property bool active: host && host.opened === true
     readonly property var barSource: host && host.shell ? host.shell.popupAnchorItem : null
-    readonly property int colWidth: 72
-    readonly property int smallFont: Theme.panelTitleFontPixelSize
-    readonly property int bodyFont: Theme.panelTitleFontPixelSize
-    readonly property int hintFont: Theme.panelHintFontPixelSize
-    readonly property int heroFont: Theme.panelIconFontPixelSize + 4
+
+    readonly property int titleFont: Theme.tooltipTitleFontPixelSize
+    readonly property int bodyFont: Theme.tooltipBodyFontPixelSize
+    readonly property int hintFont: Theme.tooltipHintFontPixelSize
+    readonly property int heroFont: Theme.tooltipIconFontPixelSize + 2
+    readonly property int chartHeight: 176
+    readonly property int yAxisWidth: 40
+    readonly property int chartGap: 10
 
     property var weather: ({})
     property bool loading: false
+
     readonly property bool weatherOk: weather.ok === true
     readonly property string location: String(weather.location || "Derby")
     readonly property string metOfficeUrl: String(weather.metOfficeUrl || "https://weather.metoffice.gov.uk/forecast/gcqvn6pq4")
@@ -44,7 +49,7 @@ Item {
                 now: false,
                 title: String(d.dow || ""),
                 icon: String(d.icon || "󰖐"),
-                primary: String(d.min) + "—" + String(d.max) + "°",
+                primary: String(d.min) + "–" + String(d.max) + "°",
                 subtitle: String(d.label || "")
             })
         }
@@ -77,12 +82,14 @@ Item {
             return { min: minV - 1, max: maxV + 1, rawMin: minV, rawMax: maxV }
         var span = maxV - minV
         return {
-            min: minV - span * 0.12,
-            max: maxV + span * 0.12,
+            min: minV - span * 0.1,
+            max: maxV + span * 0.1,
             rawMin: minV,
             rawMax: maxV
         }
     }
+
+    implicitHeight: column.implicitHeight
 
     function onActivated() {
         syncFromBar()
@@ -136,259 +143,345 @@ Item {
     }
 
     ColumnLayout {
-        anchors.fill: parent
-        spacing: 8
+        id: column
+        width: root.tooltipWidth
+        spacing: Theme.tooltipSectionSpacing
 
-        Text {
+        ColumnLayout {
             Layout.fillWidth: true
-            horizontalAlignment: Text.AlignHCenter
-            text: root.location
-            color: Theme.foreground
-            font.family: Theme.fontFamily
-            font.pixelSize: root.smallFont
-            font.bold: Theme.fontBold
-
-            MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: root.openMetOffice()
-            }
-        }
-
-        RowLayout {
-            Layout.alignment: Qt.AlignHCenter
-            spacing: 10
-
-            Repeater {
-                model: root.columns
-
-                ColumnLayout {
-                    required property var modelData
-                    Layout.preferredWidth: root.colWidth
-                    spacing: 10
-
-                    Text {
-                        Layout.fillWidth: true
-                        horizontalAlignment: Text.AlignHCenter
-                        text: modelData.title
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.hintFont
-                        opacity: 0.65
-                    }
-
-                    RowLayout {
-                        Layout.alignment: Qt.AlignHCenter
-                        Layout.preferredWidth: root.colWidth
-                        spacing: (modelData.now ? 8 : 6)
-
-                        Text {
-                            Layout.alignment: Qt.AlignVCenter
-                            text: modelData.icon
-                            color: Theme.accent
-                            font.family: Theme.fontFamily
-                            font.pixelSize: modelData.now ? root.heroFont : root.smallFont
-                            font.bold: modelData.now ? Theme.fontBold : false
-                        }
-
-                        Text {
-                            Layout.alignment: Qt.AlignVCenter
-                            text: modelData.primary
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: modelData.now ? root.heroFont : root.bodyFont
-                            font.bold: Theme.fontBold
-                        }
-                    }
-
-                    Text {
-                        Layout.fillWidth: true
-                        horizontalAlignment: Text.AlignHCenter
-                        text: modelData.subtitle
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.hintFont
-                        opacity: modelData.now ? 0.55 : 0.5
-                        elide: Text.ElideRight
-                    }
-                }
-            }
-        }
-
-        RowLayout {
-            Layout.alignment: Qt.AlignHCenter
-            spacing: 18
-            visible: root.weatherOk && (root.sunrise !== "" || root.sunset !== "")
-
-            Repeater {
-                model: [
-                    { icon: "󰖜", text: root.sunrise },
-                    { icon: "󰖛", text: root.sunset }
-                ]
-
-                RowLayout {
-                    required property var modelData
-                    spacing: 4
-                    visible: modelData.text !== ""
-
-                    Text {
-                        text: modelData.icon
-                        color: Theme.accent
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.bodyFont
-                    }
-
-                    Text {
-                        text: modelData.text
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.bodyFont
-                        opacity: 0.75
-                    }
-                }
-            }
-        }
-
-        Item {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            Layout.minimumHeight: 72
-            visible: root.weatherOk && root.hourly.length > 0
+            spacing: 2
 
             Text {
-                anchors.left: parent.left
-                anchors.top: parent.top
-                text: Math.round(root.hourlyTempRange.rawMax) + "°"
-                color: root.tempColor(root.hourlyTempRange.rawMax)
+                Layout.fillWidth: true
+                horizontalAlignment: Text.AlignHCenter
+                text: root.location
+                color: Theme.foreground
                 font.family: Theme.fontFamily
-                font.pixelSize: root.hintFont
+                font.pixelSize: root.titleFont
                 font.bold: Theme.fontBold
-                opacity: 0.85
+
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.openMetOffice()
+                }
             }
 
             Text {
-                anchors.left: parent.left
-                anchors.bottom: parent.bottom
-                anchors.bottomMargin: 14
-                text: Math.round(root.hourlyTempRange.rawMin) + "°"
+                Layout.fillWidth: true
+                horizontalAlignment: Text.AlignHCenter
+                visible: root.loading
+                text: "Loading…"
                 color: Theme.foreground
                 font.family: Theme.fontFamily
                 font.pixelSize: root.hintFont
-                font.bold: Theme.fontBold
-                opacity: 0.5
+                opacity: 0.72
             }
 
-            Canvas {
-                id: hourlyChart
-                anchors.fill: parent
-                anchors.leftMargin: 26
+            Text {
+                Layout.fillWidth: true
+                horizontalAlignment: Text.AlignHCenter
+                visible: !root.loading && !root.weatherOk
+                text: root.statusText
+                color: Theme.urgent
+                font.family: Theme.fontFamily
+                font.pixelSize: root.hintFont
+                wrapMode: Text.WordWrap
+            }
+        }
 
-                onPaint: {
-                    var ctx = getContext("2d")
-                    ctx.reset()
-                    var pts = root.hourly || []
-                    if (pts.length === 0) return
+        SectionPanel {
+            label: "Forecast"
+            visible: root.weatherOk && !root.loading
 
-                    var range = root.hourlyTempRange
-                    var minV = range.min
-                    var maxV = range.max
-                    var span = maxV - minV || 1
-                    var scale = 1
-                    var h = height - 14 * scale
-                    var padX = 2 * scale
-                    var padY = 4 * scale
-                    var usableW = Math.max(1, width - padX * 2)
-                    var usableH = Math.max(1, h - padY * 2)
-                    var step = pts.length > 1 ? usableW / (pts.length - 1) : 0
-                    var nowLabel = root.currentHourLabel
-                    var nowIndex = -1
+            RowLayout {
+                Layout.fillWidth: true
 
-                    function yAt(v) {
-                        var n = Number(v)
-                        if (isNaN(n)) n = minV
-                        return padY + usableH - ((n - minV) / span) * usableH
-                    }
+                Repeater {
+                    model: root.columns
 
-                    for (var i = 0; i < pts.length; i++) {
-                        if (String(pts[i].time || "") === nowLabel)
-                            nowIndex = i
-                    }
+                    ColumnLayout {
+                        required property var modelData
+                        Layout.fillWidth: true
+                        spacing: 6
 
-                    for (var s = 0; s < pts.length - 1; s++) {
-                        var x0 = padX + s * step
-                        var x1 = padX + (s + 1) * step
-                        var y0 = yAt(pts[s].temp)
-                        var y1 = yAt(pts[s + 1].temp)
-                        var segColor = root.tempColor(Math.max(Number(pts[s].temp), Number(pts[s + 1].temp)))
+                                Text {
+                                    Layout.fillWidth: true
+                                    horizontalAlignment: Text.AlignHCenter
+                                    text: modelData.title
+                                    color: Theme.foreground
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: root.hintFont
+                                    opacity: 0.6
+                                }
 
-                        ctx.beginPath()
-                        ctx.moveTo(x0, y0)
-                        ctx.lineTo(x1, y1)
-                        ctx.lineTo(x1, h)
-                        ctx.lineTo(x0, h)
-                        ctx.closePath()
-                        ctx.globalAlpha = 0.18
-                        ctx.fillStyle = segColor
-                        ctx.fill()
-                        ctx.globalAlpha = 1
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    Layout.alignment: Qt.AlignHCenter
+                                    spacing: modelData.now ? 4 : 5
+                                    visible: modelData.now
 
-                        ctx.beginPath()
-                        ctx.moveTo(x0, y0)
-                        ctx.lineTo(x1, y1)
-                        ctx.strokeStyle = segColor
-                        ctx.lineWidth = 1.75 * scale
-                        ctx.lineJoin = "round"
-                        ctx.lineCap = "round"
-                        ctx.stroke()
-                    }
+                                    Text {
+                                        Layout.alignment: Qt.AlignHCenter
+                                        text: modelData.icon
+                                        color: Theme.accent
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: root.heroFont
+                                    }
 
-                    if (nowIndex >= 0) {
-                        var nx = padX + nowIndex * step
-                        var ny = yAt(pts[nowIndex].temp)
-                        ctx.beginPath()
-                        ctx.moveTo(nx, padY)
-                        ctx.lineTo(nx, h)
-                        ctx.strokeStyle = Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.18)
-                        ctx.lineWidth = 1 * scale
-                        ctx.stroke()
+                                    Text {
+                                        Layout.alignment: Qt.AlignHCenter
+                                        text: modelData.primary
+                                        color: Theme.foreground
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: root.heroFont
+                                        font.bold: Theme.fontBold
+                                    }
+                                }
 
-                        ctx.beginPath()
-                        ctx.arc(nx, ny, 3 * scale, 0, Math.PI * 2)
-                        ctx.fillStyle = root.tempColor(pts[nowIndex].temp)
-                        ctx.fill()
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    Layout.alignment: Qt.AlignHCenter
+                                    spacing: 4
+                                    visible: !modelData.now
+
+                                    Text {
+                                        Layout.alignment: Qt.AlignHCenter
+                                        text: modelData.icon
+                                        color: Theme.accent
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: root.bodyFont
+                                    }
+
+                                    Text {
+                                        Layout.alignment: Qt.AlignHCenter
+                                        text: modelData.primary
+                                        color: Theme.foreground
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: root.bodyFont
+                                        font.bold: Theme.fontBold
+                                    }
+                                }
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    horizontalAlignment: Text.AlignHCenter
+                                    text: modelData.subtitle
+                                    color: Theme.foreground
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: root.hintFont
+                                    opacity: modelData.now ? 0.55 : 0.5
+                                    wrapMode: Text.WordWrap
+                                    maximumLineCount: 2
+                                    elide: Text.ElideRight
+                                }
                     }
                 }
-
-                Connections {
-                    target: root
-                    function onHourlyChanged() { hourlyChart.requestPaint() }
-                    function onCurrentHourLabelChanged() { hourlyChart.requestPaint() }
-                }
-
-                onWidthChanged: requestPaint()
-                onHeightChanged: requestPaint()
-                Component.onCompleted: requestPaint()
             }
 
             RowLayout {
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.bottom: parent.bottom
-                anchors.leftMargin: 26
-                height: 18
-                spacing: 0
+                Layout.alignment: Qt.AlignHCenter
+                spacing: 20
+                visible: root.sunrise !== "" || root.sunset !== ""
 
-                Repeater {
-                    model: ["00", "06", "12", "18"]
+                    Repeater {
+                        model: [
+                            { icon: "󰖜", text: root.sunrise },
+                            { icon: "󰖛", text: root.sunset }
+                        ]
 
-                    Text {
-                        required property string modelData
-                        Layout.fillWidth: true
-                        text: modelData
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.hintFont
-                        opacity: 0.4
+                        RowLayout {
+                            required property var modelData
+                            spacing: 6
+                            visible: modelData.text !== ""
+
+                            Text {
+                                text: modelData.icon
+                                color: Theme.accent
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.bodyFont
+                            }
+
+                            Text {
+                                text: modelData.text
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.bodyFont
+                                opacity: 0.75
+                            }
+                        }
+                }
+            }
+        }
+
+        SectionPanel {
+            label: "24 hour temperature"
+            visible: root.weatherOk && !root.loading && root.hourly.length > 0
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: root.chartGap
+
+                ColumnLayout {
+                    Layout.preferredWidth: root.yAxisWidth
+                    Layout.preferredHeight: root.chartHeight
+                    spacing: 0
+
+                            Text {
+                                text: Math.round(root.hourlyTempRange.rawMax) + "°"
+                                color: root.tempColor(root.hourlyTempRange.rawMax)
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.hintFont
+                                font.bold: Theme.fontBold
+                                opacity: 0.85
+                            }
+
+                            Item { Layout.fillHeight: true }
+
+                            Text {
+                                text: Math.round(root.hourlyTempRange.rawMin) + "°"
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.hintFont
+                                font.bold: Theme.fontBold
+                                opacity: 0.5
+                            }
+                }
+
+                Item {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: root.chartHeight
+
+                    Canvas {
+                                id: hourlyChart
+                                anchors.fill: parent
+
+                                onPaint: {
+                                    var ctx = getContext("2d")
+                                    ctx.reset()
+                                    var pts = root.hourly || []
+                                    if (pts.length === 0) return
+
+                                    var range = root.hourlyTempRange
+                                    var minV = range.min
+                                    var maxV = range.max
+                                    var span = maxV - minV || 1
+                                    var padX = 2
+                                    var padY = 12
+                                    var usableW = Math.max(1, width - padX * 2)
+                                    var usableH = Math.max(1, height - padY * 2)
+                                    var step = pts.length > 1 ? usableW / (pts.length - 1) : 0
+                                    var nowLabel = root.currentHourLabel
+                                    var nowIndex = -1
+
+                                    function yAt(v) {
+                                        var n = Number(v)
+                                        if (isNaN(n)) n = minV
+                                        return padY + usableH - ((n - minV) / span) * usableH
+                                    }
+
+                                    for (var i = 0; i < pts.length; i++) {
+                                        if (String(pts[i].time || "") === nowLabel)
+                                            nowIndex = i
+                                    }
+
+                                    var gridColor = Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.08)
+                                    for (var g = 0; g <= 2; g++) {
+                                        var gy = padY + (usableH / 2) * g
+                                        ctx.beginPath()
+                                        ctx.moveTo(padX, gy)
+                                        ctx.lineTo(width - padX, gy)
+                                        ctx.strokeStyle = gridColor
+                                        ctx.lineWidth = 1
+                                        ctx.stroke()
+                                    }
+
+                                    for (var s = 0; s < pts.length - 1; s++) {
+                                        var x0 = padX + s * step
+                                        var x1 = padX + (s + 1) * step
+                                        var y0 = yAt(pts[s].temp)
+                                        var y1 = yAt(pts[s + 1].temp)
+                                        var segColor = root.tempColor(Math.max(Number(pts[s].temp), Number(pts[s + 1].temp)))
+
+                                        ctx.beginPath()
+                                        ctx.moveTo(x0, y0)
+                                        ctx.lineTo(x1, y1)
+                                        ctx.lineTo(x1, height - padY)
+                                        ctx.lineTo(x0, height - padY)
+                                        ctx.closePath()
+                                        ctx.globalAlpha = 0.16
+                                        ctx.fillStyle = segColor
+                                        ctx.fill()
+                                        ctx.globalAlpha = 1
+
+                                        ctx.beginPath()
+                                        ctx.moveTo(x0, y0)
+                                        ctx.lineTo(x1, y1)
+                                        ctx.strokeStyle = segColor
+                                        ctx.lineWidth = 3
+                                        ctx.lineJoin = "round"
+                                        ctx.lineCap = "round"
+                                        ctx.stroke()
+                                    }
+
+                                    if (nowIndex >= 0) {
+                                        var nx = padX + nowIndex * step
+                                        var ny = yAt(pts[nowIndex].temp)
+                                        ctx.beginPath()
+                                        ctx.moveTo(nx, padY)
+                                        ctx.lineTo(nx, height - padY)
+                                        ctx.strokeStyle = Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.2)
+                                        ctx.lineWidth = 1
+                                        ctx.stroke()
+
+                                        ctx.beginPath()
+                                        ctx.arc(nx, ny, 6, 0, Math.PI * 2)
+                                        ctx.fillStyle = root.tempColor(pts[nowIndex].temp)
+                                        ctx.fill()
+                                    }
+                                }
+
+                                Connections {
+                                    target: root
+                                    function onHourlyChanged() { hourlyChart.requestPaint() }
+                                    function onCurrentHourLabelChanged() { hourlyChart.requestPaint() }
+                                }
+
+                                onWidthChanged: requestPaint()
+                                onHeightChanged: requestPaint()
+                                Component.onCompleted: requestPaint()
+                    }
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: root.chartGap
+
+                Item {
+                    Layout.preferredWidth: root.yAxisWidth
+                    Layout.maximumWidth: root.yAxisWidth
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 0
+
+                    Repeater {
+                        model: ["00", "06", "12", "18"]
+
+                        Text {
+                            required property string modelData
+                            required property int index
+                            Layout.fillWidth: true
+                            horizontalAlignment: index === 0 ? Text.AlignLeft
+                                : (index === 3 ? Text.AlignRight : Text.AlignHCenter)
+                            text: modelData
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.hintFont
+                            opacity: 0.45
+                        }
                     }
                 }
             }

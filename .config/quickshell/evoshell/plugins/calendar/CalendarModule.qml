@@ -7,6 +7,7 @@ Item {
     id: root
 
     property var host: null
+    property int tooltipWidth: 0
 
     property date today: new Date()
     property date nowTick: new Date()
@@ -32,16 +33,16 @@ Item {
 
     readonly property int cellWidth: {
         var extra = weekColumnWidth + gutterWidth + cellSpacing * 6
-        return Math.max(26, Math.floor((Math.max(200, width) - extra) / 7))
+        return Math.max(26, Math.floor((Math.max(200, tooltipWidth) - extra) / 7))
     }
     readonly property int cellHeight: 22
     readonly property int cellSpacing: 2
     readonly property int weekColumnWidth: 22
     readonly property int gutterWidth: 8
     readonly property int headerRowHeight: 16
-    readonly property int smallFont: Theme.panelHintFontPixelSize
-    readonly property int bodyFont: Theme.panelTitleFontPixelSize
-    readonly property int titleFont: Theme.panelTitleFontPixelSize
+    readonly property int smallFont: Theme.tooltipHintFontPixelSize
+    readonly property int bodyFont: Theme.tooltipBodyFontPixelSize
+    readonly property int titleFont: Theme.tooltipTitleFontPixelSize
 
     function onActivated() {
         today = new Date()
@@ -90,14 +91,14 @@ Item {
     implicitHeight: innerCol.implicitHeight
     implicitWidth: 200
 
-    Column {
+    ColumnLayout {
         id: innerCol
-        width: parent.width
+        width: root.tooltipWidth
         spacing: 8
 
         Item {
-            width: parent.width
-            height: 22
+            Layout.fillWidth: true
+            Layout.preferredHeight: 22
 
             RowLayout {
                 anchors.fill: parent
@@ -143,8 +144,8 @@ Item {
         }
 
         Item {
-            width: parent.width
-            height: gridCol.y + gridCol.height
+            Layout.fillWidth: true
+            implicitHeight: gridCol.y + gridCol.height
 
             WheelHandler {
                 onWheel: function(event) {
@@ -282,8 +283,8 @@ Item {
         }
 
         Item {
-            width: parent.width
-            height: 28
+            Layout.fillWidth: true
+            Layout.preferredHeight: 28
 
             Text {
                 anchors.centerIn: parent
@@ -331,7 +332,7 @@ Item {
         }
 
         Text {
-            anchors.horizontalCenter: parent.horizontalCenter
+            Layout.alignment: Qt.AlignHCenter
             text: "WEEK " + root.selectedWeek
             color: Theme.foreground
             opacity: 0.45

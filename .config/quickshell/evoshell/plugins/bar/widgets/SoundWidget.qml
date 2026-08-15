@@ -11,7 +11,18 @@ Item {
     property var settings: ({})
     property var shell: null
 
-    readonly property string hoverPopupId: settings.onHover ? String(settings.onHover) : ""
+    readonly property string hoverPopupId: settings.onHover
+        ? String(settings.onHover)
+        : (trayMode ? "evo.sound" : "")
+    readonly property bool trayMode: settings.trayMode === true
+    readonly property int trayIconSize: {
+        var n = parseInt(settings.trayIconSize, 10)
+        return isNaN(n) || n <= 0 ? 18 : n
+    }
+    readonly property int trayCellWidth: {
+        var n = parseInt(settings.trayCellWidth, 10)
+        return isNaN(n) || n <= 0 ? trayIconSize + 4 : n
+    }
     readonly property var audio: shell ? shell.serviceFor("evo.audio") : null
 
     readonly property int barCount: 10
@@ -34,9 +45,17 @@ Item {
 
     readonly property bool audioActive: sinkReady && linkTracker.linkGroups.length > 0
     readonly property string volumeText: audio ? audio.displayText : "󰕾"
+    readonly property string trayIconText: {
+        if (!audio) return "󰕾"
+        if (audio.muted || audio.percent === 0) return "󰝟"
+        return "󰕾"
+    }
+    readonly property int horizontalPad: trayMode ? 0 : Theme.barPaddingX
 
-    implicitWidth: contentRow.implicitWidth + Theme.barPaddingX * 2
+    implicitWidth: trayMode ? trayCellWidth : contentRow.implicitWidth + horizontalPad * 2
     implicitHeight: Theme.barHeight
+    width: trayMode && parent ? parent.width : implicitWidth
+    height: Theme.barHeight
 
     function resetBars() {
         peakBaseline = 0
@@ -118,6 +137,21 @@ Item {
             openMixer()
     }
 
+    function setHoverPopup(active) {
+        if (!shell || !hoverPopupId) return
+        if (active)
+            shell.hoverEnter(hoverPopupId, root, barPanel)
+        else
+            shell.hoverLeave(hoverPopupId)
+    }
+
+    function handleWheel(wheel) {
+        if (!audio) return
+        if (wheel.angleDelta.y > 0) audio.stepUp()
+        else if (wheel.angleDelta.y < 0) audio.stepDown()
+        wheel.accepted = true
+    }
+
     PwObjectTracker {
         objects: root.sink ? [root.sink] : []
     }
@@ -149,9 +183,9 @@ Item {
         spacing: root.sectionSpacing
 
         Item {
-            width: root.audioActive ? root.cavaWidth : 0
+            width: !root.trayMode && root.audioActive ? root.cavaWidth : 0
             height: root.vizHeight
-            visible: root.audioActive
+            visible: !root.trayMode && root.audioActive
 
             Row {
                 anchors.centerIn: parent
@@ -180,54 +214,51 @@ Item {
             }
 
             MouseArea {
+                enabled: !root.trayMode
                 anchors.fill: parent
                 hoverEnabled: true
                 acceptedButtons: Qt.LeftButton | Qt.RightButton
                 cursorShape: Qt.PointingHandCursor
-                onWheel: function(wheel) {
-                    if (!root.audio) return
-                    if (wheel.angleDelta.y > 0) root.audio.stepUp()
-                    else if (wheel.angleDelta.y < 0) root.audio.stepDown()
-                    wheel.accepted = true
-                }
+                onWheel: function(wheel) { root.handleWheel(wheel) }
                 onClicked: function(mouse) { root.runConfiguredClick(mouse) }
             }
         }
 
         Text {
             id: volumeLabel
-            text: root.volumeText
+            text: root.trayMode ? root.trayIconText : root.volumeText
             color: Theme.foreground
             font.family: Theme.fontFamily
-            font.pixelSize: Theme.barFontPixelSize
+            font.pixelSize: root.trayMode ? root.trayIconSize : Theme.barFontPixelSize
             font.bold: Theme.fontBold
             anchors.verticalCenter: parent.verticalCenter
 
             MouseArea {
+                enabled: !root.trayMode
                 anchors.fill: parent
                 anchors.margins: -6
                 hoverEnabled: true
                 acceptedButtons: Qt.LeftButton | Qt.RightButton
                 cursorShape: Qt.PointingHandCursor
-                onWheel: function(wheel) {
-                    if (!root.audio) return
-                    if (wheel.angleDelta.y > 0) root.audio.stepUp()
-                    else if (wheel.angleDelta.y < 0) root.audio.stepDown()
-                    wheel.accepted = true
-                }
+                onWheel: function(wheel) { root.handleWheel(wheel) }
                 onClicked: function(mouse) { root.runConfiguredClick(mouse) }
             }
         }
     }
 
+    MouseArea {
+        anchors.fill: parent
+        visible: root.trayMode
+        hoverEnabled: true
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
+        cursorShape: Qt.PointingHandCursor
+        onContainsMouseChanged: root.setHoverPopup(containsMouse)
+        onWheel: function(wheel) { root.handleWheel(wheel) }
+        onClicked: function(mouse) { root.runConfiguredClick(mouse) }
+    }
+
     HoverHandler {
-        enabled: root.hoverPopupId !== "" && root.shell
-        onHoveredChanged: {
-            if (!root.shell || !root.hoverPopupId) return
-            if (hovered)
-                root.shell.hoverEnter(root.hoverPopupId, root, root.barPanel)
-            else
-                root.shell.hoverLeave(root.hoverPopupId)
-        }
+        enabled: !root.trayMode && root.hoverPopupId !== "" && root.shell
+        onHoveredChanged: root.setHoverPopup(hovered)
     }
 }

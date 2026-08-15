@@ -246,13 +246,13 @@ Item {
         anchors.bottom: parent.bottom
         spacing: 10
 
-        FramedPanel {
+        SectionPanel {
+            contentPad: Theme.panelContentPad
             label: "Calculator"
-            Layout.fillWidth: true
 
             TextInput {
                 id: inputField
-                width: parent.width
+                Layout.fillWidth: true
                 height: Math.ceil(font.pixelSize * 1.45)
                 verticalAlignment: TextInput.AlignVCenter
                 color: Theme.foreground
@@ -278,13 +278,12 @@ Item {
             }
         }
 
-        FramedPanel {
+        SectionPanel {
+            contentPad: Theme.panelContentPad
             label: ""
-            Layout.fillWidth: true
-            contentPad: 8
 
             GridLayout {
-                width: parent.width
+                Layout.fillWidth: true
                 columns: 3
                 columnSpacing: 6
                 rowSpacing: 6
@@ -316,57 +315,62 @@ Item {
             }
         }
 
-        FramedPanel {
+        SectionPanel {
+            contentPad: Theme.panelContentPad
             label: "History"
-            Layout.fillWidth: true
             Layout.topMargin: 4
             Layout.fillHeight: false
 
-            ListView {
-                id: historyView
-                width: parent.width
-                height: count === 0
-                    ? root.historyFontSize + 8
-                    : Math.min(contentHeight, root.historyFontSize * 8)
-                clip: true
-                model: root.entries
-                boundsBehavior: Flickable.StopAtBounds
+            Item {
+                Layout.fillWidth: true
+                Layout.preferredHeight: historyView.height
 
-                delegate: Item {
-                    required property var modelData
-                    width: historyView.width
-                    height: rowText.implicitHeight + 6
+                ListView {
+                    id: historyView
+                    width: parent.width
+                    height: count === 0
+                        ? root.historyFontSize + 8
+                        : Math.min(contentHeight, root.historyFontSize * 8)
+                    clip: true
+                    model: root.entries
+                    boundsBehavior: Flickable.StopAtBounds
 
-                    Text {
-                        id: rowText
-                        width: parent.width
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: modelData.label
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.historyFontSize
-                        wrapMode: Text.Wrap
-                        opacity: mouseArea.containsMouse ? 1 : 0.9
-                    }
+                    delegate: Item {
+                        required property var modelData
+                        width: historyView.width
+                        height: rowText.implicitHeight + 6
 
-                    MouseArea {
-                        id: mouseArea
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.copyResult(modelData.result)
+                        Text {
+                            id: rowText
+                            width: parent.width
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: modelData.label
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.historyFontSize
+                            wrapMode: Text.Wrap
+                            opacity: mouseArea.containsMouse ? 1 : 0.9
+                        }
+
+                        MouseArea {
+                            id: mouseArea
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.copyResult(modelData.result)
+                        }
                     }
                 }
-            }
 
-            Text {
-                anchors.centerIn: parent
-                visible: historyView.count === 0
-                text: "No history yet"
-                color: Theme.foreground
-                font.family: Theme.fontFamily
-                font.pixelSize: root.historyFontSize
-                opacity: 0.5
+                Text {
+                    anchors.centerIn: parent
+                    visible: historyView.count === 0
+                    text: "No history yet"
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.historyFontSize
+                    opacity: 0.5
+                }
             }
         }
 

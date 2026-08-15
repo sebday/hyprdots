@@ -227,144 +227,135 @@ Item {
             width: parent.width
             spacing: 16
 
-            FramedPanel {
+            SectionPanel {
+                contentPad: Theme.panelContentPad
                 label: "Font"
-                Layout.fillWidth: true
+                sectionSpacing: 14
 
-                Column {
-                    width: parent.width
-                    spacing: 14
-
-                    FontFamilyPicker {
-                        width: parent.width
-                        label: "Family"
-                        value: root.fontFamily
-                        model: root.fontFamilies
-                        enabled: root.fontReady && !settingsBusy
-                        onActivated: function(family) {
-                            root.fontFamily = family
-                            root.setFont("family", family)
-                        }
+                FontFamilyPicker {
+                    Layout.fillWidth: true
+                    label: "Family"
+                    value: root.fontFamily
+                    model: root.fontFamilies
+                    enabled: root.fontReady && !settingsBusy
+                    onActivated: function(family) {
+                        root.fontFamily = family
+                        root.setFont("family", family)
                     }
+                }
 
-                    SliderSetting {
-                        width: parent.width
-                        label: "Base size"
-                        value: root.fontBaseSize
-                        valueSuffix: "px"
-                        minimum: 9
-                        maximum: 28
-                        step: 1
-                        enabled: root.fontReady && !settingsBusy
-                        onValueEdited: function(v) {
-                            root.fontBaseSize = v
-                        }
-                        onValueCommitted: function(v) {
-                            root.fontBaseSize = v
-                            root.setFont("base", v)
-                        }
+                SliderSetting {
+                    Layout.fillWidth: true
+                    label: "Base size"
+                    value: root.fontBaseSize
+                    valueSuffix: "px"
+                    minimum: 9
+                    maximum: 28
+                    step: 1
+                    enabled: root.fontReady && !settingsBusy
+                    onValueEdited: function(v) {
+                        root.fontBaseSize = v
                     }
-
-                    SliderSetting {
-                        width: parent.width
-                        label: "Zoom level"
-                        value: root.fontScalePercent
-                        valueSuffix: "%"
-                        minimum: 50
-                        maximum: 150
-                        step: 10
-                        enabled: root.fontReady && !settingsBusy
-                        onValueEdited: function(v) {
-                            root.fontScalePercent = v
-                        }
-                        onValueCommitted: function(v) {
-                            root.fontScalePercent = v
-                            root.setFont("zoom", v)
-                        }
+                    onValueCommitted: function(v) {
+                        root.fontBaseSize = v
+                        root.setFont("base", v)
                     }
+                }
 
+                SliderSetting {
+                    Layout.fillWidth: true
+                    label: "Zoom level"
+                    value: root.fontScalePercent
+                    valueSuffix: "%"
+                    minimum: 50
+                    maximum: 150
+                    step: 10
+                    enabled: root.fontReady && !settingsBusy
+                    onValueEdited: function(v) {
+                        root.fontScalePercent = v
+                    }
+                    onValueCommitted: function(v) {
+                        root.fontScalePercent = v
+                        root.setFont("zoom", v)
+                    }
                 }
             }
 
-            FramedPanel {
+            SectionPanel {
+                contentPad: Theme.panelContentPad
                 label: "Hyprland"
-                Layout.fillWidth: true
-
-                Column {
-                    width: parent.width
-                    spacing: 12
-
-                    ToggleRow {
-                        width: parent.width
-                        label: "Border radius"
-                        detail: "On: 7px"
-                        checked: root.roundingOn
-                        enabled: root.hyprReady && !settingsBusy
-                        onToggled: root.toggleHypr("rounding")
-                    }
-
-                    ToggleRow {
-                        width: parent.width
-                        label: "Window gaps"
-                        detail: "On: 10px in 20px out"
-                        checked: root.gapsOn
-                        enabled: root.hyprReady && !settingsBusy
-                        onToggled: root.toggleHypr("gaps")
-                    }
-
-                    ToggleRow {
-                        width: parent.width
-                        label: "Animations"
-                        detail: "Bezier sliding"
-                        checked: root.animationsOn
-                        enabled: root.hyprReady && !settingsBusy
-                        onToggled: root.toggleHypr("animations")
-                    }
-
-                    SliderSetting {
-                        width: parent.width
-                        label: "Active opacity"
-                        value: root.activeOpacityPercent
-                        valueSuffix: "%"
-                        minimum: 0
-                        maximum: 100
-                        step: 1
-                        enabled: root.hyprReady && !settingsBusy
-                        onValueEdited: function(v) {
-                            root.activeOpacityPercent = v
-                        }
-                        onValueCommitted: function(v) {
-                            root.activeOpacityPercent = v
-                            root.setHyprOpacity("active", v)
-                        }
-                    }
-
-                    SliderSetting {
-                        width: parent.width
-                        label: "Inactive opacity"
-                        value: root.inactiveOpacityPercent
-                        valueSuffix: "%"
-                        minimum: 0
-                        maximum: 100
-                        step: 1
-                        enabled: root.hyprReady && !settingsBusy
-                        onValueEdited: function(v) {
-                            root.inactiveOpacityPercent = v
-                        }
-                        onValueCommitted: function(v) {
-                            root.inactiveOpacityPercent = v
-                            root.setHyprOpacity("inactive", v)
-                        }
-                    }
-                }
-            }
-
-            FramedPanel {
-                label: "Bar"
-                Layout.fillWidth: true
+                sectionSpacing: 12
 
                 ToggleRow {
-                    width: parent.width
+                    Layout.fillWidth: true
+                    label: "Border radius"
+                    detail: "On: 7px"
+                    checked: root.roundingOn
+                    enabled: root.hyprReady && !settingsBusy
+                    onToggled: root.toggleHypr("rounding")
+                }
+
+                ToggleRow {
+                    Layout.fillWidth: true
+                    label: "Window gaps"
+                    detail: "On: 10px in 20px out"
+                    checked: root.gapsOn
+                    enabled: root.hyprReady && !settingsBusy
+                    onToggled: root.toggleHypr("gaps")
+                }
+
+                ToggleRow {
+                    Layout.fillWidth: true
+                    label: "Animations"
+                    detail: "Bezier sliding"
+                    checked: root.animationsOn
+                    enabled: root.hyprReady && !settingsBusy
+                    onToggled: root.toggleHypr("animations")
+                }
+
+                SliderSetting {
+                    Layout.fillWidth: true
+                    label: "Active opacity"
+                    value: root.activeOpacityPercent
+                    valueSuffix: "%"
+                    minimum: 0
+                    maximum: 100
+                    step: 1
+                    enabled: root.hyprReady && !settingsBusy
+                    onValueEdited: function(v) {
+                        root.activeOpacityPercent = v
+                    }
+                    onValueCommitted: function(v) {
+                        root.activeOpacityPercent = v
+                        root.setHyprOpacity("active", v)
+                    }
+                }
+
+                SliderSetting {
+                    Layout.fillWidth: true
+                    label: "Inactive opacity"
+                    value: root.inactiveOpacityPercent
+                    valueSuffix: "%"
+                    minimum: 0
+                    maximum: 100
+                    step: 1
+                    enabled: root.hyprReady && !settingsBusy
+                    onValueEdited: function(v) {
+                        root.inactiveOpacityPercent = v
+                    }
+                    onValueCommitted: function(v) {
+                        root.inactiveOpacityPercent = v
+                        root.setHyprOpacity("inactive", v)
+                    }
+                }
+            }
+
+            SectionPanel {
+                contentPad: Theme.panelContentPad
+                label: "Bar"
+
+                ToggleRow {
+                    Layout.fillWidth: true
                     label: "Bar position"
                     detail: "On: Main screen"
                     checked: root.barOnDp1Top
@@ -373,21 +364,26 @@ Item {
                 }
             }
 
-            FramedPanel {
+            SectionPanel {
+                contentPad: Theme.panelContentPad
                 label: "Theme"
-                Layout.fillWidth: true
 
-                PreviewPickerGrid {
-                    id: themePicker
-                    width: parent.width
-                    kind: "themes"
-                    columns: 3
-                    tileWidth: 96
-                    tileHeight: 58
-                    spacing: 8
-                    previewDpr: 1.5
-                    selectedKey: root.currentThemeName
-                    keyboardFocus: false
+                Item {
+                    Layout.fillWidth: true
+                    implicitHeight: themePicker.implicitHeight
+
+                    PreviewPickerGrid {
+                        id: themePicker
+                        width: parent.width
+                        kind: "themes"
+                        columns: 3
+                        tileWidth: Math.floor((parent.width - spacing * 2) / 3)
+                        tileHeight: 58
+                        spacing: 8
+                        previewDpr: 1.5
+                        selectedKey: root.currentThemeName
+                        keyboardFocus: false
+                    }
                 }
             }
         }

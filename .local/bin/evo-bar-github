@@ -18,6 +18,7 @@ if [[ -f "$SECRETS_FILE" ]]; then
 fi
 
 TOKEN="${GITHUB_TOKEN:-}"
+HEATMAP_DAYS=30
 
 json_github() {
     jq -cn \
@@ -120,7 +121,7 @@ declare -a heatmap_chars=()
 
 if [[ -z "$ALL_DAYS_DATA" ]]; then
     TODAY_CONTRIBUTION_COUNT=0
-    for i in {1..14}; do
+    for ((i = 1; i <= HEATMAP_DAYS; i++)); do
         day_counts+=(0)
         heatmap_chars+=("<span foreground='${GITHUB_COLORS[0]}'>■</span>")
     done
@@ -129,7 +130,7 @@ else
         contribs_by_date["$date_val"]=$count_val
     done <<< "$ALL_DAYS_DATA"
 
-    for i in {13..0}; do
+    for ((i = HEATMAP_DAYS - 1; i >= 0; i--)); do
         DAY_ISO=$(date -d "${LOCAL_TODAY_ISO} - ${i} days" +'%Y-%m-%d')
         COUNT_FOR_DAY=${contribs_by_date["$DAY_ISO"]:-0}
         LEVEL=$(contribution_level "$COUNT_FOR_DAY")

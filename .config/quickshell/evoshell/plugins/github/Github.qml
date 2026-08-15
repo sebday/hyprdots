@@ -3,9 +3,8 @@ import "../../Commons"
 import "."
 
 BarHoverTooltip {
-    layerNamespace: "evo-calendar"
+    layerNamespace: "evo-github"
     contentWidth: Theme.tooltipWidthStandard
-    minContentHeight: 260
 
-    CalendarModule {}
+    GithubModule {}
 }
