@@ -239,6 +239,7 @@ Item {
 
             FramedPanel {
                 label: "History"
+                labelBackground: Theme.background
                 contentFill: true
                 Layout.fillWidth: true
                 Layout.fillHeight: true
@@ -351,6 +352,7 @@ Item {
 
             FramedPanel {
                 label: "Preview"
+                labelBackground: Theme.background
                 contentFill: true
                 Layout.fillWidth: true
                 Layout.preferredHeight: 150

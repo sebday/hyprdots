@@ -11,6 +11,9 @@ Item {
 
     readonly property string home: Quickshell.env("HOME")
     readonly property bool active: host && host.opened === true
+    readonly property int bodyFont: Theme.tooltipBodyFontPixelSize
+    readonly property int hintFont: Theme.tooltipHintFontPixelSize
+    readonly property int statFont: Theme.tooltipLabelFontPixelSize
 
     property var btcData: ({})
     property var spcxData: ({})
@@ -32,11 +35,77 @@ Item {
         return Format.headerLines(raw.split(" · "), fallbackName + " …")
     }
 
+    function fmtPct(val, signed) {
+        var n = parseFloat(val)
+        if (isNaN(n))
+            return "—"
+        var s = (n * (Math.abs(n) <= 1 && String(val).indexOf("%") < 0 ? 1 : 1)).toFixed(2)
+        if (signed === false)
+            return s + "%"
+        return (n >= 0 ? "+" : "") + s + "%"
+    }
+
+    function fmtSignedPct(val) {
+        var n = parseFloat(val)
+        if (isNaN(n))
+            return "—"
+        return (n >= 0 ? "+" : "") + n.toFixed(2) + "%"
+    }
+
+    function fmtUsd(val) {
+        var n = parseFloat(val)
+        if (isNaN(n))
+            return "—"
+        return Format.formatRevenue(n, "$")
+    }
+
+    function fmtBtc(val) {
+        var n = parseFloat(val)
+        if (isNaN(n) || n <= 0)
+            return "—"
+        if (n >= 1)
+            return n.toFixed(4) + " BTC"
+        return n.toFixed(6) + " BTC"
+    }
+
+    function fmtQty(val) {
+        var n = parseFloat(val)
+        if (isNaN(n) || n <= 0)
+            return "—"
+        return n.toFixed(2) + " shares"
+    }
+
+    function chartDays(data) {
+        var period = data.period || {}
+        if (period.days)
+            return period.days
+        var bars = data.bars || []
+        return bars.length > 0 ? bars.length : 30
+    }
+
+    function marketSection(data, fallbackName, href, chartColor) {
+        return {
+            name: fallbackName,
+            href: href,
+            header: root.marketHeader(data, fallbackName),
+            source: String(data.source || ""),
+            quote: data.quote || {},
+            period: data.period || {},
+            position: data.position || {},
+            bars: data.bars || [],
+            days: root.chartDays(data),
+            chartColor: chartColor
+        }
+    }
+
+    readonly property var btc: marketSection(btcData, "BTC", "https://www.tradingview.com/symbols/BTCUSD/", Theme.accent)
+    readonly property var spcx: marketSection(spcxData, "SPCX", "https://app.trading212.com/", "#f9e2af")
+
     JsonPollRunner {
         id: btcPoll
         active: root.active
         defaultIntervalSec: 60
-        command: ["bash", root.home + "/.local/bin/evo-bar-btc"]
+        command: ["bash", root.home + "/.local/bin/evo-bar-btc", "30"]
         onPolled: function(json) { root.btcData = json }
     }
 
@@ -44,53 +113,210 @@ Item {
         id: spcxPoll
         active: root.active
         defaultIntervalSec: 60
-        command: ["bash", root.home + "/.local/bin/evo-bar-spcx"]
+        command: ["bash", root.home + "/.local/bin/evo-bar-spcx", "30"]
         onPolled: function(json) { root.spcxData = json }
     }
 
+    implicitHeight: column.implicitHeight
+
+    component MarketPanel: SectionPanel {
+        id: panel
+        property var market: ({})
+
+        ColumnLayout {
+            Layout.fillWidth: true
+            spacing: Theme.tooltipSectionSpacing
+
+            TooltipHeader {
+                Layout.fillWidth: true
+                value: panel.market.header
+                href: panel.market.href
+            }
+
+            Text {
+                Layout.fillWidth: true
+                visible: panel.market.source !== ""
+                text: panel.market.source + (panel.market.quote.pair ? " · " + panel.market.quote.pair : "")
+                color: Theme.foreground
+                font.family: Theme.fontFamily
+                font.pixelSize: root.hintFont
+                opacity: 0.55
+            }
+
+            GridLayout {
+                Layout.fillWidth: true
+                columns: 4
+                columnSpacing: 8
+                rowSpacing: 8
+
+                Repeater {
+                    model: panel.market.name === "BTC" ? [
+                        { label: "24h", value: root.fmtSignedPct(panel.market.quote.changePct) },
+                        { label: "24h high", value: root.fmtUsd(panel.market.quote.high24h) },
+                        { label: "24h low", value: root.fmtUsd(panel.market.quote.low24h) },
+                        { label: "24h vol", value: panel.market.quote.volume24h !== undefined
+                            ? (parseFloat(panel.market.quote.volume24h).toFixed(1) + " BTC") : "—" }
+                    ] : [
+                        { label: "Price", value: root.fmtUsd(panel.market.quote.price) },
+                        { label: "Shares", value: root.fmtQty(panel.market.position.quantity) },
+                        { label: "Avg cost", value: root.fmtUsd(panel.market.position.averagePrice) },
+                        { label: "P/L", value: root.fmtSignedPct(panel.market.position.upnlPct) }
+                    ]
+
+                    SectionPanel {
+                        required property var modelData
+                        Layout.fillWidth: true
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 2
+
+                            Text {
+                                Layout.fillWidth: true
+                                horizontalAlignment: Text.AlignHCenter
+                                text: String(modelData.value)
+                                color: Theme.accent
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.statFont + 1
+                                font.bold: Theme.fontBold
+                                elide: Text.ElideRight
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                horizontalAlignment: Text.AlignHCenter
+                                text: modelData.label
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.hintFont
+                                opacity: 0.55
+                            }
+                        }
+                    }
+                }
+            }
+
+            GridLayout {
+                Layout.fillWidth: true
+                columns: 3
+                columnSpacing: 8
+                rowSpacing: 8
+                visible: panel.market.period && panel.market.period.days
+
+                Repeater {
+                    model: panel.market.name === "BTC" ? [
+                        { label: "Holdings", value: root.fmtBtc(panel.market.position.balance) },
+                        { label: "Value", value: root.fmtUsd(panel.market.position.valueUsd) },
+                        { label: "Unrealized", value: root.fmtSignedPct(panel.market.position.upnlPct) }
+                    ] : [
+                        { label: "Value", value: root.fmtUsd(panel.market.position.valueUsd) },
+                        { label: "Cost basis", value: root.fmtUsd(panel.market.position.totalCost) },
+                        { label: panel.market.days + "d change", value: root.fmtSignedPct(panel.market.period.changePct) }
+                    ]
+
+                    SectionPanel {
+                        required property var modelData
+                        Layout.fillWidth: true
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 2
+
+                            Text {
+                                Layout.fillWidth: true
+                                horizontalAlignment: Text.AlignHCenter
+                                text: String(modelData.value)
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.statFont + 1
+                                font.bold: Theme.fontBold
+                                elide: Text.ElideRight
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                horizontalAlignment: Text.AlignHCenter
+                                text: modelData.label
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.hintFont
+                                opacity: 0.55
+                            }
+                        }
+                    }
+                }
+            }
+
+            GridLayout {
+                Layout.fillWidth: true
+                columns: 3
+                columnSpacing: 8
+                rowSpacing: 8
+                visible: panel.market.name === "BTC" && panel.market.period && panel.market.period.days
+
+                Repeater {
+                    model: [
+                        { label: panel.market.days + "d change", value: root.fmtSignedPct(panel.market.period.changePct) },
+                        { label: panel.market.days + "d high", value: root.fmtUsd(panel.market.period.high) },
+                        { label: panel.market.days + "d low", value: root.fmtUsd(panel.market.period.low) }
+                    ]
+
+                    SectionPanel {
+                        required property var modelData
+                        Layout.fillWidth: true
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 2
+
+                            Text {
+                                Layout.fillWidth: true
+                                horizontalAlignment: Text.AlignHCenter
+                                text: String(modelData.value)
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.statFont + 1
+                                font.bold: Theme.fontBold
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                horizontalAlignment: Text.AlignHCenter
+                                text: modelData.label
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.hintFont
+                                opacity: 0.55
+                            }
+                        }
+                    }
+                }
+            }
+
+            SparklineChart {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 96
+                chartHeight: 96
+                style: "line"
+                lineColor: panel.market.chartColor
+                bars: panel.market.bars
+            }
+        }
+    }
+
     ColumnLayout {
+        id: column
         width: root.tooltipWidth
         spacing: Theme.tooltipSectionSpacing
 
-        GridLayout {
-            Layout.fillWidth: true
-            columns: 2
-            columnSpacing: 12
-            rowSpacing: 12
+        MarketPanel {
+            label: "BTC"
+            market: root.btc
+        }
 
-            SectionPanel {
-                label: "BTC"
-                Layout.fillWidth: true
-
-                TooltipHeader {
-                    Layout.fillWidth: true
-                    value: root.marketHeader(root.btcData, "BTC")
-                    href: "https://www.tradingview.com/symbols/BTCUSD/"
-                }
-
-                SparklineChart {
-                    Layout.fillWidth: true
-                    bars: root.btcData.bars || []
-                    style: "line"
-                }
-            }
-
-            SectionPanel {
-                label: "SPCX"
-                Layout.fillWidth: true
-
-                TooltipHeader {
-                    Layout.fillWidth: true
-                    value: root.marketHeader(root.spcxData, "SPCX")
-                    href: "https://app.trading212.com/"
-                }
-
-                SparklineChart {
-                    Layout.fillWidth: true
-                    bars: root.spcxData.bars || []
-                    style: "line"
-                }
-            }
+        MarketPanel {
+            label: "SPCX"
+            market: root.spcx
         }
     }
 }

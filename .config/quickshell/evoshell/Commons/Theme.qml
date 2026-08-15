@@ -162,6 +162,7 @@ Singleton {
     readonly property int tooltipContentPad: 16
     readonly property int panelContentPad: 10
     readonly property int tooltipMargin: 16
+    readonly property int barTooltipTopPad: 20
     readonly property int tooltipWidthStandard: 440
     readonly property int tooltipWidthWide: 580
     readonly property int popupHeroFontPixelSize: fontPixelSize * 4
@@ -182,15 +183,15 @@ Singleton {
     readonly property int sparklineExpandedHeight: 52
     readonly property int sparklineExpandedBarWidth: 10
     readonly property int sparklineExpandedBarSpacing: 3
-    readonly property int notificationWidth: 500
-    readonly property int notificationPadding: 16
-    readonly property int notificationTitleSize: 22
-    readonly property int notificationBodySize: 18
-    readonly property int notificationIconSize: 28
-    readonly property int notificationArtSize: 80
-    readonly property int notificationVolumeHeight: 80
-    readonly property int notificationMediaPad: 22
-    readonly property int notificationStackSlot: 104
+    readonly property int notificationWidth: 440
+    readonly property int notificationPadding: 14
+    readonly property int notificationTitleSize: 17
+    readonly property int notificationBodySize: 14
+    readonly property int notificationIconSize: 22
+    readonly property int notificationArtSize: 68
+    readonly property int notificationVolumeHeight: 68
+    readonly property int notificationMediaPad: 16
+    readonly property int notificationStackSlot: 88
 
     Component.onCompleted: {
         applyThemeFile()

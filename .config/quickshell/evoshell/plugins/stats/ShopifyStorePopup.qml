@@ -1,6 +1,6 @@
 import QtQuick
 import "../../Commons"
-import "../stats"
+import "."
 
 BarHoverTooltip {
     id: root
@@ -9,7 +9,7 @@ BarHoverTooltip {
     required property string title
     required property string adminUrl
 
-    contentWidth: Theme.tooltipWidthStandard
+    contentWidth: Theme.tooltipWidthWide
 
     ShopifyStoreModule {
         storeKey: root.storeKey

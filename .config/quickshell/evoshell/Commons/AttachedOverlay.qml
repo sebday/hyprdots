@@ -9,6 +9,7 @@ Item {
     property int contentWidth: 420
     property int contentHeight: 320
     property int contentMargin: 12
+    property int contentTopMargin: contentMargin
     readonly property int barOffset: 20
     readonly property int borderWidth: 2
     property var anchorItem: null
@@ -21,6 +22,9 @@ Item {
     default property alias content: contentHost.data
 
     readonly property bool barOnBottom: String(barPosition || "bottom") !== "top"
+    readonly property bool dockedToBar: opened
+    readonly property bool dockedBelowTopBar: dockedToBar && !barOnBottom
+    readonly property bool dockedAboveBottomBar: dockedToBar && barOnBottom
     readonly property var hostScreen: {
         if (anchorWindow && anchorWindow.screen)
             return anchorWindow.screen
@@ -72,8 +76,12 @@ Item {
         anchors.bottom: root.barOnBottom
         anchors.top: !root.barOnBottom
         anchors.left: true
-        margins.bottom: root.barOnBottom ? Theme.barHeight + root.barOffset : 0
-        margins.top: root.barOnBottom ? 0 : Theme.barHeight + root.barOffset
+        margins.bottom: root.barOnBottom
+            ? Theme.barHeight + (root.dockedAboveBottomBar ? 0 : root.barOffset)
+            : 0
+        margins.top: root.barOnBottom
+            ? 0
+            : Theme.barHeight + (root.dockedBelowTopBar ? 0 : root.barOffset)
         margins.left: root.boxX
         WlrLayershell.namespace: root.layerNamespace
         WlrLayershell.layer: WlrLayer.Overlay
@@ -89,8 +97,8 @@ Item {
             height: root.contentHeight
             color: Theme.mantle
             border.color: Theme.accent
-            border.width: root.borderWidth
-            radius: Theme.panelCornerRadius
+            border.width: (root.dockedBelowTopBar || root.dockedAboveBottomBar) ? 0 : root.borderWidth
+            radius: (root.dockedBelowTopBar || root.dockedAboveBottomBar) ? 0 : Theme.panelCornerRadius
         }
 
         HoverHandler {
@@ -108,7 +116,10 @@ Item {
             anchors.right: box.right
             anchors.top: box.top
             anchors.bottom: box.bottom
-            anchors.margins: root.contentMargin
+            anchors.leftMargin: root.contentMargin
+            anchors.rightMargin: root.contentMargin
+            anchors.topMargin: root.contentTopMargin
+            anchors.bottomMargin: root.contentMargin
         }
     }
 }

@@ -83,6 +83,39 @@ evo_bar_build_bars_json() {
     printf '%s' "$lines" | jq -s '.'
 }
 
+# Period stats from date|value rows. Prints JSON: {days, high, low, changePct, start, end}.
+evo_bar_period_stats_json() {
+    local -a rows=("$@")
+    if ((${#rows[@]} == 0)); then
+        printf '{}'
+        return
+    fi
+
+    awk -F'|' -v n="${#rows[@]}" '
+        BEGIN {
+            first = ""
+            last = ""
+            minV = ""
+            maxV = ""
+        }
+        {
+            d = $1
+            v = ($2 == "" ? 0 : $2 + 0)
+            if (first == "") first = v
+            last = v
+            if (minV == "" || v < minV) minV = v
+            if (maxV == "" || v > maxV) maxV = v
+        }
+        END {
+            change = 0
+            if (first + 0 != 0)
+                change = (last - first) / first * 100
+            printf "{\"days\":%d,\"high\":%.8f,\"low\":%.8f,\"changePct\":%.4f,\"start\":%.8f,\"end\":%.8f}\n",
+                n, maxV + 0, minV + 0, change, first + 0, last + 0
+        }
+    ' <<<"$(printf '%s\n' "${rows[@]}")"
+}
+
 evo_bar_cache_path() {
     printf '%s/%s.json' "$EVO_BAR_CACHE_DIR" "$1"
 }
@@ -90,14 +123,16 @@ evo_bar_cache_path() {
 # Return cached JSON when younger than ttl seconds.
 evo_bar_cache_read() {
     local key="$1" ttl="${2:-60}"
-    local path now mtime age
+    local path now mtime age content
     path="$(evo_bar_cache_path "$key")"
     [[ -f "$path" ]] || return 1
+    content="$(cat "$path")"
+    [[ -n "${content//[[:space:]]/}" ]] || return 1
     now=$(date +%s)
     mtime=$(stat -c %Y "$path" 2>/dev/null || echo 0)
     age=$((now - mtime))
     (( age < ttl )) || return 1
-    cat "$path"
+    printf '%s' "$content"
 }
 
 # Write JSON cache atomically from stdin.

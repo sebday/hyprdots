@@ -4,10 +4,13 @@
     "screensaver": 1800,
     "lock": 900
   },
+  "notifications": {
+    "output": "HDMI-A-1"
+  },
   "bar": {
     "id": "evo.bar",
-    "position": "bottom",
-    "output": "HDMI-A-1",
+    "position": "top",
+    "output": "DP-1",
     "layout": {
       "left": [
         {
@@ -31,7 +34,54 @@
             "exec": "~/.local/bin/evo-weather",
             "interval": 1800,
             "onHover": "evo.weather",
-            "onClickRight": "xdg-open https://weather.metoffice.gov.uk/forecast/gcqvn6pq4"
+            "onClickRight": "xdg-open https://weather.metoffice.gov.uk/forecast/gcqvn6pq4",
+            "locations": [
+              {
+                "name": "Derby",
+                "lat": 52.9219,
+                "lon": -1.4746
+              },
+              {
+                "name": "Edinburgh",
+                "lat": 55.9533,
+                "lon": -3.1883
+              },
+              {
+                "name": "Cardiff",
+                "lat": 51.4816,
+                "lon": -3.1791
+              },
+              {
+                "name": "Belfast",
+                "lat": 54.5973,
+                "lon": -5.9301
+              },
+              {
+                "name": "Reykjavik",
+                "lat": 64.1466,
+                "lon": -21.9426
+              },
+              {
+                "name": "Tokyo",
+                "lat": 35.6762,
+                "lon": 139.6503
+              },
+              {
+                "name": "Singapore",
+                "lat": 1.3521,
+                "lon": 103.8198
+              },
+              {
+                "name": "Buenos Aires",
+                "lat": -34.6037,
+                "lon": -58.3816
+              },
+              {
+                "name": "Honolulu",
+                "lat": 21.3069,
+                "lon": -157.8583
+              }
+            ]
           },
           "cursor": {
             "type": "command",

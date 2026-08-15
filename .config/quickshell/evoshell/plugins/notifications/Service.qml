@@ -13,8 +13,11 @@ Scope {
     property var popupHeights: ({})
 
     readonly property int popupGap: 10
-    readonly property int popupMarginAboveBar: 20
-    readonly property string popupOutput: "HDMI-A-1"
+    readonly property int popupMarginFromEdge: 20
+    readonly property string popupOutput: {
+        var cfg = shell && shell.shellConfig && shell.shellConfig.notifications
+        return cfg && cfg.output ? String(cfg.output) : "HDMI-A-1"
+    }
     readonly property var popupScreen: {
         var screens = Quickshell.screens
         if (!screens) return null
@@ -274,7 +277,7 @@ Scope {
         return imageSource(player.trackArtUrl)
     }
 
-    readonly property int volumeArtSize: 96
+    readonly property int volumeArtSize: 72
 
     function volumeMediaFields(player, entry) {
         var fields = {
@@ -324,11 +327,10 @@ Scope {
         popupHeights = next
     }
 
-    readonly property var stackBottoms: {
-        var heights = popupHeights
+    readonly property var stackOffsets: {
         var list = activePopups
         var out = []
-        var y = Theme.barHeight + popupMarginAboveBar
+        var y = popupMarginFromEdge
         for (var i = 0; i < list.length; i++) {
             out.push(y)
             y += measuredHeight(list[i]) + popupGap
@@ -507,9 +509,9 @@ Scope {
 
             anchors.bottom: true
             anchors.left: true
-            margins.bottom: index < root.stackBottoms.length
-                ? root.stackBottoms[index]
-                : Theme.barHeight + root.popupMarginAboveBar
+            margins.bottom: index < root.stackOffsets.length
+                ? root.stackOffsets[index]
+                : root.popupMarginFromEdge
             margins.left: root.popupMarginLeft(screen)
 
             onImplicitHeightChanged: if (modelData) root.setPopupHeight(modelData.key, implicitHeight)
@@ -540,7 +542,7 @@ Scope {
                     anchors.bottom: parent.bottom
                     anchors.left: parent.left
                     width: parent.width * volFill
-                    color: Theme.accent
+                    color: Theme.mixColors(Theme.mantle, Theme.accent, 0.38)
                 }
 
                 Rectangle {

@@ -39,6 +39,10 @@ json_shopify() {
         --argjson orders "$6" \
         --arg cos "$7" \
         --arg revenue "$8" \
+        --argjson todayDetail "$9" \
+        --argjson period "${10}" \
+        --argjson channels "${11}" \
+        --argjson orderBars "${12}" \
         '{
             text: $text,
             label: $label,
@@ -47,7 +51,11 @@ json_shopify() {
             symbol: $symbol,
             orders: $orders,
             cos: $cos,
-            revenue: $revenue
+            revenue: $revenue,
+            todayDetail: $todayDetail,
+            period: $period,
+            channels: $channels,
+            orderBars: $orderBars
         }'
 }
 
@@ -116,6 +124,13 @@ site_sqlite_path() {
 has_google_spend_column() {
     local db=$1
     sqlite3 -readonly "$db" "PRAGMA table_info(fact_kpi_daily)" | cut -d'|' -f2 | grep -qx 'google_spend' || return 1
+}
+
+get_day_kpi() {
+    local db=$1 dt=$2 spend_col=$3
+    sqlite3 -readonly -separator '|' "$db" \
+        "SELECT COALESCE(revenue,0), COALESCE(orders,0), COALESCE(sessions,0), ${spend_col}, gross_margin_pct, cvr, COALESCE(paid_revenue,0), COALESCE(organic_revenue,0), COALESCE(direct_revenue,0), COALESCE(email_revenue,0), gross_margin FROM fact_kpi_daily WHERE dt = '${dt}';" 2>/dev/null \
+        || printf '0|0|0|||0|0|0|0|'
 }
 
 get_day_stats() {
@@ -236,7 +251,7 @@ build_sparkline_json() {
 
     local lines=""
     for row in "${rows[@]}"; do
-        IFS='|' read -r day_iso sale <<< "$row"
+        IFS='|' read -r day_iso sale ord <<< "$row"
         read -r bar_level color_level <<< "$(awk -v sale="$sale" -v max="$max_sale" 'BEGIN {
             s = (sale == "" ? 0 : sale + 0)
             if (s < 0) s = 0
@@ -260,9 +275,9 @@ build_sparkline_json() {
             print bar_level, color_level
         }')"
         color="${GITHUB_COLORS[$color_level]}"
-        lines+="$(jq -cn --arg date "$day_iso" --argjson value "${sale:-0}" \
+        lines+="$(jq -cn --arg date "$day_iso" --argjson value "${sale:-0}" --argjson orders "${ord:-0}" \
             --argjson level "$bar_level" --argjson colorLevel "$color_level" --arg color "$color" \
-            '{date: $date, value: $value, level: $level, colorLevel: $colorLevel, color: $color}')"
+            '{date: $date, value: $value, orders: $orders, level: $level, colorLevel: $colorLevel, color: $color}')"
         lines+=$'\n'
     done
 
@@ -286,14 +301,6 @@ find_store() {
 
 main() {
     local store_prefix=${1:-}
-    local cache_key="shopify-${store_prefix:-all}"
-    local cached output
-
-    if cached=$(evo_bar_cache_read "$cache_key" 300 2>/dev/null); then
-        printf '%s\n' "$cached"
-        return 0
-    fi
-
     local days=${2:-14}
     if ! [[ "$days" =~ ^[0-9]+$ ]] || (( days < 1 )); then
         days=14
@@ -301,6 +308,14 @@ main() {
     if (( days > 90 )); then
         days=90
     fi
+    local cache_key="shopify-${store_prefix:-all}-${days}"
+    local cached output
+
+    if cached=$(evo_bar_cache_read "$cache_key" 300 2>/dev/null); then
+        printf '%s\n' "$cached"
+        return 0
+    fi
+
     local days_back=$((days - 1))
 
     local tz_name="${EVO_SHOPIFY_TZ:-$DEFAULT_TZ}"
@@ -311,8 +326,12 @@ main() {
 
     local today_s i day_iso base db_path spend_col
     local rev orders cos sym sales_chart today_sales_val cos_str output_text
+    local spend cvr gmp gm paid_rev org_rev dir_rev email_rev
+    local period_rev period_orders period_sessions
+    local today_detail_json period_json channels_json order_bars_json
     local -a chart_sales=()
     local -a chart_days=()
+    local -a chart_order_days=()
 
     today_s=$(TZ="$tz_name" date +%Y-%m-%d)
     base=$(sqlite_base)
@@ -344,20 +363,47 @@ main() {
         spend_col="NULL"
     fi
 
-    IFS='|' read -r rev orders cos <<< "$(get_day_stats "$db_path" "$today_s" "$spend_col")"
+    period_rev=0
+    period_orders=0
+    period_sessions=0
+    period_spend=0
+
+    for i in $(seq "$days_back" -1 0); do
+        day_iso=$(TZ="$tz_name" date -d "${today_s} - ${i} days" +%Y-%m-%d)
+        IFS='|' read -r rev orders sessions spend gmp cvr paid_rev org_rev dir_rev email_rev gm <<< "$(get_day_kpi "$db_path" "$day_iso" "$spend_col")"
+        rev=${rev:-0}
+        orders=${orders:-0}
+        sessions=${sessions:-0}
+        chart_sales+=("$rev")
+        chart_days+=("${day_iso}|${rev}|${orders}")
+        chart_order_days+=("${day_iso}|${orders}|0")
+        period_rev=$(awk -v a="$period_rev" -v b="$rev" 'BEGIN { printf "%.2f", a + b }')
+        period_orders=$((period_orders + $(awk -v o="$orders" 'BEGIN { print int(o + 0) }')))
+        period_sessions=$((period_sessions + $(awk -v s="$sessions" 'BEGIN { print int(s + 0) }')))
+        if [[ -n "$spend" && "$spend" != "NULL" && "$spend" != "" ]]; then
+            period_spend=$(awk -v a="$period_spend" -v b="$spend" 'BEGIN { printf "%.2f", a + b }')
+        fi
+    done
 
     sym=$(currency_symbol "$(sqlite3 -readonly "$db_path" \
         "SELECT currency_code FROM raw_shopify_orders_daily WHERE dt = '${today_s}';" 2>/dev/null || true)")
 
-    for i in $(seq "$days_back" -1 0); do
-        day_iso=$(TZ="$tz_name" date -d "${today_s} - ${i} days" +%Y-%m-%d)
-        rev=$(get_day_stats "$db_path" "$day_iso" "$spend_col" | cut -d'|' -f1)
-        chart_sales+=("$rev")
-        chart_days+=("${day_iso}|${rev}")
-    done
+    # Today's KPI row (last loop iteration is today; re-read for clarity).
+    IFS='|' read -r rev orders sessions spend gmp cvr paid_rev org_rev dir_rev email_rev gm <<< "$(get_day_kpi "$db_path" "$today_s" "$spend_col")"
+    rev=${rev:-0}
+    orders=${orders:-0}
+    sessions=${sessions:-0}
+
+    cos=""
+    if [[ -n "$spend" && "$spend" != "NULL" && "$spend" != "" ]]; then
+        cos=$(awk -v s="$spend" -v r="$rev" 'BEGIN {
+            if (r > 0) printf "%.10f", s / r
+        }')
+    fi
 
     sales_chart=$(generate_sales_chart "${chart_sales[@]}")
     sparkline_json=$(build_sparkline_json "${chart_days[@]}")
+    order_bars_json=$(build_sparkline_json "${chart_order_days[@]}")
     today_sales_val=$(format_int_commas "$(awk -v r="$rev" 'BEGIN { print int(r + 0) }')")
 
     if [[ -n "$cos" ]]; then
@@ -369,13 +415,67 @@ main() {
     label_text="${STORE_DISPLAY}${sym}${today_sales_val} | ${cos_str}"
     output_text="${label_text} ${sales_chart}"
 
-    # Re-read today's stats (chart loop overwrote $rev with day 0).
-    IFS='|' read -r rev orders cos <<< "$(get_day_stats "$db_path" "$today_s" "$spend_col")"
     orders_n=$(awk -v o="${orders:-0}" 'BEGIN { print int(o + 0) }')
     revenue_n=$(awk -v r="${rev:-0}" 'BEGIN { printf "%.2f", r + 0 }')
 
+    today_detail_json=$(jq -cn \
+        --argjson revenue "$revenue_n" \
+        --argjson orders "$orders_n" \
+        --argjson sessions "$(awk -v s="$sessions" 'BEGIN { print int(s + 0) }')" \
+        --arg cos "$cos_str" \
+        --argjson spend "$(awk -v s="${spend:-}" 'BEGIN {
+            if (s == "" || s == "NULL") print "null"
+            else printf "%.2f", s + 0
+        }')" \
+        --argjson cvr "$(awk -v v="${cvr:-}" 'BEGIN {
+            if (v == "" || v == "NULL") print "null"
+            else printf "%.6f", v + 0
+        }')" \
+        --argjson marginPct "$(awk -v v="${gmp:-}" 'BEGIN {
+            if (v == "" || v == "NULL") print "null"
+            else printf "%.6f", v + 0
+        }')" \
+        --argjson margin "$(awk -v v="${gm:-}" 'BEGIN {
+            if (v == "" || v == "NULL") print "null"
+            else printf "%.2f", v + 0
+        }')" \
+        '{
+            revenue: $revenue,
+            orders: $orders,
+            sessions: $sessions,
+            cos: $cos,
+            spend: $spend,
+            cvr: $cvr,
+            marginPct: $marginPct,
+            margin: $margin
+        }')
+
+    period_json=$(jq -cn \
+        --argjson days "$days" \
+        --argjson revenue "$(awk -v r="$period_rev" 'BEGIN { printf "%.2f", r + 0 }')" \
+        --argjson orders "$period_orders" \
+        --argjson sessions "$period_sessions" \
+        --argjson spend "$(awk -v s="$period_spend" 'BEGIN {
+            if (s + 0 <= 0) print "null"
+            else printf "%.2f", s + 0
+        }')" \
+        '{
+            days: $days,
+            revenue: $revenue,
+            orders: $orders,
+            sessions: $sessions,
+            spend: $spend
+        }')
+
+    channels_json=$(jq -cn \
+        --argjson paid "$(awk -v v="${paid_rev:-0}" 'BEGIN { printf "%.2f", v + 0 }')" \
+        --argjson organic "$(awk -v v="${org_rev:-0}" 'BEGIN { printf "%.2f", v + 0 }')" \
+        --argjson direct "$(awk -v v="${dir_rev:-0}" 'BEGIN { printf "%.2f", v + 0 }')" \
+        --argjson email "$(awk -v v="${email_rev:-0}" 'BEGIN { printf "%.2f", v + 0 }')" \
+        '{paid: $paid, organic: $organic, direct: $direct, email: $email}')
+
     output=$(json_shopify "$output_text" "$label_text" "$sparkline_json" "${STORE_DISPLAY}" "$sym" \
-        "$orders_n" "$cos_str" "$revenue_n")
+        "$orders_n" "$cos_str" "$revenue_n" "$today_detail_json" "$period_json" "$channels_json" "$order_bars_json")
     printf '%s\n' "$output" | evo_bar_cache_write "$cache_key"
     printf '%s\n' "$output"
 }

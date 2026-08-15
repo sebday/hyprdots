@@ -6,7 +6,16 @@
 
 source "${HOME}/.local/bin/evo-bar-common"
 
-if cached=$(evo_bar_cache_read "btc" 60 2>/dev/null); then
+CHART_DAYS="${2:-30}"
+if ! [[ "$CHART_DAYS" =~ ^[0-9]+$ ]] || (( CHART_DAYS < 1 )); then
+    CHART_DAYS=30
+fi
+if (( CHART_DAYS > 90 )); then
+    CHART_DAYS=90
+fi
+
+CACHE_KEY="btc-${CHART_DAYS}"
+if cached=$(evo_bar_cache_read "$CACHE_KEY" 60 2>/dev/null); then
     printf '%s\n' "$cached"
     exit 0
 fi
@@ -14,7 +23,7 @@ fi
 SECRETS_FILE="$EVO_SECRETS_FILE"
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/evoshell"
 HISTORY_FILE="${STATE_DIR}/btc-history.json"
-HISTORY_KEEP=30
+HISTORY_KEEP=90
 
 if [[ -f "$SECRETS_FILE" ]]; then
     # shellcheck disable=SC1090
@@ -43,12 +52,29 @@ fmt_price() {
 
 json_out() {
     local text="$1" tooltip="$2" detail="${3:-}" bars="${4:-[]}"
+    local source="${5:-Kraken}" quote="$6" period="$7" position="$8"
+    [[ -n "$quote" ]] || quote='{}'
+    [[ -n "$period" ]] || period='{}'
+    [[ -n "$position" ]] || position='{}'
     jq -cn \
         --arg text "$text" \
         --arg tooltip "$tooltip" \
         --arg detail "$detail" \
         --argjson bars "$bars" \
-        '{text: $text, tooltip: $tooltip, detail: $detail, bars: $bars}'
+        --arg source "$source" \
+        --argjson quote "$quote" \
+        --argjson period "$period" \
+        --argjson position "$position" \
+        '{
+            text: $text,
+            tooltip: $tooltip,
+            detail: $detail,
+            bars: $bars,
+            source: $source,
+            quote: $quote,
+            period: $period,
+            position: $position
+        }'
 }
 
 fetch_ohlc_rows() {
@@ -60,7 +86,7 @@ fetch_ohlc_rows() {
     fi
     echo "$ohlc" | jq -r '
         (.result | to_entries[0].value) // []
-        | .[-30:]
+        | .[-90:]
         | .[]
         | ((.[0] | tonumber | strftime("%Y-%m-%d")) + "|" + (.[4] | tonumber | tostring))
     ' 2>/dev/null || true
@@ -68,7 +94,7 @@ fetch_ohlc_rows() {
 
 build_bars() {
     local price="$1"
-    local today rows=()
+    local today rows=() period_rows=()
     today=$(date -u +%Y-%m-%d)
     mkdir -p "$STATE_DIR"
     evo_bar_load_heatmap_colors || true
@@ -78,38 +104,19 @@ build_bars() {
         printf '%s|%s\n' "$today" "$price"
     } | evo_bar_merge_history "$HISTORY_FILE" "$HISTORY_KEEP")
 
-    # Prefer last 14 days for the chart (Shopify-length window).
-    if ((${#rows[@]} > 14)); then
-        rows=("${rows[@]: -14}")
+    period_rows=("${rows[@]}")
+    if ((${#rows[@]} > CHART_DAYS)); then
+        rows=("${rows[@]: -CHART_DAYS}")
     fi
+    PERIOD_ROWS=("${period_rows[@]: -CHART_DAYS}")
     if ((${#rows[@]} == 0)); then
-        printf '[]'
+        BARS_JSON='[]'
+        PERIOD_JSON='{}'
         return
     fi
-    evo_bar_build_bars_json "${rows[@]}"
+    BARS_JSON=$(evo_bar_build_bars_json "${rows[@]}")
+    PERIOD_JSON=$(evo_bar_period_stats_json "${PERIOD_ROWS[@]}")
 }
-
-# --- Kraken public ticker ---
-TICKER=$(curl -sf --max-time 8 'https://api.kraken.com/0/public/Ticker?pair=XBTUSD' 2>/dev/null) || TICKER=""
-
-if [[ -z "$TICKER" ]] || ! echo "$TICKER" | jq -e '.result | length > 0' >/dev/null 2>&1; then
-    # Still try to render from cached history.
-    evo_bar_load_heatmap_colors || true
-    if [[ -f "$HISTORY_FILE" ]]; then
-        mapfile -t rows < <(jq -r '.[] | "\(.date)|\(.value)"' "$HISTORY_FILE" 2>/dev/null | tail -n 14)
-        if ((${#rows[@]} > 0)); then
-            BARS_JSON=$(evo_bar_build_bars_json "${rows[@]}")
-            json_out "₿ —" "Kraken ticker unavailable" "" "$BARS_JSON"
-            exit 0
-        fi
-    fi
-    json_out "₿ —" "Kraken ticker unavailable" "" "[]"
-    exit 0
-fi
-
-LAST=$(echo "$TICKER" | jq -r '.result | to_entries[0].value.c[0]')
-PRICE_S=$(fmt_price "$LAST")
-BARS_JSON=$(build_bars "$LAST")
 
 kraken_private() {
     local api_path="$1"
@@ -129,16 +136,20 @@ kraken_private() {
         -H "API-Sign: ${sig}"
 }
 
-kraken_upnl_pct() {
-    local price bal_resp bal trades_resp buy_vol buy_cost
-    price=$(curl -sf --max-time 10 'https://api.kraken.com/0/public/Ticker?pair=XBTUSD' | jq -r '.result | to_entries[0].value.c[0]')
+kraken_position_json() {
+    local price="$1"
+    local bal_resp bal trades_resp buy_vol buy_cost upnl_pct value_usd
     [[ -n "$price" && "$price" != "null" ]] || return 1
+
     bal_resp=$(kraken_private "/0/private/Balance") || return 1
     bal=$(jq -r '.result.XXBT // 0' <<<"$bal_resp")
     awk -v b="$bal" 'BEGIN { exit (b > 0) ? 0 : 1 }' || {
-        echo 0
+        jq -cn --argjson balance 0 --argjson valueUsd 0 --argjson upnlPct 0 \
+            '{balance: $balance, valueUsd: $valueUsd, upnlPct: $upnlPct}'
         return 0
     }
+
+    value_usd=$(awk -v b="$bal" -v p="$price" 'BEGIN { printf "%.2f", b * p }')
     trades_resp=$(kraken_private "/0/private/TradesHistory" "trades=true") || return 1
     buy_vol=$(jq -r '
         [.result.trades // {} | to_entries[].value
@@ -152,46 +163,106 @@ kraken_upnl_pct() {
          | select(.type == "buy")
          | .cost | tonumber] | add // 0
     ' <<<"$trades_resp")
-    awk -v v="$buy_vol" 'BEGIN { exit (v > 0) ? 0 : 1 }' || {
-        echo 0
-        return 0
-    }
-    awk -v price="$price" -v buy_cost="$buy_cost" -v buy_vol="$buy_vol" 'BEGIN {
-        avg = buy_cost / buy_vol
-        printf "%.2f", (price - avg) / avg * 100
-    }'
+
+    upnl_pct=0
+    if awk -v v="$buy_vol" 'BEGIN { exit (v > 0) ? 0 : 1 }'; then
+        upnl_pct=$(awk -v price="$price" -v buy_cost="$buy_cost" -v buy_vol="$buy_vol" 'BEGIN {
+            avg = buy_cost / buy_vol
+            printf "%.4f", (price - avg) / avg * 100
+        }')
+    fi
+
+    jq -cn \
+        --argjson balance "$(awk -v b="$bal" 'BEGIN { printf "%.8f", b + 0 }')" \
+        --argjson valueUsd "$value_usd" \
+        --argjson upnlPct "$upnl_pct" \
+        '{balance: $balance, valueUsd: $valueUsd, upnlPct: $upnlPct}'
 }
 
+# --- Kraken public ticker ---
+TICKER=$(curl -sf --max-time 8 'https://api.kraken.com/0/public/Ticker?pair=XBTUSD' 2>/dev/null) || TICKER=""
+
+if [[ -z "$TICKER" ]] || ! echo "$TICKER" | jq -e '.result | length > 0' >/dev/null 2>&1; then
+    evo_bar_load_heatmap_colors || true
+    if [[ -f "$HISTORY_FILE" ]]; then
+        mapfile -t rows < <(jq -r '.[] | "\(.date)|\(.value)"' "$HISTORY_FILE" 2>/dev/null | tail -n "$CHART_DAYS")
+        if ((${#rows[@]} > 0)); then
+            BARS_JSON=$(evo_bar_build_bars_json "${rows[@]}")
+            PERIOD_JSON=$(evo_bar_period_stats_json "${rows[@]}")
+            json_out "₿ —" "Kraken ticker unavailable" "" "$BARS_JSON" "Kraken" '{}' "$PERIOD_JSON" '{}'
+            exit 0
+        fi
+    fi
+    json_out "₿ —" "Kraken ticker unavailable" "" "[]" "Kraken" '{}' '{}' '{}'
+    exit 0
+fi
+
+TICKER_ENTRY=$(echo "$TICKER" | jq -c '.result | to_entries[0].value')
+LAST=$(echo "$TICKER_ENTRY" | jq -r '.c[0]')
+OPEN24=$(echo "$TICKER_ENTRY" | jq -r '.o // .c[0]')
+HIGH24=$(echo "$TICKER_ENTRY" | jq -r '.h[0] // .c[0]')
+LOW24=$(echo "$TICKER_ENTRY" | jq -r '.l[0] // .c[0]')
+VOL24=$(echo "$TICKER_ENTRY" | jq -r '.v[0] // 0')
+CHANGE24=$(awk -v last="$LAST" -v open="$OPEN24" 'BEGIN {
+    if (open + 0 == 0) print "0"
+    else printf "%.4f", (last - open) / open * 100
+}')
+
+QUOTE_JSON=$(jq -cn \
+    --argjson price "$(awk -v p="$LAST" 'BEGIN { printf "%.2f", p + 0 }')" \
+    --argjson open24h "$(awk -v p="$OPEN24" 'BEGIN { printf "%.2f", p + 0 }')" \
+    --argjson high24h "$(awk -v p="$HIGH24" 'BEGIN { printf "%.2f", p + 0 }')" \
+    --argjson low24h "$(awk -v p="$LOW24" 'BEGIN { printf "%.2f", p + 0 }')" \
+    --argjson volume24h "$(awk -v p="$VOL24" 'BEGIN { printf "%.4f", p + 0 }')" \
+    --argjson changePct "$CHANGE24" \
+    --arg pair "BTC/USD" \
+    '{price: $price, open24h: $open24h, high24h: $high24h, low24h: $low24h, volume24h: $volume24h, changePct: $changePct, pair: $pair}')
+
+build_bars "$LAST"
+PRICE_S=$(fmt_price "$LAST")
+
 # --- Unrealized P/L % (Kraken private API) ---
+POSITION_JSON='{}'
+KRAKEN_ERR=""
 if [[ -z "${KRAKEN_API_KEY:-}" || -z "${KRAKEN_SECRET:-}" ]]; then
     KRAKEN_ERR="set KRAKEN_API_KEY and KRAKEN_SECRET in secrets.env"
 else
-    KRAKEN_ERR=""
     export KRAKEN_API_KEY KRAKEN_SECRET
-    UPNL_PCT=$(kraken_upnl_pct 2>/dev/null) || KRAKEN_ERR="kraken api request failed"
+    POSITION_JSON=$(kraken_position_json "$LAST" 2>/dev/null) || {
+        KRAKEN_ERR="kraken api request failed"
+        POSITION_JSON='{}'
+    }
 fi
+
+UPNL_PCT=$(echo "$POSITION_JSON" | jq -r '.upnlPct // empty')
 
 if [[ -n "${UPNL_PCT:-}" && "$UPNL_PCT" =~ ^-?[0-9]+\.?[0-9]*$ ]]; then
     PCT_S=$(awk -v p="$UPNL_PCT" 'BEGIN { printf "%+.2f", p }')
+    CHANGE_S=$(awk -v p="$CHANGE24" 'BEGIN { printf "%+.2f", p }')
     TEXT="₿ ${PRICE_S}"
-    DETAIL="${PRICE_S} · ${PCT_S}%"
+    DETAIL="${PRICE_S} · ${CHANGE_S}% · ${PCT_S}%"
     TIP="BTC/USD · Kraken
 Price: $(fmt_price "$LAST")
+24h: ${CHANGE_S}%
 Unrealized P/L: ${PCT_S}%"
 elif [[ -n "$KRAKEN_ERR" ]]; then
-    TEXT="₿ ${PRICE_S} —"
-    DETAIL="${PRICE_S} · —"
+    CHANGE_S=$(awk -v p="$CHANGE24" 'BEGIN { printf "%+.2f", p }')
+    TEXT="₿ ${PRICE_S}"
+    DETAIL="${PRICE_S} · ${CHANGE_S}% · —"
     TIP="BTC/USD · Kraken
 Price: $(fmt_price "$LAST")
+24h: ${CHANGE_S}%
 Unrealized P/L: unavailable (${KRAKEN_ERR})"
 else
-    TEXT="₿ ${PRICE_S} —"
-    DETAIL="${PRICE_S} · —"
+    CHANGE_S=$(awk -v p="$CHANGE24" 'BEGIN { printf "%+.2f", p }')
+    TEXT="₿ ${PRICE_S}"
+    DETAIL="${PRICE_S} · ${CHANGE_S}% · —"
     TIP="BTC/USD · Kraken
 Price: $(fmt_price "$LAST")
+24h: ${CHANGE_S}%
 Unrealized P/L: unavailable"
 fi
 
-output=$(json_out "$TEXT" "$TIP" "$DETAIL" "$BARS_JSON")
-printf '%s\n' "$output" | evo_bar_cache_write "btc"
+output=$(json_out "$TEXT" "$TIP" "$DETAIL" "$BARS_JSON" "Kraken" "$QUOTE_JSON" "$PERIOD_JSON" "$POSITION_JSON")
+printf '%s\n' "$output" | evo_bar_cache_write "$CACHE_KEY"
 printf '%s\n' "$output"

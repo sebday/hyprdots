@@ -26,7 +26,22 @@ json_github() {
         --argjson today "$2" \
         --argjson cells "$3" \
         --arg class "$4" \
-        '{text: $text, today: $today, cells: $cells, class: $class}'
+        --arg username "$5" \
+        --argjson total30 "$6" \
+        --argjson streak "$7" \
+        --argjson best "$8" \
+        --arg profileUrl "$9" \
+        '{
+            text: $text,
+            today: $today,
+            cells: $cells,
+            class: $class,
+            username: $username,
+            total30: $total30,
+            streak: $streak,
+            best: $best,
+            profileUrl: $profileUrl
+        }'
 }
 
 json_error() {
@@ -145,9 +160,29 @@ TODAY_LEVEL=$(contribution_level "$TODAY_CONTRIBUTION_COUNT")
 HEATMAP_JSON=$(build_heatmap_json "${day_counts[@]}")
 ACTIVITY_BOXES_STRING_FOR_JSON=$(printf '%s' "${heatmap_chars[@]}")
 
+TOTAL30=0
+BEST_COUNT=0
+for count in "${day_counts[@]}"; do
+    TOTAL30=$((TOTAL30 + count))
+    if [[ "$count" -gt "$BEST_COUNT" ]]; then
+        BEST_COUNT=$count
+    fi
+done
+
+STREAK=0
+for ((i = HEATMAP_DAYS - 1; i >= 0; i--)); do
+    if [[ "${day_counts[$i]}" -gt 0 ]]; then
+        STREAK=$((STREAK + 1))
+    else
+        break
+    fi
+done
+
 TEXT_OUTPUT="  ${TODAY_CONTRIBUTION_COUNT} ${ACTIVITY_BOXES_STRING_FOR_JSON}"
 CLASS="github-level-${TODAY_LEVEL}"
+PROFILE_URL="https://github.com/${USERNAME}"
 
-output=$(json_github "$TEXT_OUTPUT" "$TODAY_CONTRIBUTION_COUNT" "$HEATMAP_JSON" "$CLASS")
+output=$(json_github "$TEXT_OUTPUT" "$TODAY_CONTRIBUTION_COUNT" "$HEATMAP_JSON" "$CLASS" \
+    "$USERNAME" "$TOTAL30" "$STREAK" "$BEST_COUNT" "$PROFILE_URL")
 printf '%s\n' "$output" | evo_bar_cache_write "github"
 printf '%s\n' "$output"

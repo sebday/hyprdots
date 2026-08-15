@@ -15,7 +15,20 @@ EVO_WEATHER_LOCATION="${EVO_WEATHER_LOCATION:-Derby}"
 EVO_WEATHER_CACHE_SEC="${EVO_WEATHER_CACHE_SEC:-1800}"
 MET_OFFICE_URL="https://weather.metoffice.gov.uk/forecast/gcqvn6pq4"
 
-if cached=$(evo_bar_cache_read "weather" "$EVO_WEATHER_CACHE_SEC" 2>/dev/null); then
+WEATHER_STATE="${XDG_STATE_HOME:-$HOME/.local/state}/evoshell/weather-location.json"
+if [[ -f "$WEATHER_STATE" ]]; then
+    _loc_name=$(jq -r '.name // empty' "$WEATHER_STATE" 2>/dev/null || true)
+    _loc_lat=$(jq -r '.lat // empty' "$WEATHER_STATE" 2>/dev/null || true)
+    _loc_lon=$(jq -r '.lon // empty' "$WEATHER_STATE" 2>/dev/null || true)
+    [[ -n "$_loc_name" ]] && EVO_WEATHER_LOCATION="$_loc_name"
+    [[ -n "$_loc_lat" ]] && EVO_WEATHER_LAT="$_loc_lat"
+    [[ -n "$_loc_lon" ]] && EVO_WEATHER_LON="$_loc_lon"
+    unset _loc_name _loc_lat _loc_lon
+fi
+
+WEATHER_CACHE_KEY="weather-${EVO_WEATHER_LAT}-${EVO_WEATHER_LON}"
+
+if cached=$(evo_bar_cache_read "$WEATHER_CACHE_KEY" "$EVO_WEATHER_CACHE_SEC" 2>/dev/null); then
     printf '%s\n' "$cached"
     exit 0
 fi
@@ -30,7 +43,7 @@ error_out() {
         '{ok:false, location:$location, error:$error, metOfficeUrl:$url, text:$text, tooltip:$tooltip, sunrise:"", sunset:"", current:null, daily:[], hourly:[]}'
 }
 
-API_URL="https://api.open-meteo.com/v1/forecast?latitude=${EVO_WEATHER_LAT}&longitude=${EVO_WEATHER_LON}&timezone=Europe%2FLondon&forecast_days=2&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset&hourly=temperature_2m,weather_code"
+API_URL="https://api.open-meteo.com/v1/forecast?latitude=${EVO_WEATHER_LAT}&longitude=${EVO_WEATHER_LON}&timezone=Europe%2FLondon&forecast_days=7&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset&hourly=temperature_2m,weather_code"
 
 DATA=$(curl -sf --max-time 12 "$API_URL" 2>/dev/null) || DATA=""
 
@@ -125,7 +138,7 @@ end) as $tom |
     time: (.current.time // "")
   },
   daily: [
-    range(0; ([.daily.time | length, 2] | min)) as $i |
+    range(0; .daily.time | length) as $i |
     (.daily.weather_code[$i] // 0) as $code |
     {
       date: .daily.time[$i],
@@ -153,5 +166,5 @@ end) as $tom |
 }
 ')"
 
-printf '%s\n' "$output" | evo_bar_cache_write "weather"
+printf '%s\n' "$output" | evo_bar_cache_write "$WEATHER_CACHE_KEY"
 printf '%s\n' "$output"

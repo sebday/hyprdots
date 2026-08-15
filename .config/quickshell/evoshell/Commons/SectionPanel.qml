@@ -8,6 +8,7 @@ Item {
     property int sectionSpacing: Theme.tooltipSectionSpacing
     property int labelFontSize: Theme.tooltipLabelFontPixelSize
     property int contentPad: Theme.tooltipContentPad
+    property color legendBackground: Theme.mantle
 
     Layout.fillWidth: true
     implicitWidth: panel.implicitWidth
@@ -21,6 +22,7 @@ Item {
         label: root.label
         labelFontSize: root.labelFontSize
         contentPad: root.contentPad
+        labelBackground: root.legendBackground
         contentFill: true
 
         ColumnLayout {

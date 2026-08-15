@@ -35,34 +35,6 @@ Item {
         Quickshell.execDetached(["bash", "-lc", "xdg-open " + Util.shellQuote(url)])
     }
 
-    ColumnLayout {
-        id: headerCol
-        Layout.fillWidth: true
-        spacing: 6
-
-        Text {
-            Layout.fillWidth: true
-            text: root.primary
-            color: Theme.foreground
-            font.family: Theme.fontFamily
-            font.pixelSize: root.titleFont
-            font.bold: Theme.fontBold
-            elide: Text.ElideRight
-        }
-
-        Text {
-            Layout.fillWidth: true
-            visible: root.secondary !== ""
-            text: root.secondary
-            color: Theme.foreground
-            font.family: Theme.fontFamily
-            font.pixelSize: root.detailFont
-            font.bold: Theme.fontBold
-            opacity: 0.72
-            elide: Text.ElideRight
-        }
-    }
-
     RowLayout {
         id: headerRow
         anchors.left: parent.left

@@ -12,16 +12,41 @@ Item {
     readonly property bool active: host && host.opened === true
     readonly property var barSource: host && host.shell ? host.shell.popupAnchorItem : null
 
+    readonly property int locationFont: Theme.tooltipTitleFontPixelSize + 8
+    readonly property int nowIconFont: Theme.tooltipIconFontPixelSize + 10
+    readonly property int nowPrimaryFont: Theme.tooltipIconFontPixelSize + 8
+    readonly property int dayIconFont: Theme.tooltipBodyFontPixelSize
+    readonly property int dayPrimaryFont: Theme.tooltipBodyFontPixelSize - 1
+    readonly property int subtitleFont: Math.max(8, Theme.tooltipHintFontPixelSize - 2)
     readonly property int titleFont: Theme.tooltipTitleFontPixelSize
     readonly property int bodyFont: Theme.tooltipBodyFontPixelSize
     readonly property int hintFont: Theme.tooltipHintFontPixelSize
-    readonly property int heroFont: Theme.tooltipIconFontPixelSize + 2
     readonly property int chartHeight: 176
-    readonly property int yAxisWidth: 40
-    readonly property int chartGap: 10
+    readonly property int yAxisWidth: 28
+    readonly property int chartGap: 4
 
     property var weather: ({})
     property bool loading: false
+    property bool locationPickerOpen: false
+
+    readonly property string weatherStatePath: (Quickshell.env("HOME") || "") + "/.local/state/evoshell/weather-location.json"
+    readonly property var defaultLocations: [
+        { name: "Derby", lat: 52.9219, lon: -1.4746 },
+        { name: "Edinburgh", lat: 55.9533, lon: -3.1883 },
+        { name: "Cardiff", lat: 51.4816, lon: -3.1791 },
+        { name: "Belfast", lat: 54.5973, lon: -5.9301 },
+        { name: "Reykjavik", lat: 64.1466, lon: -21.9426 },
+        { name: "Tokyo", lat: 35.6762, lon: 139.6503 },
+        { name: "Singapore", lat: 1.3521, lon: 103.8198 },
+        { name: "Buenos Aires", lat: -34.6037, lon: -58.3816 },
+        { name: "Honolulu", lat: 21.3069, lon: -157.8583 }
+    ]
+    readonly property var locationOptions: {
+        var item = barSource
+        if (item && item.settings && Array.isArray(item.settings.locations) && item.settings.locations.length > 0)
+            return item.settings.locations
+        return defaultLocations
+    }
 
     readonly property bool weatherOk: weather.ok === true
     readonly property string location: String(weather.location || "Derby")
@@ -43,7 +68,7 @@ Item {
             primary: loading ? "…" : (current ? String(current.temp) + "°" : "—"),
             subtitle: statusText
         }]
-        for (var i = 0; i < daily.length; i++) {
+        for (var i = 0; i < daily.length && i < 2; i++) {
             var d = daily[i]
             cols.push({
                 now: false,
@@ -89,10 +114,41 @@ Item {
         }
     }
 
+    readonly property var weekDays: daily.slice(0, 7)
+
+    readonly property var dailyTempRange: {
+        var days = weekDays
+        if (!days || days.length === 0)
+            return { min: 0, max: 1, rawMin: 0, rawMax: 0 }
+        var minV = Number.POSITIVE_INFINITY
+        var maxV = Number.NEGATIVE_INFINITY
+        for (var i = 0; i < days.length; i++) {
+            var lo = Number(days[i].min)
+            var hi = Number(days[i].max)
+            if (!isNaN(lo) && lo < minV) minV = lo
+            if (!isNaN(hi) && hi > maxV) maxV = hi
+        }
+        if (!isFinite(minV) || !isFinite(maxV))
+            return { min: 0, max: 1, rawMin: 0, rawMax: 0 }
+        if (minV === maxV)
+            return { min: minV - 1, max: maxV + 1, rawMin: minV, rawMax: maxV }
+        var pad = maxV - minV
+        return {
+            min: minV - pad * 0.1,
+            max: maxV + pad * 0.1,
+            rawMin: minV,
+            rawMax: maxV
+        }
+    }
+
     implicitHeight: column.implicitHeight
 
     function onActivated() {
         syncFromBar()
+    }
+
+    function onDeactivated() {
+        locationPickerOpen = false
     }
 
     function syncFromBar() {
@@ -137,9 +193,36 @@ Item {
         return Theme.accent
     }
 
-    function openMetOffice() {
-        if (!metOfficeUrl) return
-        Quickshell.execDetached(["bash", "-lc", "xdg-open " + Util.shellQuote(metOfficeUrl)])
+    function isCurrentLocation(loc) {
+        if (!loc)
+            return false
+        return String(location).toLowerCase() === String(loc.name || "").toLowerCase()
+    }
+
+    function setLocation(loc) {
+        if (!loc)
+            return
+        var name = String(loc.name || "")
+        var lat = Number(loc.lat)
+        var lon = Number(loc.lon)
+        if (!name || isNaN(lat) || isNaN(lon))
+            return
+
+        locationPickerOpen = false
+        loading = true
+        var cacheKey = "weather-" + lat + "-" + lon
+        var stateJson = JSON.stringify({ name: name, lat: lat, lon: lon })
+        Quickshell.execDetached(["bash", "-lc",
+            "mkdir -p \"${HOME}/.local/state/evoshell\" && "
+            + "printf %s " + Util.shellQuote(stateJson) + " > " + Util.shellQuote(weatherStatePath)
+            + " && rm -f \"${HOME}/.cache/evoshell/bar/" + cacheKey + ".json\""
+        ])
+        if (barSource && typeof barSource.restartPolling === "function")
+            barSource.restartPolling()
+    }
+
+    function toggleLocationPicker() {
+        locationPickerOpen = !locationPickerOpen
     }
 
     ColumnLayout {
@@ -154,16 +237,51 @@ Item {
             Text {
                 Layout.fillWidth: true
                 horizontalAlignment: Text.AlignHCenter
-                text: root.location
+                text: root.location + (root.locationPickerOpen ? "  ▴" : "  ▾")
                 color: Theme.foreground
                 font.family: Theme.fontFamily
-                font.pixelSize: root.titleFont
+                font.pixelSize: root.locationFont
                 font.bold: Theme.fontBold
 
                 MouseArea {
                     anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: root.openMetOffice()
+                    onClicked: root.toggleLocationPicker()
+                }
+            }
+
+            SectionPanel {
+                label: ""
+                Layout.fillWidth: true
+                visible: root.locationPickerOpen
+
+                GridLayout {
+                    Layout.fillWidth: true
+                    columns: 2
+                    columnSpacing: 8
+                    rowSpacing: 4
+
+                    Repeater {
+                        model: root.locationOptions
+
+                        Text {
+                            required property var modelData
+                            Layout.fillWidth: true
+                            horizontalAlignment: Text.AlignHCenter
+                            text: modelData.name
+                            color: root.isCurrentLocation(modelData) ? Theme.accent : Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.hintFont
+                            font.bold: root.isCurrentLocation(modelData) ? Theme.fontBold : false
+                            opacity: root.isCurrentLocation(modelData) ? 1 : 0.72
+
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.setLocation(modelData)
+                            }
+                        }
+                    }
                 }
             }
 
@@ -226,7 +344,7 @@ Item {
                                         text: modelData.icon
                                         color: Theme.accent
                                         font.family: Theme.fontFamily
-                                        font.pixelSize: root.heroFont
+                                        font.pixelSize: root.nowIconFont
                                     }
 
                                     Text {
@@ -234,7 +352,7 @@ Item {
                                         text: modelData.primary
                                         color: Theme.foreground
                                         font.family: Theme.fontFamily
-                                        font.pixelSize: root.heroFont
+                                        font.pixelSize: root.nowPrimaryFont
                                         font.bold: Theme.fontBold
                                     }
                                 }
@@ -250,7 +368,7 @@ Item {
                                         text: modelData.icon
                                         color: Theme.accent
                                         font.family: Theme.fontFamily
-                                        font.pixelSize: root.bodyFont
+                                        font.pixelSize: root.dayIconFont
                                     }
 
                                     Text {
@@ -258,7 +376,7 @@ Item {
                                         text: modelData.primary
                                         color: Theme.foreground
                                         font.family: Theme.fontFamily
-                                        font.pixelSize: root.bodyFont
+                                        font.pixelSize: root.dayPrimaryFont
                                         font.bold: Theme.fontBold
                                     }
                                 }
@@ -269,7 +387,7 @@ Item {
                                     text: modelData.subtitle
                                     color: Theme.foreground
                                     font.family: Theme.fontFamily
-                                    font.pixelSize: root.hintFont
+                                    font.pixelSize: root.subtitleFont
                                     opacity: modelData.now ? 0.55 : 0.5
                                     wrapMode: Text.WordWrap
                                     maximumLineCount: 2
@@ -315,7 +433,7 @@ Item {
         }
 
         SectionPanel {
-            label: "24 hour temperature"
+            label: "24 hour"
             visible: root.weatherOk && !root.loading && root.hourly.length > 0
 
             RowLayout {
@@ -477,6 +595,184 @@ Item {
                             horizontalAlignment: index === 0 ? Text.AlignLeft
                                 : (index === 3 ? Text.AlignRight : Text.AlignHCenter)
                             text: modelData
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.hintFont
+                            opacity: 0.45
+                        }
+                    }
+                }
+            }
+        }
+
+        SectionPanel {
+            label: "1 week"
+            visible: root.weatherOk && !root.loading && root.weekDays.length > 0
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: root.chartGap
+
+                ColumnLayout {
+                    Layout.preferredWidth: root.yAxisWidth
+                    Layout.preferredHeight: root.chartHeight
+                    spacing: 0
+
+                    Text {
+                        text: Math.round(root.dailyTempRange.rawMax) + "°"
+                        color: root.tempColor(root.dailyTempRange.rawMax)
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.hintFont
+                        font.bold: Theme.fontBold
+                        opacity: 0.85
+                    }
+
+                    Item { Layout.fillHeight: true }
+
+                    Text {
+                        text: Math.round(root.dailyTempRange.rawMin) + "°"
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.hintFont
+                        font.bold: Theme.fontBold
+                        opacity: 0.5
+                    }
+                }
+
+                Item {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: root.chartHeight
+
+                    Canvas {
+                        id: weeklyChart
+                        anchors.fill: parent
+
+                        onPaint: {
+                            var ctx = getContext("2d")
+                            ctx.reset()
+                            var pts = root.weekDays || []
+                            if (pts.length === 0) return
+
+                            var range = root.dailyTempRange
+                            var minV = range.min
+                            var maxV = range.max
+                            var span = maxV - minV || 1
+                            var padX = 2
+                            var padY = 12
+                            var usableW = Math.max(1, width - padX * 2)
+                            var usableH = Math.max(1, height - padY * 2)
+                            var step = pts.length > 1 ? usableW / (pts.length - 1) : 0
+
+                            function yAt(v) {
+                                var n = Number(v)
+                                if (isNaN(n)) n = minV
+                                return padY + usableH - ((n - minV) / span) * usableH
+                            }
+
+                            var gridColor = Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.08)
+                            for (var g = 0; g <= 2; g++) {
+                                var gy = padY + (usableH / 2) * g
+                                ctx.beginPath()
+                                ctx.moveTo(padX, gy)
+                                ctx.lineTo(width - padX, gy)
+                                ctx.strokeStyle = gridColor
+                                ctx.lineWidth = 1
+                                ctx.stroke()
+                            }
+
+                            for (var b = 0; b < pts.length; b++) {
+                                var bx = padX + b * step
+                                var byMax = yAt(pts[b].max)
+                                var byMin = yAt(pts[b].min)
+                                var bandColor = root.tempColor(pts[b].max)
+
+                                ctx.beginPath()
+                                ctx.moveTo(bx, byMax)
+                                ctx.lineTo(bx, byMin)
+                                ctx.strokeStyle = Qt.rgba(bandColor.r, bandColor.g, bandColor.b, 0.35)
+                                ctx.lineWidth = 6
+                                ctx.lineCap = "round"
+                                ctx.stroke()
+                            }
+
+                            for (var s = 0; s < pts.length - 1; s++) {
+                                var x0 = padX + s * step
+                                var x1 = padX + (s + 1) * step
+                                var y0 = yAt(pts[s].max)
+                                var y1 = yAt(pts[s + 1].max)
+                                var segColor = root.tempColor(Math.max(Number(pts[s].max), Number(pts[s + 1].max)))
+
+                                ctx.beginPath()
+                                ctx.moveTo(x0, y0)
+                                ctx.lineTo(x1, y1)
+                                ctx.lineTo(x1, height - padY)
+                                ctx.lineTo(x0, height - padY)
+                                ctx.closePath()
+                                ctx.globalAlpha = 0.12
+                                ctx.fillStyle = segColor
+                                ctx.fill()
+                                ctx.globalAlpha = 1
+
+                                ctx.beginPath()
+                                ctx.moveTo(x0, y0)
+                                ctx.lineTo(x1, y1)
+                                ctx.strokeStyle = segColor
+                                ctx.lineWidth = 3
+                                ctx.lineJoin = "round"
+                                ctx.lineCap = "round"
+                                ctx.stroke()
+                            }
+
+                            var nx = padX
+                            var ny = yAt(pts[0].max)
+                            ctx.beginPath()
+                            ctx.moveTo(nx, padY)
+                            ctx.lineTo(nx, height - padY)
+                            ctx.strokeStyle = Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.2)
+                            ctx.lineWidth = 1
+                            ctx.stroke()
+
+                            ctx.beginPath()
+                            ctx.arc(nx, ny, 6, 0, Math.PI * 2)
+                            ctx.fillStyle = root.tempColor(pts[0].max)
+                            ctx.fill()
+                        }
+
+                        Connections {
+                            target: root
+                            function onWeatherChanged() { weeklyChart.requestPaint() }
+                        }
+
+                        onWidthChanged: requestPaint()
+                        onHeightChanged: requestPaint()
+                        Component.onCompleted: requestPaint()
+                    }
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: root.chartGap
+
+                Item {
+                    Layout.preferredWidth: root.yAxisWidth
+                    Layout.maximumWidth: root.yAxisWidth
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 0
+
+                    Repeater {
+                        model: root.weekDays
+
+                        Text {
+                            required property var modelData
+                            required property int index
+                            Layout.fillWidth: true
+                            horizontalAlignment: index === 0 ? Text.AlignLeft
+                                : (index === root.weekDays.length - 1 ? Text.AlignRight : Text.AlignHCenter)
+                            text: String(modelData.dow || "")
                             color: Theme.foreground
                             font.family: Theme.fontFamily
                             font.pixelSize: root.hintFont

@@ -65,7 +65,7 @@ Scope {
             Rectangle {
                 anchors.fill: parent
                 color: Theme.mantle
-                opacity: Theme.surfaceOpacityInactive
+                opacity: root.shell && root.shell.hoverPopupId ? 1.0 : Theme.surfaceOpacityInactive
             }
 
             BarSection {

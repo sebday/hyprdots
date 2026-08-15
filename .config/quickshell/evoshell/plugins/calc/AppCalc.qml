@@ -248,6 +248,7 @@ Item {
 
         SectionPanel {
             contentPad: Theme.panelContentPad
+            legendBackground: Theme.background
             label: "Calculator"
 
             TextInput {
@@ -280,6 +281,7 @@ Item {
 
         SectionPanel {
             contentPad: Theme.panelContentPad
+            legendBackground: Theme.background
             label: ""
 
             GridLayout {
@@ -317,6 +319,7 @@ Item {
 
         SectionPanel {
             contentPad: Theme.panelContentPad
+            legendBackground: Theme.background
             label: "History"
             Layout.topMargin: 4
             Layout.fillHeight: false

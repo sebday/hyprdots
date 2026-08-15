@@ -1,4 +1,5 @@
-import "../stats"
+import QtQuick
+import "."
 
 ShopifyStorePopup {
     layerNamespace: "evo-stats-diy"

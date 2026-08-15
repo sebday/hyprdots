@@ -128,8 +128,8 @@ Item {
             trackedPlayer = list[0]
     }
 
-    function formatTime(us) {
-        var totalSec = Math.max(0, Math.floor((Number(us) || 0) / 1000000))
+    function formatTime(seconds) {
+        var totalSec = Math.max(0, Math.floor(Number(seconds) || 0))
         var min = Math.floor(totalSec / 60)
         var sec = totalSec % 60
         return min + ":" + (sec < 10 ? "0" : "") + sec
@@ -183,10 +183,14 @@ Item {
     }
 
     Timer {
-        interval: 500
-        running: root.active && root.playerPlaying
+        interval: 250
+        running: root.active && root.hasPlayer && root.playerPlaying
         repeat: true
-        onTriggered: root.positionTick = Date.now()
+        onTriggered: {
+            if (root.player)
+                root.player.positionChanged()
+            root.positionTick = Date.now()
+        }
     }
 
   Instantiator {
@@ -332,17 +336,18 @@ Item {
 
                 Item {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: progressTrack.height
+                    Layout.preferredHeight: 4
 
                     Rectangle {
                         id: progressTrack
                         anchors.fill: parent
-                        height: 4
                         radius: 2
                         color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.14)
                     }
 
                     Rectangle {
+                        anchors.left: parent.left
+                        anchors.top: parent.top
                         height: parent.height
                         width: parent.width * root.trackProgress
                         radius: 2
@@ -518,16 +523,6 @@ Item {
                     font.family: Theme.fontFamily
                     font.pixelSize: root.hintFont
                     opacity: 0.55
-                }
-
-                Text {
-                    Layout.fillWidth: true
-                    text: "Scroll to adjust volume · click track to play/pause"
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.hintFont
-                    opacity: 0.38
-                    wrapMode: Text.Wrap
                 }
         }
 

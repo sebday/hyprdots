@@ -10,6 +10,11 @@ Item {
     property int contentMargin: Theme.tooltipMargin
     property int minContentHeight: 0
 
+    readonly property bool barOnTop: shell && shell.barConfig
+        && String(shell.barConfig.position) === "top"
+    readonly property int contentTopPad: barOnTop ? Theme.barTooltipTopPad : contentMargin
+    readonly property int contentBottomPad: contentMargin
+
     default property alias moduleContent: moduleSlot.data
 
     readonly property Item module: moduleSlot.children.length > 0 ? moduleSlot.children[0] : null
@@ -37,8 +42,9 @@ Item {
         opened: root.opened
         layerNamespace: root.layerNamespace
         contentMargin: root.contentMargin
+        contentTopMargin: root.contentTopPad
         contentWidth: root.contentWidth
-        contentHeight: root.bodyHeight + contentMargin * 2
+        contentHeight: root.bodyHeight + root.contentTopPad + root.contentBottomPad
 
         Item {
             id: moduleSlot

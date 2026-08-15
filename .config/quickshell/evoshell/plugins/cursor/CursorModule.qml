@@ -63,16 +63,16 @@ Item {
     }
 
     readonly property var modelSplit: Array.isArray(detail.modelSplit) ? detail.modelSplit : []
-    readonly property bool hasModelDetails: root.modelSplit.length > 0 || root.detail.onDemand === true
+    readonly property bool hasModelDetails: root.modelSplit.length > 0 || root.detail.onDemand === true || root.showTokens
 
     readonly property int smallFont: Theme.tooltipIconFontPixelSize
     readonly property int hintFont: Theme.tooltipBodyFontPixelSize
-    readonly property int heroFont: 28
+    readonly property int heroFont: 34
     readonly property int breakdownFont: Theme.panelDetailFontPixelSize
     readonly property int tokensFont: Theme.tooltipHintFontPixelSize
     readonly property int gaugeLabelFont: Theme.panelHintFontPixelSize
-    readonly property int gaugeSize: 130
-    readonly property int gaugeSpacing: 14
+    readonly property int gaugeSize: 168
+    readonly property int gaugeSpacing: 18
 
     function applyPayload(json) {
         loading = false
@@ -144,6 +144,7 @@ Item {
                         gaugeColor: root.cursorColor
                         loading: root.loading
                         labelFont: root.gaugeLabelFont
+                        gaugeSize: root.gaugeSize
                     }
 
                     UsageGauge {
@@ -152,6 +153,7 @@ Item {
                         gaugeColor: root.otherColor
                         loading: root.loading
                         labelFont: root.gaugeLabelFont
+                        gaugeSize: root.gaugeSize
                     }
                 }
             }
@@ -228,15 +230,11 @@ Item {
                 font.pixelSize: root.breakdownFont
                 opacity: 0.6
             }
-        }
-
-        SectionPanel {
-            label: "Tokens"
-            visible: root.showTokens
 
             RowLayout {
                 Layout.fillWidth: true
                 spacing: 8
+                visible: root.showTokens
 
                 Text {
                     text: root.loading ? "…" : (root.formatTokens(root.detail.tokensTotal) + " tokens")
@@ -283,15 +281,16 @@ Item {
         property color gaugeColor: Theme.accent
         property bool loading: false
         property int labelFont: Theme.panelHintFontPixelSize
+        property int gaugeSize: 130
 
         implicitWidth: gaugeRoot.gaugeSize
-        implicitHeight: 160
+        implicitHeight: gaugeRoot.gaugeSize + 36
 
-        readonly property int gaugeSize: 130
+        readonly property int ringSize: Math.round(gaugeRoot.gaugeSize * 0.91)
+        readonly property real ringRadius: gaugeRoot.gaugeSize * 0.34
+        readonly property real ringLineWidth: Math.max(10, gaugeRoot.gaugeSize * 0.077)
+
         readonly property real sweep: Math.max(0, Math.min(100, percent)) / 100
-        readonly property int ringSize: 118
-        readonly property real ringRadius: 44
-        readonly property real ringLineWidth: 10
 
         Canvas {
             id: ring

@@ -267,6 +267,7 @@ Item {
         FramedPanel {
             id: tasksPanel
             label: "Tasks"
+            labelBackground: Theme.background
             contentFill: true
             Layout.fillWidth: true
             Layout.fillHeight: true

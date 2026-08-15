@@ -229,6 +229,7 @@ Item {
 
             SectionPanel {
                 contentPad: Theme.panelContentPad
+                legendBackground: Theme.background
                 label: "Font"
                 sectionSpacing: 14
 
@@ -283,6 +284,7 @@ Item {
 
             SectionPanel {
                 contentPad: Theme.panelContentPad
+                legendBackground: Theme.background
                 label: "Hyprland"
                 sectionSpacing: 12
 
@@ -352,6 +354,7 @@ Item {
 
             SectionPanel {
                 contentPad: Theme.panelContentPad
+                legendBackground: Theme.background
                 label: "Bar"
 
                 ToggleRow {
@@ -366,6 +369,7 @@ Item {
 
             SectionPanel {
                 contentPad: Theme.panelContentPad
+                legendBackground: Theme.background
                 label: "Theme"
 
                 Item {
