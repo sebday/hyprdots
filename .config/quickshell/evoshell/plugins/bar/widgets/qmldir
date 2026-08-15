@@ -2,6 +2,7 @@ module widgets
 ClockWidget 1.0 ClockWidget.qml
 WorkspacesWidget 1.0 WorkspacesWidget.qml
 AudioWidget 1.0 AudioWidget.qml
+SoundWidget 1.0 SoundWidget.qml
 TrayWidget 1.0 TrayWidget.qml
 TrayContextMenu 1.0 TrayContextMenu.qml
 CommandWidget 1.0 CommandWidget.qml

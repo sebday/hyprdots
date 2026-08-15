@@ -5,44 +5,40 @@ import "../../../Commons"
 
 Item {
     id: root
+
     property var bar: null
     property var barPanel: null
-    property var shell: null
     property var settings: ({})
+    property var shell: null
 
     readonly property string hoverPopupId: settings.onHover ? String(settings.onHover) : ""
+    readonly property var audio: shell ? shell.serviceFor("evo.audio") : null
 
     readonly property int barCount: 10
     readonly property int vizBarWidth: 6
     readonly property int vizBarSpacing: 2
     readonly property int vizHeight: 16
-    readonly property int vizPaddingX: Theme.barPaddingX
+    readonly property int sectionSpacing: 8
 
     readonly property PwNode sink: Pipewire.defaultAudioSink
     readonly property bool sinkReady: sink !== null && sink.ready
-
-    readonly property int contentWidth: barCount * vizBarWidth + (barCount - 1) * vizBarSpacing
-
+    readonly property int cavaWidth: barCount * vizBarWidth + (barCount - 1) * vizBarSpacing
     readonly property real peakGate: 0.09
     readonly property real maxBarLevel: 0.92
     readonly property real transientMargin: 0.02
     readonly property real sustainedCap: 0.28
-
     readonly property real mid: (barCount - 1) / 2
 
-    property real displayLevel: 0
     property real peakBaseline: 0
     property var barLevels: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
     readonly property bool audioActive: sinkReady && linkTracker.linkGroups.length > 0
-    // Stay visible while audio is routed — bar height handles sensitivity, not layout.
-    readonly property bool hasContent: audioActive
+    readonly property string volumeText: audio ? audio.displayText : "󰕾"
 
-    implicitWidth: hasContent ? contentWidth + vizPaddingX * 2 : 0
+    implicitWidth: contentRow.implicitWidth + Theme.barPaddingX * 2
     implicitHeight: Theme.barHeight
 
     function resetBars() {
-        displayLevel = 0
         peakBaseline = 0
         barLevels = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     }
@@ -66,7 +62,6 @@ Item {
     function applyPeak(peak) {
         var levels = barLevels.slice()
 
-        // Slow baseline — tracks average level, not each beat.
         if (peak < peakBaseline)
             peakBaseline = peakBaseline * 0.96 + peak * 0.04
         else
@@ -102,10 +97,25 @@ Item {
         }
 
         barLevels = levels
-        var max = 0
-        for (var k = 0; k < barCount; k++)
-            if (levels[k] > max) max = levels[k]
-        displayLevel = max
+    }
+
+    function openMixer() {
+        Quickshell.execDetached(["ghostty", "--class=TUI.main", "-e", "wiremix"])
+    }
+
+    function openAlsamixer() {
+        Quickshell.execDetached(["ghostty", "--class=TUI.main", "-e", "alsamixer"])
+    }
+
+    function runConfiguredClick(mouse) {
+        if (mouse.button === Qt.RightButton && settings.onClickRight)
+            Quickshell.execDetached(["bash", "-lc", String(settings.onClickRight)])
+        else if (settings.onClick)
+            Quickshell.execDetached(["bash", "-lc", String(settings.onClick)])
+        else if (mouse.button === Qt.RightButton)
+            openAlsamixer()
+        else
+            openMixer()
     }
 
     PwObjectTracker {
@@ -134,44 +144,79 @@ Item {
     onAudioActiveChanged: if (!audioActive) resetBars()
 
     Row {
-        id: barRow
+        id: contentRow
         anchors.centerIn: parent
-        spacing: root.vizBarSpacing
-        height: root.vizHeight
-        visible: root.hasContent
+        spacing: root.sectionSpacing
 
-        Repeater {
-            model: root.barCount
+        Item {
+            width: root.audioActive ? root.cavaWidth : 0
+            height: root.vizHeight
+            visible: root.audioActive
 
-            Item {
-                required property int index
-                width: root.vizBarWidth
-                height: barRow.height
+            Row {
+                anchors.centerIn: parent
+                spacing: root.vizBarSpacing
+                height: parent.height
 
-                readonly property real level: root.barLevels[index]
+                Repeater {
+                    model: root.barCount
 
-                Rectangle {
-                    width: root.vizBarWidth
-                    height: Math.max(2, parent.height * parent.level)
-                    anchors.bottom: parent.bottom
-                    color: Theme.accent
-                    opacity: 0.35 + parent.level * 0.65
+                    Item {
+                        required property int index
+                        width: root.vizBarWidth
+                        height: parent.height
+
+                        readonly property real level: root.barLevels[index]
+
+                        Rectangle {
+                            width: root.vizBarWidth
+                            height: Math.max(2, parent.height * parent.level)
+                            anchors.bottom: parent.bottom
+                            color: Theme.accent
+                            opacity: 0.35 + parent.level * 0.65
+                        }
+                    }
                 }
             }
-        }
-    }
 
-    MouseArea {
-        anchors.fill: parent
-        enabled: root.hasContent
-        hoverEnabled: true
-        acceptedButtons: Qt.LeftButton | Qt.RightButton
-        cursorShape: (settings.onClick || settings.onClickRight) ? Qt.PointingHandCursor : Qt.ArrowCursor
-        onClicked: function(mouse) {
-            if (mouse.button === Qt.RightButton && settings.onClickRight)
-                Quickshell.execDetached(["bash", "-lc", String(settings.onClickRight)])
-            else if (settings.onClick)
-                Quickshell.execDetached(["bash", "-lc", String(settings.onClick)])
+            MouseArea {
+                anchors.fill: parent
+                hoverEnabled: true
+                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                cursorShape: Qt.PointingHandCursor
+                onWheel: function(wheel) {
+                    if (!root.audio) return
+                    if (wheel.angleDelta.y > 0) root.audio.stepUp()
+                    else if (wheel.angleDelta.y < 0) root.audio.stepDown()
+                    wheel.accepted = true
+                }
+                onClicked: function(mouse) { root.runConfiguredClick(mouse) }
+            }
+        }
+
+        Text {
+            id: volumeLabel
+            text: root.volumeText
+            color: Theme.foreground
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.barFontPixelSize
+            font.bold: Theme.fontBold
+            anchors.verticalCenter: parent.verticalCenter
+
+            MouseArea {
+                anchors.fill: parent
+                anchors.margins: -6
+                hoverEnabled: true
+                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                cursorShape: Qt.PointingHandCursor
+                onWheel: function(wheel) {
+                    if (!root.audio) return
+                    if (wheel.angleDelta.y > 0) root.audio.stepUp()
+                    else if (wheel.angleDelta.y < 0) root.audio.stepDown()
+                    wheel.accepted = true
+                }
+                onClicked: function(mouse) { root.runConfiguredClick(mouse) }
+            }
         }
     }
 

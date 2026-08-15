@@ -51,12 +51,10 @@
           "onClick": "xdg-open https://github.com/sebday"
         },
         {
-          "id": "evo.cava",
+          "id": "evo.audio",
+          "onHover": "evo.sound",
           "onClick": "ghostty --class=TUI.main -e wiremix",
           "onClickRight": "ghostty --class=TUI.main -e alsamixer"
-        },
-        {
-          "id": "evo.audio"
         },
         {
           "id": "evo.network",

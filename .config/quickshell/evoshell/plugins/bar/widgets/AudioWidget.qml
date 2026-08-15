@@ -5,8 +5,11 @@ import "../../../Commons"
 Item {
     id: audioRoot
     property var bar: null
+    property var barPanel: null
     property var settings: ({})
     property var shell: null
+
+    readonly property string hoverPopupId: settings.onHover ? String(settings.onHover) : ""
 
     readonly property var audio: shell ? shell.serviceFor("evo.audio") : null
 
@@ -23,6 +26,17 @@ Item {
         font.family: Theme.fontFamily
         font.pixelSize: Theme.barFontPixelSize
         font.bold: Theme.fontBold
+    }
+
+    HoverHandler {
+        enabled: audioRoot.hoverPopupId !== "" && audioRoot.shell
+        onHoveredChanged: {
+            if (!audioRoot.shell || !audioRoot.hoverPopupId) return
+            if (hovered)
+                audioRoot.shell.hoverEnter(audioRoot.hoverPopupId, audioRoot, audioRoot.barPanel)
+            else
+                audioRoot.shell.hoverLeave(audioRoot.hoverPopupId)
+        }
     }
 
   MouseArea {
