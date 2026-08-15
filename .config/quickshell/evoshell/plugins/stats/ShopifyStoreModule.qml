@@ -12,6 +12,7 @@ Item {
     property string storeKey: "DIY"
     property string title: "DIY"
     property string adminUrl: ""
+    property bool chartFillHeight: false
 
     readonly property string cacheKey: shell ? String(shell.hoverPopupId || "") : ""
     readonly property string storeCacheKey: "shopify-" + storeKey + "-30"
@@ -77,7 +78,7 @@ Item {
         return out
     }
 
-    implicitHeight: body.implicitHeight
+    implicitHeight: root.chartFillHeight ? 0 : body.implicitHeight
 
     function onActivated() {
         syncFromBar()
@@ -173,7 +174,8 @@ Item {
 
     ColumnLayout {
         id: body
-        width: root.hoverPopupWidth
+        anchors.fill: root.chartFillHeight ? parent : undefined
+        width: root.chartFillHeight ? undefined : root.hoverPopupWidth
         spacing: Theme.hoverPopupSectionSpacing
 
         SectionPanel {
@@ -286,33 +288,74 @@ Item {
         }
 
         SectionPanel {
-            label: root.chartDays + " day revenue"
+            fillHeight: root.chartFillHeight
+            label: root.chartDays + " day revenue & orders"
             visible: (root.storeData.bars || []).length > 0
 
-            SparklineChart {
+            ColumnLayout {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 100
-                chartHeight: 100
-                style: "line"
-                lineColor: Theme.accent
-                bars: root.storeData.bars || []
+                Layout.fillHeight: root.chartFillHeight
+                spacing: 6
+
+                SparklineChart {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: root.chartFillHeight
+                    Layout.minimumHeight: 64
+                    Layout.preferredHeight: root.chartFillHeight ? -1 : 100
+                    chartHeight: root.chartFillHeight ? Math.max(64, Math.round(height)) : 100
+                    style: "line"
+                    lineColor: Theme.accent
+                    secondaryLineColor: "#a6e3a1"
+                    bars: root.storeData.bars || []
+                    secondaryBars: root.storeData.orderBars || []
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 12
+                    visible: (root.storeData.orderBars || []).length > 0
+
+                    RowLayout {
+                        spacing: 6
+                        Rectangle {
+                            width: 10
+                            height: 3
+                            radius: 1
+                            color: Theme.accent
+                        }
+                        Text {
+                            text: "Revenue"
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.hintFont
+                            opacity: 0.6
+                        }
+                    }
+
+                    RowLayout {
+                        spacing: 6
+                        Rectangle {
+                            width: 10
+                            height: 3
+                            radius: 1
+                            color: "#a6e3a1"
+                        }
+                        Text {
+                            text: "Orders"
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.hintFont
+                            opacity: 0.6
+                        }
+                    }
+
+                    Item { Layout.fillWidth: true }
+                }
             }
         }
 
         SectionPanel {
-            label: "Orders"
-            visible: (root.storeData.orderBars || []).length > 0
-
-            SparklineChart {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 72
-                chartHeight: 72
-                bars: root.storeData.orderBars || []
-            }
-        }
-
-        SectionPanel {
-            label: "Channels today"
+            label: "Channels " + root.chartDays + " days"
             visible: root.channelTotal > 0
 
             ColumnLayout {

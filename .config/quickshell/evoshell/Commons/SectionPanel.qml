@@ -13,10 +13,12 @@ Item {
     property real labelOpacity: 0.72
     property bool labelProminent: false
     property bool labelClickable: false
+    property bool fillHeight: false
 
     signal labelClicked()
 
     Layout.fillWidth: true
+    Layout.fillHeight: fillHeight
     implicitWidth: panel.implicitWidth
     implicitHeight: panel.implicitHeight
 
@@ -24,7 +26,8 @@ Item {
 
     FramedPanel {
         id: panel
-        width: root.width
+        anchors.fill: root.fillHeight ? parent : undefined
+        width: root.fillHeight ? undefined : root.width
         label: root.label
         labelAlign: root.labelAlign
         labelFontSize: root.labelFontSize
@@ -39,6 +42,7 @@ Item {
         ColumnLayout {
             id: innerCol
             width: parent.width
+            height: root.fillHeight ? parent.height : undefined
             spacing: root.sectionSpacing
         }
     }

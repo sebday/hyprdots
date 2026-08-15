@@ -23,6 +23,10 @@ Item {
         return isNaN(n) || n <= 0 ? trayIconSize + 4 : n
     }
 
+    readonly property string home: Quickshell.env("HOME") || ""
+    readonly property string btcCacheKey: "evo.stocks.btc"
+    readonly property string spcxCacheKey: "evo.stocks.spcx"
+    readonly property int chartHistoryDays: 30
     readonly property string trayIconText: "󰄪"
 
     implicitWidth: trayMode ? trayCellWidth : trayIconSize + Theme.barPaddingX * 2
@@ -36,6 +40,24 @@ Item {
             shell.hoverEnter(hoverPopupId, root, barPanel)
         else
             shell.hoverLeave(hoverPopupId)
+    }
+
+    JsonPollRunner {
+        id: btcPoll
+        shell: root.shell
+        cacheKey: root.btcCacheKey
+        settings: root.settings
+        defaultIntervalSec: 60
+        command: ["bash", root.home + "/.local/bin/evo-bar-btc", String(root.chartHistoryDays)]
+    }
+
+    JsonPollRunner {
+        id: spcxPoll
+        shell: root.shell
+        cacheKey: root.spcxCacheKey
+        settings: root.settings
+        defaultIntervalSec: 60
+        command: ["bash", root.home + "/.local/bin/evo-bar-spcx", String(root.chartHistoryDays)]
     }
 
     Text {

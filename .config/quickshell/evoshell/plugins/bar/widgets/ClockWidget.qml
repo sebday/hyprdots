@@ -8,9 +8,24 @@ Item {
     property var barPanel: null
     property var shell: null
     property var settings: ({})
-    readonly property string hoverPopupId: settings.onHover ? String(settings.onHover) : "evo.calendar"
+    property date nowTick: new Date()
 
-    implicitWidth: label.implicitWidth + Theme.barSectionGap * 2
+    readonly property string hoverPopupId: settings.onHover ? String(settings.onHover) : "evo.calendar"
+    readonly property bool showEffect: settings.effect !== false
+    readonly property int dialSize: 17
+    readonly property real secondProgress: {
+        var s = nowTick.getSeconds()
+        var ms = nowTick.getMilliseconds()
+        return Math.max(0, Math.min(1, (s + ms / 1000) / 60))
+    }
+    readonly property string phaseIcon: {
+        var h = nowTick.getHours()
+        if (h >= 6 && h < 18)
+            return "󰖙"
+        return "󰖔"
+    }
+
+    implicitWidth: clockRow.implicitWidth + Theme.barSectionGap * 2
     implicitHeight: Theme.barHeight
 
     function strftimeToQt(fmt) {
@@ -37,18 +52,89 @@ Item {
     }
 
     function updateText() {
-        label.text = Qt.formatDateTime(new Date(), qtFormat())
+        label.text = Qt.formatDateTime(nowTick, qtFormat())
     }
 
-    Text {
-        id: label
+    Row {
+        id: clockRow
         anchors.verticalCenter: parent.verticalCenter
         anchors.left: parent.left
         anchors.leftMargin: Theme.barSectionGap
-        color: Theme.foreground
-        font.family: Theme.fontFamily
-        font.pixelSize: Theme.barFontPixelSize
-        font.bold: Theme.fontBold
+        spacing: 9
+
+        Text {
+            id: label
+            anchors.verticalCenter: parent.verticalCenter
+            color: Theme.foreground
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.barFontPixelSize
+            font.bold: Theme.fontBold
+        }
+
+        Item {
+            visible: root.showEffect
+            width: root.dialSize
+            height: root.dialSize
+            anchors.verticalCenter: parent.verticalCenter
+
+            Canvas {
+                id: dial
+                anchors.fill: parent
+
+                onPaint: {
+                    var ctx = getContext("2d")
+                    ctx.reset()
+
+                    var cx = width / 2
+                    var cy = height / 2
+                    var lw = 1.75
+                    var r = Math.min(width, height) / 2 - lw - 0.5
+                    var start = -Math.PI / 2
+                    var sweep = root.secondProgress * Math.PI * 2
+                    var track = Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.16)
+
+                    ctx.lineWidth = lw
+                    ctx.lineCap = "round"
+
+                    ctx.beginPath()
+                    ctx.arc(cx, cy, r, 0, Math.PI * 2)
+                    ctx.strokeStyle = track
+                    ctx.stroke()
+
+                    if (root.secondProgress > 0.001) {
+                        ctx.beginPath()
+                        ctx.arc(cx, cy, r, start, start + sweep)
+                        ctx.strokeStyle = Theme.accent
+                        ctx.stroke()
+
+                        var angle = start + sweep
+                        var dotX = cx + r * Math.cos(angle)
+                        var dotY = cy + r * Math.sin(angle)
+                        ctx.beginPath()
+                        ctx.arc(dotX, dotY, 2.1, 0, Math.PI * 2)
+                        ctx.fillStyle = Theme.accent
+                        ctx.fill()
+                    }
+                }
+            }
+
+            Text {
+                anchors.centerIn: parent
+                text: root.phaseIcon
+                color: Theme.accent
+                font.family: Theme.fontFamily
+                font.pixelSize: 9
+                font.bold: Theme.fontBold
+                opacity: 0.92
+            }
+
+            Connections {
+                target: root
+                function onSecondProgressChanged() { dial.requestPaint() }
+            }
+
+            Component.onCompleted: dial.requestPaint()
+        }
     }
 
     HoverHandler {
@@ -63,10 +149,13 @@ Item {
     }
 
     Timer {
-        interval: 1000
+        interval: 80
         running: true
         repeat: true
-        onTriggered: root.updateText()
+        onTriggered: {
+            root.nowTick = new Date()
+            root.updateText()
+        }
     }
 
     Component.onCompleted: updateText()

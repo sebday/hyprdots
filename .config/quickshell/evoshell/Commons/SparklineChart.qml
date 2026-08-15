@@ -5,25 +5,35 @@ Item {
     id: root
 
     property var bars: []
+    property var secondaryBars: []
     property string style: "bars" // "bars" | "line"
     property int chartHeight: Theme.sparklineExpandedHeight
     property int barWidth: Theme.sparklineExpandedBarWidth
     property int barSpacing: Theme.sparklineExpandedBarSpacing
     property bool fillWidth: true
     property color lineColor: Theme.accent
+    property color secondaryLineColor: "#a6e3a1"
     property int lineWidth: 2
 
     readonly property bool isLine: style === "line"
+    readonly property bool hasSecondary: secondaryBars.length > 0
 
     implicitHeight: chartHeight
     implicitWidth: fillWidth ? 200 : (bars.length * (barWidth + barSpacing) + 4)
 
-    onBarsChanged: if (isLine) lineCanvas.requestPaint()
-    onWidthChanged: if (isLine) lineCanvas.requestPaint()
-    onHeightChanged: if (isLine) lineCanvas.requestPaint()
-    onChartHeightChanged: if (isLine) lineCanvas.requestPaint()
-    onLineColorChanged: if (isLine) lineCanvas.requestPaint()
-    onStyleChanged: if (isLine) lineCanvas.requestPaint()
+    function repaintLine() {
+        if (isLine)
+            lineCanvas.requestPaint()
+    }
+
+    onBarsChanged: repaintLine()
+    onSecondaryBarsChanged: repaintLine()
+    onWidthChanged: repaintLine()
+    onHeightChanged: repaintLine()
+    onChartHeightChanged: repaintLine()
+    onLineColorChanged: repaintLine()
+    onSecondaryLineColorChanged: repaintLine()
+    onStyleChanged: repaintLine()
 
     readonly property int scaledBarWidth: barWidth
     readonly property int scaledBarSpacing: barSpacing
@@ -34,11 +44,12 @@ Item {
         return Math.max(4, (width - gaps) / bars.length)
     }
 
-    function valueRange() {
+    function valueRangeFor(series) {
+        var pts = series || []
         var minV = Number.POSITIVE_INFINITY
         var maxV = Number.NEGATIVE_INFINITY
-        for (var i = 0; i < bars.length; i++) {
-            var v = parseFloat(bars[i] && bars[i].value)
+        for (var i = 0; i < pts.length; i++) {
+            var v = parseFloat(pts[i] && pts[i].value)
             if (isNaN(v)) continue
             if (v < minV) minV = v
             if (v > maxV) maxV = v
@@ -59,6 +70,10 @@ Item {
         }
         var span = maxV - minV
         return { min: minV - span * 0.08, max: maxV + span * 0.08 }
+    }
+
+    function valueRange() {
+        return valueRangeFor(bars)
     }
 
     Row {
@@ -101,10 +116,6 @@ Item {
             var pts = root.bars || []
             if (pts.length === 0) return
 
-            var range = root.valueRange()
-            var minV = range.min
-            var maxV = range.max
-            var span = maxV - minV || 1
             var w = width
             var h = height
             var padX = 2
@@ -113,49 +124,61 @@ Item {
             var usableH = Math.max(1, h - padY * 2)
             var step = pts.length > 1 ? usableW / (pts.length - 1) : 0
 
-            function yAt(v) {
-                var n = parseFloat(v)
-                if (isNaN(n)) n = minV
-                return padY + usableH - ((n - minV) / span) * usableH
+            function drawSeries(series, color, fill) {
+                if (!series || series.length === 0)
+                    return
+                var range = root.valueRangeFor(series)
+                var minV = range.min
+                var maxV = range.max
+                var span = maxV - minV || 1
+
+                function yAt(v) {
+                    var n = parseFloat(v)
+                    if (isNaN(n)) n = minV
+                    return padY + usableH - ((n - minV) / span) * usableH
+                }
+
+                if (fill) {
+                    ctx.beginPath()
+                    for (var i = 0; i < series.length; i++) {
+                        var x = padX + i * step
+                        var y = yAt(series[i].value)
+                        if (i === 0) ctx.moveTo(x, y)
+                        else ctx.lineTo(x, y)
+                    }
+                    ctx.lineTo(padX + (series.length - 1) * step, h)
+                    ctx.lineTo(padX, h)
+                    ctx.closePath()
+                    ctx.globalAlpha = 0.14
+                    ctx.fillStyle = color
+                    ctx.fill()
+                    ctx.globalAlpha = 1
+                }
+
+                ctx.beginPath()
+                for (var j = 0; j < series.length; j++) {
+                    var x2 = padX + j * step
+                    var y2 = yAt(series[j].value)
+                    if (j === 0) ctx.moveTo(x2, y2)
+                    else ctx.lineTo(x2, y2)
+                }
+                ctx.strokeStyle = color
+                ctx.lineWidth = root.lineWidth
+                ctx.lineJoin = "round"
+                ctx.lineCap = "round"
+                ctx.stroke()
+
+                var lastX = padX + (series.length - 1) * step
+                var lastY = yAt(series[series.length - 1].value)
+                ctx.beginPath()
+                ctx.arc(lastX, lastY, 3, 0, Math.PI * 2)
+                ctx.fillStyle = color
+                ctx.fill()
             }
 
-            // Soft fill under the line
-            ctx.beginPath()
-            for (var i = 0; i < pts.length; i++) {
-                var x = padX + i * step
-                var y = yAt(pts[i].value)
-                if (i === 0) ctx.moveTo(x, y)
-                else ctx.lineTo(x, y)
-            }
-            ctx.lineTo(padX + (pts.length - 1) * step, h)
-            ctx.lineTo(padX, h)
-            ctx.closePath()
-            ctx.globalAlpha = 0.18
-            ctx.fillStyle = root.lineColor
-            ctx.fill()
-            ctx.globalAlpha = 1
-
-            // Stroke
-            ctx.beginPath()
-            for (var j = 0; j < pts.length; j++) {
-                var x2 = padX + j * step
-                var y2 = yAt(pts[j].value)
-                if (j === 0) ctx.moveTo(x2, y2)
-                else ctx.lineTo(x2, y2)
-            }
-            ctx.strokeStyle = root.lineColor
-            ctx.lineWidth = root.lineWidth
-            ctx.lineJoin = "round"
-            ctx.lineCap = "round"
-            ctx.stroke()
-
-            // End point
-            var lastX = padX + (pts.length - 1) * step
-            var lastY = yAt(pts[pts.length - 1].value)
-            ctx.beginPath()
-            ctx.arc(lastX, lastY, 3, 0, Math.PI * 2)
-            ctx.fillStyle = root.lineColor
-            ctx.fill()
+            if (root.hasSecondary)
+                drawSeries(root.secondaryBars, root.secondaryLineColor, false)
+            drawSeries(pts, root.lineColor, true)
         }
 
         Component.onCompleted: requestPaint()

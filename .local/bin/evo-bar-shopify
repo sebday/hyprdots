@@ -367,6 +367,10 @@ main() {
     period_orders=0
     period_sessions=0
     period_spend=0
+    period_paid=0
+    period_organic=0
+    period_direct=0
+    period_email=0
 
     for i in $(seq "$days_back" -1 0); do
         day_iso=$(TZ="$tz_name" date -d "${today_s} - ${i} days" +%Y-%m-%d)
@@ -380,6 +384,10 @@ main() {
         period_rev=$(awk -v a="$period_rev" -v b="$rev" 'BEGIN { printf "%.2f", a + b }')
         period_orders=$((period_orders + $(awk -v o="$orders" 'BEGIN { print int(o + 0) }')))
         period_sessions=$((period_sessions + $(awk -v s="$sessions" 'BEGIN { print int(s + 0) }')))
+        period_paid=$(awk -v a="$period_paid" -v b="${paid_rev:-0}" 'BEGIN { printf "%.2f", a + b }')
+        period_organic=$(awk -v a="$period_organic" -v b="${org_rev:-0}" 'BEGIN { printf "%.2f", a + b }')
+        period_direct=$(awk -v a="$period_direct" -v b="${dir_rev:-0}" 'BEGIN { printf "%.2f", a + b }')
+        period_email=$(awk -v a="$period_email" -v b="${email_rev:-0}" 'BEGIN { printf "%.2f", a + b }')
         if [[ -n "$spend" && "$spend" != "NULL" && "$spend" != "" ]]; then
             period_spend=$(awk -v a="$period_spend" -v b="$spend" 'BEGIN { printf "%.2f", a + b }')
         fi
@@ -468,10 +476,10 @@ main() {
         }')
 
     channels_json=$(jq -cn \
-        --argjson paid "$(awk -v v="${paid_rev:-0}" 'BEGIN { printf "%.2f", v + 0 }')" \
-        --argjson organic "$(awk -v v="${org_rev:-0}" 'BEGIN { printf "%.2f", v + 0 }')" \
-        --argjson direct "$(awk -v v="${dir_rev:-0}" 'BEGIN { printf "%.2f", v + 0 }')" \
-        --argjson email "$(awk -v v="${email_rev:-0}" 'BEGIN { printf "%.2f", v + 0 }')" \
+        --argjson paid "$(awk -v v="$period_paid" 'BEGIN { printf "%.2f", v + 0 }')" \
+        --argjson organic "$(awk -v v="$period_organic" 'BEGIN { printf "%.2f", v + 0 }')" \
+        --argjson direct "$(awk -v v="$period_direct" 'BEGIN { printf "%.2f", v + 0 }')" \
+        --argjson email "$(awk -v v="$period_email" 'BEGIN { printf "%.2f", v + 0 }')" \
         '{paid: $paid, organic: $organic, direct: $direct, email: $email}')
 
     output=$(json_shopify "$output_text" "$label_text" "$sparkline_json" "${STORE_DISPLAY}" "$sym" \

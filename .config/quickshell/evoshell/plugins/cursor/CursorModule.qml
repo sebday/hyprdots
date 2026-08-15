@@ -64,6 +64,10 @@ Item {
 
     readonly property int cycleDaysTotal: detail && detail.cycleDaysTotal !== undefined
         ? parseInt(detail.cycleDaysTotal, 10) || 0 : 0
+    readonly property int cycleDaysUsed: detail && detail.cycleDaysUsed !== undefined
+        ? parseInt(detail.cycleDaysUsed, 10) || 0 : 0
+    readonly property int cycleDaysLeft: cycleDaysTotal > 0
+        ? Math.max(0, cycleDaysTotal - cycleDaysUsed) : 0
     readonly property real cycleProgress: detail && detail.cycleProgress !== undefined
         ? Number(detail.cycleProgress) || 0 : 0
     readonly property bool showCycleBar: !loading && !isError && cycleDaysTotal > 0
@@ -256,7 +260,7 @@ Item {
 
         SectionPanel {
             label: "Token usage"
-            visible: !root.isError && root.showTokens
+            visible: !root.isError && (root.showTokens || root.showCycleBar)
 
             ColumnLayout {
                 Layout.fillWidth: true
@@ -265,6 +269,7 @@ Item {
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: 8
+                    visible: root.showTokens
 
                     Text {
                         text: root.loading ? "…" : (root.formatTokens(root.detail.tokensTotal) + " tokens")
@@ -293,6 +298,18 @@ Item {
                     }
 
                     Item { Layout.fillWidth: true }
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    visible: root.showCycleBar && !root.loading
+                    text: root.cycleDaysLeft === 1
+                        ? "1 day left on plan"
+                        : (root.cycleDaysLeft + " days left on plan")
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.tokensFont
+                    opacity: 0.72
                 }
 
                 CycleProgressBar {

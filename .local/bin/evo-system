@@ -45,9 +45,15 @@ stop_pid() {
 stop_shell_supervisor() {
     if [[ -f "$SUPERVISOR_PID_FILE" ]]; then
         stop_pid "$(cat "$SUPERVISOR_PID_FILE" 2>/dev/null || true)"
+        rm -f "$SUPERVISOR_PID_FILE"
     fi
     pkill -f "systemd-cat -t evoshell" 2>/dev/null || true
-    pkill -f "quickshell.*evoshell" 2>/dev/null || true
+    pkill -TERM -f "quickshell.*evoshell" 2>/dev/null || true
+    for _ in {1..40}; do
+        pgrep -f "quickshell.*evoshell" >/dev/null || return 0
+        sleep 0.1
+    done
+    pkill -KILL -f "quickshell.*evoshell" 2>/dev/null || true
 }
 
 cmd_start() {
@@ -137,7 +143,12 @@ cmd_restart() {
     fi
 
     stop_shell_supervisor
-    sleep 0.3
+    sleep 0.5
+
+    if pgrep -f "quickshell.*evoshell" >/dev/null; then
+        echo "evo-system: quickshell still running after stop" >&2
+        exit 1
+    fi
 
     nohup "${BIN}/evo-system" start >/dev/null 2>&1 &
     disown 2>/dev/null || true

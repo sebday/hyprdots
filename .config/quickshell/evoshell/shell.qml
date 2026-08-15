@@ -48,12 +48,14 @@ ShellRoot {
         "evo.screenshot": { kinds: ["menu"], path: "plugins/screenshot/Screenshot.qml", keepLoaded: true },
         "evo.clipboard": { kinds: ["menu", "service"], path: "plugins/clipboard/Clipboard.qml", servicePath: "plugins/clipboard/Service.qml", keepLoaded: true },
         "evo.panel": { kinds: ["panel"], path: "plugins/panel/Panel.qml", keepLoaded: true },
-        "evo.bar": { kinds: ["bar"], path: "plugins/bar/Bar.qml" }
+        "evo.bar": { kinds: ["bar"], path: "plugins/bar/Bar.qml" },
+        "evo.shopify-dash": { kinds: ["dashboard"], path: "plugins/shopify-dash/ShopifyDash.qml", keepLoaded: true }
     })
 
     property var shellConfig: builtinShellConfig
     property var barConfig: builtinShellConfig.bar
     property string _barLoaderKey: ""
+    property bool _barReloadPending: false
     property var _services: ({})
     property var openPanelIds: ({})
     property var panelLoaders: ({})
@@ -314,7 +316,7 @@ ShellRoot {
         deliverIfLoaded(id)
     }
 
-  function reloadBar() {
+    function reloadBar() {
         var key = JSON.stringify({
             output: barConfig && barConfig.output ? String(barConfig.output) : "",
             position: barConfig && barConfig.position ? String(barConfig.position) : ""
@@ -323,30 +325,62 @@ ShellRoot {
             barLoader.item.barConfig = shell.barConfig
             return
         }
+        if (_barReloadPending && key === _barLoaderKey)
+            return
         _barLoaderKey = key
-        if (barLoader.item && "barConfig" in barLoader.item)
-            barLoader.item.barConfig = shell.barConfig
-        barLoader.active = false
-        barLoader.source = ""
-        Qt.callLater(function() {
-            barLoader.source = shell.pluginUrl(shell.pluginTable["evo.bar"].path)
-            barLoader.active = true
-        })
+        _barReloadPending = true
+        if (barLoader.active || barLoader.source !== "") {
+            barLoader.active = false
+            barLoader.source = ""
+        }
+        barReloadTimer.restart()
+    }
+
+    function applyBarReload() {
+        _barReloadPending = false
+        barLoader.source = shell.pluginUrl(shell.pluginTable["evo.bar"].path)
+        barLoader.active = true
+    }
+
+    Timer {
+        id: barReloadTimer
+        interval: 0
+        repeat: false
+        onTriggered: shell.applyBarReload()
     }
 
     Item { id: serviceHost; visible: false }
 
     Loader {
         id: barLoader
-        active: true
-        source: shell.pluginUrl(shell.pluginTable["evo.bar"].path)
+        active: false
         onLoaded: {
             if (!item) return
+            shell._barReloadPending = false
             if ("shell" in item) item.shell = shell
             if ("barConfig" in item) item.barConfig = shell.barConfig
         }
+        onActiveChanged: {
+            if (!active)
+                shell._barReloadPending = false
+        }
         onStatusChanged: {
-            if (status === Loader.Error) console.warn("bar load error:", String(barLoader.errorString))
+            if (status === Loader.Error) {
+                shell._barReloadPending = false
+                console.warn("bar load error:", String(barLoader.errorString))
+            }
+        }
+    }
+
+    Loader {
+        id: shopifyDashLoader
+        active: true
+        source: shell.pluginUrl(shell.pluginTable["evo.shopify-dash"].path)
+        onLoaded: {
+            if (item && "shell" in item) item.shell = shell
+        }
+        onStatusChanged: {
+            if (status === Loader.Error) console.warn("shopify dash load error:", String(shopifyDashLoader.errorString))
         }
     }
 

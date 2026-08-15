@@ -93,3 +93,12 @@ hl.window_rule({
     match = { initial_title = "^(Mozilla Firefox)" },
     workspace = "10",
 })
+
+hl.window_rule({
+    name = "shopify-dash-tile",
+    match = { title = "^shopify$" },
+    tile = true,
+    workspace = "10",
+    monitor = "HDMI-A-1",
+})
+
