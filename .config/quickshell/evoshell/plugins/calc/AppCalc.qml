@@ -22,6 +22,29 @@ Item {
     readonly property int historyFontSize: 15
     readonly property bool active: host && host.opened && host.activeModule === "calc"
 
+    property string flashDigit: ""
+
+    function flashDigitKey(digit) {
+        if (!digit) return
+        flashDigit = digit
+        flashTimer.restart()
+    }
+
+    function digitFromKey(key) {
+        if (key >= Qt.Key_0 && key <= Qt.Key_9)
+            return String(key - Qt.Key_0)
+        if (key >= Qt.Key_Keypad0 && key <= Qt.Key_Keypad9)
+            return String(key - Qt.Key_Keypad0)
+        return ""
+    }
+
+    Timer {
+        id: flashTimer
+        interval: 140
+        repeat: false
+        onTriggered: root.flashDigit = ""
+    }
+
     function refreshHistory() {
         if (!historyProc.running) historyProc.running = true
     }
@@ -88,11 +111,77 @@ Item {
         clearProc.running = true
     }
 
-    function focusInput() {
+    function focusInput(selectAll) {
         Qt.callLater(function() {
             inputField.forceActiveFocus()
-            inputField.selectAll()
+            if (selectAll !== false)
+                inputField.selectAll()
         })
+    }
+
+    function focusInputFromKeypad() {
+        Qt.callLater(function() { inputField.forceActiveFocus() })
+    }
+
+    component CalcKey: Item {
+        id: key
+        property string label: ""
+        property string action: "focus"
+        property bool isIcon: false
+        property bool enabled: true
+        readonly property bool flashing: action === "focus" && root.flashDigit === label
+
+        Rectangle {
+            id: keyBg
+            anchors.fill: parent
+            radius: Theme.fieldsetCornerRadius
+            opacity: key.enabled ? 1 : 0.35
+            color: key.flashing ? Theme.withOpacity(Theme.accent, 0.5) : "transparent"
+            border.color: key.flashing ? Theme.accent : Theme.withOpacity(Theme.foreground, 0.22)
+            border.width: 1
+
+            Behavior on color {
+                ColorAnimation {
+                    duration: 70
+                    easing.type: Easing.OutCubic
+                }
+            }
+
+            Behavior on border.color {
+                ColorAnimation {
+                    duration: 70
+                    easing.type: Easing.OutCubic
+                }
+            }
+        }
+
+        Text {
+            anchors.centerIn: parent
+            text: key.label
+            color: key.flashing ? Theme.accent : Theme.foreground
+            font.family: Theme.fontFamily
+            font.pixelSize: key.isIcon
+                ? Theme.panelIconFontPixelSize
+                : (key.label.length > 1 ? Theme.panelSmallFontPixelSize : Theme.panelTitleFontPixelSize)
+            font.bold: Theme.fontBold
+
+            Behavior on color {
+                ColorAnimation { duration: 70 }
+            }
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            hoverEnabled: false
+            enabled: key.enabled
+            cursorShape: key.action === "clear" ? Qt.PointingHandCursor : Qt.IBeamCursor
+            onClicked: {
+                if (key.action === "clear")
+                    root.clearHistory()
+                else
+                    root.focusInputFromKeypad()
+            }
+        }
     }
 
     function onActivated(focusTarget) {
@@ -175,6 +264,9 @@ Item {
                 clip: false
 
                 Keys.onPressed: function(event) {
+                    var digit = root.digitFromKey(event.key)
+                    if (digit)
+                        root.flashDigitKey(digit)
                     if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
                         root.submit()
                         event.accepted = true
@@ -183,6 +275,44 @@ Item {
                 Keys.onEscapePressed: if (host) host.dismiss()
                 Keys.onUpPressed: root.recallHistory(-1)
                 Keys.onDownPressed: root.recallHistory(1)
+            }
+        }
+
+        FramedPanel {
+            label: ""
+            Layout.fillWidth: true
+            contentPad: 8
+
+            GridLayout {
+                width: parent.width
+                columns: 3
+                columnSpacing: 6
+                rowSpacing: 6
+
+                readonly property var keys: [
+                    "7", "8", "9",
+                    "4", "5", "6",
+                    "1", "2", "3",
+                    "CE", "0", "clear"
+                ]
+
+                Repeater {
+                    model: parent.keys
+                    delegate: Item {
+                        required property var modelData
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 36
+
+                        CalcKey {
+                            anchors.fill: parent
+                            label: modelData === "clear" ? "󰃢" : modelData
+                            action: modelData === "clear" ? "clear" : "focus"
+                            isIcon: modelData === "clear"
+                            enabled: modelData !== "clear"
+                                || (root.entries.length > 0 && !clearProc.running)
+                        }
+                    }
+                }
             }
         }
 
@@ -237,31 +367,6 @@ Item {
                 font.family: Theme.fontFamily
                 font.pixelSize: root.historyFontSize
                 opacity: 0.5
-            }
-        }
-
-        Item {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 22
-            Layout.topMargin: 2
-
-            Text {
-                anchors.centerIn: parent
-                text: "Clear history"
-                color: Theme.foreground
-                font.family: Theme.fontFamily
-                font.pixelSize: 12
-                font.bold: Theme.fontBold
-                opacity: !clearMouse.enabled ? 0.35 : (clearMouse.containsMouse ? 1 : 0.72)
-            }
-
-            MouseArea {
-                id: clearMouse
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                enabled: root.entries.length > 0 && !clearProc.running
-                onClicked: root.clearHistory()
             }
         }
 

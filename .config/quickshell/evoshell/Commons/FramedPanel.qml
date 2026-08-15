@@ -12,7 +12,7 @@ Item {
     default property alias content: contentHost.data
 
     readonly property bool hasLabel: label !== ""
-    readonly property int cornerRadius: 4
+    readonly property int cornerRadius: Theme.fieldsetCornerRadius
     readonly property int scaledPad: contentPad
     readonly property int labelGap: hasLabel ? 6 : 0
 

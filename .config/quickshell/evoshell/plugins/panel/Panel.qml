@@ -27,33 +27,6 @@ Item {
 
     readonly property var moduleIds: dockModules.map(function(entry) { return entry.id })
 
-    readonly property var navItems: [
-        { kind: "module", id: "calc", icon: "󰦬" },
-        { kind: "module", id: "settings", icon: "󰒓" }
-    ]
-
-    function navActive(item) {
-        if (!item) return false
-        if (item.kind === "module")
-            return activeModule === item.id
-        return shell && shell.isPluginOpen(item.id)
-    }
-
-    function activateNav(item) {
-        if (!item) return
-        if (item.kind === "module") {
-            if (activeModule === item.id)
-                return
-            activeModule = item.id
-            pendingFocus = ""
-            focusTarget = ""
-            activateModule()
-            return
-        }
-        if (shell)
-            shell.toggle(item.id, "")
-    }
-
     function parsePayload(payloadJson) {
         var out = { module: "", focus: "" }
         if (!payloadJson) return out
@@ -170,43 +143,6 @@ Item {
         showSideButton: true
         onCloseRequested: root.dismiss()
         onSideRequested: root.toggleSide()
-
-        RowLayout {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 28
-            spacing: 2
-
-            Repeater {
-                model: root.navItems
-
-                Item {
-                    required property var modelData
-                    required property int index
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 28
-
-                    readonly property bool current: root.navActive(modelData)
-
-                    Text {
-                        anchors.centerIn: parent
-                        text: modelData.icon
-                        color: parent.current ? Theme.accent : Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.panelIconFontPixelSize
-                        font.bold: Theme.fontBold
-                        opacity: navMouse.containsMouse || parent.current ? 1 : 0.62
-                    }
-
-                    MouseArea {
-                        id: navMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.activateNav(modelData)
-                    }
-                }
-            }
-        }
 
         Item {
             Layout.fillWidth: true

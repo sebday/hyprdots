@@ -450,10 +450,10 @@ Item {
 
                     Text {
                         anchors.centerIn: parent
-                        text: "Clear history"
+                        text: "󰃢"
                         color: Theme.foreground
                         font.family: Theme.fontFamily
-                        font.pixelSize: 12
+                        font.pixelSize: Theme.panelIconFontPixelSize
                         font.bold: Theme.fontBold
                         opacity: clearMouse.containsMouse ? 1 : 0.72
                     }

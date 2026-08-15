@@ -369,19 +369,21 @@ Item {
             }
         }
 
-        Text {
+        Item {
             Layout.fillWidth: true
-            Layout.preferredHeight: 22
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-            text: "Clear completed"
-            color: Theme.foreground
-            font.family: Theme.fontFamily
-            font.pixelSize: 12
-            font.bold: Theme.fontBold
-            opacity: !clearCompletedMouse.enabled
-                ? 0.35
-                : (clearCompletedMouse.containsMouse ? 1 : 0.72)
+            Layout.preferredHeight: 28
+
+            Text {
+                anchors.centerIn: parent
+                text: "󰩈"
+                color: Theme.foreground
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.panelIconFontPixelSize
+                font.bold: Theme.fontBold
+                opacity: !clearCompletedMouse.enabled
+                    ? 0.35
+                    : (clearCompletedMouse.containsMouse ? 1 : 0.72)
+            }
 
             MouseArea {
                 id: clearCompletedMouse
