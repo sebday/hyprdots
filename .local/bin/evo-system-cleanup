@@ -3,7 +3,7 @@
 
 set -euo pipefail
 
-EVO_CLIPBOARD="${HOME}/.config/quickshell/evoshell/plugins/clipboard/evo-app-clipboard"
+EVO_CLIPBOARD="${HOME}/.local/bin/evo-clipboard"
 EVO_SHELL_CACHE="${XDG_CACHE_HOME:-${HOME}/.cache}/evoshell"
 
 cleared=()

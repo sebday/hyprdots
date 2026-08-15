@@ -86,7 +86,7 @@ history) history_list ;;
 add) add_history "${2:-}" "${3:-}" ;;
 clear) clear_history ;;
 *)
-    echo "usage: evo-app-calc eval <expr>|history|add <expr> <result>|clear" >&2
+    echo "usage: evo-calculator eval <expr>|history|add <expr> <result>|clear" >&2
     exit 1
     ;;
 esac

@@ -41,8 +41,8 @@ bindd("SUPER + B", "Settings panel", hl.dsp.exec_cmd(shell_ipc .. ' shell toggle
 bindd("SUPER + M", "Library", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.library"))
 bindd(
 	"SUPER + V",
-	"Clipboard panel",
-	hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.panel \'{"module":"clipboard"}\'')
+	"Clipboard history",
+	hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.clipboard")
 )
 bindd("SUPER + P", "Colour Picker", hl.dsp.exec_cmd("hyprpicker -al"))
 

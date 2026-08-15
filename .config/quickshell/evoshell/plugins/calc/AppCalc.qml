@@ -17,7 +17,7 @@ Item {
     property int historyRecallIndex: -1
     property var exprHistory: []
 
-    readonly property string script: Quickshell.shellDir + "/plugins/calc/evo-app-calc"
+    readonly property string script: Quickshell.env("HOME") + "/.local/bin/evo-calculator"
     readonly property int inputFontSize: 24
     readonly property int historyFontSize: 15
     readonly property bool active: host && host.opened && host.activeModule === "calc"

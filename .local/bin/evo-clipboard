@@ -430,6 +430,30 @@ clear_history() {
     pins_clear_cmd
 }
 
+delete_entry() {
+    local entry_id="${1:-}"
+    [[ "$entry_id" =~ ^[0-9]+$ ]] || return 1
+
+    local pins idx pin_file
+    pins=$(load_pins_json)
+    idx=$(
+        jq -r --arg id "$entry_id" \
+            '[to_entries[] | select(.value.cliphistId | tostring == $id)] | if length > 0 then .[0].key else empty end' \
+            <<<"$pins"
+    )
+
+    if [[ -n "$idx" ]]; then
+        pin_file=$(jq -r ".[$idx].file" <<<"$pins")
+        rm -f "${PINS_DATA_DIR}/${pin_file}"
+        pins=$(jq "del(.[$idx])" <<<"$pins")
+        save_pins "$pins"
+    fi
+
+    printf '%s\n' "$entry_id" | cliphist delete 2>/dev/null || return 1
+
+    rm -f "${PREVIEW_DIR}/${entry_id}.png" "${PREVIEW_DIR}/${entry_id}.jpg" 2>/dev/null || true
+}
+
 case "${1:-}" in
 watch) watch ;;
 list) list_entries "${2:-$LIMIT_DEFAULT}" ;;
@@ -437,10 +461,11 @@ copy) copy_id "${2:-}" ;;
 preview) preview_file "${2:-}" ;;
 cache-previews) cache_previews "${2:-$LIMIT_DEFAULT}" ;;
 toggle-pin) toggle_pin "${2:-}" ;;
+delete) delete_entry "${2:-}" ;;
 pins) read_pins ;;
 clear) clear_history ;;
 *)
-    echo "usage: evo-app-clipboard watch|list [n]|copy <id>|preview <id>|cache-previews [n]|toggle-pin <id>|pins|clear" >&2
+    echo "usage: evo-clipboard watch|list [n]|copy <id>|delete <id>|preview <id>|cache-previews [n]|toggle-pin <id>|pins|clear" >&2
     exit 1
     ;;
 esac

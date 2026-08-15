@@ -8,7 +8,7 @@ Item {
 
     property var shell: null
 
-    readonly property string script: Quickshell.shellDir + "/plugins/clipboard/evo-app-clipboard"
+    readonly property string script: Quickshell.env("HOME") + "/.local/bin/evo-clipboard"
 
     Component.onCompleted: watchProc.running = true
 

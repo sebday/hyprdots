@@ -11,7 +11,7 @@ local chrome_buf, chrome_win
 local tab_hits = {}
 local busy = false
 local HEIGHT = 3
-local middle_click_tab
+local middle_click_tab, bind_chrome_mouse
 
 local function tab_at_col(col)
   for _, hit in ipairs(tab_hits) do
@@ -449,29 +449,30 @@ middle_click_tab = function(mouse)
     return false
   end
   if hit then
+    -- Close runs on release; X11 paste on release lands in the focused editor
+    -- and /home/... in the primary selection starts a search for "home" (E486).
+    vim.o.eventignore = "all"
+    vim.g.editor_chrome_block_mouse = true
     delete_tab_buffer(hit.buf)
-    vim.schedule(M.refresh)
+    vim.defer_fn(function()
+      vim.g.editor_chrome_block_mouse = nil
+      vim.o.eventignore = ""
+      M.refresh()
+    end, 50)
     return true
   end
   bounce_focus()
   return true
 end
 
-local function bind_chrome_mouse()
+bind_chrome_mouse = function()
   if not chrome_buf or not vim.api.nvim_buf_is_valid(chrome_buf) then
     return
   end
-  if vim.b[chrome_buf].editor_chrome_mouse then
-    return
-  end
-  vim.b[chrome_buf].editor_chrome_mouse = true
   local opts = { buffer = chrome_buf, silent = true }
-  -- Block middle-click paste into the unmodifiable chrome buffer (E21).
+  pcall(vim.keymap.del, { "n", "i" }, "<MiddleRelease>", opts)
   vim.keymap.set({ "n", "i" }, "<MiddleMouse>", "<Nop>", opts)
   vim.keymap.set({ "n", "i" }, "<2-Mouse>", "<Nop>", opts)
-  vim.keymap.set({ "n", "i" }, "<MiddleRelease>", function()
-    middle_click_tab(vim.fn.getmousepos())
-  end, opts)
 end
 
 function M.refresh()
@@ -560,19 +561,27 @@ function M.setup()
   vim.keymap.set(mouse_modes, "<LeftRelease>", function()
     click_tab(vim.fn.getmousepos())
   end, vim.tbl_extend("force", mouse_opts, { desc = "Select chrome buffer tab" }))
-  -- Fallback: block middle-click paste on the chrome tab bar before buffer maps exist.
-  vim.keymap.set(mouse_modes, "<MiddleMouse>", function()
+  -- Release only: press coords are wrong; release also carries X11 middle-click paste.
+  vim.keymap.set(mouse_modes, "<MiddleRelease>", function()
+    middle_click_tab(vim.fn.getmousepos())
+  end, vim.tbl_extend("force", mouse_opts, { desc = "Close chrome buffer tab" }))
+  local function block_chrome_middle_mouse()
+    if vim.g.editor_chrome_block_mouse then
+      return "<Nop>"
+    end
     local mouse = vim.fn.getmousepos()
     if chrome_win and mouse.winid == chrome_win then
       return "<Nop>"
     end
-  end, vim.tbl_extend("force", mouse_opts, { expr = true, desc = "Block paste on chrome tab bar" }))
-  vim.keymap.set(mouse_modes, "<2-Mouse>", function()
-    local mouse = vim.fn.getmousepos()
-    if chrome_win and mouse.winid == chrome_win then
-      return "<Nop>"
-    end
-  end, vim.tbl_extend("force", mouse_opts, { expr = true, desc = "Block paste on chrome tab bar" }))
+  end
+  vim.keymap.set(mouse_modes, "<MiddleMouse>", block_chrome_middle_mouse, vim.tbl_extend("force", mouse_opts, {
+    expr = true,
+    desc = "Block paste on chrome tab bar",
+  }))
+  vim.keymap.set(mouse_modes, "<2-Mouse>", block_chrome_middle_mouse, vim.tbl_extend("force", mouse_opts, {
+    expr = true,
+    desc = "Block paste on chrome tab bar",
+  }))
 
   vim.api.nvim_create_autocmd("OptionSet", {
     group = vim.api.nvim_create_augroup("editor_chrome_status", { clear = true }),

@@ -4,7 +4,6 @@ import QtQuick
 import QtQuick.Layouts
 import "../../Commons"
 import "../calc" as Calc
-import "../clipboard" as Clipboard
 import "modules"
 
 Item {
@@ -19,12 +18,10 @@ Item {
     readonly property string layoutScript: Quickshell.env("HOME") + "/.local/bin/evo-layout"
 
     Component { id: calcComp; Calc.AppCalc {} }
-    Component { id: clipboardComp; Clipboard.AppClipboard {} }
     Component { id: settingsComp; SettingsModule {} }
 
     readonly property var dockModules: [
         { id: "calc", component: calcComp },
-        { id: "clipboard", component: clipboardComp },
         { id: "settings", component: settingsComp }
     ]
 
@@ -32,7 +29,6 @@ Item {
 
     readonly property var navItems: [
         { kind: "module", id: "calc", icon: "󰦬" },
-        { kind: "module", id: "clipboard", icon: "󰅌" },
         { kind: "module", id: "settings", icon: "󰒓" }
     ]
 

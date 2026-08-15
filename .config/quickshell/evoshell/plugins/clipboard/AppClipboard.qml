@@ -15,12 +15,12 @@ Item {
     property int previewTick: 0
     property bool imagesOnly: false
 
-    readonly property string script: Quickshell.shellDir + "/plugins/clipboard/evo-app-clipboard"
+    readonly property string script: Quickshell.env("HOME") + "/.local/bin/evo-clipboard"
     readonly property string previewDir: Quickshell.env("HOME") + "/.local/state/evoshell/clipboard-previews"
     readonly property int listLimit: 30
     readonly property int historyFontSize: 13
     readonly property int rowHeight: 44
-    readonly property bool active: host && host.opened && host.activeModule === "clipboard"
+    readonly property bool active: host && host.opened
 
     readonly property var visibleEntries: {
         if (!imagesOnly) return entries
@@ -144,6 +144,14 @@ Item {
         clearProc.running = true
     }
 
+    function deleteSelected() {
+        if (deleteProc.running) return
+        var entry = selectedEntry
+        if (!entry) return
+        deleteProc.entryId = String(entry.id)
+        deleteProc.running = true
+    }
+
     function onActivated() {
         selectedIndex = 0
         imagesOnly = false
@@ -160,6 +168,16 @@ Item {
         property string entryId: ""
         command: ["bash", root.script, "toggle-pin", pinProc.entryId]
         onExited: root.refresh()
+    }
+
+    Process {
+        id: deleteProc
+        property string entryId: ""
+        command: ["bash", root.script, "delete", deleteProc.entryId]
+        onExited: {
+            root.previewTick++
+            root.refresh()
+        }
     }
 
     Process {
@@ -206,6 +224,12 @@ Item {
         Keys.onEnterPressed: {
             if (listView.currentIndex >= 0 && listView.currentIndex < root.visibleEntries.length)
                 root.copyId(root.visibleEntries[listView.currentIndex].id)
+        }
+        Keys.onPressed: function(event) {
+            if (event.key === Qt.Key_Backspace) {
+                event.accepted = true
+                root.deleteSelected()
+            }
         }
 
         ColumnLayout {
