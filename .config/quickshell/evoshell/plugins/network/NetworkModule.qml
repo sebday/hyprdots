@@ -15,6 +15,7 @@ Item {
 
     readonly property string script: Quickshell.env("HOME") + "/.local/bin/evo-network"
     readonly property bool active: host && host.opened === true
+    readonly property var barSource: shell ? shell.popupAnchorItem : null
     readonly property int bodyFont: Theme.hoverPopupBodyFontPixelSize
     readonly property int hintFont: Theme.hoverPopupHintFontPixelSize
     readonly property int statFont: Theme.hoverPopupLabelFontPixelSize
@@ -24,10 +25,6 @@ Item {
     property bool loading: true
     property bool hasTransferStats: false
     property bool hasPingStats: false
-    property real prevRxBytes: 0
-    property real prevTxBytes: 0
-    property real prevSampleTime: 0
-    property string prevIface: ""
     property real downloadRate: 0
     property real uploadRate: 0
     property var downHistory: []
@@ -97,28 +94,82 @@ Item {
     function onActivated() {
         if (!info || !info.iface)
             loading = true
-        resetThroughput()
+        syncFromBar()
         refreshVerbose()
         refreshProcesses()
         pollTimer.start()
         processTimer.start()
     }
 
+    function applyThroughputCache(data) {
+        if (!data || typeof data !== "object")
+            return
+        if (data.download_bps !== undefined || data.upload_bps !== undefined) {
+            downloadRate = parseFloat(data.download_bps) || 0
+            uploadRate = parseFloat(data.upload_bps) || 0
+            hasTransferStats = data.connected === true || !!info.iface
+        }
+        if (Array.isArray(data.downHistory) && data.downHistory.length > 0)
+            downHistory = data.downHistory.slice()
+        if (Array.isArray(data.upHistory) && data.upHistory.length > 0)
+            upHistory = data.upHistory.slice()
+    }
+
+    function syncFromBar() {
+        var item = barSource
+        if (item && Array.isArray(item.downHistory) && item.downHistory.length > 0) {
+            downHistory = item.downHistory.slice()
+            upHistory = item.upHistory.slice()
+            downloadRate = item.downloadRate || 0
+            uploadRate = item.uploadRate || 0
+            hasTransferStats = item.connected === true
+            return
+        }
+        if (shell)
+            applyThroughputCache(shell.hoverPopupDataFor(cacheKey))
+    }
+
     function bootstrapFromCache() {
         if (!shell)
             return
         var cached = shell.hoverPopupDataFor(cacheKey)
-        if (!cached || typeof cached !== "object" || !cached.iface)
+        if (!cached || typeof cached !== "object")
             return
-        info = cached
-        loading = false
-        if (cached.router_ping_ms !== undefined || cached.internet_ping_ms !== undefined)
-            hasPingStats = true
+        if (cached.iface) {
+            info = cached
+            loading = false
+            if (cached.router_ping_ms !== undefined || cached.internet_ping_ms !== undefined)
+                hasPingStats = true
+        }
+        applyThroughputCache(cached)
     }
 
     function publishCache(data) {
-        if (shell && data && typeof data === "object" && data.iface)
-            shell.setHoverPopupData(cacheKey, data)
+        if (!shell || !data || typeof data !== "object" || !data.iface)
+            return
+        var bar = barSource
+        if (bar) {
+            data.download_bps = bar.downloadRate
+            data.upload_bps = bar.uploadRate
+            data.downHistory = bar.downHistory
+            data.upHistory = bar.upHistory
+            data.connected = bar.connected
+        } else {
+            var existing = shell.hoverPopupDataFor(cacheKey)
+            if (existing && typeof existing === "object") {
+                if (existing.downHistory)
+                    data.downHistory = existing.downHistory
+                if (existing.upHistory)
+                    data.upHistory = existing.upHistory
+                if (existing.download_bps !== undefined)
+                    data.download_bps = existing.download_bps
+                if (existing.upload_bps !== undefined)
+                    data.upload_bps = existing.upload_bps
+                if (existing.connected !== undefined)
+                    data.connected = existing.connected
+            }
+        }
+        shell.setHoverPopupData(cacheKey, data)
     }
 
     function onDeactivated() {
@@ -133,21 +184,6 @@ Item {
         for (var i = 0; i < maxHistory; i++)
             out.push({ value: 0 })
         return out
-    }
-
-    function resetThroughput() {
-        prevRxBytes = 0
-        prevTxBytes = 0
-        prevSampleTime = 0
-        prevIface = ""
-        downloadRate = 0
-        uploadRate = 0
-        downHistory = zeroHistory()
-        upHistory = zeroHistory()
-        topDown = []
-        topUp = []
-        hasTransferStats = false
-        hasPingStats = false
     }
 
     function parseVerbose(raw) {
@@ -177,14 +213,6 @@ Item {
         if (!isFinite(v) || v < 0) return "Timeout"
         if (v > 0 && v < 10) return v.toFixed(1) + " ms"
         return Math.round(v) + " ms"
-    }
-
-    function pushHistory(history, value) {
-        var next = history.slice()
-        next.push({ value: value })
-        if (next.length > maxHistory)
-            next = next.slice(next.length - maxHistory)
-        return next
     }
 
     function padProcessRows(rows) {
@@ -227,37 +255,13 @@ Item {
         info = next
         publishCache(next)
 
-        var now = Date.now() / 1000
-        var iface = String(next.iface || "")
-        var rx = parseFloat(next.rx_bytes || "0")
-        var tx = parseFloat(next.tx_bytes || "0")
-
         if (next.router_ping_ms !== undefined || next.internet_ping_ms !== undefined)
             hasPingStats = true
 
-        if (next.rx_bytes !== undefined || next.tx_bytes !== undefined)
+        if (next.iface)
             hasTransferStats = true
 
-        if (!iface || iface !== prevIface || prevSampleTime === 0) {
-            prevIface = iface
-            prevRxBytes = rx
-            prevTxBytes = tx
-            prevSampleTime = now
-            downloadRate = 0
-            uploadRate = 0
-            return
-        }
-
-        var dt = now - prevSampleTime
-        if (dt > 0) {
-            downloadRate = Math.max(0, (rx - prevRxBytes) / dt)
-            uploadRate = Math.max(0, (tx - prevTxBytes) / dt)
-            downHistory = pushHistory(downHistory, downloadRate)
-            upHistory = pushHistory(upHistory, uploadRate)
-        }
-        prevRxBytes = rx
-        prevTxBytes = tx
-        prevSampleTime = now
+        syncFromBar()
     }
 
     function refreshVerbose() {
@@ -320,6 +324,28 @@ Item {
     Component.onCompleted: {
         downHistory = zeroHistory()
         upHistory = zeroHistory()
+        bootstrapFromCache()
+    }
+
+    Connections {
+        target: root.barSource
+        enabled: root.barSource !== null
+        function onDownloadRateChanged() {
+            if (root.active)
+                root.syncFromBar()
+        }
+        function onUploadRateChanged() {
+            if (root.active)
+                root.syncFromBar()
+        }
+        function onDownHistoryChanged() {
+            if (root.active)
+                root.syncFromBar()
+        }
+        function onUpHistoryChanged() {
+            if (root.active)
+                root.syncFromBar()
+        }
     }
 
     ColumnLayout {

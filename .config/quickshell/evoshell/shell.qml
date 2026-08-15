@@ -45,7 +45,6 @@ ShellRoot {
         "evo.stocks": { kinds: ["menu"], path: "plugins/stocks/Stocks.qml", keepLoaded: true },
         "evo.library": { kinds: ["menu"], path: "plugins/library/Library.qml", keepLoaded: true },
         "evo.theme": { kinds: ["menu"], path: "plugins/theme/Theme.qml", keepLoaded: true },
-        "evo.screenshot": { kinds: ["menu"], path: "plugins/screenshot/Screenshot.qml", keepLoaded: true },
         "evo.clipboard": { kinds: ["menu", "service"], path: "plugins/clipboard/Clipboard.qml", servicePath: "plugins/clipboard/Service.qml", keepLoaded: true },
         "evo.panel": { kinds: ["panel"], path: "plugins/panel/Panel.qml", keepLoaded: true },
         "evo.bar": { kinds: ["bar"], path: "plugins/bar/Bar.qml" },
@@ -384,7 +383,7 @@ ShellRoot {
         }
     }
 
-    readonly property var panelPluginIds: ["evo.menu", "evo.panel", "evo.calendar", "evo.stats_diy", "evo.stats_tgs", "evo.cursor", "evo.weather", "evo.network", "evo.sound", "evo.github", "evo.stocks", "evo.library", "evo.theme", "evo.wallpaper", "evo.screenshot", "evo.clipboard"]
+    readonly property var panelPluginIds: ["evo.menu", "evo.panel", "evo.calendar", "evo.stats_diy", "evo.stats_tgs", "evo.cursor", "evo.weather", "evo.network", "evo.sound", "evo.github", "evo.stocks", "evo.library", "evo.theme", "evo.wallpaper", "evo.clipboard"]
 
     Instantiator {
         model: shell.panelPluginIds

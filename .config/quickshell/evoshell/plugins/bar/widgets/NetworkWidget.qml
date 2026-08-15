@@ -25,12 +25,15 @@ Item {
         return isNaN(n) || n <= 0 ? trayIconSize + 4 : n
     }
     readonly property real rateThreshold: 1048576
+    readonly property int maxHistory: 36
 
     property string iconText: "󰈀"
     property string labelText: "net"
     property bool connected: false
     property real downloadRate: 0
     property real uploadRate: 0
+    property var downHistory: []
+    property var upHistory: []
 
     readonly property color gapIdleColor: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.2)
     readonly property color gapColor: {
@@ -53,6 +56,57 @@ Item {
     width: trayMode && parent ? parent.width : implicitWidth
     height: Theme.barHeight
 
+    function zeroHistory() {
+        var out = []
+        for (var i = 0; i < maxHistory; i++)
+            out.push({ value: 0 })
+        return out
+    }
+
+    function pushHistory(history, value) {
+        var next = history.slice()
+        next.push({ value: value })
+        if (next.length > maxHistory)
+            next = next.slice(next.length - maxHistory)
+        return next
+    }
+
+    function applyThroughputCache(cached) {
+        if (!cached || typeof cached !== "object")
+            return
+        if (cached.download_bps !== undefined)
+            downloadRate = parseFloat(cached.download_bps) || 0
+        if (cached.upload_bps !== undefined)
+            uploadRate = parseFloat(cached.upload_bps) || 0
+        if (Array.isArray(cached.downHistory) && cached.downHistory.length > 0)
+            downHistory = cached.downHistory.slice()
+        if (Array.isArray(cached.upHistory) && cached.upHistory.length > 0)
+            upHistory = cached.upHistory.slice()
+    }
+
+    function publishCache() {
+        if (!shell || !hoverPopupId)
+            return
+        var existing = shell.hoverPopupDataFor(hoverPopupId)
+        var next = {}
+        if (existing && typeof existing === "object") {
+            for (var k in existing)
+                next[k] = existing[k]
+        }
+        next.download_bps = downloadRate
+        next.upload_bps = uploadRate
+        next.downHistory = downHistory
+        next.upHistory = upHistory
+        next.connected = connected
+        shell.setHoverPopupData(hoverPopupId, next)
+    }
+
+    function bootstrapFromCache() {
+        if (!shell || !hoverPopupId)
+            return
+        applyThroughputCache(shell.hoverPopupDataFor(hoverPopupId))
+    }
+
     function applyJson(line) {
         var raw = String(line || "").trim()
         if (!raw) return
@@ -65,6 +119,9 @@ Item {
             uploadRate = parseFloat(json.upload_bps || "0")
             if (!isFinite(downloadRate)) downloadRate = 0
             if (!isFinite(uploadRate)) uploadRate = 0
+            downHistory = pushHistory(downHistory, downloadRate)
+            upHistory = pushHistory(upHistory, uploadRate)
+            publishCache()
         } catch (e) {
             console.warn("network widget parse failed:", e)
         }
@@ -87,16 +144,17 @@ Item {
             width: root.trayMode ? root.trayIconSize : netIcon.implicitWidth
             height: root.trayMode ? root.trayIconSize : netIcon.implicitHeight
 
-            readonly property int ringSize: Math.max(width, height) + 6
+            readonly property int ringSize: Math.max(width, height) + 5
 
             Rectangle {
                 id: activityRing
                 anchors.centerIn: parent
+                anchors.horizontalCenterOffset: 1
                 width: iconBox.ringSize
                 height: width
-                radius: width / 2
+                radius: 2
                 color: "transparent"
-                border.width: root.trafficActive ? 2 : 1
+                border.width: 1
                 border.color: root.gapColor
                 opacity: root.trafficActive ? ringPulse.opacity : 0.3
                 visible: root.showGap
@@ -201,5 +259,11 @@ Item {
     }
 
     onSettingsChanged: restartPolling()
-    Component.onCompleted: restartPolling()
+    onShellChanged: bootstrapFromCache()
+    Component.onCompleted: {
+        downHistory = zeroHistory()
+        upHistory = zeroHistory()
+        bootstrapFromCache()
+        restartPolling()
+    }
 }

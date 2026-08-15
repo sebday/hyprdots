@@ -91,9 +91,7 @@ Item {
         var n = parseFloat(val)
         if (isNaN(n) || n <= 0)
             return "—"
-        if (n >= 1)
-            return n.toFixed(4) + " BTC"
-        return n.toFixed(6) + " BTC"
+        return n.toFixed(3) + " BTC"
     }
 
     function fmtQty(val) {

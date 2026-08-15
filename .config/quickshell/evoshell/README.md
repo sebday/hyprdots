@@ -72,7 +72,7 @@ Letters match the diagram.
 | **W** | `evo.calendar`, `evo.weather`, `evo.stats_diy`, `evo.stats_tgs`, `evo.github`, `evo.stocks`, `evo.sound`, `evo.network`, `evo.cursor` | Bar hover (`onHover` in `shell.json`) |
 | **C** | `evo.system` | Bar click → `evo-system-btop` toggle (Hyprland window rule) |
 | **O** | `evo.library`, `evo.theme`, `evo.wallpaper` | Keybind / menu / IPC toggle |
-| **R** | `evo.screenshot` | Keybind |
+| **R** | `hyprshot` + `satty` (`evo-screenshot-edit`) | Keybind (`bindings.lua`) |
 
 ## Directory layout
 
@@ -98,6 +98,7 @@ evoshell/
 |------|--------|
 | Shell config | `~/.config/quickshell/evoshell/` |
 | Bar/panel scripts | `~/.local/bin/evo-*` |
+| Screenshots | `hyprshot` → `/tmp/hyprshot.png`, annotate via `~/.local/bin/evo-screenshot-edit` (`satty`) |
 | IPC | `~/.local/bin/evo-ipc` |
 | Hypr integration | `~/.config/hypr/{autostart,bindings,evoshell,windows}.lua` |
 | Secrets | `~/.local/share/evoshell/secrets.env` |

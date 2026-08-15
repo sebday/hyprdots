@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Annotate a screenshot with satty (default: /tmp/hyprshot.png from hyprshot).
+
+set -euo pipefail
+
+SHOT="/tmp/hyprshot.png"
+OUT_DIR="${HOME}/onedrive/pictures/Screenshots"
+CAPTURE=""
+
+while [[ $# -gt 0 ]]; do
+	case "$1" in
+	--capture)
+		CAPTURE="${2:-region}"
+		shift 2
+		;;
+	*)
+		SHOT="$1"
+		shift
+		;;
+	esac
+done
+
+if [[ -n "$CAPTURE" ]]; then
+	case "$CAPTURE" in
+	region)
+		hyprshot -m region -o /tmp -f hyprshot.png -s
+		;;
+	output | monitor)
+		hyprshot -m output -m active -o /tmp -f hyprshot.png -s
+		;;
+	*)
+		echo "evo-screenshot-edit: unknown capture mode: $CAPTURE" >&2
+		exit 2
+		;;
+	esac
+fi
+
+if [[ ! -f "$SHOT" ]]; then
+	notify-send -a evoshell screenshot "no capture — press Print first" 2>/dev/null || true
+	exit 1
+fi
+
+mkdir -p "$OUT_DIR"
+exec satty -f "$SHOT" --floating-hack -o "$OUT_DIR/satty-%Y%m%d-%H%M%S.png"

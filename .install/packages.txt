@@ -23,6 +23,7 @@ vimix-cursors
 
 # Tools ######################
 ghostty
+satty
 git
 eza
 fzf
@@ -64,10 +65,10 @@ imv
 mpv
 imagemagick
 transmission-cli
-obsidian
 
 # Dev #######################
 mise
 python
 lazygit
 neovim
+obsidian

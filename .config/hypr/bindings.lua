@@ -174,5 +174,10 @@ bindd(
 bindd(
 	"SUPER + PRINT",
 	"Annotate screenshot",
-	hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.screenshot \'{"path":"/tmp/hyprshot.png"}\'')
+	hl.dsp.exec_cmd(bin .. "/evo-screenshot-edit")
+)
+bindd(
+	"SUPER + SHIFT + PRINT",
+	"Screenshot region and annotate",
+	hl.dsp.exec_cmd(bin .. "/evo-screenshot-edit --capture region")
 )

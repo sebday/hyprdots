@@ -93,7 +93,7 @@ Item {
     readonly property int smallFont: Theme.hoverPopupIconFontPixelSize
     readonly property int hintFont: Theme.hoverPopupBodyFontPixelSize
     readonly property int heroFont: 34
-    readonly property int breakdownFont: Theme.panelDetailFontPixelSize
+    readonly property int breakdownFont: Theme.panelDetailFontPixelSize + 1
     readonly property int tokensFont: Theme.hoverPopupHintFontPixelSize
     readonly property int gaugeLabelFont: Theme.panelHintFontPixelSize
     readonly property int gaugeSize: 168
