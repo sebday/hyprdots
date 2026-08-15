@@ -61,7 +61,7 @@ configure_greetd() {
     log "Configuring greetd for autologin..."
     local user greet_cmd
     user=$(whoami) || { echo "Failed to get username"; exit 1; }
-    greet_cmd="$HOME/.local/bin/hypr-greetd.sh"
+    greet_cmd="$HOME/.local/bin/hypr-greetd"
     cat <<EOT | sudo tee /etc/greetd/config.toml > /dev/null
 [terminal]
 vt = 1

@@ -23,19 +23,6 @@ return {
     "folke/snacks.nvim",
     opts = {
       dashboard = { enabled = false },
-      explorer = {
-        hidden = true,
-        ignored = false,
-        git_status = false,
-        layout = {
-          preset = "sidebar",
-          preview = false,
-          layout = {
-            width = 30,
-            min_width = 30,
-          },
-        },
-      },
       picker = {
         sources = {
           files = {
@@ -50,14 +37,6 @@ return {
             hidden = true,
             ignored = false,
             git_status = false,
-            layout = {
-              preset = "sidebar",
-              preview = false,
-              layout = {
-                width = 30,
-                min_width = 30,
-              },
-            },
             config = function(opts)
               local cwd = opts.cwd or vim.fn.getcwd()
               local filter = require("config.finder-filter")
@@ -184,11 +163,24 @@ return {
         end,
       })
 
-      vim.api.nvim_create_autocmd({ "BufEnter", "BufDelete" }, {
+      vim.api.nvim_create_autocmd("BufDelete", {
         callback = function()
           if finder_filter.is_home(vim.fn.getcwd()) then
             vim.defer_fn(finder_filter.refresh_explorer, 50)
           end
+        end,
+      })
+
+      vim.api.nvim_create_autocmd("BufEnter", {
+        callback = function()
+          if not finder_filter.is_home(vim.fn.getcwd()) then
+            return
+          end
+          local path = vim.api.nvim_buf_get_name(0)
+          if path == "" or finder_filter.allows_path(path) then
+            return
+          end
+          vim.defer_fn(finder_filter.refresh_explorer, 50)
         end,
       })
 
