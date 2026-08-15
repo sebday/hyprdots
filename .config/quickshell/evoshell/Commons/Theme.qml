@@ -189,7 +189,6 @@ Singleton {
     readonly property int notificationBodySize: 14
     readonly property int notificationIconSize: 22
     readonly property int notificationArtSize: 68
-    readonly property int notificationVolumeHeight: 68
     readonly property int notificationMediaPad: 16
     readonly property int notificationStackSlot: 88
 

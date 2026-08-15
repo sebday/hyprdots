@@ -165,7 +165,7 @@ Item {
         id: storePoll
         shell: root.shell
         cacheKey: root.storeCacheKey
-        active: true
+        active: root.active
         defaultIntervalSec: 300
         command: ["bash", root.home + "/.local/bin/evo-bar-shopify", root.storeKey, "30"]
         onPolled: function(json) { root.applyPayload(json) }

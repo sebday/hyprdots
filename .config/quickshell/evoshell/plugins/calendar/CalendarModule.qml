@@ -14,17 +14,18 @@ Item {
     property int viewYear: today.getFullYear()
     property int viewMonth: today.getMonth()
     property string selectedDayKey: Model.keyForDate(today)
-    property var weekStartOverride: null
 
     readonly property string todayKey: Model.keyForDate(today)
     readonly property date viewDate: new Date(viewYear, viewMonth, 1)
     readonly property bool viewingCurrentMonth: viewYear === today.getFullYear() && viewMonth === today.getMonth()
-    readonly property int weekStart: Model.normalizedWeekStart(weekStartOverride, Qt.locale().firstDayOfWeek)
+    readonly property int weekStart: Model.normalizedWeekStart(null, Qt.locale().firstDayOfWeek)
     readonly property var weekdays: Model.weekdayOrder(weekStart)
     readonly property var weeks: Model.monthGrid(viewYear, viewMonth, weekStart, todayKey)
-    readonly property int yearDonePercent: Model.yearProgressPercent(today.getFullYear(), today.getMonth(), today.getDate())
-    readonly property real yearDone: Model.yearProgress(today.getFullYear(), today.getMonth(), today.getDate())
     readonly property date selectedDate: Model.dateFromKey(selectedDayKey, today)
+    readonly property int yearDonePercent: Model.yearProgressPercent(
+        selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate())
+    readonly property real yearDone: Model.yearProgress(
+        selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate())
     readonly property int selectedWeek: Model.isoWeek(
         selectedDate.getFullYear(),
         selectedDate.getMonth(),
@@ -34,15 +35,13 @@ Item {
     readonly property string selectedYearLabel: String(root.selectedDate.getFullYear())
 
     readonly property int cellWidth: {
-        var extra = weekColumnWidth + gutterWidth + cellSpacing * 6
+        var extra = cellSpacing * 6
         return Math.max(28, Math.floor((Math.max(200, hoverPopupWidth) - extra) / 7))
     }
     readonly property int cellHeight: 26
     readonly property int cellSpacing: 3
-    readonly property int weekColumnWidth: 24
-    readonly property int gutterWidth: 10
     readonly property int headerRowHeight: 18
-    readonly property int gridWidth: weekColumnWidth + gutterWidth + cellWidth * 7 + cellSpacing * 6
+    readonly property int gridWidth: cellWidth * 7 + cellSpacing * 6
     readonly property int hintFont: Theme.hoverPopupHintFontPixelSize
     readonly property int bodyFont: Theme.hoverPopupBodyFontPixelSize
     readonly property int titleFont: Theme.hoverPopupTitleFontPixelSize
@@ -71,10 +70,6 @@ Item {
         var next = Model.stepMonth(viewYear, viewMonth, delta)
         viewYear = next.year
         viewMonth = next.month
-    }
-
-    function toggleWeekStart() {
-        weekStartOverride = Model.weekStartSettingName(Model.toggledWeekStart(weekStart))
     }
 
     Timer {
@@ -204,23 +199,6 @@ Item {
                     icon: "󰅂"
                     onTriggered: root.moveMonth(1)
                 }
-
-                Text {
-                    visible: !root.viewingCurrentMonth
-                    text: "Today"
-                    color: todayMouse.containsMouse ? Theme.foreground : Theme.accent
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.hintFont
-                    font.bold: Theme.fontBold
-
-                    MouseArea {
-                        id: todayMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.goToToday()
-                    }
-                }
             }
 
             Item {
@@ -243,34 +221,6 @@ Item {
 
                     Row {
                         spacing: root.cellSpacing
-
-                        Rectangle {
-                            width: root.weekColumnWidth
-                            height: root.headerRowHeight
-                            radius: Theme.fieldsetCornerRadius
-                            color: weekStartMouse.containsMouse ? Theme.panelMantle : "transparent"
-
-                            Text {
-                                anchors.centerIn: parent
-                                text: "W"
-                                color: weekStartMouse.containsMouse ? Theme.accent : Theme.foreground
-                                opacity: weekStartMouse.containsMouse ? 1 : 0.45
-                                font.family: Theme.fontFamily
-                                font.pixelSize: root.hintFont
-                                font.letterSpacing: 0.5
-                                font.bold: Theme.fontBold
-                            }
-
-                            MouseArea {
-                                id: weekStartMouse
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: root.toggleWeekStart()
-                            }
-                        }
-
-                        Item { width: root.gutterWidth; height: root.headerRowHeight }
 
                         Repeater {
                             model: root.weekdays
@@ -297,24 +247,9 @@ Item {
                             required property var modelData
                             spacing: root.cellSpacing
 
-                            Text {
-                                width: root.weekColumnWidth
-                                height: root.cellHeight
-                                horizontalAlignment: Text.AlignHCenter
-                                verticalAlignment: Text.AlignVCenter
-                                text: modelData.week
-                                color: Theme.foreground
-                                opacity: 0.35
-                                font.family: Theme.fontFamily
-                                font.pixelSize: root.hintFont
-                            }
-
-                            Item { width: root.gutterWidth; height: root.cellHeight }
-
                             Repeater {
                                 model: modelData.days
                                 DayCell {
-                                    required property var modelData
                                     cellWidth: root.cellWidth
                                     cellHeight: root.cellHeight
                                     selected: modelData.key === root.selectedDayKey
@@ -323,15 +258,6 @@ Item {
                             }
                         }
                     }
-                }
-
-                Rectangle {
-                    x: gridCol.x + root.weekColumnWidth + root.cellSpacing + Math.round((root.gutterWidth - width) / 2)
-                    y: gridCol.y + root.headerRowHeight + gridCol.spacing
-                    width: 1
-                    height: gridCol.height - root.headerRowHeight - gridCol.spacing
-                    color: Theme.foreground
-                    opacity: 0.08
                 }
             }
         }
@@ -375,7 +301,7 @@ Item {
     component DayCell: Item {
         id: dayCell
 
-        property var modelData: ({})
+        required property var modelData
         property bool selected: false
         property int cellWidth: 28
         property int cellHeight: 26
@@ -385,9 +311,9 @@ Item {
         implicitWidth: cellWidth
         implicitHeight: cellHeight
 
-        readonly property bool inMonth: modelData.inMonth === true
-        readonly property bool isToday: modelData.today === true
-        readonly property bool isWeekend: modelData.weekend === true
+        readonly property bool inMonth: dayCell.modelData.inMonth === true
+        readonly property bool isToday: dayCell.modelData.today === true
+        readonly property bool isWeekend: dayCell.modelData.weekend === true
 
         Rectangle {
             anchors.fill: parent
@@ -409,7 +335,7 @@ Item {
 
         Text {
             anchors.centerIn: parent
-            text: modelData.day
+            text: dayCell.modelData.day
             color: {
                 if (!dayCell.inMonth)
                     return Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.28)

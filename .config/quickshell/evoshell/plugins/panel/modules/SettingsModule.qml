@@ -13,7 +13,6 @@ Item {
     readonly property string hyprScript: Quickshell.env("HOME") + "/.local/bin/evo-hyprland"
     readonly property string barScript: Quickshell.env("HOME") + "/.local/bin/evo-layout"
     readonly property string fontScript: Quickshell.env("HOME") + "/.local/bin/evo-font"
-    readonly property string weatherScript: Quickshell.env("HOME") + "/.local/bin/evo-weather-location"
     readonly property string fontStatePath: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/evoshell/font.json"
     readonly property string themeNamePath: Quickshell.env("HOME") + "/.themes/current/.theme-name"
 
@@ -29,16 +28,13 @@ Item {
     property int fontScalePercent: 100
     property int fontBaseSize: 13
     property var fontFamilies: []
-    property string weatherCity: "Derby"
     property bool hyprReady: false
     property bool barReady: false
     property bool notificationsReady: false
     property bool fontReady: false
-    property bool weatherReady: false
-    readonly property bool ready: hyprReady && barReady && fontReady && weatherReady
+    readonly property bool ready: hyprReady && barReady && fontReady
     readonly property bool fontBusy: fontSetProc.running
-    readonly property bool weatherBusy: weatherSetProc.running
-    readonly property bool settingsBusy: fontBusy || weatherBusy || hyprToggleProc.running || hyprSetProc.running
+    readonly property bool settingsBusy: fontBusy || hyprToggleProc.running || hyprSetProc.running
         || barToggleProc.running || notificationsToggleProc.running
 
     function refresh() {
@@ -47,7 +43,6 @@ Item {
         if (!loadBarProc.running) loadBarProc.running = true
         if (!loadFontProc.running) loadFontProc.running = true
         if (!loadFontListProc.running) loadFontListProc.running = true
-        if (!loadWeatherProc.running) loadWeatherProc.running = true
         if (!loadNotificationsProc.running) loadNotificationsProc.running = true
     }
 
@@ -79,12 +74,6 @@ Item {
         fontSetProc.key = key
         fontSetProc.value = String(value)
         fontSetProc.running = true
-    }
-
-    function setWeatherCity(name) {
-        if (!weatherReady || settingsBusy) return
-        weatherSetProc.value = String(name)
-        weatherSetProc.running = true
     }
 
     function onActivated() {
@@ -153,17 +142,6 @@ Item {
         }
     }
 
-    function parseWeatherState(raw) {
-        try {
-            var data = JSON.parse(String(raw || "{}"))
-            if (data.name)
-                root.weatherCity = String(data.name)
-            root.weatherReady = true
-        } catch (e) {
-            root.weatherReady = false
-        }
-    }
-
     Process {
         id: loadHyprProc
         command: ["bash", root.hyprScript, "get"]
@@ -224,14 +202,6 @@ Item {
     }
 
     Process {
-        id: loadWeatherProc
-        command: ["bash", root.weatherScript, "get"]
-        stdout: StdioCollector {
-            onStreamFinished: root.parseWeatherState(text)
-        }
-    }
-
-    Process {
         id: hyprToggleProc
         property string target: ""
         command: ["bash", root.hyprScript, "toggle", hyprToggleProc.target]
@@ -275,19 +245,6 @@ Item {
         command: ["bash", root.fontScript, "set", fontSetProc.key, fontSetProc.value]
         stdout: StdioCollector {
             onStreamFinished: root.parseFontState(text)
-        }
-    }
-
-    Process {
-        id: weatherSetProc
-        property string value: ""
-        command: ["bash", root.weatherScript, "set", weatherSetProc.value]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                root.parseWeatherState(text)
-                if (!loadWeatherProc.running)
-                    loadWeatherProc.running = true
-            }
         }
     }
 
@@ -368,7 +325,7 @@ Item {
                 ToggleRow {
                     Layout.fillWidth: true
                     label: "Border radius"
-                    detail: "On: 7px"
+                    detail: "7px"
                     checked: root.roundingOn
                     enabled: root.hyprReady && !settingsBusy
                     onToggled: root.toggleHypr("rounding")
@@ -377,7 +334,7 @@ Item {
                 ToggleRow {
                     Layout.fillWidth: true
                     label: "Window gaps"
-                    detail: "On: 10px in 20px out"
+                    detail: "10px in 20px out"
                     checked: root.gapsOn
                     enabled: root.hyprReady && !settingsBusy
                     onToggled: root.toggleHypr("gaps")
@@ -451,67 +408,6 @@ Item {
                     checked: !root.notificationsOnHdmiBottom
                     enabled: root.notificationsReady && !settingsBusy
                     onToggled: root.toggleNotifications()
-                }
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 6
-                    opacity: root.weatherReady && !settingsBusy ? 1 : 0.45
-
-                    Text {
-                        text: "City"
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontPixelSize
-                        font.bold: Theme.fontBold
-                        Layout.fillWidth: true
-                    }
-
-                    Item {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 30
-
-                        Rectangle {
-                            anchors.fill: parent
-                            radius: 4
-                            color: Theme.panelMantle
-                            border.color: weatherCityInput.activeFocus
-                                ? Theme.accent
-                                : Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.22)
-                            border.width: 1
-                        }
-
-                        TextInput {
-                            id: weatherCityInput
-                            anchors.fill: parent
-                            anchors.leftMargin: 10
-                            anchors.rightMargin: 10
-                            verticalAlignment: Text.AlignVCenter
-                            text: root.weatherCity
-                            enabled: root.weatherReady && !settingsBusy
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontPixelSize
-                            selectByMouse: true
-                            onEditingFinished: {
-                                var city = text.trim()
-                                if (city === "")
-                                    return
-                                if (city !== root.weatherCity) {
-                                    root.weatherCity = city
-                                    root.setWeatherCity(city)
-                                }
-                            }
-                        }
-
-                        Connections {
-                            target: root
-                            function onWeatherCityChanged() {
-                                if (!weatherCityInput.activeFocus)
-                                    weatherCityInput.text = root.weatherCity
-                            }
-                        }
-                    }
                 }
             }
 

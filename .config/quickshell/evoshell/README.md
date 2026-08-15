@@ -69,7 +69,7 @@ Letters match the diagram.
 
 | | Plugin | Trigger |
 |---|--------|---------|
-| **W** | `evo.weather`, `evo.stats`, `evo.network`, `evo.cursor` | Bar hover (`onHover` in `shell.json`) |
+| **W** | `evo.calendar`, `evo.weather`, `evo.stats_diy`, `evo.stats_tgs`, `evo.github`, `evo.stocks`, `evo.sound`, `evo.network`, `evo.cursor` | Bar hover (`onHover` in `shell.json`) |
 | **O** | `evo.library`, `evo.theme`, `evo.wallpaper` | Keybind / menu / IPC toggle |
 | **R** | `evo.screenshot` | Keybind |
 
@@ -134,7 +134,7 @@ CommandWidget → exec scripts (evo-bar-*.sh) → JSON line
 |------|----------|-------|
 | Service | `evo.audio`, `evo.wallpaper`, `evo.idle`, `evo.lock` | `Service.qml` |
 | Bar | `evo.bar` | `Bar.qml` + `shell.json` layout |
-| Hover popup | `evo.calendar`, `evo.stats`, `evo.weather`, `evo.cursor` | `BarHoverPopup` + `*Module.qml` |
+| Hover popup | `evo.calendar`, `evo.weather`, `evo.stats_diy`, `evo.stats_tgs`, `evo.github`, `evo.stocks`, `evo.sound`, `evo.network`, `evo.cursor` | `BarHoverPopup` + `*Module.qml` |
 | Fullscreen overlay | `evo.library`, `evo.theme`, `evo.wallpaper` | `CenteredOverlay` / `CarouselOverlay` |
 | Menu | `evo.menu` | Custom `PanelWindow` (`evo-menu`) |
 | Panel | `evo.panel` | `Panel.qml` → dock modules `calc`, `clipboard`, `settings` |
@@ -169,8 +169,10 @@ Hypr bindings use the full path `~/.local/bin/evo-ipc` (PATH may not include it)
 ## Hover popups
 
 - Use `BarHoverPopup` (`Commons/BarHoverPopup.qml`) — plugin root; wraps `BarHoverOverlay` + shell hover API
-- Bar widgets set `onHover` to plugin id (`evo.stats`, `evo.cursor`, …)
-- Do not use Qt `ToolTip` on bar items (broke load)
+- Content modules use `SectionPanel` fieldsets and `Theme.hoverPopup*` typography tokens
+- Bar widgets set `onHover` to plugin id (`evo.weather`, `evo.stats_diy`, `evo.github`, …)
+- `CommandWidget` publishes bar JSON to `shell.setHoverPopupData` for instant `bootstrapFromCache` on open
+- Qt `ToolTip` on bar items is only used when `onHover` is unset (not the general pattern)
 
 ## Media library
 

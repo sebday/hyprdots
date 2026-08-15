@@ -5,13 +5,13 @@
     "lock": 900
   },
   "notifications": {
-    "output": "HDMI-A-1",
-    "position": "bottom"
+    "output": "DP-1",
+    "position": "top"
   },
   "bar": {
     "id": "evo.bar",
-    "position": "top",
-    "output": "DP-1",
+    "position": "bottom",
+    "output": "HDMI-A-1",
     "layout": {
       "left": [
         {

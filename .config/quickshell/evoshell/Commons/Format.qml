@@ -31,4 +31,30 @@ Singleton {
         }
         return String(symbol || "£") + out
     }
+
+    function tempColor(temp) {
+        var t = Number(temp)
+        if (t >= 30) return Theme.urgent
+        if (t >= 24) return Theme.mixColors(Theme.accent, Theme.urgent, 0.62)
+        return Theme.accent
+    }
+
+    function usagePercentColor(percent) {
+        var p = Number(percent)
+        if (isNaN(p)) return Theme.foreground
+        if (p >= 80) return Theme.urgent
+        if (p >= 50) return Theme.mixColors(Theme.accent, Theme.urgent, 0.62)
+        return Theme.accent
+    }
+
+    function contributionColor(count) {
+        var n = parseInt(count, 10) || 0
+        var colors = ["#45475a", "#89b4fa", "#74c7ec", "#89dceb", "#cba6f7"]
+        var level = 0
+        if (n >= 30) level = 4
+        else if (n >= 18) level = 3
+        else if (n >= 10) level = 2
+        else if (n >= 1) level = 1
+        return colors[level]
+    }
 }

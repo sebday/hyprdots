@@ -38,9 +38,15 @@ Item {
     readonly property real trayIconOpacity: {
         if (loading || isError)
             return 1
-        return todayCount > 0 ? 1 : 0.35
+        return todayCount > 0 ? 1 : 0.55
     }
-    readonly property color trayIconColor: isError ? Theme.urgent : Theme.foreground
+    readonly property color trayIconColor: {
+        if (isError)
+            return Theme.urgent
+        if (loading)
+            return Theme.foreground
+        return Format.contributionColor(todayCount)
+    }
 
     implicitWidth: trayMode ? trayCellWidth : contentRow.implicitWidth + Theme.barPaddingX * 2
     implicitHeight: Theme.barHeight
@@ -57,6 +63,8 @@ Item {
         try {
             var json = JSON.parse(raw)
             lastPayload = json
+            if (root.shell && root.hoverPopupId)
+                root.shell.setHoverPopupData(root.hoverPopupId, json)
 
             if (json.class === "error") {
                 isError = true

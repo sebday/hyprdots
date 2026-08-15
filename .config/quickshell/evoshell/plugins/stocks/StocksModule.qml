@@ -128,7 +128,7 @@ Item {
         id: btcPoll
         shell: root.shell
         cacheKey: root.btcCacheKey
-        active: true
+        active: root.active
         defaultIntervalSec: 60
         command: ["bash", root.home + "/.local/bin/evo-bar-btc", String(root.chartHistoryDays)]
         onPolled: function(json) { root.btcData = json }
@@ -138,7 +138,7 @@ Item {
         id: spcxPoll
         shell: root.shell
         cacheKey: root.spcxCacheKey
-        active: true
+        active: root.active
         defaultIntervalSec: 60
         command: ["bash", root.home + "/.local/bin/evo-bar-spcx", String(root.chartHistoryDays)]
         onPolled: function(json) { root.spcxData = json }
@@ -258,52 +258,6 @@ Item {
                                 font.pixelSize: root.statFont + 1
                                 font.bold: Theme.fontBold
                                 elide: Text.ElideRight
-                            }
-
-                            Text {
-                                Layout.fillWidth: true
-                                horizontalAlignment: Text.AlignHCenter
-                                text: modelData.label
-                                color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: root.hintFont
-                                opacity: 0.55
-                            }
-                        }
-                    }
-                }
-            }
-
-            GridLayout {
-                Layout.fillWidth: true
-                columns: 3
-                columnSpacing: 8
-                rowSpacing: 8
-                visible: panel.market.name === "BTC" && panel.market.period && panel.market.period.days
-
-                Repeater {
-                    model: [
-                        { label: panel.market.days + "d change", value: root.fmtSignedPct(panel.market.period.changePct) },
-                        { label: panel.market.days + "d high", value: root.fmtUsd(panel.market.period.high) },
-                        { label: panel.market.days + "d low", value: root.fmtUsd(panel.market.period.low) }
-                    ]
-
-                    SectionPanel {
-                        required property var modelData
-                        Layout.fillWidth: true
-
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: 2
-
-                            Text {
-                                Layout.fillWidth: true
-                                horizontalAlignment: Text.AlignHCenter
-                                text: String(modelData.value)
-                                color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: root.statFont + 1
-                                font.bold: Theme.fontBold
                             }
 
                             Text {

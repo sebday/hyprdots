@@ -182,10 +182,7 @@ Item {
     }
 
     function tempColor(temp) {
-        var t = Number(temp)
-        if (t >= 34) return Theme.urgent
-        if (t >= 28) return Theme.mixColors(Theme.accent, Theme.urgent, 0.62)
-        return Theme.accent
+        return Format.tempColor(temp)
     }
 
     function openMetOffice() {

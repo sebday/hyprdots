@@ -31,39 +31,28 @@ Item {
         return Math.max(0, Math.min(maxVolume, v))
     }
 
-    function setVolume(v: real, showOsd: bool): string {
+    function setVolume(v: real): string {
         if (!ready) return "not-ready"
         var clamped = clampVolume(v)
         if (clamped > 0) sink.audio.muted = false
         sink.audio.volume = clamped
-        if (showOsd) notifyVolume()
         return "ok"
     }
 
     function step(direction: string): string {
         var dir = String(direction || "").trim().toLowerCase()
-        if (dir === "up") return setVolume(level + stepSize, true)
-        if (dir === "down") return setVolume(level - stepSize, true)
+        if (dir === "up") return setVolume(level + stepSize)
+        if (dir === "down") return setVolume(level - stepSize)
         return "unknown"
     }
 
-    function stepUp(): string { return setVolume(level + stepSize, true) }
-    function stepDown(): string { return setVolume(level - stepSize, true) }
+    function stepUp(): string { return setVolume(level + stepSize) }
+    function stepDown(): string { return setVolume(level - stepSize) }
 
     function toggleMute(): string {
         if (!ready) return "not-ready"
         sink.audio.muted = !sink.audio.muted
-        notifyVolume()
         return "ok"
-    }
-
-    function notifyVolume() {
-        var notif = shell ? shell.serviceFor("evo.notifications") : null
-        if (!notif || typeof notif.showBrief !== "function") return
-        if (typeof notif.showVolume === "function")
-            notif.showVolume(percent, muted)
-        else
-            notif.showBrief("Volume", muted ? "Muted" : percent + "%")
     }
 
     IpcHandler {

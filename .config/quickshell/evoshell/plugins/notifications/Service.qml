@@ -1,7 +1,6 @@
 import QtQuick
 import Quickshell
 import Quickshell.Services.Notifications
-import Quickshell.Services.Mpris
 import Quickshell.Wayland
 import "../../Commons"
 
@@ -71,29 +70,6 @@ Scope {
         })
         activePopups = next
         scheduleDismiss(Math.max(500, parseInt(durationMs, 10) || root.durationMs))
-    }
-
-    function showVolume(percent, muted) {
-        var p = Math.max(0, parseInt(percent, 10) || 0)
-        var isMuted = !!muted
-        var next = []
-        for (var i = 0; i < activePopups.length; i++) {
-            var item = activePopups[i]
-            if (item.kind === "volume" || (item.local && String(item.title) === "Volume"))
-                continue
-            next.push(item)
-        }
-        next.push({
-            key: Date.now() + Math.random(),
-            local: true,
-            kind: "volume",
-            title: "Volume",
-            body: isMuted ? "Muted" : p + "%",
-            percent: p,
-            muted: isMuted
-        })
-        activePopups = next
-        scheduleDismiss(root.durationMs)
     }
 
     function scheduleDismiss(intervalMs) {
@@ -188,33 +164,11 @@ Scope {
     function popupIcon(entry) {
         var title = popupTitle(entry).trim().toLowerCase()
         var body = popupBody(entry).trim().toLowerCase()
-        if (isVolume(entry))
-            return isMuted(entry) || volumePercent(entry) === 0 ? "󰝟" : "󰕾"
         if (title.indexOf("error") !== -1 || body.indexOf("error") !== -1)
             return "󰅙"
         if (isMedia(entry))
             return "󰎆"
         return "󰂚"
-    }
-
-    function isVolume(entry) {
-        if (!entry) return false
-        if (entry.kind === "volume") return true
-        return popupTitle(entry).trim().toLowerCase() === "volume"
-    }
-
-    function isMuted(entry) {
-        if (!entry) return false
-        if (entry.muted === true) return true
-        return popupBody(entry).trim().toLowerCase() === "muted"
-    }
-
-    function volumePercent(entry) {
-        if (!entry) return 0
-        if (entry.percent !== undefined && entry.percent !== null)
-            return Math.max(0, Number(entry.percent) || 0)
-        if (isMuted(entry)) return 0
-        return Math.max(0, parseInt(popupBody(entry), 10) || 0)
     }
 
     function isScrobbler(entry) {
@@ -256,59 +210,12 @@ Scope {
     }
 
     function entryKind(entry) {
-        if (isVolume(entry)) return "volume"
         if (isMedia(entry)) return "media"
         return "default"
     }
 
-    function activeMprisPlayer() {
-        var players = Mpris.players.values
-        if (!players || players.length === 0)
-            return null
-        for (var i = 0; i < players.length; i++) {
-            if (players[i] && players[i].isPlaying)
-                return players[i]
-        }
-        for (var j = 0; j < players.length; j++) {
-            if (players[j] && String(players[j].trackTitle || "").trim())
-                return players[j]
-        }
-        return players.length > 0 ? players[0] : null
-    }
-
-    function popupImageFromMpris(player) {
-        if (!player) return ""
-        return imageSource(player.trackArtUrl)
-    }
-
-    readonly property int volumeArtSize: 72
-
-    function volumeMediaFields(player, entry) {
-        var fields = {
-            kicker: "Volume",
-            title: isMuted(entry) ? "Muted" : volumePercent(entry) + "%",
-            subtitle: "",
-            footer: ""
-        }
-        if (!player)
-            return fields
-
-        var track = String(player.trackTitle || "").trim()
-        var artist = String(player.trackArtist || "").trim()
-        var album = String(player.trackAlbum || "").trim()
-        if (track)
-            fields.kicker = track
-        if (artist)
-            fields.subtitle = artist
-        if (album)
-            fields.footer = album
-        return fields
-    }
-
     function estimatedHeight(entry) {
         var kind = entryKind(entry)
-        if (kind === "volume")
-            return root.volumeArtSize + Theme.notificationMediaPad * 2
         if (kind === "media")
             return Theme.notificationArtSize + Theme.notificationMediaPad * 2
         return Theme.notificationPadding * 2 + Theme.notificationTitleSize + 6 + Theme.notificationBodySize
@@ -494,17 +401,6 @@ Scope {
             readonly property string kind: root.entryKind(modelData)
             readonly property var media: kind === "media" ? root.mediaFields(modelData) : ({})
             readonly property string art: kind === "media" ? root.popupImage(modelData) : ""
-            readonly property var mprisPlayer: kind === "volume" ? root.activeMprisPlayer() : null
-            readonly property var artworkFields: kind === "media"
-                ? media
-                : (kind === "volume" ? root.volumeMediaFields(mprisPlayer, modelData) : ({}))
-            readonly property string artworkSource: kind === "media"
-                ? art
-                : (kind === "volume" ? root.popupImageFromMpris(mprisPlayer) : "")
-            readonly property string artworkIcon: kind === "volume" ? root.popupIcon(modelData) : "󰎆"
-            readonly property int volPercent: kind === "volume" ? root.volumePercent(modelData) : 0
-            readonly property bool volMuted: kind === "volume" && root.isMuted(modelData)
-            readonly property real volFill: volMuted ? 0 : Math.min(1, volPercent / 100)
 
             screen: root.popupScreen
             color: "transparent"
@@ -537,7 +433,7 @@ Scope {
             Item {
                 id: card
                 width: Theme.notificationWidth
-                height: (kind === "media" || kind === "volume")
+                height: kind === "media"
                     ? artworkCard.implicitHeight
                     : innerDefault.height + Theme.notificationPadding * 2
                 clip: true
@@ -545,16 +441,7 @@ Scope {
                 Rectangle {
                     anchors.fill: parent
                     radius: Theme.panelCornerRadius
-                    color: kind === "volume" ? Theme.mantle : Theme.overlaySurface
-                }
-
-                Rectangle {
-                    visible: kind === "volume"
-                    anchors.top: parent.top
-                    anchors.bottom: parent.bottom
-                    anchors.left: parent.left
-                    width: parent.width * volFill
-                    color: Theme.mixColors(Theme.mantle, Theme.accent, 0.38)
+                    color: Theme.overlaySurface
                 }
 
                 Rectangle {
@@ -567,12 +454,9 @@ Scope {
 
                 NotificationArtworkCard {
                     id: artworkCard
-                    visible: kind === "media" || kind === "volume"
-                    art: artworkSource
-                    fallbackIcon: artworkIcon
-                    fields: artworkFields
-                    artSize: kind === "volume" ? root.volumeArtSize : Theme.notificationArtSize
-                    blurredBackground: kind !== "volume"
+                    visible: kind === "media"
+                    art: art
+                    fields: media
                 }
 
                 // Default

@@ -13,7 +13,7 @@ Item {
     property var entries: []
     property int selectedIndex: 0
     property int previewTick: 0
-    property bool imagesOnly: false
+    property string entryFilter: "all"
 
     readonly property string script: Quickshell.env("HOME") + "/.local/bin/evo-clipboard"
     readonly property string previewDir: Quickshell.env("HOME") + "/.local/state/evoshell/clipboard-previews"
@@ -23,10 +23,15 @@ Item {
     readonly property bool active: host && host.opened
 
     readonly property var visibleEntries: {
-        if (!imagesOnly) return entries
+        if (entryFilter === "all")
+            return entries
         var out = []
         for (var i = 0; i < entries.length; i++) {
-            if (entries[i] && entries[i].image)
+            if (!entries[i])
+                continue
+            if (entryFilter === "images" && entries[i].image)
+                out.push(entries[i])
+            else if (entryFilter === "text" && !entries[i].image)
                 out.push(entries[i])
         }
         return out
@@ -154,7 +159,7 @@ Item {
 
     function onActivated() {
         selectedIndex = 0
-        imagesOnly = false
+        entryFilter = "all"
         previewTick = 0
         refresh()
         Qt.callLater(function() {
@@ -226,7 +231,7 @@ Item {
                 root.copyId(root.visibleEntries[listView.currentIndex].id)
         }
         Keys.onPressed: function(event) {
-            if (event.key === Qt.Key_Backspace) {
+            if (event.key === Qt.Key_Backspace || event.key === Qt.Key_Delete) {
                 event.accepted = true
                 root.deleteSelected()
             }
@@ -342,7 +347,11 @@ Item {
                 Text {
                     anchors.centerIn: parent
                     visible: listView.count === 0
-                    text: root.imagesOnly ? "No images in clipboard history" : "No clipboard history"
+                    text: root.entryFilter === "images"
+                        ? "No images in clipboard history"
+                        : (root.entryFilter === "text"
+                            ? "No text in clipboard history"
+                            : "No clipboard history")
                     color: Theme.foreground
                     font.family: Theme.fontFamily
                     font.pixelSize: root.historyFontSize
@@ -415,21 +424,21 @@ Item {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 28
                 Layout.topMargin: 2
-                spacing: 16
+                spacing: 8
 
                 Item {
-                    Layout.fillWidth: true
+                    Layout.preferredWidth: 28
                     Layout.preferredHeight: 28
-                    opacity: root.visibleEntries.length === 0 && !root.imagesOnly ? 0.35 : 1
+                    opacity: root.entries.length === 0 ? 0.35 : 1
 
                     Text {
                         anchors.centerIn: parent
-                        text: "Images only"
-                        color: root.imagesOnly ? Theme.accent : Theme.foreground
+                        text: "󰋩"
+                        color: root.entryFilter === "images" ? Theme.accent : Theme.foreground
                         font.family: Theme.fontFamily
-                        font.pixelSize: 12
+                        font.pixelSize: Theme.panelIconFontPixelSize
                         font.bold: Theme.fontBold
-                        opacity: imagesMouse.containsMouse || root.imagesOnly ? 1 : 0.72
+                        opacity: imagesMouse.containsMouse || root.entryFilter === "images" ? 1 : 0.72
                     }
 
                     MouseArea {
@@ -439,14 +448,44 @@ Item {
                         cursorShape: Qt.PointingHandCursor
                         enabled: root.entries.length > 0
                         onClicked: {
-                            root.imagesOnly = !root.imagesOnly
+                            root.entryFilter = root.entryFilter === "images" ? "all" : "images"
                             root.clampSelectedIndex()
                         }
                     }
                 }
 
                 Item {
-                    Layout.fillWidth: true
+                    Layout.preferredWidth: 28
+                    Layout.preferredHeight: 28
+                    opacity: root.entries.length === 0 ? 0.35 : 1
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: "󰈙"
+                        color: root.entryFilter === "text" ? Theme.accent : Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.panelIconFontPixelSize
+                        font.bold: Theme.fontBold
+                        opacity: textMouse.containsMouse || root.entryFilter === "text" ? 1 : 0.72
+                    }
+
+                    MouseArea {
+                        id: textMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        enabled: root.entries.length > 0
+                        onClicked: {
+                            root.entryFilter = root.entryFilter === "text" ? "all" : "text"
+                            root.clampSelectedIndex()
+                        }
+                    }
+                }
+
+                Item { Layout.fillWidth: true }
+
+                Item {
+                    Layout.preferredWidth: 28
                     Layout.preferredHeight: 28
                     opacity: root.entries.length === 0 || clearProc.running ? 0.35 : 1
 

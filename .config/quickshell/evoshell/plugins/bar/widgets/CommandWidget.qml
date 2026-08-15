@@ -100,6 +100,16 @@ Item {
         return trayIconText !== "" || trayValueText !== ""
     }
 
+    readonly property color trayIconColor: {
+        if (polling)
+            return Theme.foreground
+        if (hoverPopupId === "evo.weather" && lastPayload && lastPayload.current)
+            return Format.tempColor(lastPayload.current.temp)
+        if (hoverPopupId === "evo.cursor" && lastPayload && lastPayload.cursorPercent !== undefined)
+            return Format.usagePercentColor(lastPayload.cursorPercent)
+        return Theme.foreground
+    }
+
     implicitWidth: {
         if (trayMode) {
             if (hideWhenEmpty && !trayHasContent)
@@ -235,7 +245,7 @@ Item {
                 height: trayTextRow.height
                 verticalAlignment: Text.AlignVCenter
                 text: commandRoot.trayIconText
-                color: Theme.foreground
+                color: commandRoot.trayIconColor
                 font.family: Theme.fontFamily
                 font.pixelSize: commandRoot.trayIconSize
                 font.bold: Theme.fontBold
@@ -257,7 +267,7 @@ Item {
             anchors.centerIn: parent
             visible: commandRoot.trayDisplay === "icon"
             text: commandRoot.trayIconText
-            color: Theme.foreground
+            color: commandRoot.trayIconColor
             font.family: Theme.fontFamily
             font.pixelSize: commandRoot.trayIconSize
             font.bold: Theme.fontBold
@@ -268,7 +278,7 @@ Item {
             visible: commandRoot.trayDisplay === "dial"
             size: commandRoot.trayIconSize
             percent: commandRoot.trayDialPercent
-            color: Theme.foreground
+            color: commandRoot.trayIconColor
             lineWidth: 3
             loading: commandRoot.polling
         }

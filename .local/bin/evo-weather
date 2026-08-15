@@ -2,38 +2,20 @@
 # Evo weather — bar label + hover popup (Open-Meteo, no API key).
 #
 # Environment:
-#   EVO_WEATHER_LAT / EVO_WEATHER_LON — default Derby, UK
 #   EVO_WEATHER_CACHE_SEC — cache TTL (default 1800)
 
 set -euo pipefail
 
 source "${HOME}/.local/bin/evo-bar-common"
 
-EVO_WEATHER_LAT="${EVO_WEATHER_LAT:-${WAYBAR_WEATHER_LAT:-52.9219}}"
-EVO_WEATHER_LON="${EVO_WEATHER_LON:-${WAYBAR_WEATHER_LON:--1.4746}}"
-EVO_WEATHER_LOCATION="${EVO_WEATHER_LOCATION:-Derby}"
+EVO_WEATHER_LAT="52.9219"
+EVO_WEATHER_LON="-1.4746"
+EVO_WEATHER_LOCATION="Derby"
 EVO_WEATHER_CACHE_SEC="${EVO_WEATHER_CACHE_SEC:-1800}"
 MET_OFFICE_URL="https://weather.metoffice.gov.uk/forecast/gcqvn6pq4"
 
-WEATHER_STATE="${XDG_STATE_HOME:-$HOME/.local/state}/evoshell/weather-location.json"
-if [[ -f "$WEATHER_STATE" ]]; then
-    _loc_name=$(jq -r '.name // empty' "$WEATHER_STATE" 2>/dev/null || true)
-    [[ -n "$_loc_name" ]] && EVO_WEATHER_LOCATION="$_loc_name"
-    unset _loc_name
-fi
-
 weather_cache_slug() {
     printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/_/g' | sed 's/_\+/_/g' | sed 's/^_\|_$//g'
-}
-
-geocode_location() {
-    local name="$1"
-    local encoded data
-    encoded=$(printf '%s' "$name" | jq -sRr @uri)
-    data=$(curl -sf --max-time 12 "https://geocoding-api.open-meteo.com/v1/search?name=${encoded}&count=1" 2>/dev/null) || return 1
-    EVO_WEATHER_LAT=$(echo "$data" | jq -r '.results[0].latitude // empty')
-    EVO_WEATHER_LON=$(echo "$data" | jq -r '.results[0].longitude // empty')
-    [[ -n "$EVO_WEATHER_LAT" && -n "$EVO_WEATHER_LON" ]]
 }
 
 error_out() {
@@ -45,11 +27,6 @@ error_out() {
         --arg tooltip "${EVO_WEATHER_LOCATION} weather unavailable" \
         '{ok:false, location:$location, error:$error, metOfficeUrl:$url, text:$text, tooltip:$tooltip, sunrise:"", sunset:"", current:null, daily:[], hourly:[]}'
 }
-
-if ! geocode_location "$EVO_WEATHER_LOCATION"; then
-    error_out "Weather unavailable"
-    exit 0
-fi
 
 WEATHER_CACHE_KEY="weather-$(weather_cache_slug "$EVO_WEATHER_LOCATION")"
 

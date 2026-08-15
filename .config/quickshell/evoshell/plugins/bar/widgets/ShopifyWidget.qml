@@ -61,6 +61,8 @@ Item {
         try {
             var json = JSON.parse(raw)
             lastPayload = json
+            if (root.shell && root.hoverPopupId)
+                root.shell.setHoverPopupData(root.hoverPopupId, json)
             if (json.store)
                 storeLabel = String(json.store).trim()
             if (json.symbol)

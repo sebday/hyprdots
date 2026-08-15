@@ -14,8 +14,6 @@ Item {
 
     readonly property bool active: host && host.opened === true
     readonly property var barSource: host && host.shell ? host.shell.popupAnchorItem : null
-    readonly property int titleFont: Theme.hoverPopupTitleFontPixelSize + 4
-    readonly property int heroFont: Theme.hoverPopupIconFontPixelSize + 6
     readonly property int bodyFont: Theme.hoverPopupBodyFontPixelSize
     readonly property int hintFont: Theme.hoverPopupHintFontPixelSize
     readonly property int statFont: Theme.hoverPopupLabelFontPixelSize
@@ -58,13 +56,30 @@ Item {
         return parts.join(" · ")
     }
 
+    readonly property string headerValue: {
+        var lines = ["@" + username, todayLine]
+        if (summaryLine !== "")
+            lines.push(summaryLine)
+        return Format.headerLines(lines, "@" + username)
+    }
+
+    readonly property int trendMax: 40
+
+    function trendLevel(count) {
+        var n = parseInt(count, 10) || 0
+        if (n <= 0)
+            return 0
+        return Math.max(1, Math.min(7, Math.ceil(n / trendMax * 7)))
+    }
+
     readonly property var sparkBars: {
         var out = []
         for (var i = 0; i < cells.length; i++) {
             var c = cells[i] || {}
+            var count = parseInt(c.count, 10) || 0
             out.push({
-                value: c.count || 0,
-                level: Math.max(1, c.level || 1),
+                value: count,
+                level: root.trendLevel(count),
                 color: c.color || Theme.accent
             })
         }
@@ -188,12 +203,6 @@ Item {
         publishCache(json)
     }
 
-    function openProfile() {
-        if (!profileUrl)
-            return
-        Quickshell.execDetached(["bash", "-lc", "xdg-open " + Util.shellQuote(profileUrl)])
-    }
-
     onActiveChanged: if (active) syncFromBar()
     onBarSourceChanged: if (active) syncFromBar()
 
@@ -238,59 +247,11 @@ Item {
             label: ""
             visible: !root.loading && !root.isError
 
-            RowLayout {
+            HoverPopupHeader {
                 Layout.fillWidth: true
-                spacing: 12
-
-                Text {
-                    text: ""
-                    color: Theme.accent
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.heroFont
-                    font.bold: Theme.fontBold
-                    Layout.alignment: Qt.AlignTop
-                }
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 4
-
-                    Text {
-                        Layout.fillWidth: true
-                        text: "@" + root.username
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.titleFont
-                        font.bold: Theme.fontBold
-                        elide: Text.ElideRight
-                    }
-
-                    Text {
-                        Layout.fillWidth: true
-                        text: root.todayLine
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.bodyFont
-                        font.bold: Theme.fontBold
-                    }
-
-                    Text {
-                        Layout.fillWidth: true
-                        visible: root.summaryLine !== ""
-                        text: root.summaryLine
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.hintFont
-                        opacity: 0.72
-                        wrapMode: Text.WordWrap
-                    }
-                }
-            }
-
-            MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: root.openProfile()
+                iconFallback: ""
+                value: root.headerValue
+                href: root.profileUrl
             }
         }
 

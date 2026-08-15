@@ -28,7 +28,6 @@ Item {
 
     property string iconText: "󰈀"
     property string labelText: "net"
-    property string tooltipText: ""
     property bool connected: false
     property real downloadRate: 0
     property real uploadRate: 0
@@ -59,7 +58,6 @@ Item {
             var json = JSON.parse(raw)
             iconText = String(json.icon || "󰤮")
             labelText = String(json.label || "off")
-            tooltipText = String(json.tooltip || "").trim()
             connected = json.connected === true
             downloadRate = parseFloat(json.download_bps || "0")
             uploadRate = parseFloat(json.upload_bps || "0")
