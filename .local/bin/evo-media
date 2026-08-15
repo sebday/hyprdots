@@ -5,6 +5,7 @@ set -euo pipefail
 
 STATE_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/evoshell"
 DB_PATH="${STATE_DIR}/media.db"
+POSTER_DIR="${STATE_DIR}/media-posters"
 FILMS_ROOT="${EVO_MEDIA_FILMS:-/mnt/external/films}"
 TV_ROOT="${EVO_MEDIA_TV:-/mnt/external/tv}"
 VIDEO_EXTS='mkv mp4 m4v avi'
@@ -68,6 +69,19 @@ CREATE TABLE IF NOT EXISTS episodes (
 CREATE INDEX IF NOT EXISTS idx_episodes_show ON episodes(show_id);
 SQL
     sqlite3 "$DB_PATH" "ALTER TABLE episodes ADD COLUMN poster_path TEXT" 2>/dev/null || true
+    migrate_poster_paths
+}
+
+migrate_poster_paths() {
+    [[ -f "$DB_PATH" ]] || return 0
+    sqlite3 "$DB_PATH" <<'SQL'
+UPDATE films SET poster_path = REPLACE(poster_path, '/.local/state/evo-shell/', '/.local/state/evoshell/')
+    WHERE poster_path LIKE '%/.local/state/evo-shell/%';
+UPDATE shows SET poster_path = REPLACE(poster_path, '/.local/state/evo-shell/', '/.local/state/evoshell/')
+    WHERE poster_path LIKE '%/.local/state/evo-shell/%';
+UPDATE episodes SET poster_path = REPLACE(poster_path, '/.local/state/evo-shell/', '/.local/state/evoshell/')
+    WHERE poster_path LIKE '%/.local/state/evo-shell/%';
+SQL
 }
 
 is_video() {

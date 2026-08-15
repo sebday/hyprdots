@@ -250,6 +250,7 @@ Item {
         var path = item.poster_path ? String(item.poster_path) : String(item.poster || "")
         if (path.startsWith("file://"))
             path = decodeURIComponent(path.substring(7))
+        path = path.replace("/.local/state/evo-shell/", "/.local/state/evoshell/")
         return path ? Util.fileUrl(path) : ""
     }
 

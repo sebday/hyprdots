@@ -27,9 +27,8 @@ Item {
         opened: root.opened
         layerNamespace: "evo-library"
         framed: false
-        scrim: true
-        scrimColor: Theme.mantle
         fillScreen: true
+        backgroundColor: Theme.mantle
         contentMargin: 24
         keysTarget: libraryContent
         onDismissed: root.dismiss()

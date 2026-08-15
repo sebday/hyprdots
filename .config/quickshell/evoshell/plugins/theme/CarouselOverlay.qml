@@ -265,12 +265,6 @@ Item {
             }
         }
 
-        Rectangle {
-            anchors.fill: parent
-            visible: root.opened
-            color: Theme.overlayScrim
-        }
-
         MouseArea {
             anchors.fill: parent
             enabled: root.opened
@@ -334,10 +328,12 @@ Item {
                         root.applySelected()
                         event.accepted = true
                     } else if (event.key === Qt.Key_Left || event.key === Qt.Key_Backtab
-                               || (event.key === Qt.Key_Tab && event.modifiers & Qt.ShiftModifier)) {
+                               || (event.key === Qt.Key_Tab && event.modifiers & Qt.ShiftModifier)
+                               || event.key === Qt.Key_Comma) {
                         root.selectAdjacent(-1)
                         event.accepted = true
-                    } else if (event.key === Qt.Key_Right || event.key === Qt.Key_Tab) {
+                    } else if (event.key === Qt.Key_Right || event.key === Qt.Key_Tab
+                               || event.key === Qt.Key_Period) {
                         root.selectAdjacent(1)
                         event.accepted = true
                     }

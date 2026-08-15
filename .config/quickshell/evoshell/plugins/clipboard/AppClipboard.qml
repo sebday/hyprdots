@@ -144,11 +144,6 @@ Item {
         if (!cacheProc.running) cacheProc.running = true
     }
 
-    function clearHistory() {
-        if (entries.length === 0 || clearProc.running) return
-        clearProc.running = true
-    }
-
     function deleteSelected() {
         if (deleteProc.running) return
         var entry = selectedEntry
@@ -180,17 +175,6 @@ Item {
         property string entryId: ""
         command: ["bash", root.script, "delete", deleteProc.entryId]
         onExited: {
-            root.previewTick++
-            root.refresh()
-        }
-    }
-
-    Process {
-        id: clearProc
-        command: ["bash", root.script, "clear"]
-        onExited: {
-            root.entries = []
-            root.selectedIndex = 0
             root.previewTick++
             root.refresh()
         }
@@ -483,31 +467,6 @@ Item {
                 }
 
                 Item { Layout.fillWidth: true }
-
-                Item {
-                    Layout.preferredWidth: 28
-                    Layout.preferredHeight: 28
-                    opacity: root.entries.length === 0 || clearProc.running ? 0.35 : 1
-
-                    Text {
-                        anchors.centerIn: parent
-                        text: "󰃢"
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.panelIconFontPixelSize
-                        font.bold: Theme.fontBold
-                        opacity: clearMouse.containsMouse ? 1 : 0.72
-                    }
-
-                    MouseArea {
-                        id: clearMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        enabled: root.entries.length > 0 && !clearProc.running
-                        onClicked: root.clearHistory()
-                    }
-                }
             }
         }
     }

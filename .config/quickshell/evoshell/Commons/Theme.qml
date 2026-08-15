@@ -136,8 +136,6 @@ Singleton {
     readonly property int gapsOut: gapsOn ? 20 : 0
     readonly property int panelCornerRadius: roundingOn ? 4 : 0
     readonly property int fieldsetCornerRadius: 4
-    readonly property real overlayScrimOpacity: themeNumber("overlayScrimOpacity", 0.72)
-    readonly property color overlayScrim: withOpacity(mantle, overlayScrimOpacity)
     readonly property color overlaySurface: withOpacity(mantle, surfaceOpacity)
     readonly property color overlaySurfaceInactive: withOpacity(mantle, surfaceOpacityInactive)
     readonly property color panelBackground: overlaySurface

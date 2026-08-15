@@ -10,9 +10,9 @@ Item {
     property int contentHeight: 520
     property int contentMargin: 16
     property bool framed: true
-    property bool scrim: true
-    property color scrimColor: Theme.overlayScrim
+    property int borderWidth: 1
     property bool fillScreen: false
+    property color backgroundColor: "transparent"
     property string layerNamespace: "evo-overlay"
     property Item keysTarget: null
     signal dismissed()
@@ -27,11 +27,6 @@ Item {
         WlrLayershell.layer: WlrLayer.Overlay
         WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
         exclusionMode: ExclusionMode.Ignore
-
-        OverlayScrim {
-            visible: root.scrim
-            color: root.scrimColor
-        }
 
         MouseArea {
             anchors.fill: parent
@@ -52,11 +47,18 @@ Item {
 
             Rectangle {
                 z: 0
+                anchors.fill: parent
+                visible: root.backgroundColor !== "transparent"
+                color: root.backgroundColor
+            }
+
+            Rectangle {
+                z: 0
                 visible: root.framed
                 anchors.fill: parent
                 color: Theme.overlaySurface
                 border.color: Theme.accent
-                border.width: 1
+                border.width: root.borderWidth
             }
 
             Item {

@@ -1,17 +1,5 @@
 // Static menu entries migrated from elephant menus (only what is actually used).
 
-function systemActionEntries(home) {
-    var bin = home + "/.local/bin"
-    return [
-        { name: "Theme", icon: "󰸌", keywords: ["theme", "appearance", "looks"], command: bin + "/evo-theme" },
-        { name: "Wallpaper", icon: "󰏘", keywords: ["wallpaper", "background"], command: bin + "/evo-theme wallpaper" },
-        { name: "Library", icon: "󰎁", keywords: ["library", "media", "films", "tv", "movies"], command: bin + "/evo-ipc shell toggle evo.library" },
-        { name: "Settings", icon: "󰒓", keywords: ["settings", "config", "panel", "gaps", "font"], command: bin + "/evo-ipc shell toggle evo.panel '{\"module\":\"settings\"}'" },
-        { name: "Clear cache", icon: "󰃢", keywords: ["cache", "cleanup", "clear"], command: bin + "/evo-system-cleanup" },
-        { name: "Backup", icon: "󰁯", keywords: ["backup", "env"], command: bin + "/evo-system-backup" }
-    ]
-}
-
 function powerEntries(home) {
     return [
         { name: "Lock", icon: "󰌾", keywords: ["lock", "screen"], command: home + "/.local/bin/evo-system lock" },
@@ -22,8 +10,16 @@ function powerEntries(home) {
     ]
 }
 
+function maintenanceEntries(home) {
+    var bin = home + "/.local/bin"
+    return [
+        { name: "Clear cache", icon: "󰃢", keywords: ["cache", "cleanup", "clear"], command: bin + "/evo-system-cleanup" },
+        { name: "Backup", icon: "󰁯", keywords: ["backup", "env"], command: bin + "/evo-system-backup" }
+    ]
+}
+
 function systemEntries(home) {
-    return systemActionEntries(home).concat(powerEntries(home))
+    return powerEntries(home).concat(maintenanceEntries(home))
 }
 
 function matchesQuery(entry, query) {

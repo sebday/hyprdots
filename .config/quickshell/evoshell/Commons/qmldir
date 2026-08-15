@@ -13,7 +13,6 @@ SparklineChart 1.0 SparklineChart.qml
 CycleProgressBar 1.0 CycleProgressBar.qml
 JsonPollRunner 1.0 JsonPollRunner.qml
 CenteredOverlay 1.0 CenteredOverlay.qml
-OverlayScrim 1.0 OverlayScrim.qml
 AttachedOverlay 1.0 AttachedOverlay.qml
 BarHoverOverlay 1.0 BarHoverOverlay.qml
 BarHoverPopup 1.0 BarHoverPopup.qml

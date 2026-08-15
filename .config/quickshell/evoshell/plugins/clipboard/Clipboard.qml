@@ -31,7 +31,7 @@ Item {
         contentWidth: 560
         contentHeight: 640
         framed: true
-        scrim: true
+        borderWidth: 2
         keysTarget: clipboardContent
         onDismissed: root.dismiss()
 

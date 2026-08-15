@@ -34,7 +34,6 @@ Item {
     readonly property int tileHeight: 160
     readonly property int tileSpacing: 24
     readonly property int tileIconSize: 64
-    readonly property int systemActionCount: 6
     readonly property int appGridColumns: 6
     readonly property int appIconSize: 110
     readonly property int appIconSourceSize: 128
@@ -75,7 +74,7 @@ Item {
     readonly property int gridRowCount: {
         var n = visibleEntries.length
         if (n <= 0) return 1
-        if (tileMode) return 2
+        if (tileMode) return 1
         return Math.ceil(n / gridColumnCount)
     }
 
@@ -109,12 +108,6 @@ Item {
     readonly property int tileRowWidth: {
         var n = visibleEntries.length
         if (n <= 0) return tileWidth
-        if (tileMode) {
-            var actionN = Math.min(systemActionCount, n)
-            var powerN = Math.max(0, n - systemActionCount)
-            var cols = Math.max(actionN, powerN, 1)
-            return cols * tileWidth + (cols - 1) * tileSpacing
-        }
         return n * tileWidth + (n - 1) * tileSpacing
     }
 
@@ -127,22 +120,7 @@ Item {
     readonly property int boxRowWidth: previewTileMode ? gridWidth : tileRowWidth
     readonly property int boxRowHeight: previewTileMode
         ? gridHeight
-        : (tileMode ? tileHeight * 2 + tileSpacing : tileHeight)
-    readonly property var systemActionTiles: {
-        var list = visibleEntries
-        var out = []
-        var n = Math.min(systemActionCount, list.length)
-        for (var i = 0; i < n; i++)
-            out.push(list[i])
-        return out
-    }
-    readonly property var systemPowerTiles: {
-        var list = visibleEntries
-        var out = []
-        for (var i = systemActionCount; i < list.length; i++)
-            out.push(list[i])
-        return out
-    }
+        : tileHeight
     readonly property int appsHostWidth: gridWidth + appsMenuPadding * 2
     readonly property int appsHostHeight: appsMenuPadding * 2 + appsGridViewportHeight
 
@@ -282,23 +260,9 @@ Item {
     function moveTileSelection(dx, dy) {
         var n = visibleEntries.length
         if (n <= 0) return
-        var row = selectedIndex < systemActionCount ? 0 : 1
-        var start = row === 0 ? 0 : systemActionCount
-        var len = row === 0 ? Math.min(systemActionCount, n) : Math.max(0, n - start)
-        if (len <= 0) return
-        var col = selectedIndex - start
-
-        if (dx !== 0) {
-            selectedIndex = start + ((col + dx) % len + len) % len
-            return
-        }
-        if (dy === 0) return
-        var nextRow = row + dy
-        if (nextRow < 0 || nextRow > 1) return
-        var nextStart = nextRow === 0 ? 0 : systemActionCount
-        var nextLen = nextRow === 0 ? Math.min(systemActionCount, n) : Math.max(0, n - nextStart)
-        if (nextLen <= 0) return
-        selectedIndex = nextStart + Math.min(col, nextLen - 1)
+        if (dy !== 0) return
+        if (dx !== 0)
+            selectedIndex = (selectedIndex + dx % n + n) % n
     }
 
     function activateSelection() {
@@ -598,10 +562,6 @@ Item {
         Component.onCompleted: {
             root.previewAreaMaxWidth = previewAreaMaxWidth
             root.previewAreaMaxHeight = previewAreaMaxHeight
-        }
-
-        OverlayScrim {
-            anchors.fill: parent
         }
 
         MouseArea {
@@ -912,126 +872,61 @@ Item {
                     }
                 }
 
-                Column {
+                Row {
                     id: tileRow
                     visible: root.tileMode
                     anchors.horizontalCenter: parent.horizontalCenter
                     spacing: root.tileSpacing
                     width: root.tileRowWidth
-                    height: root.tileHeight * 2 + root.tileSpacing
+                    height: root.tileHeight
 
-                    Row {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        spacing: root.tileSpacing
-                        height: root.tileHeight
+                    Repeater {
+                        model: root.visibleEntries
 
-                        Repeater {
-                            model: root.systemActionTiles
+                        Rectangle {
+                            required property var modelData
+                            required property int index
+                            width: root.tileWidth
+                            height: root.tileHeight
+                            color: Theme.overlaySurface
+                            border.color: index === root.selectedIndex ? Theme.accent : Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.35)
+                            border.width: index === root.selectedIndex ? 2 : 1
 
-                            Rectangle {
-                                required property var modelData
-                                required property int index
-                                width: root.tileWidth
-                                height: root.tileHeight
-                                color: Theme.overlaySurface
-                                border.color: index === root.selectedIndex ? Theme.accent : Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.35)
-                                border.width: index === root.selectedIndex ? 2 : 1
+                            Column {
+                                anchors.centerIn: parent
+                                spacing: 4
 
-                                Column {
-                                    anchors.centerIn: parent
-                                    spacing: 4
-
-                                    Text {
-                                        text: modelData.icon || "󰍉"
-                                        color: Theme.accent
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: root.tileIconSize
-                                        font.bold: Theme.fontBold
-                                        anchors.horizontalCenter: parent.horizontalCenter
-                                    }
-
-                                    Text {
-                                        anchors.horizontalCenter: parent.horizontalCenter
-                                        text: modelData.name
-                                        color: Theme.foreground
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: Theme.panelHintFontPixelSize
-                                        font.bold: Theme.fontBold
-                                        width: Math.min(implicitWidth, root.tileWidth - 12)
-                                        horizontalAlignment: Text.AlignHCenter
-                                        wrapMode: Text.Wrap
-                                        maximumLineCount: 2
-                                        elide: Text.ElideRight
-                                    }
+                                Text {
+                                    text: modelData.icon || "󰍉"
+                                    color: Theme.accent
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: root.tileIconSize
+                                    font.bold: Theme.fontBold
+                                    anchors.horizontalCenter: parent.horizontalCenter
                                 }
 
-                                MouseArea {
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    onEntered: root.selectedIndex = index
-                                    onClicked: {
-                                        root.selectedIndex = index
-                                        root.activateEntry(modelData)
-                                    }
+                                Text {
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    text: modelData.name
+                                    color: Theme.foreground
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.panelHintFontPixelSize
+                                    font.bold: Theme.fontBold
+                                    width: Math.min(implicitWidth, root.tileWidth - 12)
+                                    horizontalAlignment: Text.AlignHCenter
+                                    wrapMode: Text.Wrap
+                                    maximumLineCount: 2
+                                    elide: Text.ElideRight
                                 }
                             }
-                        }
-                    }
 
-                    Row {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        spacing: root.tileSpacing
-                        height: root.tileHeight
-
-                        Repeater {
-                            model: root.systemPowerTiles
-
-                            Rectangle {
-                                required property var modelData
-                                required property int index
-                                readonly property int tileIndex: index + root.systemActionCount
-                                width: root.tileWidth
-                                height: root.tileHeight
-                                color: Theme.overlaySurface
-                                border.color: tileIndex === root.selectedIndex ? Theme.accent : Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.35)
-                                border.width: tileIndex === root.selectedIndex ? 2 : 1
-
-                                Column {
-                                    anchors.centerIn: parent
-                                    spacing: 4
-
-                                    Text {
-                                        text: modelData.icon || "󰍉"
-                                        color: Theme.accent
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: root.tileIconSize
-                                        font.bold: Theme.fontBold
-                                        anchors.horizontalCenter: parent.horizontalCenter
-                                    }
-
-                                    Text {
-                                        anchors.horizontalCenter: parent.horizontalCenter
-                                        text: modelData.name
-                                        color: Theme.foreground
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: Theme.panelHintFontPixelSize
-                                        font.bold: Theme.fontBold
-                                        width: Math.min(implicitWidth, root.tileWidth - 12)
-                                        horizontalAlignment: Text.AlignHCenter
-                                        wrapMode: Text.Wrap
-                                        maximumLineCount: 2
-                                        elide: Text.ElideRight
-                                    }
-                                }
-
-                                MouseArea {
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    onEntered: root.selectedIndex = tileIndex
-                                    onClicked: {
-                                        root.selectedIndex = tileIndex
-                                        root.activateEntry(modelData)
-                                    }
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                onEntered: root.selectedIndex = index
+                                onClicked: {
+                                    root.selectedIndex = index
+                                    root.activateEntry(modelData)
                                 }
                             }
                         }
