@@ -15,16 +15,8 @@
     "layout": {
       "left": [
         {
-          "id": "evo.shopify",
-          "store": "DIY",
-          "interval": 300,
-          "onHover": "evo.stats_diy"
-        },
-        {
-          "id": "evo.shopify",
-          "store": "TGS",
-          "interval": 300,
-          "onHover": "evo.stats_tgs"
+          "id": "evo.system",
+          "interval": 5
         }
       ],
       "center": [

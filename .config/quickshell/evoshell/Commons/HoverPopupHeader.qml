@@ -9,7 +9,7 @@ Item {
     property string href: ""
     property string iconUrl: ""
     property string iconFallback: ""
-    property int iconSize: 32
+    property int iconSize: 0
     property int titleFont: Theme.hoverPopupTitleFontPixelSize
     property int detailFont: Theme.hoverPopupLabelFontPixelSize
 
@@ -18,6 +18,14 @@ Item {
     implicitWidth: headerRow.implicitWidth
 
     readonly property bool hasIcon: root.iconUrl !== "" || root.iconFallback !== ""
+
+    readonly property int resolvedIconSize: {
+        if (!hasIcon)
+            return 0
+        if (iconSize > 0)
+            return iconSize
+        return Math.max(1, headerCol.implicitHeight)
+    }
 
     readonly property string primary: {
         var parts = String(root.value).split("\n")
@@ -42,11 +50,11 @@ Item {
         spacing: 10
 
         Item {
-            Layout.preferredWidth: root.iconSize
-            Layout.preferredHeight: root.iconSize
-            Layout.maximumWidth: root.iconSize
-            Layout.maximumHeight: root.iconSize
-            Layout.alignment: Qt.AlignTop
+            Layout.preferredWidth: root.resolvedIconSize
+            Layout.preferredHeight: root.resolvedIconSize
+            Layout.maximumWidth: root.resolvedIconSize
+            Layout.maximumHeight: root.resolvedIconSize
+            Layout.alignment: Qt.AlignVCenter
             visible: root.hasIcon
             clip: true
 
@@ -71,7 +79,7 @@ Item {
                 cache: true
                 smooth: true
                 mipmap: true
-                sourceSize: Qt.size(root.iconSize * 2, root.iconSize * 2)
+                sourceSize: Qt.size(root.resolvedIconSize * 2, root.resolvedIconSize * 2)
             }
         }
 

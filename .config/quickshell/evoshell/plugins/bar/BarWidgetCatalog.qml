@@ -14,6 +14,7 @@ Item {
     Component { id: trayComp; TrayWidget {} }
     Component { id: githubComp; GithubWidget {} }
     Component { id: shopifyComp; ShopifyWidget {} }
+    Component { id: systemComp; SystemWidget {} }
     Component { id: networkComp; NetworkWidget {} }
 
     function registerAll() {
@@ -27,6 +28,7 @@ Item {
         registry.register("evo.tray", trayComp, { displayName: "Tray" })
         registry.register("evo.github", githubComp, { displayName: "GitHub" })
         registry.register("evo.shopify", shopifyComp, { displayName: "Shopify" })
+        registry.register("evo.system", systemComp, { displayName: "System" })
     }
 
     Component.onCompleted: registerAll()

@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# Toggle ghostty btop for the evoshell system bar widget.
+# Size/position: ~/.config/hypr/windows.lua (btop-float rule).
+
+set -euo pipefail
+
+BTOP_CLASS="TUI.btop"
+BTOP_COLS=131
+BTOP_ROWS=31
+
+usage() {
+    cat <<'EOF'
+usage: evo-system-btop show|hide|toggle
+EOF
+}
+
+find_windows() {
+    hyprctl clients -j 2>/dev/null | jq -r --arg c "$BTOP_CLASS" '
+        .[] | select(.class == $c or (.class == "com.mitchellh.ghostty" and .title == "btop"))
+            | .address
+    '
+}
+
+has_window() {
+    [[ -n "$(find_windows | head -1)" ]]
+}
+
+hypr_eval() {
+    hyprctl eval "$1" >/dev/null 2>&1 || true
+}
+
+btop_cmd() {
+    printf 'ghostty --class=%s --window-width=%s --window-height=%s --window-padding-x=0 --window-padding-y=0 -e btop' \
+        "$BTOP_CLASS" "$BTOP_COLS" "$BTOP_ROWS"
+}
+
+cmd_show() {
+    has_window && return 0
+    hypr_eval "return hl.dispatch(hl.dsp.exec_cmd(\"$(btop_cmd)\"))"
+}
+
+cmd_hide() {
+    while read -r addr; do
+        [[ -n "$addr" ]] || continue
+        hypr_eval "return hl.dispatch(hl.dsp.window.close({ window = \"address:${addr}\" }))"
+    done < <(find_windows)
+}
+
+cmd_toggle() {
+    if has_window; then
+        cmd_hide
+    else
+        cmd_show
+    fi
+}
+
+cmd="${1:-}"
+case "$cmd" in
+show) cmd_show ;;
+hide) cmd_hide ;;
+toggle) cmd_toggle ;;
+-h|--help|help|"") usage ;;
+*)
+    echo "evo-system-btop: unknown command: $cmd" >&2
+    usage >&2
+    exit 1
+    ;;
+esac

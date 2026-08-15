@@ -1,0 +1,95 @@
+#!/bin/bash
+# Evo bar JSON: CPU usage, uptime, and OS age.
+
+set -euo pipefail
+
+source "${HOME}/.local/bin/evo-bar-common"
+
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/evoshell"
+CPU_STAT_FILE="${STATE_DIR}/cpu-stat.prev"
+
+fmt_days() {
+    local sec="${1:-0}"
+    if ! [[ "$sec" =~ ^[0-9]+$ ]]; then
+        printf '—'
+        return
+    fi
+    printf '%dd' $((sec / 86400))
+}
+
+read_cpu_idle_total() {
+    awk '/^cpu / {
+        idle = $5
+        total = 0
+        for (i = 2; i <= NF; i++)
+            total += $i
+        print idle, total
+    }' /proc/stat
+}
+
+cpu_percent() {
+    local idle total prev_idle prev_total idle_d total_d pct=0
+    read -r idle total < <(read_cpu_idle_total)
+
+    mkdir -p "$STATE_DIR"
+    if [[ -f "$CPU_STAT_FILE" ]]; then
+        read -r prev_idle prev_total < "$CPU_STAT_FILE"
+        idle_d=$((idle - prev_idle))
+        total_d=$((total - prev_total))
+        if (( total_d > 0 )); then
+            pct=$(( (1000 * (total_d - idle_d) / total_d + 5) / 10 ))
+            if (( pct < 0 )); then pct=0; fi
+            if (( pct > 100 )); then pct=100; fi
+        fi
+    fi
+
+    printf '%s %s\n' "$idle" "$total" >"$CPU_STAT_FILE"
+    printf '%s' "$pct"
+}
+
+uptime_seconds() {
+    awk '{ print int($1) }' /proc/uptime
+}
+
+os_age_seconds() {
+    local now install_epoch ts
+    now=$(date +%s)
+    install_epoch=0
+
+    if [[ -f /var/log/pacman.log ]]; then
+        ts=$(head -1 /var/log/pacman.log | sed -E 's/^\[([^]]+)\].*/\1/' | tr 'T' ' ')
+        install_epoch=$(date -d "$ts" +%s 2>/dev/null || echo 0)
+    fi
+
+    if ! [[ "$install_epoch" =~ ^[0-9]+$ ]] || (( install_epoch <= 0 )); then
+        install_epoch=$(stat -c %Y / 2>/dev/null || echo "$now")
+    fi
+
+    echo $((now - install_epoch))
+}
+
+cpu_pct=$(cpu_percent)
+uptime_sec=$(uptime_seconds)
+os_age_sec=$(os_age_seconds)
+uptime_text=$(fmt_days "$uptime_sec")
+os_age_text=$(fmt_days "$os_age_sec")
+detail="${uptime_text} / ${os_age_text}"
+
+jq -cn \
+    --argjson cpuPercent "$cpu_pct" \
+    --argjson uptimeSec "$uptime_sec" \
+    --argjson osAgeSec "$os_age_sec" \
+    --arg uptimeText "$uptime_text" \
+    --arg osAgeText "$os_age_text" \
+    --arg detail "$detail" \
+    --arg trayIcon "󰍛" \
+    '{
+        cpuPercent: $cpuPercent,
+        uptimeSec: $uptimeSec,
+        osAgeSec: $osAgeSec,
+        uptimeText: $uptimeText,
+        osAgeText: $osAgeText,
+        detail: $detail,
+        trayIcon: $trayIcon,
+        text: ($trayIcon + " " + $detail)
+    }'
