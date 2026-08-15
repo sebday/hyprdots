@@ -4,7 +4,7 @@ A Quickshell desktop shell for Hyprland — bar, panel, plugins, IPC, and layer 
 
 ## What this is
 
-Evoshell is a custom desktop environment layer built on [Quickshell](https://quickshell.org). It renders a configurable status bar, a left dock panel, launcher menu, hover tooltips, and fullscreen overlays. Background services handle audio, wallpaper, lock screen, idle detection, clipboard history, and notifications.
+Evoshell is a custom desktop environment layer built on [Quickshell](https://quickshell.org). It renders a configurable status bar, a left dock panel, launcher menu, hover popups, and fullscreen overlays. Background services handle audio, wallpaper, lock screen, idle detection, clipboard history, and notifications.
 
 Hyprland keybinds and `evo-ipc` commands talk to a single running Quickshell instance (`quickshell -c evoshell`).
 
@@ -134,7 +134,7 @@ CommandWidget → exec scripts (evo-bar-*.sh) → JSON line
 |------|----------|-------|
 | Service | `evo.audio`, `evo.wallpaper`, `evo.idle`, `evo.lock` | `Service.qml` |
 | Bar | `evo.bar` | `Bar.qml` + `shell.json` layout |
-| Hover tooltip | `evo.calendar`, `evo.stats`, `evo.weather`, `evo.cursor` | `BarHoverPopup` + `*Module.qml` |
+| Hover popup | `evo.calendar`, `evo.stats`, `evo.weather`, `evo.cursor` | `BarHoverPopup` + `*Module.qml` |
 | Fullscreen overlay | `evo.library`, `evo.theme`, `evo.wallpaper` | `CenteredOverlay` / `CarouselOverlay` |
 | Menu | `evo.menu` | Custom `PanelWindow` (`evo-menu`) |
 | Panel | `evo.panel` | `Panel.qml` → dock modules `calc`, `clipboard`, `settings` |
@@ -162,13 +162,13 @@ Hypr bindings use the full path `~/.local/bin/evo-ipc` (PATH may not include it)
 - `~/.local/bin/evo-bar-*.sh` source `evo-bar-common.sh`
 - `CommandWidget` expects one JSON line: `{ "text", "class", … }`; stores full parse in `lastPayload`
 - Poll interval from `shell.json` `interval` (seconds)
-- Cursor tooltip reads bar `lastPayload` — no separate poll; `evo-bar-cursor.sh` has no file cache
+- Cursor hover popup reads bar `lastPayload` — no separate poll; `evo-bar-cursor.sh` has no file cache
 - Heatmap colours: `~/.themes/current/evo-bar.css`
 - Live shell colours: `theme.json` (watched by `Theme.qml`)
 
 ## Hover popups
 
-- Use `BarHoverPopup` (`Commons/BarHoverPopup.qml`) — wraps `AttachedOverlay` + shell hover API
+- Use `BarHoverPopup` (`Commons/BarHoverPopup.qml`) — plugin root; wraps `BarHoverOverlay` + shell hover API
 - Bar widgets set `onHover` to plugin id (`evo.stats`, `evo.cursor`, …)
 - Do not use Qt `ToolTip` on bar items (broke load)
 

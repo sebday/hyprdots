@@ -7,6 +7,14 @@
 #   ~/.config/cursor/auth.json from `agent login`
 source "${HOME}/.local/bin/evo-bar-common"
 
+CURSOR_CACHE_KEY="cursor"
+CURSOR_CACHE_SEC="${EVO_CURSOR_CACHE_SEC:-300}"
+
+if cached=$(evo_bar_cache_read "$CURSOR_CACHE_KEY" "$CURSOR_CACHE_SEC" 2>/dev/null); then
+    printf '%s\n' "$cached"
+    exit 0
+fi
+
 CURSOR_AUTH_JSON="${CURSOR_AUTH_JSON:-$HOME/.config/cursor/auth.json}"
 
 if [[ -f "$EVO_SECRETS_FILE" ]]; then
@@ -246,4 +254,5 @@ output=$(jq -cn \
     --argjson detail "$detail_json" \
     '{text: $text, class: "cursor-usage", chips: $chips, cursorPercent: $cursorPercent, otherPercent: $otherPercent, cycleDaysUsed: $cycleDaysUsed, cycleDaysTotal: $cycleDaysTotal, cycleProgress: $cycleProgress, detail: $detail}')
 
+printf '%s\n' "$output" | evo_bar_cache_write "$CURSOR_CACHE_KEY"
 printf '%s\n' "$output"

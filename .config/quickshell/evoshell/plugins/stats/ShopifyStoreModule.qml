@@ -7,17 +7,21 @@ Item {
     id: root
 
     property var host: null
-    property int tooltipWidth: 0
+    property var shell: null
+    property int hoverPopupWidth: 0
     property string storeKey: "DIY"
     property string title: "DIY"
     property string adminUrl: ""
 
+    readonly property string cacheKey: shell ? String(shell.hoverPopupId || "") : ""
+    readonly property string storeCacheKey: "shopify-" + storeKey + "-30"
+
     readonly property string home: Quickshell.env("HOME")
     readonly property bool active: host && host.opened === true
     readonly property var barSource: host && host.shell ? host.shell.popupAnchorItem : null
-    readonly property int bodyFont: Theme.tooltipBodyFontPixelSize
-    readonly property int hintFont: Theme.tooltipHintFontPixelSize
-    readonly property int statFont: Theme.tooltipLabelFontPixelSize
+    readonly property int bodyFont: Theme.hoverPopupBodyFontPixelSize
+    readonly property int hintFont: Theme.hoverPopupHintFontPixelSize
+    readonly property int statFont: Theme.hoverPopupLabelFontPixelSize
 
     readonly property string storeIconUrl: {
         if (barSource && barSource.storeIconUrl)
@@ -80,6 +84,21 @@ Item {
         storePoll.runPoll()
     }
 
+    function bootstrapFromCache() {
+        if (!shell)
+            return
+        var cached = shell.hoverPopupDataFor(storeCacheKey)
+        if (cached) {
+            applyPayload(cached)
+            return
+        }
+        if (cacheKey) {
+            cached = shell.hoverPopupDataFor(cacheKey)
+            if (cached)
+                applyPayload(cached)
+        }
+    }
+
     function syncFromBar() {
         var item = barSource
         if (item && item.store === storeKey && item.lastPayload)
@@ -119,6 +138,13 @@ Item {
             storeData = ({})
         else
             storeData = json
+        if (!shell || !json || typeof json !== "object")
+            return
+        var days = (json.period && json.period.days) || (Array.isArray(json.bars) ? json.bars.length : 0)
+        if (days >= 30)
+            shell.setHoverPopupData(storeCacheKey, json)
+        else if (cacheKey)
+            shell.setHoverPopupData(cacheKey, json)
     }
 
     onActiveChanged: if (active) syncFromBar()
@@ -137,7 +163,9 @@ Item {
 
     JsonPollRunner {
         id: storePoll
-        active: root.active
+        shell: root.shell
+        cacheKey: root.storeCacheKey
+        active: true
         defaultIntervalSec: 300
         command: ["bash", root.home + "/.local/bin/evo-bar-shopify", root.storeKey, "30"]
         onPolled: function(json) { root.applyPayload(json) }
@@ -145,13 +173,13 @@ Item {
 
     ColumnLayout {
         id: body
-        width: root.tooltipWidth
-        spacing: Theme.tooltipSectionSpacing
+        width: root.hoverPopupWidth
+        spacing: Theme.hoverPopupSectionSpacing
 
         SectionPanel {
             label: ""
 
-            TooltipHeader {
+            HoverPopupHeader {
                 Layout.fillWidth: true
                 value: root.shopifyHeader(root.storeData, root.title)
                 href: root.adminUrl

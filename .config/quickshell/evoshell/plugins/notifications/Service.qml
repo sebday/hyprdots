@@ -13,10 +13,14 @@ Scope {
     property var popupHeights: ({})
 
     readonly property int popupGap: 10
-    readonly property int popupMarginFromEdge: 20
+    readonly property int popupMarginFromEdge: Theme.barHeight + 20
     readonly property string popupOutput: {
         var cfg = shell && shell.shellConfig && shell.shellConfig.notifications
         return cfg && cfg.output ? String(cfg.output) : "HDMI-A-1"
+    }
+    readonly property bool popupOnTop: {
+        var cfg = shell && shell.shellConfig && shell.shellConfig.notifications
+        return cfg && String(cfg.position || "bottom") === "top"
     }
     readonly property var popupScreen: {
         var screens = Quickshell.screens
@@ -507,11 +511,19 @@ Scope {
             implicitWidth: Theme.notificationWidth
             implicitHeight: card.height
 
-            anchors.bottom: true
+            anchors.top: root.popupOnTop
+            anchors.bottom: !root.popupOnTop
             anchors.left: true
-            margins.bottom: index < root.stackOffsets.length
-                ? root.stackOffsets[index]
-                : root.popupMarginFromEdge
+            margins.top: root.popupOnTop
+                ? (index < root.stackOffsets.length
+                    ? root.stackOffsets[index]
+                    : root.popupMarginFromEdge)
+                : 0
+            margins.bottom: root.popupOnTop
+                ? 0
+                : (index < root.stackOffsets.length
+                    ? root.stackOffsets[index]
+                    : root.popupMarginFromEdge)
             margins.left: root.popupMarginLeft(screen)
 
             onImplicitHeightChanged: if (modelData) root.setPopupHeight(modelData.key, implicitHeight)

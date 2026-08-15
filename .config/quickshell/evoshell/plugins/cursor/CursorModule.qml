@@ -6,7 +6,10 @@ Item {
     id: root
 
     property var host: null
-    property int tooltipWidth: 0
+    property var shell: null
+    property int hoverPopupWidth: 0
+
+    readonly property string cacheKey: shell ? String(shell.hoverPopupId || "") : ""
 
     readonly property bool active: host && host.opened === true
     readonly property var barSource: host && host.shell ? host.shell.popupAnchorItem : null
@@ -29,10 +32,28 @@ Item {
         syncFromBar()
     }
 
+    function hasDisplayData() {
+        return !isError && detail && typeof detail === "object" && Object.keys(detail).length > 0
+    }
+
+    function bootstrapFromCache() {
+        if (!cacheKey || !shell)
+            return
+        var cached = shell.hoverPopupDataFor(cacheKey)
+        if (cached)
+            applyPayload(cached)
+    }
+
+    function publishCache(json) {
+        if (cacheKey && shell && json && typeof json === "object")
+            shell.setHoverPopupData(cacheKey, json)
+    }
+
     function syncFromBar() {
         var item = barSource
         if (item && item.polling) {
-            loading = true
+            if (!hasDisplayData())
+                loading = true
             return
         }
         if (item && item.lastPayload)
@@ -63,13 +84,13 @@ Item {
     }
 
     readonly property var modelSplit: Array.isArray(detail.modelSplit) ? detail.modelSplit : []
-    readonly property bool hasModelDetails: root.modelSplit.length > 0 || root.detail.onDemand === true || root.showTokens
+    readonly property bool hasModelDetails: root.modelSplit.length > 0 || root.detail.onDemand === true
 
-    readonly property int smallFont: Theme.tooltipIconFontPixelSize
-    readonly property int hintFont: Theme.tooltipBodyFontPixelSize
+    readonly property int smallFont: Theme.hoverPopupIconFontPixelSize
+    readonly property int hintFont: Theme.hoverPopupBodyFontPixelSize
     readonly property int heroFont: 34
     readonly property int breakdownFont: Theme.panelDetailFontPixelSize
-    readonly property int tokensFont: Theme.tooltipHintFontPixelSize
+    readonly property int tokensFont: Theme.hoverPopupHintFontPixelSize
     readonly property int gaugeLabelFont: Theme.panelHintFontPixelSize
     readonly property int gaugeSize: 168
     readonly property int gaugeSpacing: 18
@@ -91,6 +112,7 @@ Item {
         isError = false
         errorText = ""
         detail = json.detail && typeof json.detail === "object" ? json.detail : ({})
+        publishCache(json)
     }
 
     onActiveChanged: if (active) syncFromBar()
@@ -111,8 +133,8 @@ Item {
 
     ColumnLayout {
         id: contentColumn
-        width: root.tooltipWidth
-        spacing: Theme.tooltipSectionSpacing
+        width: root.hoverPopupWidth
+        spacing: Theme.hoverPopupSectionSpacing
 
         Text {
             Layout.fillWidth: true
@@ -230,42 +252,53 @@ Item {
                 font.pixelSize: root.breakdownFont
                 opacity: 0.6
             }
+        }
 
-            RowLayout {
+        SectionPanel {
+            label: "Token usage"
+            visible: !root.isError && root.showTokens
+
+            ColumnLayout {
                 Layout.fillWidth: true
-                spacing: 8
-                visible: root.showTokens
+                spacing: 10
 
-                Text {
-                    text: root.loading ? "…" : (root.formatTokens(root.detail.tokensTotal) + " tokens")
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.tokensFont
-                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
 
-                Text {
-                    visible: !root.loading
-                    text: " · "
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.tokensFont
-                    opacity: 0.45
-                }
+                    Text {
+                        text: root.loading ? "…" : (root.formatTokens(root.detail.tokensTotal) + " tokens")
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.tokensFont
+                        font.bold: Theme.fontBold
+                    }
 
-                Text {
-                    visible: !root.loading
-                    text: root.formatTokens(root.detail.tokensToday) + " today"
-                    color: Theme.accent
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.tokensFont
+                    Text {
+                        visible: !root.loading
+                        text: " · "
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.tokensFont
+                        opacity: 0.45
+                    }
+
+                    Text {
+                        visible: !root.loading
+                        text: root.formatTokens(root.detail.tokensToday) + " today"
+                        color: Theme.accent
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.tokensFont
+                        font.bold: Theme.fontBold
+                    }
+
+                    Item { Layout.fillWidth: true }
                 }
 
                 CycleProgressBar {
                     visible: root.showCycleBar
                     Layout.fillWidth: true
                     Layout.preferredHeight: 4
-                    Layout.minimumWidth: 48
-                    Layout.alignment: Qt.AlignVCenter
                     progress: root.cycleProgress
                     barHeight: 4
                 }
@@ -284,7 +317,7 @@ Item {
         property int gaugeSize: 130
 
         implicitWidth: gaugeRoot.gaugeSize
-        implicitHeight: gaugeRoot.gaugeSize + 36
+        implicitHeight: ring.height + 4 + titleLabel.implicitHeight
 
         readonly property int ringSize: Math.round(gaugeRoot.gaugeSize * 0.91)
         readonly property real ringRadius: gaugeRoot.gaugeSize * 0.34
@@ -342,6 +375,7 @@ Item {
         }
 
         Text {
+            id: titleLabel
             anchors.top: ring.bottom
             anchors.topMargin: 4
             anchors.horizontalCenter: parent.horizontalCenter

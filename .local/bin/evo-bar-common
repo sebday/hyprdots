@@ -145,6 +145,22 @@ evo_bar_cache_write() {
     mv "$tmp" "$path"
 }
 
+# Decode a base64 Kraken API secret to hex for HMAC signing (xxd optional).
+kraken_secret_hex() {
+    local secret_b64="$1"
+    if command -v xxd >/dev/null 2>&1; then
+        printf '%s' "$secret_b64" | base64 -d | xxd -p -c 256
+        return
+    fi
+    printf '%s' "$secret_b64" | base64 -d | od -An -tx1 | tr -d ' \n'
+}
+
+# Print Kraken API error strings from a JSON response (empty when ok).
+kraken_api_errors() {
+    local resp="$1"
+    jq -r '.error // [] | .[]' <<<"$resp" 2>/dev/null || true
+}
+
 # Merge date|value rows from stdin into a JSON history file.
 # Prints date|value lines for the last $keep days.
 # Usage: { echo '2026-01-01|100'; ...; } | evo_bar_merge_history <path> [keep]

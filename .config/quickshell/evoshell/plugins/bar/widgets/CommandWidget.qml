@@ -138,10 +138,38 @@ Item {
     }
 
     function startExecProc() {
-        polling = true
+        if (!lastPayload)
+            polling = true
         execProc.command = ["bash", "-lc", String(settings.exec)]
         execProc.running = false
         execProc.running = true
+    }
+
+    function applyJsonPayload(json) {
+        lastPayload = json
+        if (commandRoot.shell && commandRoot.hoverPopupId)
+            commandRoot.shell.setHoverPopupData(commandRoot.hoverPopupId, json)
+        var text = String(json.text || json.content || "")
+        className = String(json.class || "")
+        if (text.indexOf("<span") !== -1) {
+            useRichText = true
+            displayRichText = pangoToRichText(text)
+            displayText = text.replace(/<[^>]+>/g, "")
+        } else {
+            useRichText = false
+            displayRichText = ""
+            displayText = text
+        }
+    }
+
+    function bootstrapFromCache() {
+        if (!shell || !hoverPopupId)
+            return false
+        var cached = shell.hoverPopupDataFor(hoverPopupId)
+        if (!cached || typeof cached !== "object")
+            return false
+        applyJsonPayload(cached)
+        return true
     }
 
     function applyOutput(raw) {
@@ -158,19 +186,7 @@ Item {
 
         if (line.charAt(0) === "{") {
             try {
-                var json = JSON.parse(line)
-                lastPayload = json
-                var text = String(json.text || json.content || "")
-                className = String(json.class || "")
-                if (text.indexOf("<span") !== -1) {
-                    useRichText = true
-                    displayRichText = pangoToRichText(text)
-                    displayText = text.replace(/<[^>]+>/g, "")
-                } else {
-                    useRichText = false
-                    displayRichText = ""
-                    displayText = text
-                }
+                applyJsonPayload(JSON.parse(line))
                 return
             } catch (e) {
                 console.warn("command widget json parse failed:", settings.id || "", e)
@@ -320,9 +336,12 @@ Item {
         if (!settings || !settings.exec) return
         intervalTimer.interval = Math.max(1, parseInt(settings.interval, 10) || 5) * 1000
         intervalTimer.stop()
+        bootstrapFromCache()
         runExec()
         intervalTimer.start()
     }
+
+    onShellChanged: bootstrapFromCache()
 
     onSettingsChanged: restartPolling()
 

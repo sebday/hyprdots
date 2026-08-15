@@ -2,14 +2,14 @@ import QtQuick
 import "../../Commons"
 import "."
 
-BarHoverTooltip {
+BarHoverPopup {
     id: root
 
     required property string storeKey
     required property string title
     required property string adminUrl
 
-    contentWidth: Theme.tooltipWidthWide
+    contentWidth: Theme.hoverPopupWidthWide
 
     ShopifyStoreModule {
         storeKey: root.storeKey

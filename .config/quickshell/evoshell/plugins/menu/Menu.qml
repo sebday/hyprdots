@@ -600,9 +600,8 @@ Item {
             root.previewAreaMaxHeight = previewAreaMaxHeight
         }
 
-        Rectangle {
+        OverlayScrim {
             anchors.fill: parent
-            color: Theme.overlayScrim
         }
 
         MouseArea {

@@ -28,8 +28,7 @@ Item {
         WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
         exclusionMode: ExclusionMode.Ignore
 
-        Rectangle {
-            anchors.fill: parent
+        OverlayScrim {
             visible: root.scrim
             color: root.scrimColor
         }

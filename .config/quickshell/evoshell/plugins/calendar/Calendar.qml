@@ -2,9 +2,9 @@ import QtQuick
 import "../../Commons"
 import "."
 
-BarHoverTooltip {
+BarHoverPopup {
     layerNamespace: "evo-calendar"
-    contentWidth: Theme.tooltipWidthStandard
+    contentWidth: Theme.hoverPopupWidthStandard
     minContentHeight: 260
 
     CalendarModule {}

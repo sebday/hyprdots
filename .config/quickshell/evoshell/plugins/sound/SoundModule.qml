@@ -9,7 +9,7 @@ Item {
     id: root
 
     property var host: null
-    property int tooltipWidth: 0
+    property int hoverPopupWidth: 0
 
     readonly property bool active: host && host.opened === true
     readonly property var audio: host && host.shell ? host.shell.serviceFor("evo.audio") : null
@@ -24,9 +24,9 @@ Item {
         return String(sink.name || "Output")
     }
 
-    readonly property int bodyFont: Theme.tooltipBodyFontPixelSize
-    readonly property int hintFont: Theme.tooltipHintFontPixelSize
-    readonly property int iconFont: Theme.tooltipIconFontPixelSize
+    readonly property int bodyFont: Theme.hoverPopupBodyFontPixelSize
+    readonly property int hintFont: Theme.hoverPopupHintFontPixelSize
+    readonly property int iconFont: Theme.hoverPopupIconFontPixelSize
 
     property MprisPlayer trackedPlayer: null
     property real positionTick: 0
@@ -221,8 +221,8 @@ Item {
 
     ColumnLayout {
         id: column
-        width: root.tooltipWidth
-        spacing: Theme.tooltipSectionSpacing
+        width: root.hoverPopupWidth
+        spacing: Theme.hoverPopupSectionSpacing
 
         SectionPanel {
             label: "Now playing"

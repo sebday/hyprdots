@@ -18,20 +18,23 @@ MET_OFFICE_URL="https://weather.metoffice.gov.uk/forecast/gcqvn6pq4"
 WEATHER_STATE="${XDG_STATE_HOME:-$HOME/.local/state}/evoshell/weather-location.json"
 if [[ -f "$WEATHER_STATE" ]]; then
     _loc_name=$(jq -r '.name // empty' "$WEATHER_STATE" 2>/dev/null || true)
-    _loc_lat=$(jq -r '.lat // empty' "$WEATHER_STATE" 2>/dev/null || true)
-    _loc_lon=$(jq -r '.lon // empty' "$WEATHER_STATE" 2>/dev/null || true)
     [[ -n "$_loc_name" ]] && EVO_WEATHER_LOCATION="$_loc_name"
-    [[ -n "$_loc_lat" ]] && EVO_WEATHER_LAT="$_loc_lat"
-    [[ -n "$_loc_lon" ]] && EVO_WEATHER_LON="$_loc_lon"
-    unset _loc_name _loc_lat _loc_lon
+    unset _loc_name
 fi
 
-WEATHER_CACHE_KEY="weather-${EVO_WEATHER_LAT}-${EVO_WEATHER_LON}"
+weather_cache_slug() {
+    printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/_/g' | sed 's/_\+/_/g' | sed 's/^_\|_$//g'
+}
 
-if cached=$(evo_bar_cache_read "$WEATHER_CACHE_KEY" "$EVO_WEATHER_CACHE_SEC" 2>/dev/null); then
-    printf '%s\n' "$cached"
-    exit 0
-fi
+geocode_location() {
+    local name="$1"
+    local encoded data
+    encoded=$(printf '%s' "$name" | jq -sRr @uri)
+    data=$(curl -sf --max-time 12 "https://geocoding-api.open-meteo.com/v1/search?name=${encoded}&count=1" 2>/dev/null) || return 1
+    EVO_WEATHER_LAT=$(echo "$data" | jq -r '.results[0].latitude // empty')
+    EVO_WEATHER_LON=$(echo "$data" | jq -r '.results[0].longitude // empty')
+    [[ -n "$EVO_WEATHER_LAT" && -n "$EVO_WEATHER_LON" ]]
+}
 
 error_out() {
     jq -cn \
@@ -42,6 +45,18 @@ error_out() {
         --arg tooltip "${EVO_WEATHER_LOCATION} weather unavailable" \
         '{ok:false, location:$location, error:$error, metOfficeUrl:$url, text:$text, tooltip:$tooltip, sunrise:"", sunset:"", current:null, daily:[], hourly:[]}'
 }
+
+if ! geocode_location "$EVO_WEATHER_LOCATION"; then
+    error_out "Weather unavailable"
+    exit 0
+fi
+
+WEATHER_CACHE_KEY="weather-$(weather_cache_slug "$EVO_WEATHER_LOCATION")"
+
+if cached=$(evo_bar_cache_read "$WEATHER_CACHE_KEY" "$EVO_WEATHER_CACHE_SEC" 2>/dev/null); then
+    printf '%s\n' "$cached"
+    exit 0
+fi
 
 API_URL="https://api.open-meteo.com/v1/forecast?latitude=${EVO_WEATHER_LAT}&longitude=${EVO_WEATHER_LON}&timezone=Europe%2FLondon&forecast_days=7&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset&hourly=temperature_2m,weather_code"
 

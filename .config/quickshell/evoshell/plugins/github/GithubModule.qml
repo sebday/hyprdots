@@ -7,15 +7,18 @@ Item {
     id: root
 
     property var host: null
-    property int tooltipWidth: 0
+    property var shell: null
+    property int hoverPopupWidth: 0
+
+    readonly property string cacheKey: shell ? String(shell.hoverPopupId || "") : ""
 
     readonly property bool active: host && host.opened === true
     readonly property var barSource: host && host.shell ? host.shell.popupAnchorItem : null
-    readonly property int titleFont: Theme.tooltipTitleFontPixelSize + 4
-    readonly property int heroFont: Theme.tooltipIconFontPixelSize + 6
-    readonly property int bodyFont: Theme.tooltipBodyFontPixelSize
-    readonly property int hintFont: Theme.tooltipHintFontPixelSize
-    readonly property int statFont: Theme.tooltipLabelFontPixelSize
+    readonly property int titleFont: Theme.hoverPopupTitleFontPixelSize + 4
+    readonly property int heroFont: Theme.hoverPopupIconFontPixelSize + 6
+    readonly property int bodyFont: Theme.hoverPopupBodyFontPixelSize
+    readonly property int hintFont: Theme.hoverPopupHintFontPixelSize
+    readonly property int statFont: Theme.hoverPopupLabelFontPixelSize
     readonly property int heatmapSpacing: 3
     readonly property var legendColors: [
         "#45475a", "#89b4fa", "#74c7ec", "#89dceb", "#cba6f7"
@@ -33,10 +36,10 @@ Item {
     property var cells: []
 
     readonly property int heatmapCellSize: {
-        if (cells.length === 0 || tooltipWidth <= 0)
+        if (cells.length === 0 || hoverPopupWidth <= 0)
             return 12
         var gaps = Math.max(0, cells.length - 1) * heatmapSpacing
-        return Math.max(10, Math.min(16, Math.floor((tooltipWidth - gaps) / cells.length)))
+        return Math.max(10, Math.min(16, Math.floor((hoverPopupWidth - gaps) / cells.length)))
     }
 
     readonly property string todayLine: {
@@ -52,8 +55,6 @@ Item {
         parts.push(total30 + " in 30 days")
         if (streak > 0)
             parts.push(streak + " day streak")
-        if (bestCount > 0)
-            parts.push("best " + bestCount)
         return parts.join(" · ")
     }
 
@@ -76,10 +77,28 @@ Item {
         syncFromBar()
     }
 
+    function hasDisplayData() {
+        return !isError && (cells.length > 0 || todayCount > 0 || total30 > 0)
+    }
+
+    function bootstrapFromCache() {
+        if (!cacheKey || !shell)
+            return
+        var cached = shell.hoverPopupDataFor(cacheKey)
+        if (cached)
+            applyPayload(cached)
+    }
+
+    function publishCache(json) {
+        if (cacheKey && shell && json && typeof json === "object")
+            shell.setHoverPopupData(cacheKey, json)
+    }
+
     function syncFromBar() {
         var item = barSource
         if (item && item.loading) {
-            loading = true
+            if (!hasDisplayData())
+                loading = true
             return
         }
         if (item && item.lastPayload)
@@ -166,6 +185,7 @@ Item {
                     break
             }
         }
+        publishCache(json)
     }
 
     function openProfile() {
@@ -190,8 +210,8 @@ Item {
 
     ColumnLayout {
         id: column
-        width: root.tooltipWidth
-        spacing: Theme.tooltipSectionSpacing
+        width: root.hoverPopupWidth
+        spacing: Theme.hoverPopupSectionSpacing
 
         Text {
             Layout.fillWidth: true

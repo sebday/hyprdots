@@ -136,20 +136,6 @@ Item {
         }
 
         Item {
-            width: root.showAudio ? root.trayCellWidth : 0
-            height: Theme.barHeight
-            visible: root.showAudio
-
-            Loader {
-                id: soundLoader
-                anchors.fill: parent
-                active: root.showAudio
-                sourceComponent: soundComp
-                onLoaded: root.wireBarWidget(item, root.settings.audio, "evo.sound")
-            }
-        }
-
-        Item {
             width: root.showNetwork ? root.trayCellWidth : 0
             height: Theme.barHeight
             visible: root.showNetwork
@@ -160,6 +146,20 @@ Item {
                 active: root.showNetwork
                 sourceComponent: networkComp
                 onLoaded: root.wireBarWidget(item, root.settings.network, "evo.network")
+            }
+        }
+
+        Item {
+            width: root.showAudio ? root.trayCellWidth : 0
+            height: Theme.barHeight
+            visible: root.showAudio
+
+            Loader {
+                id: soundLoader
+                anchors.fill: parent
+                active: root.showAudio
+                sourceComponent: soundComp
+                onLoaded: root.wireBarWidget(item, root.settings.audio, "evo.sound")
             }
         }
 

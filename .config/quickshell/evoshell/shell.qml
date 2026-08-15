@@ -64,6 +64,25 @@ ShellRoot {
     property string pendingHoverId: ""
     property var pendingHoverItem: null
     property var pendingHoverWindow: null
+    property var hoverPopupData: ({})
+
+    function setHoverPopupData(key, json) {
+        var id = String(key || "")
+        if (!id || !Util.isPlainObject(json))
+            return
+        var next = ({})
+        for (var k in hoverPopupData)
+            next[k] = hoverPopupData[k]
+        next[id] = json
+        hoverPopupData = next
+    }
+
+    function hoverPopupDataFor(key) {
+        var id = String(key || "")
+        if (!id)
+            return null
+        return hoverPopupData[id] || null
+    }
 
     FileView {
         id: userConfigFile

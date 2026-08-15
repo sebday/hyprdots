@@ -7,7 +7,7 @@ Item {
     id: root
 
     property var host: null
-    property int tooltipWidth: 0
+    property int hoverPopupWidth: 0
 
     property date today: new Date()
     property date nowTick: new Date()
@@ -30,19 +30,22 @@ Item {
         selectedDate.getMonth(),
         selectedDate.getDate()
     )
+    readonly property string selectedDateLabel: Qt.formatDate(root.selectedDate, "dddd, d MMMM")
+    readonly property string selectedYearLabel: String(root.selectedDate.getFullYear())
 
     readonly property int cellWidth: {
         var extra = weekColumnWidth + gutterWidth + cellSpacing * 6
-        return Math.max(26, Math.floor((Math.max(200, tooltipWidth) - extra) / 7))
+        return Math.max(28, Math.floor((Math.max(200, hoverPopupWidth) - extra) / 7))
     }
-    readonly property int cellHeight: 22
-    readonly property int cellSpacing: 2
-    readonly property int weekColumnWidth: 22
-    readonly property int gutterWidth: 8
-    readonly property int headerRowHeight: 16
-    readonly property int smallFont: Theme.tooltipHintFontPixelSize
-    readonly property int bodyFont: Theme.tooltipBodyFontPixelSize
-    readonly property int titleFont: Theme.tooltipTitleFontPixelSize
+    readonly property int cellHeight: 26
+    readonly property int cellSpacing: 3
+    readonly property int weekColumnWidth: 24
+    readonly property int gutterWidth: 10
+    readonly property int headerRowHeight: 18
+    readonly property int gridWidth: weekColumnWidth + gutterWidth + cellWidth * 7 + cellSpacing * 6
+    readonly property int hintFont: Theme.hoverPopupHintFontPixelSize
+    readonly property int bodyFont: Theme.hoverPopupBodyFontPixelSize
+    readonly property int titleFont: Theme.hoverPopupTitleFontPixelSize
 
     function onActivated() {
         today = new Date()
@@ -93,253 +96,342 @@ Item {
 
     ColumnLayout {
         id: innerCol
-        width: root.tooltipWidth
-        spacing: 8
+        width: root.hoverPopupWidth
+        spacing: Theme.hoverPopupSectionSpacing
 
-        Item {
+        SectionPanel {
+            label: ""
             Layout.fillWidth: true
-            Layout.preferredHeight: 22
+            sectionSpacing: 10
+
+            Text {
+                Layout.fillWidth: true
+                text: root.selectedDateLabel
+                color: Theme.foreground
+                font.family: Theme.fontFamily
+                font.pixelSize: root.titleFont
+                font.bold: Theme.fontBold
+                elide: Text.ElideRight
+            }
 
             RowLayout {
-                anchors.fill: parent
+                Layout.fillWidth: true
                 spacing: 10
 
                 Text {
-                    Layout.alignment: Qt.AlignVCenter
-                    text: String(root.today.getFullYear())
-                    color: Theme.foreground
-                    opacity: 0.55
+                    text: "Week " + root.selectedWeek
+                    color: Theme.accent
                     font.family: Theme.fontFamily
-                    font.pixelSize: root.smallFont
-                    font.letterSpacing: 1
-                }
-
-                Rectangle {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 6
-                    Layout.alignment: Qt.AlignVCenter
-                    radius: 3
-                    color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.12)
-
-                    Rectangle {
-                        width: Math.round(parent.width * root.yearDone)
-                        height: parent.height
-                        radius: parent.radius
-                        color: Theme.accent
-
-                        Behavior on width {
-                            NumberAnimation { duration: 160; easing.type: Easing.OutCubic }
-                        }
-                    }
+                    font.pixelSize: root.hintFont
+                    font.bold: Theme.fontBold
+                    font.letterSpacing: 0.5
                 }
 
                 Text {
-                    Layout.alignment: Qt.AlignVCenter
-                    text: root.yearDonePercent + "%"
+                    text: "·"
                     color: Theme.foreground
                     font.family: Theme.fontFamily
-                    font.pixelSize: root.smallFont
+                    font.pixelSize: root.hintFont
+                    opacity: 0.35
+                }
+
+                Text {
+                    text: root.selectedYearLabel
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.hintFont
+                    opacity: 0.55
+                }
+
+                Item { Layout.fillWidth: true }
+
+                Text {
+                    text: root.yearDonePercent + "% of year"
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.hintFont
+                    opacity: 0.55
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 5
+                radius: 2
+                color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.1)
+
+                Rectangle {
+                    width: Math.round(parent.width * root.yearDone)
+                    height: parent.height
+                    radius: parent.radius
+                    color: Theme.accent
+
+                    Behavior on width {
+                        NumberAnimation { duration: 160; easing.type: Easing.OutCubic }
+                    }
                 }
             }
         }
 
-        Item {
+        SectionPanel {
+            label: ""
             Layout.fillWidth: true
-            implicitHeight: gridCol.y + gridCol.height
+            sectionSpacing: 8
 
-            WheelHandler {
-                onWheel: function(event) {
-                    if (event.angleDelta.y === 0) return
-                    root.moveMonth(event.angleDelta.y > 0 ? -1 : 1)
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.preferredWidth: root.gridWidth
+                Layout.alignment: Qt.AlignHCenter
+                spacing: 6
+
+                NavButton {
+                    icon: "󰅁"
+                    onTriggered: root.moveMonth(-1)
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    horizontalAlignment: Text.AlignHCenter
+                    text: Qt.formatDate(root.viewDate, "MMMM yyyy")
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.bodyFont
+                    font.bold: Theme.fontBold
+                    font.letterSpacing: 0.5
+                }
+
+                NavButton {
+                    icon: "󰅂"
+                    onTriggered: root.moveMonth(1)
+                }
+
+                Text {
+                    visible: !root.viewingCurrentMonth
+                    text: "Today"
+                    color: todayMouse.containsMouse ? Theme.foreground : Theme.accent
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.hintFont
+                    font.bold: Theme.fontBold
+
+                    MouseArea {
+                        id: todayMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.goToToday()
+                    }
                 }
             }
 
-            Column {
-                id: gridCol
-                anchors.horizontalCenter: parent.horizontalCenter
-                y: 4
-                spacing: 3
+            Item {
+                Layout.fillWidth: true
+                Layout.preferredWidth: root.gridWidth
+                Layout.alignment: Qt.AlignHCenter
+                implicitHeight: gridCol.implicitHeight
 
-                Row {
-                    id: headerRow
-                    spacing: root.cellSpacing
-
-                    Rectangle {
-                        width: root.weekColumnWidth
-                        height: root.headerRowHeight
-                        radius: 4
-                        color: weekStartMouse.containsMouse ? Theme.panelMantle : "transparent"
-
-                        Text {
-                            anchors.centerIn: parent
-                            text: "W"
-                            color: weekStartMouse.containsMouse ? Theme.accent : Theme.foreground
-                            opacity: weekStartMouse.containsMouse ? 1 : 0.45
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.smallFont
-                            font.letterSpacing: 1
-                            font.bold: Theme.fontBold
-                        }
-
-                        MouseArea {
-                            id: weekStartMouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: root.toggleWeekStart()
-                        }
-                    }
-
-                    Item { width: root.gutterWidth; height: root.headerRowHeight }
-
-                    Repeater {
-                        model: root.weekdays
-                        Text {
-                            required property var modelData
-                            width: root.cellWidth
-                            height: root.headerRowHeight
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                            text: root.weekdayLabel(modelData)
-                            color: Theme.foreground
-                            opacity: 0.5
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.smallFont
-                            font.letterSpacing: 1
-                            font.bold: Theme.fontBold
-                        }
+                WheelHandler {
+                    onWheel: function(event) {
+                        if (event.angleDelta.y === 0) return
+                        root.moveMonth(event.angleDelta.y > 0 ? -1 : 1)
                     }
                 }
 
-                Repeater {
-                    model: root.weeks
+                Column {
+                    id: gridCol
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    spacing: root.cellSpacing
+
                     Row {
-                        required property var modelData
                         spacing: root.cellSpacing
 
-                        Text {
+                        Rectangle {
                             width: root.weekColumnWidth
-                            height: root.cellHeight
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                            text: modelData.week
-                            color: Theme.foreground
-                            opacity: 0.35
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.smallFont
+                            height: root.headerRowHeight
+                            radius: Theme.fieldsetCornerRadius
+                            color: weekStartMouse.containsMouse ? Theme.panelMantle : "transparent"
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: "W"
+                                color: weekStartMouse.containsMouse ? Theme.accent : Theme.foreground
+                                opacity: weekStartMouse.containsMouse ? 1 : 0.45
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.hintFont
+                                font.letterSpacing: 0.5
+                                font.bold: Theme.fontBold
+                            }
+
+                            MouseArea {
+                                id: weekStartMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.toggleWeekStart()
+                            }
                         }
 
-                        Item { width: root.gutterWidth; height: root.cellHeight }
+                        Item { width: root.gutterWidth; height: root.headerRowHeight }
 
                         Repeater {
-                            model: modelData.days
-                            Rectangle {
-                                id: dayCell
+                            model: root.weekdays
+                            Text {
                                 required property var modelData
-                                readonly property bool selected: modelData.key === root.selectedDayKey
-
                                 width: root.cellWidth
+                                height: root.headerRowHeight
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                                text: root.weekdayLabel(modelData)
+                                color: Theme.foreground
+                                opacity: 0.5
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.hintFont
+                                font.letterSpacing: 0.5
+                                font.bold: Theme.fontBold
+                            }
+                        }
+                    }
+
+                    Repeater {
+                        model: root.weeks
+                        Row {
+                            required property var modelData
+                            spacing: root.cellSpacing
+
+                            Text {
+                                width: root.weekColumnWidth
                                 height: root.cellHeight
-                                radius: 4
-                                color: selected
-                                    ? Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.1)
-                                    : "transparent"
-                                border.width: modelData.today ? 1 : 0
-                                border.color: Theme.accent
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                                text: modelData.week
+                                color: Theme.foreground
+                                opacity: 0.35
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.hintFont
+                            }
 
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: modelData.day
-                                    color: modelData.inMonth
-                                        ? (modelData.weekend
-                                            ? Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.75)
-                                            : Theme.foreground)
-                                        : Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.35)
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: root.bodyFont
-                                    font.bold: modelData.today
-                                }
+                            Item { width: root.gutterWidth; height: root.cellHeight }
 
-                                MouseArea {
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: root.selectDay(dayCell.modelData.key)
+                            Repeater {
+                                model: modelData.days
+                                DayCell {
+                                    required property var modelData
+                                    cellWidth: root.cellWidth
+                                    cellHeight: root.cellHeight
+                                    selected: modelData.key === root.selectedDayKey
+                                    onActivated: root.selectDay(modelData.key)
                                 }
                             }
                         }
                     }
                 }
-            }
 
-            Rectangle {
-                x: gridCol.x + root.weekColumnWidth + root.cellSpacing + Math.round((root.gutterWidth - width) / 2)
-                y: gridCol.y + headerRow.height + gridCol.spacing
-                width: 1
-                height: gridCol.height - headerRow.height - gridCol.spacing
-                color: Theme.foreground
-                opacity: 0.1
+                Rectangle {
+                    x: gridCol.x + root.weekColumnWidth + root.cellSpacing + Math.round((root.gutterWidth - width) / 2)
+                    y: gridCol.y + root.headerRowHeight + gridCol.spacing
+                    width: 1
+                    height: gridCol.height - root.headerRowHeight - gridCol.spacing
+                    color: Theme.foreground
+                    opacity: 0.08
+                }
             }
         }
+    }
 
-        Item {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 28
+    component NavButton: Item {
+        id: navBtn
 
-            Text {
-                anchors.centerIn: parent
-                width: 160
-                horizontalAlignment: Text.AlignHCenter
-                text: Qt.formatDate(root.viewDate, "MMMM yyyy").toUpperCase()
-                color: Theme.foreground
-                opacity: 0.6
-                font.family: Theme.fontFamily
-                font.pixelSize: root.bodyFont
-                font.letterSpacing: 1
-            }
+        property string icon: ""
+        signal triggered()
 
-            MouseArea {
-                anchors.left: parent.left
-                anchors.leftMargin: gridCol.x - 8
-                anchors.verticalCenter: parent.verticalCenter
-                width: 32
-                height: 32
-                onClicked: root.moveMonth(-1)
-                Text {
-                    anchors.centerIn: parent
-                    text: "󰅁"
-                    color: parent.containsMouse ? Theme.accent : Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.titleFont
-                }
-            }
+        implicitWidth: 28
+        implicitHeight: 28
 
-            MouseArea {
-                anchors.right: parent.right
-                anchors.rightMargin: parent.width - gridCol.x - gridCol.width - 8
-                anchors.verticalCenter: parent.verticalCenter
-                width: 32
-                height: 32
-                onClicked: root.moveMonth(1)
-                Text {
-                    anchors.centerIn: parent
-                    text: "󰅂"
-                    color: parent.containsMouse ? Theme.accent : Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.titleFont
-                }
+        Rectangle {
+            anchors.fill: parent
+            radius: Theme.fieldsetCornerRadius
+            color: navMouse.containsMouse
+                ? Theme.panelMantle
+                : Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.06)
+        }
+
+        Text {
+            anchors.centerIn: parent
+            text: navBtn.icon
+            color: navMouse.containsMouse ? Theme.accent : Theme.foreground
+            font.family: Theme.fontFamily
+            font.pixelSize: root.bodyFont
+            opacity: navMouse.containsMouse ? 1 : 0.75
+        }
+
+        MouseArea {
+            id: navMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: navBtn.triggered()
+        }
+    }
+
+    component DayCell: Item {
+        id: dayCell
+
+        property var modelData: ({})
+        property bool selected: false
+        property int cellWidth: 28
+        property int cellHeight: 26
+
+        signal activated()
+
+        implicitWidth: cellWidth
+        implicitHeight: cellHeight
+
+        readonly property bool inMonth: modelData.inMonth === true
+        readonly property bool isToday: modelData.today === true
+        readonly property bool isWeekend: modelData.weekend === true
+
+        Rectangle {
+            anchors.fill: parent
+            radius: Theme.fieldsetCornerRadius
+            color: dayCell.selected
+                ? Theme.mixColors(Theme.accent, Theme.mantle, 0.42)
+                : (dayCell.isToday
+                    ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.18)
+                    : (dayMouse.containsMouse ? Theme.panelMantle : "transparent"))
+            border.width: dayCell.selected || dayCell.isToday ? 1 : 0
+            border.color: dayCell.selected
+                ? Theme.accent
+                : Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.55)
+
+            Behavior on color {
+                ColorAnimation { duration: 100 }
             }
         }
 
         Text {
-            Layout.alignment: Qt.AlignHCenter
-            text: "WEEK " + root.selectedWeek
-            color: Theme.foreground
-            opacity: 0.45
+            anchors.centerIn: parent
+            text: modelData.day
+            color: {
+                if (!dayCell.inMonth)
+                    return Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.28)
+                if (dayCell.selected)
+                    return Theme.foreground
+                if (dayCell.isToday)
+                    return Theme.accent
+                if (dayCell.isWeekend)
+                    return Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.72)
+                return Theme.foreground
+            }
             font.family: Theme.fontFamily
-            font.pixelSize: root.smallFont
-            font.letterSpacing: 1
-            font.bold: Theme.fontBold
+            font.pixelSize: root.bodyFont
+            font.bold: dayCell.selected || dayCell.isToday
+        }
+
+        MouseArea {
+            id: dayMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: dayCell.activated()
         }
     }
 }

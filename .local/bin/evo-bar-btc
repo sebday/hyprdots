@@ -6,7 +6,7 @@
 
 source "${HOME}/.local/bin/evo-bar-common"
 
-CHART_DAYS="${2:-30}"
+CHART_DAYS="${1:-30}"
 if ! [[ "$CHART_DAYS" =~ ^[0-9]+$ ]] || (( CHART_DAYS < 1 )); then
     CHART_DAYS=30
 fi
@@ -121,19 +121,38 @@ build_bars() {
 kraken_private() {
     local api_path="$1"
     local extra_data="${2:-}"
-    local nonce postdata sha256_bin message sig secret_hex
+    local nonce postdata sha256_file message sig secret_hex resp
     nonce=$(date +%s%3N)
     postdata="nonce=${nonce}"
     [[ -n "$extra_data" ]] && postdata="${postdata}&${extra_data}"
-    secret_hex=$(printf '%s' "$KRAKEN_SECRET" | base64 -d | xxd -p -c 256)
-    sha256_bin=$(printf '%s%s' "$nonce" "$postdata" | openssl dgst -sha256 -binary)
-    message=$(printf '%s' "$api_path"; printf '%s' "$sha256_bin")
+    secret_hex=$(kraken_secret_hex "$KRAKEN_SECRET") || return 1
+    [[ -n "$secret_hex" ]] || return 1
+    sha256_file=$(mktemp)
+    printf '%s%s' "$nonce" "$postdata" | openssl dgst -sha256 -binary >"$sha256_file"
+    message=$(printf '%s' "$api_path"; cat "$sha256_file")
+    rm -f "$sha256_file"
     sig=$(printf '%s' "$message" | openssl dgst -sha512 -mac HMAC -macopt "hexkey:${secret_hex}" -binary | base64 -w0 2>/dev/null \
         || printf '%s' "$message" | openssl dgst -sha512 -mac HMAC -macopt "hexkey:${secret_hex}" -binary | base64)
-    curl -sf --max-time 15 -X POST "https://api.kraken.com${api_path}" \
+    resp=$(curl -sf --max-time 15 -X POST "https://api.kraken.com${api_path}" \
         -d "$postdata" \
         -H "API-Key: ${KRAKEN_API_KEY}" \
-        -H "API-Sign: ${sig}"
+        -H "API-Sign: ${sig}") || return 1
+    if [[ -n "$(kraken_api_errors "$resp")" ]]; then
+        return 1
+    fi
+    printf '%s' "$resp"
+}
+
+kraken_btc_balance() {
+    local bal_resp="$1"
+    jq -r '
+        .result as $r |
+        (($r.XXBT // "0") | tonumber) +
+        (($r."XXBT.F" // "0") | tonumber) +
+        (($r."XXBT.S" // "0") | tonumber) +
+        (($r.BTC // "0") | tonumber) +
+        (($r."BTC.F" // "0") | tonumber)
+    ' <<<"$bal_resp"
 }
 
 kraken_position_json() {
@@ -142,7 +161,7 @@ kraken_position_json() {
     [[ -n "$price" && "$price" != "null" ]] || return 1
 
     bal_resp=$(kraken_private "/0/private/Balance") || return 1
-    bal=$(jq -r '.result.XXBT // 0' <<<"$bal_resp")
+    bal=$(kraken_btc_balance "$bal_resp")
     awk -v b="$bal" 'BEGIN { exit (b > 0) ? 0 : 1 }' || {
         jq -cn --argjson balance 0 --argjson valueUsd 0 --argjson upnlPct 0 \
             '{balance: $balance, valueUsd: $valueUsd, upnlPct: $upnlPct}'
@@ -150,19 +169,23 @@ kraken_position_json() {
     }
 
     value_usd=$(awk -v b="$bal" -v p="$price" 'BEGIN { printf "%.2f", b * p }')
-    trades_resp=$(kraken_private "/0/private/TradesHistory" "trades=true") || return 1
-    buy_vol=$(jq -r '
-        [.result.trades // {} | to_entries[].value
-         | select((.pair | test("XBT")) and (.pair | test("USD|ZUSD")))
-         | select(.type == "buy")
-         | .vol | tonumber] | add // 0
-    ' <<<"$trades_resp")
-    buy_cost=$(jq -r '
-        [.result.trades // {} | to_entries[].value
-         | select((.pair | test("XBT")) and (.pair | test("USD|ZUSD")))
-         | select(.type == "buy")
-         | .cost | tonumber] | add // 0
-    ' <<<"$trades_resp")
+    trades_resp=$(kraken_private "/0/private/TradesHistory" "trades=true" 2>/dev/null) || trades_resp=""
+    buy_vol=0
+    buy_cost=0
+    if [[ -n "$trades_resp" ]]; then
+        buy_vol=$(jq -r '
+            [.result.trades // {} | to_entries[].value
+             | select((.pair | test("XBT|BTC")) and (.pair | test("USD|ZUSD")))
+             | select(.type == "buy")
+             | .vol | tonumber] | add // 0
+        ' <<<"$trades_resp")
+        buy_cost=$(jq -r '
+            [.result.trades // {} | to_entries[].value
+             | select((.pair | test("XBT|BTC")) and (.pair | test("USD|ZUSD")))
+             | select(.type == "buy")
+             | .cost | tonumber] | add // 0
+        ' <<<"$trades_resp")
+    fi
 
     upnl_pct=0
     if awk -v v="$buy_vol" 'BEGIN { exit (v > 0) ? 0 : 1 }'; then

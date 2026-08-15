@@ -2,9 +2,9 @@ import QtQuick
 import "../../Commons"
 import "."
 
-BarHoverTooltip {
+BarHoverPopup {
     layerNamespace: "evo-stocks"
-    contentWidth: Theme.tooltipWidthWide
+    contentWidth: Theme.hoverPopupWidthWide
 
     StocksModule {}
 }

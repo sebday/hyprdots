@@ -290,11 +290,11 @@ print_top_processes() {
             if (du > 0) print "up\t" name "\t" du
         }
     ' "$sample_a" "$sample_b" | sort -t "$(printf '\t')" -k1,1 -k3,3gr | awk -F'\t' '
-        $1 == "down" && down_count < 5 {
+        $1 == "down" && down_count < 3 {
             printf "proc_down\t%s\t%s\n", $2, $3
             down_count++
         }
-        $1 == "up" && up_count < 5 {
+        $1 == "up" && up_count < 3 {
             printf "proc_up\t%s\t%s\n", $2, $3
             up_count++
         }

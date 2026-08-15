@@ -6,7 +6,7 @@
 
 source "${HOME}/.local/bin/evo-bar-common"
 
-CHART_DAYS="${2:-30}"
+CHART_DAYS="${1:-30}"
 if ! [[ "$CHART_DAYS" =~ ^[0-9]+$ ]] || (( CHART_DAYS < 1 )); then
     CHART_DAYS=30
 fi

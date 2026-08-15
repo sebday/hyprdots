@@ -152,19 +152,19 @@ Singleton {
     readonly property int panelSmallFontPixelSize: Math.max(9, fontPixelSize - 1)
     readonly property int panelDetailFontPixelSize: Math.max(9, fontPixelSize - 2)
     readonly property int panelHintFontPixelSize: Math.max(8, fontPixelSize - 3)
-    readonly property int tooltipBodyFontPixelSize: fontPixelSize + 6
-    readonly property int tooltipHintFontPixelSize: fontPixelSize + 2
-    readonly property int tooltipTitleFontPixelSize: fontPixelSize + 6
-    readonly property int tooltipIconFontPixelSize: fontPixelSize + 8
-    readonly property int tooltipLabelFontPixelSize: fontPixelSize + 1
-    readonly property int tooltipSectionSpacing: 10
+    readonly property int hoverPopupBodyFontPixelSize: fontPixelSize + 6
+    readonly property int hoverPopupHintFontPixelSize: fontPixelSize + 2
+    readonly property int hoverPopupTitleFontPixelSize: fontPixelSize + 6
+    readonly property int hoverPopupIconFontPixelSize: fontPixelSize + 8
+    readonly property int hoverPopupLabelFontPixelSize: fontPixelSize + 1
+    readonly property int hoverPopupSectionSpacing: 10
     readonly property int panelSectionSpacing: 14
-    readonly property int tooltipContentPad: 16
+    readonly property int hoverPopupContentPad: 16
     readonly property int panelContentPad: 10
-    readonly property int tooltipMargin: 16
-    readonly property int barTooltipTopPad: 20
-    readonly property int tooltipWidthStandard: 440
-    readonly property int tooltipWidthWide: 580
+    readonly property int hoverPopupMargin: 16
+    readonly property int barHoverTopPad: 20
+    readonly property int hoverPopupWidthStandard: 440
+    readonly property int hoverPopupWidthWide: 580
     readonly property int popupHeroFontPixelSize: fontPixelSize * 4
     readonly property int popupTitleFontPixelSize: fontPixelSize * 3
     readonly property int popupBodyFontPixelSize: fontPixelSize * 2

@@ -26,6 +26,22 @@ read_panel_state() {
     jq -c '{panelOnRight: ((.panel.side // "left") == "right")}' "$SHELL_JSON"
 }
 
+read_notifications_state() {
+    jq -c '{notificationsOnHdmiBottom: ((.notifications.output // "") == "HDMI-A-1" and ((.notifications.position // "bottom") == "bottom"))}' "$SHELL_JSON"
+}
+
+write_notifications_layout() {
+    local on_hdmi_bottom="$1"
+    local tmp
+    tmp="$(mktemp)"
+    if [[ "$on_hdmi_bottom" == "true" ]]; then
+        jq '.notifications.output = "HDMI-A-1" | .notifications.position = "bottom"' "$SHELL_JSON" >"$tmp"
+    else
+        jq '.notifications.output = "DP-1" | .notifications.position = "top"' "$SHELL_JSON" >"$tmp"
+    fi
+    mv "$tmp" "$SHELL_JSON"
+}
+
 write_panel_side() {
     local on_right="$1"
     local tmp
@@ -47,6 +63,7 @@ usage() {
 usage:
   evo-layout bar get|toggle|reset
   evo-layout panel get|toggle
+  evo-layout notifications get|toggle
 EOF
     exit 1
 }
@@ -96,6 +113,27 @@ panel)
         fi
         reload_shell_config
         read_panel_state
+        ;;
+    *)
+        usage
+        ;;
+    esac
+    ;;
+notifications)
+    case "$action" in
+    get)
+        read_notifications_state
+        ;;
+    toggle)
+        current="$(read_notifications_state)"
+        on="$(jq -r 'if .notificationsOnHdmiBottom then "true" else "false" end' <<<"$current")"
+        if [[ "$on" == "true" ]]; then
+            write_notifications_layout false
+        else
+            write_notifications_layout true
+        fi
+        reload_shell_config
+        read_notifications_state
         ;;
     *)
         usage

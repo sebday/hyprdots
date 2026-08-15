@@ -8,12 +8,15 @@ Item {
     id: root
 
     property var host: null
-    property int tooltipWidth: 0
+    property var shell: null
+    property int hoverPopupWidth: 0
+
+    readonly property string cacheKey: "evo.network"
 
     readonly property string script: Quickshell.env("HOME") + "/.local/bin/evo-network"
     readonly property bool active: host && host.opened === true
-    readonly property int bodyFont: Theme.tooltipBodyFontPixelSize
-    readonly property int hintFont: Theme.tooltipHintFontPixelSize
+    readonly property int bodyFont: Theme.hoverPopupBodyFontPixelSize
+    readonly property int hintFont: Theme.hoverPopupHintFontPixelSize
     readonly property int maxHistory: 36
 
     property var info: ({})
@@ -31,6 +34,7 @@ Item {
     property var topDown: []
     property var topUp: []
     property bool processesLoading: false
+    readonly property int maxProcessRows: 3
 
     implicitHeight: column.implicitHeight
 
@@ -65,12 +69,30 @@ Item {
     }
 
     function onActivated() {
-        loading = true
+        if (!info || !info.iface)
+            loading = true
         resetThroughput()
         refreshVerbose()
         refreshProcesses()
         pollTimer.start()
         processTimer.start()
+    }
+
+    function bootstrapFromCache() {
+        if (!shell)
+            return
+        var cached = shell.hoverPopupDataFor(cacheKey)
+        if (!cached || typeof cached !== "object" || !cached.iface)
+            return
+        info = cached
+        loading = false
+        if (cached.router_ping_ms !== undefined || cached.internet_ping_ms !== undefined)
+            hasPingStats = true
+    }
+
+    function publishCache(data) {
+        if (shell && data && typeof data === "object" && data.iface)
+            shell.setHoverPopupData(cacheKey, data)
     }
 
     function onDeactivated() {
@@ -80,6 +102,13 @@ Item {
             processesProc.running = false
     }
 
+    function zeroHistory() {
+        var out = []
+        for (var i = 0; i < maxHistory; i++)
+            out.push({ value: 0 })
+        return out
+    }
+
     function resetThroughput() {
         prevRxBytes = 0
         prevTxBytes = 0
@@ -87,8 +116,8 @@ Item {
         prevIface = ""
         downloadRate = 0
         uploadRate = 0
-        downHistory = []
-        upHistory = []
+        downHistory = zeroHistory()
+        upHistory = zeroHistory()
         topDown = []
         topUp = []
         hasTransferStats = false
@@ -132,6 +161,18 @@ Item {
         return next
     }
 
+    function padProcessRows(rows) {
+        var out = []
+        for (var i = 0; i < rows.length && i < maxProcessRows; i++)
+            out.push(rows[i])
+        while (out.length < maxProcessRows)
+            out.push({ name: "—", rate: -1 })
+        return out
+    }
+
+    readonly property var paddedTopDown: padProcessRows(topDown)
+    readonly property var paddedTopUp: padProcessRows(topUp)
+
     function parseProcesses(raw) {
         var down = []
         var up = []
@@ -145,8 +186,8 @@ Item {
             if (parts[0] === "proc_down") down.push(entry)
             else if (parts[0] === "proc_up") up.push(entry)
         }
-        topDown = down
-        topUp = up
+        topDown = down.slice(0, maxProcessRows)
+        topUp = up.slice(0, maxProcessRows)
     }
 
     function refreshProcesses() {
@@ -158,6 +199,7 @@ Item {
         loading = false
         var next = parseVerbose(raw)
         info = next
+        publishCache(next)
 
         var now = Date.now() / 1000
         var iface = String(next.iface || "")
@@ -249,14 +291,20 @@ Item {
         }
     }
 
+    Component.onCompleted: {
+        downHistory = zeroHistory()
+        upHistory = zeroHistory()
+    }
+
     ColumnLayout {
         id: column
-        width: root.tooltipWidth
-        spacing: Theme.tooltipSectionSpacing
+        width: root.hoverPopupWidth
+        spacing: Theme.hoverPopupSectionSpacing
 
-        ColumnLayout {
+        SectionPanel {
+            label: ""
             Layout.fillWidth: true
-            spacing: 2
+            sectionSpacing: 2
 
             Text {
                 Layout.fillWidth: true
@@ -334,110 +382,98 @@ Item {
         SectionPanel {
             label: "Top processes"
 
-            Text {
-                    visible: root.processesLoading && root.topDown.length === 0 && root.topUp.length === 0
-                    text: "Sampling…"
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.hintFont
-                    opacity: 0.55
-                }
+            GridLayout {
+                Layout.fillWidth: true
+                columns: 2
+                columnSpacing: 16
+                rowSpacing: 8
 
-                GridLayout {
+                ColumnLayout {
                     Layout.fillWidth: true
-                    columns: 2
-                    columnSpacing: 16
-                    rowSpacing: 8
-                    visible: root.topDown.length > 0 || root.topUp.length > 0 || !root.processesLoading
+                    spacing: 4
 
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 4
-
-                        Text {
-                            text: "Download"
-                            color: Theme.accent
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.hintFont
-                            font.bold: Theme.fontBold
-                            opacity: 0.8
-                        }
-
-                        Repeater {
-                            model: root.topDown.length > 0 ? root.topDown : [{ name: "—", rate: -1 }]
-
-                            RowLayout {
-                                required property var modelData
-                                Layout.fillWidth: true
-                                spacing: 8
-                                visible: root.topDown.length > 0 || modelData.rate < 0
-
-                                Text {
-                                    Layout.fillWidth: true
-                                    text: modelData.name
-                                    color: Theme.foreground
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: root.hintFont
-                                    elide: Text.ElideRight
-                                    opacity: modelData.rate < 0 ? 0.45 : 0.85
-                                }
-
-                                Text {
-                                    text: modelData.rate < 0 ? "idle" : root.formatRate(modelData.rate)
-                                    color: Theme.accent
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: root.hintFont
-                                    font.bold: Theme.fontBold
-                                    opacity: modelData.rate < 0 ? 0.45 : 1
-                                }
-                            }
-                        }
+                    Text {
+                        text: "Download"
+                        color: Theme.accent
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.hintFont
+                        font.bold: Theme.fontBold
+                        opacity: 0.8
                     }
 
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 4
+                    Repeater {
+                        model: root.paddedTopDown
 
-                        Text {
-                            text: "Upload"
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.hintFont
-                            font.bold: Theme.fontBold
-                            opacity: 0.8
-                        }
+                        RowLayout {
+                            required property var modelData
+                            Layout.fillWidth: true
+                            spacing: 8
 
-                        Repeater {
-                            model: root.topUp.length > 0 ? root.topUp : [{ name: "—", rate: -1 }]
-
-                            RowLayout {
-                                required property var modelData
+                            Text {
                                 Layout.fillWidth: true
-                                spacing: 8
-                                visible: root.topUp.length > 0 || modelData.rate < 0
+                                text: modelData.name
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.hintFont
+                                elide: Text.ElideRight
+                                opacity: modelData.rate < 0 ? 0.45 : 0.85
+                            }
 
-                                Text {
-                                    Layout.fillWidth: true
-                                    text: modelData.name
-                                    color: Theme.foreground
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: root.hintFont
-                                    elide: Text.ElideRight
-                                    opacity: modelData.rate < 0 ? 0.45 : 0.85
-                                }
-
-                                Text {
-                                    text: modelData.rate < 0 ? "idle" : root.formatRate(modelData.rate)
-                                    color: Theme.foreground
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: root.hintFont
-                                    font.bold: Theme.fontBold
-                                    opacity: modelData.rate < 0 ? 0.45 : 0.88
-                                }
+                            Text {
+                                text: modelData.rate < 0 ? "—" : root.formatRate(modelData.rate)
+                                color: Theme.accent
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.hintFont
+                                font.bold: Theme.fontBold
+                                opacity: modelData.rate < 0 ? 0.45 : 1
                             }
                         }
                     }
                 }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 4
+
+                    Text {
+                        text: "Upload"
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.hintFont
+                        font.bold: Theme.fontBold
+                        opacity: 0.8
+                    }
+
+                    Repeater {
+                        model: root.paddedTopUp
+
+                        RowLayout {
+                            required property var modelData
+                            Layout.fillWidth: true
+                            spacing: 8
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: modelData.name
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.hintFont
+                                elide: Text.ElideRight
+                                opacity: modelData.rate < 0 ? 0.45 : 0.85
+                            }
+
+                            Text {
+                                text: modelData.rate < 0 ? "—" : root.formatRate(modelData.rate)
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.hintFont
+                                font.bold: Theme.fontBold
+                                opacity: modelData.rate < 0 ? 0.45 : 0.88
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

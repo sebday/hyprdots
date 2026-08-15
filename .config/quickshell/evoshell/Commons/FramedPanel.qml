@@ -5,12 +5,19 @@ Item {
     id: root
 
     property string label: ""
+    property string labelAlign: "left"
     property int contentPad: 10
     property color frameBorder: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.32)
     property bool contentFill: false
     property int labelFontSize: Theme.panelSmallFontPixelSize
     property color labelBackground: Theme.mantle
     property int labelPadH: 6
+    property real labelOpacity: 0.72
+    property bool labelProminent: false
+    property bool labelClickable: false
+    property int labelGap: 8
+
+    signal labelClicked()
 
     default property alias content: contentHost.data
 
@@ -19,14 +26,13 @@ Item {
     readonly property int scaledPad: contentPad
     readonly property int contentWidth: Math.max(contentHost.childrenRect.width, 1)
     readonly property int contentHeight: Math.max(contentHost.childrenRect.height, 1)
-    readonly property int labelHeight: hasLabel ? frameLabel.implicitHeight : 0
-    readonly property int labelOverlap: hasLabel ? Math.ceil(labelHeight / 2) : 0
-    readonly property int frameHeight: contentHeight + scaledPad * 2 + labelOverlap
+    readonly property int labelRowHeight: hasLabel ? frameLabel.implicitHeight + labelGap : 0
+    readonly property int frameHeight: contentHeight + scaledPad * 2 + labelRowHeight
 
     implicitWidth: root.contentFill
         ? (parent ? parent.width : contentWidth + scaledPad * 2)
-        : Math.max(hasLabel ? frameLabel.implicitWidth + labelPadH * 2 + scaledPad * 2 : 0,
-                   contentWidth + scaledPad * 2)
+        : Math.max(contentWidth + scaledPad * 2,
+                   hasLabel ? frameLabel.implicitWidth + scaledPad * 2 : 0)
     implicitHeight: frameHeight
 
     Item {
@@ -44,40 +50,47 @@ Item {
             radius: root.cornerRadius
         }
 
-        Item {
-            id: labelChip
-            visible: root.hasLabel
+        Column {
+            id: frameColumn
             x: root.scaledPad
-            y: -root.labelOverlap
-            height: root.labelHeight
-            width: frameLabel.implicitWidth + root.labelPadH * 2
-            z: 1
-
-            Rectangle {
-                anchors.fill: parent
-                color: root.labelBackground
-            }
-
-            Text {
-                id: frameLabel
-                anchors.centerIn: parent
-                text: root.label
-                color: Theme.foreground
-                font.family: Theme.fontFamily
-                font.pixelSize: Math.max(8, root.labelFontSize - 1)
-                font.bold: Theme.fontBold
-                opacity: 0.72
-            }
-        }
-
-        Item {
-            id: contentHost
-            x: root.scaledPad
-            y: root.scaledPad + root.labelOverlap
+            y: root.scaledPad
             width: root.contentFill
                 ? Math.max(1, frameBox.width - root.scaledPad * 2)
                 : root.contentWidth
-            height: root.contentHeight
+            spacing: root.labelGap
+
+            Text {
+                id: frameLabel
+                visible: root.hasLabel
+                width: parent.width
+                horizontalAlignment: root.labelAlign === "center"
+                    ? Text.AlignHCenter
+                    : Text.AlignLeft
+                text: root.label
+                color: Theme.foreground
+                font.family: Theme.fontFamily
+                font.pixelSize: root.labelProminent
+                    ? root.labelFontSize
+                    : Math.max(8, root.labelFontSize - 1)
+                font.bold: Theme.fontBold
+                opacity: root.labelOpacity
+            }
+
+            Item {
+                id: contentHost
+                width: parent.width
+                height: root.contentHeight
+            }
+        }
+
+        MouseArea {
+            anchors.left: frameColumn.left
+            anchors.right: frameColumn.right
+            anchors.top: frameColumn.top
+            height: frameLabel.visible ? frameLabel.implicitHeight : 0
+            visible: root.labelClickable && frameLabel.visible
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.labelClicked()
         }
     }
 }

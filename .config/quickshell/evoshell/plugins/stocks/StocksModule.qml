@@ -7,19 +7,35 @@ Item {
     id: root
 
     property var host: null
-    property int tooltipWidth: 0
+    property var shell: null
+    property int hoverPopupWidth: 0
+
+    readonly property string btcCacheKey: "evo.stocks.btc"
+    readonly property string spcxCacheKey: "evo.stocks.spcx"
 
     readonly property string home: Quickshell.env("HOME")
     readonly property bool active: host && host.opened === true
-    readonly property int bodyFont: Theme.tooltipBodyFontPixelSize
-    readonly property int hintFont: Theme.tooltipHintFontPixelSize
-    readonly property int statFont: Theme.tooltipLabelFontPixelSize
+    readonly property int chartHistoryDays: 30
+    readonly property int bodyFont: Theme.hoverPopupBodyFontPixelSize
+    readonly property int hintFont: Theme.hoverPopupHintFontPixelSize
+    readonly property int statFont: Theme.hoverPopupLabelFontPixelSize
 
     property var btcData: ({})
     property var spcxData: ({})
 
     function onActivated() {
         refreshAll()
+    }
+
+    function bootstrapFromCache() {
+        if (!shell)
+            return
+        var btc = shell.hoverPopupDataFor(btcCacheKey)
+        var spcx = shell.hoverPopupDataFor(spcxCacheKey)
+        if (btc && typeof btc === "object")
+            btcData = btc
+        if (spcx && typeof spcx === "object")
+            spcxData = spcx
     }
 
     function refreshAll() {
@@ -75,12 +91,19 @@ Item {
         return n.toFixed(2) + " shares"
     }
 
+    function chartBars(data) {
+        var bars = Array.isArray(data.bars) ? data.bars : []
+        if (bars.length <= chartHistoryDays)
+            return bars
+        return bars.slice(bars.length - chartHistoryDays)
+    }
+
     function chartDays(data) {
         var period = data.period || {}
         if (period.days)
-            return period.days
-        var bars = data.bars || []
-        return bars.length > 0 ? bars.length : 30
+            return Math.min(chartHistoryDays, period.days)
+        var bars = chartBars(data)
+        return bars.length > 0 ? bars.length : chartHistoryDays
     }
 
     function marketSection(data, fallbackName, href, chartColor) {
@@ -92,7 +115,7 @@ Item {
             quote: data.quote || {},
             period: data.period || {},
             position: data.position || {},
-            bars: data.bars || [],
+            bars: root.chartBars(data),
             days: root.chartDays(data),
             chartColor: chartColor
         }
@@ -103,17 +126,21 @@ Item {
 
     JsonPollRunner {
         id: btcPoll
-        active: root.active
+        shell: root.shell
+        cacheKey: root.btcCacheKey
+        active: true
         defaultIntervalSec: 60
-        command: ["bash", root.home + "/.local/bin/evo-bar-btc", "30"]
+        command: ["bash", root.home + "/.local/bin/evo-bar-btc", String(root.chartHistoryDays)]
         onPolled: function(json) { root.btcData = json }
     }
 
     JsonPollRunner {
         id: spcxPoll
-        active: root.active
+        shell: root.shell
+        cacheKey: root.spcxCacheKey
+        active: true
         defaultIntervalSec: 60
-        command: ["bash", root.home + "/.local/bin/evo-bar-spcx", "30"]
+        command: ["bash", root.home + "/.local/bin/evo-bar-spcx", String(root.chartHistoryDays)]
         onPolled: function(json) { root.spcxData = json }
     }
 
@@ -125,9 +152,9 @@ Item {
 
         ColumnLayout {
             Layout.fillWidth: true
-            spacing: Theme.tooltipSectionSpacing
+            spacing: Theme.hoverPopupSectionSpacing
 
-            TooltipHeader {
+            HoverPopupHeader {
                 Layout.fillWidth: true
                 value: panel.market.header
                 href: panel.market.href
@@ -306,8 +333,8 @@ Item {
 
     ColumnLayout {
         id: column
-        width: root.tooltipWidth
-        spacing: Theme.tooltipSectionSpacing
+        width: root.hoverPopupWidth
+        spacing: Theme.hoverPopupSectionSpacing
 
         MarketPanel {
             label: "BTC"

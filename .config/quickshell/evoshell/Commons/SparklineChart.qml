@@ -45,6 +45,14 @@ Item {
         }
         if (!isFinite(minV) || !isFinite(maxV))
             return { min: 0, max: 1 }
+        if (minV >= 0 && maxV >= 0) {
+            if (maxV === 0)
+                return { min: 0, max: 1 }
+            var topPad = (maxV - minV) * 0.08
+            if (topPad === 0)
+                topPad = maxV * 0.08 || 1
+            return { min: 0, max: maxV + topPad }
+        }
         if (minV === maxV) {
             var pad = Math.abs(minV) * 0.02 || 1
             return { min: minV - pad, max: maxV + pad }

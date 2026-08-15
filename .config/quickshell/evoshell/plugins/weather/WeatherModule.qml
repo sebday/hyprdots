@@ -7,46 +7,27 @@ Item {
     id: root
 
     property var host: null
-    property int tooltipWidth: 0
+    property var shell: null
+    property int hoverPopupWidth: 0
+
+    readonly property string cacheKey: shell ? String(shell.hoverPopupId || "") : ""
 
     readonly property bool active: host && host.opened === true
     readonly property var barSource: host && host.shell ? host.shell.popupAnchorItem : null
 
-    readonly property int locationFont: Theme.tooltipTitleFontPixelSize + 8
-    readonly property int nowIconFont: Theme.tooltipIconFontPixelSize + 10
-    readonly property int nowPrimaryFont: Theme.tooltipIconFontPixelSize + 8
-    readonly property int dayIconFont: Theme.tooltipBodyFontPixelSize
-    readonly property int dayPrimaryFont: Theme.tooltipBodyFontPixelSize - 1
-    readonly property int subtitleFont: Math.max(8, Theme.tooltipHintFontPixelSize - 2)
-    readonly property int titleFont: Theme.tooltipTitleFontPixelSize
-    readonly property int bodyFont: Theme.tooltipBodyFontPixelSize
-    readonly property int hintFont: Theme.tooltipHintFontPixelSize
-    readonly property int chartHeight: 176
+    readonly property int heroIconFont: Theme.hoverPopupIconFontPixelSize + 14
+    readonly property int heroTempFont: Theme.popupHeroFontPixelSize
+    readonly property int dayIconFont: Theme.hoverPopupBodyFontPixelSize
+    readonly property int dayPrimaryFont: Theme.hoverPopupBodyFontPixelSize
+    readonly property int titleFont: Theme.hoverPopupTitleFontPixelSize
+    readonly property int bodyFont: Theme.hoverPopupBodyFontPixelSize
+    readonly property int hintFont: Theme.hoverPopupHintFontPixelSize
+    readonly property int chartHeight: 150
     readonly property int yAxisWidth: 28
     readonly property int chartGap: 4
 
     property var weather: ({})
     property bool loading: false
-    property bool locationPickerOpen: false
-
-    readonly property string weatherStatePath: (Quickshell.env("HOME") || "") + "/.local/state/evoshell/weather-location.json"
-    readonly property var defaultLocations: [
-        { name: "Derby", lat: 52.9219, lon: -1.4746 },
-        { name: "Edinburgh", lat: 55.9533, lon: -3.1883 },
-        { name: "Cardiff", lat: 51.4816, lon: -3.1791 },
-        { name: "Belfast", lat: 54.5973, lon: -5.9301 },
-        { name: "Reykjavik", lat: 64.1466, lon: -21.9426 },
-        { name: "Tokyo", lat: 35.6762, lon: 139.6503 },
-        { name: "Singapore", lat: 1.3521, lon: 103.8198 },
-        { name: "Buenos Aires", lat: -34.6037, lon: -58.3816 },
-        { name: "Honolulu", lat: 21.3069, lon: -157.8583 }
-    ]
-    readonly property var locationOptions: {
-        var item = barSource
-        if (item && item.settings && Array.isArray(item.settings.locations) && item.settings.locations.length > 0)
-            return item.settings.locations
-        return defaultLocations
-    }
 
     readonly property bool weatherOk: weather.ok === true
     readonly property string location: String(weather.location || "Derby")
@@ -60,25 +41,24 @@ Item {
         ? "Loading…"
         : (weatherOk && current ? String(current.label || "") : String(weather.error || "Unavailable"))
 
-    readonly property var columns: {
-        var cols = [{
-            now: true,
-            title: "Now",
-            icon: current ? String(current.icon || "󰖐") : "󰖐",
-            primary: loading ? "…" : (current ? String(current.temp) + "°" : "—"),
-            subtitle: statusText
-        }]
+    readonly property string currentIcon: current ? String(current.icon || "󰖐") : "󰖐"
+    readonly property string currentTemp: loading ? "…" : (current ? String(current.temp) + "°" : "—")
+    readonly property string currentLabel: weatherOk && current ? String(current.label || "") : ""
+
+    readonly property var outlookDays: {
+        var titles = ["Today", "Tomorrow"]
+        var out = []
         for (var i = 0; i < daily.length && i < 2; i++) {
             var d = daily[i]
-            cols.push({
-                now: false,
-                title: String(d.dow || ""),
+            out.push({
+                title: titles[i] || String(d.dow || ""),
+                dow: String(d.dow || ""),
                 icon: String(d.icon || "󰖐"),
-                primary: String(d.min) + "–" + String(d.max) + "°",
-                subtitle: String(d.label || "")
+                range: String(d.min) + "–" + String(d.max) + "°",
+                label: String(d.label || "")
             })
         }
-        return cols
+        return out
     }
 
     readonly property string currentHourLabel: {
@@ -147,14 +127,28 @@ Item {
         syncFromBar()
     }
 
-    function onDeactivated() {
-        locationPickerOpen = false
+    function hasDisplayData() {
+        return weatherOk || !!(weather && weather.error)
+    }
+
+    function bootstrapFromCache() {
+        if (!cacheKey || !shell)
+            return
+        var cached = shell.hoverPopupDataFor(cacheKey)
+        if (cached)
+            applyPayload(cached)
+    }
+
+    function publishCache(json) {
+        if (cacheKey && shell && json && typeof json === "object")
+            shell.setHoverPopupData(cacheKey, json)
     }
 
     function syncFromBar() {
         var item = barSource
         if (item && item.polling) {
-            loading = true
+            if (!hasDisplayData())
+                loading = true
             return
         }
         if (item && item.lastPayload)
@@ -170,6 +164,7 @@ Item {
             return
         }
         weather = json
+        publishCache(json)
     }
 
     onActiveChanged: if (active) syncFromBar()
@@ -193,214 +188,39 @@ Item {
         return Theme.accent
     }
 
-    function isCurrentLocation(loc) {
-        if (!loc)
-            return false
-        return String(location).toLowerCase() === String(loc.name || "").toLowerCase()
-    }
-
-    function setLocation(loc) {
-        if (!loc)
+    function openMetOffice() {
+        if (!metOfficeUrl)
             return
-        var name = String(loc.name || "")
-        var lat = Number(loc.lat)
-        var lon = Number(loc.lon)
-        if (!name || isNaN(lat) || isNaN(lon))
-            return
-
-        locationPickerOpen = false
-        loading = true
-        var cacheKey = "weather-" + lat + "-" + lon
-        var stateJson = JSON.stringify({ name: name, lat: lat, lon: lon })
-        Quickshell.execDetached(["bash", "-lc",
-            "mkdir -p \"${HOME}/.local/state/evoshell\" && "
-            + "printf %s " + Util.shellQuote(stateJson) + " > " + Util.shellQuote(weatherStatePath)
-            + " && rm -f \"${HOME}/.cache/evoshell/bar/" + cacheKey + ".json\""
-        ])
-        if (barSource && typeof barSource.restartPolling === "function")
-            barSource.restartPolling()
-    }
-
-    function toggleLocationPicker() {
-        locationPickerOpen = !locationPickerOpen
+        Quickshell.execDetached(["bash", "-lc", "xdg-open " + Util.shellQuote(metOfficeUrl)])
     }
 
     ColumnLayout {
         id: column
-        width: root.tooltipWidth
-        spacing: Theme.tooltipSectionSpacing
-
-        ColumnLayout {
-            Layout.fillWidth: true
-            spacing: 2
-
-            Text {
-                Layout.fillWidth: true
-                horizontalAlignment: Text.AlignHCenter
-                text: root.location + (root.locationPickerOpen ? "  ▴" : "  ▾")
-                color: Theme.foreground
-                font.family: Theme.fontFamily
-                font.pixelSize: root.locationFont
-                font.bold: Theme.fontBold
-
-                MouseArea {
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.toggleLocationPicker()
-                }
-            }
-
-            SectionPanel {
-                label: ""
-                Layout.fillWidth: true
-                visible: root.locationPickerOpen
-
-                GridLayout {
-                    Layout.fillWidth: true
-                    columns: 2
-                    columnSpacing: 8
-                    rowSpacing: 4
-
-                    Repeater {
-                        model: root.locationOptions
-
-                        Text {
-                            required property var modelData
-                            Layout.fillWidth: true
-                            horizontalAlignment: Text.AlignHCenter
-                            text: modelData.name
-                            color: root.isCurrentLocation(modelData) ? Theme.accent : Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.hintFont
-                            font.bold: root.isCurrentLocation(modelData) ? Theme.fontBold : false
-                            opacity: root.isCurrentLocation(modelData) ? 1 : 0.72
-
-                            MouseArea {
-                                anchors.fill: parent
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: root.setLocation(modelData)
-                            }
-                        }
-                    }
-                }
-            }
-
-            Text {
-                Layout.fillWidth: true
-                horizontalAlignment: Text.AlignHCenter
-                visible: root.loading
-                text: "Loading…"
-                color: Theme.foreground
-                font.family: Theme.fontFamily
-                font.pixelSize: root.hintFont
-                opacity: 0.72
-            }
-
-            Text {
-                Layout.fillWidth: true
-                horizontalAlignment: Text.AlignHCenter
-                visible: !root.loading && !root.weatherOk
-                text: root.statusText
-                color: Theme.urgent
-                font.family: Theme.fontFamily
-                font.pixelSize: root.hintFont
-                wrapMode: Text.WordWrap
-            }
-        }
+        width: root.hoverPopupWidth
+        spacing: Theme.hoverPopupSectionSpacing
 
         SectionPanel {
-            label: "Forecast"
-            visible: root.weatherOk && !root.loading
+            label: ""
+            Layout.fillWidth: true
 
             RowLayout {
                 Layout.fillWidth: true
+                spacing: 8
 
-                Repeater {
-                    model: root.columns
-
-                    ColumnLayout {
-                        required property var modelData
-                        Layout.fillWidth: true
-                        spacing: 6
-
-                                Text {
-                                    Layout.fillWidth: true
-                                    horizontalAlignment: Text.AlignHCenter
-                                    text: modelData.title
-                                    color: Theme.foreground
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: root.hintFont
-                                    opacity: 0.6
-                                }
-
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    Layout.alignment: Qt.AlignHCenter
-                                    spacing: modelData.now ? 4 : 5
-                                    visible: modelData.now
-
-                                    Text {
-                                        Layout.alignment: Qt.AlignHCenter
-                                        text: modelData.icon
-                                        color: Theme.accent
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: root.nowIconFont
-                                    }
-
-                                    Text {
-                                        Layout.alignment: Qt.AlignHCenter
-                                        text: modelData.primary
-                                        color: Theme.foreground
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: root.nowPrimaryFont
-                                        font.bold: Theme.fontBold
-                                    }
-                                }
-
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    Layout.alignment: Qt.AlignHCenter
-                                    spacing: 4
-                                    visible: !modelData.now
-
-                                    Text {
-                                        Layout.alignment: Qt.AlignHCenter
-                                        text: modelData.icon
-                                        color: Theme.accent
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: root.dayIconFont
-                                    }
-
-                                    Text {
-                                        Layout.alignment: Qt.AlignHCenter
-                                        text: modelData.primary
-                                        color: Theme.foreground
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: root.dayPrimaryFont
-                                        font.bold: Theme.fontBold
-                                    }
-                                }
-
-                                Text {
-                                    Layout.fillWidth: true
-                                    horizontalAlignment: Text.AlignHCenter
-                                    text: modelData.subtitle
-                                    color: Theme.foreground
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: root.subtitleFont
-                                    opacity: modelData.now ? 0.55 : 0.5
-                                    wrapMode: Text.WordWrap
-                                    maximumLineCount: 2
-                                    elide: Text.ElideRight
-                                }
-                    }
+                Text {
+                    Layout.fillWidth: true
+                    text: root.location
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.titleFont
+                    font.bold: Theme.fontBold
+                    elide: Text.ElideRight
                 }
-            }
 
-            RowLayout {
-                Layout.alignment: Qt.AlignHCenter
-                spacing: 20
-                visible: root.sunrise !== "" || root.sunset !== ""
+                RowLayout {
+                    spacing: 14
+                    visible: root.weatherOk && !root.loading
+                        && (root.sunrise !== "" || root.sunset !== "")
 
                     Repeater {
                         model: [
@@ -410,30 +230,185 @@ Item {
 
                         RowLayout {
                             required property var modelData
-                            spacing: 6
+                            spacing: 5
                             visible: modelData.text !== ""
 
                             Text {
                                 text: modelData.icon
                                 color: Theme.accent
                                 font.family: Theme.fontFamily
-                                font.pixelSize: root.bodyFont
+                                font.pixelSize: root.hintFont
                             }
 
                             Text {
                                 text: modelData.text
                                 color: Theme.foreground
                                 font.family: Theme.fontFamily
-                                font.pixelSize: root.bodyFont
-                                opacity: 0.75
+                                font.pixelSize: root.hintFont
+                                opacity: 0.72
                             }
                         }
+                    }
                 }
+            }
+
+            Text {
+                Layout.fillWidth: true
+                visible: root.loading
+                text: "Loading…"
+                color: Theme.foreground
+                font.family: Theme.fontFamily
+                font.pixelSize: root.bodyFont
+                opacity: 0.72
+            }
+
+            Text {
+                Layout.fillWidth: true
+                visible: !root.loading && !root.weatherOk
+                text: root.statusText
+                color: Theme.urgent
+                font.family: Theme.fontFamily
+                font.pixelSize: root.bodyFont
+                wrapMode: Text.WordWrap
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.topMargin: 4
+                spacing: 14
+                visible: root.weatherOk && !root.loading
+
+                Text {
+                    text: root.currentIcon
+                    color: Theme.accent
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.heroIconFont
+                    font.bold: Theme.fontBold
+                    Layout.alignment: Qt.AlignVCenter
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 2
+
+                    Text {
+                        text: root.currentTemp
+                        color: root.current
+                            ? root.tempColor(root.current.temp)
+                            : Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.heroTempFont
+                        font.bold: Theme.fontBold
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        visible: root.currentLabel !== ""
+                        text: root.currentLabel
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.bodyFont
+                        font.bold: Theme.fontBold
+                        elide: Text.ElideRight
+                    }
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.topMargin: 2
+                Layout.bottomMargin: 2
+                height: 1
+                visible: root.weatherOk && !root.loading && root.outlookDays.length > 0
+                color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.1)
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 10
+                visible: root.weatherOk && !root.loading && root.outlookDays.length > 0
+
+                Repeater {
+                    model: root.outlookDays
+
+                    Rectangle {
+                        required property var modelData
+                        Layout.fillWidth: true
+                        implicitHeight: outlookCol.implicitHeight + 16
+                        radius: Theme.fieldsetCornerRadius
+                        color: Theme.panelMantle
+
+                        ColumnLayout {
+                            id: outlookCol
+                            anchors.fill: parent
+                            anchors.margins: 10
+                            spacing: 6
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 6
+
+                                Text {
+                                    text: modelData.title
+                                    color: Theme.foreground
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: root.hintFont
+                                    font.bold: Theme.fontBold
+                                    opacity: 0.72
+                                }
+
+                                Text {
+                                    visible: modelData.dow !== ""
+                                    text: modelData.dow
+                                    color: Theme.foreground
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: root.hintFont
+                                    opacity: 0.45
+                                }
+
+                                Item { Layout.fillWidth: true }
+
+                                Text {
+                                    text: modelData.icon
+                                    color: Theme.accent
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: root.dayIconFont
+                                }
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: modelData.range
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.dayPrimaryFont
+                                font.bold: Theme.fontBold
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: modelData.label
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.hintFont
+                                opacity: 0.55
+                                elide: Text.ElideRight
+                            }
+                        }
+                    }
+                }
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                visible: root.metOfficeUrl !== ""
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.openMetOffice()
             }
         }
 
         SectionPanel {
-            label: "24 hour"
+            label: ""
             visible: root.weatherOk && !root.loading && root.hourly.length > 0
 
             RowLayout {
@@ -606,7 +581,7 @@ Item {
         }
 
         SectionPanel {
-            label: "1 week"
+            label: ""
             visible: root.weatherOk && !root.loading && root.weekDays.length > 0
 
             RowLayout {
