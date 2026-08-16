@@ -51,7 +51,8 @@ ShellRoot {
         "evo.clipboard": { kinds: ["menu", "service"], path: "plugins/clipboard/Clipboard.qml", servicePath: "plugins/clipboard/Service.qml", keepLoaded: true },
         "evo.panel": { kinds: ["panel"], path: "plugins/panel/Panel.qml", keepLoaded: true },
         "evo.bar": { kinds: ["bar"], path: "plugins/bar/Bar.qml" },
-        "evo.shopify": { kinds: ["dashboard"], path: "plugins/shopify/Shopify.qml", keepLoaded: true }
+        "evo.shopify": { kinds: ["dashboard"], path: "plugins/shopify/Shopify.qml", keepLoaded: true },
+        "evo.music": { kinds: ["dashboard"], path: "plugins/music/Music.qml", keepLoaded: true }
     })
 
     property var shellConfig: builtinShellConfig
@@ -386,6 +387,18 @@ ShellRoot {
         }
     }
 
+    Loader {
+        id: musicLoader
+        active: true
+        source: shell.pluginUrl(shell.pluginTable["evo.music"].path)
+        onLoaded: {
+            if (item && "shell" in item) item.shell = shell
+        }
+        onStatusChanged: {
+            if (status === Loader.Error) console.warn("music load error:", String(musicLoader.errorString))
+        }
+    }
+
     readonly property var panelPluginIds: ["evo.menu", "evo.panel", "evo.calendar", "evo.stats_diy", "evo.stats_tgs", "evo.cursor", "evo.weather", "evo.network", "evo.volume", "evo.media", "evo.github", "evo.stocks", "evo.cloudflare", "evo.transmission", "evo.transmission.add", "evo.library", "evo.wallpaper", "evo.clipboard"]
 
     Instantiator {
@@ -435,6 +448,47 @@ ShellRoot {
 
         function listPlugins(): string {
             return JSON.stringify(shell.pluginTable)
+        }
+
+        function shopifyOpen(): string {
+            var panel = shopifyLoader.item
+            if (panel && typeof panel.open === "function")
+                panel.open()
+            return "ok"
+        }
+
+        function shopifyClose(): string {
+            var panel = shopifyLoader.item
+            if (panel && typeof panel.close === "function")
+                panel.close()
+            return "ok"
+        }
+
+        function musicOpen(): string {
+            var panel = musicLoader.item
+            if (panel && typeof panel.open === "function")
+                panel.open()
+            return "ok"
+        }
+
+        function musicClose(): string {
+            var panel = musicLoader.item
+            if (panel && typeof panel.close === "function")
+                panel.close()
+            return "ok"
+        }
+
+        function musicToggle(): string {
+            var panel = musicLoader.item
+            if (!panel) return "ok"
+            if (typeof panel.toggle === "function") {
+                panel.toggle()
+            } else if (panel.opened && typeof panel.close === "function") {
+                panel.close()
+            } else if (typeof panel.open === "function") {
+                panel.open()
+            }
+            return "ok"
         }
     }
 

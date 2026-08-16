@@ -13,6 +13,7 @@ Item {
     property string title: "DIY"
     property string adminUrl: ""
     property bool chartFillHeight: false
+    property bool demoMode: false
 
     readonly property string cacheKey: shell ? String(shell.hoverPopupId || "") : ""
     readonly property string storeCacheKey: "shopify-" + storeKey + "-30"
@@ -20,9 +21,7 @@ Item {
     readonly property string home: Quickshell.env("HOME")
     readonly property bool active: host && host.opened === true
     readonly property var barSource: host && host.shell ? host.shell.popupAnchorItem : null
-    readonly property int bodyFont: Theme.hoverPopupBodyFontPixelSize
     readonly property int hintFont: Theme.hoverPopupHintFontPixelSize
-    readonly property int statFont: Theme.hoverPopupLabelFontPixelSize
 
     readonly property string storeIconUrl: {
         if (barSource && barSource.storeIconUrl)
@@ -81,11 +80,73 @@ Item {
     implicitHeight: root.chartFillHeight ? 0 : body.implicitHeight
 
     function onActivated() {
+        if (demoMode) {
+            applyPayload(buildDemoPayload())
+            return
+        }
         syncFromBar()
         storePoll.runPoll()
     }
 
+    function buildDemoSeries(base, variance, count) {
+        var bars = []
+        var orderBars = []
+        for (var i = 0; i < count; i++) {
+            var wave = Math.sin(i / 4) * variance
+            bars.push({ value: Math.max(0, Math.round(base + wave + i * (variance / count))) })
+            orderBars.push({ value: Math.max(1, Math.round(base / 90 + wave / 50 + (i % 4))) })
+        }
+        return { bars: bars, orderBars: orderBars }
+    }
+
+    function buildDemoPayload() {
+        var diy = storeKey === "DIY"
+        var sym = "£"
+        var revenue = diy ? 4821 : 1964
+        var orders = diy ? 67 : 28
+        var sessions = diy ? 812 : 394
+        var spend = diy ? 876.40 : 412.15
+        var cos = diy ? "18.2%" : "21.0%"
+        var series = buildDemoSeries(diy ? 3200 : 1400, diy ? 900 : 420, 30)
+        var periodRevenue = diy ? 98420 : 42680
+        return {
+            store: diy ? "D" : "T",
+            symbol: sym,
+            revenue: revenue,
+            orders: orders,
+            cos: cos,
+            label: (diy ? "D " : "T ") + Format.formatRevenue(revenue, sym) + " | " + cos,
+            todayDetail: {
+                revenue: revenue,
+                orders: orders,
+                sessions: sessions,
+                cos: cos,
+                spend: spend,
+                cvr: orders / sessions
+            },
+            period: {
+                days: 30,
+                revenue: periodRevenue,
+                orders: diy ? 1184 : 512,
+                sessions: diy ? 18240 : 8640,
+                spend: diy ? 16840 : 7920
+            },
+            channels: {
+                paid: periodRevenue * 0.42,
+                organic: periodRevenue * 0.31,
+                direct: periodRevenue * 0.18,
+                email: periodRevenue * 0.09
+            },
+            bars: series.bars,
+            orderBars: series.orderBars
+        }
+    }
+
     function bootstrapFromCache() {
+        if (demoMode) {
+            applyPayload(buildDemoPayload())
+            return
+        }
         if (!shell)
             return
         var cached = shell.hoverPopupDataFor(storeCacheKey)
@@ -101,6 +162,8 @@ Item {
     }
 
     function syncFromBar() {
+        if (demoMode)
+            return
         var item = barSource
         if (item && item.store === storeKey && item.lastPayload)
             applyPayload(item.lastPayload)
@@ -134,12 +197,20 @@ Item {
         return Format.formatRevenue(n, currency)
     }
 
+    function fmtAov() {
+        var revenue = parseFloat(root.todayDetail.revenue)
+        var orders = parseFloat(root.todayDetail.orders || root.storeData.orders)
+        if (isNaN(revenue) || isNaN(orders) || orders <= 0)
+            return "—"
+        return Format.formatRevenue(revenue / orders, currency)
+    }
+
     function applyPayload(json) {
         if (!json || typeof json !== "object")
             storeData = ({})
         else
             storeData = json
-        if (!shell || !json || typeof json !== "object")
+        if (demoMode || !shell || !json || typeof json !== "object")
             return
         var days = (json.period && json.period.days) || (Array.isArray(json.bars) ? json.bars.length : 0)
         if (days >= 30)
@@ -148,12 +219,19 @@ Item {
             shell.setHoverPopupData(cacheKey, json)
     }
 
-    onActiveChanged: if (active) syncFromBar()
-    onBarSourceChanged: if (active) syncFromBar()
+    onDemoModeChanged: {
+        if (demoMode)
+            applyPayload(buildDemoPayload())
+        else if (active)
+            onActivated()
+    }
+
+    onActiveChanged: if (active && !demoMode) syncFromBar()
+    onBarSourceChanged: if (active && !demoMode) syncFromBar()
 
     Connections {
         target: root.barSource
-        enabled: root.barSource !== null
+        enabled: root.barSource !== null && !root.demoMode
         function onLastPayloadChanged() {
             if (root.active) root.syncFromBar()
         }
@@ -166,7 +244,7 @@ Item {
         id: storePoll
         shell: root.shell
         cacheKey: root.storeCacheKey
-        active: root.active
+        active: root.active && !root.demoMode
         defaultIntervalSec: 300
         command: ["bash", root.home + "/.local/bin/evo-bar-shopify", root.storeKey, "30"]
         onPolled: function(json) { root.applyPayload(json) }
@@ -190,103 +268,59 @@ Item {
             }
         }
 
-        GridLayout {
+        SectionPanel {
+            label: ""
             Layout.fillWidth: true
-            columns: 4
-            columnSpacing: 8
-            rowSpacing: 8
 
-            Repeater {
-                model: [
-                    { label: "Orders", value: String(root.todayDetail.orders || root.storeData.orders || "—") },
-                    { label: "Sessions", value: String(root.todayDetail.sessions || "—") },
-                    { label: "CVR", value: root.fmtPct(root.todayDetail.cvr) },
-                    { label: "Margin", value: root.fmtPct(root.todayDetail.marginPct) }
-                ]
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 8
 
-                SectionPanel {
-                    required property var modelData
+                GridLayout {
                     Layout.fillWidth: true
-                    label: ""
-                    filled: true
-                    contentPad: 10
+                    columns: 4
+                    columnSpacing: 8
+                    rowSpacing: 8
 
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 2
+                    Repeater {
+                        model: [
+                            { label: "Orders", value: String(root.todayDetail.orders || root.storeData.orders || "—") },
+                            { label: "Sessions", value: String(root.todayDetail.sessions || "—") },
+                            { label: "CVR", value: root.fmtPct(root.todayDetail.cvr) },
+                            { label: "AoV", value: root.fmtAov() }
+                        ]
 
-                        Text {
-                            Layout.fillWidth: true
-                            horizontalAlignment: Text.AlignHCenter
-                            text: String(modelData.value)
-                            color: Theme.accent
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.statFont + 2
-                            font.bold: Theme.fontBold
-                        }
-
-                        Text {
-                            Layout.fillWidth: true
-                            horizontalAlignment: Text.AlignHCenter
-                            text: modelData.label
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.hintFont
-                            opacity: 0.55
+                        HoverPopupStatBox {
+                            required property var modelData
+                            value: String(modelData.value)
+                            label: modelData.label
                         }
                     }
                 }
-            }
-        }
 
-        GridLayout {
-            Layout.fillWidth: true
-            columns: 3
-            columnSpacing: 8
-            rowSpacing: 8
-
-            Repeater {
-                model: [
-                    { label: "CoS", value: String(root.todayDetail.cos || root.storeData.cos || "—") },
-                    { label: "Ad spend", value: root.fmtMoney(root.todayDetail.spend) },
-                    {
-                        label: root.chartDays + "d revenue",
-                        value: root.period.revenue !== undefined
-                            ? Format.formatRevenue(root.period.revenue, root.currency)
-                            : "—"
-                    }
-                ]
-
-                SectionPanel {
-                    required property var modelData
+                GridLayout {
                     Layout.fillWidth: true
-                    label: ""
-                    filled: true
-                    contentPad: 10
+                    columns: 3
+                    columnSpacing: 8
+                    rowSpacing: 8
 
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 2
+                    Repeater {
+                        model: [
+                            { label: "CoS", value: String(root.todayDetail.cos || root.storeData.cos || "—") },
+                            { label: "Ad spend", value: root.fmtMoney(root.todayDetail.spend) },
+                            {
+                                label: root.chartDays + "d revenue",
+                                value: root.period.revenue !== undefined
+                                    ? Format.formatRevenue(root.period.revenue, root.currency)
+                                    : "—"
+                            }
+                        ]
 
-                        Text {
-                            Layout.fillWidth: true
-                            horizontalAlignment: Text.AlignHCenter
-                            text: String(modelData.value)
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.statFont + 1
-                            font.bold: Theme.fontBold
-                            elide: Text.ElideRight
-                        }
-
-                        Text {
-                            Layout.fillWidth: true
-                            horizontalAlignment: Text.AlignHCenter
-                            text: modelData.label
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.hintFont
-                            opacity: 0.55
+                        HoverPopupStatBox {
+                            required property var modelData
+                            value: String(modelData.value)
+                            label: modelData.label
+                            valueColor: Theme.foreground
                         }
                     }
                 }
@@ -303,17 +337,37 @@ Item {
                 Layout.fillHeight: root.chartFillHeight
                 spacing: 6
 
-                SparklineChart {
+                Item {
                     Layout.fillWidth: true
                     Layout.fillHeight: root.chartFillHeight
                     Layout.minimumHeight: 64
                     Layout.preferredHeight: root.chartFillHeight ? -1 : 100
-                    chartHeight: root.chartFillHeight ? Math.max(64, Math.round(height)) : 100
-                    style: "line"
-                    lineColor: Theme.accent
-                    secondaryLineColor: "#a6e3a1"
-                    bars: root.storeData.bars || []
-                    secondaryBars: root.storeData.orderBars || []
+
+                    SparklineChart {
+                        id: revenueChart
+                        anchors.fill: parent
+                        chartHeight: root.chartFillHeight ? Math.max(64, Math.round(height)) : 100
+                        style: "line"
+                        lineColor: Theme.accent
+                        secondaryLineColor: "#a6e3a1"
+                        bars: root.storeData.bars || []
+                        secondaryBars: root.storeData.orderBars || []
+                    }
+
+                    Text {
+                        anchors.centerIn: parent
+                        width: parent.width
+                        text: "demo mode"
+                        visible: root.demoMode
+                        z: 1
+                        color: Theme.foreground
+                        opacity: 0.12
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Math.max(28, Math.round(parent.height * 0.22))
+                        font.bold: Theme.fontBold
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
                 }
 
                 RowLayout {

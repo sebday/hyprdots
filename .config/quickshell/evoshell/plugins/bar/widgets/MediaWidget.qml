@@ -13,6 +13,7 @@ Item {
     readonly property string mediaHoverPopupId: settings.mediaOnHover
         ? String(settings.mediaOnHover)
         : "evo.media"
+    readonly property string ipcScript: (Quickshell.env("HOME") || "") + "/.local/bin/evo-ipc"
     readonly property bool trayMode: settings.trayMode === true
     readonly property int trayIconSize: {
         var n = parseInt(settings.trayIconSize, 10)
@@ -36,6 +37,10 @@ Item {
             shell.hoverLeave(mediaHoverPopupId)
     }
 
+    function toggleMusicWindow() {
+        Quickshell.execDetached([ipcScript, "shell", "musicToggle"])
+    }
+
     Text {
         id: iconLabel
         anchors.centerIn: parent
@@ -52,5 +57,6 @@ Item {
         acceptedButtons: Qt.LeftButton
         cursorShape: Qt.PointingHandCursor
         onContainsMouseChanged: root.setMediaHoverPopup(containsMouse)
+        onClicked: root.toggleMusicWindow()
     }
 }

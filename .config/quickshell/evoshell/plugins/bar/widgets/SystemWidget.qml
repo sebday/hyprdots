@@ -54,22 +54,8 @@ Item {
         intervalTimer.start()
     }
 
-    function showBtop() {
-        Quickshell.execDetached(["bash", btopScript, "show"])
-    }
-
-    function hideBtop() {
-        Quickshell.execDetached(["bash", btopScript, "hide"])
-    }
-
-    function onBtopHoverChanged(hovered) {
-        if (hovered) {
-            btopHideTimer.stop()
-            btopShowTimer.restart()
-            return
-        }
-        btopShowTimer.stop()
-        btopHideTimer.restart()
+    function swapShopifyBtop() {
+        Quickshell.execDetached(["bash", btopScript, "swap"])
     }
 
     RowLayout {
@@ -106,6 +92,13 @@ Item {
         }
     }
 
+    MouseArea {
+        anchors.fill: parent
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+        onClicked: root.swapShopifyBtop()
+    }
+
     Process {
         id: proc
         stdout: StdioCollector {
@@ -121,26 +114,6 @@ Item {
         onTriggered: root.poll()
     }
 
-    HoverHandler {
-        id: btopHover
-        onHoveredChanged: root.onBtopHoverChanged(hovered)
-    }
-
-    Timer {
-        id: btopShowTimer
-        interval: 90
-        repeat: false
-        onTriggered: root.showBtop()
-    }
-
-    Timer {
-        id: btopHideTimer
-        interval: 300
-        repeat: false
-        onTriggered: root.hideBtop()
-    }
-
     onSettingsChanged: restartPolling()
     Component.onCompleted: restartPolling()
-    Component.onDestruction: hideBtop()
 }

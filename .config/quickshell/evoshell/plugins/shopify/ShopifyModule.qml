@@ -7,6 +7,7 @@ Item {
     id: root
 
     property var shell: null
+    property bool demoMode: false
 
     readonly property int columnPad: Theme.hoverPopupMargin
 
@@ -19,6 +20,7 @@ Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
             shell: root.shell
+            demoMode: root.demoMode
             storeKey: "DIY"
             title: "DIY"
             adminUrl: "https://admin.shopify.com/store/diy-buildingsupplies/analytics/live"
@@ -28,6 +30,7 @@ Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
             shell: root.shell
+            demoMode: root.demoMode
             storeKey: "TGS"
             title: "TGS"
             adminUrl: "https://admin.shopify.com/store/thegoodsheet-uk/analytics/live"
@@ -38,6 +41,7 @@ Item {
         id: column
 
         required property var shell
+        required property bool demoMode
         required property string storeKey
         required property string title
         required property string adminUrl
@@ -53,6 +57,7 @@ Item {
             id: storeModule
             anchors.fill: parent
             chartFillHeight: true
+            demoMode: column.demoMode
             host: storeHost
             shell: column.shell
             storeKey: column.storeKey

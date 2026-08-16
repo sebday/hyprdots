@@ -1,0 +1,853 @@
+#!/bin/bash
+# SoundCloud sync, tagging, playlists, and mpv playback for evoshell.
+
+set -euo pipefail
+
+PATH="${HOME}/.local/share/mise/shims:${HOME}/.local/bin:${PATH}"
+
+EVOSHELL_BIN="${EVOSHELL_BIN:-$HOME/.local/bin}"
+EVOSHELL_CONFIG="${EVOSHELL_CONFIG:-$HOME/.config/evoshell}"
+EVOSHELL_STATE="${EVOSHELL_STATE:-${XDG_STATE_HOME:-$HOME/.local/state}/evoshell}"
+
+MUSIC_CONFIG="${EVOSHELL_CONFIG}/music.toml"
+MUSIC_ROOT="${EVO_MUSIC_ROOT:-/mnt/external/music}"
+MUSIC_CACHE="${EVO_MUSIC_CACHE:-${MUSIC_ROOT}/.cache}"
+MUSIC_STATE="${EVO_MUSIC_STATE:-${MUSIC_CACHE}}"
+SYNC_ARCHIVE="${MUSIC_STATE}/sync-archive.txt"
+PLAYLIST_DIR="${MUSIC_STATE}/playlists"
+WAVEFORM_DIR="${MUSIC_STATE}/waveforms"
+ART_DIR="${MUSIC_STATE}/art"
+TRACKS_CACHE_DIR="${MUSIC_STATE}/tracks"
+PLAYER_STATE="${MUSIC_STATE}/player.json"
+LIKES_FILE="${MUSIC_STATE}/likes.json"
+LEGACY_STATE="${EVOSHELL_STATE}/music"
+MPV_SOCKET="${EVO_MUSIC_SOCKET:-${XDG_RUNTIME_DIR:-/tmp}/evo-music.sock}"
+AUDIO_EXTS="mp3 flac ogg m4a opus wav"
+
+usage() {
+  cat >&2 <<'EOF'
+usage:
+  evo-music sync
+  evo-music import
+  evo-music enrich
+  evo-music playlists
+  evo-music refresh
+  evo-music genres [--json]
+  evo-music tracks <genre> [--json]
+  evo-music player start|play|load|toggle|next|prev|seek|shuffle|volume|save|resume|status
+  evo-music retag <path> <genre> [--json]
+  evo-music favorite toggle <path> [--json]
+  evo-music status [--json]
+EOF
+  exit 1
+}
+
+ensure_dirs() {
+  mkdir -p "$MUSIC_STATE" "${MUSIC_ROOT}/incoming"
+  migrate_cache
+  mkdir -p "$PLAYLIST_DIR" "$WAVEFORM_DIR" "$ART_DIR" "$TRACKS_CACHE_DIR"
+}
+
+likes_init() {
+  [[ -f "$LIKES_FILE" ]] || printf '{}\n' >"$LIKES_FILE"
+}
+
+is_liked() {
+  local path="$1"
+  [[ -n "$path" ]] || return 1
+  likes_init
+  jq -e --arg p "$path" 'has($p)' "$LIKES_FILE" >/dev/null 2>&1
+}
+
+migrate_cache() {
+  local old="$LEGACY_STATE"
+  [[ -d "$old" ]] || return 0
+  local name
+  for name in sync-archive.txt player.json; do
+    [[ -f "$MUSIC_STATE/$name" ]] || [[ ! -f "$old/$name" ]] || cp "$old/$name" "$MUSIC_STATE/$name"
+  done
+  if [[ -d "$old/playlists" ]]; then
+    mkdir -p "$MUSIC_STATE/playlists"
+    cp -an "$old/playlists/." "$MUSIC_STATE/playlists/" 2>/dev/null || true
+  fi
+  if [[ -d "$old/waveforms" ]]; then
+    mkdir -p "$MUSIC_STATE/waveforms"
+    cp -an "$old/waveforms/." "$MUSIC_STATE/waveforms/" 2>/dev/null || true
+  fi
+  if [[ -d "$old/art" ]]; then
+    mkdir -p "$MUSIC_STATE/art"
+    cp -an "$old/art/." "$MUSIC_STATE/art/" 2>/dev/null || true
+  fi
+  [[ -f "$MUSIC_STATE/library.db" ]] || [[ ! -f "$old/library.db" ]] || cp "$old/library.db" "$MUSIC_STATE/library.db"
+  likes_migrate_from_m3u
+}
+
+likes_migrate_from_m3u() {
+  local m3u="${PLAYLIST_DIR}/favorites.m3u"
+  [[ -f "$m3u" ]] || return 0
+  likes_init
+  [[ "$(jq 'length' "$LIKES_FILE" 2>/dev/null || echo 0)" -gt 0 ]] && return 0
+  local path title artist now
+  now="$(date -Iseconds)"
+  while IFS= read -r path; do
+    [[ -f "$path" ]] || continue
+    is_liked "$path" && continue
+    title="$(ffprobe_meta "$path" title)"
+    artist="$(ffprobe_meta "$path" artist)"
+    [[ -z "$title" ]] && title="$(basename "${path%.*}")"
+    jq --arg p "$path" --arg title "$title" --arg artist "$artist" --arg at "$now" \
+      '.[$p] = {title:$title, artist:$artist, liked_at:$at}' \
+      "$LIKES_FILE" >"${LIKES_FILE}.tmp" && mv "${LIKES_FILE}.tmp" "$LIKES_FILE"
+  done < <(grep -v '^#' "$m3u" 2>/dev/null || true)
+}
+
+config_val() {
+  local key="$1"
+  local default="${2:-}"
+  if [[ -f "$MUSIC_CONFIG" ]]; then
+    local val
+    val="$(grep -E "^${key}[[:space:]]*=" "$MUSIC_CONFIG" 2>/dev/null | head -1 | sed -E 's/^[^=]+=[[:space:]]*"?([^"]*)"?/\1/')" || true
+    if [[ -n "$val" ]]; then
+      printf '%s' "$val"
+      return 0
+    fi
+  fi
+  printf '%s' "$default"
+}
+
+is_audio() {
+  local path="$1"
+  [[ -f "$path" ]] || return 1
+  local ext="${path##*.}"
+  ext="${ext,,}"
+  local allowed
+  for allowed in $AUDIO_EXTS; do
+    if [[ "$ext" == "$allowed" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+file_hash() {
+  local path="$1"
+  sha256sum "$path" | awk '{print $1}'
+}
+
+json_escape() {
+  local s="$1"
+  s="${s//\\/\\\\}"
+  s="${s//\"/\\\"}"
+  s="${s//$'\n'/\\n}"
+  s="${s//$'\r'/}"
+  printf '%s' "$s"
+}
+
+skip_dir() {
+  local name="$1"
+  case "$name" in
+    incoming) return 0 ;;
+  esac
+  return 1
+}
+
+list_genres() {
+  local dir name
+  for dir in "$MUSIC_ROOT"/*; do
+    [[ -d "$dir" ]] || continue
+    name="$(basename "$dir")"
+    skip_dir "$name" && continue
+    printf '%s\n' "$name"
+  done | sort
+}
+
+genre_track_count() {
+  local genre="$1"
+  local dir="$MUSIC_ROOT/$genre"
+  local count=0
+  local f
+  [[ -d "$dir" ]] || { printf '0'; return; }
+  while IFS= read -r -d '' f; do
+    is_audio "$f" && count=$((count + 1))
+  done < <(find "$dir" -type f -print0 2>/dev/null)
+  printf '%d' "$count"
+}
+
+ffprobe_meta() {
+  local path="$1"
+  local field="$2"
+  ffprobe -v quiet -show_entries "format_tags=$field" -of default=nw=1:nk=1 "$path" 2>/dev/null | head -1 || true
+}
+
+track_meta_json() {
+  local path="$1"
+  local title artist genre album
+  title="$(ffprobe_meta "$path" title)"
+  artist="$(ffprobe_meta "$path" artist)"
+  genre="$(ffprobe_meta "$path" genre)"
+  album="$(ffprobe_meta "$path" album)"
+  [[ -z "$title" ]] && title="$(basename "$path")"
+  title="${title%.*}"
+  printf '{"path":"%s","title":"%s","artist":"%s","genre":"%s","album":"%s"}' \
+    "$(json_escape "$path")" \
+    "$(json_escape "$title")" \
+    "$(json_escape "$artist")" \
+    "$(json_escape "$genre")" \
+    "$(json_escape "$album")"
+}
+
+track_list_json() {
+  local path="$1"
+  local base stem artist title hash art=""
+  base="$(basename "$path")"
+  stem="${base%.*}"
+  artist=""
+  title="$stem"
+  if [[ "$stem" == *" - "* ]]; then
+    artist="${stem%% - *}"
+    title="${stem#* - }"
+  fi
+  hash="$(file_hash "$path")"
+  [[ -f "${ART_DIR}/${hash}.jpg" ]] && art="${ART_DIR}/${hash}.jpg"
+  printf '{"path":"%s","title":"%s","artist":"%s","genre":"","album":"","art":"%s"}' \
+    "$(json_escape "$path")" \
+    "$(json_escape "$title")" \
+    "$(json_escape "$artist")" \
+    "$(json_escape "$art")"
+}
+
+genre_from_path() {
+  local path="$1"
+  local rel="${path#${MUSIC_ROOT}/}"
+  [[ "$rel" == "$path" ]] && return 0
+  printf '%s' "${rel%%/*}"
+}
+
+track_cache_slug() {
+  printf '%s' "$1" | sed 's/[^a-zA-Z0-9&_-]/_/g'
+}
+
+tracks_cache_path() {
+  printf '%s/%s.json' "$TRACKS_CACHE_DIR" "$(track_cache_slug "$1")"
+}
+
+tracks_cache_stale() {
+  local genre="$1"
+  local cache="$2"
+  local dir="$MUSIC_ROOT/$genre"
+  [[ ! -f "$cache" ]] && return 0
+  [[ ! -d "$dir" ]] && return 0
+  [[ -n "$(find "$dir" -type f -newer "$cache" -print -quit 2>/dev/null)" ]] && return 0
+  return 1
+}
+
+tracks_cache_invalidate() {
+  rm -f "${TRACKS_CACHE_DIR}/"*.json 2>/dev/null || true
+}
+
+build_tracks_json() {
+  local genre="$1"
+  local dir="$MUSIC_ROOT/$genre"
+  local cache
+  cache="$(tracks_cache_path "$genre")"
+  mkdir -p "$TRACKS_CACHE_DIR"
+  {
+    printf '['
+    local first=1 f
+    while IFS= read -r -d '' f; do
+      is_audio "$f" || continue
+      [[ "$first" -eq 1 ]] || printf ','
+      first=0
+      track_list_json "$f"
+    done < <(find "$dir" -type f -print0 2>/dev/null | sort -z)
+    printf ']\n'
+  } >"${cache}.tmp" && mv "${cache}.tmp" "$cache"
+  cat "$cache"
+}
+
+cache_paths_for() {
+  local path="$1"
+  local hash
+  hash="$(file_hash "$path")"
+  printf '%s\n' "$hash" "${WAVEFORM_DIR}/${hash}.json" "${ART_DIR}/${hash}.jpg"
+}
+
+art_path_for() {
+  local path="$1"
+  local hash art
+  [[ -f "$path" ]] || return 0
+  hash="$(file_hash "$path")"
+  art="${ART_DIR}/${hash}.jpg"
+  if [[ ! -f "$art" ]]; then
+    ffmpeg -y -loglevel error -i "$path" -an -vcodec copy "$art" 2>/dev/null || true
+  fi
+  [[ -f "$art" ]] && printf '%s' "$art"
+}
+
+mpv_ipc() {
+  local payload="$1"
+  if [[ ! -S "$MPV_SOCKET" ]]; then
+    return 1
+  fi
+  python3 - "$MPV_SOCKET" "$payload" <<'PY'
+import json, socket, sys
+sock_path, payload = sys.argv[1], sys.argv[2]
+with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+    s.connect(sock_path)
+    s.sendall((payload + "\n").encode())
+    data = s.recv(65536)
+    if data:
+        sys.stdout.write(data.decode("utf-8", "replace"))
+PY
+}
+
+mpv_prop() {
+  local name="$1"
+  local raw
+  raw="$(mpv_ipc "{\"command\":[\"get_property\",\"${name}\"]}")" || return 1
+  python3 -c 'import json,sys; print(json.load(sys.stdin).get("data",""))' <<<"$raw" 2>/dev/null
+}
+
+cmd_player_start() {
+  if [[ -S "$MPV_SOCKET" ]] && pgrep -f "input-ipc-server=${MPV_SOCKET}" >/dev/null 2>&1; then
+    return 0
+  fi
+  local mpris_script=""
+  if [[ -f /usr/share/mpv-mpris/mpris.so ]]; then
+    mpris_script="--script=/usr/share/mpv-mpris/mpris.so"
+  fi
+  nohup mpv --no-video --idle=yes --keep-open=yes \
+    --input-ipc-server="$MPV_SOCKET" \
+    $mpris_script \
+    >/dev/null 2>&1 &
+  local i=0
+  while [[ $i -lt 50 ]]; do
+    [[ -S "$MPV_SOCKET" ]] && return 0
+    sleep 0.05
+    i=$((i + 1))
+  done
+  echo "evo-music: mpv socket did not start" >&2
+  return 1
+}
+
+cmd_sync() {
+  ensure_dirs
+  local cookies user url
+  cookies="$(config_val cookies_from brave)"
+  user="$(config_val user seb-day)"
+  url="$(config_val likes_url "https://soundcloud.com/${user}/likes")"
+  yt-dlp \
+    --cookies-from-browser "$cookies" \
+    --download-archive "$SYNC_ARCHIVE" \
+    -x --audio-format mp3 --embed-metadata --embed-thumbnail \
+    -o "${MUSIC_ROOT}/incoming/%(uploader)s - %(title)s.%(ext)s" \
+    "$url"
+}
+
+cmd_import() {
+  ensure_dirs
+  if ! command -v beet >/dev/null 2>&1; then
+    echo "evo-music: beet not found (run: uv tool install beets)" >&2
+    return 1
+  fi
+  local incoming="${MUSIC_ROOT}/incoming"
+  [[ -d "$incoming" ]] || mkdir -p "$incoming"
+  local count
+  count="$(find "$incoming" -maxdepth 1 -type f | wc -l)"
+  if [[ "$count" -eq 0 ]]; then
+    echo "evo-music: nothing in incoming/" >&2
+    return 0
+  fi
+  beet import -q "$incoming"
+}
+
+enrich_file() {
+  local path="$1"
+  local hash wf art
+  read -r hash wf art < <(cache_paths_for "$path" | tr '\n' ' ')
+  if [[ ! -f "$wf" ]] && command -v audiowaveform >/dev/null 2>&1; then
+    audiowaveform -i "$path" -o "$wf" --pixels-per-second 8 --bits 8 >/dev/null 2>&1 || true
+  fi
+  if [[ ! -f "$art" ]]; then
+    art_path_for "$path" >/dev/null || true
+  fi
+}
+
+cmd_enrich() {
+  ensure_dirs
+  local genre dir f
+  while IFS= read -r genre; do
+    dir="$MUSIC_ROOT/$genre"
+    while IFS= read -r -d '' f; do
+      enrich_file "$f"
+    done < <(find "$dir" -type f -print0 2>/dev/null)
+  done < <(list_genres)
+  local incoming f
+  while IFS= read -r -d '' f; do
+    enrich_file "$f"
+  done < <(find "${MUSIC_ROOT}/incoming" -maxdepth 1 -type f -print0 2>/dev/null)
+}
+
+write_playlist() {
+  local name="$1"
+  local dir="$2"
+  local out="${PLAYLIST_DIR}/${name}.m3u"
+  {
+    printf '#EXTM3U\n'
+    local f
+    while IFS= read -r -d '' f; do
+      is_audio "$f" || continue
+      printf '%s\n' "$f"
+    done < <(find "$dir" -type f -print0 2>/dev/null | sort -z)
+  } >"$out"
+}
+
+cmd_playlists() {
+  ensure_dirs
+  tracks_cache_invalidate
+  local genre all_out="${PLAYLIST_DIR}/all.m3u"
+  {
+    printf '#EXTM3U\n'
+    local g dir f
+    while IFS= read -r g; do
+      dir="$MUSIC_ROOT/$g"
+      write_playlist "$g" "$dir"
+      while IFS= read -r -d '' f; do
+        is_audio "$f" || continue
+        printf '%s\n' "$f"
+      done < <(find "$dir" -type f -print0 2>/dev/null | sort -z)
+    done < <(list_genres)
+  } >"$all_out"
+}
+
+cmd_refresh() {
+  cmd_sync
+  cmd_import
+  cmd_enrich
+  cmd_playlists
+}
+
+cmd_genres() {
+  local json="${1:-}"
+  if [[ "$json" == --json ]]; then
+    printf '['
+    local first=1 g count
+    while IFS= read -r g; do
+      count="$(genre_track_count "$g")"
+      [[ "$first" -eq 1 ]] || printf ','
+      first=0
+      printf '{"name":"%s","count":%s}' "$(json_escape "$g")" "$count"
+    done < <(list_genres)
+    printf ']\n'
+  else
+    list_genres
+  fi
+}
+
+cmd_tracks() {
+  local genre="$1"
+  local json="${2:-}"
+  local dir="$MUSIC_ROOT/$genre"
+  local cache
+  [[ -d "$dir" ]] || { echo "evo-music: unknown genre: $genre" >&2; return 1; }
+  if [[ "$json" == --json ]]; then
+    cache="$(tracks_cache_path "$genre")"
+    if tracks_cache_stale "$genre" "$cache"; then
+      build_tracks_json "$genre"
+    else
+      cat "$cache"
+    fi
+  else
+    find "$dir" -maxdepth 1 -type f | sort
+  fi
+}
+
+player_save_state() {
+  local path="${1:-}"
+  local genre="${2:-}"
+  local playlist="${3:-}"
+  local position="${4:-}"
+  ensure_dirs
+  if [[ -z "$path" ]]; then
+    cmd_player_start || true
+    path="$(mpv_prop path)" || path=""
+    position="$(mpv_prop time-pos)" || position="0"
+  fi
+  [[ -f "$PLAYER_STATE" ]] || printf '{}\n' >"$PLAYER_STATE"
+  if [[ -z "$genre" && -n "$path" ]]; then
+    genre="$(genre_from_path "$path")"
+  fi
+  if [[ -z "$playlist" ]]; then
+    playlist="$(jq -r '.playlist // ""' "$PLAYER_STATE" 2>/dev/null || true)"
+  fi
+  jq -n \
+    --arg path "${path:-}" \
+    --arg genre "${genre:-}" \
+    --arg playlist "${playlist:-}" \
+    --argjson position "${position:-0}" \
+    '{path:$path,genre:$genre,playlist:$playlist,position:$position}' >"$PLAYER_STATE"
+}
+
+cmd_player_save() {
+  player_save_state
+}
+
+cmd_player_resume() {
+  local json="${1:-}"
+  ensure_dirs
+  [[ -f "$PLAYER_STATE" ]] || return 0
+  local path pos genre playlist
+  path="$(jq -r '.path // ""' "$PLAYER_STATE" 2>/dev/null || true)"
+  pos="$(jq -r '.position // 0' "$PLAYER_STATE" 2>/dev/null || true)"
+  genre="$(jq -r '.genre // ""' "$PLAYER_STATE" 2>/dev/null || true)"
+  playlist="$(jq -r '.playlist // ""' "$PLAYER_STATE" 2>/dev/null || true)"
+  [[ -f "$path" ]] || return 0
+  cmd_player_start
+  local escaped="${path//\\/\\\\}"
+  mpv_ipc "{\"command\":[\"loadfile\",\"${escaped}\",\"replace\"]}" >/dev/null
+  if [[ -n "$pos" && "$pos" != "0" && "$pos" != "null" ]]; then
+    mpv_ipc "{\"command\":[\"seek\",${pos},\"absolute\"]}" >/dev/null
+  fi
+  mpv_ipc '{"command":["set_property","pause",false]}' >/dev/null
+  player_save_state "$path" "$genre" "$playlist" "$pos"
+  if [[ "$json" == --json ]]; then
+    jq -n --arg path "$path" --arg genre "$genre" --arg playlist "$playlist" \
+      '{path:$path,genre:$genre,playlist:$playlist}'
+  else
+    printf '%s\n' "$path"
+  fi
+}
+
+cmd_player_load() {
+  local path="$1"
+  [[ -f "$path" ]] || { echo "evo-music: not a file: $path" >&2; return 1; }
+  cmd_player_start
+  local escaped="${path//\\/\\\\}"
+  mpv_ipc "{\"command\":[\"loadfile\",\"${escaped}\",\"replace\"]}" >/dev/null
+  mpv_ipc '{"command":["set_property","pause",false]}' >/dev/null
+  player_save_state "$path" "$(genre_from_path "$path")" "" "0"
+}
+
+cmd_player_play() {
+  local target="${1:-all}"
+  cmd_player_start
+  local list=""
+  if [[ -f "$target" ]]; then
+    list="$target"
+  elif [[ -f "${PLAYLIST_DIR}/${target}.m3u" ]]; then
+    list="${PLAYLIST_DIR}/${target}.m3u"
+  elif [[ -f "${PLAYLIST_DIR}/all.m3u" ]]; then
+    list="${PLAYLIST_DIR}/all.m3u"
+  else
+    echo "evo-music: no playlist for: $target" >&2
+    return 1
+  fi
+  mpv_ipc '{"command":["playlist-clear"]}' >/dev/null || true
+  mpv_ipc "{\"command\":[\"loadlist\",\"${list//\\/\\\\}\",\"replace\"]}" >/dev/null
+  mpv_ipc '{"command":["set_property","pause",false]}' >/dev/null
+  jq -n --arg playlist "$target" --arg list "$list" --arg genre "$target" \
+    '{playlist:$playlist,list:$list,genre:$genre,path:"",position:0}' >"$PLAYER_STATE"
+}
+
+cmd_player_toggle() {
+  cmd_player_start
+  local paused
+  paused="$(mpv_prop pause)" || return 1
+  if [[ "$paused" == "true" ]]; then
+    mpv_ipc '{"command":["set_property","pause",false]}' >/dev/null
+  else
+    mpv_ipc '{"command":["set_property","pause",true]}' >/dev/null
+  fi
+}
+
+cmd_player_next() {
+  cmd_player_start
+  mpv_ipc '{"command":["playlist-next","weak"]}' >/dev/null
+}
+
+cmd_player_prev() {
+  cmd_player_start
+  mpv_ipc '{"command":["playlist-prev","weak"]}' >/dev/null
+}
+
+cmd_player_seek() {
+  local sec="$1"
+  cmd_player_start
+  mpv_ipc "{\"command\":[\"seek\",${sec},\"absolute\"]}" >/dev/null
+}
+
+cmd_player_shuffle() {
+  local mode="${1:-toggle}"
+  cmd_player_start
+  if [[ "$mode" == toggle ]]; then
+    local cur
+    cur="$(mpv_prop shuffle)" || cur="no"
+    if [[ "$cur" == "yes" || "$cur" == "true" ]]; then
+      mpv_ipc '{"command":["set_property","shuffle",false]}' >/dev/null
+    else
+      mpv_ipc '{"command":["set_property","shuffle",true]}' >/dev/null
+    fi
+  else
+    mpv_ipc "{\"command\":[\"set_property\",\"shuffle\",$([[ $mode == on ]] && echo true || echo false)]}" >/dev/null
+  fi
+}
+
+cmd_player_volume() {
+  local arg="${1:-0}"
+  local value="${2:-}"
+  cmd_player_start
+  if [[ "$arg" == set ]]; then
+    mpv_ipc "{\"command\":[\"set_property\",\"volume\",${value:-100}]}" >/dev/null
+  else
+    mpv_ipc "{\"command\":[\"add\",\"volume\",${arg}]}" >/dev/null
+  fi
+}
+
+format_time() {
+  local sec="${1%.*}"
+  sec="${sec:-0}"
+  local h m s
+  h=$((sec / 3600))
+  m=$(((sec % 3600) / 60))
+  s=$((sec % 60))
+  if [[ $h -gt 0 ]]; then
+    printf '%d:%02d:%02d' "$h" "$m" "$s"
+  else
+    printf '%d:%02d' "$m" "$s"
+  fi
+}
+
+cmd_player_status() {
+  local json="${1:-}"
+  cmd_player_start || true
+  if [[ ! -S "$MPV_SOCKET" ]]; then
+    if [[ "$json" == --json ]]; then
+      printf '{"state":"stopped","path":"","title":"","artist":"","genre":"","album":"","position":0,"duration":0,"volume":100,"liked":false,"art":"","waveform":"","playlist":"","shuffle":false}\n'
+    else
+      echo "stopped"
+    fi
+    return 0
+  fi
+  local path paused pos dur vol title artist genre album hash art wf playlist shuffle state liked
+  path="$(mpv_prop path)" || path=""
+  paused="$(mpv_prop pause)" || paused="true"
+  pos="$(mpv_prop time-pos)" || pos="0"
+  dur="$(mpv_prop duration)" || dur="0"
+  vol="$(mpv_prop volume)" || vol="100"
+  shuffle="$(mpv_prop shuffle)" || shuffle="false"
+  playlist=""
+  [[ -f "$PLAYER_STATE" ]] && playlist="$(jq -r '.playlist // ""' "$PLAYER_STATE" 2>/dev/null || true)"
+  if [[ "$paused" == "true" ]]; then
+    state="paused"
+  else
+    state="playing"
+  fi
+  title="" artist="" genre="" album="" liked="false"
+  if [[ -n "$path" && -f "$path" ]]; then
+    title="$(ffprobe_meta "$path" title)"
+    artist="$(ffprobe_meta "$path" artist)"
+    genre="$(ffprobe_meta "$path" genre)"
+    album="$(ffprobe_meta "$path" album)"
+    [[ -z "$title" ]] && title="$(basename "$path")"
+    title="${title%.*}"
+    hash="$(file_hash "$path")"
+    art="$(art_path_for "$path")"
+    wf="${WAVEFORM_DIR}/${hash}.json"
+    [[ ! -f "$wf" ]] && wf=""
+    is_liked "$path" && liked="true"
+  else
+    art="" wf=""
+  fi
+  if [[ "$json" == --json ]]; then
+    jq -n \
+      --arg state "$state" \
+      --arg path "$path" \
+      --arg title "$title" \
+      --arg artist "$artist" \
+      --arg genre "$genre" \
+      --arg album "$album" \
+      --argjson position "${pos:-0}" \
+      --argjson duration "${dur:-0}" \
+      --argjson volume "${vol:-100}" \
+      --arg art "$art" \
+      --arg waveform "$wf" \
+      --arg playlist "$playlist" \
+      --argjson shuffle "$([[ $shuffle == yes || $shuffle == true ]] && echo true || echo false)" \
+      --argjson liked "$([[ $liked == true ]] && echo true || echo false)" \
+      --arg position_label "$(format_time "${pos:-0}")" \
+      --arg duration_label "$(format_time "${dur:-0}")" \
+      '{state:$state,path:$path,title:$title,artist:$artist,genre:$genre,album:$album,position:$position,duration:$duration,volume:$volume,liked:$liked,art:$art,waveform:$waveform,playlist:$playlist,shuffle:$shuffle,position_label:$position_label,duration_label:$duration_label}'
+  else
+    printf '%s — %s (%s)\n' "$artist" "$title" "$state"
+  fi
+}
+
+retag_manual() {
+  local path="$1"
+  local new_genre="$2"
+  local dest_dir="${MUSIC_ROOT}/${new_genre}"
+  mkdir -p "$dest_dir"
+
+  local base dest tmp stem ext n
+  base="$(basename "$path")"
+  dest="${dest_dir}/${base}"
+
+  if [[ -e "$dest" ]] && [[ "$(realpath "$dest")" != "$(realpath "$path")" ]]; then
+    stem="${base%.*}"
+    ext="${base##*.}"
+    n=1
+    while [[ -e "${dest_dir}/${stem}-${n}.${ext}" ]]; do
+      n=$((n + 1))
+    done
+    dest="${dest_dir}/${stem}-${n}.${ext}"
+  fi
+
+  if [[ "$(realpath "$path")" == "$(realpath "$dest")" ]]; then
+    printf '%s' "$dest"
+    return 0
+  fi
+
+  tmp="$(mktemp "${TMPDIR:-/tmp}/evo-music-retag.XXXXXX")"
+  if ffmpeg -y -hide_banner -loglevel error -i "$path" -metadata genre="$new_genre" -codec copy "$tmp" 2>/dev/null; then
+    mv "$tmp" "$dest"
+    rm -f "$path"
+  else
+    rm -f "$tmp"
+    mv "$path" "$dest"
+  fi
+  printf '%s' "$dest"
+}
+
+cmd_retag() {
+  local path="$1"
+  local new_genre="$2"
+  local json="${3:-}"
+  [[ -f "$path" ]] || { echo "evo-music: not a file: $path" >&2; return 1; }
+  [[ -n "$new_genre" ]] || { echo "evo-music: genre required" >&2; return 1; }
+  [[ -d "${MUSIC_ROOT}/${new_genre}" ]] || { echo "evo-music: unknown genre: $new_genre" >&2; return 1; }
+
+  local old_path="$path" new_path id
+  if command -v beet >/dev/null 2>&1; then
+    id="$(beet ls -f '$id' "path:$path" 2>/dev/null | head -1 || true)"
+    if [[ -n "$id" ]]; then
+      beet modify -y genre="$new_genre" id:"$id"
+      beet move -y id:"$id"
+      new_path="$(beet ls -f '$path' id:"$id" 2>/dev/null | head -1 || true)"
+    fi
+  fi
+  if [[ -z "${new_path:-}" ]]; then
+    new_path="$(retag_manual "$path" "$new_genre")"
+  fi
+  [[ -f "$new_path" ]] || { echo "evo-music: retag failed" >&2; return 1; }
+
+  cmd_playlists
+
+  tracks_cache_invalidate
+
+  if [[ "$json" == --json ]]; then
+    jq -n \
+      --arg path "$new_path" \
+      --arg genre "$new_genre" \
+      --arg old_path "$old_path" \
+      '{path:$path,genre:$genre,old_path:$old_path}'
+  else
+    printf 'moved to %s\n' "$new_path"
+  fi
+}
+
+cmd_favorite_toggle() {
+  local path="$1"
+  local json="${2:-}"
+  [[ -f "$path" ]] || { echo "evo-music: not a file: $path" >&2; return 1; }
+  ensure_dirs
+  likes_init
+  local title artist now liked fav
+  title="$(ffprobe_meta "$path" title)"
+  artist="$(ffprobe_meta "$path" artist)"
+  [[ -z "$title" ]] && title="$(basename "${path%.*}")"
+  now="$(date -Iseconds)"
+  fav="${PLAYLIST_DIR}/favorites.m3u"
+  [[ -f "$fav" ]] || printf '#EXTM3U\n' >"$fav"
+  if is_liked "$path"; then
+    liked=false
+    jq --arg p "$path" 'del(.[$p])' "$LIKES_FILE" >"${LIKES_FILE}.tmp" && mv "${LIKES_FILE}.tmp" "$LIKES_FILE"
+    grep -Fxv "$path" "$fav" >"${fav}.tmp" && mv "${fav}.tmp" "$fav"
+  else
+    liked=true
+    jq --arg p "$path" --arg title "$title" --arg artist "$artist" --arg at "$now" \
+      '.[$p] = {title:$title, artist:$artist, liked_at:$at}' \
+      "$LIKES_FILE" >"${LIKES_FILE}.tmp" && mv "${LIKES_FILE}.tmp" "$LIKES_FILE"
+    grep -Fxq "$path" "$fav" 2>/dev/null || printf '%s\n' "$path" >>"$fav"
+  fi
+  if [[ "$json" == --json ]]; then
+    jq -n --arg path "$path" --argjson liked "$([[ $liked == true ]] && echo true || echo false)" \
+      '{path:$path,liked:$liked}'
+  elif [[ "$liked" == true ]]; then
+    printf 'liked\n'
+  else
+    printf 'unliked\n'
+  fi
+}
+
+cmd_status() {
+  local json="${1:-}"
+  ensure_dirs
+  local genres=0 tracks=0 g
+  while IFS= read -r g; do
+    genres=$((genres + 1))
+    tracks=$((tracks + $(genre_track_count "$g")))
+  done < <(list_genres)
+  if [[ "$json" == --json ]]; then
+    jq -n --arg root "$MUSIC_ROOT" --argjson genres "$genres" --argjson tracks "$tracks" \
+      '{root:$root,genres:$genres,tracks:$tracks}'
+  else
+    printf 'root: %s\ngenres: %d\ntracks: %d\n' "$MUSIC_ROOT" "$genres" "$tracks"
+  fi
+}
+
+main() {
+  local cmd="${1:-}"
+  shift || true
+  case "$cmd" in
+    sync) cmd_sync ;;
+    import) cmd_import ;;
+    enrich) cmd_enrich ;;
+    playlists) cmd_playlists ;;
+    refresh) cmd_refresh ;;
+    genres) cmd_genres "$@" ;;
+    tracks) cmd_tracks "$@" ;;
+    player)
+      local sub="${1:-}"
+      shift || true
+      case "$sub" in
+        start) cmd_player_start ;;
+        load) cmd_player_load "${1:-}" ;;
+        play) cmd_player_play "${1:-all}" ;;
+        toggle) cmd_player_toggle ;;
+        next) cmd_player_next ;;
+        prev) cmd_player_prev ;;
+        seek) cmd_player_seek "${1:-0}" ;;
+        shuffle) cmd_player_shuffle "${1:-toggle}" ;;
+        volume) cmd_player_volume "${1:-0}" "${2:-}" ;;
+        save) cmd_player_save ;;
+        resume) cmd_player_resume "${1:---json}" ;;
+        status) cmd_player_status "${1:---json}" ;;
+        *) usage ;;
+      esac
+      ;;
+    retag) cmd_retag "${1:-}" "${2:-}" "${3:-}" ;;
+    favorite)
+      [[ "${1:-}" == toggle ]] || usage
+      shift
+      cmd_favorite_toggle "${1:-}" "${2:-}"
+      ;;
+    status) cmd_status "$@" ;;
+    -h|--help|help|"") usage ;;
+    *)
+      echo "evo-music: unknown command: $cmd" >&2
+      usage
+      ;;
+  esac
+}
+
+main "$@"

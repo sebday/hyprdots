@@ -1,16 +1,14 @@
 #!/usr/bin/env bash
-# Toggle ghostty btop for the evoshell system bar widget.
-# Size/position: ~/.config/hypr/windows.lua (btop-float rule).
+# Tiled btop for the evoshell system bar widget (workspace 10, TUI.tiled).
+# Click the system bar widget to swap with the Shopify panel.
 
 set -euo pipefail
 
-BTOP_CLASS="TUI.btop"
-BTOP_COLS=131
-BTOP_ROWS=31
+BTOP_CLASS="TUI.tiled"
 
 usage() {
     cat <<'EOF'
-usage: evo-bar-btop show|hide|toggle
+usage: evo-bar-btop show|hide|toggle|swap|visible
 EOF
 }
 
@@ -30,8 +28,7 @@ hypr_eval() {
 }
 
 btop_cmd() {
-    printf 'ghostty --class=%s --window-width=%s --window-height=%s --window-padding-x=0 --window-padding-y=0 -e btop' \
-        "$BTOP_CLASS" "$BTOP_COLS" "$BTOP_ROWS"
+    printf 'ghostty --class=%s --window-padding-x=0 --window-padding-y=0 -e btop' "$BTOP_CLASS"
 }
 
 cmd_show() {
@@ -54,11 +51,30 @@ cmd_toggle() {
     fi
 }
 
+cmd_swap() {
+    if has_window; then
+        cmd_hide
+        quickshell ipc -c evoshell call shell shopifyOpen >/dev/null 2>&1 || true
+    else
+        quickshell ipc -c evoshell call shell shopifyClose >/dev/null 2>&1 || true
+        cmd_show
+    fi
+}
+
+cmd_visible() {
+    if has_window; then
+        exit 0
+    fi
+    exit 1
+}
+
 cmd="${1:-}"
 case "$cmd" in
 show) cmd_show ;;
 hide) cmd_hide ;;
 toggle) cmd_toggle ;;
+swap) cmd_swap ;;
+visible) cmd_visible ;;
 -h|--help|help|"") usage ;;
 *)
     echo "evo-bar-btop: unknown command: $cmd" >&2

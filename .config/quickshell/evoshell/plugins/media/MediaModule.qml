@@ -60,11 +60,6 @@ Item {
         return ""
     }
     readonly property bool shuffleOn: hasPlayer && player.shuffleSupported && player.shuffle
-    readonly property bool showPlayerVolume: player !== null && player.volumeSupported
-    readonly property int playerVolumePercent: {
-        if (player === null || !player.volumeSupported) return 0
-        return Math.round(player.volume * 100)
-    }
 
     readonly property int tvLibraryRowHeight: 54
     readonly property int tvLibraryReservedRows: 6
@@ -416,16 +411,6 @@ Item {
                 }
 
                 Item { Layout.fillWidth: true }
-            }
-
-            Text {
-                Layout.fillWidth: true
-                visible: root.showPlayerVolume
-                text: "Player volume " + root.playerVolumePercent + "%"
-                color: Theme.foreground
-                font.family: Theme.fontFamily
-                font.pixelSize: root.hintFont
-                opacity: 0.55
             }
         }
 

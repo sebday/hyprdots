@@ -8,7 +8,6 @@ Item {
 
     property var shell: null
     property bool opened: true
-    property bool demoMode: false
 
     readonly property string dashOutput: {
         if (shell && shell.shellConfig && shell.shellConfig.notifications && shell.shellConfig.notifications.output)
@@ -40,31 +39,37 @@ Item {
         opened = true
     }
 
-    function toggleDemoMode() {
-        demoMode = !demoMode
+    function toggle() {
+        if (opened)
+            close()
+        else
+            open()
     }
 
-    function handleKey(event) {
-        if (event.key === Qt.Key_Escape || event.key === Qt.Key_Q) {
-            root.close()
-            event.accepted = true
+    onOpenedChanged: activateMusic()
+
+    function activateMusic() {
+        if (!opened) {
+            if (musicContent && typeof musicContent.onDeactivated === "function")
+                musicContent.onDeactivated()
             return
         }
-        if (event.key === Qt.Key_D) {
-            root.toggleDemoMode()
-            event.accepted = true
-        }
+        Qt.callLater(function() {
+            keySurface.forceActiveFocus()
+            if (musicContent && typeof musicContent.onActivated === "function")
+                musicContent.onActivated()
+        })
     }
 
-    onOpenedChanged: if (opened) Qt.callLater(function() { keySurface.forceActiveFocus() })
+    Component.onCompleted: activateMusic()
 
     FloatingWindow {
         id: dashWindow
         visible: root.opened
-        title: root.demoMode ? "shopify (demo)" : "shopify"
+        title: "evo.music"
         screen: root.dashScreen
         color: Theme.background
-        minimumSize: Qt.size(720, 520)
+        minimumSize: Qt.size(720, 480)
 
         Item {
             id: keySurface
@@ -72,12 +77,12 @@ Item {
             focus: root.opened
 
             Keys.onEscapePressed: root.close()
-            Keys.onPressed: root.handleKey(event)
 
-            ShopifyModule {
+            MusicModule {
+                id: musicContent
                 anchors.fill: parent
                 shell: root.shell
-                demoMode: root.demoMode
+                host: root
             }
         }
     }

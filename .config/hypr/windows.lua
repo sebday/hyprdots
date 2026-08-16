@@ -34,22 +34,12 @@ hl.window_rule({
     tag = "+floating-window",
 })
 
--- btop popup: float bottom-left on the bar monitor (keep monitor in sync with shell.json bar.output).
--- ghostty 131x31 cells → 1248x671 px on this setup.
 hl.window_rule({
-    name = "btop-float",
-    match = { class = "^(TUI.btop)$" },
-    float = true,
-    monitor = "HDMI-A-1",
-    size = { 1248, 670 },
-    move = { "22", "monitor_h - 670 - 54" },
-    no_initial_focus = true,
-})
-
-hl.window_rule({
-    name = "tui-tiled",
+    name = "tag-floating-window-title-dialogs",
     match = { class = "^(TUI.tiled)$" },
     tile = true,
+    workspace = "10",
+    monitor = "HDMI-A-1",
 })
 
 hl.window_rule({
@@ -116,6 +106,14 @@ hl.window_rule({
 hl.window_rule({
     name = "shopify-tile",
     match = { title = "^shopify$" },
+    tile = true,
+    workspace = "10",
+    monitor = "HDMI-A-1",
+})
+
+hl.window_rule({
+    name = "evo-music-tile",
+    match = { title = "^evo%.music$" },
     tile = true,
     workspace = "10",
     monitor = "HDMI-A-1",
