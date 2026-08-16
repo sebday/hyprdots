@@ -4,7 +4,10 @@ import "."
 
 BarHoverPopup {
     layerNamespace: "bar-volume"
-    contentWidth: Theme.hoverPopupWidthStandard
+    contentWidth: 104
+    minContentHeight: 196
 
-    VolumeModule {}
+    VolumeModule {
+        sliderOnly: true
+    }
 }

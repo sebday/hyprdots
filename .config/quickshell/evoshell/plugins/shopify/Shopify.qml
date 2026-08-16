@@ -25,6 +25,13 @@ Item {
         opened = true
     }
 
+    function toggle() {
+        if (opened)
+            close()
+        else
+            open()
+    }
+
     function toggleDemoMode() {
         demoMode = !demoMode
     }
@@ -46,7 +53,7 @@ Item {
     FloatingWindow {
         id: dashWindow
         visible: root.opened && root.dashScreen !== null
-        title: root.demoMode ? "shopify (demo)" : "shopify"
+        title: root.demoMode ? "evo.shopify (demo)" : "evo.shopify"
         screen: root.dashScreen
         color: Theme.background
         minimumSize: Qt.size(720, 520)

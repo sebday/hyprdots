@@ -3,7 +3,7 @@
 
 set -euo pipefail
 
-IPC="quickshell ipc -c evoshell call shell"
+IPC="${HOME}/.local/bin/evo-ipc shell"
 HYPR_PIN="${HOME}/.local/bin/evo-bar-hypr"
 
 usage() {
@@ -26,16 +26,16 @@ pin_player() {
 }
 
 cmd_show() {
-	$IPC playerOpen >/dev/null 2>&1 || true
+	$IPC summon evo.player >/dev/null 2>&1 || true
 	pin_player
 }
 
 cmd_hide() {
-	$IPC playerClose >/dev/null 2>&1 || true
+	$IPC hide evo.player >/dev/null 2>&1 || true
 }
 
 cmd_toggle() {
-	$IPC playerToggle >/dev/null 2>&1 || true
+	$IPC toggle evo.player >/dev/null 2>&1 || true
 	pin_player
 }
 

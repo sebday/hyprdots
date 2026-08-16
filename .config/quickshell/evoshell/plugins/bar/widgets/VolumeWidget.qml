@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import Quickshell.Services.Pipewire
 import "../../../Commons"
 
@@ -11,12 +12,12 @@ Item {
     property var settings: ({})
     property var shell: null
 
-    readonly property string volumeHoverPopupId: settings.onHover
-        ? String(settings.onHover)
-        : (trayMode ? "evo.volume" : "")
     readonly property string mediaHoverPopupId: settings.mediaOnHover
         ? String(settings.mediaOnHover)
         : "evo.media"
+    readonly property string volumeHoverPopupId: settings.onHover
+        ? String(settings.onHover)
+        : "evo.volume"
     readonly property bool trayMode: settings.trayMode === true
     readonly property int trayIconSize: {
         var n = parseInt(settings.trayIconSize, 10)
@@ -27,6 +28,11 @@ Item {
         return isNaN(n) || n <= 0 ? trayIconSize + 4 : n
     }
     readonly property var audio: shell ? shell.serviceFor("evo.audio") : null
+    readonly property int systemVolumePercent: audio ? audio.percent : 0
+    readonly property bool systemVolumeMuted: audio ? audio.muted : false
+
+    property real volumeFlash: 0
+    property int _trackedSystemPercent: -1
 
     readonly property int barCount: 10
     readonly property int vizBarWidth: 6
@@ -48,10 +54,25 @@ Item {
 
     readonly property bool audioActive: sinkReady && linkTracker.linkGroups.length > 0
     readonly property string volumeText: audio ? audio.displayText : "󰕾"
+
     readonly property string trayIconText: {
-        if (!audio) return "󰕾"
-        if (audio.muted || audio.percent === 0) return "󰝟"
-        return "󰕾"
+        if (volumeFlash > 0)
+            return root.systemVolumePercent + "%"
+        return SystemVolume.icon(root.systemVolumePercent, root.systemVolumeMuted)
+    }
+
+    readonly property real trayIconOpacity: {
+        if (volumeFlash > 0)
+            return SystemVolume.flashOpacity(volumeFlash)
+        return SystemVolume.iconOpacity(root.systemVolumePercent, root.systemVolumeMuted)
+    }
+
+    readonly property color trayIconColor: {
+        if (volumeFlash > 0)
+            return Theme.accent
+        if (root.systemVolumeMuted || root.systemVolumePercent <= 0)
+            return Theme.foreground
+        return Theme.accent
     }
     readonly property int horizontalPad: trayMode ? 0 : Theme.barPaddingX
 
@@ -62,7 +83,7 @@ Item {
     width: trayMode && parent ? parent.width : implicitWidth
     height: Theme.barHeight
 
-    function resetBars() {
+    function zeroHistory() {
         peakBaseline = 0
         barLevels = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     }
@@ -124,30 +145,31 @@ Item {
     }
 
     function openMixer() {
-        Quickshell.execDetached(["ghostty", "--class=TUI.main", "-e", "wiremix"])
+        if (settings.onClick)
+            Quickshell.execDetached(["bash", "-lc", String(settings.onClick)])
+        else
+            Quickshell.execDetached(["ghostty", "--class=TUI.main", "-e", "wiremix"])
     }
 
     function openAlsamixer() {
-        Quickshell.execDetached(["ghostty", "--class=TUI.main", "-e", "alsamixer"])
+        if (settings.onClickRight)
+            Quickshell.execDetached(["bash", "-lc", String(settings.onClickRight)])
+        else
+            Quickshell.execDetached(["ghostty", "--class=TUI.main", "-e", "alsamixer"])
     }
 
-    function runConfiguredClick(mouse) {
-        if (mouse.button === Qt.RightButton && settings.onClickRight)
-            Quickshell.execDetached(["bash", "-lc", String(settings.onClickRight)])
-        else if (settings.onClick)
-            Quickshell.execDetached(["bash", "-lc", String(settings.onClick)])
-        else if (mouse.button === Qt.RightButton)
+    function handleCavaClick(mouse) {
+        if (mouse.button === Qt.RightButton)
             openAlsamixer()
         else
             openMixer()
     }
 
-    function setVolumeHoverPopup(active) {
-        if (!shell || !volumeHoverPopupId) return
-        if (active)
-            shell.hoverEnter(volumeHoverPopupId, root, barPanel)
+    function handleVolumeClick(mouse) {
+        if (mouse.button === Qt.RightButton)
+            openAlsamixer()
         else
-            shell.hoverLeave(volumeHoverPopupId)
+            openMixer()
     }
 
     function setMediaHoverPopup(active) {
@@ -158,12 +180,39 @@ Item {
             shell.hoverLeave(mediaHoverPopupId)
     }
 
+    function setVolumeHoverPopup(active) {
+        if (!shell || !volumeHoverPopupId) return
+        if (active)
+            shell.hoverEnter(volumeHoverPopupId, volumeLabel, barPanel)
+        else
+            shell.hoverLeave(volumeHoverPopupId)
+    }
+
     function handleWheel(wheel) {
         if (!audio) return
         if (wheel.angleDelta.y > 0) audio.stepUp()
         else if (wheel.angleDelta.y < 0) audio.stepDown()
+        pulseVolumeFlash()
         wheel.accepted = true
     }
+
+    function pulseVolumeFlash() {
+        volumeFlash = 1
+        volumeFlashTimer.restart()
+    }
+
+    onSystemVolumePercentChanged: {
+        if (_trackedSystemPercent < 0) {
+            _trackedSystemPercent = systemVolumePercent
+            return
+        }
+        if (systemVolumePercent !== _trackedSystemPercent) {
+            _trackedSystemPercent = systemVolumePercent
+            pulseVolumeFlash()
+        }
+    }
+
+    onSystemVolumeMutedChanged: pulseVolumeFlash()
 
     PwObjectTracker {
         objects: root.sink ? [root.sink] : []
@@ -188,7 +237,21 @@ Item {
         onTriggered: root.applyPeak(peakMonitor.peak)
     }
 
-    onAudioActiveChanged: if (!audioActive) resetBars()
+    Timer {
+        id: volumeFlashTimer
+        interval: 2800
+        repeat: false
+        onTriggered: root.volumeFlash = 0
+    }
+
+    Behavior on volumeFlash {
+        NumberAnimation {
+            duration: 500
+            easing.type: Easing.OutCubic
+        }
+    }
+
+    onAudioActiveChanged: if (!audioActive) zeroHistory()
 
     Row {
         id: contentRow
@@ -249,21 +312,24 @@ Item {
             MouseArea {
                 enabled: !root.trayMode
                 anchors.fill: parent
-                hoverEnabled: true
                 acceptedButtons: Qt.LeftButton | Qt.RightButton
                 cursorShape: Qt.PointingHandCursor
-                onContainsMouseChanged: root.setVolumeHoverPopup(containsMouse)
                 onWheel: function(wheel) { root.handleWheel(wheel) }
-                onClicked: function(mouse) { root.runConfiguredClick(mouse) }
+                onClicked: function(mouse) { root.handleCavaClick(mouse) }
             }
         }
 
         Text {
             id: volumeLabel
             text: root.trayMode ? root.trayIconText : root.volumeText
-            color: Theme.foreground
+            color: root.trayMode ? root.trayIconColor : Theme.foreground
+            opacity: root.trayMode ? root.trayIconOpacity : 1
             font.family: Theme.fontFamily
-            font.pixelSize: root.trayMode ? root.trayIconSize : Theme.barFontPixelSize
+            font.pixelSize: root.trayMode
+                ? (volumeFlash > 0
+                    ? SystemVolume.flashLabelPixelSize(root.trayIconSize)
+                    : root.trayIconSize)
+                : Theme.barFontPixelSize
             font.bold: Theme.fontBold
             anchors.verticalCenter: parent.verticalCenter
 
@@ -275,7 +341,7 @@ Item {
                 cursorShape: Qt.PointingHandCursor
                 onContainsMouseChanged: root.setVolumeHoverPopup(containsMouse)
                 onWheel: function(wheel) { root.handleWheel(wheel) }
-                onClicked: function(mouse) { root.runConfiguredClick(mouse) }
+                onClicked: function(mouse) { root.handleVolumeClick(mouse) }
             }
         }
     }

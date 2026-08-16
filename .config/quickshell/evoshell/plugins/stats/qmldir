@@ -1,5 +1,0 @@
-module stats
-ShopifyStoreModule 1.0 ShopifyStoreModule.qml
-ShopifyStorePopup 1.0 ShopifyStorePopup.qml
-StatsDiy 1.0 StatsDiy.qml
-StatsTgs 1.0 StatsTgs.qml

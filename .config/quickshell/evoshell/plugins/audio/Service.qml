@@ -16,8 +16,8 @@ Item {
     readonly property int percent: muted ? 0 : Math.round(level * 100)
     readonly property string displayText: {
         if (!ready) return "󰕾"
-        if (muted || percent === 0) return "󰝟"
-        return "󰕾 " + percent + "%"
+        if (muted) return "󰝟"
+        return SystemVolume.icon(percent, false) + " " + percent + "%"
     }
 
     readonly property real stepSize: 0.05

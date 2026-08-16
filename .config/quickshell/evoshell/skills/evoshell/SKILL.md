@@ -16,7 +16,7 @@ House rules (bash style, naming, git, testing): `AGENTS.md` in this directory.
 ```
 shell.json  →  shell.qml  →  bar / panel / menu  →  user input
      ↑              ↓                                    ↓
-  reloadConfig   services                          evo-bar-* / evo-dash-*
+  reloadConfig   services                          evo-bar-* / evo-bar-*
      ↑              ↓                                    ↓
 theme.json  ←  Theme.qml  ←  ~/.local/state/evoshell  ←  JSON line
 ```
@@ -67,7 +67,7 @@ theme.json  ←  Theme.qml  ←  ~/.local/state/evoshell  ←  JSON line
 | Prefix | Purpose | Examples |
 |--------|---------|----------|
 | `evo-bar-*` | Bar JSON pollers only (one line stdout) | `evo-bar-weather`, `evo-bar-github` |
-| `evo-dash-*` | Dashboard / Hypr window control (not bar data) | `evo-dash-hypr`, `evo-dash-player`, `evo-dash-btop` |
+| `evo-bar-*` | Dashboard / Hypr window control (not bar data) | `evo-bar-hypr`, `evo-bar-player`, `evo-bar-btop` |
 | `evo-theme-*` | Theme generation and apply | `evo-theme-gtk` |
 | `evo-system-*` | Session maintenance | `evo-system-cleanup` |
 | `evo-menu-*` | Launcher helpers | `evo-menu-list` |
@@ -82,7 +82,7 @@ New bar widgets: thin `evo-bar-*` → feature CLI `bar` subcommand when the doma
 | `evo-player` | `evo.player` | Local music library + mpv backend |
 | `evo-film` | `evo.library` | Film/TV index + playback (not `evo.media`) |
 | `evo-network` | `evo.network` | Network status + `bar` subcommand |
-| `evo-dash-player` | `evo.player` | Toggle dashboard window (not the music CLI) |
+| `evo-bar-player` | `evo.player` | Toggle dashboard window (not the music CLI) |
 
 **Do not** use `evo-media` (removed — collided with `evo.media` MPRIS popup). Film/TV uses `evo-film`.
 
@@ -91,7 +91,7 @@ New bar widgets: thin `evo-bar-*` → feature CLI `bar` subcommand when the doma
 - `FloatingWindow` title = plugin id string (`evo.shopify`, `evo.player`).
 - Hypr rules in `windows.lua` match those titles.
 - Open/close/toggle via generic IPC: `evo-ipc shell toggle evo.shopify`, `evo-ipc shell hide evo.player`.
-- Pin to monitor: `evo-dash-hypr pin-evo-shopify|pin-evo-player|pin-all`.
+- Pin to monitor: `evo-bar-hypr pin-evo-shopify|pin-evo-player|pin-all`.
 
 ### IPC
 
@@ -106,7 +106,7 @@ New bar widgets: thin `evo-bar-*` → feature CLI `bar` subcommand when the doma
 | Service | `evo.audio`, `evo.wallpaper`, `evo.idle`, `evo.lock`, `evo.clipboard` | `Service.qml` |
 | Bar | `evo.bar` | `Bar.qml` + `shell.json` layout |
 | Hover popup | `evo.weather`, `evo.volume`, `evo.media`, `evo.github`, … | `BarHoverPopup` + `*Module.qml` |
-| Click action | `evo.system` | `SystemWidget` → `evo-dash-btop` |
+| Click action | `evo.system` | `SystemWidget` → `evo-bar-btop` |
 | Fullscreen overlay | `evo.library`, `evo.theme`, `evo.wallpaper` | `CenteredOverlay` / `CarouselOverlay` |
 | Panel / menu | `evo.panel`, `evo.menu` | `Panel.qml`, `Menu.qml` |
 | Dashboard | `evo.shopify`, `evo.player` | `FloatingWindow` |
@@ -122,7 +122,7 @@ New bar widgets: thin `evo-bar-*` → feature CLI `bar` subcommand when the doma
 
 - Root: `BarHoverPopup` (`Commons/BarHoverPopup.qml`).
 - Bar widget sets `onHover: "evo.weather"` (plugin id).
-- Tray: `VolumeWidget` → `evo.volume` / `evo.media`; tray media icon click → `evo-dash-player toggle`.
+- Tray: `VolumeWidget` → `evo.volume` / `evo.media`; tray media icon click → `evo-bar-player toggle`.
 
 ## Config refresh vs restart
 
@@ -140,7 +140,7 @@ evo-ipc shell ping
 evo-ipc shell reloadConfig
 evo-ipc shell toggle evo.panel '{"module":"settings"}'
 evo-ipc shell toggle evo.player
-evo-dash-hypr pin-all
+evo-bar-hypr pin-all
 evo-restart
 journalctl -t evoshell -f
 ```

@@ -10,6 +10,7 @@ Item {
     property var host: null
     property var shell: null
     property int hoverPopupWidth: 0
+    property bool sliderOnly: false
 
     readonly property bool active: host && host.opened === true
     readonly property var audio: shell ? shell.serviceFor("evo.audio") : null
@@ -53,6 +54,18 @@ Item {
         if (!audio) return
         if (direction > 0) audio.stepUp()
         else if (direction < 0) audio.stepDown()
+    }
+
+    function setLevelFromRatio(ratio) {
+        if (!audio) return
+        var r = Math.max(0, Math.min(1, ratio))
+        audio.setVolume(r * systemMax)
+    }
+
+    function setLevelFromVerticalRatio(y, height) {
+        if (!height)
+            return
+        setLevelFromRatio(1 - Math.max(0, Math.min(1, y / height)))
     }
 
     function resetBars() {
@@ -124,11 +137,105 @@ Item {
 
     ColumnLayout {
         id: column
-        width: root.hoverPopupWidth
+        anchors.left: parent.left
+        anchors.right: parent.right
         spacing: Theme.hoverPopupSectionSpacing
+
+        FramedPanel {
+            visible: root.sliderOnly
+            Layout.fillWidth: true
+            label: ""
+            contentPad: 12
+
+            Item {
+                width: parent.width
+                implicitHeight: sliderColumn.implicitHeight
+
+                ColumnLayout {
+                    id: sliderColumn
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    spacing: 10
+
+                    Text {
+                        Layout.alignment: Qt.AlignHCenter
+                        text: root.systemMuted ? "Muted" : root.systemPercent + "%"
+                        color: Theme.accent
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.bodyFont
+                        font.bold: Theme.fontBold
+                    }
+
+                    Item {
+                        Layout.alignment: Qt.AlignHCenter
+                        width: 14
+                        height: 120
+
+                        Rectangle {
+                            anchors.fill: parent
+                            radius: 4
+                            color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.14)
+                        }
+
+                        Rectangle {
+                            anchors.bottom: parent.bottom
+                            width: parent.width
+                            height: parent.height * Math.max(0, Math.min(1, root.systemLevel / root.systemMax))
+                            radius: 4
+                            color: Theme.accent
+                            opacity: root.systemMuted ? 0.35 : 0.95
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+
+                            onPressed: function(mouse) {
+                                root.setLevelFromVerticalRatio(mouse.y, height)
+                            }
+
+                            onPositionChanged: function(mouse) {
+                                if (pressed)
+                                    root.setLevelFromVerticalRatio(mouse.y, height)
+                            }
+
+                            onWheel: function(wheel) {
+                                if (wheel.angleDelta.y > 0)
+                                    root.stepVolume(1)
+                                else if (wheel.angleDelta.y < 0)
+                                    root.stepVolume(-1)
+                                wheel.accepted = true
+                            }
+                        }
+                    }
+
+                    Item {
+                        Layout.alignment: Qt.AlignHCenter
+                        implicitWidth: root.iconFont
+                        implicitHeight: root.iconFont
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: SystemVolume.icon(root.systemPercent, root.systemMuted)
+                            color: root.systemMuted ? Theme.foreground : Theme.accent
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.iconFont
+                            opacity: SystemVolume.iconOpacity(root.systemPercent, root.systemMuted)
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            anchors.margins: -6
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: if (root.audio) root.audio.toggleMute()
+                        }
+                    }
+                }
+            }
+        }
 
         SectionPanel {
             label: "Volume"
+            visible: !root.sliderOnly
 
             Text {
                 Layout.fillWidth: true
@@ -145,11 +252,18 @@ Item {
                 spacing: 10
 
                 Text {
-                    text: root.systemMuted ? "󰝟" : "󰕾"
+                    text: SystemVolume.icon(root.systemPercent, root.systemMuted)
                     color: root.systemMuted ? Theme.foreground : Theme.accent
                     font.family: Theme.fontFamily
                     font.pixelSize: root.iconFont
-                    opacity: root.systemMuted ? 0.55 : 1
+                    opacity: SystemVolume.iconOpacity(root.systemPercent, root.systemMuted)
+
+                    MouseArea {
+                        anchors.fill: parent
+                        anchors.margins: -6
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: if (root.audio) root.audio.toggleMute()
+                    }
                 }
 
                 Item {
@@ -157,6 +271,7 @@ Item {
                     Layout.preferredHeight: 6
 
                     Rectangle {
+                        id: levelTrack
                         anchors.fill: parent
                         radius: 3
                         color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.14)
@@ -168,6 +283,32 @@ Item {
                         radius: 3
                         color: Theme.accent
                         opacity: root.systemMuted ? 0.35 : 0.95
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+
+                        function ratioAt(x) {
+                            return Math.max(0, Math.min(1, x / width))
+                        }
+
+                        onPressed: function(mouse) {
+                            root.setLevelFromRatio(ratioAt(mouse.x))
+                        }
+
+                        onPositionChanged: function(mouse) {
+                            if (pressed)
+                                root.setLevelFromRatio(ratioAt(mouse.x))
+                        }
+
+                        onWheel: function(wheel) {
+                            if (wheel.angleDelta.y > 0)
+                                root.stepVolume(1)
+                            else if (wheel.angleDelta.y < 0)
+                                root.stepVolume(-1)
+                            wheel.accepted = true
+                        }
                     }
                 }
 
@@ -183,7 +324,7 @@ Item {
 
         SectionPanel {
             label: "Output"
-            visible: root.sinkReady
+            visible: !root.sliderOnly && root.sinkReady
 
             Text {
                 text: root.outputActive

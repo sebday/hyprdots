@@ -2,6 +2,7 @@ module Commons
 singleton Format 1.0 Format.qml
 singleton Theme 1.0 Theme.qml
 singleton Util 1.0 Util.qml
+singleton SystemVolume 1.0 SystemVolume.qml
 LeftDockPanel 1.0 LeftDockPanel.qml
 FramedPanel 1.0 FramedPanel.qml
 SectionPanel 1.0 SectionPanel.qml

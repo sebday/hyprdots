@@ -1,3 +1,7 @@
 module shopify
 Shopify 1.0 Shopify.qml
 ShopifyModule 1.0 ShopifyModule.qml
+ShopifyStoreModule 1.0 ShopifyStoreModule.qml
+ShopifyStorePopup 1.0 ShopifyStorePopup.qml
+ShopifyDiy 1.0 ShopifyDiy.qml
+ShopifyTgs 1.0 ShopifyTgs.qml

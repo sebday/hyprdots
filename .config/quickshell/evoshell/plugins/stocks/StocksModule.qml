@@ -154,7 +154,7 @@ Item {
         cacheKey: root.btcCacheKey
         active: root.active
         defaultIntervalSec: 60
-        command: ["bash", root.home + "/.local/bin/evo-bar-btc", String(root.chartHistoryDays)]
+        command: [root.home + "/.local/bin/evo", "bar", "btc", String(root.chartHistoryDays)]
         onPolled: function(json) { root.btcData = json }
     }
 
@@ -164,7 +164,7 @@ Item {
         cacheKey: root.spcxCacheKey
         active: root.active
         defaultIntervalSec: 60
-        command: ["bash", root.home + "/.local/bin/evo-bar-spcx", String(root.chartHistoryDays)]
+        command: [root.home + "/.local/bin/evo", "bar", "spcx", String(root.chartHistoryDays)]
         onPolled: function(json) { root.spcxData = json }
     }
 

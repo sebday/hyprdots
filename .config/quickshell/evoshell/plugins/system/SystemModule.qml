@@ -22,6 +22,8 @@ Item {
     property string hostName: ""
     property string osName: ""
     property int cpuPercent: 0
+    property string memWarning: ""
+    property var memHogs: []
 
     implicitHeight: column.implicitHeight
 
@@ -71,11 +73,15 @@ Item {
             hostName = ""
             osName = ""
             cpuPercent = 0
+            memWarning = ""
+            memHogs = []
             return
         }
         hostName = String(json.host || "")
         osName = String(json.os || "")
         cpuPercent = parseInt(json.cpuPercent, 10) || 0
+        memWarning = String(json.memWarning || "")
+        memHogs = Array.isArray(json.memHogs) ? json.memHogs : []
         lines = Array.isArray(json.lines) ? json.lines : []
         publishCache(json)
     }
@@ -140,9 +146,13 @@ Item {
 
                         Text {
                             Layout.preferredWidth: root.labelWidth
-                            text: String(modelData.label || "")
-                            color: Theme.foreground
-                            opacity: 0.55
+                            text: {
+                                if (modelData.label === "warning")
+                                    return "memory"
+                                return String(modelData.label || "")
+                            }
+                            color: modelData.label === "warning" ? Theme.urgent : Theme.foreground
+                            opacity: modelData.label === "warning" ? 1 : 0.55
                             font.family: Theme.fontFamily
                             font.pixelSize: root.hintFont
                             font.bold: Theme.fontBold
@@ -153,6 +163,8 @@ Item {
                             Layout.fillWidth: true
                             text: String(modelData.value || "—")
                             color: {
+                                if (modelData.label === "warning")
+                                    return Theme.urgent
                                 if (modelData.label === "cpu")
                                     return Format.loadPercentColor(root.cpuPercent)
                                 return Theme.foreground

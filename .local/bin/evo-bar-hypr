@@ -39,7 +39,7 @@ pin_dashboard() {
 }
 
 pin_shopify() {
-	pin_dashboard '^shopify'
+	pin_dashboard '^evo\.shopify'
 }
 
 pin_player() {

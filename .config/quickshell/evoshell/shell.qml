@@ -35,8 +35,8 @@ ShellRoot {
         "evo.notifications": { kinds: ["service"], path: "plugins/notifications/Service.qml", keepLoaded: true },
         "evo.menu": { kinds: ["menu"], path: "plugins/menu/Menu.qml", keepLoaded: true },
         "evo.calendar": { kinds: ["menu"], path: "plugins/calendar/Calendar.qml", keepLoaded: true },
-        "evo.stats_diy": { kinds: ["menu"], path: "plugins/stats/StatsDiy.qml", keepLoaded: true },
-        "evo.stats_tgs": { kinds: ["menu"], path: "plugins/stats/StatsTgs.qml", keepLoaded: true },
+        "evo.shopify_diy": { kinds: ["menu"], path: "plugins/shopify/ShopifyDiy.qml", keepLoaded: true },
+        "evo.shopify_tgs": { kinds: ["menu"], path: "plugins/shopify/ShopifyTgs.qml", keepLoaded: true },
         "evo.cursor": { kinds: ["menu"], path: "plugins/cursor/Cursor.qml", keepLoaded: true },
         "evo.weather": { kinds: ["menu"], path: "plugins/weather/Weather.qml", keepLoaded: true },
         "evo.network": { kinds: ["menu"], path: "plugins/network/Network.qml", keepLoaded: true },
@@ -157,6 +157,14 @@ ShellRoot {
 
     function summon(id, payloadJson) {
         var pluginId = canonicalPluginId(id)
+        var dash = dashboardLoaderFor(pluginId)
+        if (dash && dash.item && typeof dash.item.open === "function") {
+            dash.item.open()
+            var pinKind = pinKindForDashboard(pluginId)
+            if (pinKind)
+                pinDashboard(pinKind)
+            return true
+        }
         var meta = pluginTable[pluginId]
         if (!meta) return false
         if (meta.kinds.indexOf("menu") !== -1 || meta.kinds.indexOf("panel") !== -1) {
@@ -176,8 +184,27 @@ ShellRoot {
         return false
     }
 
+    function dashboardLoaderFor(id) {
+        var pluginId = canonicalPluginId(id)
+        if (pluginId === "evo.shopify") return shopifyLoader
+        if (pluginId === "evo.player") return playerLoader
+        return null
+    }
+
+    function pinKindForDashboard(id) {
+        var pluginId = canonicalPluginId(id)
+        if (pluginId === "evo.shopify") return "pin-shopify"
+        if (pluginId === "evo.player") return "pin-player"
+        return ""
+    }
+
     function hide(id) {
         var pluginId = canonicalPluginId(id)
+        var dash = dashboardLoaderFor(pluginId)
+        if (dash && dash.item && typeof dash.item.close === "function") {
+            dash.item.close()
+            return true
+        }
         if (hoverPopupId === pluginId) {
             hoverPopupId = ""
             popupAnchorItem = null
@@ -275,6 +302,20 @@ ShellRoot {
 
     function toggle(id, payloadJson) {
         var pluginId = canonicalPluginId(id)
+        var dash = dashboardLoaderFor(pluginId)
+        if (dash && dash.item) {
+            if (typeof dash.item.toggle === "function") {
+                dash.item.toggle()
+            } else if (dash.item.opened && typeof dash.item.close === "function") {
+                dash.item.close()
+            } else if (typeof dash.item.open === "function") {
+                dash.item.open()
+            }
+            var pinKind = pinKindForDashboard(pluginId)
+            if (pinKind)
+                pinDashboard(pinKind)
+            return true
+        }
         if (isPluginOpen(pluginId)) {
             var loader = panelLoaders[pluginId]
             if (payloadJson && loader && loader.item && typeof loader.item.reopen === "function") {
@@ -288,6 +329,9 @@ ShellRoot {
 
     function isPluginOpen(id) {
         var pluginId = canonicalPluginId(id)
+        var dash = dashboardLoaderFor(pluginId)
+        if (dash && dash.item && dash.item.opened !== undefined)
+            return dash.item.opened === true
         var loader = panelLoaders[pluginId]
         if (loader && loader.item && loader.item.opened !== undefined) return loader.item.opened === true
         return openPanelIds[pluginId] === true
@@ -402,7 +446,7 @@ ShellRoot {
         }
     }
 
-    readonly property var panelPluginIds: ["evo.menu", "evo.panel", "evo.calendar", "evo.stats_diy", "evo.stats_tgs", "evo.cursor", "evo.weather", "evo.network", "evo.volume", "evo.media", "evo.github", "evo.system", "evo.stocks", "evo.cloudflare", "evo.transmission", "evo.transmission.add", "evo.library", "evo.wallpaper", "evo.clipboard"]
+    readonly property var panelPluginIds: ["evo.menu", "evo.panel", "evo.calendar", "evo.shopify_diy", "evo.shopify_tgs", "evo.cursor", "evo.weather", "evo.network", "evo.volume", "evo.media", "evo.github", "evo.system", "evo.stocks", "evo.cloudflare", "evo.transmission", "evo.transmission.add", "evo.library", "evo.wallpaper", "evo.clipboard"]
 
     Instantiator {
         model: shell.panelPluginIds
@@ -468,49 +512,6 @@ ShellRoot {
             return JSON.stringify(shell.pluginTable)
         }
 
-        function shopifyOpen(): string {
-            var panel = shopifyLoader.item
-            if (panel && typeof panel.open === "function")
-                panel.open()
-            shell.pinDashboard("pin-shopify")
-            return "ok"
-        }
-
-        function shopifyClose(): string {
-            var panel = shopifyLoader.item
-            if (panel && typeof panel.close === "function")
-                panel.close()
-            return "ok"
-        }
-
-        function playerOpen(): string {
-            var panel = playerLoader.item
-            if (panel && typeof panel.open === "function")
-                panel.open()
-            shell.pinDashboard("pin-player")
-            return "ok"
-        }
-
-        function playerClose(): string {
-            var panel = playerLoader.item
-            if (panel && typeof panel.close === "function")
-                panel.close()
-            return "ok"
-        }
-
-        function playerToggle(): string {
-            var panel = playerLoader.item
-            if (!panel) return "ok"
-            if (typeof panel.toggle === "function") {
-                panel.toggle()
-            } else if (panel.opened && typeof panel.close === "function") {
-                panel.close()
-            } else if (typeof panel.open === "function") {
-                panel.open()
-            }
-            shell.pinDashboard("pin-player")
-            return "ok"
-        }
     }
 
     Component.onCompleted: {

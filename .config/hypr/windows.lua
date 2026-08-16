@@ -110,7 +110,7 @@ hl.window_rule({
     name = "shopify-dashboard-tag",
     match = {
         class = "^(org%.quickshell)$",
-        initial_title = "^shopify",
+        initial_title = "^evo%.shopify",
     },
     tag = "+shopify-dashboard",
 })
@@ -145,7 +145,7 @@ local function is_dashboard_window(win)
         return false
     end
     local title = win.title or ""
-    return title:match("^shopify") ~= nil or title == "evo.player"
+    return title:match("^evo%.shopify") ~= nil or title == "evo.player"
 end
 
 local function pin_dashboard_window(win)
