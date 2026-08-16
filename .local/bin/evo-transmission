@@ -223,6 +223,20 @@ cmd_remove() {
     return 1
 }
 
+cmd_close() {
+    local id="${1:-}"
+    [[ -n "$id" ]] || { echo "usage: $0 close <id>" >&2; return 1; }
+    ensure_daemon || return 1
+    local payload result
+    payload="$(jq -n --argjson id "$id" '{method:"torrent-remove",arguments:{ids:[$id],"delete-local-data":false}}')"
+    result="$(rpc_call "$payload")"
+    if jq -e '.result == "success"' <<<"$result" >/dev/null 2>&1; then
+        return 0
+    fi
+    echo "${result:-close failed}" >&2
+    return 1
+}
+
 cmd_prompt_add() {
     local url
     if command -v zenity >/dev/null 2>&1; then
@@ -247,6 +261,9 @@ add)
 remove)
     cmd_remove "${2:-}"
     ;;
+close)
+    cmd_close "${2:-}"
+    ;;
 prompt-add)
     cmd_prompt_add
     ;;
@@ -254,7 +271,7 @@ start-daemon)
     ensure_daemon
     ;;
 *)
-    echo "usage: $0 bar|popup|add <url>|remove <id>|prompt-add|start-daemon" >&2
+    echo "usage: $0 bar|popup|add <url>|remove <id>|close <id>|prompt-add|start-daemon" >&2
     exit 1
     ;;
 esac

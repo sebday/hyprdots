@@ -1,0 +1,3 @@
+module cloudflare
+CloudflareModule 1.0 CloudflareModule.qml
+CloudflareIcon 1.0 CloudflareIcon.qml

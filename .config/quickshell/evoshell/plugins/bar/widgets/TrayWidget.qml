@@ -19,6 +19,7 @@ Item {
     readonly property bool showCursor: settings.cursor !== false
     readonly property bool showGithub: settings.github != null && settings.github !== false
     readonly property bool showStocks: settings.stocks != null && settings.stocks !== false
+    readonly property bool showCloudflare: settings.cloudflare != null && settings.cloudflare !== false
     readonly property bool showAudio: settings.audio !== false
     readonly property bool showNetwork: settings.network !== false
     readonly property bool showTransmission: settings.transmission != null && settings.transmission !== false
@@ -51,9 +52,10 @@ Item {
 
     function rewireTrayWidgets() {
         if (weatherLoader.item) wireBarWidget(weatherLoader.item, settings.weather, "evo.weather")
-        if (cursorLoader.item) wireBarWidget(cursorLoader.item, settings.cursor, "evo.cursor")
         if (githubLoader.item) wireBarWidget(githubLoader.item, settings.github, "evo.github")
+        if (cursorLoader.item) wireBarWidget(cursorLoader.item, settings.cursor, "evo.cursor")
         if (stocksLoader.item) wireBarWidget(stocksLoader.item, settings.stocks, "evo.stocks")
+        if (cloudflareLoader.item) wireBarWidget(cloudflareLoader.item, settings.cloudflare, "evo.cloudflare")
         if (transmissionLoader.item) wireBarWidget(transmissionLoader.item, settings.transmission, "evo.transmission")
         if (networkLoader.item) wireBarWidget(networkLoader.item, settings.network, "evo.network")
         if (soundLoader.item) wireBarWidget(soundLoader.item, settings.audio, "evo.sound")
@@ -71,6 +73,7 @@ Item {
     Component { id: commandComp; CommandWidget {} }
     Component { id: githubComp; GithubWidget {} }
     Component { id: stocksComp; StocksWidget {} }
+    Component { id: cloudflareComp; CloudflareWidget {} }
     Component { id: soundComp; SoundWidget {} }
     Component { id: networkComp; NetworkWidget {} }
     Component { id: transmissionComp; TransmissionWidget {} }
@@ -97,20 +100,6 @@ Item {
         }
 
         Item {
-            width: root.showCursor ? root.trayCellWidth : 0
-            height: Theme.barHeight
-            visible: root.showCursor
-
-            Loader {
-                id: cursorLoader
-                anchors.fill: parent
-                active: root.showCursor
-                sourceComponent: commandComp
-                onLoaded: root.wireBarWidget(item, root.settings.cursor, "evo.cursor")
-            }
-        }
-
-        Item {
             width: root.showGithub ? root.trayCellWidth : 0
             height: Theme.barHeight
             visible: root.showGithub
@@ -125,6 +114,20 @@ Item {
         }
 
         Item {
+            width: root.showCursor ? root.trayCellWidth : 0
+            height: Theme.barHeight
+            visible: root.showCursor
+
+            Loader {
+                id: cursorLoader
+                anchors.fill: parent
+                active: root.showCursor
+                sourceComponent: commandComp
+                onLoaded: root.wireBarWidget(item, root.settings.cursor, "evo.cursor")
+            }
+        }
+
+        Item {
             width: root.showStocks ? root.trayCellWidth : 0
             height: Theme.barHeight
             visible: root.showStocks
@@ -135,6 +138,20 @@ Item {
                 active: root.showStocks
                 sourceComponent: stocksComp
                 onLoaded: root.wireBarWidget(item, root.settings.stocks, "evo.stocks")
+            }
+        }
+
+        Item {
+            width: root.showCloudflare ? root.trayCellWidth : 0
+            height: Theme.barHeight
+            visible: root.showCloudflare
+
+            Loader {
+                id: cloudflareLoader
+                anchors.fill: parent
+                active: root.showCloudflare
+                sourceComponent: cloudflareComp
+                onLoaded: root.wireBarWidget(item, root.settings.cloudflare, "evo.cloudflare")
             }
         }
 

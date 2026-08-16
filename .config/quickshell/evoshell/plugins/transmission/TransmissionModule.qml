@@ -92,6 +92,15 @@ Item {
         }
     }
 
+    function isSeedingTorrent(torrent) {
+        if (!torrent)
+            return false
+        var status = parseInt(torrent.status, 10)
+        if (status === 5 || status === 6)
+            return true
+        return Number(torrent.percent || 0) >= 99.9 && status !== 4
+    }
+
     function applyPayload(json) {
         if (!json || typeof json !== "object")
             return
@@ -126,9 +135,9 @@ Item {
         popupProc.running = true
     }
 
-    function removeTorrent(torrentId) {
+    function dropTorrentFromList(torrentId) {
         var id = parseInt(torrentId, 10)
-        if (isNaN(id) || removeProc.running)
+        if (isNaN(id))
             return
 
         var next = []
@@ -137,9 +146,26 @@ Item {
                 next.push(torrents[i])
         }
         torrents = next
+    }
 
-        removeProc.command = [root.transmissionBin, "remove", String(id)]
-        removeProc.running = true
+    function removeTorrent(torrentId) {
+        var id = parseInt(torrentId, 10)
+        if (isNaN(id) || actionProc.running)
+            return
+
+        dropTorrentFromList(id)
+        actionProc.command = [root.transmissionBin, "remove", String(id)]
+        actionProc.running = true
+    }
+
+    function closeTorrent(torrentId) {
+        var id = parseInt(torrentId, 10)
+        if (isNaN(id) || actionProc.running)
+            return
+
+        dropTorrentFromList(id)
+        actionProc.command = [root.transmissionBin, "close", String(id)]
+        actionProc.running = true
     }
 
     Process {
@@ -164,7 +190,7 @@ Item {
     }
 
     Process {
-        id: removeProc
+        id: actionProc
         onExited: {
             if (popupProc.running)
                 popupProc.running = false
@@ -280,6 +306,36 @@ Item {
                                 Layout.preferredWidth: 22
                                 Layout.preferredHeight: 22
                                 Layout.alignment: Qt.AlignTop
+                                visible: root.isSeedingTorrent(modelData)
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "×"
+                                    color: closeBtn.containsMouse ? Theme.urgent : Theme.foreground
+                                    opacity: closeBtn.containsMouse ? 1 : 0.55
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: root.titleFont
+                                    font.bold: Theme.fontBold
+                                }
+
+                                MouseArea {
+                                    id: closeBtn
+                                    anchors.fill: parent
+                                    z: 1
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: function(mouse) {
+                                        mouse.accepted = true
+                                        root.closeTorrent(modelData.id)
+                                    }
+                                }
+                            }
+
+                            Item {
+                                Layout.preferredWidth: 22
+                                Layout.preferredHeight: 22
+                                Layout.alignment: Qt.AlignTop
+                                visible: !root.isSeedingTorrent(modelData)
 
                                 Text {
                                     anchors.centerIn: parent

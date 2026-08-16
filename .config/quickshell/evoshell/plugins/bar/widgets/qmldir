@@ -4,6 +4,7 @@ WorkspacesWidget 1.0 WorkspacesWidget.qml
 AudioWidget 1.0 AudioWidget.qml
 SoundWidget 1.0 SoundWidget.qml
 StocksWidget 1.0 StocksWidget.qml
+CloudflareWidget 1.0 CloudflareWidget.qml
 TrayWidget 1.0 TrayWidget.qml
 TrayUsageDial 1.0 TrayUsageDial.qml
 TrayContextMenu 1.0 TrayContextMenu.qml

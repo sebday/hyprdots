@@ -43,6 +43,12 @@
           "stocks": {
             "onHover": "evo.stocks"
           },
+          "cloudflare": {
+            "interval": 60,
+            "onHover": "evo.cloudflare",
+            "refreshIntervalSec": 60,
+            "analyticsIntervalSec": 900
+          },
           "audio": {
             "onHover": "evo.sound",
             "onClick": "ghostty --class=TUI.main -e wiremix",

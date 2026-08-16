@@ -17,4 +17,5 @@ AttachedOverlay 1.0 AttachedOverlay.qml
 BarHoverOverlay 1.0 BarHoverOverlay.qml
 BarHoverPopup 1.0 BarHoverPopup.qml
 HoverPopupHeader 1.0 HoverPopupHeader.qml
+HoverPopupStatBox 1.0 HoverPopupStatBox.qml
 BarWidgetRegistry 1.0 BarWidgetRegistry.qml
