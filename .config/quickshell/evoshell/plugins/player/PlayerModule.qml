@@ -21,7 +21,6 @@ Item {
         }
     }
 
-    readonly property string musicScript: (Quickshell.env("HOME") || "") + "/.local/bin/evo-music"
     readonly property string playerScript: (Quickshell.env("HOME") || "") + "/.local/bin/evo-player"
     readonly property int pad: Theme.hoverPopupMargin
     readonly property int bodyFont: Theme.hoverPopupBodyFontPixelSize
@@ -157,7 +156,7 @@ Item {
         jobLog = label + "…\n"
         if (!(options && options.stayOnScreen))
             playerScreen = "library"
-        jobProc.command = ["bash", musicScript].concat(args || [])
+        jobProc.command = ["bash", playerScript].concat(args || [])
         notify(label + "…", 2000)
         jobProc.running = true
     }
@@ -216,7 +215,7 @@ Item {
     }
 
     function loadLibraryStats() {
-        runQuery(["status", "--json"], function(text) {
+        runQuery(["stats", "--json"], function(text) {
             try {
                 libraryStats = JSON.parse(String(text || "{}"))
             } catch (e) {
@@ -228,7 +227,7 @@ Item {
     function runMusic(args, onDone, proc) {
         var runner = proc || cmdProc
         if (runner.running) return false
-        runner.command = ["bash", musicScript].concat(args || [])
+        runner.command = ["bash", playerScript].concat(args || [])
         runner._onDone = onDone || null
         runner.running = true
         return true
@@ -245,7 +244,7 @@ Item {
 
     function runQuery(args, onDone) {
         if (queryProc.running) return false
-        queryProc.command = ["bash", musicScript].concat(args || [])
+        queryProc.command = ["bash", playerScript].concat(args || [])
         queryProc._onDone = onDone || null
         queryProc.running = true
         return true
@@ -264,7 +263,7 @@ Item {
             Qt.callLater(function() { runPlaylistQuery(args, onDone) })
             return
         }
-        playlistQueryProc.command = ["bash", musicScript].concat(args || [])
+        playlistQueryProc.command = ["bash", playerScript].concat(args || [])
         playlistQueryProc._onDone = onDone || null
         playlistQueryProc.running = true
     }
@@ -437,7 +436,7 @@ Item {
             Qt.callLater(function() { runBrowseQuery(args, onDone) })
             return
         }
-        browseProc.command = ["bash", musicScript].concat(args || [])
+        browseProc.command = ["bash", playerScript].concat(args || [])
         browseProc._onDone = onDone || null
         browseProc.running = true
     }
@@ -944,7 +943,7 @@ Item {
             Qt.callLater(function() { runFavoriteQuery(args, onDone) })
             return
         }
-        favoriteProc.command = ["bash", musicScript].concat(args || [])
+        favoriteProc.command = ["bash", playerScript].concat(args || [])
         favoriteProc._onDone = onDone || null
         favoriteProc.running = true
     }
@@ -1435,10 +1434,21 @@ Item {
                                     onPaint: {
                                         var ctx = getContext("2d")
                                         ctx.clearRect(0, 0, width, height)
-                                        var mid = height / 2
+                                        var vPad = Math.max(12, height * 0.12)
+                                        var drawH = Math.max(8, height - vPad * 2)
+                                        var mid = vPad + drawH / 2
+                                        var halfH = drawH * 0.5
+                                        var maxAmp = halfH * 0.93
                                         var prog = playProgress
                                         var samples = root.waveformSamples
                                         var n = samples.length
+
+                                        ctx.strokeStyle = Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.24)
+                                        ctx.lineWidth = 1
+                                        ctx.beginPath()
+                                        ctx.moveTo(0, mid)
+                                        ctx.lineTo(width, mid)
+                                        ctx.stroke()
 
                                         if (n === 0) {
                                             var trackH = 3
@@ -1454,7 +1464,8 @@ Item {
 
                                         var barW = 4
                                         var gap = 1
-                                        var barCount = Math.max(48, Math.floor(width / barW))
+                                        var pitch = barW + gap
+                                        var barCount = Math.max(64, Math.floor(width / pitch))
                                         var peaks = []
                                         if (n <= barCount) {
                                             barCount = n
@@ -1466,36 +1477,74 @@ Item {
                                                 var start = Math.floor(b * step)
                                                 var end = Math.floor((b + 1) * step)
                                                 var peak = 0
-                                                for (var j = start; j < end && j < n; j++)
-                                                    peak = Math.max(peak, Number(samples[j]) || 0)
-                                                peaks.push(peak)
+                                                var sum = 0
+                                                var cnt = 0
+                                                for (var j = start; j < end && j < n; j++) {
+                                                    var v = Number(samples[j]) || 0
+                                                    peak = Math.max(peak, v)
+                                                    sum += v
+                                                    cnt++
+                                                }
+                                                var avg = cnt ? sum / cnt : 0
+                                                peaks.push(peak * 0.48 + avg * 0.52)
                                             }
                                         }
 
-                                        var maxAmp = height * 0.48
                                         var playX = width * prog
-                                        var refPeak = 0
-                                        for (var pk = 0; pk < barCount; pk++)
-                                            refPeak = Math.max(refPeak, peaks[pk])
-                                        refPeak = Math.max(1, refPeak * 1.05)
+                                        var sorted = peaks.slice(0, barCount)
+                                        sorted.sort(function(a, b) { return a - b })
+                                        var floorVal = sorted[Math.max(0, Math.floor(barCount * 0.04))]
+                                        var ceilVal = sorted[Math.min(barCount - 1, Math.floor(barCount * 0.994))]
+                                        var span = Math.max(1, ceilVal - floorVal)
+                                        var refPeak = Math.max(1, sorted[barCount - 1])
+
+                                        var fg = Theme.foreground
+                                        var accent = Theme.accent
+                                        var win = 5
+                                        var halfWin = Math.floor(win / 2)
 
                                         for (var i = 0; i < barCount; i++) {
-                                            var amp = Math.max(2, (peaks[i] / refPeak) * maxAmp)
-                                            var x = i * barW + gap * 0.5
-                                            var w = Math.max(1, barW - gap)
+                                            var lo = peaks[i]
+                                            var hi = peaks[i]
+                                            var w0 = Math.max(0, i - halfWin)
+                                            var w1 = Math.min(barCount - 1, i + halfWin)
+                                            for (var k = w0; k <= w1; k++) {
+                                                lo = Math.min(lo, peaks[k])
+                                                hi = Math.max(hi, peaks[k])
+                                            }
+                                            var localSpan = hi - lo
+                                            var local = localSpan > 0.5
+                                                ? (peaks[i] - lo) / localSpan
+                                                : (((i * 11 + Math.floor(peaks[i] * 3)) % 29) / 29)
+                                            var global = Math.max(0, Math.min(1, (peaks[i] - floorVal) / span))
+                                            var envelope = 0.72 + 0.28 * Math.pow(peaks[i] / refPeak, 0.45)
+                                            var blended = 0.38 * Math.pow(local, 0.9) + 0.62 * Math.pow(global, 0.8)
+                                            var signal = 0.34 + 0.66 * blended
+                                            var amp = Math.pow(signal, 1.38) * maxAmp * envelope
+                                            amp = Math.max(1.2, amp)
+                                            var x = i * pitch
+                                            var w = barW
                                             var played = (x + w * 0.5) <= playX
 
-                                            ctx.fillStyle = played
-                                                ? Theme.accent
-                                                : Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.18)
-                                            ctx.globalAlpha = played ? 0.95 : 0.5
-                                            ctx.fillRect(x, mid - amp, w, amp * 2)
+                                            if (played) {
+                                                ctx.fillStyle = accent
+                                                ctx.globalAlpha = 0.98
+                                                ctx.fillRect(x, mid - amp, w, amp)
+                                                ctx.globalAlpha = 0.38
+                                                ctx.fillRect(x, mid, w, amp)
+                                            } else {
+                                                ctx.fillStyle = Qt.rgba(fg.r, fg.g, fg.b, 1)
+                                                ctx.globalAlpha = 0.58
+                                                ctx.fillRect(x, mid - amp, w, amp)
+                                                ctx.globalAlpha = 0.24
+                                                ctx.fillRect(x, mid, w, amp)
+                                            }
                                         }
                                         ctx.globalAlpha = 1
 
                                         if (prog > 0) {
-                                            ctx.fillStyle = Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.95)
-                                            ctx.fillRect(Math.max(0, playX - 1), 2, 2, height - 4)
+                                            ctx.fillStyle = Qt.rgba(accent.r, accent.g, accent.b, 0.95)
+                                            ctx.fillRect(Math.max(0, playX - 1), vPad, 2, drawH)
                                         }
                                     }
                                 }

@@ -1,6 +1,6 @@
-# evo-music-lib.sh — shared paths and helpers for evo-music / evo-player
-[[ -n "${EVO_MUSIC_LIB_LOADED:-}" ]] && return 0
-EVO_MUSIC_LIB_LOADED=1
+# evo-player-lib.sh — shared paths and helpers for evo-player
+[[ -n "${EVO_PLAYER_LIB_LOADED:-}" ]] && return 0
+EVO_PLAYER_LIB_LOADED=1
 
 PATH="${HOME}/.local/bin:${PATH}"
 
@@ -58,7 +58,7 @@ run_exclusive_job() {
       import) run_label="import incoming" ;;
       *) run_label="${running##* }" ;;
     esac
-    echo "evo-music: busy — ${run_label} already running" >&2
+    echo "evo-player: busy — ${run_label} already running" >&2
     return 2
   fi
   (
@@ -66,7 +66,7 @@ run_exclusive_job() {
     if ! flock -n 200; then
       local who
       who="$(jq -r '.label // .command // "library task"' "$JOB_STATE" 2>/dev/null || echo "library task")"
-      echo "evo-music: busy — ${who} already running" >&2
+      echo "evo-player: busy — ${who} already running" >&2
       exit 2
     fi
     jq -n \
@@ -87,7 +87,7 @@ run_exclusive_job() {
 library_job_running() {
   local exclude="${1:-}"
   ps -eo pid=,ppid=,args= | awk -v exclude="$exclude" '
-    /\/evo-music (rebuild|build|warm|soundcloud|import)$/ {
+    /\/evo-player (rebuild|build|warm|soundcloud|import)$/ {
       pid=$1
       gsub(/^[[:space:]]+/, "", pid)
       ppid=$2
@@ -580,7 +580,7 @@ build_tracks_json() {
 
   (
     flock -w 120 200 || {
-      echo "evo-music: cache build already running for ${genre}" >&2
+      echo "evo-player: cache build already running for ${genre}" >&2
       exit 1
     }
     if [[ "$force" -ne 1 ]] && [[ -f "$cache" ]] && ! tracks_cache_stale "$genre" "$cache"; then
