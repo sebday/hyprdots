@@ -1,5 +1,5 @@
 #!/bin/bash
-# Evo weather — bar label + hover popup (Open-Meteo, no API key).
+# Evo bar weather — bar label + hover popup (Open-Meteo, no API key).
 #
 # Environment:
 #   EVO_WEATHER_CACHE_SEC — cache TTL (default 1800)

@@ -10,7 +10,7 @@ BTOP_ROWS=31
 
 usage() {
     cat <<'EOF'
-usage: evo-system-btop show|hide|toggle
+usage: evo-bar-btop show|hide|toggle
 EOF
 }
 
@@ -61,7 +61,7 @@ hide) cmd_hide ;;
 toggle) cmd_toggle ;;
 -h|--help|help|"") usage ;;
 *)
-    echo "evo-system-btop: unknown command: $cmd" >&2
+    echo "evo-bar-btop: unknown command: $cmd" >&2
     usage >&2
     exit 1
     ;;

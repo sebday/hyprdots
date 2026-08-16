@@ -24,7 +24,7 @@
           "id": "evo.tray",
           "weather": {
             "type": "command",
-            "exec": "~/.local/bin/evo-weather",
+            "exec": "~/.local/bin/evo-bar-weather",
             "interval": 1800,
             "onHover": "evo.weather",
             "onClickRight": "xdg-open https://weather.metoffice.gov.uk/forecast/gcqvn6pq4"
@@ -74,6 +74,6 @@
     }
   },
   "panel": {
-    "side": "left"
+    "side": "right"
   }
 }

@@ -18,7 +18,7 @@ Item {
 
     readonly property string home: Quickshell.env("HOME") || ""
     readonly property string script: home + "/.local/bin/evo-bar-system"
-    readonly property string btopScript: home + "/.local/bin/evo-system-btop"
+    readonly property string btopScript: home + "/.local/bin/evo-bar-btop"
     readonly property string cpuIcon: "󰍛"
     readonly property color cpuColor: Format.loadPercentColor(cpuPercent)
 

@@ -70,9 +70,9 @@ Letters match the diagram.
 | | Plugin | Trigger |
 |---|--------|---------|
 | **W** | `evo.calendar`, `evo.weather`, `evo.stats_diy`, `evo.stats_tgs`, `evo.github`, `evo.stocks`, `evo.sound`, `evo.network`, `evo.cursor` | Bar hover (`onHover` in `shell.json`) |
-| **C** | `evo.system` | Bar click → `evo-system-btop` toggle (Hyprland window rule) |
+| **C** | `evo.system` | Bar click → `evo-bar-btop` toggle (Hyprland window rule) |
 | **O** | `evo.library`, `evo.theme`, `evo.wallpaper` | Keybind / menu / IPC toggle |
-| **R** | `hyprshot` + `satty` (`evo-screenshot-edit`) | Keybind (`bindings.lua`) |
+| **R** | `hyprshot` + `satty` (`evo-screenshot edit`) | Keybind (`bindings.lua`) |
 
 ## Directory layout
 
@@ -98,7 +98,7 @@ evoshell/
 |------|--------|
 | Shell config | `~/.config/quickshell/evoshell/` |
 | Bar/panel scripts | `~/.local/bin/evo-*` |
-| Screenshots | `hyprshot` → `/tmp/hyprshot.png`, annotate via `~/.local/bin/evo-screenshot-edit` (`satty`) |
+| Screenshots | `hyprshot` → `/tmp/hyprshot.png`, annotate via `~/.local/bin/evo-screenshot edit` (`satty`) |
 | IPC | `~/.local/bin/evo-ipc` |
 | Hypr integration | `~/.config/hypr/{autostart,bindings,evoshell,windows}.lua` |
 | Secrets | `~/.local/share/evoshell/secrets.env` |
@@ -136,7 +136,7 @@ CommandWidget → exec scripts (evo-bar-*.sh) → JSON line
 |------|----------|-------|
 | Service | `evo.audio`, `evo.wallpaper`, `evo.idle`, `evo.lock` | `Service.qml` |
 | Bar | `evo.bar` | `Bar.qml` + `shell.json` layout |
-| Click action | `evo.system` | `SystemWidget` → `evo-system-btop` (btop in ghostty; geometry in `windows.lua`) |
+| Click action | `evo.system` | `SystemWidget` → `evo-bar-btop` (btop in ghostty; geometry in `windows.lua`) |
 | Hover popup | `evo.calendar`, `evo.weather`, `evo.stats_diy`, `evo.stats_tgs`, `evo.github`, `evo.stocks`, `evo.sound`, `evo.network`, `evo.cursor` | `BarHoverPopup` + `*Module.qml` |
 | Fullscreen overlay | `evo.library`, `evo.theme`, `evo.wallpaper` | `CenteredOverlay` / `CarouselOverlay` |
 | Menu | `evo.menu` | Custom `PanelWindow` (`evo-menu`) |
@@ -164,7 +164,8 @@ Hypr bindings use the full path `~/.local/bin/evo-ipc` (PATH may not include it)
 
 - `~/.local/bin/evo-bar-*.sh` source `evo-bar-common.sh`
 - `evo-bar-system` — CPU %, uptime, OS age (`Xd / Yd`) for `evo.system`
-- `evo-system-btop` — show/hide/toggle ghostty btop (`131×31` cells); size/position via Hyprland `btop-float` rule in `windows.lua`
+- `evo-bar-weather` — weather label + hover popup payload for `evo.weather`
+- `evo-bar-btop` — show/hide/toggle ghostty btop (`131×31` cells); size/position via Hyprland `btop-float` rule in `windows.lua`
 - `CommandWidget` expects one JSON line: `{ "text", "class", … }`; stores full parse in `lastPayload`
 - Poll interval from `shell.json` `interval` (seconds)
 - Cursor hover popup reads bar `lastPayload` — no separate poll; `evo-bar-cursor.sh` has no file cache

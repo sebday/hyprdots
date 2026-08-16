@@ -217,8 +217,8 @@ Scope {
     function openScreenshotEditor(entry) {
         if (!entry) return
         var home = String(Quickshell.env("HOME") || "")
-        var editor = home ? home + "/.local/bin/evo-screenshot-edit" : "evo-screenshot-edit"
-        Quickshell.execDetached([editor, screenshotPath(entry)])
+        var script = home ? home + "/.local/bin/evo-screenshot" : "evo-screenshot"
+        Quickshell.execDetached([script, "edit", screenshotPath(entry)])
         dismissEntry(entry.key)
     }
 
