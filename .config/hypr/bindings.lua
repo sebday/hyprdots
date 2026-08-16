@@ -155,9 +155,6 @@ bindd("XF86AudioPlay", "Play/Pause media", hl.dsp.exec_cmd("playerctl play-pause
 bindd("XF86AudioNext", "Next media track", hl.dsp.exec_cmd("playerctl next"), { locked = true })
 bindd("XF86AudioPrev", "Previous media track", hl.dsp.exec_cmd("playerctl previous"), { locked = true })
 
--- Wallpaper / theme switchers
-bindd("SUPER + ALT + Space", "Theme switcher", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.theme"))
-
 -- Screenshot
 bindd("PRINT", "Screenshot Region", hl.dsp.exec_cmd('bash -c "hyprshot -m region -o /tmp/ -f hyprshot.png;"'))
 bindd(

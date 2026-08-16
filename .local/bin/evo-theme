@@ -90,14 +90,19 @@ promote_theme() {
 }
 
 activate_theme() {
+    local wallpaper_path="${1:-}"
     install_theme_manifest
     themes_sync_evo_shell
     activate_gtk
 
     local wallpaper
-    wallpaper=$(themes_default_wallpaper || true)
+    if [ -n "$wallpaper_path" ]; then
+        wallpaper="$wallpaper_path"
+    else
+        wallpaper=$(themes_default_wallpaper || true)
+    fi
     if [ -n "$wallpaper" ]; then
-        "$HOME/.local/bin/evo-wallpaper" set "$wallpaper"
+        "$HOME/.local/bin/evo-ipc" evo.wallpaper set "$wallpaper"
     fi
 
     themes_sync_icon_theme_gsettings
@@ -138,22 +143,23 @@ notify_theme_switch() {
 
 apply_theme() {
     local theme_name="$1"
+    local wallpaper_path="${2:-}"
     [ -z "$theme_name" ] && return 1
     [ -d "$THEME_DIR/$theme_name" ] || return 1
 
     build_theme "$theme_name"
     promote_theme
-    activate_theme
+    activate_theme "$wallpaper_path"
 }
 
-COMMAND="${1:-select}"
+COMMAND="${1:-}"
+
+if [[ -z "$COMMAND" ]]; then
+    echo "usage: evo-theme <name>|refresh|wallpaper" >&2
+    exit 1
+fi
 
 case "$COMMAND" in
-    select|"")
-        trap - EXIT
-        exec "$HOME/.local/bin/evo-ipc" shell toggle evo.theme
-        ;;
-
     wallpaper)
         trap - EXIT
         exec "$HOME/.local/bin/evo-ipc" shell toggle evo.wallpaper
@@ -170,7 +176,7 @@ case "$COMMAND" in
         ;;
 
     *)
-        apply_theme "$COMMAND" || exit 1
+        apply_theme "$COMMAND" "${2:-}" || exit 1
         notify_theme_switch "$COMMAND"
         ;;
 esac

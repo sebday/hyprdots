@@ -180,8 +180,12 @@ Item {
             var cmd = String(entry.command || "")
             var marker = "evo-wallpaper set "
             var pos = cmd.indexOf(marker)
-            if (pos >= 0)
-                return cmd.slice(pos + marker.length).trim()
+            if (pos >= 0) {
+                var tail = cmd.slice(pos + marker.length).trim()
+                if (tail.length >= 2 && tail.charAt(0) === "'" && tail.charAt(tail.length - 1) === "'")
+                    tail = tail.slice(1, -1)
+                return tail
+            }
             return String(entry.name || "")
         }
         return String(entry.name || "")

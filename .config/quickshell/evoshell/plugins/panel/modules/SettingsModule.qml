@@ -15,11 +15,9 @@ Item {
     readonly property string fontScript: Quickshell.env("HOME") + "/.local/bin/evo-font"
     readonly property string fontStatePath: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/evoshell/font.json"
     readonly property string themeNamePath: Quickshell.env("HOME") + "/.themes/current/.theme-name"
-    readonly property string wallpaperStatePath: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/evoshell/wallpaper"
 
     property bool roundingOn: false
     property string currentThemeName: ""
-    property string currentWallpaperPath: ""
     property bool gapsOn: false
     property bool animationsOn: false
     property int activeOpacityPercent: 97
@@ -78,9 +76,7 @@ Item {
 
     function onActivated() {
         themeNameFile.reload()
-        wallpaperStateFile.reload()
         themePicker.reload()
-        wallpaperPicker.reload()
         refresh()
     }
 
@@ -185,19 +181,7 @@ Item {
         path: root.themeNamePath
         watchChanges: true
         printErrors: false
-        onLoaded: {
-            root.currentThemeName = String(themeNameFile.text() || "").trim()
-            wallpaperPicker.reload()
-        }
-        onFileChanged: reload()
-    }
-
-    FileView {
-        id: wallpaperStateFile
-        path: root.wallpaperStatePath
-        watchChanges: true
-        printErrors: false
-        onLoaded: root.currentWallpaperPath = String(wallpaperStateFile.text() || "").trim()
+        onLoaded: root.currentThemeName = String(themeNameFile.text() || "").trim()
         onFileChanged: reload()
     }
 
@@ -396,35 +380,6 @@ Item {
                         previewDpr: 1.5
                         selectedKey: root.currentThemeName
                         keyboardFocus: false
-                        onActivated: Qt.callLater(function() {
-                            wallpaperPicker.reload()
-                            wallpaperStateFile.reload()
-                        })
-                    }
-                }
-            }
-
-            SectionPanel {
-                contentPad: Theme.panelContentPad
-                legendBackground: Theme.background
-                label: "Wallpaper"
-
-                Item {
-                    Layout.fillWidth: true
-                    implicitHeight: wallpaperPicker.implicitHeight
-
-                    PreviewPickerGrid {
-                        id: wallpaperPicker
-                        width: parent.width
-                        kind: "wallpapers"
-                        columns: 3
-                        tileWidth: Math.floor((parent.width - spacing * 2) / 3)
-                        tileHeight: 58
-                        spacing: 8
-                        previewDpr: 1.5
-                        selectedKey: root.currentWallpaperPath
-                        keyboardFocus: false
-                        onActivated: wallpaperStateFile.reload()
                     }
                 }
             }

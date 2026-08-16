@@ -37,17 +37,22 @@ themes)
         done
     ;;
 wallpapers)
-    theme_name="$(current_theme_name || echo current)"
-    dir="$(theme_wallpapers_dir "$CURRENT_THEME" || true)"
-    [[ -n "$dir" ]] || exit 0
-    find "$dir" -maxdepth 1 -type f \
-        \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) \
-        2>/dev/null | sort |
-        while IFS= read -r file; do
-            [[ -n "$file" ]] || continue
-            bn="${file##*/}"
-            p=$(preview_path "$file" "wallpapers/${theme_name}/${bn}")
-            printf '%s\t%s/.local/bin/evo-wallpaper set %s\t%s\n' "$bn" "$home" "$file" "$p"
+    find "$home/.themes" -mindepth 1 -maxdepth 1 -type d \
+        ! -name current ! -name shared ! -name next -printf '%f\n' 2>/dev/null | sort |
+        while IFS= read -r theme_name; do
+            [[ -n "$theme_name" ]] || continue
+            wp_dir="$home/.themes/$theme_name/wallpapers"
+            [[ -d "$wp_dir" ]] || continue
+            find "$wp_dir" -maxdepth 1 -type f \
+                \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) \
+                2>/dev/null | sort |
+                while IFS= read -r file; do
+                    [[ -n "$file" ]] || continue
+                    bn="${file##*/}"
+                    label="${theme_name}/${bn}"
+                    p=$(preview_path "$file" "wallpapers/${theme_name}/${bn}")
+                    printf '%s\t%s/.local/bin/evo-wallpaper set %q\t%s\n' "$label" "$home" "$file" "$p"
+                done
         done
     ;;
 *)

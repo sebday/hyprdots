@@ -21,6 +21,35 @@ current_theme_name() {
     return 1
 }
 
+theme_name_from_wallpaper_path() {
+    local path="$1" resolved parent theme_name
+    [ -n "$path" ] || return 1
+    resolved=$(cd "$(dirname "$path")" 2>/dev/null && pwd -P) || return 1
+    case "$resolved" in
+        */wallpapers)
+            parent=$(dirname "$resolved")
+            theme_name=$(basename "$parent")
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+    case "$theme_name" in
+        current)
+            current_theme_name
+            return 0
+        ;;
+        shared|next|"")
+            return 1
+        ;;
+    esac
+    if [ -d "$THEME_DIR/$theme_name" ]; then
+        printf '%s' "$theme_name"
+        return 0
+    fi
+    return 1
+}
+
 toml_val() {
     local key="$1" toml="$2"
     grep "^$key " "$toml" 2>/dev/null | sed 's/.*= *"//;s/".*//' | tr -d '\n'
