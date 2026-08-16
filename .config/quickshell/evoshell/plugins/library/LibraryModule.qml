@@ -19,10 +19,11 @@ Item {
     property bool dbMissing: false
     property bool loading: false
     property string statusText: ""
-    property int pendingLoads: 0
     property string searchQuery: ""
     property var episodeCache: ({})
     property int selectedIndex: 0
+    property string pendingOpenShow: ""
+    property string browseTab: "films"
 
     readonly property string script: Quickshell.env("HOME") + "/.local/bin/evo-media"
     readonly property int gridColumns: {
@@ -41,17 +42,20 @@ Item {
     readonly property bool showCaptions: screen === "episodes"
     readonly property int captionHeight: 52
     readonly property int tileHeight: posterHeight + (showCaptions ? captionHeight + 4 : 0)
-    readonly property string currentSection: screen === "episodes" ? "episodes" : "catalog"
-    readonly property var catalogItems: mergeCatalog(films, shows)
+    readonly property var filmItems: mergeCatalog(films, [])
+    readonly property var showItems: mergeCatalog([], shows)
+    readonly property var browseItems: browseTab === "films" ? filmItems : showItems
     readonly property var gridItems: screen === "episodes"
         ? filterItems(episodes, "episodes")
-        : filterItems(catalogItems, "catalog")
+        : filterItems(browseItems, browseTab)
     readonly property string emptyLabel: {
         if (normalizeQuery(searchQuery))
             return screen === "episodes" ? "No matching episodes" : "No matches"
         if (screen === "episodes")
             return "No episodes"
-        return catalogItems.length === 0 ? "No media indexed" : "No matches"
+        if (browseTab === "films")
+            return filmItems.length === 0 ? "No films indexed" : "No matches"
+        return showItems.length === 0 ? "No TV shows indexed" : "No matches"
     }
     readonly property string searchPlaceholder: screen === "episodes" ? "Episodes…" : "Search…"
 
@@ -60,10 +64,51 @@ Item {
             selectedIndex = Math.max(0, gridItems.length - 1)
     }
 
+    onBrowseTabChanged: selectedIndex = 0
+
+    function setBrowseTab(tab) {
+        var next = tab === "shows" ? "shows" : "films"
+        if (browseTab === next)
+            return
+        browseTab = next
+        selectedIndex = 0
+    }
+
     function onActivated() {
         loading = true
         if (!statusProc.running)
             statusProc.running = true
+    }
+
+    function applyOpenRequest(payloadJson) {
+        var payload = {}
+        try {
+            payload = JSON.parse(payloadJson || "{}")
+        } catch (e) {
+            payload = {}
+        }
+        pendingOpenShow = payload.show ? String(payload.show) : ""
+        if (pendingOpenShow)
+            browseTab = "shows"
+        searchQuery = ""
+        screen = "browse"
+        episodes = []
+        selectedShowName = ""
+        selectedShowTitle = ""
+        selectedIndex = 0
+    }
+
+    function finishOpenRequest() {
+        if (!pendingOpenShow)
+            return
+        for (var i = 0; i < shows.length; i++) {
+            if (String(shows[i].name) === pendingOpenShow) {
+                var show = shows[i]
+                pendingOpenShow = ""
+                openShow(show)
+                return
+            }
+        }
     }
 
     function focusSearch(insertText) {
@@ -178,12 +223,14 @@ Item {
     }
 
     function mergeCatalog(filmList, showList) {
-        var out = []
+        var filmsOut = []
+        var showsOut = []
         var filmsSrc = Array.isArray(filmList) ? filmList : []
         var showsSrc = Array.isArray(showList) ? showList : []
+
         for (var i = 0; i < filmsSrc.length; i++) {
             var film = filmsSrc[i] || {}
-            out.push({
+            filmsOut.push({
                 section: "films",
                 title: film.title,
                 name: film.title,
@@ -193,9 +240,20 @@ Item {
                 poster: film.poster
             })
         }
+        filmsOut.sort(function(a, b) {
+            var an = sortKey(a)
+            var bn = sortKey(b)
+            if (an < bn) return -1
+            if (an > bn) return 1
+            return 0
+        })
+
         for (var j = 0; j < showsSrc.length; j++) {
             var show = showsSrc[j] || {}
-            out.push({
+            var showName = String(show.name || "")
+            if (!showName)
+                continue
+            showsOut.push({
                 section: "shows",
                 title: show.name,
                 name: show.name,
@@ -204,14 +262,16 @@ Item {
                 poster: show.poster
             })
         }
-        out.sort(function(a, b) {
+
+        showsOut.sort(function(a, b) {
             var an = sortKey(a)
             var bn = sortKey(b)
             if (an < bn) return -1
             if (an > bn) return 1
             return 0
         })
-        return out
+
+        return filmsOut.concat(showsOut)
     }
 
     function filterItems(items, section) {
@@ -308,9 +368,7 @@ Item {
     function reloadLibrary() {
         dbMissing = false
         loading = true
-        pendingLoads = 2
-        filmsProc.running = true
-        showsProc.running = true
+        catalogProc.running = true
     }
 
     function refreshCurrentShowEpisodes() {
@@ -337,8 +395,10 @@ Item {
                     var data = JSON.parse(String(text || "{}"))
                     root.dbMissing = data.exists !== true
                     if (root.dbMissing) {
-                        root.loading = false
+                        root.films = []
+                        root.shows = []
                         root.statusText = "Run scan library to index media"
+                        root.loading = false
                         return
                     }
                     root.reloadLibrary()
@@ -352,35 +412,20 @@ Item {
     }
 
     Process {
-        id: filmsProc
-        command: ["bash", root.script, "list", "films"]
+        id: catalogProc
+        command: ["bash", root.script, "list", "catalog"]
         stdout: StdioCollector {
             onStreamFinished: {
+                root.loading = false
                 try {
-                    root.films = JSON.parse(String(text || "[]"))
+                    var data = JSON.parse(String(text || "{}"))
+                    root.films = Array.isArray(data.films) ? data.films : []
+                    root.shows = Array.isArray(data.shows) ? data.shows : []
                 } catch (e) {
                     root.films = []
-                }
-                root.pendingLoads = Math.max(0, root.pendingLoads - 1)
-                if (root.pendingLoads === 0)
-                    root.loading = false
-            }
-        }
-    }
-
-    Process {
-        id: showsProc
-        command: ["bash", root.script, "list", "shows"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                try {
-                    root.shows = JSON.parse(String(text || "[]"))
-                } catch (e) {
                     root.shows = []
                 }
-                root.pendingLoads = Math.max(0, root.pendingLoads - 1)
-                if (root.pendingLoads === 0)
-                    root.loading = false
+                root.finishOpenRequest()
             }
         }
     }
@@ -509,6 +554,54 @@ Item {
     ColumnLayout {
         anchors.fill: parent
         spacing: 8
+
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 20
+            visible: root.screen === "browse"
+
+            Repeater {
+                model: [
+                    { id: "films", label: "Films" },
+                    { id: "shows", label: "TV" }
+                ]
+
+                Item {
+                    required property var modelData
+                    Layout.preferredWidth: browseTabLabel.implicitWidth
+                    implicitHeight: browseTabLabel.implicitHeight + 6
+
+                    Text {
+                        id: browseTabLabel
+                        text: modelData.label
+                        color: root.browseTab === modelData.id ? Theme.accent : Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.popupBodyFontPixelSize
+                        font.bold: Theme.fontBold
+                        opacity: root.browseTab === modelData.id ? 1 : 0.55
+                    }
+
+                    Rectangle {
+                        anchors.left: browseTabLabel.left
+                        anchors.right: browseTabLabel.right
+                        anchors.top: browseTabLabel.bottom
+                        anchors.topMargin: 4
+                        height: 2
+                        radius: 1
+                        color: Theme.accent
+                        visible: root.browseTab === modelData.id
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.setBrowseTab(modelData.id)
+                    }
+                }
+            }
+
+            Item { Layout.fillWidth: true }
+        }
 
         RowLayout {
             Layout.fillWidth: true

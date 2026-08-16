@@ -69,7 +69,7 @@ Letters match the diagram.
 
 | | Plugin | Trigger |
 |---|--------|---------|
-| **W** | `evo.calendar`, `evo.weather`, `evo.stats_diy`, `evo.stats_tgs`, `evo.github`, `evo.stocks`, `evo.sound`, `evo.network`, `evo.cursor` | Bar hover (`onHover` in `shell.json`) |
+| **W** | `evo.calendar`, `evo.weather`, `evo.stats_diy`, `evo.stats_tgs`, `evo.github`, `evo.stocks`, `evo.volume`, `evo.media`, `evo.network`, `evo.cursor` | Bar hover (`onHover` in `shell.json`) |
 | **C** | `evo.system` | Bar click → `evo-bar-btop` toggle (Hyprland window rule) |
 | **O** | `evo.library`, `evo.theme`, `evo.wallpaper` | Keybind / menu / IPC toggle |
 | **R** | `hyprshot` + `satty` (`evo-screenshot edit`) | Keybind (`bindings.lua`) |
@@ -86,7 +86,9 @@ evoshell/
 │   ├── bar/           # Bar.qml + widgets/
 │   ├── panel/         # Panel.qml + modules/
 │   ├── menu/          # launcher
-│   ├── audio/         # service plugins
+│   ├── audio/         # PipeWire volume service
+│   ├── volume/        # bar-volume hover popup
+│   ├── media/         # bar-media hover popup
 │   ├── wallpaper/
 │   ├── …
 └── diagram.svg        # architecture diagram
@@ -137,7 +139,7 @@ CommandWidget → exec scripts (evo-bar-*.sh) → JSON line
 | Service | `evo.audio`, `evo.wallpaper`, `evo.idle`, `evo.lock` | `Service.qml` |
 | Bar | `evo.bar` | `Bar.qml` + `shell.json` layout |
 | Click action | `evo.system` | `SystemWidget` → `evo-bar-btop` (btop in ghostty; geometry in `windows.lua`) |
-| Hover popup | `evo.calendar`, `evo.weather`, `evo.stats_diy`, `evo.stats_tgs`, `evo.github`, `evo.stocks`, `evo.sound`, `evo.network`, `evo.cursor` | `BarHoverPopup` + `*Module.qml` |
+| Hover popup | `evo.calendar`, `evo.weather`, `evo.stats_diy`, `evo.stats_tgs`, `evo.github`, `evo.stocks`, `evo.volume`, `evo.media`, `evo.network`, `evo.cursor` | `BarHoverPopup` + `*Module.qml` |
 | Fullscreen overlay | `evo.library`, `evo.theme`, `evo.wallpaper` | `CenteredOverlay` / `CarouselOverlay` |
 | Menu | `evo.menu` | Custom `PanelWindow` (`evo-menu`) |
 | Panel | `evo.panel` | `Panel.qml` → dock modules `calc`, `clipboard`, `settings` |
@@ -146,7 +148,7 @@ CommandWidget → exec scripts (evo-bar-*.sh) → JSON line
 
 - **Plugin IDs**: `evo.<feature>` (`evo.calendar`, `evo.panel`)
 - **Bar widgets**: `evo.<feature>` in `BarWidgetCatalog` and `shell.json` layout
-- **Layer namespaces**: `evo-<kebab>` (`evo-bar`, `evo-calendar`, …) — rules in `evoshell.lua`
+- Layer namespaces: `bar-volume`, `bar-media` for the tray audio/media popups; other overlays use `evo-<kebab>` (`evo-bar`, `evo-calendar`, …) — rules in `evoshell.lua`
 - **IPC service targets**: `evo.audio`, `evo.wallpaper`, `evo.idle`, `evo.lock` (legacy `background`/`wallpaper`/`idle`/`lock` still accepted by `evo-ipc`)
 
 ## IPC
@@ -162,9 +164,13 @@ Hypr bindings use the full path `~/.local/bin/evo-ipc` (PATH may not include it)
 
 ## Bar scripts
 
+Bar widgets poll `~/.local/bin/evo-bar-*` scripts that print one JSON line. Feature CLIs (`evo-network`, `evo-transmission`, …) expose a `bar` subcommand; thin `evo-bar-*` wrappers exec that subcommand so every bar poller follows the same name.
+
 - `~/.local/bin/evo-bar-*.sh` source `evo-bar-common.sh`
 - `evo-bar-system` — CPU %, uptime, OS age (`Xd / Yd`) for `evo.system`
 - `evo-bar-weather` — weather label + hover popup payload for `evo.weather`
+- `evo-bar-network` — network tray icon (`evo-network bar`)
+- `evo-bar-transmission` — transmission tray icon (`evo-transmission bar`)
 - `evo-bar-btop` — show/hide/toggle ghostty btop (`131×31` cells); size/position via Hyprland `btop-float` rule in `windows.lua`
 - `CommandWidget` expects one JSON line: `{ "text", "class", … }`; stores full parse in `lastPayload`
 - Poll interval from `shell.json` `interval` (seconds)
@@ -176,7 +182,8 @@ Hypr bindings use the full path `~/.local/bin/evo-ipc` (PATH may not include it)
 
 - Use `BarHoverPopup` (`Commons/BarHoverPopup.qml`) — plugin root; wraps `BarHoverOverlay` + shell hover API
 - Content modules use `SectionPanel` fieldsets and `Theme.hoverPopup*` typography tokens
-- Bar widgets set `onHover` to plugin id (`evo.weather`, `evo.stats_diy`, `evo.github`, …)
+- Bar widgets set `onHover` to plugin id (`evo.weather`, `evo.volume`, `evo.media`, …)
+- Tray audio uses `VolumeWidget` (media + volume icons); `onHover: "evo.volume"`, `mediaOnHover: "evo.media"`
 - `CommandWidget` publishes bar JSON to `shell.setHoverPopupData` for instant `bootstrapFromCache` on open
 - Qt `ToolTip` on bar items is only used when `onHover` is unset (not the general pattern)
 

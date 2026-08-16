@@ -49,8 +49,24 @@ Item {
         contentHeight: root.bodyHeight + root.contentTopPad + root.contentBottomPad
 
         Item {
-            id: moduleSlot
             anchors.fill: parent
+
+            Item {
+                id: moduleSlot
+                anchors.fill: parent
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                hoverEnabled: true
+                acceptedButtons: Qt.NoButton
+                enabled: root.opened && root.module && typeof root.module.stepVolume === "function"
+                onWheel: function(wheel) {
+                    if (wheel.angleDelta.y > 0) root.module.stepVolume(1)
+                    else if (wheel.angleDelta.y < 0) root.module.stepVolume(-1)
+                    wheel.accepted = true
+                }
+            }
         }
     }
 

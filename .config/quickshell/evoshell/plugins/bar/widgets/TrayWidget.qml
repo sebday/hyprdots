@@ -58,7 +58,8 @@ Item {
         if (cloudflareLoader.item) wireBarWidget(cloudflareLoader.item, settings.cloudflare, "evo.cloudflare")
         if (transmissionLoader.item) wireBarWidget(transmissionLoader.item, settings.transmission, "evo.transmission")
         if (networkLoader.item) wireBarWidget(networkLoader.item, settings.network, "evo.network")
-        if (soundLoader.item) wireBarWidget(soundLoader.item, settings.audio, "evo.sound")
+        if (mediaLoader.item) wireBarWidget(mediaLoader.item, settings.audio, "evo.media")
+        if (volumeLoader.item) wireBarWidget(volumeLoader.item, settings.audio, "evo.volume")
     }
 
     onSettingsChanged: rewireTrayWidgets()
@@ -74,7 +75,8 @@ Item {
     Component { id: githubComp; GithubWidget {} }
     Component { id: stocksComp; StocksWidget {} }
     Component { id: cloudflareComp; CloudflareWidget {} }
-    Component { id: soundComp; SoundWidget {} }
+    Component { id: mediaComp; MediaWidget {} }
+    Component { id: volumeComp; VolumeWidget {} }
     Component { id: networkComp; NetworkWidget {} }
     Component { id: transmissionComp; TransmissionWidget {} }
 
@@ -189,11 +191,25 @@ Item {
             visible: root.showAudio
 
             Loader {
-                id: soundLoader
+                id: mediaLoader
                 anchors.fill: parent
                 active: root.showAudio
-                sourceComponent: soundComp
-                onLoaded: root.wireBarWidget(item, root.settings.audio, "evo.sound")
+                sourceComponent: mediaComp
+                onLoaded: root.wireBarWidget(item, root.settings.audio, "evo.media")
+            }
+        }
+
+        Item {
+            width: root.showAudio ? root.trayCellWidth : 0
+            height: Theme.barHeight
+            visible: root.showAudio
+
+            Loader {
+                id: volumeLoader
+                anchors.fill: parent
+                active: root.showAudio
+                sourceComponent: volumeComp
+                onLoaded: root.wireBarWidget(item, root.settings.audio, "evo.volume")
             }
         }
 

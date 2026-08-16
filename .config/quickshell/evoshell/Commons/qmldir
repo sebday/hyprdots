@@ -8,6 +8,7 @@ SectionPanel 1.0 SectionPanel.qml
 SliderSetting 1.0 SliderSetting.qml
 ToggleRow 1.0 ToggleRow.qml
 FontFamilyPicker 1.0 FontFamilyPicker.qml
+MultiSelectPicker 1.0 MultiSelectPicker.qml
 PreviewPickerGrid 1.0 PreviewPickerGrid.qml
 SparklineChart 1.0 SparklineChart.qml
 CycleProgressBar 1.0 CycleProgressBar.qml

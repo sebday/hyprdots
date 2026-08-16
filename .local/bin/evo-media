@@ -6,6 +6,7 @@ set -euo pipefail
 STATE_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/evoshell"
 DB_PATH="${STATE_DIR}/media.db"
 POSTER_DIR="${STATE_DIR}/media-posters"
+MEDIA_SETTINGS_FILE="${STATE_DIR}/media.json"
 FILMS_ROOT="${EVO_MEDIA_FILMS:-/mnt/external/films}"
 TV_ROOT="${EVO_MEDIA_TV:-/mnt/external/tv}"
 VIDEO_EXTS='mkv mp4 m4v avi'
@@ -17,9 +18,14 @@ usage:
   evo-media status
   evo-media list films
   evo-media list shows
+  evo-media list catalog
   evo-media list episodes <show>
+  evo-media popup shows
   evo-media play film <id>
   evo-media play episode <id>
+  evo-media settings get
+  evo-media settings set <json-array>
+  evo-media settings toggle <show>
 EOF
     exit 1
 }
@@ -68,6 +74,7 @@ CREATE TABLE IF NOT EXISTS episodes (
 );
 CREATE INDEX IF NOT EXISTS idx_episodes_show ON episodes(show_id);
 SQL
+    sqlite3 "$DB_PATH" "PRAGMA journal_mode=WAL;" >/dev/null
     sqlite3 "$DB_PATH" "ALTER TABLE episodes ADD COLUMN poster_path TEXT" 2>/dev/null || true
     migrate_poster_paths
 }
@@ -201,6 +208,137 @@ json_or_empty() {
     fi
 }
 
+show_name_from_dir() {
+    local show_dir="$1"
+    local name
+    name="$(clean_name "$(basename "$show_dir")")"
+    [[ -z "$name" ]] && name="$(basename "$show_dir")"
+    printf '%s\n' "$name"
+}
+
+list_tv_show_names() {
+    [[ -d "$TV_ROOT" ]] || return 0
+    local show_dir
+    for show_dir in "$TV_ROOT"/*; do
+        [[ -d "$show_dir" ]] || continue
+        show_name_from_dir "$show_dir"
+    done | LC_ALL=C sort -u
+}
+
+read_enabled_show_names() {
+    [[ -f "$MEDIA_SETTINGS_FILE" ]] || return 0
+    jq -r '.enabledShows[]? // empty' "$MEDIA_SETTINGS_FILE" 2>/dev/null
+}
+
+uses_show_whitelist() {
+    [[ -f "$MEDIA_SETTINGS_FILE" ]] && jq -e 'has("enabledShows")' "$MEDIA_SETTINGS_FILE" >/dev/null 2>&1
+}
+
+show_is_enabled() {
+    local target="$1"
+    if ! uses_show_whitelist; then
+        return 0
+    fi
+    local name
+    while IFS= read -r name; do
+        [[ -n "$name" && "$name" == "$target" ]] && return 0
+    done < <(read_enabled_show_names)
+    return 1
+}
+
+write_enabled_show_names() {
+    mkdir -p "$STATE_DIR"
+    if (($# == 0)); then
+        jq -n '{enabledShows: []}' >"$MEDIA_SETTINGS_FILE"
+        return 0
+    fi
+    jq -n --argjson enabled "$(printf '%s\n' "$@" | jq -R . | jq -s 'sort')" \
+        '{enabledShows: $enabled}' >"$MEDIA_SETTINGS_FILE"
+}
+
+clear_media_show_settings() {
+    rm -f "$MEDIA_SETTINGS_FILE"
+}
+
+cmd_settings_get() {
+    local enabled_json="null"
+    if uses_show_whitelist; then
+        enabled_json="$(jq -c '.enabledShows // []' "$MEDIA_SETTINGS_FILE")"
+    fi
+
+    jq -n \
+        --arg tvRoot "$TV_ROOT" \
+        --argjson names "$(list_tv_show_names | jq -R . | jq -s 'sort')" \
+        --argjson enabled "$enabled_json" \
+        '
+        def is_enabled($n):
+          if $enabled == null then true
+          else ($enabled | index($n)) != null end;
+        {
+          ok: true,
+          tvRoot: $tvRoot,
+          available: ($names | map({name: ., enabled: is_enabled(.)}))
+        }
+        '
+}
+
+cmd_settings_set() {
+    local json="${1:-}"
+    [[ -n "$json" ]] || json="$(cat)"
+    jq -e 'type == "array"' <<<"$json" >/dev/null 2>&1 || usage
+
+    local -a all=()
+    local all_json selected_json
+    mapfile -t all < <(list_tv_show_names)
+    all_json="$(printf '%s\n' "${all[@]}" | jq -R -s 'split("\n") | map(select(length > 0)) | sort')"
+    selected_json="$(jq -c 'sort' <<<"$json")"
+
+    if [[ "$all_json" == "$selected_json" ]]; then
+        clear_media_show_settings
+    else
+        jq -n --argjson enabled "$selected_json" '{enabledShows: $enabled}' >"$MEDIA_SETTINGS_FILE"
+    fi
+
+    cmd_settings_get
+}
+
+cmd_settings_toggle() {
+    local target="${1:-}"
+    [[ -n "$target" ]] || usage
+
+    local -a all=() enabled=() next=()
+    local found=false name all_json next_json
+
+    mapfile -t all < <(list_tv_show_names)
+    if uses_show_whitelist; then
+        mapfile -t enabled < <(read_enabled_show_names)
+    else
+        enabled=("${all[@]}")
+    fi
+
+    for name in "${enabled[@]}"; do
+        if [[ "$name" == "$target" ]]; then
+            found=true
+            continue
+        fi
+        next+=("$name")
+    done
+    if [[ "$found" == false ]]; then
+        next+=("$target")
+    fi
+
+    all_json="$(printf '%s\n' "${all[@]}" | jq -R -s 'split("\n") | map(select(length > 0)) | sort')"
+    next_json="$(printf '%s\n' "${next[@]}" | jq -R -s 'split("\n") | map(select(length > 0)) | sort')"
+
+    if [[ "$all_json" == "$next_json" ]]; then
+        clear_media_show_settings
+    else
+        write_enabled_show_names "${next[@]}"
+    fi
+
+    cmd_settings_get
+}
+
 find_video_files() {
     local dir="$1"
     local -a find_args=("$dir" -type f '(')
@@ -299,6 +437,39 @@ cmd_list_shows() {
         "SELECT id, name, poster_path FROM shows ORDER BY name COLLATE NOCASE")"
 }
 
+cmd_list_catalog() {
+    init_db
+    local films shows
+    films="$(json_or_empty "$(sqlite3 -json "$DB_PATH" \
+        "SELECT id, title, year, poster_path, path FROM films ORDER BY sort_title COLLATE NOCASE")")"
+    shows="$(json_or_empty "$(sqlite3 -json "$DB_PATH" \
+        "SELECT id, name, poster_path FROM shows ORDER BY name COLLATE NOCASE")")"
+    jq -nc --argjson films "$films" --argjson shows "$shows" '{films: $films, shows: $shows}'
+}
+
+cmd_popup_shows() {
+    init_db
+    local db_shows enabled_json
+    db_shows="$(sqlite3 -json "$DB_PATH" \
+        "SELECT id, name, poster_path FROM shows ORDER BY name COLLATE NOCASE")"
+    if uses_show_whitelist; then
+        enabled_json="$(jq -c '.enabledShows // []' "$MEDIA_SETTINGS_FILE")"
+    else
+        enabled_json="$(list_tv_show_names | jq -R . | jq -s 'sort')"
+    fi
+    jq -nc \
+        --argjson db "$(json_or_empty "$db_shows")" \
+        --argjson enabled "$enabled_json" \
+        '
+        ($db // []) as $shows |
+        ($enabled // []) as $names |
+        $names | map(. as $n |
+            (([$shows[] | select(.name == $n)] | .[0]) // {name: $n}) |
+            {name: .name, poster_path: (.poster_path // "")}
+        )
+        '
+}
+
 cmd_list_episodes() {
     local show_query="$1"
     local escaped show_data show_id show_name raw
@@ -386,10 +557,24 @@ list)
     shows)
         cmd_list_shows
         ;;
+    catalog)
+        cmd_list_catalog
+        ;;
     episodes)
         show="${3:-}"
         [[ -n "$show" ]] || usage
         cmd_list_episodes "$show"
+        ;;
+    *)
+        usage
+        ;;
+    esac
+    ;;
+popup)
+    sub="${2:-}"
+    case "$sub" in
+    shows)
+        cmd_popup_shows
         ;;
     *)
         usage
@@ -402,6 +587,27 @@ play)
     [[ "$kind" == "film" || "$kind" == "episode" ]] || usage
     [[ "$entry_id" =~ ^[0-9]+$ ]] || usage
     cmd_play "$kind" "$entry_id"
+    ;;
+settings)
+    sub="${2:-}"
+    case "$sub" in
+    get)
+        cmd_settings_get
+        ;;
+    set)
+        json="${3:-}"
+        [[ -n "$json" ]] || json="$(cat)"
+        cmd_settings_set "$json"
+        ;;
+    toggle)
+        show="${3:-}"
+        [[ -n "$show" ]] || usage
+        cmd_settings_toggle "$show"
+        ;;
+    *)
+        usage
+        ;;
+    esac
     ;;
 *)
     usage

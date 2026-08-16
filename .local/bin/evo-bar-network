@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Bar JSON line for evoshell network tray widget.
+
+set -euo pipefail
+
+exec "${HOME}/.local/bin/evo-network" bar

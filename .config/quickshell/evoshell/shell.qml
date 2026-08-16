@@ -40,7 +40,8 @@ ShellRoot {
         "evo.cursor": { kinds: ["menu"], path: "plugins/cursor/Cursor.qml", keepLoaded: true },
         "evo.weather": { kinds: ["menu"], path: "plugins/weather/Weather.qml", keepLoaded: true },
         "evo.network": { kinds: ["menu"], path: "plugins/network/Network.qml", keepLoaded: true },
-        "evo.sound": { kinds: ["menu"], path: "plugins/sound/Sound.qml", keepLoaded: true },
+        "evo.volume": { kinds: ["menu"], path: "plugins/volume/Volume.qml", keepLoaded: true },
+        "evo.media": { kinds: ["menu"], path: "plugins/media/Media.qml", keepLoaded: true },
         "evo.github": { kinds: ["menu"], path: "plugins/github/Github.qml", keepLoaded: true },
         "evo.transmission": { kinds: ["menu"], path: "plugins/transmission/Transmission.qml", keepLoaded: true },
         "evo.transmission.add": { kinds: ["menu"], path: "plugins/transmission/TransmissionAdd.qml", keepLoaded: true },
@@ -385,7 +386,7 @@ ShellRoot {
         }
     }
 
-    readonly property var panelPluginIds: ["evo.menu", "evo.panel", "evo.calendar", "evo.stats_diy", "evo.stats_tgs", "evo.cursor", "evo.weather", "evo.network", "evo.sound", "evo.github", "evo.stocks", "evo.cloudflare", "evo.transmission", "evo.transmission.add", "evo.library", "evo.wallpaper", "evo.clipboard"]
+    readonly property var panelPluginIds: ["evo.menu", "evo.panel", "evo.calendar", "evo.stats_diy", "evo.stats_tgs", "evo.cursor", "evo.weather", "evo.network", "evo.volume", "evo.media", "evo.github", "evo.stocks", "evo.cloudflare", "evo.transmission", "evo.transmission.add", "evo.library", "evo.wallpaper", "evo.clipboard"]
 
     Instantiator {
         model: shell.panelPluginIds

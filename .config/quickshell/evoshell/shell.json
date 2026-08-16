@@ -50,7 +50,8 @@
             "analyticsIntervalSec": 900
           },
           "audio": {
-            "onHover": "evo.sound",
+            "onHover": "evo.volume",
+            "mediaOnHover": "evo.media",
             "onClick": "ghostty --class=TUI.main -e wiremix",
             "onClickRight": "ghostty --class=TUI.main -e alsamixer"
           },

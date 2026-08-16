@@ -10,7 +10,7 @@ Item {
     Component { id: menuWidgetComp; MenuBarWidget {} }
     Component { id: workspacesComp; WorkspacesWidget {} }
     Component { id: clockComp; ClockWidget {} }
-    Component { id: soundComp; SoundWidget {} }
+    Component { id: volumeComp; VolumeWidget {} }
     Component { id: trayComp; TrayWidget {} }
     Component { id: githubComp; GithubWidget {} }
     Component { id: shopifyComp; ShopifyWidget {} }
@@ -22,8 +22,7 @@ Item {
         registry.register("evo.settings", menuWidgetComp, { displayName: "Settings" })
         registry.register("evo.workspaces", workspacesComp, { displayName: "Workspaces" })
         registry.register("evo.clock", clockComp, { displayName: "Clock" })
-        registry.register("evo.audio", soundComp, { displayName: "Sound" })
-        registry.register("evo.cava", soundComp, { displayName: "Sound" })
+        registry.register("evo.audio", volumeComp, { displayName: "Volume" })
         registry.register("evo.network", networkComp, { displayName: "Network" })
         registry.register("evo.tray", trayComp, { displayName: "Tray" })
         registry.register("evo.github", githubComp, { displayName: "GitHub" })

@@ -11,9 +11,12 @@ Item {
     property var settings: ({})
     property var shell: null
 
-    readonly property string hoverPopupId: settings.onHover
+    readonly property string volumeHoverPopupId: settings.onHover
         ? String(settings.onHover)
-        : (trayMode ? "evo.sound" : "")
+        : (trayMode ? "evo.volume" : "")
+    readonly property string mediaHoverPopupId: settings.mediaOnHover
+        ? String(settings.mediaOnHover)
+        : "evo.media"
     readonly property bool trayMode: settings.trayMode === true
     readonly property int trayIconSize: {
         var n = parseInt(settings.trayIconSize, 10)
@@ -52,7 +55,9 @@ Item {
     }
     readonly property int horizontalPad: trayMode ? 0 : Theme.barPaddingX
 
-    implicitWidth: trayMode ? trayCellWidth : contentRow.implicitWidth + horizontalPad * 2
+    implicitWidth: trayMode
+        ? trayCellWidth
+        : contentRow.implicitWidth + horizontalPad * 2
     implicitHeight: Theme.barHeight
     width: trayMode && parent ? parent.width : implicitWidth
     height: Theme.barHeight
@@ -137,12 +142,20 @@ Item {
             openMixer()
     }
 
-    function setHoverPopup(active) {
-        if (!shell || !hoverPopupId) return
+    function setVolumeHoverPopup(active) {
+        if (!shell || !volumeHoverPopupId) return
         if (active)
-            shell.hoverEnter(hoverPopupId, root, barPanel)
+            shell.hoverEnter(volumeHoverPopupId, root, barPanel)
         else
-            shell.hoverLeave(hoverPopupId)
+            shell.hoverLeave(volumeHoverPopupId)
+    }
+
+    function setMediaHoverPopup(active) {
+        if (!shell || !mediaHoverPopupId) return
+        if (active)
+            shell.hoverEnter(mediaHoverPopupId, mediaLabel, barPanel)
+        else
+            shell.hoverLeave(mediaHoverPopupId)
     }
 
     function handleWheel(wheel) {
@@ -182,6 +195,26 @@ Item {
         anchors.centerIn: parent
         spacing: root.sectionSpacing
 
+        Text {
+            id: mediaLabel
+            visible: !root.trayMode
+            text: "󰍹"
+            color: Theme.foreground
+            font.family: Theme.fontFamily
+            font.pixelSize: root.trayMode ? root.trayIconSize : Theme.barFontPixelSize
+            font.bold: Theme.fontBold
+            anchors.verticalCenter: parent.verticalCenter
+
+            MouseArea {
+                anchors.fill: parent
+                anchors.margins: -6
+                hoverEnabled: true
+                acceptedButtons: Qt.LeftButton
+                cursorShape: Qt.PointingHandCursor
+                onContainsMouseChanged: root.setMediaHoverPopup(containsMouse)
+            }
+        }
+
         Item {
             width: !root.trayMode && root.audioActive ? root.cavaWidth : 0
             height: root.vizHeight
@@ -219,6 +252,7 @@ Item {
                 hoverEnabled: true
                 acceptedButtons: Qt.LeftButton | Qt.RightButton
                 cursorShape: Qt.PointingHandCursor
+                onContainsMouseChanged: root.setVolumeHoverPopup(containsMouse)
                 onWheel: function(wheel) { root.handleWheel(wheel) }
                 onClicked: function(mouse) { root.runConfiguredClick(mouse) }
             }
@@ -234,31 +268,15 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
 
             MouseArea {
-                enabled: !root.trayMode
                 anchors.fill: parent
                 anchors.margins: -6
                 hoverEnabled: true
                 acceptedButtons: Qt.LeftButton | Qt.RightButton
                 cursorShape: Qt.PointingHandCursor
+                onContainsMouseChanged: root.setVolumeHoverPopup(containsMouse)
                 onWheel: function(wheel) { root.handleWheel(wheel) }
                 onClicked: function(mouse) { root.runConfiguredClick(mouse) }
             }
         }
-    }
-
-    MouseArea {
-        anchors.fill: parent
-        visible: root.trayMode
-        hoverEnabled: true
-        acceptedButtons: Qt.LeftButton | Qt.RightButton
-        cursorShape: Qt.PointingHandCursor
-        onContainsMouseChanged: root.setHoverPopup(containsMouse)
-        onWheel: function(wheel) { root.handleWheel(wheel) }
-        onClicked: function(mouse) { root.runConfiguredClick(mouse) }
-    }
-
-    HoverHandler {
-        enabled: !root.trayMode && root.hoverPopupId !== "" && root.shell
-        onHoveredChanged: root.setHoverPopup(hovered)
     }
 }

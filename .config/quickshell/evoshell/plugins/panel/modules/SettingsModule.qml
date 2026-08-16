@@ -13,6 +13,7 @@ Item {
     readonly property string hyprScript: Quickshell.env("HOME") + "/.local/bin/evo-hyprland"
     readonly property string barScript: Quickshell.env("HOME") + "/.local/bin/evo-layout"
     readonly property string fontScript: Quickshell.env("HOME") + "/.local/bin/evo-font"
+    readonly property string mediaScript: Quickshell.env("HOME") + "/.local/bin/evo-media"
     readonly property string fontStatePath: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/evoshell/font.json"
     readonly property string themeNamePath: Quickshell.env("HOME") + "/.themes/current/.theme-name"
 
@@ -26,13 +27,17 @@ Item {
     property bool notificationsOnHdmiBottom: true
     property string fontFamily: "CaskaydiaMono Nerd Font"
     property var fontFamilies: []
+    property var mediaShows: []
+    property string mediaTvRoot: ""
     property bool hyprReady: false
     property bool barReady: false
     property bool notificationsReady: false
     property bool fontReady: false
+    property bool mediaReady: false
     readonly property bool ready: hyprReady && barReady && fontReady
     readonly property bool fontBusy: fontSetProc.running
-    readonly property bool settingsBusy: fontBusy || hyprToggleProc.running || hyprSetProc.running
+    readonly property bool mediaBusy: mediaSetProc.running
+    readonly property bool settingsBusy: fontBusy || mediaBusy || hyprToggleProc.running || hyprSetProc.running
         || barToggleProc.running || notificationsToggleProc.running
 
     function refresh() {
@@ -42,6 +47,7 @@ Item {
         if (!loadFontProc.running) loadFontProc.running = true
         if (!loadFontListProc.running) loadFontListProc.running = true
         if (!loadNotificationsProc.running) loadNotificationsProc.running = true
+        if (!loadMediaProc.running) loadMediaProc.running = true
     }
 
     function toggleHypr(key) {
@@ -72,6 +78,28 @@ Item {
         fontSetProc.key = key
         fontSetProc.value = String(value)
         fontSetProc.running = true
+    }
+
+    function setMediaShows(names) {
+        if (!mediaReady || settingsBusy) return
+        mediaSetProc.payload = JSON.stringify(names || [])
+        mediaSetProc.running = true
+    }
+
+    readonly property var mediaShowNames: {
+        var out = []
+        for (var i = 0; i < mediaShows.length; i++)
+            out.push(mediaShows[i].name)
+        return out
+    }
+
+    readonly property var mediaSelectedShows: {
+        var out = []
+        for (var i = 0; i < mediaShows.length; i++) {
+            if (mediaShows[i].enabled)
+                out.push(mediaShows[i].name)
+        }
+        return out
     }
 
     function onActivated() {
@@ -131,6 +159,19 @@ Item {
             root.fontFamilies = Array.isArray(data.families) ? data.families : []
         } catch (e) {
             root.fontFamilies = []
+        }
+    }
+
+    function parseMediaSettings(raw) {
+        try {
+            var data = JSON.parse(String(raw || "{}"))
+            root.mediaShows = Array.isArray(data.available) ? data.available : []
+            root.mediaTvRoot = data.tvRoot ? String(data.tvRoot) : ""
+            root.mediaReady = data.ok === true
+        } catch (e) {
+            root.mediaShows = []
+            root.mediaTvRoot = ""
+            root.mediaReady = false
         }
     }
 
@@ -237,6 +278,23 @@ Item {
         command: ["bash", root.fontScript, "set", fontSetProc.key, fontSetProc.value]
         stdout: StdioCollector {
             onStreamFinished: root.parseFontState(text)
+        }
+    }
+
+    Process {
+        id: loadMediaProc
+        command: ["bash", root.mediaScript, "settings", "get"]
+        stdout: StdioCollector {
+            onStreamFinished: root.parseMediaSettings(text)
+        }
+    }
+
+    Process {
+        id: mediaSetProc
+        property string payload: "[]"
+        command: ["bash", root.mediaScript, "settings", "set", mediaSetProc.payload]
+        stdout: StdioCollector {
+            onStreamFinished: root.parseMediaSettings(text)
         }
     }
 
@@ -357,6 +415,18 @@ Item {
                     checked: !root.notificationsOnHdmiBottom
                     enabled: root.notificationsReady && !settingsBusy
                     onToggled: root.toggleNotifications()
+                }
+
+                MultiSelectPicker {
+                    Layout.fillWidth: true
+                    label: "Media popup TV shows"
+                    placeholder: root.mediaTvRoot ? "No folders found" : "TV folder not found"
+                    options: root.mediaShowNames
+                    selected: root.mediaSelectedShows
+                    enabled: root.mediaReady && !settingsBusy && root.mediaShowNames.length > 0
+                    onSelectionChanged: function(next) {
+                        root.setMediaShows(next)
+                    }
                 }
             }
 

@@ -25,7 +25,7 @@ Item {
     }
 
     readonly property string home: Quickshell.env("HOME") || ""
-    readonly property string script: home + "/.local/bin/evo-transmission bar"
+    readonly property string script: home + "/.local/bin/evo-bar-transmission"
     readonly property string trayIconText: "󰇚"
 
     property bool loading: false

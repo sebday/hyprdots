@@ -12,7 +12,7 @@ Item {
     property var settings: ({})
 
     readonly property string home: Quickshell.env("HOME") || ""
-    readonly property string script: home + "/.local/bin/evo-network bar"
+    readonly property string script: home + "/.local/bin/evo-bar-network"
     readonly property string hoverPopupId: settings.onHover ? String(settings.onHover) : "evo.network"
     readonly property bool iconOnly: settings.iconOnly !== false
     readonly property bool trayMode: settings.trayMode === true

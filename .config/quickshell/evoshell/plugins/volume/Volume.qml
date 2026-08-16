@@ -3,8 +3,8 @@ import "../../Commons"
 import "."
 
 BarHoverPopup {
-    layerNamespace: "evo-sound"
+    layerNamespace: "bar-volume"
     contentWidth: Theme.hoverPopupWidthStandard
 
-    SoundModule {}
+    VolumeModule {}
 }
