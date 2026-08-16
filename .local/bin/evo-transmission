@@ -1,0 +1,260 @@
+#!/usr/bin/env bash
+# Transmission status and downloads for evoshell (transmission-daemon + transmission-remote).
+
+set -euo pipefail
+
+CONFIG_DIR="${TRANSMISSION_CONFIG_DIR:-${HOME}/.config/transmission}"
+SETTINGS_FILE="${CONFIG_DIR}/settings.json"
+RPC_HOST="${TRANSMISSION_RPC_HOST:-127.0.0.1}"
+RPC_PORT="${TRANSMISSION_RPC_PORT:-9091}"
+RPC_URL="http://${RPC_HOST}:${RPC_PORT}/transmission/rpc"
+STATE_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/evoshell"
+SESSION_CACHE="${STATE_DIR}/transmission-session.id"
+
+mkdir -p "$STATE_DIR"
+
+format_rate() {
+    awk -v n="${1:-0}" 'BEGIN {
+        if (n < 0 || n != n) n = 0
+        if (n < 1024) printf "%.0f B/s", n
+        else if (n < 1048576) printf "%.1f KB/s", n / 1024
+        else if (n < 1073741824) printf "%.1f MB/s", n / 1048576
+        else printf "%.2f GB/s", n / 1073741824
+    }'
+}
+
+format_bytes() {
+    awk -v n="${1:-0}" 'BEGIN {
+        if (n < 0 || n != n) n = 0
+        if (n < 1024) printf "%.0f B", n
+        else if (n < 1048576) printf "%.1f KB", n / 1024
+        else if (n < 1073741824) printf "%.1f MB", n / 1048576
+        else printf "%.2f GB", n / 1073741824
+    }'
+}
+
+format_eta() {
+    local eta="${1:-}"
+    [[ -z "$eta" || "$eta" == "-1" || "$eta" == "-2" ]] && return 0
+    if ((eta <= 0)); then
+        printf 'Done'
+        return
+    fi
+    if ((eta < 60)); then
+        printf '%ds' "$eta"
+    elif ((eta < 3600)); then
+        printf '%dm' $((eta / 60))
+    else
+        printf '%dh %dm' $((eta / 3600)) $(( (eta % 3600) / 60 ))
+    fi
+}
+
+status_label() {
+    case "${1:-0}" in
+    4) printf 'Downloading' ;;
+    6) printf 'Seeding' ;;
+    0) printf 'Stopped' ;;
+    3) printf 'Queued' ;;
+    5) printf 'Seeding' ;;
+    *) printf 'Active' ;;
+    esac
+}
+
+ensure_rpc_enabled() {
+    [[ -f "$SETTINGS_FILE" ]] || return 0
+    if jq -e '.["rpc-enabled"] == true' "$SETTINGS_FILE" >/dev/null 2>&1; then
+        return 0
+    fi
+    local tmp
+    tmp="$(mktemp)"
+    jq '.["rpc-enabled"] = true' "$SETTINGS_FILE" >"$tmp"
+    mv "$tmp" "$SETTINGS_FILE"
+}
+
+daemon_running() {
+    transmission-remote "${RPC_HOST}:${RPC_PORT}" -l >/dev/null 2>&1
+}
+
+ensure_daemon() {
+    ensure_rpc_enabled
+    if daemon_running; then
+        return 0
+    fi
+    transmission-daemon -g "$CONFIG_DIR" >/dev/null 2>&1 &
+    for _ in $(seq 1 40); do
+        if daemon_running; then
+            return 0
+        fi
+        sleep 0.1
+    done
+    return 1
+}
+
+rpc_call() {
+    local payload="$1"
+  local session="" headers body status
+    if [[ -f "$SESSION_CACHE" ]]; then
+        session="$(tr -d '\r\n' <"$SESSION_CACHE")"
+    fi
+    if [[ -z "$session" ]]; then
+        headers="$(mktemp)"
+        body="$(mktemp)"
+        status="$(curl -sS -D "$headers" -o "$body" -d '{"method":"session-get"}' "$RPC_URL" || true)"
+        session="$(awk 'tolower($1)=="x-transmission-session-id:" {print $2}' "$headers" | tr -d '\r')"
+        rm -f "$headers" "$body"
+        [[ -n "$session" ]] || return 1
+        printf '%s' "$session" >"$SESSION_CACHE"
+    fi
+    curl -sS -H "X-Transmission-Session-Id: $session" -d "$payload" "$RPC_URL"
+}
+
+torrents_json() {
+    rpc_call '{"method":"torrent-get","arguments":{"fields":["id","name","status","percentDone","rateDownload","rateUpload","eta","totalSize","leftUntilDone","errorString","isFinished"]}}' \
+        | jq -c '.arguments.torrents // []'
+}
+
+cmd_bar() {
+    if ! ensure_daemon; then
+        jq -n '{connected:false,class:"error",icon:"󰇚",label:"off",tooltip:"Transmission daemon unavailable",download_bps:0,upload_bps:0,active:0,downloading:0}'
+        return
+    fi
+
+    local torrents down_bps up_bps active downloading icon label class tooltip
+    torrents="$(torrents_json || echo '[]')"
+    down_bps="$(jq '[.[] | .rateDownload // 0] | add // 0' <<<"$torrents")"
+    up_bps="$(jq '[.[] | .rateUpload // 0] | add // 0' <<<"$torrents")"
+    active="$(jq '[.[] | select(.status == 4 or .status == 6 or (.status == 0 and (.percentDone // 0) < 1))] | length' <<<"$torrents")"
+    downloading="$(jq '[.[] | select(.status == 4)] | length' <<<"$torrents")"
+
+    class="idle"
+    icon="󰇚"
+    if ((downloading > 0)); then
+        class="down"
+        icon="󰇚"
+        label="${downloading}"
+    elif ((active > 0)); then
+        class="active"
+        label="${active}"
+    else
+        label="0"
+    fi
+
+    if ((down_bps > 0 || up_bps > 0)); then
+        tooltip="$(format_rate "$down_bps") down · $(format_rate "$up_bps") up"
+    else
+        tooltip="${active} torrents"
+    fi
+
+    jq -n \
+        --argjson connected true \
+        --arg class "$class" \
+        --arg icon "$icon" \
+        --arg label "$label" \
+        --arg tooltip "$tooltip" \
+        --argjson download_bps "$down_bps" \
+        --argjson upload_bps "$up_bps" \
+        --argjson active "$active" \
+        --argjson downloading "$downloading" \
+        '{connected:$connected,class:$class,icon:$icon,label:$label,tooltip:$tooltip,download_bps:$download_bps,upload_bps:$upload_bps,active:$active,downloading:$downloading}'
+}
+
+cmd_popup() {
+    if ! ensure_daemon; then
+        jq -n '{connected:false,error:"Transmission daemon unavailable",torrents:[]}'
+        return
+    fi
+
+    local torrents down_bps up_bps active downloading
+    torrents="$(torrents_json || echo '[]')"
+    down_bps="$(jq '[.[] | .rateDownload // 0] | add // 0' <<<"$torrents")"
+    up_bps="$(jq '[.[] | .rateUpload // 0] | add // 0' <<<"$torrents")"
+    active="$(jq '[.[] | select(.status == 4 or .status == 6 or (.status == 0 and (.percentDone // 0) < 1))] | length' <<<"$torrents")"
+    downloading="$(jq '[.[] | select(.status == 4)] | length' <<<"$torrents")"
+
+    jq -n \
+        --argjson connected true \
+        --argjson download_bps "$down_bps" \
+        --argjson upload_bps "$up_bps" \
+        --argjson active "$active" \
+        --argjson downloading "$downloading" \
+        --argjson torrents "$(
+            jq '[.[] | select(.status == 4 or (.status == 0 and (.percentDone // 0) < 0.999) or .status == 6 and (.rateUpload // 0) > 0)]
+                | sort_by(-(.rateDownload // 0), -(.percentDone // 0))
+                | .[0:12]
+                | map({
+                    id: .id,
+                    name: .name,
+                    status: .status,
+                    percent: ((.percentDone // 0) * 100),
+                    rate_down: (.rateDownload // 0),
+                    rate_up: (.rateUpload // 0),
+                    eta: (.eta // -1),
+                    total_size: (.totalSize // 0),
+                    error: (.errorString // "")
+                })' <<<"$torrents")" \
+        '{connected:$connected,download_bps:$download_bps,upload_bps:$upload_bps,active:$active,downloading:$downloading,torrents:$torrents}'
+}
+
+cmd_add() {
+    local url="${1:-}"
+    [[ -n "$url" ]] || { echo "usage: $0 add <url-or-magnet>" >&2; return 1; }
+    ensure_daemon || return 1
+    local payload result
+    payload="$(jq -n --arg url "$url" '{method:"torrent-add",arguments:{filename:$url}}')"
+    result="$(rpc_call "$payload")"
+    if jq -e '.result == "success"' <<<"$result" >/dev/null 2>&1; then
+        return 0
+    fi
+    echo "${result:-add failed}" >&2
+    return 1
+}
+
+cmd_remove() {
+    local id="${1:-}"
+    [[ -n "$id" ]] || { echo "usage: $0 remove <id>" >&2; return 1; }
+    ensure_daemon || return 1
+    local payload result
+    payload="$(jq -n --argjson id "$id" '{method:"torrent-remove",arguments:{ids:[$id],"delete-local-data":true}}')"
+    result="$(rpc_call "$payload")"
+    if jq -e '.result == "success"' <<<"$result" >/dev/null 2>&1; then
+        return 0
+    fi
+    echo "${result:-remove failed}" >&2
+    return 1
+}
+
+cmd_prompt_add() {
+    local url
+    if command -v zenity >/dev/null 2>&1; then
+        url="$(zenity --entry --title=Download --text="URL or magnet link" 2>/dev/null || true)"
+    else
+        read -r -p "URL or magnet: " url </dev/tty || true
+    fi
+    [[ -n "${url:-}" ]] || return 0
+    cmd_add "$url"
+}
+
+case "${1:-}" in
+bar)
+    cmd_bar
+    ;;
+popup)
+    cmd_popup
+    ;;
+add)
+    cmd_add "${2:-}"
+    ;;
+remove)
+    cmd_remove "${2:-}"
+    ;;
+prompt-add)
+    cmd_prompt_add
+    ;;
+start-daemon)
+    ensure_daemon
+    ;;
+*)
+    echo "usage: $0 bar|popup|add <url>|remove <id>|prompt-add|start-daemon" >&2
+    exit 1
+    ;;
+esac

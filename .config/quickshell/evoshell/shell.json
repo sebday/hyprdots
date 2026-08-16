@@ -52,6 +52,10 @@
             "interval": 2,
             "onHover": "evo.network",
             "iconOnly": true
+          },
+          "transmission": {
+            "interval": 3,
+            "onHover": "evo.transmission"
           }
         }
       ],

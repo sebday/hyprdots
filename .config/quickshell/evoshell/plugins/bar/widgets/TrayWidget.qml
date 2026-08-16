@@ -21,6 +21,7 @@ Item {
     readonly property bool showStocks: settings.stocks != null && settings.stocks !== false
     readonly property bool showAudio: settings.audio !== false
     readonly property bool showNetwork: settings.network !== false
+    readonly property bool showTransmission: settings.transmission != null && settings.transmission !== false
 
     implicitWidth: trayRow.implicitWidth + Theme.barSectionGap
     implicitHeight: Theme.barHeight
@@ -53,8 +54,9 @@ Item {
         if (cursorLoader.item) wireBarWidget(cursorLoader.item, settings.cursor, "evo.cursor")
         if (githubLoader.item) wireBarWidget(githubLoader.item, settings.github, "evo.github")
         if (stocksLoader.item) wireBarWidget(stocksLoader.item, settings.stocks, "evo.stocks")
-        if (soundLoader.item) wireBarWidget(soundLoader.item, settings.audio, "evo.sound")
+        if (transmissionLoader.item) wireBarWidget(transmissionLoader.item, settings.transmission, "evo.transmission")
         if (networkLoader.item) wireBarWidget(networkLoader.item, settings.network, "evo.network")
+        if (soundLoader.item) wireBarWidget(soundLoader.item, settings.audio, "evo.sound")
     }
 
     onSettingsChanged: rewireTrayWidgets()
@@ -71,6 +73,7 @@ Item {
     Component { id: stocksComp; StocksWidget {} }
     Component { id: soundComp; SoundWidget {} }
     Component { id: networkComp; NetworkWidget {} }
+    Component { id: transmissionComp; TransmissionWidget {} }
 
     Row {
         id: trayRow
@@ -132,6 +135,20 @@ Item {
                 active: root.showStocks
                 sourceComponent: stocksComp
                 onLoaded: root.wireBarWidget(item, root.settings.stocks, "evo.stocks")
+            }
+        }
+
+        Item {
+            width: root.showTransmission ? root.trayCellWidth : 0
+            height: Theme.barHeight
+            visible: root.showTransmission
+
+            Loader {
+                id: transmissionLoader
+                anchors.fill: parent
+                active: root.showTransmission
+                sourceComponent: transmissionComp
+                onLoaded: root.wireBarWidget(item, root.settings.transmission, "evo.transmission")
             }
         }
 
