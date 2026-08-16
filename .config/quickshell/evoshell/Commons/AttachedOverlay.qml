@@ -14,6 +14,7 @@ Item {
     readonly property int borderWidth: 2
     property var anchorItem: null
     property var anchorWindow: null
+    property var shell: null
     property string barPosition: "bottom"
     property string layerNamespace: "evo-overlay"
     signal hoverEntered()
@@ -22,10 +23,17 @@ Item {
     default property alias content: contentHost.data
 
     readonly property bool barOnBottom: String(barPosition || "bottom") !== "top"
+    readonly property var barOutputScreen: {
+        if (!shell || !shell.barConfig)
+            return null
+        return Util.screenForOutput(shell.barConfig.output, "HDMI-A-1")
+    }
     readonly property var hostScreen: {
+        if (barOutputScreen)
+            return barOutputScreen
         if (anchorWindow && anchorWindow.screen)
             return anchorWindow.screen
-        if (anchorItem && anchorItem.QsWindow && anchorItem.QsWindow.window)
+        if (anchorItem && anchorItem.QsWindow && anchorItem.QsWindow.window && anchorItem.QsWindow.window.screen)
             return anchorItem.QsWindow.window.screen
         return null
     }
@@ -38,6 +46,13 @@ Item {
         if (anchorItem && anchorItem.QsWindow)
             return anchorItem.QsWindow.window
         return null
+    }
+
+    function applyHostScreen() {
+        if (!overlayPanel || !hostScreen)
+            return
+        overlayPanel.screen = hostScreen
+        reposition()
     }
 
     function reposition() {
@@ -57,14 +72,15 @@ Item {
         boxX = x
     }
 
-    onOpenedChanged: if (opened) Qt.callLater(reposition)
-    onAnchorItemChanged: if (opened) Qt.callLater(reposition)
-    onAnchorWindowChanged: if (opened) Qt.callLater(reposition)
+    onOpenedChanged: if (opened) Qt.callLater(applyHostScreen)
+    onAnchorItemChanged: if (opened) Qt.callLater(applyHostScreen)
+    onAnchorWindowChanged: if (opened) Qt.callLater(applyHostScreen)
     onContentWidthChanged: if (opened) Qt.callLater(reposition)
     onContentHeightChanged: if (opened) Qt.callLater(reposition)
-    onHostScreenChanged: if (opened) Qt.callLater(reposition)
+    onHostScreenChanged: if (opened) Qt.callLater(applyHostScreen)
 
     PanelWindow {
+        id: overlayPanel
         screen: root.hostScreen
         visible: root.opened
         color: "transparent"

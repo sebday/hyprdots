@@ -177,3 +177,14 @@ bindd(
 	"Screenshot region and annotate",
 	hl.dsp.exec_cmd(bin .. "/evo-screenshot edit --capture region")
 )
+bindd("q", "Close satty", function()
+	local win = hl.get_active_window()
+	if not win then
+		return
+	end
+	if win.class == "org.satty.satty" then
+		hl.dispatch(hl.dsp.window.close({ window = win }))
+	else
+		hl.dispatch(hl.dsp.pass({ window = win }))
+	end
+end, { locked = true })

@@ -8,7 +8,6 @@ Item {
 
     property var shell: null
     property bool opened: true
-    property bool demoMode: false
 
     readonly property var dashScreen: Util.screenForOutput(
         shell && shell.barConfig ? shell.barConfig.output : "",
@@ -25,31 +24,35 @@ Item {
         opened = true
     }
 
-    function toggleDemoMode() {
-        demoMode = !demoMode
+    function toggle() {
+        if (opened)
+            close()
+        else
+            open()
     }
 
-    function handleKey(event) {
-        if (event.key === Qt.Key_Escape || event.key === Qt.Key_Q) {
-            root.close()
-            event.accepted = true
+    onOpenedChanged: activatePlayer()
+
+    function activatePlayer() {
+        if (!opened) {
+            if (playerContent && typeof playerContent.onDeactivated === "function")
+                playerContent.onDeactivated()
             return
         }
-        if (event.key === Qt.Key_D) {
-            root.toggleDemoMode()
-            event.accepted = true
-        }
+        Qt.callLater(function() {
+            keySurface.forceActiveFocus()
+            if (playerContent && typeof playerContent.onActivated === "function")
+                playerContent.onActivated()
+        })
     }
-
-    onOpenedChanged: if (opened) Qt.callLater(function() { keySurface.forceActiveFocus() })
 
     FloatingWindow {
         id: dashWindow
         visible: root.opened && root.dashScreen !== null
-        title: root.demoMode ? "shopify (demo)" : "shopify"
+        title: "evo.player"
         screen: root.dashScreen
         color: Theme.background
-        minimumSize: Qt.size(720, 520)
+        minimumSize: Qt.size(720, 480)
 
         Item {
             id: keySurface
@@ -57,12 +60,12 @@ Item {
             focus: root.opened
 
             Keys.onEscapePressed: root.close()
-            Keys.onPressed: root.handleKey(event)
 
-            ShopifyModule {
+            PlayerModule {
+                id: playerContent
                 anchors.fill: parent
                 shell: root.shell
-                demoMode: root.demoMode
+                host: root
             }
         }
     }

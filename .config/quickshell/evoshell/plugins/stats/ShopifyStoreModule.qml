@@ -1,4 +1,5 @@
 import Quickshell
+import Quickshell.Io
 import QtQuick
 import QtQuick.Layouts
 import "../../Commons"
@@ -19,11 +20,21 @@ Item {
     readonly property string storeCacheKey: "shopify-" + storeKey + "-30"
 
     readonly property string home: Quickshell.env("HOME")
+    readonly property string avatarDir: home + "/onedrive/pictures/Avatars"
+    readonly property real demoScale: 1.75
     readonly property bool active: host && host.opened === true
     readonly property var barSource: host && host.shell ? host.shell.popupAnchorItem : null
     readonly property int hintFont: Theme.hoverPopupHintFontPixelSize
 
+    property var realPayload: null
+
     readonly property string storeIconUrl: {
+        if (demoMode) {
+            if (storeKey === "DIY")
+                return "file://" + avatarDir + "/pdog.jpg"
+            if (storeKey === "TGS")
+                return "file://" + avatarDir + "/robot-seb.jpg"
+        }
         if (barSource && barSource.storeIconUrl)
             return String(barSource.storeIconUrl)
         if (storeKey === "DIY")
@@ -34,6 +45,10 @@ Item {
     }
 
     readonly property string storeIconFallback: {
+        if (demoMode) {
+            if (storeKey === "DIY") return "P"
+            if (storeKey === "TGS") return "R"
+        }
         if (barSource && barSource.storeIcon)
             return String(barSource.storeIcon)
         if (storeKey === "DIY") return "D"
@@ -81,70 +96,134 @@ Item {
 
     function onActivated() {
         if (demoMode) {
-            applyPayload(buildDemoPayload())
+            refreshDemoPayload()
             return
         }
         syncFromBar()
         storePoll.runPoll()
     }
 
-    function buildDemoSeries(base, variance, count) {
-        var bars = []
-        var orderBars = []
-        for (var i = 0; i < count; i++) {
-            var wave = Math.sin(i / 4) * variance
-            bars.push({ value: Math.max(0, Math.round(base + wave + i * (variance / count))) })
-            orderBars.push({ value: Math.max(1, Math.round(base / 90 + wave / 50 + (i % 4))) })
-        }
-        return { bars: bars, orderBars: orderBars }
+    function rememberRealPayload(json) {
+        if (!json || typeof json !== "object" || !Array.isArray(json.bars) || json.bars.length === 0)
+            return
+        realPayload = json
     }
 
-    function buildDemoPayload() {
-        var diy = storeKey === "DIY"
-        var sym = "£"
-        var revenue = diy ? 4821 : 1964
-        var orders = diy ? 67 : 28
-        var sessions = diy ? 812 : 394
-        var spend = diy ? 876.40 : 412.15
-        var cos = diy ? "18.2%" : "21.0%"
-        var series = buildDemoSeries(diy ? 3200 : 1400, diy ? 900 : 420, 30)
-        var periodRevenue = diy ? 98420 : 42680
+    function realPayloadSource() {
+        if (realPayload && Array.isArray(realPayload.bars) && realPayload.bars.length > 0)
+            return realPayload
+        if (shell) {
+            var cached = shell.hoverPopupDataFor(storeCacheKey)
+            if (cached && Array.isArray(cached.bars) && cached.bars.length > 0)
+                return cached
+        }
+        return null
+    }
+
+    function refreshDemoPayload() {
+        var source = realPayloadSource()
+        if (source) {
+            applyPayload(buildDemoPayload(source))
+            return
+        }
+        if (!demoFetchProc.running)
+            demoFetchProc.running = true
+    }
+
+    function scaleDemoNumber(value, asInt) {
+        var n = parseFloat(value)
+        if (isNaN(n))
+            return value
+        var scaled = n * demoScale
+        return asInt ? Math.round(scaled) : Math.round(scaled * 100) / 100
+    }
+
+    function scaleDemoBar(bar, valueIsInt) {
+        var out = {}
+        for (var key in bar) {
+            if (!Object.prototype.hasOwnProperty.call(bar, key))
+                continue
+            if (key === "value")
+                out[key] = scaleDemoNumber(bar[key], valueIsInt)
+            else if (key === "orders")
+                out[key] = scaleDemoNumber(bar[key], true)
+            else
+                out[key] = bar[key]
+        }
+        return out
+    }
+
+    function buildDemoPayload(source) {
+        source = source || realPayloadSource()
+        if (!source)
+            return ({})
+
+        var sym = source.symbol || "£"
+        var cos = source.cos || (source.todayDetail && source.todayDetail.cos) || "—"
+        var td = source.todayDetail || {}
+        var period = source.period || {}
+        var channels = source.channels || {}
+
+        var scaledToday = {
+            revenue: scaleDemoNumber(td.revenue !== undefined ? td.revenue : source.revenue),
+            orders: scaleDemoNumber(td.orders !== undefined ? td.orders : source.orders, true),
+            sessions: scaleDemoNumber(td.sessions, true),
+            cos: cos,
+            spend: scaleDemoNumber(td.spend)
+        }
+        if (scaledToday.sessions > 0)
+            scaledToday.cvr = scaledToday.orders / scaledToday.sessions
+        else if (td.cvr !== undefined)
+            scaledToday.cvr = td.cvr
+
+        var scaledPeriod = {
+            days: period.days || (Array.isArray(source.bars) ? source.bars.length : 30),
+            revenue: scaleDemoNumber(period.revenue),
+            orders: scaleDemoNumber(period.orders, true),
+            sessions: scaleDemoNumber(period.sessions, true),
+            spend: scaleDemoNumber(period.spend)
+        }
+
+        var scaledChannels = {
+            paid: scaleDemoNumber(channels.paid),
+            organic: scaleDemoNumber(channels.organic),
+            direct: scaleDemoNumber(channels.direct),
+            email: scaleDemoNumber(channels.email)
+        }
+
+        var bars = []
+        var orderBars = []
+        if (Array.isArray(source.bars)) {
+            for (var i = 0; i < source.bars.length; i++)
+                bars.push(scaleDemoBar(source.bars[i], false))
+        }
+        if (Array.isArray(source.orderBars)) {
+            for (var j = 0; j < source.orderBars.length; j++)
+                orderBars.push(scaleDemoBar(source.orderBars[j], true))
+        }
+
+        var revenue = scaledToday.revenue
+        var orders = scaledToday.orders
+        var storeLetter = source.store || (storeKey === "DIY" ? "D" : "T")
+
         return {
-            store: diy ? "D" : "T",
+            store: storeLetter,
             symbol: sym,
             revenue: revenue,
             orders: orders,
             cos: cos,
-            label: (diy ? "D " : "T ") + Format.formatRevenue(revenue, sym) + " | " + cos,
-            todayDetail: {
-                revenue: revenue,
-                orders: orders,
-                sessions: sessions,
-                cos: cos,
-                spend: spend,
-                cvr: orders / sessions
-            },
-            period: {
-                days: 30,
-                revenue: periodRevenue,
-                orders: diy ? 1184 : 512,
-                sessions: diy ? 18240 : 8640,
-                spend: diy ? 16840 : 7920
-            },
-            channels: {
-                paid: periodRevenue * 0.42,
-                organic: periodRevenue * 0.31,
-                direct: periodRevenue * 0.18,
-                email: periodRevenue * 0.09
-            },
-            bars: series.bars,
-            orderBars: series.orderBars
+            label: storeLetter + " " + Format.formatRevenue(revenue, sym) + " | " + cos,
+            todayDetail: scaledToday,
+            period: scaledPeriod,
+            channels: scaledChannels,
+            bars: bars,
+            orderBars: orderBars
         }
     }
 
     function bootstrapFromCache() {
         if (demoMode) {
-            applyPayload(buildDemoPayload())
+            refreshDemoPayload()
             return
         }
         if (!shell)
@@ -210,6 +289,8 @@ Item {
             storeData = ({})
         else
             storeData = json
+        if (!demoMode)
+            rememberRealPayload(json)
         if (demoMode || !shell || !json || typeof json !== "object")
             return
         var days = (json.period && json.period.days) || (Array.isArray(json.bars) ? json.bars.length : 0)
@@ -221,7 +302,7 @@ Item {
 
     onDemoModeChanged: {
         if (demoMode)
-            applyPayload(buildDemoPayload())
+            refreshDemoPayload()
         else if (active)
             onActivated()
     }
@@ -237,6 +318,21 @@ Item {
         }
         function onStoreChanged() {
             if (root.active) root.syncFromBar()
+        }
+    }
+
+    Process {
+        id: demoFetchProc
+        command: ["bash", root.home + "/.local/bin/evo-bar-shopify", root.storeKey, "30"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    var json = JSON.parse(String(text || "").trim() || "{}")
+                    root.rememberRealPayload(json)
+                    if (root.demoMode)
+                        root.applyPayload(root.buildDemoPayload(json))
+                } catch (e) {}
+            }
         }
     }
 

@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# Pin evoshell dashboard windows (shopify, evo.player) to the bar monitor.
+
+set -euo pipefail
+
+DASHBOARD_MONITOR="${EVO_DASHBOARD_MONITOR:-HDMI-A-1}"
+
+usage() {
+	cat >&2 <<'EOF'
+usage: evo-bar-hypr pin-shopify|pin-player|pin-all
+EOF
+	exit 1
+}
+
+hypr_eval() {
+	hyprctl eval "$1" >/dev/null 2>&1 || true
+}
+
+find_dashboard_address() {
+	local title_re="$1"
+	hyprctl clients -j 2>/dev/null | jq -r --arg re "$title_re" '
+		.[] | select(.class == "org.quickshell" and (.title | test($re))) | .address' | head -1
+}
+
+pin_dashboard() {
+	local title_re="$1"
+	local tries=0
+	local addr=""
+
+	while (( tries < 40 )); do
+		addr="$(find_dashboard_address "$title_re")"
+		[[ -n "$addr" ]] && break
+		sleep 0.05
+		tries=$((tries + 1))
+	done
+
+	[[ -n "$addr" ]] || return 1
+	hypr_eval "return hl.dispatch(hl.dsp.window.move({ monitor = '${DASHBOARD_MONITOR}', window = 'address:${addr}' }))"
+}
+
+pin_shopify() {
+	pin_dashboard '^shopify'
+}
+
+pin_player() {
+	pin_dashboard '^evo\.player$'
+}
+
+cmd="${1:-}"
+case "$cmd" in
+pin-shopify) pin_shopify ;;
+pin-player) pin_player ;;
+pin-all)
+	pin_shopify || true
+	pin_player || true
+	;;
+-h | --help | help | "") usage ;;
+*)
+	echo "evo-bar-hypr: unknown command: $cmd" >&2
+	usage
+	;;
+esac

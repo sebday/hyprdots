@@ -43,6 +43,7 @@ ShellRoot {
         "evo.volume": { kinds: ["menu"], path: "plugins/volume/Volume.qml", keepLoaded: true },
         "evo.media": { kinds: ["menu"], path: "plugins/media/Media.qml", keepLoaded: true },
         "evo.github": { kinds: ["menu"], path: "plugins/github/Github.qml", keepLoaded: true },
+        "evo.system": { kinds: ["menu"], path: "plugins/system/System.qml", keepLoaded: true },
         "evo.transmission": { kinds: ["menu"], path: "plugins/transmission/Transmission.qml", keepLoaded: true },
         "evo.transmission.add": { kinds: ["menu"], path: "plugins/transmission/TransmissionAdd.qml", keepLoaded: true },
         "evo.stocks": { kinds: ["menu"], path: "plugins/stocks/Stocks.qml", keepLoaded: true },
@@ -52,7 +53,7 @@ ShellRoot {
         "evo.panel": { kinds: ["panel"], path: "plugins/panel/Panel.qml", keepLoaded: true },
         "evo.bar": { kinds: ["bar"], path: "plugins/bar/Bar.qml" },
         "evo.shopify": { kinds: ["dashboard"], path: "plugins/shopify/Shopify.qml", keepLoaded: true },
-        "evo.music": { kinds: ["dashboard"], path: "plugins/music/Music.qml", keepLoaded: true }
+        "evo.player": { kinds: ["dashboard"], path: "plugins/player/Player.qml", keepLoaded: true }
     })
 
     property var shellConfig: builtinShellConfig
@@ -381,6 +382,7 @@ ShellRoot {
         source: shell.pluginUrl(shell.pluginTable["evo.shopify"].path)
         onLoaded: {
             if (item && "shell" in item) item.shell = shell
+            shell.ensureStartupDashboards()
         }
         onStatusChanged: {
             if (status === Loader.Error) console.warn("shopify load error:", String(shopifyLoader.errorString))
@@ -388,18 +390,19 @@ ShellRoot {
     }
 
     Loader {
-        id: musicLoader
+        id: playerLoader
         active: true
-        source: shell.pluginUrl(shell.pluginTable["evo.music"].path)
+        source: shell.pluginUrl(shell.pluginTable["evo.player"].path)
         onLoaded: {
             if (item && "shell" in item) item.shell = shell
+            shell.ensureStartupDashboards()
         }
         onStatusChanged: {
-            if (status === Loader.Error) console.warn("music load error:", String(musicLoader.errorString))
+            if (status === Loader.Error) console.warn("player load error:", String(playerLoader.errorString))
         }
     }
 
-    readonly property var panelPluginIds: ["evo.menu", "evo.panel", "evo.calendar", "evo.stats_diy", "evo.stats_tgs", "evo.cursor", "evo.weather", "evo.network", "evo.volume", "evo.media", "evo.github", "evo.stocks", "evo.cloudflare", "evo.transmission", "evo.transmission.add", "evo.library", "evo.wallpaper", "evo.clipboard"]
+    readonly property var panelPluginIds: ["evo.menu", "evo.panel", "evo.calendar", "evo.stats_diy", "evo.stats_tgs", "evo.cursor", "evo.weather", "evo.network", "evo.volume", "evo.media", "evo.github", "evo.system", "evo.stocks", "evo.cloudflare", "evo.transmission", "evo.transmission.add", "evo.library", "evo.wallpaper", "evo.clipboard"]
 
     Instantiator {
         model: shell.panelPluginIds
@@ -414,6 +417,21 @@ ShellRoot {
             }
             onActiveChanged: if (!active) shell.registerPanelLoader(modelData, this)
         }
+    }
+
+    function pinDashboard(kind) {
+        Quickshell.execDetached(["bash", home + "/.local/bin/evo-bar-hypr", kind])
+    }
+
+    property bool _startupDashboardsPinned: false
+
+    function ensureStartupDashboards() {
+        if (_startupDashboardsPinned)
+            return
+        if (!shopifyLoader.item || !playerLoader.item)
+            return
+        _startupDashboardsPinned = true
+        Qt.callLater(function() { pinDashboard("pin-all") })
     }
 
     IpcHandler {
@@ -454,6 +472,7 @@ ShellRoot {
             var panel = shopifyLoader.item
             if (panel && typeof panel.open === "function")
                 panel.open()
+            shell.pinDashboard("pin-shopify")
             return "ok"
         }
 
@@ -464,22 +483,23 @@ ShellRoot {
             return "ok"
         }
 
-        function musicOpen(): string {
-            var panel = musicLoader.item
+        function playerOpen(): string {
+            var panel = playerLoader.item
             if (panel && typeof panel.open === "function")
                 panel.open()
+            shell.pinDashboard("pin-player")
             return "ok"
         }
 
-        function musicClose(): string {
-            var panel = musicLoader.item
+        function playerClose(): string {
+            var panel = playerLoader.item
             if (panel && typeof panel.close === "function")
                 panel.close()
             return "ok"
         }
 
-        function musicToggle(): string {
-            var panel = musicLoader.item
+        function playerToggle(): string {
+            var panel = playerLoader.item
             if (!panel) return "ok"
             if (typeof panel.toggle === "function") {
                 panel.toggle()
@@ -488,6 +508,7 @@ ShellRoot {
             } else if (typeof panel.open === "function") {
                 panel.open()
             }
+            shell.pinDashboard("pin-player")
             return "ok"
         }
     }

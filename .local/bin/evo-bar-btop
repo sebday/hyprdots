@@ -55,6 +55,7 @@ cmd_swap() {
     if has_window; then
         cmd_hide
         quickshell ipc -c evoshell call shell shopifyOpen >/dev/null 2>&1 || true
+        "${HOME}/.local/bin/evo-bar-hypr" pin-shopify >/dev/null 2>&1 || true
     else
         quickshell ipc -c evoshell call shell shopifyClose >/dev/null 2>&1 || true
         cmd_show

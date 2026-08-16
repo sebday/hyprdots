@@ -73,10 +73,12 @@ hl.window_rule({
 })
 
 hl.window_rule({
-    name = "satty-float",
-    match = { class = "^satty$" },
+    name = "satty",
+    match = { initial_title = "^satty$" },
     float = true,
     center = true,
+    monitor = "DP-1",
+    size = { 1280, 720 },
 })
 
 hl.window_rule({
@@ -101,21 +103,58 @@ hl.window_rule({
     name = "workspace-firefox",
     match = { initial_title = "^(Mozilla Firefox)" },
     workspace = "10",
+    monitor = "HDMI-A-1",
 })
 
 hl.window_rule({
-    name = "shopify-tile",
-    match = { title = "^shopify$" },
+    name = "shopify-dashboard-tag",
+    match = {
+        class = "^(org%.quickshell)$",
+        initial_title = "^shopify",
+    },
+    tag = "+shopify-dashboard",
+})
+
+hl.window_rule({
+    name = "evo-player-dashboard-tag",
+    match = {
+        class = "^(org%.quickshell)$",
+        initial_title = "^evo%.player$",
+    },
+    tag = "+evo-player-dashboard",
+})
+
+hl.window_rule({
+    name = "shopify-dashboard-tile",
+    match = { tag = "shopify-dashboard" },
     tile = true,
     workspace = "10",
     monitor = "HDMI-A-1",
 })
 
 hl.window_rule({
-    name = "evo-music-tile",
-    match = { title = "^evo%.music$" },
+    name = "evo-player-dashboard-tile",
+    match = { tag = "evo-player-dashboard" },
     tile = true,
     workspace = "10",
     monitor = "HDMI-A-1",
 })
+
+local function is_dashboard_window(win)
+    if not win or win.class ~= "org.quickshell" then
+        return false
+    end
+    local title = win.title or ""
+    return title:match("^shopify") ~= nil or title == "evo.player"
+end
+
+local function pin_dashboard_window(win)
+    if not is_dashboard_window(win) then
+        return
+    end
+    hl.dispatch(hl.dsp.window.move({ monitor = "HDMI-A-1", window = win }))
+end
+
+hl.on("window.open", pin_dashboard_window)
+hl.on("window.title", pin_dashboard_window)
 
