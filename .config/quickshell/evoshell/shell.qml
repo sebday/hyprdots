@@ -155,14 +155,48 @@ ShellRoot {
         return String(id || "")
     }
 
+    function dashboardLoaderFor(id) {
+        var pluginId = canonicalPluginId(id)
+        if (pluginId === "evo.shopify") return shopifyLoader
+        if (pluginId === "evo.player") return playerLoader
+        return null
+    }
+
+    function pinKindForDashboard(id) {
+        var pluginId = canonicalPluginId(id)
+        if (pluginId === "evo.shopify") return "shopify"
+        if (pluginId === "evo.player") return "player"
+        return ""
+    }
+
+    function openDashboardOnly(pluginId) {
+        var dash = dashboardLoaderFor(pluginId)
+        if (!dash || !dash.item || typeof dash.item.open !== "function")
+            return false
+        dash.item.open()
+        return true
+    }
+
+    function revealDashboard(pluginId) {
+        var dash = dashboardLoaderFor(pluginId)
+        var pinKind = pinKindForDashboard(pluginId)
+        if (!dash || !dash.item || typeof dash.item.open !== "function")
+            return false
+        if (!pinKind) {
+            dash.item.open()
+            return true
+        }
+        pinDashboard("prepare-" + pinKind)
+        dashboardOpenTimer.pendingPluginId = pluginId
+        dashboardOpenTimer.restart()
+        return true
+    }
+
     function summon(id, payloadJson) {
         var pluginId = canonicalPluginId(id)
         var dash = dashboardLoaderFor(pluginId)
         if (dash && dash.item && typeof dash.item.open === "function") {
-            dash.item.open()
-            var pinKind = pinKindForDashboard(pluginId)
-            if (pinKind)
-                pinDashboard(pinKind)
+            revealDashboard(pluginId)
             return true
         }
         var meta = pluginTable[pluginId]
@@ -182,20 +216,6 @@ ShellRoot {
             return true
         }
         return false
-    }
-
-    function dashboardLoaderFor(id) {
-        var pluginId = canonicalPluginId(id)
-        if (pluginId === "evo.shopify") return shopifyLoader
-        if (pluginId === "evo.player") return playerLoader
-        return null
-    }
-
-    function pinKindForDashboard(id) {
-        var pluginId = canonicalPluginId(id)
-        if (pluginId === "evo.shopify") return "pin-shopify"
-        if (pluginId === "evo.player") return "pin-player"
-        return ""
     }
 
     function hide(id) {
@@ -300,20 +320,33 @@ ShellRoot {
         onTriggered: shell.clearHoverPopup()
     }
 
+    Timer {
+        id: dashboardOpenTimer
+        interval: 80
+        repeat: false
+        property string pendingPluginId: ""
+        onTriggered: {
+            var pluginId = pendingPluginId
+            pendingPluginId = ""
+            if (!pluginId)
+                return
+            shell.openDashboardOnly(pluginId)
+            var pinKind = shell.pinKindForDashboard(pluginId)
+            if (pinKind)
+                shell.pinDashboard("pin-" + pinKind)
+        }
+    }
+
     function toggle(id, payloadJson) {
         var pluginId = canonicalPluginId(id)
         var dash = dashboardLoaderFor(pluginId)
         if (dash && dash.item) {
-            if (typeof dash.item.toggle === "function") {
-                dash.item.toggle()
-            } else if (dash.item.opened && typeof dash.item.close === "function") {
-                dash.item.close()
-            } else if (typeof dash.item.open === "function") {
-                dash.item.open()
+            if (dash.item.opened) {
+                if (typeof dash.item.close === "function")
+                    dash.item.close()
+                return true
             }
-            var pinKind = pinKindForDashboard(pluginId)
-            if (pinKind)
-                pinDashboard(pinKind)
+            revealDashboard(pluginId)
             return true
         }
         if (isPluginOpen(pluginId)) {
@@ -475,7 +508,7 @@ ShellRoot {
         if (!shopifyLoader.item || !playerLoader.item)
             return
         _startupDashboardsPinned = true
-        Qt.callLater(function() { pinDashboard("pin-all") })
+        Qt.callLater(function() { pinDashboard("layout-quarters") })
     }
 
     IpcHandler {
@@ -495,6 +528,10 @@ ShellRoot {
         function toggle(id: string, payloadJson: string): string {
             shell.toggle(id, payloadJson || "")
             return "ok"
+        }
+
+        function openDashboard(id: string): string {
+            return shell.openDashboardOnly(id) ? "ok" : "unknown"
         }
 
         function call(id: string, method: string, arg: string): string {

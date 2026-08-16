@@ -7,7 +7,7 @@ Item {
     id: root
 
     property var shell: null
-    property bool opened: true
+    property bool opened: false
     property bool demoMode: false
 
     readonly property var dashScreen: Util.screenForOutput(

@@ -33,7 +33,7 @@ btop_cmd() {
 
 cmd_show() {
     has_window && return 0
-    hypr_eval "return hl.dispatch(hl.dsp.exec_cmd(\"$(btop_cmd)\"))"
+    hypr_eval "return hl.dispatch(hl.dsp.exec_cmd(\"$(btop_cmd)\", { workspace = '10 silent' }))"
 }
 
 cmd_hide() {

@@ -22,6 +22,7 @@ Item {
     }
 
     readonly property string musicScript: (Quickshell.env("HOME") || "") + "/.local/bin/evo-music"
+    readonly property string playerScript: (Quickshell.env("HOME") || "") + "/.local/bin/evo-player"
     readonly property int pad: Theme.hoverPopupMargin
     readonly property int bodyFont: Theme.hoverPopupBodyFontPixelSize
     readonly property int hintFont: Theme.hoverPopupHintFontPixelSize
@@ -37,7 +38,7 @@ Item {
     readonly property int transportIconFont: iconFont * 2
     readonly property int transportSecondaryIconFont: Math.round(transportIconFont * 0.74)
     readonly property int libraryFont: Math.max(9, hintFont - 3)
-    readonly property int pathFont: Math.max(8, libraryFont - 1)
+    readonly property int sectionLabelFont: Theme.hoverPopupLabelFontPixelSize
     readonly property int genreTabHeight: 34
     readonly property bool playerPlaying: String(player.state || "") === "playing"
     readonly property real progress: player.duration > 0
@@ -60,6 +61,7 @@ Item {
     property string externalJobLabel: ""
     readonly property bool libraryJobBusy: jobBusy || externalJobBusy
     readonly property string libraryJobActiveLabel: jobBusy ? jobLabel : externalJobLabel
+    readonly property bool buildBusy: libraryJobBusy && (libraryJobActiveLabel === "build library" || libraryJobActiveLabel === "warm cache")
     readonly property bool rebuildBusy: libraryJobBusy && libraryJobActiveLabel === "rebuild library"
     property bool tracksLoading: false
     property string browsePath: ""
@@ -69,6 +71,7 @@ Item {
     property string browseForPath: ""
     property var browseCrumbs: []
     property var playlists: []
+    property var libraryPlaylists: []
     property string selectedPlaylist: ""
     property bool playlistsLoading: false
     property string resumePlaylist: ""
@@ -80,7 +83,8 @@ Item {
     readonly property int screenStackIndex:
         playerScreen === "nowPlaying" ? 0
         : (playerScreen === "library" ? 1
-        : (playerScreen === "browse" ? 2 : 3))
+        : (playerScreen === "browse" ? 2
+        : (playerScreen === "playlistLibrary" ? 3 : 4)))
     readonly property var nowPlayingMetaChips: {
         var chips = []
         var year = String(player.year || "").trim()
@@ -99,6 +103,11 @@ Item {
         return chips
     }
     readonly property int libraryPanelWidth: Math.round(Math.max(156, Math.min(width * 0.22, 220)))
+    readonly property var browseGenrePresets: [
+        { label: "Drum & Bass", folder: "drum&bass" },
+        { label: "Dubstep", folder: "dubstep" },
+        { label: "Hip-Hop", folder: "hiphop" }
+    ]
 
     function artUrl(path) {
         if (!path) return ""
@@ -225,11 +234,28 @@ Item {
         return true
     }
 
+    function runPlayer(args, onDone, proc) {
+        var runner = proc || cmdProc
+        if (runner.running) return false
+        runner.command = ["bash", playerScript].concat(args || [])
+        runner._onDone = onDone || null
+        runner.running = true
+        return true
+    }
+
     function runQuery(args, onDone) {
         if (queryProc.running) return false
         queryProc.command = ["bash", musicScript].concat(args || [])
         queryProc._onDone = onDone || null
         queryProc.running = true
+        return true
+    }
+
+    function runPlayerQuery(args, onDone) {
+        if (playerQueryProc.running) return false
+        playerQueryProc.command = ["bash", playerScript].concat(args || [])
+        playerQueryProc._onDone = onDone || null
+        playerQueryProc.running = true
         return true
     }
 
@@ -244,23 +270,34 @@ Item {
     }
 
     function applyPlaylists(list) {
-        var filtered = []
+        var all = []
+        var starred = []
         for (var j = 0; j < list.length; j++) {
-            if (list[j].name !== "favorites")
-                filtered.push(list[j])
+            var item = list[j]
+            all.push(item)
+            if (item.starred === true)
+                starred.push(item)
         }
-        playlists = filtered
+        all.sort(function(a, b) {
+            return String(a.name || "").localeCompare(String(b.name || ""))
+        })
+        libraryPlaylists = all
+        playlists = starred
         playlistTabModel.clear()
-        for (var k = 0; k < filtered.length; k++) {
+        for (var k = 0; k < starred.length; k++) {
             playlistTabModel.append({
-                name: filtered[k].name,
-                count: filtered[k].count || 0
+                name: starred[k].name,
+                count: starred[k].count || 0
             })
         }
     }
 
+    function playlistTabLabel(name) {
+        return String(name || "")
+    }
+
     function onActivated() {
-        if (!runQuery(["player", "open", "--json"], function(text) {
+        if (!runPlayerQuery(["open", "--json"], function(text) {
             try {
                 var saved = JSON.parse(String(text || "{}"))
                 resumePlaylist = root.normalizePlaylistName(saved.playlist || "")
@@ -299,7 +336,7 @@ Item {
             finishPlaybackSettle()
         }
         function runClose() {
-            if (!runMusic(["player", "close"], finishDeactivate, deactivateProc))
+            if (!runPlayer(["close"], finishDeactivate, deactivateProc))
                 Qt.callLater(runClose)
         }
         runClose()
@@ -361,6 +398,40 @@ Item {
         loadBrowse(browsePath)
     }
 
+    function openPlaylistLibrary() {
+        playerScreen = "playlistLibrary"
+        if (!libraryPlaylists.length && !playlistsLoading)
+            loadPlaylists()
+    }
+
+    function selectGenrePlaylist(name) {
+        if (!name)
+            return
+        selectPlaylist(String(name), true)
+    }
+
+    function togglePlaylistStar(name) {
+        var playlistName = String(name || "")
+        if (!playlistName)
+            return
+        var nextList = []
+        for (var i = 0; i < libraryPlaylists.length; i++) {
+            var item = libraryPlaylists[i]
+            if (item.name === playlistName)
+                nextList.push(Object.assign({}, item, { starred: !item.starred }))
+            else
+                nextList.push(item)
+        }
+        applyPlaylists(nextList)
+        runPlaylistQuery(["playlist", "star", "toggle", playlistName, "--json"], function(text) {
+            try {
+                JSON.parse(String(text || "{}"))
+            } catch (e) {
+            }
+            root.loadPlaylists()
+        })
+    }
+
     function runBrowseQuery(args, onDone) {
         if (browseProc.running) {
             Qt.callLater(function() { runBrowseQuery(args, onDone) })
@@ -416,6 +487,66 @@ Item {
         return slash < 0 ? p : p.substring(0, slash)
     }
 
+    function browseGenreLabel(entry) {
+        if (!entry)
+            return ""
+        var tag = String(entry.genre || "").trim()
+        if (tag !== "")
+            return tag
+        var folder = root.browseDirGenre(String(entry.path || ""))
+        for (var i = 0; i < browseGenrePresets.length; i++) {
+            if (browseGenrePresets[i].folder === folder)
+                return browseGenrePresets[i].label
+        }
+        return folder
+    }
+
+    function browseGenrePresetIndex(entry) {
+        if (!entry)
+            return -1
+        var tag = String(entry.genre || "").trim().toLowerCase()
+        var folder = root.browseDirGenre(String(entry.path || ""))
+        for (var i = 0; i < browseGenrePresets.length; i++) {
+            var preset = browseGenrePresets[i]
+            if (preset.folder === folder)
+                return i
+            if (preset.label.toLowerCase() === tag)
+                return i
+            if (preset.folder.toLowerCase() === tag)
+                return i
+        }
+        return -1
+    }
+
+    function cycleBrowseGenre(entry) {
+        if (!entry || !entry.path)
+            return
+        var idx = root.browseGenrePresetIndex(entry)
+        var next = browseGenrePresets[(idx + 1) % browseGenrePresets.length]
+        root.retagBrowseTrack(entry, next.folder)
+    }
+
+    function retagBrowseTrack(entry, genreFolder) {
+        if (!entry || !entry.path || !genreFolder)
+            return
+        var trackPath = String(entry.path)
+        var folder = String(browsePath || "")
+        runMusic(["retag", trackPath, genreFolder, "--json"], function(text) {
+            try {
+                var result = JSON.parse(String(text || "{}"))
+                var newPath = String(result.path || "")
+                if (player.path === trackPath) {
+                    var p = Object.assign({}, player)
+                    p.path = newPath
+                    p.genre = String(result.genre || genreFolder)
+                    player = p
+                }
+            } catch (e) {
+            }
+            root.loadBrowse(folder)
+        }, cmdProc)
+    }
+
     function rebuildBrowseDir(entry) {
         var genre = browseDirGenre(entry.path)
         if (!genre)
@@ -432,8 +563,8 @@ Item {
             playBrowseTrack(entry)
     }
 
-    function browseUp() {
-        loadBrowse(browseParent)
+    function browseHome() {
+        loadBrowse("")
     }
 
     function selectBrowseTrack(entry) {
@@ -452,6 +583,7 @@ Item {
         if (!entry || !entry.path)
             return
         selectBrowseTrack(entry)
+        playerScreen = "nowPlaying"
         playPath(entry.path)
     }
 
@@ -556,7 +688,7 @@ Item {
     function pollStatus(onDone) {
         if (statusQueryProc.running)
             return false
-        statusQueryProc.command = ["bash", musicScript, "player", "status", "--json"]
+        statusQueryProc.command = ["bash", playerScript, "status", "--json"]
         statusQueryProc._onDone = onDone || applyStatus
         statusQueryProc.running = true
         return true
@@ -614,7 +746,7 @@ Item {
             playbackToggleTimer.restart()
             return
         }
-        runMusic(["player", "toggle"], null, cmdProc)
+        runPlayer(["toggle"], null, cmdProc)
     }
 
     function finishPlaybackSettle() {
@@ -650,6 +782,8 @@ Item {
         } catch (e) {
             parsed = {}
         }
+        if (!String(parsed.path || "") && prevPath)
+            return
         if (volumeApplyPending) {
             var reported = Number(parsed.volume !== undefined ? parsed.volume : volumeApplyTarget)
             if (Math.abs(reported - volumeApplyTarget) <= 1) {
@@ -669,7 +803,7 @@ Item {
                 parsed = Object.assign({}, parsed, { state: playbackStateTarget })
             }
         }
-        player = parsed
+        player = Object.assign({}, player, parsed)
         if (String(player.path || "") !== prevPath)
             waveformSamples = []
         mergePlayerFromTrackList()
@@ -699,7 +833,7 @@ Item {
     function seekFromX(x, width) {
         if (!player.duration || width <= 0) return
         var ratio = Math.max(0, Math.min(1, x / width))
-        runMusic(["player", "seek", String(ratio * player.duration)], refreshStatus, cmdProc)
+        runPlayer(["seek", String(ratio * player.duration)], refreshStatus, cmdProc)
     }
 
     function previewVolume(percent) {
@@ -724,7 +858,7 @@ Item {
             volumeApplyTimer.restart()
             return
         }
-        runMusic(["player", "volume", "set", String(volumeApplyTarget)], null, cmdProc)
+        runPlayer(["volume", "set", String(volumeApplyTarget)], null, cmdProc)
         volumeSettleTimer.restart()
     }
 
@@ -764,7 +898,7 @@ Item {
     function startLoad(path) {
         if (!path)
             return
-        loadProc.command = ["bash", musicScript, "player", "load", path]
+        loadProc.command = ["bash", playerScript, "load", path]
         loadProc.running = true
     }
 
@@ -772,11 +906,12 @@ Item {
         if (!path)
             return
         primePlayerForPath(path)
+        var trackPath = String(path)
         if (loadProc.running) {
-            loadProc.pendingPath = String(path)
+            loadProc.pendingPath = trackPath
             return
         }
-        startLoad(path)
+        startLoad(trackPath)
     }
 
     function playTrackAt(index) {
@@ -786,6 +921,7 @@ Item {
         if (!path)
             return
         selectedTrackIndex = index
+        playerScreen = "nowPlaying"
         playPath(path)
     }
 
@@ -801,6 +937,76 @@ Item {
             }
             refreshStatus()
         }, cmdProc)
+    }
+
+    function runFavoriteQuery(args, onDone) {
+        if (favoriteProc.running) {
+            Qt.callLater(function() { runFavoriteQuery(args, onDone) })
+            return
+        }
+        favoriteProc.command = ["bash", musicScript].concat(args || [])
+        favoriteProc._onDone = onDone || null
+        favoriteProc.running = true
+    }
+
+    function toggleTrackFavorite(path) {
+        var trackPath = String(path || "")
+        if (!trackPath)
+            return
+        var applyFavorite = function(text) {
+            try {
+                var result = JSON.parse(String(text || "{}"))
+                var liked = !!result.liked
+                var i, entry, nextTracks = [], nextBrowse = []
+                for (i = 0; i < tracks.length; i++) {
+                    entry = tracks[i]
+                    if (entry.path === trackPath)
+                        nextTracks.push(Object.assign({}, entry, { liked: liked }))
+                    else
+                        nextTracks.push(entry)
+                }
+                tracks = nextTracks
+                for (i = 0; i < browseEntries.length; i++) {
+                    entry = browseEntries[i]
+                    if (entry.type === "track" && entry.path === trackPath)
+                        nextBrowse.push(Object.assign({}, entry, { liked: liked }))
+                    else
+                        nextBrowse.push(entry)
+                }
+                browseEntries = nextBrowse
+                if (player.path === trackPath) {
+                    var p = Object.assign({}, player)
+                    p.liked = liked
+                    player = p
+                }
+                if (!liked && String(root.selectedPlaylist).endsWith("-fav"))
+                    root.loadPlaylistTracks(root.selectedPlaylist)
+            } catch (e) {
+            }
+        }
+        var optimisticLiked = true
+        var j, t
+        for (j = 0; j < tracks.length; j++) {
+            if (tracks[j].path === trackPath) {
+                optimisticLiked = !tracks[j].liked
+                break
+            }
+        }
+        if (j >= tracks.length) {
+            for (j = 0; j < browseEntries.length; j++) {
+                t = browseEntries[j]
+                if (t.type === "track" && t.path === trackPath) {
+                    optimisticLiked = !t.liked
+                    break
+                }
+            }
+        }
+        applyFavorite(JSON.stringify({ liked: optimisticLiked }))
+        runFavoriteQuery(["favorite", "toggle", trackPath, "--json"], applyFavorite)
+    }
+
+    function toggleBrowseFavorite(path) {
+        root.toggleTrackFavorite(path)
     }
 
     Process {
@@ -892,6 +1098,17 @@ Item {
     }
 
     Process {
+        id: favoriteProc
+        property var _onDone: null
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (favoriteProc._onDone)
+                    favoriteProc._onDone(text)
+            }
+        }
+    }
+
+    Process {
         id: playlistQueryProc
         property var _onDone: null
         stdout: StdioCollector {
@@ -905,6 +1122,19 @@ Item {
 
     ListModel {
         id: playlistTabModel
+    }
+
+    Process {
+        id: playerQueryProc
+        property var _onDone: null
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (playerQueryProc._onDone)
+                    playerQueryProc._onDone(text)
+                playerQueryProc._onDone = null
+            }
+        }
+        onExited: playerQueryProc._onDone = null
     }
 
     Process {
@@ -939,7 +1169,7 @@ Item {
         id: saveStateTimer
         interval: 10000
         repeat: true
-        onTriggered: root.runMusic(["player", "save"], null, cmdProc)
+        onTriggered: root.runPlayer(["save"], null, cmdProc)
     }
 
     Timer {
@@ -1006,6 +1236,11 @@ Item {
                     onActivated: root.openBrowse()
                 }
                 IconTab {
+                    icon: "󰎄"
+                    active: root.playerScreen === "playlistLibrary"
+                    onActivated: root.openPlaylistLibrary()
+                }
+                IconTab {
                     icon: "󰠮"
                     active: root.playerScreen === "library"
                     onActivated: root.playerScreen = "library"
@@ -1058,7 +1293,7 @@ Item {
                                 spacing: 6
 
                                 Text {
-                                    text: name
+                                    text: root.playlistTabLabel(name)
                                     color: root.playerScreen === "playlists" && root.selectedPlaylist === name ? Theme.accent : Theme.foreground
                                     font.family: Theme.fontFamily
                                     font.pixelSize: root.hintFont
@@ -1169,7 +1404,7 @@ Item {
                                     Text {
                                         Layout.fillWidth: true
                                         visible: root.selectedPlaylist !== ""
-                                        text: "From playlist: " + root.selectedPlaylist
+                                        text: "From playlist: " + root.playlistTabLabel(root.selectedPlaylist)
                                         color: Theme.foreground
                                         font.family: Theme.fontFamily
                                         font.pixelSize: root.libraryFont
@@ -1217,7 +1452,9 @@ Item {
                                             return
                                         }
 
-                                        var barCount = Math.max(96, Math.min(280, Math.floor(width / 2)))
+                                        var barW = 4
+                                        var gap = 1
+                                        var barCount = Math.max(48, Math.floor(width / barW))
                                         var peaks = []
                                         if (n <= barCount) {
                                             barCount = n
@@ -1228,40 +1465,22 @@ Item {
                                             for (var b = 0; b < barCount; b++) {
                                                 var start = Math.floor(b * step)
                                                 var end = Math.floor((b + 1) * step)
-                                                var sum = 0
-                                                var cnt = 0
-                                                for (var j = start; j < end && j < n; j++) {
-                                                    sum += Number(samples[j]) || 0
-                                                    cnt++
-                                                }
-                                                peaks.push(cnt ? (sum / cnt) : 0)
+                                                var peak = 0
+                                                for (var j = start; j < end && j < n; j++)
+                                                    peak = Math.max(peak, Number(samples[j]) || 0)
+                                                peaks.push(peak)
                                             }
                                         }
 
-                                        var barW = width / barCount
-                                        var gap = Math.min(2, Math.max(0.5, barW * 0.22))
-                                        var maxAmp = height * 0.42
+                                        var maxAmp = height * 0.48
                                         var playX = width * prog
-
                                         var refPeak = 0
-                                        var sortedPeaks = []
-                                        for (var pk = 0; pk < barCount; pk++) {
+                                        for (var pk = 0; pk < barCount; pk++)
                                             refPeak = Math.max(refPeak, peaks[pk])
-                                            sortedPeaks.push(peaks[pk])
-                                        }
-                                        sortedPeaks.sort(function(a, b) { return a - b })
-                                        var normPeak = sortedPeaks[Math.min(
-                                            sortedPeaks.length - 1,
-                                            Math.floor(sortedPeaks.length * 0.9)
-                                        )] || refPeak
-                                        normPeak = Math.max(normPeak, 12)
+                                        refPeak = Math.max(1, refPeak * 1.05)
 
                                         for (var i = 0; i < barCount; i++) {
-                                            var norm = peaks[i] / normPeak
-                                            if (norm > 1)
-                                                norm = 1
-                                            norm = Math.pow(norm, 0.52)
-                                            var amp = Math.max(2, norm * maxAmp)
+                                            var amp = Math.max(2, (peaks[i] / refPeak) * maxAmp)
                                             var x = i * barW + gap * 0.5
                                             var w = Math.max(1, barW - gap)
                                             var played = (x + w * 0.5) <= playX
@@ -1381,6 +1600,7 @@ Item {
 
                 SectionPanel {
                     label: root.libraryJobBusy ? root.libraryJobActiveLabel : (root.jobLog !== "" ? "log" : "Library log")
+                    labelFontSize: root.sectionLabelFont
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     fillHeight: true
@@ -1439,20 +1659,33 @@ Item {
                         }
 
                         LibraryBtn {
+                            icon: "󰲹"
+                            label: "build library"
+                            dimmed: root.libraryJobBusy
+                            spinning: root.buildBusy
+                            onActivated: if (!root.libraryJobBusy) root.runJob(["build"], "build library")
+                        }
+                        LibraryBtn {
+                            icon: "󰖟"
+                            label: "warm cache"
+                            dimmed: root.libraryJobBusy
+                            onActivated: if (!root.libraryJobBusy) root.runJob(["warm"], "warm cache")
+                        }
+                        LibraryBtn {
                             icon: "󰕧"
                             label: "sync soundcloud"
-                            dimmed: root.libraryJobBusy
+                            dimmed: true
                             onActivated: if (!root.libraryJobBusy) root.runJob(["soundcloud"], "sync soundcloud")
                         }
                         LibraryBtn {
                             icon: "󰋋"
                             label: "import incoming"
-                            dimmed: root.libraryJobBusy
+                            dimmed: true
                             onActivated: if (!root.libraryJobBusy) root.runJob(["import"], "import incoming")
                         }
                         LibraryBtn {
-                            icon: "󰲹"
-                            label: "rebuild library"
+                            icon: "󰑐"
+                            label: "rebuild tags"
                             dimmed: root.libraryJobBusy
                             spinning: root.rebuildBusy
                             onActivated: if (!root.libraryJobBusy) root.runJob(["rebuild"], "rebuild library")
@@ -1479,24 +1712,25 @@ Item {
 
                         RowLayout {
                             Layout.fillWidth: true
+                            Layout.bottomMargin: 10
                             spacing: 6
 
                             Text {
                                 visible: root.browsePath !== ""
-                                text: "󰁍"
+                                text: "󰋜"
                                 color: Theme.foreground
                                 font.family: Theme.fontFamily
-                                font.pixelSize: root.pathFont
-                                opacity: browseBackMouse.containsMouse ? 0.95 : 0.62
+                                font.pixelSize: root.sectionLabelFont
+                                opacity: browseHomeMouse.containsMouse ? 0.95 : 0.62
                                 Layout.alignment: Qt.AlignVCenter
 
                                 MouseArea {
-                                    id: browseBackMouse
+                                    id: browseHomeMouse
                                     anchors.fill: parent
                                     anchors.margins: -6
                                     hoverEnabled: true
                                     cursorShape: Qt.PointingHandCursor
-                                    onClicked: root.browseUp()
+                                    onClicked: root.browseHome()
                                 }
                             }
 
@@ -1522,7 +1756,7 @@ Item {
                                                 text: " / "
                                                 color: Theme.foreground
                                                 font.family: Theme.fontFamily
-                                                font.pixelSize: root.pathFont
+                                                font.pixelSize: root.sectionLabelFont
                                                 opacity: 0.28
                                             }
 
@@ -1578,7 +1812,7 @@ Item {
                                         : "transparent")
                                     : (root.isTrackPlaying(modelData.path)
                                         ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.14)
-                                        : (browseMouse.containsMouse
+                                        : (browseTrackRow.hovered
                                             ? Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.05)
                                             : "transparent"))
 
@@ -1686,15 +1920,18 @@ Item {
                                     }
                                 }
 
-                                TrackListRow {
+                                BrowseTrackRow {
+                                    id: browseTrackRow
                                     anchors.fill: parent
                                     visible: modelData.type === "track"
                                     rowWidth: browseList.width
                                     track: modelData
-                                    number: root.browseTrackNumber(index)
                                     selected: root.isTrackSelected(modelData.path)
+                                    genreLabel: root.browseGenreLabel(modelData)
                                     onPressed: root.selectBrowseTrack(modelData)
-                                    onActivated: root.playBrowseTrack(modelData)
+                                    onPlayRequested: root.playBrowseTrack(modelData)
+                                    onGenreClicked: root.cycleBrowseGenre(modelData)
+                                    onLikeToggled: root.toggleBrowseFavorite(modelData.path)
                                 }
                             }
                         }
@@ -1703,7 +1940,118 @@ Item {
             }
 
             SectionPanel {
-                label: root.selectedPlaylist !== "" ? root.selectedPlaylist : "Playlist"
+                label: "Playlists"
+                labelFontSize: root.sectionLabelFont
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                fillHeight: true
+
+                ListView {
+                    id: playlistLibraryList
+                    anchors.fill: parent
+                    clip: true
+                    spacing: 2
+                    model: root.libraryPlaylists
+
+                    Text {
+                        anchors.centerIn: parent
+                        visible: root.playlistsLoading && root.libraryPlaylists.length === 0
+                        text: "loading…"
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.hintFont
+                        opacity: 0.45
+                    }
+
+                    Text {
+                        anchors.centerIn: parent
+                        visible: !root.playlistsLoading && root.libraryPlaylists.length === 0
+                        text: "no playlists"
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.hintFont
+                        opacity: 0.45
+                    }
+
+                    delegate: Rectangle {
+                        required property var modelData
+                        required property int index
+                        readonly property int pinReserve: 30
+                        width: playlistLibraryList.width
+                        height: 40
+                        radius: 4
+                        color: genrePlaylistMouse.containsMouse
+                            ? Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.05)
+                            : "transparent"
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: 10
+                            anchors.rightMargin: 10
+                            spacing: 8
+
+                            Item {
+                                Layout.preferredWidth: 22
+                                Layout.preferredHeight: 22
+                                Layout.alignment: Qt.AlignVCenter
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: modelData.starred ? "󰓎" : "󰓄"
+                                    color: modelData.starred ? Theme.accent : Theme.foreground
+                                    opacity: modelData.starred ? 1 : (playlistPinMouse.containsMouse ? 0.65 : 0.42)
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: root.bodyFont
+                                }
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: root.playlistTabLabel(modelData.name || "")
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.bodyFont
+                                elide: Text.ElideRight
+                            }
+
+                            Text {
+                                text: String(modelData.count || 0)
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.libraryFont
+                                opacity: 0.45
+                            }
+                        }
+
+                        MouseArea {
+                            id: genrePlaylistMouse
+                            anchors.fill: parent
+                            anchors.leftMargin: pinReserve
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.selectGenrePlaylist(modelData.name)
+                        }
+
+                        MouseArea {
+                            id: playlistPinMouse
+                            anchors.left: parent.left
+                            anchors.leftMargin: 10
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 26
+                            height: 26
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: function(mouse) {
+                                mouse.accepted = true
+                                root.togglePlaylistStar(modelData.name)
+                            }
+                        }
+                    }
+                }
+            }
+
+            SectionPanel {
+                label: root.selectedPlaylist !== "" ? root.playlistTabLabel(root.selectedPlaylist) : "Playlist"
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 fillHeight: true
@@ -1766,8 +2114,10 @@ Item {
                             track: modelData
                             number: index + 1
                             selected: root.isTrackSelected(modelData.path)
+                            showLike: true
                             onPressed: root.selectedTrackIndex = index
                             onActivated: root.playTrackAt(index)
+                            onLikeToggled: root.toggleTrackFavorite(modelData.path)
                         }
                         }
                 }
@@ -1790,27 +2140,45 @@ Item {
     component MetaChip: Rectangle {
         property string label: ""
         property bool accent: false
+        property bool clickable: false
+        property int maxLabelWidth: 0
+        signal activated()
 
         radius: 10
         color: accent
-            ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.14)
-            : Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.06)
+            ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, (clickable && chipMouse.containsMouse) ? 0.22 : 0.14)
+            : Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, (clickable && chipMouse.containsMouse) ? 0.1 : 0.06)
         border.color: accent
             ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.38)
             : Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.14)
         border.width: 1
-        implicitWidth: chipText.implicitWidth + 16
+        implicitWidth: (maxLabelWidth > 0 ? Math.min(chipText.implicitWidth, maxLabelWidth) : chipText.implicitWidth) + 16
         implicitHeight: chipText.implicitHeight + 6
 
         Text {
             id: chipText
             anchors.centerIn: parent
+            width: parent.maxLabelWidth > 0 ? parent.maxLabelWidth : implicitWidth
             text: parent.label
             color: parent.accent ? Theme.accent : Theme.foreground
             font.family: Theme.fontFamily
             font.pixelSize: root.libraryFont
             font.bold: parent.accent && Theme.fontBold
             opacity: parent.accent ? 0.95 : 0.68
+            elide: parent.maxLabelWidth > 0 ? Text.ElideRight : Text.ElideNone
+            horizontalAlignment: Text.AlignHCenter
+        }
+
+        MouseArea {
+            id: chipMouse
+            anchors.fill: parent
+            visible: parent.clickable
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: function(mouse) {
+                mouse.accepted = true
+                parent.activated()
+            }
         }
     }
 
@@ -1888,7 +2256,7 @@ Item {
 
                 TransportBtn {
                     icon: "󰒮"
-                    onActivated: root.runMusic(["player", "prev"], root.refreshStatus, cmdProc)
+                    onActivated: root.runPlayer(["prev"], root.refreshStatus, cmdProc)
                 }
                 TransportBtn {
                     icon: root.playerPlaying ? "󰏤" : "󰐊"
@@ -1897,13 +2265,13 @@ Item {
                 }
                 TransportBtn {
                     icon: "󰒭"
-                    onActivated: root.runMusic(["player", "next"], root.refreshStatus, cmdProc)
+                    onActivated: root.runPlayer(["next"], root.refreshStatus, cmdProc)
                 }
                 TransportBtn {
                     icon: "󰒟"
                     smallGlyph: true
                     dimmed: !root.player.shuffle
-                    onActivated: root.runMusic(["player", "shuffle", "toggle"], root.refreshStatus, cmdProc)
+                    onActivated: root.runPlayer(["shuffle", "toggle"], root.refreshStatus, cmdProc)
                 }
 
                 TransportBtn {
@@ -2088,14 +2456,211 @@ Item {
         }
     }
 
+    component BrowseTrackRow: Rectangle {
+        id: browseRow
+        property var track: ({})
+        property bool selected: false
+        property int rowWidth: 0
+        property string genreLabel: ""
+        signal pressed()
+        signal playRequested()
+        signal genreClicked()
+        signal likeToggled()
+
+        readonly property bool trackLiked: !!track.liked
+        readonly property int genreReserve: 108
+        readonly property int likeReserve: 30
+        readonly property bool hovered: browseRowMouse.containsMouse
+            || browsePlayMouse.containsMouse
+            || browseLikeMouse.containsMouse
+            || (!browseRow.selected && browseArtSelectMouse.containsMouse)
+
+        width: rowWidth
+        height: 40
+        radius: 4
+        color: selected
+            ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.14)
+            : (browseRowMouse.containsMouse
+                ? Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.05)
+                : "transparent")
+
+        RowLayout {
+            z: 0
+            anchors.fill: parent
+            anchors.leftMargin: 8
+            anchors.rightMargin: 8
+            spacing: 8
+
+            Item {
+                Layout.preferredWidth: 36
+                Layout.preferredHeight: 36
+
+                Rectangle {
+                    anchors.fill: parent
+                    radius: 4
+                    clip: true
+                    color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.08)
+                    visible: !browseArt.visible
+                }
+
+                Text {
+                    anchors.centerIn: parent
+                    visible: !browseArt.visible
+                    text: "󰎈"
+                    color: Theme.accent
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 14
+                    opacity: 0.35
+                }
+
+                Image {
+                    id: browseArt
+                    anchors.fill: parent
+                    visible: status === Image.Ready
+                    source: (browseRow.track.art || "") !== "" ? root.artUrl(browseRow.track.art) : ""
+                    fillMode: Image.PreserveAspectCrop
+                    smooth: true
+                    asynchronous: true
+                    layer.enabled: true
+                    layer.smooth: true
+                }
+
+                Rectangle {
+                    anchors.fill: parent
+                    radius: 4
+                    visible: browseRow.selected
+                    color: Qt.rgba(Theme.background.r, Theme.background.g, Theme.background.b, 0.48)
+                }
+
+                Text {
+                    anchors.centerIn: parent
+                    visible: browseRow.selected
+                    text: "󰐊"
+                    color: Theme.accent
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 18
+                    opacity: browsePlayMouse.containsMouse ? 1 : 0.92
+                }
+
+                MouseArea {
+                    id: browsePlayMouse
+                    z: 3
+                    anchors.fill: parent
+                    visible: browseRow.selected
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: function(mouse) {
+                        mouse.accepted = true
+                        browseRow.playRequested()
+                    }
+                }
+
+                MouseArea {
+                    id: browseArtSelectMouse
+                    z: 2
+                    anchors.fill: parent
+                    visible: !browseRow.selected
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: browseRow.pressed()
+                }
+            }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.minimumWidth: 48
+                spacing: 0
+
+                Text {
+                    Layout.fillWidth: true
+                    text: browseRow.track.title || ""
+                    color: Theme.accent
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.hintFont
+                    elide: Text.ElideRight
+                    opacity: browseRow.selected ? 1 : 0.9
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    visible: String(browseRow.track.artist || "").trim() !== ""
+                    text: browseRow.track.artist || ""
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.libraryFont
+                    elide: Text.ElideRight
+                    opacity: 0.55
+                }
+            }
+
+            MetaChip {
+                visible: browseRow.genreLabel !== ""
+                label: browseRow.genreLabel
+                accent: true
+                clickable: true
+                maxLabelWidth: 96
+                Layout.alignment: Qt.AlignVCenter
+                onActivated: browseRow.genreClicked()
+            }
+
+            Item {
+                Layout.preferredWidth: 22
+                Layout.preferredHeight: 22
+                Layout.alignment: Qt.AlignVCenter
+
+                Text {
+                    anchors.centerIn: parent
+                    text: "󰋑"
+                    color: browseRow.trackLiked ? Theme.urgent : Theme.foreground
+                    opacity: browseRow.trackLiked ? 1 : (browseLikeMouse.containsMouse ? 0.55 : 0.28)
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.bodyFont
+                }
+
+                MouseArea {
+                    id: browseLikeMouse
+                    anchors.fill: parent
+                    anchors.margins: -4
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: function(mouse) {
+                        mouse.accepted = true
+                        browseRow.likeToggled()
+                    }
+                }
+            }
+        }
+
+        MouseArea {
+            id: browseRowMouse
+            z: 1
+            anchors.fill: parent
+            anchors.leftMargin: 44
+            anchors.rightMargin: browseRow.genreReserve + browseRow.likeReserve
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: browseRow.pressed()
+        }
+    }
+
     component TrackListRow: Rectangle {
         id: trackRow
         property var track: ({})
         property int number: 0
         property bool selected: false
+        property bool showMeta: false
+        property bool showLike: false
+        property bool capturePress: true
         property int rowWidth: 0
         signal pressed()
         signal activated()
+        signal likeToggled()
+
+        readonly property string trackGenre: String(track.genre || "").trim()
+        readonly property bool trackLiked: !!track.liked
+        readonly property bool likeEnabled: showMeta || showLike
+        readonly property int likeReserve: showMeta ? 136 : (showLike ? 36 : 0)
+        readonly property int artReserve: likeEnabled ? 44 : 0
 
         width: rowWidth
         height: 40
@@ -2107,6 +2672,7 @@ Item {
                 : "transparent")
 
         RowLayout {
+            z: 0
             anchors.fill: parent
             anchors.leftMargin: 8
             anchors.rightMargin: 8
@@ -2131,7 +2697,7 @@ Item {
                     color: Theme.accent
                     font.family: Theme.fontFamily
                     font.pixelSize: 14
-                    opacity: 0.35
+                    opacity: trackArtMouse.containsMouse ? 0.55 : 0.35
                 }
 
                 Image {
@@ -2183,6 +2749,7 @@ Item {
 
             Text {
                 Layout.fillWidth: true
+                Layout.minimumWidth: 48
                 text: trackRow.track.title || ""
                 color: Theme.accent
                 font.family: Theme.fontFamily
@@ -2190,15 +2757,83 @@ Item {
                 elide: Text.ElideRight
                 opacity: trackRow.selected ? 1 : 0.9
             }
+
+            MetaChip {
+                visible: trackRow.showMeta && trackRow.trackGenre !== ""
+                label: trackRow.trackGenre
+                accent: true
+                maxLabelWidth: Math.min(108, trackRow.rowWidth * 0.18)
+                Layout.alignment: Qt.AlignVCenter
+            }
+
+            Item {
+                visible: trackRow.likeEnabled
+                Layout.preferredWidth: 22
+                Layout.preferredHeight: 22
+                Layout.alignment: Qt.AlignVCenter
+
+                Text {
+                    anchors.centerIn: parent
+                    text: "󰋑"
+                    color: trackRow.trackLiked ? Theme.urgent : Theme.foreground
+                    opacity: trackRow.trackLiked ? 1 : (trackLikeMouse.containsMouse ? 0.55 : 0.28)
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.bodyFont
+                }
+            }
         }
 
         MouseArea {
             id: trackRowMouse
+            z: 1
+            visible: trackRow.capturePress
             anchors.fill: parent
+            anchors.leftMargin: trackRow.artReserve
+            anchors.rightMargin: trackRow.likeReserve
             hoverEnabled: true
+            preventStealing: true
             cursorShape: Qt.PointingHandCursor
             onClicked: trackRow.pressed()
-            onDoubleClicked: trackRow.activated()
+            onDoubleClicked: function(mouse) {
+                mouse.accepted = true
+                trackRow.activated()
+            }
+        }
+
+        MouseArea {
+            id: trackArtMouse
+            z: 2
+            visible: trackRow.likeEnabled
+            anchors.left: parent.left
+            anchors.leftMargin: 8
+            anchors.verticalCenter: parent.verticalCenter
+            width: 36
+            height: 36
+            hoverEnabled: true
+            preventStealing: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: function(mouse) {
+                mouse.accepted = true
+                trackRow.likeToggled()
+            }
+        }
+
+        MouseArea {
+            id: trackLikeMouse
+            z: 2
+            visible: trackRow.likeEnabled
+            anchors.right: parent.right
+            anchors.rightMargin: 8
+            anchors.verticalCenter: parent.verticalCenter
+            width: 30
+            height: 30
+            hoverEnabled: true
+            preventStealing: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: function(mouse) {
+                mouse.accepted = true
+                trackRow.likeToggled()
+            }
         }
     }
 
@@ -2217,7 +2852,7 @@ Item {
             text: crumb.label
             color: crumb.current ? Theme.accent : Theme.foreground
             font.family: Theme.fontFamily
-            font.pixelSize: root.pathFont
+            font.pixelSize: root.sectionLabelFont
             font.bold: crumb.current && Theme.fontBold
             opacity: crumb.current ? 0.95 : (crumbMouse.containsMouse ? 0.92 : 0.62)
         }

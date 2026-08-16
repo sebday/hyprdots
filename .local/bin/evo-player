@@ -1,0 +1,552 @@
+#!/bin/bash
+# mpv playback backend for evo.player panel.
+
+set -euo pipefail
+
+EVOSHELL_BIN="${EVOSHELL_BIN:-$HOME/.local/bin}"
+# shellcheck source=evo-music-lib.sh
+source "${EVOSHELL_BIN}/evo-music-lib.sh"
+
+usage() {
+  cat >&2 <<'EOF'
+usage:
+  evo-player start
+  evo-player load <path>
+  evo-player play [playlist|m3u]
+  evo-player toggle|next|prev|seek <sec>|shuffle [toggle|on|off]
+  evo-player volume set <0-100>|volume <delta>
+  evo-player save|open|restore|resume|close|stop|status [--json]
+EOF
+  exit 1
+}
+
+mpv_ipc() {
+  local payload="$1"
+  if [[ ! -S "$MPV_SOCKET" ]]; then
+    return 1
+  fi
+  python3 - "$MPV_SOCKET" "$payload" <<'PY'
+import json, socket, sys
+sock_path, payload = sys.argv[1], sys.argv[2]
+with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+    s.connect(sock_path)
+    s.sendall((payload + "\n").encode())
+    data = s.recv(65536)
+    if data:
+        sys.stdout.write(data.decode("utf-8", "replace"))
+PY
+}
+
+mpv_prop() {
+  local name="$1"
+  local raw
+  raw="$(mpv_ipc "{\"command\":[\"get_property\",\"${name}\"]}")" || return 1
+  python3 -c 'import json,sys
+data = json.load(sys.stdin).get("data", "")
+if isinstance(data, bool):
+    print("true" if data else "false")
+else:
+    print(data)' <<<"$raw" 2>/dev/null
+}
+
+mpv_wait_loaded() {
+  local want="${1:-}"
+  local i=0 path idle
+  while [[ $i -lt 80 ]]; do
+    path="$(mpv_prop path 2>/dev/null || true)"
+    idle="$(mpv_prop idle-active 2>/dev/null || true)"
+    if [[ -n "$want" && "$path" == "$want" && "$idle" != "true" ]]; then
+      return 0
+    fi
+    sleep 0.05
+    i=$((i + 1))
+  done
+  return 1
+}
+
+cmd_player_start() {
+  if mpv_running; then
+    return 0
+  fi
+  local mpris_script=""
+  if [[ -f /usr/share/mpv-mpris/mpris.so ]]; then
+    mpris_script="--script=/usr/share/mpv-mpris/mpris.so"
+  fi
+  nohup mpv --no-video --idle=yes --keep-open=yes \
+    --input-ipc-server="$MPV_SOCKET" \
+    $mpris_script \
+    >/dev/null 2>&1 &
+  local i=0
+  while [[ $i -lt 50 ]]; do
+    [[ -S "$MPV_SOCKET" ]] && return 0
+    sleep 0.05
+    i=$((i + 1))
+  done
+  echo "evo-player: mpv socket did not start" >&2
+  return 1
+}
+
+player_save_state() {
+  local path="${1:-}"
+  local genre="${2:-}"
+  local playlist="${3:-}"
+  local position="${4:-}"
+  ensure_dirs
+  if [[ -z "$path" ]]; then
+    if mpv_running; then
+      path="$(mpv_prop path)" || path=""
+      position="$(mpv_prop time-pos)" || position="0"
+    else
+      [[ -f "$PLAYER_STATE" ]] || printf '{}\n' >"$PLAYER_STATE"
+      return 0
+    fi
+  fi
+  [[ -f "$PLAYER_STATE" ]] || printf '{}\n' >"$PLAYER_STATE"
+  if [[ -z "$genre" && -n "$path" ]]; then
+    genre="$(genre_from_path "$path")"
+  fi
+  if [[ -z "$playlist" ]]; then
+    playlist="$(jq -r '.playlist // ""' "$PLAYER_STATE" 2>/dev/null || true)"
+  fi
+  jq -n \
+    --arg path "${path:-}" \
+    --arg genre "${genre:-}" \
+    --arg playlist "${playlist:-}" \
+    --argjson position "${position:-0}" \
+    '{path:$path,genre:$genre,playlist:$playlist,position:$position}' >"$PLAYER_STATE"
+}
+
+cmd_player_save() {
+  player_save_state
+}
+
+cmd_player_stop() {
+  cmd_player_close
+}
+
+cmd_player_close() {
+  ensure_dirs
+  if mpv_running; then
+    player_save_state
+    mpv_ipc '{"command":["quit"]}' >/dev/null 2>&1 || true
+    local i=0
+    while [[ $i -lt 40 ]]; do
+      pgrep -f "input-ipc-server=${MPV_SOCKET}" >/dev/null 2>&1 || return 0
+      sleep 0.05
+      i=$((i + 1))
+    done
+    pkill -f "input-ipc-server=${MPV_SOCKET}" >/dev/null 2>&1 || true
+    return 0
+  fi
+  [[ -f "$PLAYER_STATE" ]] || player_save_state
+}
+
+cmd_player_open() {
+  local json="${1:-}"
+  ensure_dirs
+  if mpv_running; then
+    local path
+    path="$(mpv_prop path 2>/dev/null || true)"
+    if [[ -n "$path" && -f "$path" ]]; then
+      player_save_state
+      if [[ "$json" == --json ]]; then
+        cmd_player_status --json
+      else
+        printf '%s\n' "$path"
+      fi
+      return 0
+    fi
+  fi
+  if [[ "$json" == --json ]]; then
+    player_saved_status_json
+  elif [[ -f "$PLAYER_STATE" ]]; then
+    jq -r '.path // ""' "$PLAYER_STATE"
+  fi
+}
+
+cmd_player_restore() {
+  local json="${1:-}"
+  ensure_dirs
+  [[ -f "$PLAYER_STATE" ]] || {
+    [[ "$json" == --json ]] && player_saved_status_json
+    return 0
+  }
+  local path pos genre playlist
+  path="$(jq -r '.path // ""' "$PLAYER_STATE" 2>/dev/null || true)"
+  pos="$(jq -r '.position // 0' "$PLAYER_STATE" 2>/dev/null || true)"
+  genre="$(jq -r '.genre // ""' "$PLAYER_STATE" 2>/dev/null || true)"
+  playlist="$(jq -r '.playlist // ""' "$PLAYER_STATE" 2>/dev/null || true)"
+  if [[ -z "$path" || ! -f "$path" ]]; then
+    [[ "$json" == --json ]] && player_saved_status_json
+    return 0
+  fi
+  cmd_player_start
+  local escaped="${path//\\/\\\\}" current=""
+  current="$(mpv_prop path 2>/dev/null || true)"
+  if [[ "$current" != "$path" ]]; then
+    mpv_ipc "{\"command\":[\"loadfile\",\"${escaped}\",\"replace\"]}" >/dev/null
+    mpv_wait_loaded "$path" || true
+  fi
+  if [[ -n "$pos" && "$pos" != "0" && "$pos" != "null" ]]; then
+    mpv_ipc "{\"command\":[\"seek\",${pos},\"absolute\"]}" >/dev/null
+  fi
+  mpv_ipc '{"command":["set_property","pause",true]}' >/dev/null
+  player_save_state "$path" "$genre" "$playlist" "$pos"
+  waveform_ensure_async "$path"
+  if [[ "$json" == --json ]]; then
+    cmd_player_status --json
+  else
+    printf '%s\n' "$path"
+  fi
+}
+
+cmd_player_resume() {
+  local json="${1:-}"
+  ensure_dirs
+  [[ -f "$PLAYER_STATE" ]] || return 0
+  local path pos genre playlist
+  path="$(jq -r '.path // ""' "$PLAYER_STATE" 2>/dev/null || true)"
+  pos="$(jq -r '.position // 0' "$PLAYER_STATE" 2>/dev/null || true)"
+  genre="$(jq -r '.genre // ""' "$PLAYER_STATE" 2>/dev/null || true)"
+  playlist="$(jq -r '.playlist // ""' "$PLAYER_STATE" 2>/dev/null || true)"
+  [[ -f "$path" ]] || return 0
+  cmd_player_start
+  local escaped="${path//\\/\\\\}"
+  mpv_ipc "{\"command\":[\"loadfile\",\"${escaped}\",\"replace\"]}" >/dev/null
+  if [[ -n "$pos" && "$pos" != "0" && "$pos" != "null" ]]; then
+    mpv_ipc "{\"command\":[\"seek\",${pos},\"absolute\"]}" >/dev/null
+  fi
+  mpv_ipc '{"command":["set_property","pause",false]}' >/dev/null
+  player_save_state "$path" "$genre" "$playlist" "$pos"
+  if [[ "$json" == --json ]]; then
+    jq -n --arg path "$path" --arg genre "$genre" --arg playlist "$playlist" \
+      '{path:$path,genre:$genre,playlist:$playlist}'
+  else
+    printf '%s\n' "$path"
+  fi
+}
+
+cmd_player_load() {
+  local path="$1"
+  [[ -f "$path" ]] || { echo "evo-player: not a file: $path" >&2; return 1; }
+  cmd_player_start
+  local escaped="${path//\\/\\\\}"
+  mpv_ipc "{\"command\":[\"loadfile\",\"${escaped}\",\"replace\"]}" >/dev/null
+  mpv_ipc '{"command":["set_property","pause",false]}' >/dev/null
+  player_save_state "$path" "$(genre_from_path "$path")" "" "0"
+  waveform_ensure_async "$path"
+}
+
+cmd_player_play() {
+  local target="${1:-all}"
+  cmd_player_start
+  local list=""
+  if [[ -f "$target" ]]; then
+    list="$target"
+  elif [[ -f "${PLAYLIST_DIR}/${target}.m3u" ]]; then
+    list="${PLAYLIST_DIR}/${target}.m3u"
+  elif [[ -f "${PLAYLIST_DIR}/all.m3u" ]]; then
+    list="${PLAYLIST_DIR}/all.m3u"
+  else
+    echo "evo-player: no playlist for: $target" >&2
+    return 1
+  fi
+  mpv_ipc '{"command":["playlist-clear"]}' >/dev/null || true
+  mpv_ipc "{\"command\":[\"loadlist\",\"${list//\\/\\\\}\",\"replace\"]}" >/dev/null
+  mpv_ipc '{"command":["set_property","pause",false]}' >/dev/null
+  jq -n --arg playlist "$target" --arg list "$list" --arg genre "$target" \
+    '{playlist:$playlist,list:$list,genre:$genre,path:"",position:0}' >"$PLAYER_STATE"
+}
+
+cmd_player_toggle() {
+  if ! mpv_running; then
+    cmd_player_resume
+    return $?
+  fi
+  local paused
+  paused="$(mpv_prop pause)" || return 1
+  if [[ "$paused" == "true" ]]; then
+    mpv_ipc '{"command":["set_property","pause",false]}' >/dev/null
+  else
+    mpv_ipc '{"command":["set_property","pause",true]}' >/dev/null
+  fi
+}
+
+cmd_player_next() {
+  cmd_player_start
+  mpv_ipc '{"command":["playlist-next","weak"]}' >/dev/null
+}
+
+cmd_player_prev() {
+  cmd_player_start
+  mpv_ipc '{"command":["playlist-prev","weak"]}' >/dev/null
+}
+
+cmd_player_seek() {
+  local sec="$1"
+  cmd_player_start
+  mpv_ipc "{\"command\":[\"seek\",${sec},\"absolute\"]}" >/dev/null
+}
+
+cmd_player_shuffle() {
+  local mode="${1:-toggle}"
+  cmd_player_start
+  if [[ "$mode" == toggle ]]; then
+    local cur
+    cur="$(mpv_prop shuffle)" || cur="no"
+    if [[ "$cur" == "yes" || "$cur" == "true" ]]; then
+      mpv_ipc '{"command":["set_property","shuffle",false]}' >/dev/null
+    else
+      mpv_ipc '{"command":["set_property","shuffle",true]}' >/dev/null
+    fi
+  else
+    mpv_ipc "{\"command\":[\"set_property\",\"shuffle\",$([[ $mode == on ]] && echo true || echo false)]}" >/dev/null
+  fi
+}
+
+cmd_player_volume() {
+  local arg="${1:-0}"
+  local value="${2:-}"
+  cmd_player_start
+  if [[ "$arg" == set ]]; then
+    mpv_ipc "{\"command\":[\"set_property\",\"volume\",${value:-100}]}" >/dev/null
+  else
+    mpv_ipc "{\"command\":[\"add\",\"volume\",${arg}]}" >/dev/null
+  fi
+}
+
+format_time() {
+  local sec="${1%.*}"
+  sec="${sec:-0}"
+  local h m s
+  h=$((sec / 3600))
+  m=$(((sec % 3600) / 60))
+  s=$((sec % 60))
+  if [[ $h -gt 0 ]]; then
+    printf '%d:%02d:%02d' "$h" "$m" "$s"
+  else
+    printf '%d:%02d' "$m" "$s"
+  fi
+}
+
+mpv_running() {
+  [[ -S "$MPV_SOCKET" ]] && pgrep -f "input-ipc-server=${MPV_SOCKET}" >/dev/null 2>&1
+}
+
+ffprobe_duration() {
+  local path="$1"
+  ffprobe -v quiet -show_entries format=duration -of default=nw=1:nk=1 "$path" 2>/dev/null | head -1 || printf '0'
+}
+
+player_saved_status_json() {
+  ensure_dirs
+  local path="" pos="0" genre="" playlist=""
+  if [[ -f "$PLAYER_STATE" ]]; then
+    path="$(jq -r '.path // ""' "$PLAYER_STATE" 2>/dev/null || true)"
+    pos="$(jq -r '.position // 0' "$PLAYER_STATE" 2>/dev/null || true)"
+    genre="$(jq -r '.genre // ""' "$PLAYER_STATE" 2>/dev/null || true)"
+    playlist="$(jq -r '.playlist // ""' "$PLAYER_STATE" 2>/dev/null || true)"
+  fi
+  local title="" artist="" album="" tag_genre="" year="" dur="0" art="" wf="" liked="false"
+  if [[ -n "$path" && -f "$path" ]]; then
+    title="$(ffprobe_meta "$path" title)"
+    artist="$(ffprobe_meta "$path" artist)"
+    tag_genre="$(ffprobe_meta "$path" genre)"
+    album="$(ffprobe_meta "$path" album)"
+    year="$(ffprobe_year "$path")"
+    [[ -z "$title" ]] && title="$(basename "$path")"
+    title="${title%.*}"
+    dur="$(ffprobe_duration "$path")"
+    art="$(art_path_cached "$path")"
+    wf="$(waveform_cache_path "$path")"
+    waveform_ensure_async "$path"
+    is_liked "$path" && liked="true"
+  else
+    path=""
+    pos="0"
+    dur="0"
+  fi
+  [[ -z "$genre" && -n "$tag_genre" ]] && genre="$tag_genre"
+  jq -n \
+    --arg state "stopped" \
+    --arg path "$path" \
+    --arg title "$title" \
+    --arg artist "$artist" \
+    --arg genre "$genre" \
+    --arg album "$album" \
+    --arg year "$year" \
+    --argjson position "${pos:-0}" \
+    --argjson duration "${dur:-0}" \
+    --argjson volume 100 \
+    --arg art "$art" \
+    --arg waveform "$wf" \
+    --arg playlist "$playlist" \
+    --argjson shuffle false \
+    --argjson liked "$([[ $liked == true ]] && echo true || echo false)" \
+    --arg position_label "$(format_time "${pos:-0}")" \
+    --arg duration_label "$(format_time "${dur:-0}")" \
+    '{state:$state,path:$path,title:$title,artist:$artist,genre:$genre,album:$album,year:$year,position:$position,duration:$duration,volume:$volume,liked:$liked,art:$art,waveform:$waveform,playlist:$playlist,shuffle:$shuffle,position_label:$position_label,duration_label:$duration_label}'
+}
+
+cmd_player_status() {
+  local json="${1:-}"
+  if ! mpv_running; then
+    if [[ "$json" == --json ]]; then
+      player_saved_status_json
+    else
+      echo "stopped"
+    fi
+    return 0
+  fi
+  local path paused pos dur vol title artist genre album year art wf playlist shuffle state liked
+  path="$(mpv_prop path)" || path=""
+  paused="$(mpv_prop pause)" || paused="true"
+  pos="$(mpv_prop time-pos)" || pos="0"
+  dur="$(mpv_prop duration)" || dur="0"
+  vol="$(mpv_prop volume)" || vol="100"
+  shuffle="$(mpv_prop shuffle)" || shuffle="false"
+  playlist=""
+  [[ -f "$PLAYER_STATE" ]] && playlist="$(jq -r '.playlist // ""' "$PLAYER_STATE" 2>/dev/null || true)"
+  if [[ "$paused" == "true" ]]; then
+    state="paused"
+  else
+    state="playing"
+  fi
+  title="" artist="" genre="" album="" year="" liked="false"
+  if [[ -n "$path" && -f "$path" ]]; then
+    title="$(ffprobe_meta "$path" title)"
+    artist="$(ffprobe_meta "$path" artist)"
+    genre="$(ffprobe_meta "$path" genre)"
+    album="$(ffprobe_meta "$path" album)"
+    year="$(ffprobe_year "$path")"
+    [[ -z "$title" ]] && title="$(basename "$path")"
+    title="${title%.*}"
+    art="$(art_path_cached "$path")"
+    wf="$(waveform_cache_path "$path")"
+    waveform_ensure_async "$path"
+    is_liked "$path" && liked="true"
+  else
+    art="" wf=""
+  fi
+  if [[ "$json" == --json ]]; then
+    jq -n \
+      --arg state "$state" \
+      --arg path "$path" \
+      --arg title "$title" \
+      --arg artist "$artist" \
+      --arg genre "$genre" \
+      --arg album "$album" \
+      --arg year "$year" \
+      --argjson position "${pos:-0}" \
+      --argjson duration "${dur:-0}" \
+      --argjson volume "${vol:-100}" \
+      --arg art "$art" \
+      --arg waveform "$wf" \
+      --arg playlist "$playlist" \
+      --argjson shuffle "$([[ $shuffle == yes || $shuffle == true ]] && echo true || echo false)" \
+      --argjson liked "$([[ $liked == true ]] && echo true || echo false)" \
+      --arg position_label "$(format_time "${pos:-0}")" \
+      --arg duration_label "$(format_time "${dur:-0}")" \
+      '{state:$state,path:$path,title:$title,artist:$artist,genre:$genre,album:$album,year:$year,position:$position,duration:$duration,volume:$volume,liked:$liked,art:$art,waveform:$waveform,playlist:$playlist,shuffle:$shuffle,position_label:$position_label,duration_label:$duration_label}'
+  else
+    printf '%s — %s (%s)\n' "$artist" "$title" "$state"
+  fi
+}
+
+beet_library_path() {
+  local path="$1"
+  local abs="$path"
+  [[ "$abs" == /* ]] || abs="${MUSIC_ROOT}/${abs}"
+  if [[ -f "$abs" ]]; then
+    abs="$(realpath "$abs")"
+  fi
+  local root="${MUSIC_ROOT%/}"
+  case "$abs" in
+    "$root"/*) printf '%s' "${abs#"$root"/}" ;;
+    *) printf '%s' "$(basename "$abs")" ;;
+  esac
+}
+
+beet_path_query() {
+  local path="$1"
+  local rel escaped
+  rel="$(beet_library_path "$path")"
+  escaped="${rel//\\/\\\\}"
+  escaped="${escaped//\"/\\\"}"
+  printf 'path:"%s"' "$escaped"
+}
+
+beet_item_id_for_path() {
+  local path="$1"
+  local query id
+  query="$(beet_path_query "$path")"
+  id="$(beet ls -f '$id' "$query" 2>/dev/null | grep -E '^[0-9]+$' | head -1 || true)"
+  [[ -n "$id" ]] || return 1
+  printf '%s' "$id"
+}
+
+retag_manual() {
+  local path="$1"
+  local new_genre="$2"
+  local dest_dir="${MUSIC_ROOT}/${new_genre}"
+  mkdir -p "$dest_dir"
+
+  local base dest tmp stem ext n
+  base="$(basename "$path")"
+  dest="${dest_dir}/${base}"
+
+  if [[ -e "$dest" ]] && [[ "$(realpath "$dest")" != "$(realpath "$path")" ]]; then
+    stem="${base%.*}"
+    ext="${base##*.}"
+    n=1
+    while [[ -e "${dest_dir}/${stem}-${n}.${ext}" ]]; do
+      n=$((n + 1))
+    done
+    dest="${dest_dir}/${stem}-${n}.${ext}"
+  fi
+
+  if [[ "$(realpath "$path")" == "$(realpath "$dest")" ]]; then
+    printf '%s' "$dest"
+    return 0
+  fi
+
+  tmp="$(mktemp "${TMPDIR:-/tmp}/evo-music-retag.XXXXXX")"
+  if ffmpeg -y -hide_banner -loglevel error -i "$path" -metadata genre="$new_genre" -codec copy "$tmp" 2>/dev/null; then
+    mv "$tmp" "$dest"
+    rm -f "$path"
+  else
+    rm -f "$tmp"
+    mv "$path" "$dest"
+  fi
+  printf '%s' "$dest"
+}
+
+main() {
+  local cmd="${1:-}"
+  shift || true
+  case "$cmd" in
+    start) cmd_player_start ;;
+    load) cmd_player_load "${1:-}" ;;
+    play) cmd_player_play "${1:-all}" ;;
+    toggle) cmd_player_toggle ;;
+    next) cmd_player_next ;;
+    prev) cmd_player_prev ;;
+    seek) cmd_player_seek "${1:-0}" ;;
+    shuffle) cmd_player_shuffle "${1:-toggle}" ;;
+    volume) cmd_player_volume "${1:-0}" "${2:-}" ;;
+    save) cmd_player_save ;;
+    close) cmd_player_close ;;
+    stop) cmd_player_stop ;;
+    open) cmd_player_open "${1:---json}" ;;
+    restore) cmd_player_restore "${1:---json}" ;;
+    resume) cmd_player_resume "${1:---json}" ;;
+    status) cmd_player_status "${1:---json}" ;;
+    -h|--help|help|"") usage ;;
+    *)
+      echo "evo-player: unknown command: $cmd" >&2
+      usage
+      ;;
+  esac
+}
+
+main "$@"

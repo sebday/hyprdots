@@ -35,11 +35,16 @@ hl.window_rule({
 })
 
 hl.window_rule({
-    name = "tag-floating-window-title-dialogs",
-    match = { class = "^(TUI.tiled)$" },
+    name = "dashboard-btop-terminal",
+    match = { class = "^(com%.mitchellh%.ghostty)$", title = "^btop$" },
     tile = true,
     workspace = "10",
     monitor = "HDMI-A-1",
+})
+
+hl.workspace_rule({
+    workspace = "10",
+    layout = "dwindle",
 })
 
 hl.window_rule({
@@ -97,13 +102,6 @@ hl.window_rule({
     name = "workspace-gimp",
     match = { initial_class = "^(gimp)" },
     workspace = "8",
-})
-
-hl.window_rule({
-    name = "workspace-firefox",
-    match = { initial_title = "^(Mozilla Firefox)" },
-    workspace = "10",
-    monitor = "HDMI-A-1",
 })
 
 hl.window_rule({
