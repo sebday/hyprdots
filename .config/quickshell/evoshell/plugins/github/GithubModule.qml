@@ -17,6 +17,8 @@ Item {
     readonly property int bodyFont: Theme.hoverPopupBodyFontPixelSize
     readonly property int hintFont: Theme.hoverPopupHintFontPixelSize
     readonly property int statFont: Theme.hoverPopupLabelFontPixelSize
+    readonly property int titleFont: Theme.hoverPopupTitleFontPixelSize
+    readonly property int todayCountFont: Theme.popupTitleFontPixelSize
     readonly property int heatmapSpacing: 3
     readonly property var legendColors: [
         "#45475a", "#89b4fa", "#74c7ec", "#89dceb", "#cba6f7"
@@ -40,13 +42,9 @@ Item {
         return Math.max(10, Math.min(16, Math.floor((hoverPopupWidth - gaps) / cells.length)))
     }
 
-    readonly property string todayLine: {
-        if (loading)
-            return "Loading…"
-        if (todayCount === 1)
-            return "1 contribution today"
-        return todayCount + " contributions today"
-    }
+    readonly property string todaySuffix: todayCount === 1
+        ? " contribution today"
+        : " contributions today"
 
     readonly property string summaryLine: {
         var parts = []
@@ -56,12 +54,7 @@ Item {
         return parts.join(" · ")
     }
 
-    readonly property string headerValue: {
-        var lines = ["@" + username, todayLine]
-        if (summaryLine !== "")
-            lines.push(summaryLine)
-        return lines.join("\n")
-    }
+    implicitHeight: column.implicitHeight
 
     readonly property int trendMax: 40
 
@@ -85,8 +78,6 @@ Item {
         }
         return out
     }
-
-    implicitHeight: column.implicitHeight
 
     function onActivated() {
         syncFromBar()
@@ -203,6 +194,12 @@ Item {
         publishCache(json)
     }
 
+    function openProfile() {
+        if (!profileUrl)
+            return
+        Quickshell.execDetached(["bash", "-lc", "xdg-open " + Util.shellQuote(profileUrl)])
+    }
+
     onActiveChanged: if (active) syncFromBar()
     onBarSourceChanged: if (active) syncFromBar()
 
@@ -247,11 +244,80 @@ Item {
             label: ""
             visible: !root.loading && !root.isError
 
-            HoverPopupHeader {
+            RowLayout {
                 Layout.fillWidth: true
-                iconFallback: ""
-                value: root.headerValue
-                href: root.profileUrl
+                spacing: 10
+
+                Text {
+                    Layout.preferredWidth: root.titleFont + 8
+                    Layout.preferredHeight: root.titleFont + 8
+                    Layout.alignment: Qt.AlignVCenter
+                    text: ""
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.titleFont + 2
+                    font.bold: Theme.fontBold
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                    opacity: 0.9
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 6
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: "@" + root.username
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.titleFont
+                        font.bold: Theme.fontBold
+                        elide: Text.ElideRight
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 4
+
+                        Text {
+                            text: root.loading ? "…" : String(root.todayCount)
+                            color: Theme.accent
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.todayCountFont
+                            font.bold: Theme.fontBold
+                        }
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: root.todaySuffix
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.statFont
+                            font.bold: Theme.fontBold
+                            opacity: 0.72
+                            elide: Text.ElideRight
+                        }
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        visible: root.summaryLine !== ""
+                        text: root.summaryLine
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.hintFont
+                        font.bold: Theme.fontBold
+                        opacity: 0.72
+                        elide: Text.ElideRight
+                    }
+                }
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.openProfile()
             }
         }
 

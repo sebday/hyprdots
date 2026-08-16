@@ -1,13 +1,13 @@
 # Agent guide
 
-House rules for contributing to evoshell. Architecture and component maps live in `README.md` — start here for *how* to change things, not *what* exists.
+House rules for contributing to evoshell. Architecture and plugin model live in `skills/evoshell/SKILL.md` — start here for *how* to change things, not *what* exists.
 
 ## Where to look
 
 | Topic | Location |
 |-------|----------|
-| Architecture, plugin map, pitfalls | `README.md` (this directory) |
-| Cursor agent procedures | `~/.cursor/skills/evoshell/SKILL.md` |
+| Architecture, plugin map, pitfalls | `skills/evoshell/SKILL.md` (symlinked at `~/.cursor/skills/evoshell`) |
+| House rules (this file) | `AGENTS.md` |
 | End-user install and features | `~/README.md` |
 | Hyprland layer rules | `~/.config/hypr/evoshell.lua` |
 | Shell scripts | `~/.local/bin/evo-*` |
@@ -44,16 +44,20 @@ All evoshell commands start with `evo-`. Use the prefix that matches purpose:
 
 | Prefix | Purpose | Examples |
 |--------|---------|----------|
-| `evo-bar-*` | Bar poll wrappers (one JSON line stdout) | `evo-bar-weather`, `evo-bar-github` |
+| `evo-bar-*` | Bar poll wrappers only (one JSON line stdout) | `evo-bar-weather`, `evo-bar-github` |
+| `evo-dash-*` | Dashboard / Hypr window control (not bar data) | `evo-dash-hypr`, `evo-dash-player`, `evo-dash-btop` |
 | `evo-theme-*` | Theme generation and apply | `evo-theme`, `evo-theme-gtk` |
 | `evo-system-*` | Session maintenance | `evo-system-cleanup`, `evo-system-backup` |
-| `evo-app-*` | Panel mini-app backends | `evo-app-calc` |
 | `evo-menu-*` | Launcher helpers | `evo-menu-list`, `evo-menu-thumb` |
-| bare `evo-*` | Feature CLIs, IPC, services | `evo-network`, `evo-ipc`, `evo-media` |
+| bare `evo-*` | Feature CLIs matching plugin domains | `evo-network`, `evo-ipc`, `evo-player`, `evo-film` |
 
-New bar widgets: thin `evo-bar-*` wrapper → feature CLI `bar` subcommand. Do not put fetch/parse logic only in the wrapper.
+New bar widgets: thin `evo-bar-*` wrapper → feature CLI `bar` subcommand when the domain has a feature CLI.
 
-Plugin IDs use `evo.<feature>` (`evo.calendar`, `evo.panel`). Layer namespaces use `evo-<kebab>` except tray popups (`bar-volume`, `bar-media`).
+Plugin IDs use `evo.<feature>` with dots for variants (`evo.shopify_diy`, `evo.transmission.add`). Tray audio: `evo.volume` + `bar-volume`, `evo.media` + `bar-media`; tray media click toggles dashboard `evo.player` via `evo-dash-player`. Layer namespaces: `evo-<kebab>` from plugin id (`.` → `-`, `_` → `-`).
+
+Feature CLI ↔ plugin: `evo-player` = music backend (`evo.player`); `evo-film` = film/TV library (`evo.library` overlay). Do not use `evo-media` (collides with `evo.media` MPRIS popup).
+
+Dashboard window titles match plugin ids (`evo.shopify`, `evo.player`). Toggle via `evo-ipc shell toggle evo.shopify` — no bespoke `shopifyOpen` IPC.
 
 ## Prefer project helpers
 

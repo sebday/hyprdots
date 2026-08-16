@@ -200,20 +200,6 @@ Item {
             }
         }
 
-        Item {
-            width: root.showAudio ? root.trayCellWidth : 0
-            height: Theme.barHeight
-            visible: root.showAudio
-
-            Loader {
-                id: volumeLoader
-                anchors.fill: parent
-                active: root.showAudio
-                sourceComponent: volumeComp
-                onLoaded: root.wireBarWidget(item, root.settings.audio, "evo.volume")
-            }
-        }
-
         Repeater {
             model: SystemTray.items
 
@@ -252,6 +238,20 @@ Item {
                         modelData.activate()
                     }
                 }
+            }
+        }
+
+        Item {
+            width: root.showAudio ? root.trayCellWidth : 0
+            height: Theme.barHeight
+            visible: root.showAudio
+
+            Loader {
+                id: volumeLoader
+                anchors.fill: parent
+                active: root.showAudio
+                sourceComponent: volumeComp
+                onLoaded: root.wireBarWidget(item, root.settings.audio, "evo.volume")
             }
         }
     }

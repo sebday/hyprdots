@@ -33,6 +33,11 @@ Item {
 
     onOpenedChanged: activatePlayer()
 
+    Component.onCompleted: {
+        if (opened)
+            Qt.callLater(activatePlayer)
+    }
+
     function activatePlayer() {
         if (!opened) {
             if (playerContent && typeof playerContent.onDeactivated === "function")

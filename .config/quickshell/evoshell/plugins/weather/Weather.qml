@@ -4,7 +4,7 @@ import "."
 
 BarHoverPopup {
     layerNamespace: "evo-weather"
-    contentWidth: Theme.hoverPopupWidthWide
+    contentWidth: Theme.hoverPopupWidthStandard
 
     WeatherModule {}
 }

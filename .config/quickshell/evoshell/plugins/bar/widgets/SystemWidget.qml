@@ -15,10 +15,12 @@ Item {
     property bool loading: false
     property int cpuPercent: 0
     property string detailText: "…"
+    property var lastPayload: null
 
     readonly property string home: Quickshell.env("HOME") || ""
     readonly property string script: home + "/.local/bin/evo-bar-system"
     readonly property string btopScript: home + "/.local/bin/evo-bar-btop"
+    readonly property string hoverPopupId: settings.onHover ? String(settings.onHover) : "evo.system"
     readonly property string cpuIcon: "󰍛"
     readonly property color cpuColor: Format.loadPercentColor(cpuPercent)
 
@@ -33,15 +35,24 @@ Item {
         }
         try {
             var json = JSON.parse(raw)
+            lastPayload = json
             cpuPercent = parseInt(json.cpuPercent, 10) || 0
             detailText = json.detail ? String(json.detail) : "—"
+            publishCache(json)
         } catch (e) {
             console.warn("system widget parse failed:", e)
         }
     }
 
+    function publishCache(json) {
+        if (!shell || !hoverPopupId || !json)
+            return
+        shell.setHoverPopupData(hoverPopupId, json)
+    }
+
     function poll() {
         if (!script) return
+        loading = true
         proc.command = ["bash", "-lc", script]
         proc.running = false
         proc.running = true
@@ -56,6 +67,15 @@ Item {
 
     function swapShopifyBtop() {
         Quickshell.execDetached(["bash", btopScript, "swap"])
+    }
+
+    function setHoverPopup(active) {
+        if (!shell || !hoverPopupId)
+            return
+        if (active)
+            shell.hoverEnter(hoverPopupId, root, barPanel)
+        else
+            shell.hoverLeave(hoverPopupId)
     }
 
     RowLayout {
@@ -92,9 +112,13 @@ Item {
         }
     }
 
+    HoverHandler {
+        enabled: root.hoverPopupId !== "" && root.shell
+        onHoveredChanged: root.setHoverPopup(hovered)
+    }
+
     MouseArea {
         anchors.fill: parent
-        hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
         onClicked: root.swapShopifyBtop()
     }
@@ -115,5 +139,9 @@ Item {
     }
 
     onSettingsChanged: restartPolling()
+    onShellChanged: {
+        if (lastPayload)
+            publishCache(lastPayload)
+    }
     Component.onCompleted: restartPolling()
 }

@@ -16,7 +16,8 @@
       "left": [
         {
           "id": "evo.system",
-          "interval": 5
+          "interval": 5,
+          "onHover": "evo.system"
         }
       ],
       "center": [
