@@ -88,8 +88,9 @@ format_packages_text() {
 }
 
 read_cpu_idle_total() {
+    # idle jiffies are $5; iowait ($6) is also idle CPU time (waiting on disk).
     awk '/^cpu / {
-        idle = $5
+        idle = $5 + (NF >= 6 ? $6 : 0)
         total = 0
         for (i = 2; i <= NF; i++)
             total += $i

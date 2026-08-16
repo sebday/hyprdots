@@ -91,7 +91,7 @@ New bar widgets: thin `evo-bar-*` → feature CLI `bar` subcommand when the doma
 - `FloatingWindow` title = plugin id string (`evo.shopify`, `evo.player`).
 - Hypr rules in `windows.lua` match those titles.
 - Open/close/toggle via generic IPC: `evo-ipc shell toggle evo.shopify`, `evo-ipc shell hide evo.player`.
-- Pin to monitor: `evo-bar-hypr pin-evo-shopify|pin-evo-player|pin-all`.
+- Pin to monitor: `evo-bar-hypr restore-dashboards` (opens shopify + player on ws 10).
 
 ### IPC
 
@@ -130,7 +130,7 @@ New bar widgets: thin `evo-bar-*` → feature CLI `bar` subcommand when the doma
 |--------|--------|
 | `shell.json` layout / intervals / hover | `evo-ipc shell reloadConfig` |
 | `theme.json` | live — `Theme.qml` watches file |
-| New plugin in `shell.qml`, new bar widget type, new `qmldir` entry | **full restart** (`evo-restart`) |
+| New plugin in `shell.qml`, new bar widget type, new `qmldir` entry | **full restart** (`evo-system-restart`) |
 | `evoshell.lua` layer rules | Hypr reload; often needs shell restart too |
 
 ## Commands
@@ -141,6 +141,6 @@ evo-ipc shell reloadConfig
 evo-ipc shell toggle evo.panel '{"module":"settings"}'
 evo-ipc shell toggle evo.player
 evo-bar-hypr pin-all
-evo-restart
+evo-system-restart
 journalctl -t evoshell -f
 ```

@@ -43,10 +43,6 @@ Item {
     readonly property real progress: player.duration > 0
         ? Math.max(0, Math.min(1, player.position / player.duration))
         : 0
-    readonly property int playerVolumePercent: volumeApplyPending
-        ? volumeApplyTarget
-        : Math.max(0, Math.min(100, Math.round(Number(player.volume !== undefined ? player.volume : 100))))
-    property real volumeBarBoost: 0
 
     property var genres: []
     property var tracks: []
@@ -77,6 +73,8 @@ Item {
     property string playerScreen: "nowPlaying"
     property int volumeApplyTarget: 100
     property bool volumeApplyPending: false
+    property real seekApplyTarget: 0
+    property bool seekApplyPending: false
     property bool playbackStatePending: false
     property string playbackStateTarget: ""
     readonly property int screenStackIndex:
@@ -119,13 +117,6 @@ Item {
         var notif = shell.serviceFor("evo.notifications")
         if (notif && typeof notif.showBrief === "function")
             notif.showBrief("evo.player", String(body || ""), durationMs || 3000)
-    }
-
-    function bumpTransportVolumeBar() {
-        if (!active)
-            return
-        volumeBarBoost = 1
-        volumeBarBoostTimer.restart()
     }
 
     function formatJobLog(text) {
@@ -792,6 +783,18 @@ Item {
                 parsed = Object.assign({}, parsed, { volume: volumeApplyTarget })
             }
         }
+        if (seekApplyPending) {
+            var reportedPos = Number(parsed.position !== undefined ? parsed.position : seekApplyTarget)
+            if (Math.abs(reportedPos - seekApplyTarget) <= 2) {
+                seekApplyPending = false
+                seekSettleTimer.stop()
+            } else {
+                parsed = Object.assign({}, parsed, {
+                    position: seekApplyTarget,
+                    position_label: root.formatPlaybackTime(seekApplyTarget)
+                })
+            }
+        }
         if (playbackStatePending && playbackStateTarget) {
             var reportedState = String(parsed.state || "")
             if (reportedState === playbackStateTarget) {
@@ -829,10 +832,78 @@ Item {
             waveCanvas.requestPaint()
     }
 
-    function seekFromX(x, width) {
-        if (!player.duration || width <= 0) return
+    function formatPlaybackTime(sec) {
+        var s = Math.max(0, Math.floor(Number(sec) || 0))
+        var h = Math.floor(s / 3600)
+        var m = Math.floor((s % 3600) / 60)
+        var r = s % 60
+        var mm = h > 0 ? (m < 10 ? "0" : "") + m : String(m)
+        var rr = (r < 10 ? "0" : "") + r
+        return h > 0 ? (h + ":" + mm + ":" + rr) : (mm + ":" + rr)
+    }
+
+    function scrubSecondsFromX(x, width) {
+        if (!player.duration || width <= 0)
+            return -1
         var ratio = Math.max(0, Math.min(1, x / width))
-        runPlayer(["seek", String(ratio * player.duration)], refreshStatus, cmdProc)
+        return ratio * player.duration
+    }
+
+    function scrubTo(seconds) {
+        var dur = Number(player.duration) || 0
+        if (dur <= 0)
+            return
+        var sec = Math.max(0, Math.min(dur, Number(seconds) || 0))
+        seekApplyTarget = sec
+        seekApplyPending = true
+        seekSettleTimer.stop()
+        var next = Object.assign({}, player)
+        next.position = sec
+        next.position_label = formatPlaybackTime(sec)
+        player = next
+        if (waveCanvas)
+            waveCanvas.requestPaint()
+    }
+
+    function previewSeekFromX(x, width) {
+        var sec = scrubSecondsFromX(x, width)
+        if (sec >= 0)
+            scrubTo(sec)
+    }
+
+    function queueSeek(seconds) {
+        var dur = Number(player.duration) || 0
+        if (dur <= 0)
+            return
+        seekApplyTarget = Math.max(0, Math.min(dur, Number(seconds) || 0))
+        seekApplyPending = true
+        seekSettleTimer.stop()
+        seekApplyTimer.restart()
+    }
+
+    function flushSeekApply() {
+        if (!seekApplyPending)
+            return
+        if (seekProc.running) {
+            seekApplyTimer.restart()
+            return
+        }
+        runPlayer(["seek", String(seekApplyTarget)], null, seekProc)
+        seekSettleTimer.restart()
+    }
+
+    function finishSeekSettle() {
+        if (!seekApplyPending)
+            return
+        seekApplyPending = false
+    }
+
+    function commitSeekFromX(x, width) {
+        var sec = scrubSecondsFromX(x, width)
+        if (sec < 0)
+            return
+        scrubTo(sec)
+        queueSeek(sec)
     }
 
     function previewVolume(percent) {
@@ -840,7 +911,6 @@ Item {
         var next = Object.assign({}, player)
         next.volume = v
         player = next
-        bumpTransportVolumeBar()
     }
 
     function queueVolumeApply(target) {
@@ -853,11 +923,11 @@ Item {
     function flushVolumeApply() {
         if (!volumeApplyPending)
             return
-        if (cmdProc.running) {
+        if (volumeProc.running) {
             volumeApplyTimer.restart()
             return
         }
-        runPlayer(["volume", "set", String(volumeApplyTarget)], null, cmdProc)
+        runPlayer(["volume", "set", String(volumeApplyTarget)], null, volumeProc)
         volumeSettleTimer.restart()
     }
 
@@ -1050,6 +1120,28 @@ Item {
     }
 
     Process {
+        id: seekProc
+        property var _onDone: null
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (seekProc._onDone)
+                    seekProc._onDone(text)
+            }
+        }
+    }
+
+    Process {
+        id: volumeProc
+        property var _onDone: null
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (volumeProc._onDone)
+                    volumeProc._onDone(text)
+            }
+        }
+    }
+
+    Process {
         id: deactivateProc
         property var _onDone: null
         stdout: StdioCollector {
@@ -1172,15 +1264,22 @@ Item {
     }
 
     Timer {
-        id: volumeBarBoostTimer
-        interval: 1400
+        id: seekApplyTimer
+        interval: 120
         repeat: false
-        onTriggered: root.volumeBarBoost = 0
+        onTriggered: root.flushSeekApply()
+    }
+
+    Timer {
+        id: seekSettleTimer
+        interval: 1500
+        repeat: false
+        onTriggered: root.finishSeekSettle()
     }
 
     Timer {
         id: volumeApplyTimer
-        interval: 450
+        interval: 120
         repeat: false
         onTriggered: root.flushVolumeApply()
     }
@@ -1443,13 +1542,6 @@ Item {
                                         var samples = root.waveformSamples
                                         var n = samples.length
 
-                                        ctx.strokeStyle = Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.24)
-                                        ctx.lineWidth = 1
-                                        ctx.beginPath()
-                                        ctx.moveTo(0, mid)
-                                        ctx.lineTo(width, mid)
-                                        ctx.stroke()
-
                                         if (n === 0) {
                                             var trackH = 3
                                             var trackY = mid - trackH / 2
@@ -1542,6 +1634,13 @@ Item {
                                         }
                                         ctx.globalAlpha = 1
 
+                                        ctx.strokeStyle = accent
+                                        ctx.lineWidth = 1
+                                        ctx.beginPath()
+                                        ctx.moveTo(0, mid + 0.5)
+                                        ctx.lineTo(width, mid + 0.5)
+                                        ctx.stroke()
+
                                         if (prog > 0) {
                                             ctx.fillStyle = Qt.rgba(accent.r, accent.g, accent.b, 0.95)
                                             ctx.fillRect(Math.max(0, playX - 1), vPad, 2, drawH)
@@ -1550,11 +1649,18 @@ Item {
                                 }
 
                                 MouseArea {
+                                    z: 1
                                     anchors.fill: parent
                                     cursorShape: Qt.PointingHandCursor
-                                    onClicked: function(mouse) {
-                                        var pos = mapToItem(waveCanvas, mouse.x, mouse.y)
-                                        root.seekFromX(pos.x, waveCanvas.width)
+                                    onPressed: function(mouse) {
+                                        root.previewSeekFromX(mouse.x, width)
+                                    }
+                                    onPositionChanged: function(mouse) {
+                                        if (pressed)
+                                            root.previewSeekFromX(mouse.x, width)
+                                    }
+                                    onReleased: function(mouse) {
+                                        root.commitSeekFromX(mouse.x, width)
                                     }
                                 }
                                 }
@@ -2259,31 +2365,12 @@ Item {
         property bool showTimestamps: true
         implicitHeight: root.nowPlayingControlsHeight
 
-        Rectangle {
-            id: volumeFlashBg
-            anchors.fill: parent
-            radius: Theme.fieldsetCornerRadius
-            color: Theme.accent
-            opacity: root.volumeBarBoost > 0
-                ? (0.12 + root.playerVolumePercent / 100 * 0.3)
-                : 0
-            z: 0
-
-            Behavior on opacity {
-                NumberAnimation {
-                    duration: 320
-                    easing.type: Easing.OutCubic
-                }
-            }
-        }
-
         RowLayout {
             id: transportRow
             anchors.fill: parent
             anchors.leftMargin: 6
             anchors.rightMargin: 6
             spacing: 12
-            z: 1
 
             TransportTimePill {
                 visible: showTimestamps
@@ -2341,11 +2428,8 @@ Item {
             }
 
             TransportTimePill {
-                visible: showTimestamps || root.volumeBarBoost > 0
-                label: root.volumeBarBoost > 0
-                    ? (root.playerVolumePercent + "%")
-                    : (root.player.duration_label || "0:00")
-                highlight: root.volumeBarBoost > 0
+                visible: showTimestamps
+                label: root.player.duration_label || "0:00"
             }
         }
     }

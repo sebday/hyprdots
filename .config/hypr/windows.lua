@@ -34,17 +34,9 @@ hl.window_rule({
     tag = "+floating-window",
 })
 
-hl.window_rule({
-    name = "dashboard-btop-terminal",
-    match = { class = "^(com%.mitchellh%.ghostty)$", title = "^btop$" },
-    tile = true,
-    workspace = "10",
-    monitor = "HDMI-A-1",
-})
-
 hl.workspace_rule({
     workspace = "10",
-    layout = "dwindle",
+    monitor = "HDMI-A-1",
 })
 
 hl.window_rule({
@@ -105,35 +97,21 @@ hl.window_rule({
 })
 
 hl.window_rule({
-    name = "shopify-dashboard-tag",
+    name = "shopify-dashboard",
     match = {
         class = "^(org%.quickshell)$",
-        initial_title = "^evo%.shopify",
+        title = "^evo%.shopify",
     },
-    tag = "+shopify-dashboard",
-})
-
-hl.window_rule({
-    name = "evo-player-dashboard-tag",
-    match = {
-        class = "^(org%.quickshell)$",
-        initial_title = "^evo%.player$",
-    },
-    tag = "+evo-player-dashboard",
-})
-
-hl.window_rule({
-    name = "shopify-dashboard-tile",
-    match = { tag = "shopify-dashboard" },
-    tile = true,
     workspace = "10",
     monitor = "HDMI-A-1",
 })
 
 hl.window_rule({
-    name = "evo-player-dashboard-tile",
-    match = { tag = "evo-player-dashboard" },
-    tile = true,
+    name = "evo-player-dashboard",
+    match = {
+        class = "^(org%.quickshell)$",
+        title = "^evo%.player$",
+    },
     workspace = "10",
     monitor = "HDMI-A-1",
 })
@@ -146,13 +124,17 @@ local function is_dashboard_window(win)
     return title:match("^evo%.shopify") ~= nil or title == "evo.player"
 end
 
-local function pin_dashboard_window(win)
+local function place_dashboard_window(win)
     if not is_dashboard_window(win) then
         return
     end
-    hl.dispatch(hl.dsp.window.move({ monitor = "HDMI-A-1", window = win }))
+    hl.dispatch(hl.dsp.window.move({
+        monitor = "HDMI-A-1",
+        workspace = "10",
+        window = win,
+    }))
 end
 
-hl.on("window.open", pin_dashboard_window)
-hl.on("window.title", pin_dashboard_window)
+hl.on("window.open", place_dashboard_window)
+hl.on("window.title", place_dashboard_window)
 

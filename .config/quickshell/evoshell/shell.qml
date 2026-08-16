@@ -179,16 +179,9 @@ ShellRoot {
 
     function revealDashboard(pluginId) {
         var dash = dashboardLoaderFor(pluginId)
-        var pinKind = pinKindForDashboard(pluginId)
         if (!dash || !dash.item || typeof dash.item.open !== "function")
             return false
-        if (!pinKind) {
-            dash.item.open()
-            return true
-        }
-        pinDashboard("prepare-" + pinKind)
-        dashboardOpenTimer.pendingPluginId = pluginId
-        dashboardOpenTimer.restart()
+        dash.item.open()
         return true
     }
 
@@ -318,23 +311,6 @@ ShellRoot {
         interval: 220
         repeat: false
         onTriggered: shell.clearHoverPopup()
-    }
-
-    Timer {
-        id: dashboardOpenTimer
-        interval: 80
-        repeat: false
-        property string pendingPluginId: ""
-        onTriggered: {
-            var pluginId = pendingPluginId
-            pendingPluginId = ""
-            if (!pluginId)
-                return
-            shell.openDashboardOnly(pluginId)
-            var pinKind = shell.pinKindForDashboard(pluginId)
-            if (pinKind)
-                shell.pinDashboard("pin-" + pinKind)
-        }
     }
 
     function toggle(id, payloadJson) {
@@ -496,10 +472,6 @@ ShellRoot {
         }
     }
 
-    function pinDashboard(kind) {
-        Quickshell.execDetached(["bash", home + "/.local/bin/evo-bar-hypr", kind])
-    }
-
     property bool _startupDashboardsPinned: false
 
     function ensureStartupDashboards() {
@@ -508,7 +480,10 @@ ShellRoot {
         if (!shopifyLoader.item || !playerLoader.item)
             return
         _startupDashboardsPinned = true
-        Qt.callLater(function() { pinDashboard("layout-quarters") })
+        Qt.callLater(function() {
+            openDashboardOnly("evo.shopify")
+            openDashboardOnly("evo.player")
+        })
     }
 
     IpcHandler {

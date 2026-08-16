@@ -55,7 +55,6 @@ cmd_swap() {
     if has_window; then
         cmd_hide
         "${HOME}/.local/bin/evo-ipc" shell summon evo.shopify >/dev/null 2>&1 || true
-        "${HOME}/.local/bin/evo-bar-hypr" pin-shopify >/dev/null 2>&1 || true
     else
         "${HOME}/.local/bin/evo-ipc" shell hide evo.shopify >/dev/null 2>&1 || true
         cmd_show

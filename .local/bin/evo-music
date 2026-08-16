@@ -1,3 +1,0 @@
-#!/bin/bash
-# Deprecated — use evo-player.
-exec "${EVOSHELL_BIN:-$HOME/.local/bin}/evo-player" "$@"

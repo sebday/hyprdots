@@ -15,8 +15,8 @@ usage:
   evo-player volume set <0-100>|volume <delta>
   evo-player save|open|restore|resume|close|stop|status [--json]
   evo-player sync|import|playlists [--force]|rebuild|soundcloud
-  evo-player build [--genre <name>] [--json]
-  evo-player warm [--tags] [--art] [--waveforms] [--genre <name>] [--json]
+  evo-player build [genre] [--json]
+  evo-player warm [--tags] [--art] [--waveforms] [genre] [--json]
   evo-player cache [--force] [--json] [genre]
   evo-player job status [--json]
   evo-player genres [--json]
@@ -321,9 +321,14 @@ cmd_player_volume() {
   local value="${2:-}"
   cmd_player_start
   if [[ "$arg" == set ]]; then
-    mpv_ipc "{\"command\":[\"set_property\",\"volume\",${value:-100}]}" >/dev/null
+    local v="${value:-100}"
+    mpv_ipc "{\"command\":[\"set_property\",\"volume\",${v}]}" >/dev/null
+    if [[ "${v%.*}" -gt 0 ]]; then
+      mpv_ipc '{"command":["set_property","mute",false]}' >/dev/null
+    fi
   else
     mpv_ipc "{\"command\":[\"add\",\"volume\",${arg}]}" >/dev/null
+    mpv_ipc '{"command":["set_property","mute",false]}' >/dev/null
   fi
 }
 
@@ -416,6 +421,8 @@ cmd_player_status() {
   pos="$(mpv_prop time-pos)" || pos="0"
   dur="$(mpv_prop duration)" || dur="0"
   vol="$(mpv_prop volume)" || vol="100"
+  muted="$(mpv_prop mute)" || muted="false"
+  [[ "$muted" == "true" ]] && vol="0"
   shuffle="$(mpv_prop shuffle)" || shuffle="false"
   playlist=""
   [[ -f "$PLAYER_STATE" ]] && playlist="$(jq -r '.playlist // ""' "$PLAYER_STATE" 2>/dev/null || true)"
@@ -719,7 +726,6 @@ cmd_warm() {
       --waveforms) do_wf=1 ;;
       --tags) do_tags=1 ;;
       --json) json=1 ;;
-      --genre) genre="${2:-}"; shift ;;
       -*) usage ;;
       *) genre="$1" ;;
     esac
@@ -821,7 +827,7 @@ cmd_build_impl() {
   fi
   echo "evo-player: warming art and waveforms..." >&2
   if [[ -n "$genre" ]]; then
-    cmd_warm --art --waveforms --genre "$genre"
+    cmd_warm --art --waveforms "$genre"
   else
     cmd_warm --art --waveforms
   fi
@@ -833,7 +839,6 @@ cmd_build() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --json) ;;
-      --genre) genre="${2:-}"; shift ;;
       -*) usage ;;
       *) genre="$1" ;;
     esac

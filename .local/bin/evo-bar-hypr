@@ -1,47 +1,15 @@
 #!/usr/bin/env bash
-# Hyprland layout helpers for the HDMI-A-1 dashboard workspace (ws 10).
+# Open evo dashboard windows on workspace 10 (HDMI-A-1).
 
 set -euo pipefail
 
-DASHBOARD_MONITOR="${EVO_DASHBOARD_MONITOR:-HDMI-A-1}"
-DASHBOARD_WS="10"
 IPC="${HOME}/.local/bin/evo-ipc"
-
-BTOP_CMD='ghostty --class=TUI.tiled --window-padding-x=0 --window-padding-y=0 -e btop'
-TOPRIGHT_CMD='ghostty --class=TUI.topright'
 
 usage() {
   cat >&2 <<'EOF'
-usage: evo-bar-hypr prepare-shopify|prepare-player|pin-shopify|pin-player|pin-all|layout-quarters
+usage: evo-bar-hypr restore-dashboards
 EOF
   exit 1
-}
-
-hypr_eval() {
-  hyprctl eval "$1" >/dev/null 2>&1 || true
-}
-
-ws10_ghostty_addresses() {
-  hyprctl clients -j 2>/dev/null | jq -r '
-    [.[] | select(.workspace.name == "10")
-           | select(.class == "com.mitchellh.ghostty")
-           | { address: .address, x: .at[0] }]
-    | sort_by(.x) | .[].address'
-}
-
-find_left_terminal() {
-  ws10_ghostty_addresses | head -1
-}
-
-find_right_terminal() {
-  local addrs
-  addrs="$(ws10_ghostty_addresses)"
-  [[ -n "$addrs" ]] || return 0
-  if [[ "$(printf '%s\n' "$addrs" | wc -l)" -le 1 ]]; then
-    printf '%s' "$addrs"
-    return 0
-  fi
-  printf '%s' "$addrs" | tail -1
 }
 
 find_dashboard_address() {
@@ -50,86 +18,13 @@ find_dashboard_address() {
     .[] | select(.class == "org.quickshell" and (.title | test($re))) | .address' | head -1
 }
 
-focus_address() {
-  local addr="$1"
-  [[ -n "$addr" ]] || return 1
-  hypr_eval "return hl.dispatch(hl.dsp.focus({ window = 'address:${addr}' }))"
-}
-
-wait_for_address() {
-  local finder="$1"
-  local tries=0
-  local addr=""
-
-  while (( tries < 60 )); do
-    addr="$($finder)"
-    [[ -n "$addr" ]] && break
-    sleep 0.05
-    tries=$((tries + 1))
-  done
-
-  [[ -n "$addr" ]] || return 1
-  printf '%s' "$addr"
-}
-
-spawn_left_terminal() {
-  if [[ -n "$(find_left_terminal)" ]]; then
-    return 0
-  fi
-  hypr_eval "return hl.dispatch(hl.dsp.exec_cmd(\"${BTOP_CMD}\", { workspace = '${DASHBOARD_WS} silent' }))"
-}
-
-spawn_right_terminal() {
-  if [[ -n "$(find_right_terminal)" ]] && [[ "$(ws10_ghostty_addresses | wc -l)" -ge 2 ]]; then
-    return 0
-  fi
-  hypr_eval "return hl.dispatch(hl.dsp.exec_cmd(\"${TOPRIGHT_CMD}\", { workspace = '${DASHBOARD_WS} silent' }))"
-}
-
-ensure_terminals() {
-  spawn_left_terminal
-  spawn_right_terminal
-  wait_for_address find_left_terminal >/dev/null
-  wait_for_address find_right_terminal >/dev/null
-}
-
-pin_dashboard() {
-  local title_re="$1"
-  local tries=0
-  local addr=""
-
-  while (( tries < 40 )); do
-    addr="$(find_dashboard_address "$title_re")"
-    [[ -n "$addr" ]] && break
-    sleep 0.05
-    tries=$((tries + 1))
-  done
-
-  [[ -n "$addr" ]] || return 1
-  hypr_eval "return hl.dispatch(hl.dsp.window.move({ monitor = '${DASHBOARD_MONITOR}', window = 'address:${addr}' }))"
-}
-
-prepare_shopify() {
-  local left
-  left="$(wait_for_address find_left_terminal)" || return 1
-  focus_address "$left"
-}
-
-prepare_player() {
-  local right
-  right="$(wait_for_address find_right_terminal)" || return 1
-  focus_address "$right"
-}
-
 open_shopify_if_needed() {
   if [[ -n "$(find_dashboard_address '^evo\.shopify')" ]]; then
     return 0
   fi
-  prepare_shopify || return 1
-  sleep 0.08
   "$IPC" shell openDashboard evo.shopify >/dev/null 2>&1 || true
   local tries=0
-  while (( tries < 40 )); do
+  while (( tries < 30 )); do
     [[ -n "$(find_dashboard_address '^evo\.shopify')" ]] && return 0
     sleep 0.05
     tries=$((tries + 1))
@@ -141,11 +36,9 @@ open_player_if_needed() {
   if [[ -n "$(find_dashboard_address '^evo\.player$')" ]]; then
     return 0
   fi
-  prepare_player || return 1
-  sleep 0.08
   "$IPC" shell openDashboard evo.player >/dev/null 2>&1 || true
   local tries=0
-  while (( tries < 40 )); do
+  while (( tries < 30 )); do
     [[ -n "$(find_dashboard_address '^evo\.player$')" ]] && return 0
     sleep 0.05
     tries=$((tries + 1))
@@ -153,33 +46,14 @@ open_player_if_needed() {
   return 1
 }
 
-layout_quarters() {
-  ensure_terminals || return 1
+restore_dashboards() {
   open_shopify_if_needed || true
   open_player_if_needed || true
-  pin_shopify || true
-  pin_player || true
-}
-
-pin_shopify() {
-  pin_dashboard '^evo\.shopify'
-}
-
-pin_player() {
-  pin_dashboard '^evo\.player$'
 }
 
 cmd="${1:-}"
 case "$cmd" in
-prepare-shopify) prepare_shopify ;;
-prepare-player) prepare_player ;;
-pin-shopify) pin_shopify ;;
-pin-player) pin_player ;;
-pin-all)
-  pin_shopify || true
-  pin_player || true
-  ;;
-layout-quarters) layout_quarters ;;
+restore-dashboards) restore_dashboards ;;
 -h | --help | help | "") usage ;;
 *)
   echo "evo-bar-hypr: unknown command: $cmd" >&2

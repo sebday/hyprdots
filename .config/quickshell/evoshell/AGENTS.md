@@ -68,7 +68,7 @@ Use existing helpers instead of raw equivalents:
 | Shell IPC | `evo-ipc` (not raw `quickshell ipc`) |
 | Bar JSON helpers | source `evo-bar-common` |
 | Theme paths / apply | source `evo-theme-lib` |
-| Restart shell | `evo-restart` or `evo-system restart` |
+| Restart shell | `evo-system-restart` or `evo-system restart` |
 | Reload bar layout | `evo-ipc shell reloadConfig` |
 | Notifications | evoshell `evo.notifications` service via IPC |
 | Secrets | `~/.local/share/evoshell/secrets.env` (never commit) |
