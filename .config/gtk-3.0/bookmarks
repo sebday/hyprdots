@@ -8,5 +8,6 @@ file:///mnt/external/music
 file:///mnt
 file:///home/seb/.themes themes
 file:///home/seb/.config/quickshell/evoshell
+file:///home/seb/.local/bin
 sftp://192.168.2.199/home/seb pie
 sftp://192.168.2.200/home/seb zotac

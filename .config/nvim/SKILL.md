@@ -205,6 +205,10 @@ Sessions are only **saved** for `~` and `~/projects/*`. Random file paths do not
 | `<leader>qS` | Select a session |
 | `<leader>qd` | Don't save current session |
 
+## Remote open (Cursor agent)
+
+From Cursor agent chat, say **"open in nvim"** to push files into the running Neovim instance for that workspace. The agent runs `~/.local/bin/evo-nvim-open` (see `~/.cursor/skills/nvim-open/SKILL.md`). Neovim 0.12+ exposes RPC sockets automatically; no extra config needed.
+
 ## Related theme integration
 
 - Colorscheme loads from `~/.themes/current/neovim.lua` via `lua/plugins/theme.lua`.
