@@ -10,13 +10,17 @@ CPU_STAT_FILE="${STATE_DIR}/cpu-stat.prev"
 CPU_PCT_FILE="${STATE_DIR}/cpu-stat.pct"
 CPU_MIN_TOTAL_DELTA=50
 
-fmt_days() {
+fmt_age() {
     local sec="${1:-0}"
     if ! [[ "$sec" =~ ^[0-9]+$ ]]; then
         printf '—'
         return
     fi
-    printf '%dd' $((sec / 86400))
+    if (( sec < 86400 )); then
+        printf '%dh' $((sec / 3600))
+    else
+        printf '%dd' $((sec / 86400))
+    fi
 }
 
 fmt_gib() {
@@ -145,8 +149,8 @@ os_age_seconds() {
 cpu_pct=$(cpu_percent)
 uptime_sec=$(uptime_seconds)
 os_age_sec=$(os_age_seconds)
-uptime_text=$(fmt_days "$uptime_sec")
-os_age_text=$(fmt_days "$os_age_sec")
+uptime_text=$(fmt_age "$uptime_sec")
+os_age_text=$(fmt_age "$os_age_sec")
 detail="${uptime_text} / ${os_age_text}"
 
 host=$( (hostname -s 2>/dev/null || hostname 2>/dev/null || uname -n) | head -1)

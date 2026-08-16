@@ -12,7 +12,6 @@ Item {
     property var shell: null
     property var settings: ({})
 
-    property bool loading: false
     property int cpuPercent: 0
     property string detailText: "…"
     property var lastPayload: null
@@ -28,7 +27,6 @@ Item {
     implicitHeight: Theme.barHeight
 
     function applyJson(line) {
-        loading = false
         var raw = String(line || "").trim()
         if (!raw) {
             return
@@ -52,7 +50,6 @@ Item {
 
     function poll() {
         if (!script) return
-        loading = true
         proc.command = ["bash", "-lc", script]
         proc.running = false
         proc.running = true
@@ -91,8 +88,6 @@ Item {
             font.pixelSize: Theme.barFontPixelSize
             font.bold: Theme.fontBold
             Layout.alignment: Qt.AlignVCenter
-            opacity: root.loading ? 0.55 : 1
-
             Behavior on color {
                 ColorAnimation {
                     duration: 300
@@ -102,13 +97,13 @@ Item {
         }
 
         Text {
-            text: root.loading ? "…" : root.detailText
+            text: root.detailText || "…"
             color: Theme.foreground
             font.family: Theme.fontFamily
             font.pixelSize: Theme.barFontPixelSize
             font.bold: Theme.fontBold
             Layout.alignment: Qt.AlignVCenter
-            opacity: root.loading ? 0.55 : 0.92
+            opacity: 0.92
         }
     }
 
@@ -128,7 +123,6 @@ Item {
         stdout: StdioCollector {
             onStreamFinished: root.applyJson(text)
         }
-        onExited: root.loading = false
     }
 
     Timer {
