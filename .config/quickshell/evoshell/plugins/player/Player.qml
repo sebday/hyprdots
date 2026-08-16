@@ -64,8 +64,6 @@ Item {
             anchors.fill: parent
             focus: root.opened
 
-            Keys.onEscapePressed: root.close()
-
             PlayerModule {
                 id: playerContent
                 anchors.fill: parent

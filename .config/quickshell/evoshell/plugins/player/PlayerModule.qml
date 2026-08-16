@@ -26,15 +26,16 @@ Item {
     readonly property int bodyFont: Theme.hoverPopupBodyFontPixelSize
     readonly property int hintFont: Theme.hoverPopupHintFontPixelSize
     readonly property int titleFont: bodyFont + 6
-    readonly property int nowPlayingArtSize: nowPlayingPanel.height > 0
-        ? Math.max(160, Math.min(
-            nowPlayingPanel.height,
-            Math.round(Math.max(0, nowPlayingPanel.width - 16) * 0.42)))
+    readonly property int nowPlayingArtWidth: nowPlayingPanel.height > 0
+        ? Math.max(160, nowPlayingPanel.height)
         : 320
+    readonly property int nowPlayingControlsHeight: 52
+    readonly property int transportBtnSize: 36
     readonly property int nowPlayingTitleFont: bodyFont + 10
     property var waveformSamples: []
     readonly property int iconFont: Theme.hoverPopupIconFontPixelSize
     readonly property int transportIconFont: iconFont * 2
+    readonly property int transportSecondaryIconFont: Math.round(transportIconFont * 0.74)
     readonly property int libraryFont: Math.max(9, hintFont - 3)
     readonly property int pathFont: Math.max(8, libraryFont - 1)
     readonly property int genreTabHeight: 34
@@ -42,6 +43,10 @@ Item {
     readonly property real progress: player.duration > 0
         ? Math.max(0, Math.min(1, player.position / player.duration))
         : 0
+    readonly property int playerVolumePercent: volumeApplyPending
+        ? volumeApplyTarget
+        : Math.max(0, Math.min(100, Math.round(Number(player.volume !== undefined ? player.volume : 100))))
+    property real volumeBarBoost: 0
 
     property var genres: []
     property var tracks: []
@@ -51,14 +56,18 @@ Item {
     property bool jobBusy: false
     property string jobLabel: ""
     property string jobLog: ""
-    property bool genrePickerOpen: false
-    property bool retagBusy: false
+    property bool externalJobBusy: false
+    property string externalJobLabel: ""
+    readonly property bool libraryJobBusy: jobBusy || externalJobBusy
+    readonly property string libraryJobActiveLabel: jobBusy ? jobLabel : externalJobLabel
+    readonly property bool rebuildBusy: libraryJobBusy && libraryJobActiveLabel === "rebuild library"
     property bool tracksLoading: false
     property string browsePath: ""
     property string browseParent: ""
     property var browseEntries: []
     property bool browseLoading: false
     property string browseForPath: ""
+    property var browseCrumbs: []
     property var playlists: []
     property string selectedPlaylist: ""
     property bool playlistsLoading: false
@@ -72,6 +81,23 @@ Item {
         playerScreen === "nowPlaying" ? 0
         : (playerScreen === "library" ? 1
         : (playerScreen === "browse" ? 2 : 3))
+    readonly property var nowPlayingMetaChips: {
+        var chips = []
+        var year = String(player.year || "").trim()
+        if (year !== "")
+            chips.push({ label: year, accent: false })
+        var genre = String(player.genre || "").trim()
+        if (genre !== "")
+            chips.push({ label: genre, accent: true })
+        var album = String(player.album || "").trim()
+        var title = String(player.title || "").trim()
+        if (album !== "" && album !== title)
+            chips.push({ label: album, accent: false })
+        var durationLabel = String(player.duration_label || "").trim()
+        if (durationLabel !== "" && Number(player.duration || 0) > 0)
+            chips.push({ label: durationLabel, accent: false })
+        return chips
+    }
     readonly property int libraryPanelWidth: Math.round(Math.max(156, Math.min(width * 0.22, 220)))
 
     function artUrl(path) {
@@ -85,6 +111,13 @@ Item {
         var notif = shell.serviceFor("evo.notifications")
         if (notif && typeof notif.showBrief === "function")
             notif.showBrief("evo.player", String(body || ""), durationMs || 3000)
+    }
+
+    function bumpTransportVolumeBar() {
+        if (!active)
+            return
+        volumeBarBoost = 1
+        volumeBarBoostTimer.restart()
     }
 
     function formatJobLog(text) {
@@ -105,18 +138,43 @@ Item {
             jobLog = parts.join("\n")
     }
 
-    function runJob(args, label) {
-        if (jobBusy) {
-            notify("busy — " + jobLabel, 2000)
+    function runJob(args, label, options) {
+        if (libraryJobBusy) {
+            notify("busy — " + libraryJobActiveLabel, 2000)
             return
         }
         jobBusy = true
         jobLabel = label
         jobLog = label + "…\n"
-        playerScreen = "library"
+        if (!(options && options.stayOnScreen))
+            playerScreen = "library"
         jobProc.command = ["bash", musicScript].concat(args || [])
         notify(label + "…", 2000)
         jobProc.running = true
+    }
+
+    function syncExternalJobStatus() {
+        if (jobProc.running)
+            return
+        runQuery(["job", "status", "--json"], function(text) {
+            try {
+                var st = JSON.parse(String(text || "{}"))
+                if (st.busy && !root.jobBusy) {
+                    root.externalJobBusy = true
+                    root.externalJobLabel = String(st.label || st.command || "library task")
+                    if (!root.jobLog || root.jobLog.indexOf("running") < 0)
+                        root.jobLog = root.externalJobLabel + " running…\n"
+                } else if (!root.jobBusy) {
+                    root.externalJobBusy = false
+                    root.externalJobLabel = ""
+                }
+            } catch (e) {
+                if (!root.jobBusy) {
+                    root.externalJobBusy = false
+                    root.externalJobLabel = ""
+                }
+            }
+        })
     }
 
     function onJobFinished(exitCode) {
@@ -134,12 +192,18 @@ Item {
             if (playerScreen === "playlists" && selectedPlaylist)
                 loadPlaylistTracks(selectedPlaylist)
             jobLog = jobLog + "\n\n" + label + " complete"
+        } else if (exitCode === 2) {
+            var busy = jobErr.text ? String(jobErr.text).trim().split("\n").pop() : ""
+            notify(busy || (label + " — already running"), 4000)
+            syncExternalJobStatus()
         } else {
             var err = jobErr.text ? String(jobErr.text).trim() : ""
             if (err)
                 err = err.split("\n").pop()
             notify(label + " failed" + (err ? " — " + err : ""), 5000)
         }
+        if (exitCode !== 2)
+            syncExternalJobStatus()
     }
 
     function loadLibraryStats() {
@@ -210,11 +274,20 @@ Item {
             Qt.callLater(onActivated)
         statusTimer.start()
         saveStateTimer.start()
+        jobStatusTimer.start()
+        syncExternalJobStatus()
+    }
+
+    function finishDeactivate() {
+        playerScreen = "nowPlaying"
+        player = {}
+        waveformSamples = []
     }
 
     function onDeactivated() {
         statusTimer.stop()
         saveStateTimer.stop()
+        jobStatusTimer.stop()
         if (volumeApplyPending) {
             volumeApplyTimer.stop()
             volumeSettleTimer.stop()
@@ -225,10 +298,11 @@ Item {
             playbackSettleTimer.stop()
             finishPlaybackSettle()
         }
-        runMusic(["player", "stop"], null, cmdProc)
-        playerScreen = "nowPlaying"
-        player = {}
-        waveformSamples = []
+        function runClose() {
+            if (!runMusic(["player", "close"], finishDeactivate, deactivateProc))
+                Qt.callLater(runClose)
+        }
+        runClose()
     }
 
     function loadGenres() {
@@ -287,11 +361,24 @@ Item {
         loadBrowse(browsePath)
     }
 
+    function runBrowseQuery(args, onDone) {
+        if (browseProc.running) {
+            Qt.callLater(function() { runBrowseQuery(args, onDone) })
+            return
+        }
+        browseProc.command = ["bash", musicScript].concat(args || [])
+        browseProc._onDone = onDone || null
+        browseProc.running = true
+    }
+
     function loadBrowse(relPath) {
         var requested = String(relPath || "")
         browseForPath = requested
+        browsePath = requested
+        updateBrowseCrumbs()
         browseLoading = true
-        if (!runQuery(["browse", requested, "--json"], function(text) {
+        browseEntries = []
+        runBrowseQuery(["browse", requested, "--json"], function(text) {
             if (root.browseForPath !== requested)
                 return
             browseLoading = false
@@ -302,13 +389,13 @@ Item {
                     ? ""
                     : String(data.parent || "")
                 browseEntries = data.entries || []
+                updateBrowseCrumbs()
                 syncBrowseTracks()
             } catch (e) {
                 browseEntries = []
                 tracks = []
             }
-        }))
-            Qt.callLater(function() { loadBrowse(relPath) })
+        })
     }
 
     function syncBrowseTracks() {
@@ -319,6 +406,21 @@ Item {
         }
         tracks = audio
         syncSelectedTrackIndex()
+    }
+
+    function browseDirGenre(path) {
+        var p = String(path || "")
+        if (!p)
+            return ""
+        var slash = p.indexOf("/")
+        return slash < 0 ? p : p.substring(0, slash)
+    }
+
+    function rebuildBrowseDir(entry) {
+        var genre = browseDirGenre(entry.path)
+        if (!genre)
+            return
+        runJob(["cache", "--force", genre], "rebuild " + genre, { stayOnScreen: true })
     }
 
     function browseEnter(entry) {
@@ -423,10 +525,26 @@ Item {
         }
     }
 
-    function browseLabel() {
-        if (!browsePath)
-            return "Library"
-        return browsePath.split("/").join(" / ")
+    function updateBrowseCrumbs() {
+        var crumbs = []
+        var path = String(browsePath || "")
+        if (!path) {
+            browseCrumbs = [{ label: "Library", path: "" }]
+            return
+        }
+        var parts = path.split("/")
+        var acc = ""
+        for (var i = 0; i < parts.length; i++) {
+            if (!parts[i])
+                continue
+            acc = acc ? acc + "/" + parts[i] : parts[i]
+            crumbs.push({ label: parts[i], path: acc })
+        }
+        browseCrumbs = crumbs
+    }
+
+    function browseCrumbCount() {
+        return browseCrumbs.length
     }
 
     function refreshStatus() {
@@ -589,6 +707,7 @@ Item {
         var next = Object.assign({}, player)
         next.volume = v
         player = next
+        bumpTransportVolumeBar()
     }
 
     function queueVolumeApply(target) {
@@ -684,66 +803,6 @@ Item {
         }, cmdProc)
     }
 
-    function pathGenreFolder() {
-        if (!player.path) return ""
-        var p = String(player.path)
-        var slash = p.lastIndexOf("/")
-        if (slash <= 0) return ""
-        var parent = p.substring(0, slash)
-        var prev = parent.lastIndexOf("/")
-        return prev >= 0 ? parent.substring(prev + 1) : parent
-    }
-
-    function retagToGenre(genre) {
-        if (!player.path || retagBusy || !genre) return
-        if (genre === pathGenreFolder()) {
-            genrePickerOpen = false
-            return
-        }
-        genrePickerOpen = false
-        retagBusy = true
-        retagProc.command = ["bash", musicScript, "retag", player.path, genre, "--json"]
-        retagProc.running = true
-    }
-
-    function onRetagFinished(exitCode, stdout) {
-        retagBusy = false
-        if (exitCode !== 0) {
-            var err = retagErr.text ? String(retagErr.text).trim() : ""
-            if (err)
-                err = err.split("\n").pop()
-            notify("retag failed" + (err ? " — " + err : ""), 5000)
-            return
-        }
-        try {
-            var result = JSON.parse(String(stdout || "{}"))
-            notify("moved to " + result.genre, 3000)
-            loadGenres()
-            loadLibraryStats()
-            loadPlaylists()
-            if (playerScreen === "browse")
-                loadBrowse(browsePath)
-            if (playerScreen === "playlists" && selectedPlaylist)
-                loadPlaylistTracks(selectedPlaylist)
-            if (result.path)
-                runMusic(["player", "load", result.path], refreshStatus, cmdProc)
-        } catch (e) {
-            notify("retag failed", 5000)
-        }
-    }
-
-    Process {
-        id: retagProc
-        property string _stdout: ""
-        stderr: StdioCollector { id: retagErr }
-        stdout: StdioCollector {
-            onStreamFinished: retagProc._stdout = String(text || "").trim()
-        }
-        onExited: function(exitCode) {
-            root.onRetagFinished(exitCode, retagProc._stdout)
-        }
-    }
-
     Process {
         id: jobProc
         stdout: StdioCollector {
@@ -757,6 +816,13 @@ Item {
         onExited: function(exitCode) {
             root.onJobFinished(exitCode)
         }
+    }
+
+    Timer {
+        id: jobStatusTimer
+        interval: 2000
+        repeat: true
+        onTriggered: root.syncExternalJobStatus()
     }
 
     Timer {
@@ -779,6 +845,17 @@ Item {
     }
 
     Process {
+        id: deactivateProc
+        property var _onDone: null
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (deactivateProc._onDone)
+                    deactivateProc._onDone(text)
+            }
+        }
+    }
+
+    Process {
         id: loadProc
         property string pendingPath: ""
         stdout: StdioCollector {}
@@ -788,6 +865,17 @@ Item {
                 var next = pendingPath
                 pendingPath = ""
                 root.startLoad(next)
+            }
+        }
+    }
+
+    Process {
+        id: browseProc
+        property var _onDone: null
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (browseProc._onDone)
+                    browseProc._onDone(text)
             }
         }
     }
@@ -855,6 +943,13 @@ Item {
     }
 
     Timer {
+        id: volumeBarBoostTimer
+        interval: 1400
+        repeat: false
+        onTriggered: root.volumeBarBoost = 0
+    }
+
+    Timer {
         id: volumeApplyTimer
         interval: 450
         repeat: false
@@ -906,14 +1001,14 @@ Item {
                     onActivated: root.playerScreen = "nowPlaying"
                 }
                 IconTab {
-                    icon: "󰠮"
-                    active: root.playerScreen === "library"
-                    onActivated: root.playerScreen = "library"
-                }
-                IconTab {
                     icon: "󰉋"
                     active: root.playerScreen === "browse"
                     onActivated: root.openBrowse()
+                }
+                IconTab {
+                    icon: "󰠮"
+                    active: root.playerScreen === "library"
+                    onActivated: root.playerScreen = "library"
                 }
 
                 Rectangle {
@@ -1002,276 +1097,281 @@ Item {
             Layout.minimumHeight: 0
             currentIndex: root.screenStackIndex
 
-            SectionPanel {
-                label: ""
+            Item {
+                id: nowPlayingPanel
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                fillHeight: true
 
-                Item {
-                    id: nowPlayingPanel
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
+                RowLayout {
+                    anchors.fill: parent
+                    spacing: pad
 
-                    RowLayout {
-                        anchors.fill: parent
-                        spacing: 16
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    spacing: 8
-
-                    Text {
+                    ColumnLayout {
                         Layout.fillWidth: true
-                        text: root.player.title || "No track"
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.nowPlayingTitleFont
-                        font.bold: Theme.fontBold
-                        wrapMode: Text.Wrap
-                        maximumLineCount: 2
-                    }
+                        Layout.fillHeight: true
+                        spacing: pad
 
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 6
-
-                        Text {
-                            text: root.player.artist || "—"
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.hintFont
-                            opacity: 0.55
-                            elide: Text.ElideRight
-                            Layout.maximumWidth: parent.width * 0.45
-                        }
-
-                        Text {
-                            text: "·"
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.hintFont
-                            opacity: 0.35
-                        }
-
-                        Text {
-                            id: metaGenre
-                            text: root.player.genre || "—"
-                            color: Theme.accent
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.hintFont
-                            opacity: root.retagBusy ? 0.45 : 0.8
-                            elide: Text.ElideRight
+                        SectionPanel {
+                            label: ""
                             Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            fillHeight: true
 
-                            MouseArea {
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                enabled: !root.retagBusy && (root.player.path || "") !== ""
-                                onClicked: root.genrePickerOpen = !root.genrePickerOpen
-                            }
-                        }
-                    }
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                                spacing: pad
 
-                    Text {
-                        Layout.fillWidth: true
-                        visible: root.selectedPlaylist !== ""
-                        text: "From playlist: " + root.selectedPlaylist
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.libraryFont
-                        opacity: 0.45
-                    }
-
-                    Flow {
-                        Layout.fillWidth: true
-                        spacing: 4
-                        visible: root.genrePickerOpen && !root.retagBusy
-
-                        Repeater {
-                            model: root.genres
-
-                            delegate: Rectangle {
-                                required property var modelData
-                                height: 20
-                                width: genrePickLabel.width + 12
-                                radius: 3
-                                color: root.pathGenreFolder() === modelData.name
-                                    ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.22)
-                                    : (genrePickMouse.containsMouse
-                                        ? Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.08)
-                                        : Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.04))
+                                ColumnLayout {
+                                    id: titleCol
+                                    Layout.fillWidth: true
+                                    spacing: 8
 
                                 Text {
-                                    id: genrePickLabel
-                                    anchors.centerIn: parent
-                                    text: modelData.name
-                                    color: Theme.foreground
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: root.libraryFont
-                                    opacity: 0.9
+                                        Layout.fillWidth: true
+                                        text: root.player.title || "No track"
+                                        color: Theme.foreground
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: root.nowPlayingTitleFont
+                                        font.bold: Theme.fontBold
+                                        wrapMode: Text.Wrap
+                                        maximumLineCount: 2
+                                    }
+
+                                    Text {
+                                        Layout.fillWidth: true
+                                        visible: (root.player.artist || "") !== ""
+                                        text: root.player.artist
+                                        color: Theme.foreground
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: root.hintFont + 1
+                                        font.bold: Theme.fontBold
+                                        opacity: 0.72
+                                        elide: Text.ElideRight
+                                    }
+
+                                    Flow {
+                                        Layout.fillWidth: true
+                                        spacing: 6
+                                        visible: root.nowPlayingMetaChips.length > 0
+
+                                        Repeater {
+                                            model: root.nowPlayingMetaChips
+
+                                            delegate: MetaChip {
+                                                required property var modelData
+                                                label: modelData.label
+                                                accent: !!modelData.accent
+                                            }
+                                        }
+                                    }
+
+                                    Text {
+                                        Layout.fillWidth: true
+                                        visible: root.selectedPlaylist !== ""
+                                        text: "From playlist: " + root.selectedPlaylist
+                                        color: Theme.foreground
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: root.libraryFont
+                                        opacity: 0.45
+                                    }
+                                }
+
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                                spacing: 6
+
+                                Item {
+                                    Layout.fillWidth: true
+                                    Layout.fillHeight: true
+                                    Layout.minimumHeight: 96
+
+                                    Canvas {
+                                        id: waveCanvas
+                                        anchors.fill: parent
+                                    property real playProgress: root.progress
+                                    property var wfData: root.waveformSamples
+
+                                    onPlayProgressChanged: requestPaint()
+                                    onWfDataChanged: requestPaint()
+                                    onWidthChanged: requestPaint()
+
+                                    onPaint: {
+                                        var ctx = getContext("2d")
+                                        ctx.clearRect(0, 0, width, height)
+                                        var mid = height / 2
+                                        var prog = playProgress
+                                        var samples = root.waveformSamples
+                                        var n = samples.length
+
+                                        if (n === 0) {
+                                            var trackH = 3
+                                            var trackY = mid - trackH / 2
+                                            ctx.fillStyle = Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.1)
+                                            ctx.fillRect(0, trackY, width, trackH)
+                                            if (prog > 0) {
+                                                ctx.fillStyle = Theme.accent
+                                                ctx.fillRect(0, trackY, width * prog, trackH)
+                                            }
+                                            return
+                                        }
+
+                                        var barCount = Math.max(96, Math.min(280, Math.floor(width / 2)))
+                                        var peaks = []
+                                        if (n <= barCount) {
+                                            barCount = n
+                                            for (var bi = 0; bi < n; bi++)
+                                                peaks.push(Number(samples[bi]) || 0)
+                                        } else {
+                                            var step = n / barCount
+                                            for (var b = 0; b < barCount; b++) {
+                                                var start = Math.floor(b * step)
+                                                var end = Math.floor((b + 1) * step)
+                                                var sum = 0
+                                                var cnt = 0
+                                                for (var j = start; j < end && j < n; j++) {
+                                                    sum += Number(samples[j]) || 0
+                                                    cnt++
+                                                }
+                                                peaks.push(cnt ? (sum / cnt) : 0)
+                                            }
+                                        }
+
+                                        var barW = width / barCount
+                                        var gap = Math.min(2, Math.max(0.5, barW * 0.22))
+                                        var maxAmp = height * 0.42
+                                        var playX = width * prog
+
+                                        var refPeak = 0
+                                        var sortedPeaks = []
+                                        for (var pk = 0; pk < barCount; pk++) {
+                                            refPeak = Math.max(refPeak, peaks[pk])
+                                            sortedPeaks.push(peaks[pk])
+                                        }
+                                        sortedPeaks.sort(function(a, b) { return a - b })
+                                        var normPeak = sortedPeaks[Math.min(
+                                            sortedPeaks.length - 1,
+                                            Math.floor(sortedPeaks.length * 0.9)
+                                        )] || refPeak
+                                        normPeak = Math.max(normPeak, 12)
+
+                                        for (var i = 0; i < barCount; i++) {
+                                            var norm = peaks[i] / normPeak
+                                            if (norm > 1)
+                                                norm = 1
+                                            norm = Math.pow(norm, 0.52)
+                                            var amp = Math.max(2, norm * maxAmp)
+                                            var x = i * barW + gap * 0.5
+                                            var w = Math.max(1, barW - gap)
+                                            var played = (x + w * 0.5) <= playX
+
+                                            ctx.fillStyle = played
+                                                ? Theme.accent
+                                                : Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.18)
+                                            ctx.globalAlpha = played ? 0.95 : 0.5
+                                            ctx.fillRect(x, mid - amp, w, amp * 2)
+                                        }
+                                        ctx.globalAlpha = 1
+
+                                        if (prog > 0) {
+                                            ctx.fillStyle = Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.95)
+                                            ctx.fillRect(Math.max(0, playX - 1), 2, 2, height - 4)
+                                        }
+                                    }
                                 }
 
                                 MouseArea {
-                                    id: genrePickMouse
                                     anchors.fill: parent
-                                    hoverEnabled: true
                                     cursorShape: Qt.PointingHandCursor
-                                    onClicked: root.retagToGenre(modelData.name)
+                                    onClicked: function(mouse) {
+                                        var pos = mapToItem(waveCanvas, mouse.x, mouse.y)
+                                        root.seekFromX(pos.x, waveCanvas.width)
+                                    }
                                 }
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 8
+
+                                    Text {
+                                        text: root.player.position_label || "0:00"
+                                        color: Theme.foreground
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: root.hintFont
+                                        opacity: 0.65
+                                    }
+
+                                    Item { Layout.fillWidth: true }
+
+                                    Text {
+                                        text: root.player.duration_label || "0:00"
+                                        color: Theme.foreground
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: root.hintFont
+                                        opacity: 0.65
+                                    }
+                                }
+                            }
+                        }
+                        }
+
+                        SectionPanel {
+                            label: ""
+                            Layout.fillWidth: true
+                            contentPad: 10
+
+                            PlayerTransportBar {
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                                Layout.minimumHeight: root.nowPlayingControlsHeight
+                                showTimestamps: false
                             }
                         }
                     }
 
-                    Item {
-                        Layout.fillWidth: true
+                    SectionPanel {
+                        label: ""
                         Layout.fillHeight: true
-                        Layout.minimumHeight: 96
+                        Layout.preferredWidth: root.nowPlayingArtWidth
+                        Layout.minimumWidth: 120
+                        fillHeight: true
 
-                        Canvas {
-                            id: waveCanvas
-                            anchors.fill: parent
-                            anchors.rightMargin: 56
-                            property real playProgress: root.progress
-                            property var wfData: root.waveformSamples
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
 
-                            onPlayProgressChanged: requestPaint()
-                            onWfDataChanged: requestPaint()
-                            onWidthChanged: requestPaint()
+                            Rectangle {
+                                id: coverFrame
+                                anchors.fill: parent
+                                radius: 3
+                                clip: true
+                                color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.08)
 
-                            onPaint: {
-                                var ctx = getContext("2d")
-                                ctx.clearRect(0, 0, width, height)
-                                var mid = height / 2
-                                var prog = playProgress
-                                var samples = root.waveformSamples
-                                var n = samples.length
-
-                                if (n === 0) {
-                                    var trackH = 3
-                                    var trackY = mid - trackH / 2
-                                    ctx.fillStyle = Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.1)
-                                    ctx.fillRect(0, trackY, width, trackH)
-                                    if (prog > 0) {
-                                        ctx.fillStyle = Theme.accent
-                                        ctx.fillRect(0, trackY, width * prog, trackH)
-                                    }
-                                    return
+                                Image {
+                                    id: coverImage
+                                    anchors.fill: parent
+                                    visible: (root.player.art || "") !== "" && status === Image.Ready
+                                    source: root.artUrl(root.player.art)
+                                    fillMode: Image.PreserveAspectCrop
+                                    smooth: true
+                                    asynchronous: true
                                 }
 
-                                var barCount = Math.max(96, Math.min(280, Math.floor(width / 2)))
-                                var peaks = []
-                                if (n <= barCount) {
-                                    barCount = n
-                                    for (var bi = 0; bi < n; bi++)
-                                        peaks.push(Number(samples[bi]) || 0)
-                                } else {
-                                    var step = n / barCount
-                                    for (var b = 0; b < barCount; b++) {
-                                        var start = Math.floor(b * step)
-                                        var end = Math.floor((b + 1) * step)
-                                        var peak = 0
-                                        for (var j = start; j < end && j < n; j++)
-                                            peak = Math.max(peak, Number(samples[j]) || 0)
-                                        peaks.push(peak)
-                                    }
+                                Text {
+                                    anchors.centerIn: parent
+                                    visible: !coverImage.visible
+                                    text: "󰎈"
+                                    color: Theme.accent
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Math.round(root.nowPlayingArtWidth * 0.22)
+                                    opacity: 0.5
                                 }
-
-                                var barW = width / barCount
-                                var gap = Math.min(2, Math.max(0.5, barW * 0.22))
-                                var maxAmp = height * 0.46
-                                var playX = width * prog
-
-                                for (var i = 0; i < barCount; i++) {
-                                    var amp = Math.max(2, (peaks[i] / 255) * maxAmp)
-                                    var x = i * barW + gap * 0.5
-                                    var w = Math.max(1, barW - gap)
-                                    var played = (x + w * 0.5) <= playX
-
-                                    ctx.fillStyle = played
-                                        ? Theme.accent
-                                        : Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.18)
-                                    ctx.globalAlpha = played ? 0.95 : 0.5
-                                    ctx.fillRect(x, mid - amp, w, amp * 2)
-                                }
-                                ctx.globalAlpha = 1
-
-                                if (prog > 0) {
-                                    ctx.fillStyle = Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.95)
-                                    ctx.fillRect(Math.max(0, playX - 1), 2, 2, height - 4)
-                                }
-                            }
-                        }
-
-                        Text {
-                            anchors.right: parent.right
-                            anchors.verticalCenter: parent.verticalCenter
-                            anchors.verticalCenterOffset: -14
-                            text: root.player.position_label || "0:00"
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.libraryFont
-                            opacity: 0.7
-                        }
-
-                        Text {
-                            anchors.right: parent.right
-                            anchors.verticalCenter: parent.verticalCenter
-                            anchors.verticalCenterOffset: 14
-                            text: root.player.duration_label || "0:00"
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.libraryFont
-                            opacity: 0.7
-                        }
-
-                        MouseArea {
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: function(mouse) {
-                                root.seekFromX(mouse.x, width)
                             }
                         }
                     }
                 }
-
-                Item {
-                    Layout.preferredWidth: root.nowPlayingArtSize
-                    Layout.preferredHeight: root.nowPlayingArtSize
-                    Layout.alignment: Qt.AlignVCenter
-
-                    Rectangle {
-                        id: coverFrame
-                        anchors.fill: parent
-                        radius: 16
-                        clip: true
-                        color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.08)
-
-                        Image {
-                            id: coverImage
-                            anchors.fill: parent
-                            visible: (root.player.art || "") !== "" && status === Image.Ready
-                            source: root.artUrl(root.player.art)
-                            fillMode: Image.PreserveAspectCrop
-                            smooth: true
-                            asynchronous: true
-                        }
-
-                        Text {
-                            anchors.centerIn: parent
-                            visible: !coverImage.visible
-                            text: "󰎈"
-                            color: Theme.accent
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Math.round(root.nowPlayingArtSize * 0.28)
-                            opacity: 0.5
-                        }
-                    }
-                }
-            }
-            }
             }
 
             RowLayout {
@@ -1280,7 +1380,7 @@ Item {
                 spacing: pad
 
                 SectionPanel {
-                    label: root.jobBusy ? root.jobLabel : (root.jobLog !== "" ? "log" : "Library log")
+                    label: root.libraryJobBusy ? root.libraryJobActiveLabel : (root.jobLog !== "" ? "log" : "Library log")
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     fillHeight: true
@@ -1296,7 +1396,7 @@ Item {
                         Text {
                             id: jobLogText
                             width: jobLogScroll.width
-                            text: root.jobLog || (root.jobBusy ? (root.jobLabel + "…") : "run a library task to see output here")
+                            text: root.jobLog || (root.libraryJobBusy ? (root.libraryJobActiveLabel + "…") : "run a library task to see output here")
                             color: Theme.foreground
                             font.family: Theme.fontFamily
                             font.pixelSize: root.libraryFont
@@ -1328,33 +1428,34 @@ Item {
 
                         Text {
                             Layout.fillWidth: true
-                            text: root.jobBusy
-                                ? root.jobLabel + "…"
+                            text: root.libraryJobBusy
+                                ? root.libraryJobActiveLabel + "…"
                                 : (root.libraryStats.tracks || 0) + " tracks · " + (root.libraryStats.genres || 0) + " genres"
                             color: Theme.foreground
                             font.family: Theme.fontFamily
                             font.pixelSize: root.libraryFont
-                            opacity: root.jobBusy ? 0.9 : 0.55
+                            opacity: root.libraryJobBusy ? 0.9 : 0.55
                             wrapMode: Text.Wrap
                         }
 
                         LibraryBtn {
                             icon: "󰕧"
                             label: "sync soundcloud"
-                            dimmed: root.jobBusy
-                            onActivated: if (!root.jobBusy) root.runJob(["soundcloud"], "sync soundcloud")
+                            dimmed: root.libraryJobBusy
+                            onActivated: if (!root.libraryJobBusy) root.runJob(["soundcloud"], "sync soundcloud")
                         }
                         LibraryBtn {
                             icon: "󰋋"
                             label: "import incoming"
-                            dimmed: root.jobBusy
-                            onActivated: if (!root.jobBusy) root.runJob(["import"], "import incoming")
+                            dimmed: root.libraryJobBusy
+                            onActivated: if (!root.libraryJobBusy) root.runJob(["import"], "import incoming")
                         }
                         LibraryBtn {
                             icon: "󰲹"
                             label: "rebuild library"
-                            dimmed: root.jobBusy
-                            onActivated: if (!root.jobBusy) root.runJob(["rebuild"], "rebuild library")
+                            dimmed: root.libraryJobBusy
+                            spinning: root.rebuildBusy
+                            onActivated: if (!root.libraryJobBusy) root.runJob(["rebuild"], "rebuild library")
                         }
 
                         Item { Layout.fillHeight: true }
@@ -1380,21 +1481,60 @@ Item {
                             Layout.fillWidth: true
                             spacing: 6
 
-                            TransportBtn {
-                                icon: "󰁍"
-                                compact: true
-                                visible: root.browsePath !== ""
-                                onActivated: root.browseUp()
-                            }
-
                             Text {
-                                Layout.fillWidth: true
-                                text: root.browseLabel()
+                                visible: root.browsePath !== ""
+                                text: "󰁍"
                                 color: Theme.foreground
                                 font.family: Theme.fontFamily
-                                font.pixelSize: root.libraryFont
-                                opacity: 0.55
-                                elide: Text.ElideRight
+                                font.pixelSize: root.pathFont
+                                opacity: browseBackMouse.containsMouse ? 0.95 : 0.62
+                                Layout.alignment: Qt.AlignVCenter
+
+                                MouseArea {
+                                    id: browseBackMouse
+                                    anchors.fill: parent
+                                    anchors.margins: -6
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: root.browseUp()
+                                }
+                            }
+
+                            Item {
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: browseCrumbRow.implicitHeight
+                                clip: true
+
+                                Row {
+                                    id: browseCrumbRow
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: Math.min(implicitWidth, parent.width)
+                                    spacing: 0
+
+                                    Repeater {
+                                        model: root.browseCrumbs
+
+                                        Row {
+                                            spacing: 0
+
+                                            Text {
+                                                visible: index > 0
+                                                text: " / "
+                                                color: Theme.foreground
+                                                font.family: Theme.fontFamily
+                                                font.pixelSize: root.pathFont
+                                                opacity: 0.28
+                                            }
+
+                                            BrowseCrumb {
+                                                label: modelData.label
+                                                path: modelData.path
+                                                current: index === root.browseCrumbCount() - 1
+                                                onActivated: root.loadBrowse(path)
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
 
@@ -1408,7 +1548,7 @@ Item {
 
                             Text {
                                 anchors.centerIn: parent
-                                visible: root.browseLoading && root.browseEntries.length === 0
+                                visible: root.browseLoading
                                 text: "loading…"
                                 color: Theme.foreground
                                 font.family: Theme.fontFamily
@@ -1457,22 +1597,92 @@ Item {
                                         font.pixelSize: root.libraryFont + 2
                                     }
 
-                                    Text {
+                                    Item {
                                         Layout.fillWidth: true
-                                        text: modelData.name
-                                        color: Theme.foreground
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: root.hintFont
-                                        elide: Text.ElideRight
-                                        opacity: 0.85
+                                        Layout.fillHeight: true
+
+                                        Text {
+                                            anchors.fill: parent
+                                            text: modelData.name
+                                            color: Theme.foreground
+                                            font.family: Theme.fontFamily
+                                            font.pixelSize: root.hintFont
+                                            elide: Text.ElideRight
+                                            opacity: 0.85
+                                            verticalAlignment: Text.AlignVCenter
+                                        }
+
+                                        MouseArea {
+                                            id: browseMouse
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: root.browseEnter(modelData)
+                                        }
                                     }
 
-                                    Text {
-                                        text: String(modelData.count || "")
-                                        color: Theme.foreground
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: root.libraryFont
-                                        opacity: 0.45
+                                    Item {
+                                        z: 2
+                                        Layout.preferredWidth: 22
+                                        Layout.preferredHeight: 22
+                                        Layout.alignment: Qt.AlignVCenter
+
+                                        Text {
+                                            id: rebuildDirIcon
+                                            anchors.centerIn: parent
+                                            text: "󰑐"
+                                            color: Theme.foreground
+                                            opacity: root.libraryJobBusy
+                                                ? 0.2
+                                                : (rebuildDirMouse.containsMouse ? 0.9 : 0.42)
+                                            font.family: Theme.fontFamily
+                                            font.pixelSize: root.libraryFont + 1
+                                            transformOrigin: Item.Center
+
+                                            RotationAnimation on rotation {
+                                                running: root.libraryJobBusy
+                                                    && root.libraryJobActiveLabel === ("rebuild " + root.browseDirGenre(modelData.path))
+                                                from: 0
+                                                to: 360
+                                                duration: 900
+                                                loops: Animation.Infinite
+                                            }
+                                        }
+
+                                        MouseArea {
+                                            id: rebuildDirMouse
+                                            anchors.fill: parent
+                                            anchors.margins: -6
+                                            hoverEnabled: true
+                                            enabled: !root.libraryJobBusy
+                                            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                            onClicked: function(mouse) {
+                                                mouse.accepted = true
+                                                root.rebuildBrowseDir(modelData)
+                                            }
+                                        }
+                                    }
+
+                                    Rectangle {
+                                        z: 2
+                                        visible: modelData.count !== undefined && modelData.count !== null
+                                        Layout.alignment: Qt.AlignVCenter
+                                        radius: 8
+                                        color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.07)
+                                        border.color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.14)
+                                        border.width: 1
+                                        implicitWidth: browseCountPill.implicitWidth + 12
+                                        implicitHeight: browseCountPill.implicitHeight + 4
+
+                                        Text {
+                                            id: browseCountPill
+                                            anchors.centerIn: parent
+                                            text: String(modelData.count)
+                                            color: Theme.foreground
+                                            font.family: Theme.fontFamily
+                                            font.pixelSize: root.libraryFont
+                                            opacity: 0.72
+                                        }
                                     }
                                 }
 
@@ -1485,15 +1695,6 @@ Item {
                                     selected: root.isTrackSelected(modelData.path)
                                     onPressed: root.selectBrowseTrack(modelData)
                                     onActivated: root.playBrowseTrack(modelData)
-                                }
-
-                                MouseArea {
-                                    id: browseMouse
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    visible: modelData.type === "dir"
-                                    onClicked: root.browseEnter(modelData)
                                 }
                             }
                         }
@@ -1573,71 +1774,161 @@ Item {
             }
         }
 
-        // Bottom control bar — pinned full width
+        // Bottom control bar — other screens only
         SectionPanel {
             label: ""
             Layout.fillWidth: true
+            visible: root.playerScreen !== "nowPlaying"
+            contentPad: 10
+
+            PlayerTransportBar {
+                Layout.fillWidth: true
+            }
+        }
+    }
+
+    component MetaChip: Rectangle {
+        property string label: ""
+        property bool accent: false
+
+        radius: 10
+        color: accent
+            ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.14)
+            : Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.06)
+        border.color: accent
+            ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.38)
+            : Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.14)
+        border.width: 1
+        implicitWidth: chipText.implicitWidth + 16
+        implicitHeight: chipText.implicitHeight + 6
+
+        Text {
+            id: chipText
+            anchors.centerIn: parent
+            text: parent.label
+            color: parent.accent ? Theme.accent : Theme.foreground
+            font.family: Theme.fontFamily
+            font.pixelSize: root.libraryFont
+            font.bold: parent.accent && Theme.fontBold
+            opacity: parent.accent ? 0.95 : 0.68
+        }
+    }
+
+    component TransportTimePill: Rectangle {
+        property string label: ""
+        property bool highlight: false
+
+        radius: 4
+        color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.06)
+        border.color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.14)
+        border.width: 1
+        implicitWidth: pillText.implicitWidth + 20
+        implicitHeight: pillText.implicitHeight + 10
+        Layout.alignment: Qt.AlignVCenter
+
+        Text {
+            id: pillText
+            anchors.centerIn: parent
+            text: parent.label
+            color: parent.highlight ? Theme.accent : Theme.foreground
+            font.family: Theme.fontFamily
+            font.pixelSize: root.hintFont
+            font.bold: parent.highlight && Theme.fontBold
+            opacity: parent.highlight ? 1 : 0.65
+        }
+    }
+
+    component PlayerTransportBar: Item {
+        property bool showTimestamps: true
+        implicitHeight: root.nowPlayingControlsHeight
+
+        Rectangle {
+            id: volumeFlashBg
+            anchors.fill: parent
+            radius: Theme.fieldsetCornerRadius
+            color: Theme.accent
+            opacity: root.volumeBarBoost > 0
+                ? (0.12 + root.playerVolumePercent / 100 * 0.3)
+                : 0
+            z: 0
+
+            Behavior on opacity {
+                NumberAnimation {
+                    duration: 320
+                    easing.type: Easing.OutCubic
+                }
+            }
+        }
+
+        RowLayout {
+            id: transportRow
+            anchors.fill: parent
+            anchors.leftMargin: 6
+            anchors.rightMargin: 6
+            spacing: 12
+            z: 1
+
+            TransportTimePill {
+                visible: showTimestamps
+                label: root.player.position_label || "0:00"
+            }
 
             Item {
+                visible: showTimestamps
                 Layout.fillWidth: true
-                implicitHeight: transportRow.implicitHeight
+                Layout.minimumWidth: 4
+            }
 
-                RowLayout {
-                    id: transportRow
-                    anchors.fill: parent
-                    spacing: 10
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                spacing: 24
 
-                    Text {
-                        text: root.player.position_label || "0:00"
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.hintFont
-                        opacity: 0.65
-                    }
+                Item { Layout.fillWidth: true }
 
-                    Item { Layout.fillWidth: true; Layout.minimumWidth: 4 }
-
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 24
-
-                        Item { Layout.fillWidth: true }
-
-                        TransportBtn { icon: "󰒮"; onActivated: root.runMusic(["player", "prev"], root.refreshStatus, cmdProc) }
-                        TransportBtn {
-                            icon: root.playerPlaying ? "󰏤" : "󰐊"
-                            accent: true
-                            onActivated: root.togglePlayback()
-                        }
-                        TransportBtn { icon: "󰒭"; onActivated: root.runMusic(["player", "next"], root.refreshStatus, cmdProc) }
-                        TransportBtn {
-                            icon: "󰒟"
-                            dimmed: !root.player.shuffle
-                            onActivated: root.runMusic(["player", "shuffle", "toggle"], root.refreshStatus, cmdProc)
-                        }
-
-                        TransportBtn {
-                            icon: "󰋑"
-                            compact: true
-                            liked: !!root.player.liked
-                            onActivated: root.toggleFavorite()
-                        }
-                        VolumeTransportBtn {}
-
-                        Item { Layout.fillWidth: true }
-                    }
-
-                    Item { Layout.fillWidth: true; Layout.minimumWidth: 4 }
-
-                    Text {
-                        text: root.player.duration_label || "0:00"
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.hintFont
-                        opacity: 0.65
-                    }
+                TransportBtn {
+                    icon: "󰒮"
+                    onActivated: root.runMusic(["player", "prev"], root.refreshStatus, cmdProc)
+                }
+                TransportBtn {
+                    icon: root.playerPlaying ? "󰏤" : "󰐊"
+                    accent: true
+                    onActivated: root.togglePlayback()
+                }
+                TransportBtn {
+                    icon: "󰒭"
+                    onActivated: root.runMusic(["player", "next"], root.refreshStatus, cmdProc)
+                }
+                TransportBtn {
+                    icon: "󰒟"
+                    smallGlyph: true
+                    dimmed: !root.player.shuffle
+                    onActivated: root.runMusic(["player", "shuffle", "toggle"], root.refreshStatus, cmdProc)
                 }
 
+                TransportBtn {
+                    icon: "󰋑"
+                    smallGlyph: true
+                    liked: !!root.player.liked
+                    onActivated: root.toggleFavorite()
+                }
+                VolumeTransportBtn {}
+
+                Item { Layout.fillWidth: true }
+            }
+
+            Item {
+                visible: showTimestamps
+                Layout.fillWidth: true
+                Layout.minimumWidth: 4
+            }
+
+            TransportTimePill {
+                visible: showTimestamps || root.volumeBarBoost > 0
+                label: root.volumeBarBoost > 0
+                    ? (root.playerVolumePercent + "%")
+                    : (root.player.duration_label || "0:00")
+                highlight: root.volumeBarBoost > 0
             }
         }
     }
@@ -1648,8 +1939,11 @@ Item {
         property bool wheelPopupActive: false
         readonly property bool popupVisible: volHover.containsMouse || sliderArea.pressed || wheelPopupActive
 
-        width: Math.max(volIcon.implicitWidth + 16, 36)
-        height: Math.max(volIcon.implicitHeight + 16, 36)
+        implicitWidth: root.transportBtnSize
+        implicitHeight: root.transportBtnSize
+        Layout.preferredWidth: root.transportBtnSize
+        Layout.preferredHeight: root.transportBtnSize
+        Layout.alignment: Qt.AlignVCenter
 
         function nudgeVolume(delta) {
             if (!delta)
@@ -1680,7 +1974,7 @@ Item {
             color: volBtn.level <= 0 ? Theme.foreground : Theme.accent
             opacity: volBtn.level <= 0 ? 0.45 : 0.9
             font.family: Theme.fontFamily
-            font.pixelSize: root.transportIconFont
+            font.pixelSize: root.transportSecondaryIconFont
         }
 
         MouseArea {
@@ -1908,6 +2202,47 @@ Item {
         }
     }
 
+    component BrowseCrumb: Item {
+        id: crumb
+        property string label: ""
+        property string path: ""
+        property bool current: false
+        signal activated()
+
+        implicitWidth: crumbLabel.implicitWidth
+        implicitHeight: crumbLabel.implicitHeight
+
+        Text {
+            id: crumbLabel
+            text: crumb.label
+            color: crumb.current ? Theme.accent : Theme.foreground
+            font.family: Theme.fontFamily
+            font.pixelSize: root.pathFont
+            font.bold: crumb.current && Theme.fontBold
+            opacity: crumb.current ? 0.95 : (crumbMouse.containsMouse ? 0.92 : 0.62)
+        }
+
+        Rectangle {
+            anchors.left: crumbLabel.left
+            anchors.right: crumbLabel.right
+            anchors.bottom: crumbLabel.bottom
+            anchors.bottomMargin: 1
+            height: 1
+            visible: !crumb.current && crumbMouse.containsMouse
+            color: Theme.accent
+            opacity: 0.55
+        }
+
+        MouseArea {
+            id: crumbMouse
+            anchors.fill: parent
+            anchors.margins: -2
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: crumb.activated()
+        }
+    }
+
     component IconTab: Item {
         id: iconTab
         property string icon: ""
@@ -1952,6 +2287,7 @@ Item {
         property string label: ""
         property bool accent: false
         property bool dimmed: false
+        property bool spinning: false
         signal activated()
 
         implicitWidth: libRow.implicitWidth + 8
@@ -1963,17 +2299,27 @@ Item {
             spacing: 6
 
             Text {
+                id: libIcon
                 text: libBtn.icon
                 color: accent ? Theme.accent : Theme.foreground
-                opacity: dimmed ? 0.35 : 0.9
+                opacity: dimmed && !libBtn.spinning ? 0.35 : 0.9
                 font.family: Theme.fontFamily
                 font.pixelSize: root.libraryFont + 2
+                transformOrigin: Item.Center
+
+                RotationAnimation on rotation {
+                    running: libBtn.spinning
+                    from: 0
+                    to: 360
+                    duration: 900
+                    loops: Animation.Infinite
+                }
             }
 
             Text {
                 text: libBtn.label
                 color: accent ? Theme.accent : Theme.foreground
-                opacity: dimmed ? 0.35 : (libMouse.containsMouse ? 1 : 0.78)
+                opacity: dimmed && !libBtn.spinning ? 0.35 : (libMouse.containsMouse ? 1 : 0.78)
                 font.family: Theme.fontFamily
                 font.pixelSize: root.libraryFont
                 font.bold: accent && Theme.fontBold
@@ -1991,25 +2337,34 @@ Item {
         }
     }
 
-    component TransportBtn: Text {
+    component TransportBtn: Item {
         id: btn
         property string icon: ""
         property bool accent: false
         property bool dimmed: false
-        property bool compact: false
         property bool liked: false
+        property bool smallGlyph: false
         signal activated()
-        text: icon
-        color: liked ? Theme.urgent : (accent ? Theme.accent : Theme.foreground)
-        opacity: dimmed ? 0.35 : (liked ? 1 : 0.9)
-        font.family: Theme.fontFamily
-        font.pixelSize: compact
-            ? Math.round(root.transportIconFont * 0.72)
-            : (root.transportIconFont + (accent ? 4 : 0))
+
+        implicitWidth: root.transportBtnSize
+        implicitHeight: root.transportBtnSize
+        Layout.preferredWidth: root.transportBtnSize
+        Layout.preferredHeight: root.transportBtnSize
+        Layout.alignment: Qt.AlignVCenter
+
+        Text {
+            anchors.centerIn: parent
+            text: btn.icon
+            color: liked ? Theme.urgent : (accent ? Theme.accent : Theme.foreground)
+            opacity: dimmed ? 0.35 : (liked ? 1 : 0.9)
+            font.family: Theme.fontFamily
+            font.pixelSize: accent
+                ? Math.round(root.transportIconFont * 1.2)
+                : (smallGlyph ? root.transportSecondaryIconFont : root.transportIconFont)
+        }
 
         MouseArea {
             anchors.fill: parent
-            anchors.margins: -12
             cursorShape: Qt.PointingHandCursor
             onClicked: btn.activated()
         }

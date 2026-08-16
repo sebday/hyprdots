@@ -30,7 +30,7 @@ Item {
     }
 
     function handleKey(event) {
-        if (event.key === Qt.Key_Escape || event.key === Qt.Key_Q) {
+        if (event.key === Qt.Key_Q) {
             root.close()
             event.accepted = true
             return
@@ -56,7 +56,6 @@ Item {
             anchors.fill: parent
             focus: root.opened
 
-            Keys.onEscapePressed: root.close()
             Keys.onPressed: root.handleKey(event)
 
             ShopifyModule {
