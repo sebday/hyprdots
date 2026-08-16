@@ -18,34 +18,34 @@ local function list_projects()
   return dirs
 end
 
+local explorer = {
+  hidden = true,
+  ignored = true,
+  git_status = false,
+  layout = {
+    preset = "sidebar",
+    preview = false,
+    layout = {
+      width = 30,
+      min_width = 30,
+    },
+  },
+}
+
 return {
   {
     "folke/snacks.nvim",
     opts = {
       dashboard = { enabled = false },
+      explorer = explorer,
       picker = {
         sources = {
           files = {
             hidden = true,
-            ignored = false,
-            config = function(opts)
-              local cwd = opts.cwd or vim.fn.getcwd()
-              return vim.tbl_deep_extend("force", opts, require("config.finder-filter").files_opts(cwd))
-            end,
+            ignored = true,
+            exclude = { "node_modules" },
           },
-          explorer = {
-            hidden = true,
-            ignored = false,
-            git_status = false,
-            config = function(opts)
-              local cwd = opts.cwd or vim.fn.getcwd()
-              local filter = require("config.finder-filter")
-              if filter.is_home(cwd) or filter.is_project(cwd) then
-                opts = vim.tbl_deep_extend("force", opts, filter.explorer_opts(cwd))
-              end
-              return require("snacks.picker.source.explorer").setup(opts)
-            end,
-          },
+          explorer = explorer,
           projects = {
             dev = {}, -- fd scan misses .git (ignored); use explicit list below
             projects = list_projects(),
@@ -55,8 +55,6 @@ return {
       },
     },
     init = function()
-      local finder_filter = require("config.finder-filter")
-
       local skip = {
         snacks_dashboard = true,
         snacks_picker_input = true,
@@ -113,7 +111,7 @@ return {
         end
         opening = true
         local prev = vim.api.nvim_get_current_win()
-        pcall(Snacks.explorer.open, finder_filter.explorer_opts())
+        pcall(Snacks.explorer.open)
         vim.schedule(function()
           opening = false
           if vim.api.nvim_win_is_valid(prev) then
@@ -141,11 +139,10 @@ return {
             if mode == "v" or mode == "V" or mode == "\22" then
               vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Esc>", true, false, true), "n", true)
             end
-            if explorer_open() then
-              finder_filter.refresh_explorer(vim.fn.getcwd())
-              pcall(require("config.editor-chrome").refresh)
-            else
+            if not explorer_open() then
               open_explorer()
+            else
+              pcall(require("config.editor-chrome").refresh)
             end
           end, 80)
         end,
@@ -160,27 +157,6 @@ return {
             return
           end
           vim.defer_fn(open_explorer, 50)
-        end,
-      })
-
-      vim.api.nvim_create_autocmd("BufDelete", {
-        callback = function()
-          if finder_filter.is_home(vim.fn.getcwd()) then
-            vim.defer_fn(finder_filter.refresh_explorer, 50)
-          end
-        end,
-      })
-
-      vim.api.nvim_create_autocmd("BufEnter", {
-        callback = function()
-          if not finder_filter.is_home(vim.fn.getcwd()) then
-            return
-          end
-          local path = vim.api.nvim_buf_get_name(0)
-          if path == "" or finder_filter.allows_path(path) then
-            return
-          end
-          vim.defer_fn(finder_filter.refresh_explorer, 50)
         end,
       })
 

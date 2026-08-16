@@ -1,9 +1,0 @@
-eq_preset = "Flat"
-
-eq = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-visualizer = "Retro"
-theme = ""
-[soundcloud]
-enabled = true
-user = "seb-day"
-cookies_from = "brave"

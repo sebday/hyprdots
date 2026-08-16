@@ -29,12 +29,15 @@ Thank you to [Bjarne](https://github.com/bjarneo) for some gorgeous themes.
     - Hypr settings
     - Calculator & tasks
     - Clipboard history
+    - Theme & wallpaper switcher
 
   - Replacement
     - Lock screen
     - Screenshot editor
     - Notifications
     - System zoom level
+    - Sales dashboard
+    - Music player & manager
 
   
 
