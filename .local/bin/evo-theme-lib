@@ -3,7 +3,23 @@
 
 THEME_DIR="${THEME_DIR:-$HOME/.themes}"
 TEMPLATES_DIR="${TEMPLATES_DIR:-$THEME_DIR/shared/templates}"
-WALLPAPERS_DIR="${WALLPAPERS_DIR:-$HOME/onedrive/pictures/Wallpapers}"
+CURRENT_THEME="${CURRENT_THEME:-$THEME_DIR/current}"
+
+theme_wallpapers_dir() {
+    local theme_path="${1:-$CURRENT_THEME}"
+    local dir="$theme_path/wallpapers"
+    [ -d "$dir" ] || return 1
+    printf '%s' "$dir"
+}
+
+current_theme_name() {
+    local name
+    if [ -f "$CURRENT_THEME/.theme-name" ]; then
+        name=$(tr -d '\n' < "$CURRENT_THEME/.theme-name" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        [ -n "$name" ] && printf '%s' "$name" && return 0
+    fi
+    return 1
+}
 
 toml_val() {
     local key="$1" toml="$2"
@@ -37,11 +53,10 @@ theme_display_name() {
     printf '%s' "${display_name% }"
 }
 
-# Default wallpaper: first lexicographically sorted image in WALLPAPERS_DIR (1- prefix promotes default).
+# Default wallpaper: first lexicographically sorted image in the active theme wallpapers/ dir.
 themes_default_wallpaper() {
-    local dir="${WALLPAPERS_DIR}"
-    local candidate
-    [ -d "$dir" ] || return 1
+    local dir candidate
+    dir=$(theme_wallpapers_dir "$CURRENT_THEME") || return 1
     candidate=$(find "$dir" -maxdepth 1 -type f \
         \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) \
         2>/dev/null | sort | head -n1)
@@ -204,8 +219,8 @@ themes_sync_evo_shell() {
         + (if (($prev.fontFamily // $fonts.family // "") | length) > 0 then
             {fontFamily: ($prev.fontFamily // $fonts.family)}
           else {} end)
-        + (if ($prev.fontPixelSize // $fonts.baseFontSize // null) != null then
-            {fontPixelSize: ($prev.fontPixelSize // $fonts.baseFontSize)}
+        + (if ($prev.fontPixelSize // $fonts.evoSize // null) != null then
+            {fontPixelSize: ($prev.fontPixelSize // $fonts.evoSize)}
           else {} end)
         ' \
         > "$out"

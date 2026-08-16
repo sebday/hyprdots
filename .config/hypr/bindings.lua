@@ -158,10 +158,6 @@ bindd("XF86AudioPrev", "Previous media track", hl.dsp.exec_cmd("playerctl previo
 -- Wallpaper / theme switchers
 bindd("SUPER + ALT + Space", "Theme switcher", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.theme"))
 
--- Zoom level (evo panel settings)
-bindd("SUPER + minus", "Zoom out", hl.dsp.exec_cmd(bin .. "/evo-font step-zoom down"))
-bindd("SUPER + equal", "Zoom in", hl.dsp.exec_cmd(bin .. "/evo-font step-zoom up"))
-
 -- Screenshot
 bindd("PRINT", "Screenshot Region", hl.dsp.exec_cmd('bash -c "hyprshot -m region -o /tmp/ -f hyprshot.png;"'))
 bindd(

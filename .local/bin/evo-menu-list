@@ -5,9 +5,10 @@ set -euo pipefail
 mode="${1:-}"
 cache_root="${XDG_STATE_HOME:-$HOME/.local/state}/evoshell/menu-cache"
 home="${HOME:?}"
-WALLPAPERS_DIR="${WALLPAPERS_DIR:-$home/onedrive/pictures/Wallpapers}"
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 thumb="${script_dir}/evo-menu-thumb"
+# shellcheck source=/dev/null
+source "$script_dir/evo-theme-lib"
 
 preview_path() {
     local src="$1" key="$2"
@@ -36,19 +37,18 @@ themes)
         done
     ;;
 wallpapers)
-  {
-    dir="$WALLPAPERS_DIR"
-    [[ -d "$dir" ]] || exit 0
+    theme_name="$(current_theme_name || echo current)"
+    dir="$(theme_wallpapers_dir "$CURRENT_THEME" || true)"
+    [[ -n "$dir" ]] || exit 0
     find "$dir" -maxdepth 1 -type f \
         \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) \
         2>/dev/null | sort |
         while IFS= read -r file; do
             [[ -n "$file" ]] || continue
             bn="${file##*/}"
-            p=$(preview_path "$file" "wallpapers/${bn}")
+            p=$(preview_path "$file" "wallpapers/${theme_name}/${bn}")
             printf '%s\t%s/.local/bin/evo-wallpaper set %s\t%s\n' "$bn" "$home" "$file" "$p"
         done
-  }
     ;;
 *)
     echo "usage: $0 themes|wallpapers" >&2

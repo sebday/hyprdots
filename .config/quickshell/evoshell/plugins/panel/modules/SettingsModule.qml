@@ -15,9 +15,11 @@ Item {
     readonly property string fontScript: Quickshell.env("HOME") + "/.local/bin/evo-font"
     readonly property string fontStatePath: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/evoshell/font.json"
     readonly property string themeNamePath: Quickshell.env("HOME") + "/.themes/current/.theme-name"
+    readonly property string wallpaperStatePath: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/evoshell/wallpaper"
 
     property bool roundingOn: false
     property string currentThemeName: ""
+    property string currentWallpaperPath: ""
     property bool gapsOn: false
     property bool animationsOn: false
     property int activeOpacityPercent: 97
@@ -25,8 +27,6 @@ Item {
     property bool barOnDp1Top: false
     property bool notificationsOnHdmiBottom: true
     property string fontFamily: "CaskaydiaMono Nerd Font"
-    property int fontScalePercent: 100
-    property int fontBaseSize: 13
     property var fontFamilies: []
     property bool hyprReady: false
     property bool barReady: false
@@ -78,7 +78,9 @@ Item {
 
     function onActivated() {
         themeNameFile.reload()
+        wallpaperStateFile.reload()
         themePicker.reload()
+        wallpaperPicker.reload()
         refresh()
     }
 
@@ -121,12 +123,6 @@ Item {
             var data = JSON.parse(String(raw || "{}"))
             if (data.family)
                 root.fontFamily = String(data.family)
-            if (typeof data.baseFontSize === "number")
-                root.fontBaseSize = data.baseFontSize
-            if (typeof data.scalePercent === "number")
-                root.fontScalePercent = data.scalePercent
-            else if (typeof data.textSize === "number")
-                root.fontScalePercent = 100 + (data.textSize - (root.fontBaseSize - 2)) * 10
             root.fontReady = true
         } catch (e) {
             root.fontReady = false
@@ -189,7 +185,19 @@ Item {
         path: root.themeNamePath
         watchChanges: true
         printErrors: false
-        onLoaded: root.currentThemeName = String(themeNameFile.text() || "").trim()
+        onLoaded: {
+            root.currentThemeName = String(themeNameFile.text() || "").trim()
+            wallpaperPicker.reload()
+        }
+        onFileChanged: reload()
+    }
+
+    FileView {
+        id: wallpaperStateFile
+        path: root.wallpaperStatePath
+        watchChanges: true
+        printErrors: false
+        onLoaded: root.currentWallpaperPath = String(wallpaperStateFile.text() || "").trim()
         onFileChanged: reload()
     }
 
@@ -260,61 +268,6 @@ Item {
             id: settingsColumn
             width: parent.width
             spacing: 16
-
-            SectionPanel {
-                contentPad: Theme.panelContentPad
-                legendBackground: Theme.background
-                label: "Font"
-                sectionSpacing: 14
-
-                FontFamilyPicker {
-                    Layout.fillWidth: true
-                    label: "Family"
-                    value: root.fontFamily
-                    model: root.fontFamilies
-                    enabled: root.fontReady && !settingsBusy
-                    onActivated: function(family) {
-                        root.fontFamily = family
-                        root.setFont("family", family)
-                    }
-                }
-
-                SliderSetting {
-                    Layout.fillWidth: true
-                    label: "Base size"
-                    value: root.fontBaseSize
-                    valueSuffix: "px"
-                    minimum: 9
-                    maximum: 28
-                    step: 1
-                    enabled: root.fontReady && !settingsBusy
-                    onValueEdited: function(v) {
-                        root.fontBaseSize = v
-                    }
-                    onValueCommitted: function(v) {
-                        root.fontBaseSize = v
-                        root.setFont("base", v)
-                    }
-                }
-
-                SliderSetting {
-                    Layout.fillWidth: true
-                    label: "Zoom level"
-                    value: root.fontScalePercent
-                    valueSuffix: "%"
-                    minimum: 50
-                    maximum: 150
-                    step: 10
-                    enabled: root.fontReady && !settingsBusy
-                    onValueEdited: function(v) {
-                        root.fontScalePercent = v
-                    }
-                    onValueCommitted: function(v) {
-                        root.fontScalePercent = v
-                        root.setFont("zoom", v)
-                    }
-                }
-            }
 
             SectionPanel {
                 contentPad: Theme.panelContentPad
@@ -392,6 +345,18 @@ Item {
                 label: "Evoshell"
                 sectionSpacing: 12
 
+                FontFamilyPicker {
+                    Layout.fillWidth: true
+                    label: "Font family"
+                    value: root.fontFamily
+                    model: root.fontFamilies
+                    enabled: root.fontReady && !settingsBusy
+                    onActivated: function(family) {
+                        root.fontFamily = family
+                        root.setFont("family", family)
+                    }
+                }
+
                 ToggleRow {
                     Layout.fillWidth: true
                     label: "Bar position"
@@ -431,6 +396,35 @@ Item {
                         previewDpr: 1.5
                         selectedKey: root.currentThemeName
                         keyboardFocus: false
+                        onActivated: Qt.callLater(function() {
+                            wallpaperPicker.reload()
+                            wallpaperStateFile.reload()
+                        })
+                    }
+                }
+            }
+
+            SectionPanel {
+                contentPad: Theme.panelContentPad
+                legendBackground: Theme.background
+                label: "Wallpaper"
+
+                Item {
+                    Layout.fillWidth: true
+                    implicitHeight: wallpaperPicker.implicitHeight
+
+                    PreviewPickerGrid {
+                        id: wallpaperPicker
+                        width: parent.width
+                        kind: "wallpapers"
+                        columns: 3
+                        tileWidth: Math.floor((parent.width - spacing * 2) / 3)
+                        tileHeight: 58
+                        spacing: 8
+                        previewDpr: 1.5
+                        selectedKey: root.currentWallpaperPath
+                        keyboardFocus: false
+                        onActivated: wallpaperStateFile.reload()
                     }
                 }
             }

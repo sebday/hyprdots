@@ -16,7 +16,7 @@ Item {
     readonly property string themeNamePath: home + "/.themes/current/.theme-name"
 
     readonly property string defaultWallpaperCommand: [
-        "dir=" + Util.shellQuote(home + "/.themes/current/backgrounds"),
+        "dir=" + Util.shellQuote(home + "/.themes/current/wallpapers"),
         "find \"$dir\" -maxdepth 1 -type f \\( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \\) 2>/dev/null | sort | head -n1"
     ].join("\n")
 

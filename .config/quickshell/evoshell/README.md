@@ -185,7 +185,7 @@ Hypr bindings use the full path `~/.local/bin/evo-ipc` (PATH may not include it)
 
 ## Wallpapers
 
-Wallpapers live in `~/onedrive/pictures/Wallpapers` (override with `WALLPAPERS_DIR`). The picker (`evo.wallpaper`), cycle (`evo-wallpaper next|prev`), and theme apply default all read from there.
+Wallpapers live in `~/.themes/<theme>/wallpapers/`. The picker lists the active theme's set; cycle (`evo-wallpaper next|prev`) and theme apply default read from `~/.themes/current/wallpapers/`.
 
 ## Adding things
 

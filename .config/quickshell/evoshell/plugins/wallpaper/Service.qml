@@ -11,7 +11,7 @@ Item {
 
     readonly property string home: Quickshell.env("HOME")
     readonly property string statePath: home + "/.local/state/evoshell/wallpaper"
-    readonly property string wallpapersDir: home + "/onedrive/pictures/Wallpapers"
+    readonly property string wallpapersDir: home + "/.themes/current/wallpapers"
     readonly property int wallpaperFadeMs: 480
 
     property string currentWallpaper: ""

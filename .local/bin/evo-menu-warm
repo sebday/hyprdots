@@ -6,7 +6,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
 source "$SCRIPT_DIR/evo-theme-lib"
 thumb="$SCRIPT_DIR/evo-menu-thumb"
-theme_dir="${THEME_DIR}"
 cache_root="${XDG_STATE_HOME:-$HOME/.local/state}/evoshell/menu-cache"
 
 thumb_one() {
@@ -21,17 +20,18 @@ valid_keys=()
 while IFS= read -r name; do
     [[ -n "$name" ]] || continue
     valid_keys+=("themes/${name}.png")
-    thumb_one "$theme_dir/$name/preview.png" "themes/${name}.png"
-done < <(find "$theme_dir" -mindepth 1 -maxdepth 1 -type d ! -name current ! -name shared ! -name next -printf '%f\n' 2>/dev/null | sort)
+    thumb_one "$THEME_DIR/$name/preview.png" "themes/${name}.png"
 
-if [[ -d "$WALLPAPERS_DIR" ]]; then
-    while IFS= read -r file; do
-        [[ -n "$file" ]] || continue
-        bn="${file##*/}"
-        valid_keys+=("wallpapers/${bn}")
-        thumb_one "$file" "wallpapers/${bn}"
-    done < <(find "$WALLPAPERS_DIR" -maxdepth 1 -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) 2>/dev/null | sort)
-fi
+    wp_dir="$THEME_DIR/$name/wallpapers"
+    if [[ -d "$wp_dir" ]]; then
+        while IFS= read -r file; do
+            [[ -n "$file" ]] || continue
+            bn="${file##*/}"
+            valid_keys+=("wallpapers/${name}/${bn}")
+            thumb_one "$file" "wallpapers/${name}/${bn}"
+        done < <(find "$wp_dir" -maxdepth 1 -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) 2>/dev/null | sort)
+    fi
+done < <(find "$THEME_DIR" -mindepth 1 -maxdepth 1 -type d ! -name current ! -name shared ! -name next -printf '%f\n' 2>/dev/null | sort)
 
 if [[ -d "$cache_root" ]]; then
     while IFS= read -r cached; do
