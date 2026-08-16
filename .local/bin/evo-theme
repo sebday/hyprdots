@@ -42,10 +42,35 @@ ensure_gtk_theme_name() {
     fi
 }
 
+ensure_gtk_icon_theme_name() {
+    local ini="$1" icon_theme="$2"
+    [ -n "$icon_theme" ] || return 0
+    mkdir -p "$(dirname "$ini")"
+    if [[ -f "$ini" ]]; then
+        if grep -q '^gtk-icon-theme-name=' "$ini"; then
+            sed -i "s/^gtk-icon-theme-name=.*/gtk-icon-theme-name=$icon_theme/" "$ini"
+        elif grep -q '^\[Settings\]' "$ini"; then
+            sed -i "/^\[Settings\]/a gtk-icon-theme-name=$icon_theme" "$ini"
+        else
+            printf '\n[Settings]\ngtk-icon-theme-name=%s\n' "$icon_theme" >>"$ini"
+        fi
+    else
+        printf '[Settings]\ngtk-icon-theme-name=%s\n' "$icon_theme" >"$ini"
+    fi
+}
+
 activate_gtk() {
     local gtk_theme="current"
+    local icon_theme=""
+    local toml="${CURRENT_PATH:-$THEME_DIR/current}/colors.toml"
+    if [[ -f "$toml" ]]; then
+        # shellcheck source=/dev/null
+        icon_theme=$(toml_val icon_theme "$toml")
+    fi
     ensure_gtk_theme_name "$HOME/.config/gtk-3.0/settings.ini" "$gtk_theme"
     ensure_gtk_theme_name "$HOME/.config/gtk-4.0/settings.ini" "$gtk_theme"
+    ensure_gtk_icon_theme_name "$HOME/.config/gtk-3.0/settings.ini" "$icon_theme"
+    ensure_gtk_icon_theme_name "$HOME/.config/gtk-4.0/settings.ini" "$icon_theme"
 
     local current_gtk="$THEME_DIR/current/gtk-4.0"
     if [ -d "$current_gtk" ]; then

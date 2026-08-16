@@ -9,13 +9,10 @@ Singleton {
 
     readonly property string themePath: Quickshell.shellDir + "/theme.json"
 
+    readonly property string looksStatePath: (Quickshell.env("HOME") || "") + "/.local/state/evoshell/hypr-looks.json"
+
     property var themeData: ({})
     property var looksData: ({})
-
-    readonly property string looksStatePath: (Quickshell.env("HOME") || "") + "/.local/state/evoshell/hypr-looks.json"
-    readonly property string iconsThemePath: (Quickshell.env("HOME") || "") + "/.themes/current/icons.theme"
-
-    property string iconThemeName: ""
 
     FileView {
         id: themeFile
@@ -34,16 +31,6 @@ Singleton {
         printErrors: false
         onLoaded: root.applyLooksFile()
         onLoadFailed: root.applyLooksFile()
-        onFileChanged: reload()
-    }
-
-    FileView {
-        id: iconsThemeFile
-        path: root.iconsThemePath
-        watchChanges: true
-        printErrors: false
-        onLoaded: root.applyIconsThemeFile()
-        onLoadFailed: root.iconThemeName = ""
         onFileChanged: reload()
     }
 
@@ -71,12 +58,6 @@ Singleton {
         } catch (e) {
             looksData = {}
         }
-    }
-
-    function applyIconsThemeFile() {
-        var text = iconsThemeFile.text() || ""
-        var line = text.split("\n")[0] || ""
-        iconThemeName = line.trim()
     }
 
     function reloadLooks() {
@@ -116,6 +97,7 @@ Singleton {
     // Hyprland general:col.inactive_border default when unset (ff444444).
     readonly property color inactiveBorder: themeColor("inactiveBorder", "#444444")
     readonly property color mantle: themeColor("mantle", "#252b30")
+    readonly property string iconThemeName: themeColor("iconTheme", "")
     // Match hyprland decoration.active_opacity / inactive_opacity (evo settings → hypr-looks.json)
     readonly property real surfaceOpacity: {
         var value = looksData.activeOpacity
@@ -193,6 +175,5 @@ Singleton {
     Component.onCompleted: {
         applyThemeFile()
         applyLooksFile()
-        applyIconsThemeFile()
     }
 }

@@ -3,6 +3,7 @@ cursor = "#eaeaea"
 foreground = "#bebebe"
 background = "#121212"
 mantle = "#0d0d0d"
+icon_theme = "Tokyonight-Moon"
 selection_foreground = "#bebebe"
 selection_background = "#333333"
 

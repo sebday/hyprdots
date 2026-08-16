@@ -3,6 +3,7 @@ cursor = "#c0caf5"
 foreground = "#a9b1d6"
 background = "#1a1b26"
 mantle = "#16161e"
+icon_theme = "Catppuccin-Mocha"
 selection_foreground = "#c0caf5"
 selection_background = "#7aa2f7"
 

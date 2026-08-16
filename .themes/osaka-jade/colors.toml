@@ -3,6 +3,7 @@ cursor = "#D7C995"
 foreground = "#C1C497"
 background = "#111c18"
 mantle = "#0d1612"
+icon_theme = "Gruvbox-Dark"
 selection_foreground = "#111C18"
 selection_background = "#C1C497"
 

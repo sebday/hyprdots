@@ -3,6 +3,7 @@ cursor = "#ddf7ff"
 foreground = "#ddf7ff"
 background = "#0B0C16"
 mantle = "#080a10"
+icon_theme = "Tokyonight-Dark-Cyan"
 selection_foreground = "#0B0C16"
 selection_background = "#ddf7ff"
 

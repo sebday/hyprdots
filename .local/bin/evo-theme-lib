@@ -55,24 +55,6 @@ toml_val() {
     grep "^$key " "$toml" 2>/dev/null | sed 's/.*= *"//;s/".*//' | tr -d '\n'
 }
 
-# First line of file, trimmed (e.g. icons.theme).
-read_icons_theme_name() {
-    local f="$1"
-    [ -f "$f" ] || return 1
-    tr -d '\n' < "$f" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
-}
-
-# Path for GTK icon lookup: Adwaita or ~/.local/share/icons/<name>.
-theme_icon_path_for_dir() {
-    local theme_dir="$1"
-    local icon_path="${HOME}/.local/share/icons/Adwaita"
-    local icon_name
-    if [ -f "$theme_dir/icons.theme" ] && icon_name=$(read_icons_theme_name "$theme_dir/icons.theme") && [ -n "$icon_name" ]; then
-        icon_path="${HOME}/.local/share/icons/$icon_name"
-    fi
-    printf '%s' "$icon_path"
-}
-
 # e.g. tokyo-night -> Tokyo Night
 theme_display_name() {
     local slug="$1" word display_name=""
@@ -216,12 +198,13 @@ themes_sync_evo_shell() {
     local font_state="${XDG_STATE_HOME:-$HOME/.local/state}/evoshell/font.json"
     [ -f "$toml" ] || return 0
 
-    local fg bg accent mantle urgent
+    local fg bg accent mantle urgent icon_theme
     fg=$(toml_val foreground "$toml")
     bg=$(toml_val background "$toml")
     accent=$(toml_val accent "$toml")
     mantle=$(toml_val mantle "$toml")
     urgent=$(toml_val color1 "$toml")
+    icon_theme=$(toml_val icon_theme "$toml")
 
     local prev_json='{}'
     local fonts_json='{}'
@@ -235,6 +218,7 @@ themes_sync_evo_shell() {
         --arg accent "$accent" \
         --arg mantle "$mantle" \
         --arg urgent "$urgent" \
+        --arg iconTheme "$icon_theme" \
         --argjson prev "$prev_json" \
         --argjson fonts "$fonts_json" \
         '
@@ -243,7 +227,8 @@ themes_sync_evo_shell() {
           background: $background,
           accent: $accent,
           mantle: $mantle,
-          urgent: $urgent
+          urgent: $urgent,
+          iconTheme: $iconTheme
         }
         + (if (($prev.fontFamily // $fonts.family // "") | length) > 0 then
             {fontFamily: ($prev.fontFamily // $fonts.family)}
@@ -256,9 +241,9 @@ themes_sync_evo_shell() {
 }
 
 themes_sync_icon_theme_gsettings() {
-    local f="${CURRENT_PATH:-$THEME_DIR/current}/icons.theme"
+    local toml="${CURRENT_PATH:-$THEME_DIR/current}/colors.toml"
     local icon_theme
-    icon_theme=$(read_icons_theme_name "$f") || return 0
+    icon_theme=$(toml_val icon_theme "$toml") || return 0
     [ -n "$icon_theme" ] || return 0
     gsettings set org.gnome.desktop.interface icon-theme "$icon_theme" 2>/dev/null || true
 }

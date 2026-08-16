@@ -4,6 +4,7 @@
   "accent": "#89b4fa",
   "mantle": "#181825",
   "urgent": "#f38ba8",
+  "iconTheme": "Catppuccin-Mocha",
   "fontFamily": "CaskaydiaMono Nerd Font",
   "fontPixelSize": 13
 }
