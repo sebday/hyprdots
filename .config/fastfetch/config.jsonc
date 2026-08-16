@@ -24,8 +24,9 @@
             "keyColor": "yellow"
         },
         {
-            "type": "packages",
+            "type": "command",
             "key": "│ └󰏖",
+            "text": "pac=$(pacman -Qq 2>/dev/null | wc -l); if command -v mise >/dev/null 2>&1; then mise=$(mise ls --json 2>/dev/null | jq '[to_entries[] | .value[]] | length' 2>/dev/null || echo 0); echo \"$pac (pacman), $mise (mise)\"; else echo \"$pac (pacman)\"; fi",
             "keyColor": "yellow"
         },
         {

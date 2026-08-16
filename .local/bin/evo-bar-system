@@ -19,6 +19,70 @@ fmt_days() {
     printf '%dd' $((sec / 86400))
 }
 
+fmt_gib() {
+    local bytes="${1:-0}"
+    if ! [[ "$bytes" =~ ^[0-9]+$ ]]; then
+        printf '—'
+        return
+    fi
+    awk -v b="$bytes" 'BEGIN { printf "%.1f GiB", b / 1073741824 }'
+}
+
+truncate_text() {
+    local text="${1:-}" max="${2:-48}"
+    if ((${#text} > max)); then
+        printf '%s…' "${text:0:$((max - 1))}"
+    else
+        printf '%s' "$text"
+    fi
+}
+
+read_memory_kb() {
+    awk '/^MemTotal:/ { total = $2 }
+         /^MemAvailable:/ { avail = $2 }
+         END { print total, avail }' /proc/meminfo
+}
+
+read_root_disk_bytes() {
+    df -B1 / 2>/dev/null | awk 'NR == 2 { gsub(/%/, "", $5); print $3, $2, $5 }'
+}
+
+read_gpu_name() {
+    lspci -mm 2>/dev/null | awk -F'|' '
+        /"VGA compatible controller"|"3D controller"|"Display controller"/ {
+            gsub(/^"|"$/, "", $3)
+            print $3
+            exit
+        }'
+}
+
+read_shell_text() {
+    local tag
+    tag=$(hyprctl version 2>/dev/null | awk -F'Tag: ' '/Tag:/{print $2; exit}' | cut -d',' -f1)
+    if [[ -n "$tag" ]]; then
+        printf 'Hyprland %s' "$tag"
+        return
+    fi
+    printf 'Hyprland'
+}
+
+read_mise_package_count() {
+    if ! command -v mise >/dev/null 2>&1; then
+        printf '0'
+        return
+    fi
+    mise ls --json 2>/dev/null | jq '[to_entries[] | .value[]] | length' 2>/dev/null || printf '0'
+}
+
+format_packages_text() {
+    local pacman_count="${1:-0}" mise_count="${2:-0}"
+    if command -v mise >/dev/null 2>&1; then
+        printf '%s pacman · %s mise' "$pacman_count" "$mise_count"
+        return
+    fi
+    printf '%s' "$pacman_count"
+}
+
 read_cpu_idle_total() {
     awk '/^cpu / {
         idle = $5
@@ -85,21 +149,88 @@ uptime_text=$(fmt_days "$uptime_sec")
 os_age_text=$(fmt_days "$os_age_sec")
 detail="${uptime_text} / ${os_age_text}"
 
+host=$( (hostname -s 2>/dev/null || hostname 2>/dev/null || uname -n) | head -1)
+if [[ -f /etc/os-release ]]; then
+    # shellcheck disable=SC1091
+    source /etc/os-release
+    os_name="${PRETTY_NAME:-Linux} $(uname -m)"
+else
+    os_name="Linux $(uname -m)"
+fi
+kernel=$(uname -r)
+cpu_model=$(truncate_text "$(grep -m1 'model name' /proc/cpuinfo 2>/dev/null | sed 's/^model name[[:space:]]*:[[:space:]]*//')" 42)
+read -r mem_total_kb mem_avail_kb < <(read_memory_kb)
+mem_used_kb=$((mem_total_kb - mem_avail_kb))
+mem_pct=0
+if (( mem_total_kb > 0 )); then
+    mem_pct=$((mem_used_kb * 100 / mem_total_kb))
+fi
+mem_text="$(fmt_gib $((mem_used_kb * 1024))) / $(fmt_gib $((mem_total_kb * 1024))) (${mem_pct}%)"
+read -r disk_used disk_total disk_pct < <(read_root_disk_bytes)
+disk_text="$(fmt_gib "$disk_used") / $(fmt_gib "$disk_total") (${disk_pct}%)"
+gpu_name=$(truncate_text "$(read_gpu_name)" 42)
+[[ -z "$gpu_name" ]] && gpu_name="—"
+shell_text=$(read_shell_text)
+pkg_count=$(pacman -Qq 2>/dev/null | wc -l)
+mise_pkg_count=$(read_mise_package_count)
+pkg_text=$(format_packages_text "$pkg_count" "$mise_pkg_count")
+cpu_line="${cpu_pct}% · ${cpu_model}"
+uptime_line="${uptime_text} up · ${os_age_text} old"
+
 jq -cn \
     --argjson cpuPercent "$cpu_pct" \
     --argjson uptimeSec "$uptime_sec" \
     --argjson osAgeSec "$os_age_sec" \
+    --argjson memPercent "$mem_pct" \
+    --argjson diskPercent "$disk_pct" \
+    --argjson packages "$pkg_count" \
+    --argjson misePackages "$mise_pkg_count" \
     --arg uptimeText "$uptime_text" \
     --arg osAgeText "$os_age_text" \
     --arg detail "$detail" \
     --arg trayIcon "󰍛" \
+    --arg host "$host" \
+    --arg os "$os_name" \
+    --arg kernel "$kernel" \
+    --arg cpuModel "$cpu_model" \
+    --arg cpuLine "$cpu_line" \
+    --arg memory "$mem_text" \
+    --arg disk "$disk_text" \
+    --arg gpu "$gpu_name" \
+    --arg shell "$shell_text" \
+    --arg uptimeLine "$uptime_line" \
+    --arg packagesText "$pkg_text" \
     '{
         cpuPercent: $cpuPercent,
         uptimeSec: $uptimeSec,
         osAgeSec: $osAgeSec,
+        memPercent: $memPercent,
+        diskPercent: $diskPercent,
+        packages: $packages,
+        misePackages: $misePackages,
         uptimeText: $uptimeText,
         osAgeText: $osAgeText,
         detail: $detail,
         trayIcon: $trayIcon,
-        text: ($trayIcon + " " + $detail)
+        host: $host,
+        os: $os,
+        kernel: $kernel,
+        cpuModel: $cpuModel,
+        cpuLine: $cpuLine,
+        memory: $memory,
+        disk: $disk,
+        gpu: $gpu,
+        shell: $shell,
+        uptimeLine: $uptimeLine,
+        text: ($trayIcon + " " + $detail),
+        lines: [
+            { label: "kernel", value: $kernel },
+            { label: "uptime", value: $uptimeLine },
+            { label: "cpu", value: $cpuLine },
+            { label: "memory", value: $memory },
+            { label: "disk", value: $disk },
+            { label: "gpu", value: $gpu },
+            { label: "packages", value: $packagesText },
+            { label: "shell", value: $shell }
+        ]
     }'
