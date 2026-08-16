@@ -83,6 +83,13 @@ hl.window_rule({
 })
 
 hl.window_rule({
+    name = "satty-float",
+    match = { class = "^satty$" },
+    float = true,
+    center = true,
+})
+
+hl.window_rule({
     name = "opacity-media-players",
     match = { class = "^(mpv|imv|imv-dir)$" },
     opacity = "1 override 1 override",
