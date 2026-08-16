@@ -13,8 +13,9 @@ Item {
 
     readonly property real dpr: barPanel ? barPanel.devicePixelRatio : 1.0
     readonly property int trayIconSize: 18
+    readonly property int traySpacing: 12
     readonly property int trayIconSource: Math.max(trayIconSize, Math.round(trayIconSize * dpr))
-    readonly property int trayCellWidth: trayIconSize + 4
+    readonly property int trayCellWidth: trayIconSize + traySpacing
     readonly property bool showWeather: settings.weather !== false
     readonly property bool showCursor: settings.cursor !== false
     readonly property bool showGithub: settings.github != null && settings.github !== false
@@ -84,7 +85,7 @@ Item {
         id: trayRow
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.verticalCenter: parent.verticalCenter
-        spacing: 8
+        spacing: root.traySpacing
         height: Theme.barHeight
 
         Item {
@@ -222,18 +223,11 @@ Item {
                 width: root.trayCellWidth
                 height: Theme.barHeight
 
-                Image {
+                TraySniWidget {
                     anchors.centerIn: parent
-                    width: root.trayIconSize
-                    height: root.trayIconSize
-                    source: modelData ? modelData.icon : ""
-                    sourceSize.width: root.trayIconSource
-                    sourceSize.height: root.trayIconSource
-                    fillMode: Image.PreserveAspectFit
-                    smooth: true
-                    mipmap: true
-                    cache: false
-                    asynchronous: true
+                    trayItem: modelData
+                    iconSize: root.trayIconSize
+                    iconSourceSize: root.trayIconSource
                 }
 
                 MouseArea {

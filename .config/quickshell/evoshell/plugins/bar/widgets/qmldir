@@ -6,6 +6,7 @@ MediaWidget 1.0 MediaWidget.qml
 StocksWidget 1.0 StocksWidget.qml
 CloudflareWidget 1.0 CloudflareWidget.qml
 TrayWidget 1.0 TrayWidget.qml
+TraySniWidget 1.0 TraySniWidget.qml
 TrayUsageDial 1.0 TrayUsageDial.qml
 TrayContextMenu 1.0 TrayContextMenu.qml
 CommandWidget 1.0 CommandWidget.qml
