@@ -11,7 +11,7 @@ Item {
     property int contentMargin: 12
     property int contentTopMargin: contentMargin
     readonly property int screenEdgeOffset: 20
-    readonly property int borderWidth: 2
+    readonly property int borderWidth: Theme.hoverPopupBorderWidth
     property var anchorItem: null
     property var anchorWindow: null
     property var shell: null

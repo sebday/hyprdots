@@ -374,7 +374,7 @@ Item {
 
         SectionPanel {
             Layout.fillWidth: true
-            label: "Files"
+            label: ""
             sectionSpacing: 8
             contentPad: Theme.hoverPopupContentPad
             visible: root.files.length > 0 || root.filesLoading

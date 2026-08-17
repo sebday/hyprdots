@@ -14,11 +14,12 @@ Item {
         && String(shell.barConfig.position) === "top"
     readonly property int contentTopPad: barOnTop ? Theme.barHoverTopPad : contentMargin
     readonly property int contentBottomPad: contentMargin
+    readonly property int contentInset: root.contentMargin + Theme.hoverPopupBorderWidth
 
     default property alias moduleContent: moduleSlot.data
 
     readonly property Item module: moduleSlot.children.length > 0 ? moduleSlot.children[0] : null
-    readonly property int bodyWidth: Math.max(0, root.contentWidth - root.contentMargin * 2)
+    readonly property int bodyWidth: Math.max(0, root.contentWidth - root.contentInset * 2)
     readonly property int bodyHeight: {
         if (!module || module.implicitHeight === undefined)
             return 0
@@ -47,6 +48,7 @@ Item {
         contentTopMargin: root.contentTopPad
         contentWidth: root.contentWidth
         contentHeight: root.bodyHeight + root.contentTopPad + root.contentBottomPad
+            + Theme.hoverPopupBorderWidth * 2
 
         Item {
             anchors.fill: parent

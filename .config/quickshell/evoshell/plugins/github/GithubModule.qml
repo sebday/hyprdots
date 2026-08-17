@@ -375,8 +375,13 @@ Item {
         }
 
         SectionPanel {
-            label: "Trend"
+            label: ""
             visible: !root.loading && !root.isError && root.sparkBars.length > 0
+
+            HoverPopupLabelPill {
+                text: "Trend"
+                fontSize: Theme.fontSizeS
+            }
 
             SparklineChart {
                 Layout.fillWidth: true
@@ -387,8 +392,13 @@ Item {
         }
 
         SectionPanel {
-            label: "Last 30 days"
+            label: ""
             visible: !root.loading && !root.isError
+
+            HoverPopupLabelPill {
+                text: "Last 30 days"
+                fontSize: Theme.fontSizeS
+            }
 
             Item {
                 Layout.fillWidth: true

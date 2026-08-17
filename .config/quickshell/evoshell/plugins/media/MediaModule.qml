@@ -66,21 +66,18 @@ Item {
 
     readonly property int posterCellWidth: {
         if (hoverPopupWidth <= 0)
-            return 100
-        return Math.floor((hoverPopupWidth - tvLibraryTileSpacing) / tvLibraryGridCols)
+            return 72
+        var gaps = (tvLibraryGridCols - 1) * tvLibraryTileSpacing
+        return Math.floor((hoverPopupWidth - gaps) / tvLibraryGridCols)
     }
     readonly property int posterHeight: Math.round(posterCellWidth * 3 / 2)
+    readonly property real posterAspect: 3 / 2
 
-    readonly property int tvLibraryGridCols: 2
-    readonly property int tvLibraryVisibleRows: 2
+    readonly property int tvLibraryGridCols: 4
     readonly property int tvLibraryTileSpacing: Theme.hoverPopupSectionSpacing
     readonly property int tvLibraryLinkHeight: hintFont + 8
     readonly property int tvLibraryNameHeight: hintFont + 6
-    readonly property int tvLibraryTileHeight: posterHeight + tvLibraryNameHeight
-    readonly property int tvLibraryListHeight: tvLibraryVisibleRows * tvLibraryTileHeight
-        + (tvLibraryVisibleRows - 1) * tvLibraryTileSpacing
-    readonly property int tvLibraryBodyHeight: tvLibraryListHeight
-        + Theme.hoverPopupSectionSpacing + tvLibraryLinkHeight
+    readonly property int tvLibraryPlaceholderHeight: hintFont + 24
 
     implicitHeight: column.implicitHeight
 
@@ -487,130 +484,121 @@ Item {
         SectionPanel {
             label: "TV library"
 
-            Item {
+            ColumnLayout {
                 Layout.fillWidth: true
-                Layout.preferredHeight: root.tvLibraryBodyHeight
+                spacing: Theme.hoverPopupSectionSpacing
 
-                ColumnLayout {
-                    anchors.fill: parent
-                    spacing: Theme.hoverPopupSectionSpacing
+                Item {
+                    Layout.fillWidth: true
+                    implicitHeight: showGrid.visible
+                        ? showGrid.implicitHeight
+                        : root.tvLibraryPlaceholderHeight
 
-                    Item {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: root.tvLibraryListHeight
+                    Text {
+                        anchors.centerIn: parent
+                        width: parent.width
+                        visible: root.mediaLoading
+                        text: "Loading…"
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.hintFont
+                        opacity: 0.55
+                    }
 
-                        Text {
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: parent.width
-                            visible: root.mediaLoading
-                            text: "Loading…"
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.hintFont
-                            opacity: 0.55
-                        }
+                    Text {
+                        anchors.centerIn: parent
+                        width: parent.width
+                        visible: !root.mediaLoading && root.mediaPreviewItems.length === 0
+                        text: "No TV shows selected in settings"
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.hintFont
+                        opacity: 0.55
+                    }
 
-                        Text {
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: parent.width
-                            visible: !root.mediaLoading && root.mediaPreviewItems.length === 0
-                            text: "No TV shows selected in settings"
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.hintFont
-                            opacity: 0.55
-                        }
+                    GridLayout {
+                        id: showGrid
+                        width: parent.width
+                        visible: !root.mediaLoading && root.mediaPreviewItems.length > 0
+                        columns: root.tvLibraryGridCols
+                        columnSpacing: root.tvLibraryTileSpacing
+                        rowSpacing: root.tvLibraryTileSpacing
 
-                        Flickable {
-                            anchors.fill: parent
-                            visible: !root.mediaLoading && root.mediaPreviewItems.length > 0
-                            clip: true
-                            boundsBehavior: Flickable.StopAtBounds
-                            contentHeight: showGrid.implicitHeight
-                            contentWidth: width
+                        Repeater {
+                            model: root.mediaPreviewItems
 
-                            GridLayout {
-                                id: showGrid
-                                width: parent.width
-                                columns: root.tvLibraryGridCols
-                                columnSpacing: root.tvLibraryTileSpacing
-                                rowSpacing: root.tvLibraryTileSpacing
+                            Item {
+                                required property var modelData
+                                Layout.fillWidth: true
+                                implicitHeight: posterCol.implicitHeight
 
-                                Repeater {
-                                    model: root.mediaPreviewItems
+                                ColumnLayout {
+                                    id: posterCol
+                                    width: parent.width
+                                    spacing: 4
 
                                     Item {
-                                        required property var modelData
+                                        id: posterFrame
                                         Layout.fillWidth: true
-                                        Layout.preferredWidth: (showGrid.width - showGrid.columnSpacing) / root.tvLibraryGridCols
-                                        implicitHeight: posterCol.implicitHeight
+                                        implicitHeight: posterFrame.width > 0
+                                            ? Math.round(posterFrame.width * root.posterAspect)
+                                            : root.posterHeight
 
-                                        ColumnLayout {
-                                            id: posterCol
-                                            anchors.left: parent.left
-                                            anchors.right: parent.right
-                                            spacing: 4
-
-                                            Item {
-                                                Layout.fillWidth: true
-                                                Layout.preferredHeight: root.posterHeight
-
-                                                Rectangle {
-                                                    anchors.fill: parent
-                                                    radius: Theme.fieldsetCornerRadius
-                                                    color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.08)
-                                                    visible: showPosterImage.status !== Image.Ready
-                                                }
-
-                                                Image {
-                                                    id: showPosterImage
-                                                    anchors.fill: parent
-                                                    source: root.showPoster(modelData)
-                                                    fillMode: Image.PreserveAspectFit
-                                                    smooth: true
-                                                    asynchronous: true
-                                                    visible: status === Image.Ready
-                                                    layer.enabled: true
-                                                    layer.smooth: true
-                                                }
-
-                                                Text {
-                                                    anchors.centerIn: parent
-                                                    visible: showPosterImage.status !== Image.Ready
-                                                    text: "󰖺"
-                                                    color: Theme.accent
-                                                    font.family: Theme.fontFamily
-                                                    font.pixelSize: root.hintFont
-                                                    opacity: 0.75
-                                                }
-                                            }
-
-                                            Text {
-                                                Layout.fillWidth: true
-                                                text: modelData.name || ""
-                                                color: Theme.foreground
-                                                font.family: Theme.fontFamily
-                                                font.pixelSize: root.hintFont
-                                                font.bold: Theme.fontBold
-                                                elide: Text.ElideRight
-                                                horizontalAlignment: Text.AlignHCenter
-                                            }
+                                        Rectangle {
+                                            anchors.fill: parent
+                                            radius: Theme.fieldsetCornerRadius
+                                            color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.08)
+                                            visible: showPosterImage.status !== Image.Ready
                                         }
 
-                                        MouseArea {
+                                        Image {
+                                            id: showPosterImage
                                             anchors.fill: parent
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: root.openMediaShow(modelData)
+                                            source: root.showPoster(modelData)
+                                            fillMode: Image.PreserveAspectFit
+                                            smooth: true
+                                            asynchronous: true
+                                            visible: status === Image.Ready
+                                            layer.enabled: true
+                                            layer.smooth: true
+                                        }
+
+                                        Text {
+                                            anchors.centerIn: parent
+                                            visible: showPosterImage.status !== Image.Ready
+                                            text: "󰖺"
+                                            color: Theme.accent
+                                            font.family: Theme.fontFamily
+                                            font.pixelSize: root.hintFont
+                                            opacity: 0.75
                                         }
                                     }
+
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: modelData.name || ""
+                                        color: Theme.foreground
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: root.hintFont
+                                        font.bold: Theme.fontBold
+                                        elide: Text.ElideRight
+                                        horizontalAlignment: Text.AlignHCenter
+                                    }
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: root.openMediaShow(modelData)
                                 }
                             }
                         }
                     }
+                }
 
-                    Item {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: root.tvLibraryLinkHeight
+                Item {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: root.tvLibraryLinkHeight
 
                         Text {
                             anchors.right: parent.right
@@ -632,7 +620,6 @@ Item {
                         }
                     }
                 }
-            }
         }
     }
 

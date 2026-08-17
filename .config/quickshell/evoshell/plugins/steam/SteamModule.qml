@@ -54,11 +54,9 @@ Item {
 
     function formatPlaytime(minutes) {
         var m = parseInt(minutes, 10) || 0
-        if (m < 60)
-            return m + " min"
-        var h = Math.floor(m / 60)
-        var rem = m % 60
-        return rem > 0 ? h + "h " + rem + "m" : h + "h"
+        if (m <= 0)
+            return ""
+        return Math.round(m / 60) + "h"
     }
 
     readonly property string installedDisplay: {
@@ -419,15 +417,21 @@ Item {
                                     wrapMode: Text.Wrap
                                 }
 
-                                Text {
+                                RowLayout {
                                     Layout.fillWidth: true
-                                    text: root.formatLastPlayed(modelData.last_played)
-                                        + " · " + root.formatPlaytime(modelData.playtime_min)
-                                    color: Theme.foreground
-                                    opacity: 0.72
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: root.hintFont
-                                    elide: Text.ElideRight
+                                    spacing: 6
+
+                                    HoverPopupLabelPill {
+                                        visible: root.formatLastPlayed(modelData.last_played) !== "—"
+                                        text: root.formatLastPlayed(modelData.last_played)
+                                        fontSize: Theme.fontSizeS
+                                    }
+
+                                    HoverPopupLabelPill {
+                                        visible: root.formatPlaytime(modelData.playtime_min) !== ""
+                                        text: root.formatPlaytime(modelData.playtime_min)
+                                        fontSize: Theme.fontSizeS
+                                    }
                                 }
 
                                 Text {

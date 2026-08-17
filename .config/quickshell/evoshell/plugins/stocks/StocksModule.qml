@@ -52,15 +52,27 @@ Item {
         spcxPoll.runPoll()
     }
 
-    function marketMetaLine(market) {
-        var parts = []
+    function marketMetaPills(market) {
+        var out = []
         var change = market.quote ? market.quote.changePct : undefined
-        if (change !== undefined && change !== null && !isNaN(parseFloat(change)))
-            parts.push(fmtSignedPct(change) + " 24h")
+        if (change !== undefined && change !== null && !isNaN(parseFloat(change))) {
+            var changeColor = signedColor(change)
+            out.push({
+                text: fmtSignedPct(change) + " 24h",
+                color: changeColor,
+                fill: Theme.withOpacity(changeColor, 0.14)
+            })
+        }
         var upnl = market.position ? market.position.upnlPct : undefined
-        if (upnl !== undefined && upnl !== null && !isNaN(parseFloat(upnl)))
-            parts.push(fmtSignedPct(upnl) + " P/L")
-        return parts.join(" · ")
+        if (upnl !== undefined && upnl !== null && !isNaN(parseFloat(upnl))) {
+            var upnlColor = signedColor(upnl)
+            out.push({
+                text: fmtSignedPct(upnl) + " P/L",
+                color: upnlColor,
+                fill: Theme.withOpacity(upnlColor, 0.14)
+            })
+        }
+        return out
     }
 
     function signedColor(val) {
@@ -204,14 +216,7 @@ Item {
                 : "—"
         }
 
-        readonly property string metaLine: root.marketMetaLine(market)
-        readonly property real metaColorValue: {
-            var up = market.position ? market.position.upnlPct : undefined
-            if (up !== undefined && up !== null && !isNaN(parseFloat(up)))
-                return up
-            var change = market.quote ? market.quote.changePct : undefined
-            return change !== undefined && change !== null ? change : 0
-        }
+        readonly property var metaPills: root.marketMetaPills(marketHeader.market)
 
         RowLayout {
             id: headerRow
@@ -245,17 +250,24 @@ Item {
                 font.bold: Theme.fontBold
             }
 
-            Text {
+            RowLayout {
                 Layout.fillWidth: true
                 Layout.alignment: Qt.AlignVCenter
-                visible: marketHeader.metaLine !== ""
-                text: marketHeader.metaLine
-                color: root.signedColor(marketHeader.metaColorValue)
-                font.family: Theme.fontFamily
-                font.pixelSize: root.hintFont
-                font.bold: Theme.fontBold
-                opacity: 0.85
-                elide: Text.ElideRight
+                spacing: 6
+                visible: marketHeader.metaPills.length > 0
+
+                Repeater {
+                    model: marketHeader.metaPills
+
+                    HoverPopupLabelPill {
+                        required property var modelData
+                        text: modelData.text
+                        fontSize: Theme.fontSizeS
+                        textColor: modelData.color
+                        fill: modelData.fill
+                        textOpacity: 1
+                    }
+                }
             }
         }
 

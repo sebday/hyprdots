@@ -147,6 +147,7 @@ Singleton {
     readonly property int hoverPopupContentPad: 16
     readonly property int panelContentPad: 10
     readonly property int hoverPopupMargin: 16
+    readonly property int hoverPopupBorderWidth: 2
     readonly property int barHoverTopPad: 20
     readonly property int hoverPopupWidthStandard: 440
     readonly property int hoverPopupWidthWide: 580

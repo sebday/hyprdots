@@ -222,17 +222,15 @@ Item {
                 Layout.fillWidth: true
                 spacing: 12
 
-                Text {
+                Item {
                     Layout.fillWidth: true
-                    text: "Now"
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.hintFont
-                    font.bold: Theme.fontBold
-                    lineHeight: root.hintFont
-                    lineHeightMode: Text.FixedHeight
-                    opacity: 0.72
-                    elide: Text.ElideRight
+                    implicitHeight: nowPill.implicitHeight
+
+                    HoverPopupLabelPill {
+                        id: nowPill
+                        text: "Now"
+                        fontSize: Theme.fontSizeS
+                    }
                 }
 
                 Rectangle {
@@ -243,18 +241,16 @@ Item {
                     color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.12)
                 }
 
-                Text {
+                Item {
                     Layout.fillWidth: true
                     visible: root.todayOutlook !== null
-                    text: "Today"
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.hintFont
-                    font.bold: Theme.fontBold
-                    lineHeight: root.hintFont
-                    lineHeightMode: Text.FixedHeight
-                    opacity: 0.72
-                    elide: Text.ElideRight
+                    implicitHeight: todayPill.implicitHeight
+
+                    HoverPopupLabelPill {
+                        id: todayPill
+                        text: "Today"
+                        fontSize: Theme.fontSizeS
+                    }
                 }
             }
 
@@ -332,15 +328,16 @@ Item {
                 Layout.fillWidth: true
                 spacing: 12
 
-                Item {
+                Text {
                     Layout.fillWidth: true
-                    implicitHeight: hourPill.visible ? hourPill.implicitHeight : 0
-
-                    HoverPopupLabelPill {
-                        id: hourPill
-                        visible: root.currentHourLabel !== ""
-                        text: root.currentHourLabel
-                    }
+                    text: root.currentHourLabel
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.hintFont
+                    lineHeight: root.hintFont
+                    lineHeightMode: Text.FixedHeight
+                    opacity: root.currentHourLabel !== "" ? 0.55 : 0
+                    elide: Text.ElideRight
                 }
 
                 Rectangle {
@@ -351,16 +348,18 @@ Item {
                     color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.12)
                 }
 
-                Item {
+                Text {
                     Layout.fillWidth: true
                     visible: root.todayOutlook !== null
-                    implicitHeight: outlookPill.visible ? outlookPill.implicitHeight : 0
-
-                    HoverPopupLabelPill {
-                        id: outlookPill
-                        visible: root.todayOutlook && root.todayOutlook.label !== ""
-                        text: root.todayOutlook ? root.todayOutlook.label : ""
-                    }
+                    text: root.todayOutlook ? root.todayOutlook.label : ""
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.hintFont
+                    lineHeight: root.hintFont
+                    lineHeightMode: Text.FixedHeight
+                    opacity: root.todayOutlook && root.todayOutlook.label !== "" ? 0.55 : 0
+                    elide: Text.ElideRight
+                    maximumLineCount: 1
                 }
             }
         }
@@ -392,18 +391,16 @@ Item {
             Layout.fillWidth: true
             spacing: root.sectionSpacing
 
-            Text {
+            Item {
                 Layout.fillWidth: true
                 visible: outlook.boxTitle !== ""
-                text: outlook.boxTitle
-                color: Theme.foreground
-                font.family: Theme.fontFamily
-                font.pixelSize: root.hintFont
-                font.bold: Theme.fontBold
-                lineHeight: root.hintFont
-                lineHeightMode: Text.FixedHeight
-                opacity: 0.72
-                elide: Text.ElideRight
+                implicitHeight: titlePill.implicitHeight
+
+                HoverPopupLabelPill {
+                    id: titlePill
+                    text: outlook.boxTitle
+                    fontSize: Theme.fontSizeS
+                }
             }
 
             RowLayout {
@@ -434,15 +431,18 @@ Item {
                 }
             }
 
-            Item {
+            Text {
                 Layout.fillWidth: true
-                implicitHeight: detailPill.visible ? detailPill.implicitHeight : 0
-
-                HoverPopupLabelPill {
-                    id: detailPill
-                    visible: outlook.boxDetail !== ""
-                    text: outlook.boxDetail
-                }
+                visible: outlook.boxDetail !== ""
+                text: outlook.boxDetail
+                color: Theme.foreground
+                font.family: Theme.fontFamily
+                font.pixelSize: root.hintFont
+                lineHeight: root.hintFont
+                lineHeightMode: Text.FixedHeight
+                opacity: 0.55
+                elide: Text.ElideRight
+                maximumLineCount: 1
             }
         }
     }
@@ -507,15 +507,15 @@ Item {
                     elide: Text.ElideRight
                 }
 
-                Item {
+                Text {
                     Layout.fillWidth: true
-                    implicitHeight: eventPill.visible ? eventPill.implicitHeight : 0
-
-                    HoverPopupLabelPill {
-                        id: eventPill
-                        visible: sunEvent.eventLabel !== ""
-                        text: sunEvent.eventLabel
-                    }
+                    visible: sunEvent.eventLabel !== ""
+                    text: sunEvent.eventLabel
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.hintFont
+                    opacity: 0.55
+                    elide: Text.ElideRight
                 }
             }
         }

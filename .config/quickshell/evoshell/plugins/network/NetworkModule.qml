@@ -20,9 +20,7 @@ Item {
     readonly property int bodyFont: Theme.fontSize3xl
     readonly property int hintFont: Theme.fontSizeL
     readonly property int statFont: Theme.fontSizeXl
-    readonly property int throughputRateFont: Theme.fontSizeL
-    readonly property int throughputHintFont: Theme.fontSizeS
-    readonly property int throughputChartHeight: 80
+    readonly property int throughputChartHeight: 120
     readonly property int maxHistory: 36
 
     property var info: ({})
@@ -403,68 +401,50 @@ Item {
                         }
                     }
                 }
+
+                GridLayout {
+                    Layout.fillWidth: true
+                    columns: 2
+                    columnSpacing: 8
+
+                    HoverPopupStatBox {
+                        value: root.hasTransferStats
+                            ? root.formatRate(root.networkDownloadRate)
+                            : "--"
+                        label: "download"
+                        valueColor: "#a6e3a1"
+                        valueFontSize: Theme.fontSizeXl
+                    }
+
+                    HoverPopupStatBox {
+                        value: root.hasTransferStats
+                            ? root.formatRate(root.networkUploadRate)
+                            : "--"
+                        label: "upload"
+                        valueColor: Theme.urgent
+                        valueFontSize: Theme.fontSizeXl
+                    }
+                }
             }
         }
 
         SectionPanel {
             label: ""
 
-            RowLayout {
+            Item {
                 Layout.fillWidth: true
-                spacing: 16
+                Layout.preferredHeight: root.throughputChartHeight
+                Layout.minimumHeight: root.throughputChartHeight
 
-                ColumnLayout {
-                    spacing: 2
-
-                    Text {
-                        text: root.hasTransferStats ? root.formatRate(root.networkDownloadRate) : "--"
-                        color: Theme.accent
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.throughputRateFont
-                        font.bold: Theme.fontBold
-                    }
-
-                    Text {
-                        text: "Download"
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.throughputHintFont
-                        opacity: 0.55
-                    }
+                SparklineChart {
+                    anchors.fill: parent
+                    bars: root.downHistory
+                    secondaryBars: root.upHistory
+                    style: "line"
+                    lineColor: "#a6e3a1"
+                    secondaryLineColor: Theme.urgent
+                    chartHeight: height
                 }
-
-                ColumnLayout {
-                    spacing: 2
-
-                    Text {
-                        text: root.hasTransferStats ? root.formatRate(root.networkUploadRate) : "--"
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.throughputRateFont
-                        font.bold: Theme.fontBold
-                        opacity: 0.88
-                    }
-
-                    Text {
-                        text: "Upload"
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.throughputHintFont
-                        opacity: 0.55
-                    }
-                }
-
-                Item { Layout.fillWidth: true }
-            }
-
-            SparklineChart {
-                Layout.fillWidth: true
-                bars: root.downHistory
-                secondaryBars: root.upHistory
-                style: "line"
-                lineColor: Theme.accent
-                secondaryLineColor: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.88)
-                chartHeight: root.throughputChartHeight
             }
         }
 
@@ -571,8 +551,13 @@ Item {
         }
 
         SectionPanel {
-            label: "Transmission"
+            label: ""
             Layout.fillWidth: true
+
+            HoverPopupLabelPill {
+                text: "Transmission"
+                fontSize: Theme.fontSizeS
+            }
 
             TransmissionPanel {
                 Layout.fillWidth: true
