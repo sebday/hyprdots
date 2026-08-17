@@ -27,9 +27,10 @@ Item {
     readonly property int hintFont: Theme.hoverPopupHintFontPixelSize
     readonly property int listFont: hintFont
     readonly property int titleFont: bodyFont + 6
+    readonly property int nowPlayingArtMaxWidth: 550
     readonly property int nowPlayingArtWidth: nowPlayingPanel.height > 0
-        ? Math.max(160, nowPlayingPanel.height)
-        : 320
+        ? Math.max(160, Math.min(nowPlayingPanel.height, nowPlayingArtMaxWidth))
+        : nowPlayingArtMaxWidth
     readonly property int nowPlayingControlsHeight: 52
     readonly property int transportBtnSize: 36
     readonly property int nowPlayingTitleFont: bodyFont + 10
@@ -2459,6 +2460,7 @@ Item {
                         label: ""
                         Layout.fillHeight: true
                         Layout.preferredWidth: root.nowPlayingArtWidth
+                        Layout.maximumWidth: root.nowPlayingArtMaxWidth
                         Layout.minimumWidth: 120
                         fillHeight: true
 
@@ -2468,7 +2470,11 @@ Item {
 
                             Rectangle {
                                 id: coverFrame
-                                anchors.fill: parent
+                                readonly property int side: Math.min(parent.width, parent.height, root.nowPlayingArtWidth)
+                                width: side
+                                height: side
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
                                 radius: 3
                                 clip: true
                                 color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.08)

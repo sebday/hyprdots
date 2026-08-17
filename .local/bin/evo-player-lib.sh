@@ -537,12 +537,49 @@ tracks_cache_stale() {
   local genre="$1"
   local cache="$2"
   local dir="$MUSIC_ROOT/$genre"
+  local p
   [[ ! -f "$cache" ]] && return 0
   [[ ! -s "$cache" ]] && return 0
   jq -e 'type == "array"' "$cache" >/dev/null 2>&1 || return 0
   [[ ! -d "$dir" ]] && return 0
   [[ -n "$(find "$dir" -type f -newer "$cache" -print -quit 2>/dev/null)" ]] && return 0
+  while IFS= read -r p; do
+    [[ -n "$p" && ! -f "$p" ]] && return 0
+  done < <(jq -r '.[].path // empty' "$cache" 2>/dev/null)
   return 1
+}
+
+tracks_cache_prune_missing() {
+  local cache="$1"
+  [[ -f "$cache" ]] || return 0
+  local tmp removed=0
+  tmp="$(mktemp "${cache}.XXXXXX")"
+  removed="$(python3 - "$cache" "$tmp" <<'PY'
+import json, os, sys
+
+in_path, out_path = sys.argv[1:3]
+with open(in_path, encoding="utf-8") as fh:
+    items = json.load(fh)
+if not isinstance(items, list):
+    sys.exit(1)
+kept = [item for item in items if item.get("path") and os.path.isfile(item["path"])]
+removed = len(items) - len(kept)
+with open(out_path, "w", encoding="utf-8") as fh:
+    json.dump(kept, fh, ensure_ascii=False)
+print(removed)
+PY
+)" || {
+    rm -f "$tmp"
+    return 1
+  }
+  [[ "$removed" =~ ^[0-9]+$ ]] || removed=0
+  (( removed > 0 )) || {
+    rm -f "$tmp"
+    return 0
+  }
+  mv "$tmp" "$cache"
+  printf '%s\n' "$(jq 'length' "$cache" 2>/dev/null || echo 0)" >"${cache%.tags.json}.count"
+  return 0
 }
 
 tracks_cache_invalidate() {
@@ -562,6 +599,7 @@ build_tracks_json_impl() {
   local cache tmpdir
   cache="$(tracks_cache_path "$genre")"
   mkdir -p "$TRACKS_CACHE_DIR"
+  tracks_cache_prune_missing "$cache" 2>/dev/null || true
 
   if [[ "$force" -eq 1 ]] || [[ ! -f "$cache" ]] || [[ ! -s "$cache" ]]; then
     tmpdir="$(mktemp -d "${TRACKS_CACHE_DIR}/.build.XXXXXX")"

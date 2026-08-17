@@ -315,7 +315,7 @@ cmd_player_queue_append() {
   cmd_player_start
   local path
   for path in "$@"; do
-    [[ -f "$path" ]] || { echo "evo-player: not a file: $path" >&2; return 1; }
+    [[ -f "$path" ]] || continue
     mpv_load_file "$path" append
     waveform_ensure_async "$path"
   done
@@ -334,13 +334,19 @@ cmd_player_queue_play() {
   else
     paths=("$start")
   fi
+  local -a valid_paths=()
+  for path in "${paths[@]}"; do
+    [[ -f "$path" ]] && valid_paths+=("$path")
+  done
+  paths=("${valid_paths[@]}")
+  [[ ${#paths[@]} -gt 0 ]] || { echo "evo-player: no playable files in queue" >&2; return 1; }
   for i in "${!paths[@]}"; do
-    [[ -f "${paths[$i]}" ]] || { echo "evo-player: not a file: ${paths[$i]}" >&2; return 1; }
     if [[ "$idx" -lt 0 && "${paths[$i]}" == "$start" ]]; then
       idx=$i
     fi
   done
-  [[ "$idx" -ge 0 ]] || { echo "evo-player: start path not in queue: $start" >&2; return 1; }
+  [[ "$idx" -ge 0 ]] || start="${paths[0]}"
+  [[ "$idx" -ge 0 ]] || idx=0
   queue_paths=("${paths[@]}")
   paths=()
   for ((j = idx; j < ${#queue_paths[@]}; j++)); do
@@ -1264,11 +1270,17 @@ browse_emit_cached_tracks() {
   local dir="$1"
   local cache="$2"
   local -a lines=()
-  local line
+  local line path raw=0
   while IFS= read -r line; do
     [[ -n "$line" ]] || continue
+    raw=$((raw + 1))
+    path="$(jq -r '.path // ""' <<<"$line")"
+    [[ -n "$path" && -f "$path" ]] || continue
     lines+=("$line")
   done < <(browse_tracks_cached_lines "$dir" "$cache")
+  if (( raw > 0 && ${#lines[@]} < raw )); then
+    tracks_cache_prune_missing "$cache" 2>/dev/null || true
+  fi
   [[ ${#lines[@]} -gt 0 ]] || return 1
 
   local i=0 n=${#lines[@]} batch=24 tmpdir out

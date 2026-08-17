@@ -11,3 +11,8 @@ app-notifications = false
 font-family = CaskaydiaMono Nerd Font
 font-size = 13
 
+# cap per-tab memory so a runaway cursor agent cannot take down the whole system
+# 8 GiB in bytes (ghostty sets memory.high, a soft throttle limit)
+linux-cgroup-memory-limit = 8589934592
+scrollback-limit = 100000
+
