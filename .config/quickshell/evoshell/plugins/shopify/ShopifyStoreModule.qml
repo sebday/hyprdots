@@ -21,12 +21,12 @@ Item {
 
     readonly property string home: Quickshell.env("HOME")
     readonly property string avatarDir: home + "/onedrive/pictures/Avatars"
-    readonly property real demoScale: 1.75
+    readonly property string demoJsonPath: (shell && shell.shellDir)
+        ? shell.shellDir + "/plugins/shopify/demo.json"
+        : home + "/.config/quickshell/evoshell/plugins/shopify/demo.json"
     readonly property bool active: host && host.opened === true
     readonly property var barSource: host && host.shell ? host.shell.popupAnchorItem : null
     readonly property int hintFont: Theme.hoverPopupHintFontPixelSize
-
-    property var realPayload: null
 
     readonly property string storeIconUrl: {
         if (demoMode) {
@@ -103,122 +103,33 @@ Item {
         storePoll.runPoll()
     }
 
-    function rememberRealPayload(json) {
-        if (!json || typeof json !== "object" || !Array.isArray(json.bars) || json.bars.length === 0)
-            return
-        realPayload = json
-    }
-
-    function realPayloadSource() {
-        if (realPayload && Array.isArray(realPayload.bars) && realPayload.bars.length > 0)
-            return realPayload
-        if (shell) {
-            var cached = shell.hoverPopupDataFor(storeCacheKey)
-            if (cached && Array.isArray(cached.bars) && cached.bars.length > 0)
-                return cached
+    function demoPayloadFromFile() {
+        try {
+            var raw = String(demoFile.text() || "").trim()
+            if (!raw)
+                return null
+            var all = JSON.parse(raw)
+            if (!all || typeof all !== "object")
+                return null
+            var key = storeKey
+            return all[key] || all[key.toLowerCase()] || null
+        } catch (e) {
+            return null
         }
-        return null
     }
 
     function refreshDemoPayload() {
-        var source = realPayloadSource()
-        if (source) {
-            applyPayload(buildDemoPayload(source))
-            return
-        }
-        if (!demoFetchProc.running)
-            demoFetchProc.running = true
+        var fromFile = demoPayloadFromFile()
+        if (fromFile && Array.isArray(fromFile.bars) && fromFile.bars.length > 0)
+            applyPayload(fromFile)
     }
 
-    function scaleDemoNumber(value, asInt) {
-        var n = parseFloat(value)
-        if (isNaN(n))
-            return value
-        var scaled = n * demoScale
-        return asInt ? Math.round(scaled) : Math.round(scaled * 100) / 100
-    }
-
-    function scaleDemoBar(bar, valueIsInt) {
-        var out = {}
-        for (var key in bar) {
-            if (!Object.prototype.hasOwnProperty.call(bar, key))
-                continue
-            if (key === "value")
-                out[key] = scaleDemoNumber(bar[key], valueIsInt)
-            else if (key === "orders")
-                out[key] = scaleDemoNumber(bar[key], true)
-            else
-                out[key] = bar[key]
-        }
-        return out
-    }
-
-    function buildDemoPayload(source) {
-        source = source || realPayloadSource()
-        if (!source)
-            return ({})
-
-        var sym = source.symbol || "£"
-        var cos = source.cos || (source.todayDetail && source.todayDetail.cos) || "—"
-        var td = source.todayDetail || {}
-        var period = source.period || {}
-        var channels = source.channels || {}
-
-        var scaledToday = {
-            revenue: scaleDemoNumber(td.revenue !== undefined ? td.revenue : source.revenue),
-            orders: scaleDemoNumber(td.orders !== undefined ? td.orders : source.orders, true),
-            sessions: scaleDemoNumber(td.sessions, true),
-            cos: cos,
-            spend: scaleDemoNumber(td.spend)
-        }
-        if (scaledToday.sessions > 0)
-            scaledToday.cvr = scaledToday.orders / scaledToday.sessions
-        else if (td.cvr !== undefined)
-            scaledToday.cvr = td.cvr
-
-        var scaledPeriod = {
-            days: period.days || (Array.isArray(source.bars) ? source.bars.length : 30),
-            revenue: scaleDemoNumber(period.revenue),
-            orders: scaleDemoNumber(period.orders, true),
-            sessions: scaleDemoNumber(period.sessions, true),
-            spend: scaleDemoNumber(period.spend)
-        }
-
-        var scaledChannels = {
-            paid: scaleDemoNumber(channels.paid),
-            organic: scaleDemoNumber(channels.organic),
-            direct: scaleDemoNumber(channels.direct),
-            email: scaleDemoNumber(channels.email)
-        }
-
-        var bars = []
-        var orderBars = []
-        if (Array.isArray(source.bars)) {
-            for (var i = 0; i < source.bars.length; i++)
-                bars.push(scaleDemoBar(source.bars[i], false))
-        }
-        if (Array.isArray(source.orderBars)) {
-            for (var j = 0; j < source.orderBars.length; j++)
-                orderBars.push(scaleDemoBar(source.orderBars[j], true))
-        }
-
-        var revenue = scaledToday.revenue
-        var orders = scaledToday.orders
-        var storeLetter = source.store || (storeKey === "DIY" ? "D" : "T")
-
-        return {
-            store: storeLetter,
-            symbol: sym,
-            revenue: revenue,
-            orders: orders,
-            cos: cos,
-            label: storeLetter + " " + Format.formatRevenue(revenue, sym) + " | " + cos,
-            todayDetail: scaledToday,
-            period: scaledPeriod,
-            channels: scaledChannels,
-            bars: bars,
-            orderBars: orderBars
-        }
+    function statOrders() {
+        if (todayDetail.orders !== undefined && todayDetail.orders !== null)
+            return String(todayDetail.orders)
+        if (storeData.orders !== undefined && storeData.orders !== null)
+            return String(storeData.orders)
+        return "—"
     }
 
     function bootstrapFromCache() {
@@ -257,8 +168,9 @@ Item {
             ? Format.formatRevenue(data.revenue, sym)
             : String(data.label || "").replace(/^[A-Z]\s+/, "")
         var rest = [cos]
-        if (typeof data.orders === "number")
-            rest.push(data.orders + " orders")
+        var orders = data.orders
+        if (orders !== undefined && orders !== null && !isNaN(parseFloat(orders)))
+            rest.push(String(parseInt(orders, 10)) + " orders")
         return Format.headerLines([revenue].concat(rest), fallbackName + " …")
     }
 
@@ -289,8 +201,6 @@ Item {
             storeData = ({})
         else
             storeData = json
-        if (!demoMode)
-            rememberRealPayload(json)
         if (demoMode || !shell || !json || typeof json !== "object")
             return
         var days = (json.period && json.period.days) || (Array.isArray(json.bars) ? json.bars.length : 0)
@@ -321,19 +231,13 @@ Item {
         }
     }
 
-    Process {
-        id: demoFetchProc
-        command: ["bash", root.home + "/.local/bin/evo-bar-shopify", root.storeKey, "30"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                try {
-                    var json = JSON.parse(String(text || "").trim() || "{}")
-                    root.rememberRealPayload(json)
-                    if (root.demoMode)
-                        root.applyPayload(root.buildDemoPayload(json))
-                } catch (e) {}
-            }
-        }
+    FileView {
+        id: demoFile
+        path: root.demoJsonPath
+        preload: true
+        watchChanges: true
+        printErrors: false
+        onFileChanged: if (root.demoMode) root.refreshDemoPayload()
     }
 
     JsonPollRunner {
@@ -380,7 +284,7 @@ Item {
 
                     Repeater {
                         model: [
-                            { label: "Orders", value: String(root.todayDetail.orders || root.storeData.orders || "—") },
+                            { label: "Orders", value: root.statOrders() },
                             { label: "Sessions", value: String(root.todayDetail.sessions || "—") },
                             { label: "CVR", value: root.fmtPct(root.todayDetail.cvr) },
                             { label: "AoV", value: root.fmtAov() }

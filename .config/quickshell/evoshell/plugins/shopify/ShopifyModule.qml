@@ -1,6 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
-import "../stats"
+import "."
 import "../../Commons"
 
 Item {
