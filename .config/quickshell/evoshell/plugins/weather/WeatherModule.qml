@@ -15,12 +15,15 @@ Item {
     readonly property bool active: host && host.opened === true
     readonly property var barSource: host && host.shell ? host.shell.popupAnchorItem : null
 
-    readonly property int topStatValueFont: Theme.fontSizeHero
-    readonly property int dayIconFont: Theme.fontSize3xl
-    readonly property int dayPrimaryFont: Theme.fontSize3xl
+    readonly property int primaryStatFont: Theme.fontSize9xl
+    readonly property int sunEventGlyphFont: root.primaryStatFont + 6
     readonly property int bodyFont: Theme.fontSize3xl
     readonly property int hintFont: Theme.fontSizeL
     readonly property int chartAxisFont: Theme.fontSizeS
+    readonly property int sectionSpacing: 6
+    readonly property int statBoxPad: 10
+    readonly property int sunEventRowHeight: Theme.hoverPopupContentPad * 2
+        + Math.max(root.primaryStatFont + 10, root.primaryStatFont + root.hintFont + 2)
     readonly property int chartHeight: 150
     readonly property int yAxisWidth: 28
     readonly property int chartGap: 4
@@ -59,6 +62,9 @@ Item {
         }
         return out
     }
+
+    readonly property var todayOutlook: root.outlookDays.length > 0 ? root.outlookDays[0] : null
+    readonly property var tomorrowOutlook: root.outlookDays.length > 1 ? root.outlookDays[1] : null
 
     readonly property string currentHourLabel: {
         if (!current || !current.time) return ""
@@ -190,113 +196,253 @@ Item {
         Quickshell.execDetached(["bash", "-lc", "xdg-open " + Util.shellQuote(metOfficeUrl)])
     }
 
-    component WeatherStatBox: SectionPanel {
-        id: statBox
-        property string boxTitle: ""
-        property string boxIcon: ""
-        property string boxValue: ""
-        property string boxDetail: ""
-        property color boxValueColor: Theme.foreground
+    component CurrentDayPanel: SectionPanel {
+        id: currentDay
         property bool linkable: false
-        property bool inlineValueIcon: false
-
         signal linkActivated()
 
         label: ""
         filled: true
-        contentPad: 10
-        sectionSpacing: 6
+        contentPad: root.statBoxPad
+        sectionSpacing: 0
         Layout.fillWidth: true
         Layout.minimumWidth: 0
+        Layout.preferredWidth: 2
 
         ColumnLayout {
             Layout.fillWidth: true
-            spacing: 6
+            spacing: root.sectionSpacing
 
             RowLayout {
                 Layout.fillWidth: true
-                spacing: 4
+                spacing: 12
 
                 Text {
                     Layout.fillWidth: true
-                    text: statBox.boxTitle
+                    text: "Now"
                     color: Theme.foreground
                     font.family: Theme.fontFamily
                     font.pixelSize: root.hintFont
                     font.bold: Theme.fontBold
+                    lineHeight: root.hintFont
+                    lineHeightMode: Text.FixedHeight
                     opacity: 0.72
                     elide: Text.ElideRight
                 }
 
+                Rectangle {
+                    visible: root.todayOutlook !== null
+                    Layout.preferredWidth: 1
+                    Layout.preferredHeight: root.hintFont
+                    Layout.alignment: Qt.AlignVCenter
+                    color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.12)
+                }
+
                 Text {
-                    visible: !statBox.inlineValueIcon && statBox.boxIcon !== ""
-                    text: statBox.boxIcon
-                    color: Theme.accent
+                    Layout.fillWidth: true
+                    visible: root.todayOutlook !== null
+                    text: "Today"
+                    color: Theme.foreground
                     font.family: Theme.fontFamily
-                    font.pixelSize: root.dayIconFont
+                    font.pixelSize: root.hintFont
+                    font.bold: Theme.fontBold
+                    lineHeight: root.hintFont
+                    lineHeightMode: Text.FixedHeight
+                    opacity: 0.72
+                    elide: Text.ElideRight
                 }
             }
 
             RowLayout {
                 Layout.fillWidth: true
-                spacing: 4
-                visible: statBox.inlineValueIcon
+                spacing: 12
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 4
+
+                    Text {
+                        text: root.currentIcon
+                        color: Theme.accent
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.primaryStatFont
+                        font.bold: Theme.fontBold
+                        lineHeight: root.primaryStatFont
+                        lineHeightMode: Text.FixedHeight
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: root.currentTemp
+                        color: root.current
+                            ? root.tempColor(root.current.temp)
+                            : Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.primaryStatFont
+                        font.bold: Theme.fontBold
+                        lineHeight: root.primaryStatFont
+                        lineHeightMode: Text.FixedHeight
+                        elide: Text.ElideRight
+                    }
+                }
+
+                Rectangle {
+                    visible: root.todayOutlook !== null
+                    Layout.preferredWidth: 1
+                    Layout.preferredHeight: root.primaryStatFont
+                    Layout.alignment: Qt.AlignVCenter
+                    color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.12)
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    visible: root.todayOutlook !== null
+                    spacing: 4
+
+                    Text {
+                        text: root.todayOutlook ? root.todayOutlook.icon : ""
+                        color: Theme.accent
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.primaryStatFont
+                        font.bold: Theme.fontBold
+                        lineHeight: root.primaryStatFont
+                        lineHeightMode: Text.FixedHeight
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: root.todayOutlook ? root.todayOutlook.range : ""
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.primaryStatFont
+                        font.bold: Theme.fontBold
+                        lineHeight: root.primaryStatFont
+                        lineHeightMode: Text.FixedHeight
+                        elide: Text.ElideRight
+                    }
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 12
 
                 Text {
-                    visible: statBox.boxIcon !== ""
-                    text: statBox.boxIcon
-                    color: Theme.accent
+                    Layout.fillWidth: true
+                    text: root.currentHourLabel
+                    color: Theme.foreground
                     font.family: Theme.fontFamily
-                    font.pixelSize: root.topStatValueFont
-                    font.bold: Theme.fontBold
-                    lineHeight: root.topStatValueFont
+                    font.pixelSize: root.hintFont
+                    lineHeight: root.hintFont
                     lineHeightMode: Text.FixedHeight
+                    opacity: root.currentHourLabel !== "" ? 0.55 : 0
+                    elide: Text.ElideRight
+                }
+
+                Rectangle {
+                    visible: root.todayOutlook !== null
+                    Layout.preferredWidth: 1
+                    Layout.preferredHeight: root.hintFont
+                    Layout.alignment: Qt.AlignVCenter
+                    color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.12)
                 }
 
                 Text {
                     Layout.fillWidth: true
-                    text: statBox.boxValue
-                    color: statBox.boxValueColor
+                    visible: root.todayOutlook !== null
+                    text: root.todayOutlook ? root.todayOutlook.label : ""
+                    color: Theme.foreground
                     font.family: Theme.fontFamily
-                    font.pixelSize: root.topStatValueFont
-                    font.bold: Theme.fontBold
-                    lineHeight: root.topStatValueFont
+                    font.pixelSize: root.hintFont
+                    lineHeight: root.hintFont
                     lineHeightMode: Text.FixedHeight
+                    opacity: root.todayOutlook && root.todayOutlook.label !== "" ? 0.55 : 0
                     elide: Text.ElideRight
+                    maximumLineCount: 1
                 }
-            }
-
-            Text {
-                Layout.fillWidth: true
-                visible: !statBox.inlineValueIcon
-                text: statBox.boxValue
-                color: statBox.boxValueColor
-                font.family: Theme.fontFamily
-                font.pixelSize: root.topStatValueFont
-                font.bold: Theme.fontBold
-                lineHeight: root.topStatValueFont
-                lineHeightMode: Text.FixedHeight
-                elide: Text.ElideRight
-            }
-
-            Text {
-                Layout.fillWidth: true
-                visible: statBox.boxDetail !== ""
-                text: statBox.boxDetail
-                color: Theme.foreground
-                font.family: Theme.fontFamily
-                font.pixelSize: root.hintFont
-                opacity: 0.55
-                elide: Text.ElideRight
-                maximumLineCount: 1
             }
         }
 
         MouseArea {
             anchors.fill: parent
-            visible: statBox.linkable
+            visible: currentDay.linkable
             cursorShape: Qt.PointingHandCursor
-            onClicked: statBox.linkActivated()
+            onClicked: currentDay.linkActivated()
+        }
+    }
+
+    component OutlookStatBox: SectionPanel {
+        id: outlook
+        property string boxTitle: ""
+        property string boxIcon: ""
+        property string boxValue: ""
+        property string boxDetail: ""
+
+        label: ""
+        filled: true
+        contentPad: root.statBoxPad
+        sectionSpacing: 0
+        Layout.fillWidth: true
+        Layout.minimumWidth: 0
+        Layout.preferredWidth: 1
+
+        ColumnLayout {
+            Layout.fillWidth: true
+            spacing: root.sectionSpacing
+
+            Text {
+                Layout.fillWidth: true
+                text: outlook.boxTitle
+                color: Theme.foreground
+                font.family: Theme.fontFamily
+                font.pixelSize: root.hintFont
+                font.bold: Theme.fontBold
+                lineHeight: root.hintFont
+                lineHeightMode: Text.FixedHeight
+                opacity: 0.72
+                elide: Text.ElideRight
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 4
+
+                Text {
+                    visible: outlook.boxIcon !== ""
+                    text: outlook.boxIcon
+                    color: Theme.accent
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.primaryStatFont
+                    font.bold: Theme.fontBold
+                    lineHeight: root.primaryStatFont
+                    lineHeightMode: Text.FixedHeight
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    text: outlook.boxValue
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.primaryStatFont
+                    font.bold: Theme.fontBold
+                    lineHeight: root.primaryStatFont
+                    lineHeightMode: Text.FixedHeight
+                    elide: Text.ElideRight
+                }
+            }
+
+            Text {
+                Layout.fillWidth: true
+                text: outlook.boxDetail
+                color: Theme.foreground
+                font.family: Theme.fontFamily
+                font.pixelSize: root.hintFont
+                lineHeight: root.hintFont
+                lineHeightMode: Text.FixedHeight
+                opacity: outlook.boxDetail !== "" ? 0.55 : 0
+                elide: Text.ElideRight
+                maximumLineCount: 1
+            }
         }
     }
 
@@ -307,12 +453,13 @@ Item {
         property string eventLabel: ""
         property color tint: Theme.accent
 
-        readonly property int glyphBox: root.topStatValueFont + 10
+        readonly property int glyphBox: root.sunEventGlyphFont + 10
 
         label: ""
         filled: true
         contentPad: 10
         sectionSpacing: 0
+        Layout.fillWidth: true
         Layout.minimumWidth: 0
 
         RowLayout {
@@ -337,7 +484,7 @@ Item {
                     text: sunEvent.glyph
                     color: sunEvent.tint
                     font.family: Theme.fontFamily
-                    font.pixelSize: root.topStatValueFont
+                    font.pixelSize: root.sunEventGlyphFont
                     font.bold: Theme.fontBold
                 }
             }
@@ -352,9 +499,9 @@ Item {
                     text: sunEvent.time
                     color: Theme.foreground
                     font.family: Theme.fontFamily
-                    font.pixelSize: root.topStatValueFont
+                    font.pixelSize: root.primaryStatFont
                     font.bold: Theme.fontBold
-                    lineHeight: root.topStatValueFont
+                    lineHeight: root.primaryStatFont
                     lineHeightMode: Text.FixedHeight
                     elide: Text.ElideRight
                 }
@@ -408,35 +555,25 @@ Item {
             spacing: 10
             visible: root.weatherOk && !root.loading
 
-            WeatherStatBox {
+            CurrentDayPanel {
                 Layout.fillWidth: true
-                Layout.preferredWidth: 0
+                Layout.preferredWidth: 2
                 Layout.minimumWidth: 0
-                boxTitle: "Now"
-                boxIcon: root.currentIcon
-                inlineValueIcon: true
-                boxValue: root.currentTemp
-                boxValueColor: root.current
-                    ? root.tempColor(root.current.temp)
-                    : Theme.foreground
-                boxDetail: root.currentLabel
+                Layout.alignment: Qt.AlignTop
                 linkable: root.metOfficeUrl !== ""
                 onLinkActivated: root.openMetOffice()
             }
 
-            Repeater {
-                model: root.outlookDays
-
-                WeatherStatBox {
-                    required property var modelData
-                    Layout.fillWidth: true
-                    Layout.preferredWidth: 0
-                    Layout.minimumWidth: 0
-                    boxTitle: modelData.title
-                    boxIcon: modelData.icon
-                    boxValue: modelData.range
-                    boxDetail: modelData.label
-                }
+            OutlookStatBox {
+                visible: root.tomorrowOutlook !== null
+                Layout.fillWidth: true
+                Layout.preferredWidth: 1
+                Layout.minimumWidth: 0
+                Layout.alignment: Qt.AlignTop
+                boxTitle: root.tomorrowOutlook ? root.tomorrowOutlook.title : ""
+                boxIcon: root.tomorrowOutlook ? root.tomorrowOutlook.icon : ""
+                boxValue: root.tomorrowOutlook ? root.tomorrowOutlook.range : ""
+                boxDetail: root.tomorrowOutlook ? root.tomorrowOutlook.label : ""
             }
         }
 
@@ -449,6 +586,7 @@ Item {
             SunEventBox {
                 Layout.fillWidth: true
                 Layout.preferredWidth: 0
+                Layout.preferredHeight: root.sunEventRowHeight
                 visible: root.sunrise !== ""
                 glyph: "󰖜"
                 time: root.sunrise
@@ -459,6 +597,7 @@ Item {
             SunEventBox {
                 Layout.fillWidth: true
                 Layout.preferredWidth: 0
+                Layout.preferredHeight: root.sunEventRowHeight
                 visible: root.sunset !== ""
                 glyph: "󰖛"
                 time: root.sunset

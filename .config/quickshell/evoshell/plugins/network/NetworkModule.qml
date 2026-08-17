@@ -3,6 +3,7 @@ import Quickshell.Io
 import QtQuick
 import QtQuick.Layouts
 import "../../Commons"
+import "../transmission"
 
 Item {
     id: root
@@ -589,6 +590,18 @@ Item {
                         }
                     }
                 }
+            }
+        }
+
+        SectionPanel {
+            label: "Transmission"
+            Layout.fillWidth: true
+
+            TransmissionPanel {
+                Layout.fillWidth: true
+                active: root.active
+                shell: root.shell
+                barSource: root.barSource
             }
         }
     }

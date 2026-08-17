@@ -25,7 +25,7 @@ Item {
 
     readonly property string listScript: Quickshell.env("HOME") + "/.local/bin/evo-menu-list"
     readonly property string fallbackIcon: kind === "wallpapers" ? "󰏘" : "󰸌"
-    readonly property int tileIconSize: 22
+    readonly property int tileIconSize: Theme.fontSize6xl
     readonly property int rowCount: entries.length > 0
         ? Math.ceil(entries.length / Math.max(1, columns))
         : 0

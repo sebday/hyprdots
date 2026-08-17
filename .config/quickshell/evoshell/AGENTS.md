@@ -100,9 +100,7 @@ QML in this directory:
 - 4-space indentation (match existing files)
 - New bar widgets: register in `plugins/bar/widgets/qmldir` and `BarWidgetCatalog.qml` — not `BarSection.qml`
 - `BarWidgetCatalog` root must be `Item`, not `QtObject`
-- Hover popups: `BarHoverPopup` + `SectionPanel` + `Theme.fontSize*` tokens (see Typography)
 - `import Quickshell` when using `Quickshell.execDetached` or env
-- Clock `format`: Qt tokens (`%a %d %H:%M`), not strftime
 - Streaming bar data (e.g. cava): `SplitParser`, not interval polling
 - `CommandWidget` bar scripts print one JSON line; hover popups may read `lastPayload`
 
@@ -147,13 +145,6 @@ All font sizes live in `Commons/Theme.qml` and derive from `fontPixelSize` in `t
 - Layout-derived icon sizing (`headerIconSize * 0.72`) is fine; font size itself should still come from the scale.
 - Shared components (`HoverPopupStatBox`, `HoverPopupHeader`, `SparklineChart`) must use scale tokens, not local magic numbers.
 - Changing `fontPixelSize` in `theme.json` rescales the entire UI — prefer that over one-off pixel tweaks in modules.
-
-## Git
-
-- Commits should be atomic (one coherent change)
-- Commit messages: lowercase, succinct, describe the change
-- Never commit `secrets.env` or other credential files
-- Default branch is `master`
 
 ## Testing
 

@@ -117,13 +117,26 @@ Item {
                 anchors.margins: root.dialogPad
                 spacing: 12
 
-                Text {
+                RowLayout {
                     Layout.fillWidth: true
-                    text: "Download"
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.titleFont
-                    font.bold: Theme.fontBold
+                    spacing: 8
+
+                    Text {
+                        text: "󰇚"
+                        color: Theme.accent
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.titleFont
+                        font.bold: Theme.fontBold
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: "Download"
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.titleFont
+                        font.bold: Theme.fontBold
+                    }
                 }
 
                 FramedPanel {
@@ -167,14 +180,81 @@ Item {
                     }
                 }
 
-                Text {
+                ColumnLayout {
                     Layout.fillWidth: true
-                    text: "Enter to download · Esc to cancel"
-                    color: Theme.foreground
-                    opacity: 0.55
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeS
-                    font.bold: Theme.fontBold
+                    spacing: 6
+
+                    Item {
+                        Layout.fillWidth: true
+                        implicitHeight: downloadActionRow.implicitHeight
+
+                        RowLayout {
+                            id: downloadActionRow
+                            spacing: 8
+
+                            Text {
+                                text: "󰁝"
+                                color: downloadAction.containsMouse ? Theme.accent : Theme.foreground
+                                opacity: downloadAction.containsMouse ? 1 : 0.72
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.bodyFont
+                                font.bold: Theme.fontBold
+                            }
+
+                            Text {
+                                text: "Download"
+                                color: downloadAction.containsMouse ? Theme.accent : Theme.foreground
+                                opacity: downloadAction.containsMouse ? 1 : 0.72
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.bodyFont
+                                font.bold: Theme.fontBold
+                            }
+                        }
+
+                        MouseArea {
+                            id: downloadAction
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.submit()
+                        }
+                    }
+
+                    Item {
+                        Layout.fillWidth: true
+                        implicitHeight: cancelActionRow.implicitHeight
+
+                        RowLayout {
+                            id: cancelActionRow
+                            spacing: 8
+
+                            Text {
+                                text: "󰁍"
+                                color: cancelAction.containsMouse ? Theme.urgent : Theme.foreground
+                                opacity: cancelAction.containsMouse ? 1 : 0.55
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.bodyFont
+                                font.bold: Theme.fontBold
+                            }
+
+                            Text {
+                                text: "Cancel"
+                                color: cancelAction.containsMouse ? Theme.urgent : Theme.foreground
+                                opacity: cancelAction.containsMouse ? 1 : 0.55
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.bodyFont
+                                font.bold: Theme.fontBold
+                            }
+                        }
+
+                        MouseArea {
+                            id: cancelAction
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.dismiss()
+                        }
+                    }
                 }
             }
         }

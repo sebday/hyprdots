@@ -12,7 +12,8 @@ Item {
     property var settings: ({})
 
     readonly property string home: Quickshell.env("HOME") || ""
-    readonly property string script: home + "/.local/bin/evo-bar-network"
+    readonly property string networkScript: home + "/.local/bin/evo-bar-network"
+    readonly property string transmissionScript: home + "/.local/bin/evo-bar-transmission"
     readonly property string hoverPopupId: settings.onHover ? String(settings.onHover) : "evo.network"
     readonly property bool iconOnly: settings.iconOnly !== false
     readonly property bool trayMode: settings.trayMode === true
@@ -24,30 +25,30 @@ Item {
         var n = parseInt(settings.trayCellWidth, 10)
         return isNaN(n) || n <= 0 ? trayIconSize + 4 : n
     }
-    readonly property real rateThreshold: 1048576
     readonly property int maxHistory: 36
+    readonly property string trayIconText: "󰇚"
 
-    property string iconText: "󰈀"
     property string labelText: "net"
-    property bool connected: false
+    property bool networkConnected: false
+    property bool transmissionConnected: false
+    property bool transmissionError: false
     property real downloadRate: 0
     property real uploadRate: 0
     property var downHistory: []
     property var upHistory: []
+    property var lastTransmissionPayload: null
 
+    readonly property bool connected: transmissionConnected
+    readonly property bool trafficActive: connected && (downloadRate > 0 || uploadRate > 0)
     readonly property color iconColor: {
-        if (!connected)
-            return Theme.foreground
-        if (downloadRate > rateThreshold && uploadRate > rateThreshold)
-            return downloadRate >= uploadRate ? "#a6e3a1" : Theme.urgent
-        if (downloadRate > rateThreshold)
-            return "#a6e3a1"
-        if (uploadRate > rateThreshold)
+        if (transmissionError || !connected)
             return Theme.urgent
+        if (downloadRate > 0)
+            return "#a6e3a1"
+        if (uploadRate > 0)
+            return Theme.accent
         return Theme.foreground
     }
-    readonly property bool trafficActive: connected
-        && (downloadRate > rateThreshold || uploadRate > rateThreshold)
 
     implicitWidth: trayMode ? trayCellWidth : barRow.implicitWidth + Theme.barPaddingX * 2
     implicitHeight: Theme.barHeight
@@ -80,6 +81,8 @@ Item {
             downHistory = cached.downHistory.slice()
         if (Array.isArray(cached.upHistory) && cached.upHistory.length > 0)
             upHistory = cached.upHistory.slice()
+        if (cached.transmission)
+            applyTransmissionJson(cached.transmission, false)
     }
 
     function publishCache() {
@@ -95,7 +98,9 @@ Item {
         next.upload_bps = uploadRate
         next.downHistory = downHistory
         next.upHistory = upHistory
-        next.connected = connected
+        next.connected = networkConnected
+        if (lastTransmissionPayload)
+            next.transmission = lastTransmissionPayload
         shell.setHoverPopupData(hoverPopupId, next)
     }
 
@@ -105,31 +110,73 @@ Item {
         applyThroughputCache(shell.hoverPopupDataFor(hoverPopupId))
     }
 
-    function applyJson(line) {
+    function applyNetworkJson(line) {
         var raw = String(line || "").trim()
-        if (!raw) return
+        if (!raw)
+            return
         try {
             var json = JSON.parse(raw)
-            iconText = String(json.icon || "󰤮")
             labelText = String(json.label || "off")
-            connected = json.connected === true
-            downloadRate = parseFloat(json.download_bps || "0")
-            uploadRate = parseFloat(json.upload_bps || "0")
-            if (!isFinite(downloadRate)) downloadRate = 0
-            if (!isFinite(uploadRate)) uploadRate = 0
-            downHistory = pushHistory(downHistory, downloadRate)
-            upHistory = pushHistory(upHistory, uploadRate)
+            networkConnected = json.connected === true
+            var down = parseFloat(json.download_bps || "0")
+            var up = parseFloat(json.upload_bps || "0")
+            if (!isFinite(down)) down = 0
+            if (!isFinite(up)) up = 0
+            if (!lastTransmissionPayload) {
+                downloadRate = down
+                uploadRate = up
+            }
+            downHistory = pushHistory(downHistory, down)
+            upHistory = pushHistory(upHistory, up)
             publishCache()
         } catch (e) {
             console.warn("network widget parse failed:", e)
         }
     }
 
-    function poll() {
-        if (!script) return
-        proc.command = ["bash", "-lc", script]
-        proc.running = false
-        proc.running = true
+    function applyTransmissionJson(json, publish) {
+        if (!json || typeof json !== "object")
+            return
+        lastTransmissionPayload = json
+        transmissionConnected = json.connected === true
+        transmissionError = json.class === "error" || !transmissionConnected
+        downloadRate = parseFloat(json.download_bps || 0) || 0
+        uploadRate = parseFloat(json.upload_bps || 0) || 0
+        if (publish !== false)
+            publishCache()
+    }
+
+    function applyTransmissionLine(line) {
+        var raw = String(line || "").trim()
+        if (!raw) {
+            lastTransmissionPayload = null
+            transmissionError = true
+            transmissionConnected = false
+            publishCache()
+            return
+        }
+        try {
+            applyTransmissionJson(JSON.parse(raw), true)
+        } catch (e) {
+            transmissionError = true
+            console.warn("transmission widget parse failed:", e)
+        }
+    }
+
+    function pollNetwork() {
+        if (!networkScript)
+            return
+        networkProc.command = ["bash", "-lc", networkScript]
+        networkProc.running = false
+        networkProc.running = true
+    }
+
+    function pollTransmission() {
+        if (!transmissionScript)
+            return
+        transmissionProc.command = ["bash", "-lc", transmissionScript]
+        transmissionProc.running = false
+        transmissionProc.running = true
     }
 
     Row {
@@ -145,11 +192,11 @@ Item {
             Text {
                 id: netIcon
                 anchors.centerIn: parent
-                text: root.iconText
+                text: root.trayIconText
                 color: root.iconColor
                 opacity: root.connected
                     ? (root.trafficActive ? iconPulse.opacity : 1)
-                    : 0.4
+                    : 0.45
                 font.family: Theme.fontFamily
                 font.pixelSize: root.trayMode ? root.trayIconSize
                     : (root.iconOnly ? Theme.fontSize2xl : Theme.fontSizeM)
@@ -191,28 +238,42 @@ Item {
     }
 
     Process {
-        id: proc
+        id: networkProc
         property string stdoutText: ""
         property string stderrText: ""
         stdout: StdioCollector {
-            onStreamFinished: proc.stdoutText = text
+            onStreamFinished: networkProc.stdoutText = text
         }
         stderr: StdioCollector {
-            onStreamFinished: proc.stderrText = text
+            onStreamFinished: networkProc.stderrText = text
         }
         onExited: {
-            var raw = String(proc.stdoutText || "").trim()
-            if (!raw) raw = String(proc.stderrText || "").trim()
-            root.applyJson(raw)
+            var raw = String(networkProc.stdoutText || "").trim()
+            if (!raw) raw = String(networkProc.stderrText || "").trim()
+            root.applyNetworkJson(raw)
         }
+    }
+
+    Process {
+        id: transmissionProc
+        property string stdoutText: ""
+        stdout: StdioCollector {
+            onStreamFinished: transmissionProc.stdoutText = text
+        }
+        onExited: root.applyTransmissionLine(transmissionProc.stdoutText)
     }
 
     MouseArea {
         anchors.fill: parent
         visible: root.trayMode
         hoverEnabled: true
-        acceptedButtons: Qt.NoButton
+        acceptedButtons: Qt.LeftButton
+        cursorShape: Qt.PointingHandCursor
         onContainsMouseChanged: root.setHoverPopup(containsMouse)
+        onClicked: function(mouse) {
+            if (mouse.button === Qt.LeftButton && root.shell)
+                root.shell.toggle("evo.transmission.add", "")
+        }
     }
 
     HoverHandler {
@@ -221,17 +282,28 @@ Item {
     }
 
     Timer {
-        id: intervalTimer
+        id: networkTimer
         interval: Math.max(1, parseInt(root.settings.interval, 10) || 2) * 1000
         repeat: true
-        onTriggered: root.poll()
+        onTriggered: root.pollNetwork()
+    }
+
+    Timer {
+        id: transmissionTimer
+        interval: Math.max(2, parseInt(root.settings.transmissionInterval, 10) || 3) * 1000
+        repeat: true
+        onTriggered: root.pollTransmission()
     }
 
     function restartPolling() {
-        intervalTimer.interval = Math.max(1, parseInt(settings.interval, 10) || 2) * 1000
-        intervalTimer.stop()
-        poll()
-        intervalTimer.start()
+        networkTimer.interval = Math.max(1, parseInt(settings.interval, 10) || 2) * 1000
+        transmissionTimer.interval = Math.max(2, parseInt(settings.transmissionInterval, 10) || 3) * 1000
+        networkTimer.stop()
+        transmissionTimer.stop()
+        pollNetwork()
+        pollTransmission()
+        networkTimer.start()
+        transmissionTimer.start()
     }
 
     function setHoverPopup(active) {

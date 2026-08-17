@@ -23,7 +23,6 @@ Item {
     readonly property bool showCloudflare: settings.cloudflare != null && settings.cloudflare !== false
     readonly property bool showAudio: settings.audio !== false
     readonly property bool showNetwork: settings.network !== false
-    readonly property bool showTransmission: settings.transmission != null && settings.transmission !== false
 
     implicitWidth: trayRow.implicitWidth + Theme.barSectionGap
     implicitHeight: Theme.barHeight
@@ -57,7 +56,6 @@ Item {
         if (cursorLoader.item) wireBarWidget(cursorLoader.item, settings.cursor, "evo.cursor")
         if (stocksLoader.item) wireBarWidget(stocksLoader.item, settings.stocks, "evo.stocks")
         if (cloudflareLoader.item) wireBarWidget(cloudflareLoader.item, settings.cloudflare, "evo.cloudflare")
-        if (transmissionLoader.item) wireBarWidget(transmissionLoader.item, settings.transmission, "evo.transmission")
         if (networkLoader.item) wireBarWidget(networkLoader.item, settings.network, "evo.network")
         if (mediaLoader.item) wireBarWidget(mediaLoader.item, settings.audio, "evo.media")
         if (volumeLoader.item) wireBarWidget(volumeLoader.item, settings.audio, "evo.volume")
@@ -79,7 +77,6 @@ Item {
     Component { id: mediaComp; MediaWidget {} }
     Component { id: volumeComp; VolumeWidget {} }
     Component { id: networkComp; NetworkWidget {} }
-    Component { id: transmissionComp; TransmissionWidget {} }
 
     Row {
         id: trayRow
@@ -155,20 +152,6 @@ Item {
                 active: root.showCloudflare
                 sourceComponent: cloudflareComp
                 onLoaded: root.wireBarWidget(item, root.settings.cloudflare, "evo.cloudflare")
-            }
-        }
-
-        Item {
-            width: root.showTransmission ? root.trayCellWidth : 0
-            height: Theme.barHeight
-            visible: root.showTransmission
-
-            Loader {
-                id: transmissionLoader
-                anchors.fill: parent
-                active: root.showTransmission
-                sourceComponent: transmissionComp
-                onLoaded: root.wireBarWidget(item, root.settings.transmission, "evo.transmission")
             }
         }
 

@@ -16,7 +16,9 @@ Item {
     readonly property int bodyFont: Theme.fontSize3xl
     readonly property int hintFont: Theme.fontSizeL
     readonly property int titleFont: Theme.fontSize2xl
-    readonly property int activityRowIconSize: root.titleFont + root.hintFont + 2
+    readonly property int activityRowSpacing: 6
+    readonly property int activityTextBlockHeight: root.statFont + root.activityRowSpacing + root.hintFont
+    readonly property int activityRowIconSize: root.activityTextBlockHeight + 6
     readonly property int statFont: Theme.fontSizeXl
 
     property double nowMs: Date.now()
@@ -107,29 +109,6 @@ Item {
     }
 
     function bootstrapFromCache() {}
-
-    function heroMeta() {
-        if (!cf)
-            return ""
-        if (!cf.configLoaded)
-            return "Reading wrangler credentials"
-        if (!cf.loggedIn)
-            return "Not logged in — run wrangler login"
-        if (cf.lastError !== "")
-            return cf.lastError
-        if (cf.accountId === "")
-            return "Resolving account"
-        var parts = []
-        if (cf.workers.length)
-            parts.push(cf.workers.length + " workers")
-        if (cf.pages.length)
-            parts.push(cf.pages.length + " pages")
-        if (cf.buckets.length)
-            parts.push(cf.buckets.length + " buckets")
-        if (cf.zones.length)
-            parts.push(cf.zones.length + " zones")
-        return parts.length ? parts.join(" · ") : "No resources"
-    }
 
     function openRow(row) {
         if (!row || !cf)
@@ -301,6 +280,9 @@ Item {
         parts.push(row.target === "pages" ? "Pages" : "Worker")
         if (row.via)
             parts.push(String(row.via))
+        var time = deployTimeLabel(row)
+        if (time)
+            parts.push(time)
         return parts.join(" · ")
     }
 
@@ -316,14 +298,6 @@ Item {
         if (row.kind === "deploy")
             return deployMetaLine(row)
         return rowDetail(row)
-    }
-
-    function activityTimeLabel(row) {
-        if (!row)
-            return ""
-        if (row.kind === "deploy")
-            return deployTimeLabel(row)
-        return ""
     }
 
     function activityStatusLabel(row) {
@@ -353,29 +327,27 @@ Item {
         onTriggered: root.nowMs = Date.now()
     }
 
-    component ActivityLine: SectionPanel {
+    component ActivityLine: Item {
         id: activityLine
         property var row: ({})
 
-        label: ""
-        filled: true
-        contentPad: 10
         Layout.fillWidth: true
+        implicitHeight: content.implicitHeight
 
-        readonly property string timeLabel: root.activityTimeLabel(row)
         readonly property string statusLabel: root.activityStatusLabel(row)
         readonly property string metaLine: root.activityMetaLine(row)
         readonly property color statusColor: root.activityStatusColor(row)
         readonly property bool showChevron: row && row.kind === "group"
 
         RowLayout {
-            Layout.fillWidth: true
+            id: content
+            width: parent.width
             spacing: 10
 
             Item {
                 Layout.preferredWidth: root.activityRowIconSize
                 Layout.preferredHeight: root.activityRowIconSize
-                Layout.alignment: Qt.AlignTop
+                Layout.alignment: Qt.AlignVCenter
                 visible: root.rowGlyph(row) !== ""
 
                 Rectangle {
@@ -401,32 +373,19 @@ Item {
 
             ColumnLayout {
                 Layout.fillWidth: true
-                spacing: 6
+                spacing: root.activityRowSpacing
 
-                RowLayout {
+                Text {
                     Layout.fillWidth: true
-                    spacing: 8
-
-                    Text {
-                        Layout.fillWidth: true
-                        text: root.rowTitle(row)
-                        color: row.alarming ? Theme.urgent : Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.statFont
-                        font.bold: Theme.fontBold
-                        elide: Text.ElideRight
-                        maximumLineCount: 1
-                    }
-
-                    Text {
-                        visible: activityLine.timeLabel !== ""
-                        text: activityLine.timeLabel
-                        color: Theme.accent
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.hintFont
-                        font.bold: Theme.fontBold
-                        opacity: 0.9
-                    }
+                    text: root.rowTitle(row)
+                    color: row.alarming ? Theme.urgent : Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.statFont
+                    font.bold: Theme.fontBold
+                    lineHeight: root.statFont
+                    lineHeightMode: Text.FixedHeight
+                    elide: Text.ElideRight
+                    maximumLineCount: 1
                 }
 
                 RowLayout {
@@ -511,9 +470,7 @@ Item {
                 value: {
                     if (!cf)
                         return "Cloudflare\nLoading…"
-                    var title = cf.accountName !== "" ? cf.accountName : "Cloudflare"
-                    var meta = root.heroMeta()
-                    return title + (meta ? "\n" + meta : "")
+                    return cf.accountName !== "" ? cf.accountName : "Cloudflare"
                 }
             }
 
@@ -533,17 +490,17 @@ Item {
         Repeater {
             model: root.groupedSections
 
-            SectionPanel {
-                id: sectionItem
+            Item {
                 required property var modelData
                 Layout.fillWidth: true
-                label: root.sectionLabel(modelData.title)
-                sectionSpacing: 8
-                contentPad: Theme.hoverPopupContentPad
                 visible: modelData.rows.length > 0
+                implicitHeight: root.sectionUsesStatGrid(modelData.title)
+                    ? statGrid.implicitHeight
+                    : activitySection.implicitHeight
 
                 GridLayout {
-                    Layout.fillWidth: true
+                    id: statGrid
+                    width: parent.width
                     columns: root.sectionStatColumns(modelData.title)
                     columnSpacing: 8
                     rowSpacing: 8
@@ -563,17 +520,25 @@ Item {
                     }
                 }
 
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 8
-                    visible: !root.sectionUsesStatGrid(sectionItem.modelData.title)
+                SectionPanel {
+                    id: activitySection
+                    width: parent.width
+                    visible: !root.sectionUsesStatGrid(modelData.title)
+                    label: root.sectionLabel(modelData.title)
+                    sectionSpacing: 8
+                    contentPad: Theme.hoverPopupContentPad
 
-                    Repeater {
-                        model: modelData.rows
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
 
-                        ActivityLine {
-                            required property var modelData
-                            row: modelData
+                        Repeater {
+                            model: modelData.rows
+
+                            ActivityLine {
+                                required property var modelData
+                                row: modelData
+                            }
                         }
                     }
                 }

@@ -14,7 +14,7 @@ Item {
     readonly property var barSource: host && host.shell ? host.shell.popupAnchorItem : null
     readonly property int bodyFont: Theme.fontSize3xl
     readonly property int hintFont: Theme.fontSizeL
-    readonly property int valueFont: Theme.fontSizeL
+    readonly property int valueFont: Theme.fontSizeXl
     readonly property int labelWidth: 76
 
     property bool loading: false

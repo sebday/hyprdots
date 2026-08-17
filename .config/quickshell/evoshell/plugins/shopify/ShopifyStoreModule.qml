@@ -368,7 +368,7 @@ Item {
                         color: Theme.foreground
                         opacity: 0.12
                         font.family: Theme.fontFamily
-                        font.pixelSize: Math.max(28, Math.round(parent.height * 0.22))
+                        font.pixelSize: Math.max(Theme.fontSize9xl, Math.round(parent.height * 0.22))
                         font.bold: Theme.fontBold
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter

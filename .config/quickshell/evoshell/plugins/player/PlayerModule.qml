@@ -2743,7 +2743,7 @@ Item {
                                                 ? 0.2
                                                 : (rebuildDirMouse.containsMouse ? 0.9 : 0.42)
                                             font.family: Theme.fontFamily
-                                            font.pixelSize: root.libraryFont + 1
+                                            font.pixelSize: Theme.fontSizeM
                                             transformOrigin: Item.Center
 
                                             RotationAnimation on rotation {
@@ -3359,7 +3359,7 @@ Item {
                     text: volBtn.level + "%"
                     color: Theme.accent
                     font.family: Theme.fontFamily
-                    font.pixelSize: root.listFont - 1
+                    font.pixelSize: Theme.fontSizeM
                     font.bold: Theme.fontBold
                 }
 
@@ -3969,7 +3969,7 @@ Item {
                     color: Theme.foreground
                     opacity: artPickerCloseMouse.containsMouse ? 1 : 0.55
                     font.family: Theme.fontFamily
-                    font.pixelSize: root.libraryFont + 1
+                    font.pixelSize: Theme.fontSizeM
 
                     MouseArea {
                         id: artPickerCloseMouse
@@ -4163,7 +4163,7 @@ Item {
                         text: "󰍜"
                         color: Theme.foreground
                         font.family: Theme.fontFamily
-                        font.pixelSize: root.libraryFont + 1
+                        font.pixelSize: Theme.fontSizeM
                         opacity: 0.8
                     }
 
@@ -4279,7 +4279,7 @@ Item {
                 color: Theme.foreground
                 opacity: dimmed && !menuItem.spinning ? 0.35 : 0.9
                 font.family: Theme.fontFamily
-                font.pixelSize: root.libraryFont + 1
+                font.pixelSize: Theme.fontSizeM
                 transformOrigin: Item.Center
 
                 RotationAnimation on rotation {
