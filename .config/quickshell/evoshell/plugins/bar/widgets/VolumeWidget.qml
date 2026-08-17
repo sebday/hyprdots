@@ -33,6 +33,7 @@ Item {
 
     property real volumeFlash: 0
     property int _trackedSystemPercent: -1
+    property bool volumeHovered: false
 
     readonly property int barCount: 10
     readonly property int vizBarWidth: 6
@@ -181,6 +182,7 @@ Item {
     }
 
     function setVolumeHoverPopup(active) {
+        volumeHovered = active
         if (!shell || !volumeHoverPopupId) return
         if (active)
             shell.hoverEnter(volumeHoverPopupId, volumeLabel, barPanel)
@@ -199,6 +201,12 @@ Item {
     function pulseVolumeFlash() {
         volumeFlash = 1
         volumeFlashTimer.restart()
+        peekVolumePopup()
+    }
+
+    function peekVolumePopup() {
+        if (!shell || !volumeHoverPopupId || volumeHovered) return
+        shell.peekHoverPopup(volumeHoverPopupId, volumeLabel, barPanel, volumeFlashTimer.interval)
     }
 
     onSystemVolumePercentChanged: {

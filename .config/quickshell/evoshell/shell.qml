@@ -71,6 +71,7 @@ ShellRoot {
     property var pendingHoverItem: null
     property var pendingHoverWindow: null
     property var hoverPopupData: ({})
+    property string peekHoverId: ""
 
     function setHoverPopupData(key, json) {
         var id = String(key || "")
@@ -231,8 +232,44 @@ ShellRoot {
         return true
     }
 
+    function peekHoverPopup(id, item, barPanel, durationMs) {
+        var pluginId = canonicalPluginId(id)
+        hoverShowTimer.stop()
+        hoverHideTimer.stop()
+        pendingHoverId = ""
+        pendingHoverItem = null
+        pendingHoverWindow = null
+        var previous = hoverPopupId
+        if (previous && previous !== pluginId)
+            hide(previous)
+        hoverPopupId = pluginId
+        peekHoverId = pluginId
+        popupAnchorItem = item
+        popupAnchorWindow = barPanel
+        if (!isPluginOpen(pluginId))
+            summon(pluginId, "")
+        peekHideTimer.interval = durationMs > 0 ? durationMs : 2200
+        peekHideTimer.restart()
+    }
+
+    function clearPeekHover() {
+        var id = peekHoverId
+        if (!id)
+            return
+        peekHoverId = ""
+        peekHideTimer.stop()
+        if (hoverPopupId === id) {
+            hide(id)
+            hoverPopupId = ""
+            popupAnchorItem = null
+            popupAnchorWindow = null
+        }
+    }
+
     function hoverEnter(id, item, barPanel) {
         var pluginId = canonicalPluginId(id)
+        peekHideTimer.stop()
+        peekHoverId = ""
         hoverHideTimer.stop()
         pendingHoverId = pluginId
         pendingHoverItem = item
@@ -260,6 +297,8 @@ ShellRoot {
     function popupHoverEnter() {
         hoverHideTimer.stop()
         hoverShowTimer.stop()
+        peekHideTimer.stop()
+        peekHoverId = ""
     }
 
     function popupHoverLeave() {
@@ -289,6 +328,8 @@ ShellRoot {
     function clearHoverPopup() {
         hoverShowTimer.stop()
         hoverHideTimer.stop()
+        peekHideTimer.stop()
+        peekHoverId = ""
         if (hoverPopupId)
             hide(hoverPopupId)
         hoverPopupId = ""
@@ -311,6 +352,13 @@ ShellRoot {
         interval: 220
         repeat: false
         onTriggered: shell.clearHoverPopup()
+    }
+
+    Timer {
+        id: peekHideTimer
+        interval: 2200
+        repeat: false
+        onTriggered: shell.clearPeekHover()
     }
 
     function toggle(id, payloadJson) {
