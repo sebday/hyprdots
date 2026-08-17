@@ -12,6 +12,7 @@ usage() {
 usage:
   evo-player start|load <path> [--folder]|play [playlist|m3u]
   evo-player queue append <path> [<path>...]
+  evo-player queue play <start-path> <path> [<path>...]
   evo-player prioritize <path> [<path>...]
   evo-player toggle|next|prev|seek <sec>|shuffle [toggle|on|off]
   evo-player volume set <0-100>|volume <delta>
@@ -316,11 +317,54 @@ cmd_player_queue_append() {
   art_prioritize_paths "$@"
 }
 
+cmd_player_queue_play() {
+  [[ $# -ge 1 ]] || usage
+  local start="$1"
+  shift
+  local -a paths=()
+  local path idx=-1 i
+  if [[ $# -gt 0 ]]; then
+    paths=("$@")
+  else
+    paths=("$start")
+  fi
+  for i in "${!paths[@]}"; do
+    [[ -f "${paths[$i]}" ]] || { echo "evo-player: not a file: ${paths[$i]}" >&2; return 1; }
+    if [[ "$idx" -lt 0 && "${paths[$i]}" == "$start" ]]; then
+      idx=$i
+    fi
+  done
+  [[ "$idx" -ge 0 ]] || { echo "evo-player: start path not in queue: $start" >&2; return 1; }
+  cmd_player_start
+  mpv_ipc '{"command":["playlist-clear"]}' >/dev/null || true
+  for path in "${paths[@]}"; do
+    if [[ "$path" == "${paths[0]}" ]]; then
+      mpv_load_file "$path" replace
+    else
+      mpv_load_file "$path" append
+    fi
+    waveform_ensure_async "$path"
+  done
+  local expected=${#paths[@]} count=0 tries=0
+  while (( tries < 100 )); do
+    count="$(mpv_prop playlist-count 2>/dev/null || echo 0)"
+    [[ "${count%.*}" -ge "$expected" ]] && break
+    sleep 0.02
+    tries=$((tries + 1))
+  done
+  mpv_ipc "{\"command\":[\"playlist-play-index\",${idx}]}" >/dev/null
+  mpv_ipc '{"command":["set_property","pause",false]}' >/dev/null
+  art_ensure_now "$start"
+  art_prioritize_paths "$start"
+  player_save_state "$start" "$(genre_from_path "$start")" "" "0"
+}
+
 cmd_player_queue() {
   local sub="${1:-}"
   shift || true
   case "$sub" in
     append) cmd_player_queue_append "$@" ;;
+    play) cmd_player_queue_play "$@" ;;
     -h|--help|help|"") usage ;;
     *) echo "evo-player: unknown queue command: $sub" >&2; usage ;;
   esac

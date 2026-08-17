@@ -847,11 +847,25 @@ browse_warm_art_async() {
   disown
 }
 
+art_track_in_genre_root() {
+  local path="$1"
+  local rel
+  rel="${path#${MUSIC_ROOT}/}"
+  [[ "$rel" == "$path" ]] && return 1
+  [[ "$rel" == */* ]] || return 1
+  [[ "$rel" == */*/* ]] && return 1
+  return 0
+}
+
 art_folder_key() {
   local path="$1"
   local rel dir
   rel="${path#${MUSIC_ROOT}/}"
   [[ "$rel" == "$path" ]] && rel="$(basename "$path")"
+  if art_track_in_genre_root "$path"; then
+    cache_key "$path"
+    return 0
+  fi
   dir="$(dirname "$rel")"
   [[ "$dir" == "." || -z "$dir" ]] && dir="$rel"
   track_cache_slug "$dir"
@@ -892,20 +906,9 @@ art_link_folder_alias() {
 }
 
 art_cache_find() {
-  local path="$1" candidate legacy
+  local path="$1" candidate
   [[ -f "$path" ]] || return 1
   candidate="$(art_path_folder "$path")"
-  [[ -f "$candidate" ]] && {
-    printf '%s' "$candidate"
-    return 0
-  }
-  candidate="$(art_path_legacy "$path")"
-  [[ -f "$candidate" ]] && {
-    printf '%s' "$candidate"
-    return 0
-  }
-  legacy="$(track_cache_slug "${path#${MUSIC_ROOT}/}")"
-  candidate="${ART_DIR}/${legacy}.jpg"
   [[ -f "$candidate" ]] && {
     printf '%s' "$candidate"
     return 0
@@ -919,23 +922,11 @@ art_path_canonical() {
 
 art_path_for() {
   local path="$1"
-  local folder legacy content imghash tmp candidate
+  local folder content imghash tmp
   [[ -f "$path" ]] || return 0
   folder="$(art_path_folder "$path")"
-  legacy="$(art_path_legacy "$path")"
   if [[ -f "$folder" ]]; then
     printf '%s' "$folder"
-    return 0
-  fi
-  if [[ -f "$legacy" ]]; then
-    art_link_folder_alias "$folder" "$legacy"
-    [[ -f "$folder" ]] && printf '%s' "$folder"
-    return 0
-  fi
-  candidate="${ART_DIR}/$(track_cache_slug "${path#${MUSIC_ROOT}/}").jpg"
-  if [[ -f "$candidate" ]]; then
-    art_link_folder_alias "$folder" "$candidate"
-    [[ -f "$folder" ]] && printf '%s' "$folder"
     return 0
   fi
   tmp="$(mktemp "${ART_DIR}/.art.XXXXXX.jpg")"
@@ -960,14 +951,7 @@ art_path_for() {
 }
 
 art_path_resolve() {
-  local path="$1" art
-  [[ -f "$path" ]] || return 0
-  art="$(art_cache_find "$path")"
-  if [[ -n "$art" ]]; then
-    printf '%s' "$art"
-    return 0
-  fi
-  art_path_folder "$path"
+  art_path_cached "$1"
 }
 
 art_path_cached() {
