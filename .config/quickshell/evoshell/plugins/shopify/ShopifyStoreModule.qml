@@ -27,6 +27,9 @@ Item {
     readonly property bool active: host && host.opened === true
     readonly property var barSource: host && host.shell ? host.shell.popupAnchorItem : null
     readonly property int hintFont: Theme.hoverPopupHintFontPixelSize
+    readonly property int headerIconSize: Theme.hoverPopupTitleFontPixelSize
+        + Theme.hoverPopupSectionSpacing
+        + Theme.hoverPopupLabelFontPixelSize
 
     readonly property string storeIconUrl: {
         if (demoMode) {
@@ -163,15 +166,9 @@ Item {
         if (!data || (data.revenue === undefined && !data.label))
             return fallbackName + " …"
         var sym = data.symbol || "£"
-        var cos = data.cos || "—"
-        var revenue = data.revenue !== undefined
-            ? Format.formatRevenue(data.revenue, sym)
-            : String(data.label || "").replace(/^[A-Z]\s+/, "")
-        var rest = [cos]
-        var orders = data.orders
-        if (orders !== undefined && orders !== null && !isNaN(parseFloat(orders)))
-            rest.push(String(parseInt(orders, 10)) + " orders")
-        return Format.headerLines([revenue].concat(rest), fallbackName + " …")
+        if (data.revenue !== undefined)
+            return Format.formatRevenue(data.revenue, sym)
+        return String(data.label || "").replace(/^[A-Z]\s+/, "")
     }
 
     function fmtPct(val) {
@@ -265,6 +262,8 @@ Item {
                 href: root.adminUrl
                 iconUrl: root.storeIconUrl
                 iconFallback: root.storeIconFallback
+                iconSize: root.headerIconSize
+                titleFont: Math.round(root.headerIconSize * 0.7)
             }
         }
 

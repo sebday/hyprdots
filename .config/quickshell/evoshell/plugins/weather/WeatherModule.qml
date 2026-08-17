@@ -15,13 +15,15 @@ Item {
     readonly property bool active: host && host.opened === true
     readonly property var barSource: host && host.shell ? host.shell.popupAnchorItem : null
 
-    readonly property int heroIconFont: Theme.hoverPopupIconFontPixelSize + 14
     readonly property int heroTempFont: Theme.popupHeroFontPixelSize
     readonly property int dayIconFont: Theme.hoverPopupBodyFontPixelSize
     readonly property int dayPrimaryFont: Theme.hoverPopupBodyFontPixelSize
     readonly property int titleFont: Theme.hoverPopupTitleFontPixelSize
     readonly property int bodyFont: Theme.hoverPopupBodyFontPixelSize
     readonly property int hintFont: Theme.hoverPopupHintFontPixelSize
+    readonly property int chartAxisFont: Math.max(8, root.hintFont - 2)
+    readonly property int heroTextBlockHeight: root.heroTempFont + root.bodyFont + 6
+    readonly property int heroIconFont: Math.round(root.heroTextBlockHeight * 0.82)
     readonly property int chartHeight: 150
     readonly property int yAxisWidth: 28
     readonly property int chartGap: 4
@@ -275,13 +277,18 @@ Item {
                 spacing: 14
                 visible: root.weatherOk && !root.loading
 
-                Text {
-                    text: root.currentIcon
-                    color: Theme.accent
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.heroIconFont
-                    font.bold: Theme.fontBold
-                    Layout.alignment: Qt.AlignVCenter
+                Item {
+                    Layout.preferredWidth: root.heroTextBlockHeight
+                    Layout.preferredHeight: root.heroTextBlockHeight
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: root.currentIcon
+                        color: Theme.accent
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.heroIconFont
+                        font.bold: Theme.fontBold
+                    }
                 }
 
                 ColumnLayout {
@@ -311,91 +318,6 @@ Item {
                 }
             }
 
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.topMargin: 2
-                Layout.bottomMargin: 2
-                height: 1
-                visible: root.weatherOk && !root.loading && root.outlookDays.length > 0
-                color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.1)
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 10
-                visible: root.weatherOk && !root.loading && root.outlookDays.length > 0
-
-                Repeater {
-                    model: root.outlookDays
-
-                    Rectangle {
-                        required property var modelData
-                        Layout.fillWidth: true
-                        implicitHeight: outlookCol.implicitHeight + 16
-                        radius: Theme.fieldsetCornerRadius
-                        color: Theme.panelMantle
-
-                        ColumnLayout {
-                            id: outlookCol
-                            anchors.fill: parent
-                            anchors.margins: 10
-                            spacing: 6
-
-                            RowLayout {
-                                Layout.fillWidth: true
-                                spacing: 6
-
-                                Text {
-                                    text: modelData.title
-                                    color: Theme.foreground
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: root.hintFont
-                                    font.bold: Theme.fontBold
-                                    opacity: 0.72
-                                }
-
-                                Text {
-                                    visible: modelData.dow !== ""
-                                    text: modelData.dow
-                                    color: Theme.foreground
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: root.hintFont
-                                    opacity: 0.45
-                                }
-
-                                Item { Layout.fillWidth: true }
-
-                                Text {
-                                    text: modelData.icon
-                                    color: Theme.accent
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: root.dayIconFont
-                                }
-                            }
-
-                            Text {
-                                Layout.fillWidth: true
-                                text: modelData.range
-                                color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: root.dayPrimaryFont
-                                font.bold: Theme.fontBold
-                            }
-
-                            Text {
-                                Layout.fillWidth: true
-                                text: modelData.label
-                                color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: root.hintFont
-                                opacity: 0.55
-                                elide: Text.ElideRight
-                            }
-                        }
-                    }
-                }
-            }
-
             MouseArea {
                 anchors.fill: parent
                 visible: root.metOfficeUrl !== ""
@@ -404,24 +326,110 @@ Item {
             }
         }
 
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 10
+            visible: root.weatherOk && !root.loading && root.outlookDays.length > 0
+
+            Repeater {
+                model: root.outlookDays
+
+                Rectangle {
+                    required property var modelData
+                    Layout.fillWidth: true
+                    implicitHeight: outlookCol.implicitHeight + 16
+                    radius: Theme.fieldsetCornerRadius
+                    color: Theme.panelMantle
+
+                    ColumnLayout {
+                        id: outlookCol
+                        anchors.fill: parent
+                        anchors.margins: 10
+                        spacing: 6
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 6
+
+                            Text {
+                                text: modelData.title
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.hintFont
+                                font.bold: Theme.fontBold
+                                opacity: 0.72
+                            }
+
+                            Text {
+                                visible: modelData.dow !== ""
+                                text: modelData.dow
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.hintFont
+                                opacity: 0.45
+                            }
+
+                            Item { Layout.fillWidth: true }
+
+                            Text {
+                                text: modelData.icon
+                                color: Theme.accent
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.dayIconFont
+                            }
+                        }
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: modelData.range
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.dayPrimaryFont
+                            font.bold: Theme.fontBold
+                        }
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: modelData.label
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.hintFont
+                            opacity: 0.55
+                            elide: Text.ElideRight
+                        }
+                    }
+                }
+            }
+        }
+
         SectionPanel {
             label: ""
-            visible: root.weatherOk && !root.loading && root.hourly.length > 0
+            visible: root.weatherOk && !root.loading
+                && (root.hourly.length > 0 || root.weekDays.length > 0)
 
-            RowLayout {
+            ColumnLayout {
                 Layout.fillWidth: true
-                spacing: root.chartGap
+                spacing: Theme.hoverPopupSectionSpacing
 
                 ColumnLayout {
-                    Layout.preferredWidth: root.yAxisWidth
-                    Layout.preferredHeight: root.chartHeight
+                    Layout.fillWidth: true
                     spacing: 0
+                    visible: root.hourly.length > 0
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: root.chartGap
+
+                        ColumnLayout {
+                            Layout.preferredWidth: root.yAxisWidth
+                            Layout.preferredHeight: root.chartHeight
+                            spacing: 0
 
                             Text {
                                 text: Math.round(root.hourlyTempRange.rawMax) + "°"
                                 color: root.tempColor(root.hourlyTempRange.rawMax)
                                 font.family: Theme.fontFamily
-                                font.pixelSize: root.hintFont
+                                font.pixelSize: root.chartAxisFont
                                 font.bold: Theme.fontBold
                                 opacity: 0.85
                             }
@@ -432,17 +440,17 @@ Item {
                                 text: Math.round(root.hourlyTempRange.rawMin) + "°"
                                 color: Theme.foreground
                                 font.family: Theme.fontFamily
-                                font.pixelSize: root.hintFont
+                                font.pixelSize: root.chartAxisFont
                                 font.bold: Theme.fontBold
                                 opacity: 0.5
                             }
-                }
+                        }
 
-                Item {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: root.chartHeight
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: root.chartHeight
 
-                    Canvas {
+                            Canvas {
                                 id: hourlyChart
                                 anchors.fill: parent
 
@@ -540,215 +548,218 @@ Item {
                                 onWidthChanged: requestPaint()
                                 onHeightChanged: requestPaint()
                                 Component.onCompleted: requestPaint()
+                            }
+                        }
                     }
-                }
-            }
 
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: root.chartGap
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: root.chartGap
 
-                Item {
-                    Layout.preferredWidth: root.yAxisWidth
-                    Layout.maximumWidth: root.yAxisWidth
-                }
+                        Item {
+                            Layout.preferredWidth: root.yAxisWidth
+                            Layout.maximumWidth: root.yAxisWidth
+                        }
 
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 0
-
-                    Repeater {
-                        model: ["00", "06", "12", "18"]
-
-                        Text {
-                            required property string modelData
-                            required property int index
+                        RowLayout {
                             Layout.fillWidth: true
-                            horizontalAlignment: index === 0 ? Text.AlignLeft
-                                : (index === 3 ? Text.AlignRight : Text.AlignHCenter)
-                            text: modelData
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.hintFont
-                            opacity: 0.45
+                            spacing: 0
+
+                            Repeater {
+                                model: ["00", "06", "12", "18"]
+
+                                Text {
+                                    required property string modelData
+                                    required property int index
+                                    Layout.fillWidth: true
+                                    horizontalAlignment: index === 0 ? Text.AlignLeft
+                                        : (index === 3 ? Text.AlignRight : Text.AlignHCenter)
+                                    text: modelData
+                                    color: Theme.foreground
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: root.chartAxisFont
+                                    opacity: 0.45
+                                }
+                            }
                         }
                     }
                 }
-            }
-        }
-
-        SectionPanel {
-            label: ""
-            visible: root.weatherOk && !root.loading && root.weekDays.length > 0
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: root.chartGap
 
                 ColumnLayout {
-                    Layout.preferredWidth: root.yAxisWidth
-                    Layout.preferredHeight: root.chartHeight
-                    spacing: 0
-
-                    Text {
-                        text: Math.round(root.dailyTempRange.rawMax) + "°"
-                        color: root.tempColor(root.dailyTempRange.rawMax)
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.hintFont
-                        font.bold: Theme.fontBold
-                        opacity: 0.85
-                    }
-
-                    Item { Layout.fillHeight: true }
-
-                    Text {
-                        text: Math.round(root.dailyTempRange.rawMin) + "°"
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.hintFont
-                        font.bold: Theme.fontBold
-                        opacity: 0.5
-                    }
-                }
-
-                Item {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: root.chartHeight
-
-                    Canvas {
-                        id: weeklyChart
-                        anchors.fill: parent
-
-                        onPaint: {
-                            var ctx = getContext("2d")
-                            ctx.reset()
-                            var pts = root.weekDays || []
-                            if (pts.length === 0) return
-
-                            var range = root.dailyTempRange
-                            var minV = range.min
-                            var maxV = range.max
-                            var span = maxV - minV || 1
-                            var padX = 2
-                            var padY = 12
-                            var usableW = Math.max(1, width - padX * 2)
-                            var usableH = Math.max(1, height - padY * 2)
-                            var step = pts.length > 1 ? usableW / (pts.length - 1) : 0
-
-                            function yAt(v) {
-                                var n = Number(v)
-                                if (isNaN(n)) n = minV
-                                return padY + usableH - ((n - minV) / span) * usableH
-                            }
-
-                            var gridColor = Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.08)
-                            for (var g = 0; g <= 2; g++) {
-                                var gy = padY + (usableH / 2) * g
-                                ctx.beginPath()
-                                ctx.moveTo(padX, gy)
-                                ctx.lineTo(width - padX, gy)
-                                ctx.strokeStyle = gridColor
-                                ctx.lineWidth = 1
-                                ctx.stroke()
-                            }
-
-                            for (var b = 0; b < pts.length; b++) {
-                                var bx = padX + b * step
-                                var byMax = yAt(pts[b].max)
-                                var byMin = yAt(pts[b].min)
-                                var bandColor = root.tempColor(pts[b].max)
-
-                                ctx.beginPath()
-                                ctx.moveTo(bx, byMax)
-                                ctx.lineTo(bx, byMin)
-                                ctx.strokeStyle = Qt.rgba(bandColor.r, bandColor.g, bandColor.b, 0.35)
-                                ctx.lineWidth = 6
-                                ctx.lineCap = "round"
-                                ctx.stroke()
-                            }
-
-                            for (var s = 0; s < pts.length - 1; s++) {
-                                var x0 = padX + s * step
-                                var x1 = padX + (s + 1) * step
-                                var y0 = yAt(pts[s].max)
-                                var y1 = yAt(pts[s + 1].max)
-                                var segColor = root.tempColor(Math.max(Number(pts[s].max), Number(pts[s + 1].max)))
-
-                                ctx.beginPath()
-                                ctx.moveTo(x0, y0)
-                                ctx.lineTo(x1, y1)
-                                ctx.lineTo(x1, height - padY)
-                                ctx.lineTo(x0, height - padY)
-                                ctx.closePath()
-                                ctx.globalAlpha = 0.12
-                                ctx.fillStyle = segColor
-                                ctx.fill()
-                                ctx.globalAlpha = 1
-
-                                ctx.beginPath()
-                                ctx.moveTo(x0, y0)
-                                ctx.lineTo(x1, y1)
-                                ctx.strokeStyle = segColor
-                                ctx.lineWidth = 3
-                                ctx.lineJoin = "round"
-                                ctx.lineCap = "round"
-                                ctx.stroke()
-                            }
-
-                            var nx = padX
-                            var ny = yAt(pts[0].max)
-                            ctx.beginPath()
-                            ctx.moveTo(nx, padY)
-                            ctx.lineTo(nx, height - padY)
-                            ctx.strokeStyle = Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.2)
-                            ctx.lineWidth = 1
-                            ctx.stroke()
-
-                            ctx.beginPath()
-                            ctx.arc(nx, ny, 6, 0, Math.PI * 2)
-                            ctx.fillStyle = root.tempColor(pts[0].max)
-                            ctx.fill()
-                        }
-
-                        Connections {
-                            target: root
-                            function onWeatherChanged() { weeklyChart.requestPaint() }
-                        }
-
-                        onWidthChanged: requestPaint()
-                        onHeightChanged: requestPaint()
-                        Component.onCompleted: requestPaint()
-                    }
-                }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: root.chartGap
-
-                Item {
-                    Layout.preferredWidth: root.yAxisWidth
-                    Layout.maximumWidth: root.yAxisWidth
-                }
-
-                RowLayout {
                     Layout.fillWidth: true
                     spacing: 0
+                    visible: root.weekDays.length > 0
 
-                    Repeater {
-                        model: root.weekDays
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: root.chartGap
 
-                        Text {
-                            required property var modelData
-                            required property int index
+                        ColumnLayout {
+                            Layout.preferredWidth: root.yAxisWidth
+                            Layout.preferredHeight: root.chartHeight
+                            spacing: 0
+
+                            Text {
+                                text: Math.round(root.dailyTempRange.rawMax) + "°"
+                                color: root.tempColor(root.dailyTempRange.rawMax)
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.chartAxisFont
+                                font.bold: Theme.fontBold
+                                opacity: 0.85
+                            }
+
+                            Item { Layout.fillHeight: true }
+
+                            Text {
+                                text: Math.round(root.dailyTempRange.rawMin) + "°"
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.chartAxisFont
+                                font.bold: Theme.fontBold
+                                opacity: 0.5
+                            }
+                        }
+
+                        Item {
                             Layout.fillWidth: true
-                            horizontalAlignment: index === 0 ? Text.AlignLeft
-                                : (index === root.weekDays.length - 1 ? Text.AlignRight : Text.AlignHCenter)
-                            text: String(modelData.dow || "")
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.hintFont
-                            opacity: 0.45
+                            Layout.preferredHeight: root.chartHeight
+
+                            Canvas {
+                                id: weeklyChart
+                                anchors.fill: parent
+
+                                onPaint: {
+                                    var ctx = getContext("2d")
+                                    ctx.reset()
+                                    var pts = root.weekDays || []
+                                    if (pts.length === 0) return
+
+                                    var range = root.dailyTempRange
+                                    var minV = range.min
+                                    var maxV = range.max
+                                    var span = maxV - minV || 1
+                                    var padX = 2
+                                    var padY = 12
+                                    var usableW = Math.max(1, width - padX * 2)
+                                    var usableH = Math.max(1, height - padY * 2)
+                                    var step = pts.length > 1 ? usableW / (pts.length - 1) : 0
+
+                                    function yAt(v) {
+                                        var n = Number(v)
+                                        if (isNaN(n)) n = minV
+                                        return padY + usableH - ((n - minV) / span) * usableH
+                                    }
+
+                                    var gridColor = Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.08)
+                                    for (var g = 0; g <= 2; g++) {
+                                        var gy = padY + (usableH / 2) * g
+                                        ctx.beginPath()
+                                        ctx.moveTo(padX, gy)
+                                        ctx.lineTo(width - padX, gy)
+                                        ctx.strokeStyle = gridColor
+                                        ctx.lineWidth = 1
+                                        ctx.stroke()
+                                    }
+
+                                    for (var b = 0; b < pts.length; b++) {
+                                        var bx = padX + b * step
+                                        var byMax = yAt(pts[b].max)
+                                        var byMin = yAt(pts[b].min)
+                                        var bandColor = root.tempColor(pts[b].max)
+
+                                        ctx.beginPath()
+                                        ctx.moveTo(bx, byMax)
+                                        ctx.lineTo(bx, byMin)
+                                        ctx.strokeStyle = Qt.rgba(bandColor.r, bandColor.g, bandColor.b, 0.35)
+                                        ctx.lineWidth = 6
+                                        ctx.lineCap = "round"
+                                        ctx.stroke()
+                                    }
+
+                                    for (var s = 0; s < pts.length - 1; s++) {
+                                        var x0 = padX + s * step
+                                        var x1 = padX + (s + 1) * step
+                                        var y0 = yAt(pts[s].max)
+                                        var y1 = yAt(pts[s + 1].max)
+                                        var segColor = root.tempColor(Math.max(Number(pts[s].max), Number(pts[s + 1].max)))
+
+                                        ctx.beginPath()
+                                        ctx.moveTo(x0, y0)
+                                        ctx.lineTo(x1, y1)
+                                        ctx.lineTo(x1, height - padY)
+                                        ctx.lineTo(x0, height - padY)
+                                        ctx.closePath()
+                                        ctx.globalAlpha = 0.12
+                                        ctx.fillStyle = segColor
+                                        ctx.fill()
+                                        ctx.globalAlpha = 1
+
+                                        ctx.beginPath()
+                                        ctx.moveTo(x0, y0)
+                                        ctx.lineTo(x1, y1)
+                                        ctx.strokeStyle = segColor
+                                        ctx.lineWidth = 3
+                                        ctx.lineJoin = "round"
+                                        ctx.lineCap = "round"
+                                        ctx.stroke()
+                                    }
+
+                                    var nx = padX
+                                    var ny = yAt(pts[0].max)
+                                    ctx.beginPath()
+                                    ctx.moveTo(nx, padY)
+                                    ctx.lineTo(nx, height - padY)
+                                    ctx.strokeStyle = Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.2)
+                                    ctx.lineWidth = 1
+                                    ctx.stroke()
+
+                                    ctx.beginPath()
+                                    ctx.arc(nx, ny, 6, 0, Math.PI * 2)
+                                    ctx.fillStyle = root.tempColor(pts[0].max)
+                                    ctx.fill()
+                                }
+
+                                Connections {
+                                    target: root
+                                    function onWeatherChanged() { weeklyChart.requestPaint() }
+                                }
+
+                                onWidthChanged: requestPaint()
+                                onHeightChanged: requestPaint()
+                                Component.onCompleted: requestPaint()
+                            }
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: root.chartGap
+
+                        Item {
+                            Layout.preferredWidth: root.yAxisWidth
+                            Layout.maximumWidth: root.yAxisWidth
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 0
+
+                            Repeater {
+                                model: root.weekDays
+
+                                Text {
+                                    required property var modelData
+                                    required property int index
+                                    Layout.fillWidth: true
+                                    horizontalAlignment: index === 0 ? Text.AlignLeft
+                                        : (index === root.weekDays.length - 1 ? Text.AlignRight : Text.AlignHCenter)
+                                    text: String(modelData.dow || "")
+                                    color: Theme.foreground
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: root.chartAxisFont
+                                    opacity: 0.45
+                                }
+                            }
                         }
                     }
                 }

@@ -17,8 +17,16 @@ Item {
     readonly property int bodyFont: Theme.hoverPopupBodyFontPixelSize
     readonly property int hintFont: Theme.hoverPopupHintFontPixelSize
     readonly property int statFont: Theme.hoverPopupLabelFontPixelSize
-    readonly property int titleFont: Theme.hoverPopupTitleFontPixelSize
     readonly property int todayCountFont: Theme.popupTitleFontPixelSize
+    readonly property int headerIconSize: Math.max(
+        root.todayCountFont + 8,
+        root.statFont * 2 + 6
+    )
+    readonly property int headerBlockHeight: root.headerIconSize - 1
+
+    implicitHeight: column.implicitHeight
+
+    readonly property int trendMax: 40
     readonly property int heatmapSpacing: 3
     readonly property var legendColors: [
         "#45475a", "#89b4fa", "#74c7ec", "#89dceb", "#cba6f7"
@@ -42,21 +50,9 @@ Item {
         return Math.max(10, Math.min(16, Math.floor((hoverPopupWidth - gaps) / cells.length)))
     }
 
-    readonly property string todaySuffix: todayCount === 1
-        ? " contribution today"
-        : " contributions today"
-
-    readonly property string summaryLine: {
-        var parts = []
-        parts.push(total30 + " in 30 days")
-        if (streak > 0)
-            parts.push(streak + " day streak")
-        return parts.join(" · ")
-    }
-
-    implicitHeight: column.implicitHeight
-
-    readonly property int trendMax: 40
+    readonly property string todayLabel: todayCount === 1
+        ? "contribution today"
+        : "contributions today"
 
     function trendLevel(count) {
         var n = parseInt(count, 10) || 0
@@ -244,53 +240,52 @@ Item {
             label: ""
             visible: !root.loading && !root.isError
 
-            RowLayout {
+            Item {
                 Layout.fillWidth: true
-                spacing: 10
+                Layout.preferredHeight: root.headerBlockHeight
+                Layout.topMargin: 2
 
-                Text {
-                    Layout.preferredWidth: root.titleFont + 8
-                    Layout.preferredHeight: root.titleFont + 8
-                    Layout.alignment: Qt.AlignVCenter
-                    text: ""
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.titleFont + 2
-                    font.bold: Theme.fontBold
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                    opacity: 0.9
-                }
+                RowLayout {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: parent.width
+                    spacing: 12
 
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 6
-
-                    Text {
-                        Layout.fillWidth: true
-                        text: "@" + root.username
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.titleFont
-                        font.bold: Theme.fontBold
-                        elide: Text.ElideRight
-                    }
-
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 4
+                    Item {
+                        Layout.preferredWidth: root.headerIconSize
+                        Layout.preferredHeight: root.headerIconSize
 
                         Text {
-                            text: root.loading ? "…" : String(root.todayCount)
-                            color: Theme.accent
+                            anchors.centerIn: parent
+                            text: ""
+                            color: Theme.foreground
                             font.family: Theme.fontFamily
-                            font.pixelSize: root.todayCountFont
+                            font.pixelSize: Math.round(root.headerIconSize * 0.78)
                             font.bold: Theme.fontBold
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                            opacity: 0.9
                         }
+                    }
+
+                    Text {
+                        id: todayCountText
+                        text: root.loading ? "…" : String(root.todayCount)
+                        color: Theme.accent
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.todayCountFont
+                        font.bold: Theme.fontBold
+                        lineHeight: root.todayCountFont
+                        lineHeightMode: Text.FixedHeight
+                        topPadding: 2
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 2
 
                         Text {
                             Layout.fillWidth: true
-                            text: root.todaySuffix
+                            text: "@" + root.username
                             color: Theme.foreground
                             font.family: Theme.fontFamily
                             font.pixelSize: root.statFont
@@ -298,18 +293,17 @@ Item {
                             opacity: 0.72
                             elide: Text.ElideRight
                         }
-                    }
 
-                    Text {
-                        Layout.fillWidth: true
-                        visible: root.summaryLine !== ""
-                        text: root.summaryLine
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.hintFont
-                        font.bold: Theme.fontBold
-                        opacity: 0.72
-                        elide: Text.ElideRight
+                        Text {
+                            Layout.fillWidth: true
+                            text: root.todayLabel
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.statFont
+                            font.bold: Theme.fontBold
+                            opacity: 0.72
+                            elide: Text.ElideRight
+                        }
                     }
                 }
             }

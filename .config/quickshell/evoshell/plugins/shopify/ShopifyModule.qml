@@ -9,31 +9,52 @@ Item {
     property var shell: null
     property bool demoMode: false
 
+    readonly property int compactBreakpoint: 1000
+    readonly property bool layoutCompact: root.width > 0 && root.width < compactBreakpoint
+    readonly property int compactPanelHeight: 635
     readonly property int columnPad: Theme.hoverPopupMargin
 
-    RowLayout {
+    Flickable {
+        id: storeScroller
         anchors.fill: parent
         anchors.margins: columnPad
-        spacing: columnPad
+        contentWidth: width
+        contentHeight: root.layoutCompact ? storeGrid.implicitHeight : height
+        clip: true
+        boundsBehavior: Flickable.StopAtBounds
+        interactive: root.layoutCompact && contentHeight > height
 
-        StoreColumn {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            shell: root.shell
-            demoMode: root.demoMode
-            storeKey: "DIY"
-            title: "DIY"
-            adminUrl: "https://admin.shopify.com/store/diy-buildingsupplies/analytics/live"
-        }
+        GridLayout {
+            id: storeGrid
+            width: storeScroller.width
+            height: root.layoutCompact ? implicitHeight : storeScroller.height
+            columnSpacing: columnPad
+            rowSpacing: columnPad
+            columns: root.layoutCompact ? 1 : 2
 
-        StoreColumn {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            shell: root.shell
-            demoMode: root.demoMode
-            storeKey: "TGS"
-            title: "TGS"
-            adminUrl: "https://admin.shopify.com/store/thegoodsheet-uk/analytics/live"
+            StoreColumn {
+                Layout.fillWidth: true
+                Layout.fillHeight: !root.layoutCompact
+                Layout.preferredHeight: root.layoutCompact ? root.compactPanelHeight : -1
+                Layout.minimumHeight: root.layoutCompact ? root.compactPanelHeight : 0
+                shell: root.shell
+                demoMode: root.demoMode
+                storeKey: "DIY"
+                title: "DIY"
+                adminUrl: "https://admin.shopify.com/store/diy-buildingsupplies/analytics/live"
+            }
+
+            StoreColumn {
+                Layout.fillWidth: true
+                Layout.fillHeight: !root.layoutCompact
+                Layout.preferredHeight: root.layoutCompact ? root.compactPanelHeight : -1
+                Layout.minimumHeight: root.layoutCompact ? root.compactPanelHeight : 0
+                shell: root.shell
+                demoMode: root.demoMode
+                storeKey: "TGS"
+                title: "TGS"
+                adminUrl: "https://admin.shopify.com/store/thegoodsheet-uk/analytics/live"
+            }
         }
     }
 

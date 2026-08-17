@@ -99,6 +99,10 @@ Item {
     readonly property int gaugeSize: 168
     readonly property int gaugeSpacing: 18
 
+    readonly property string cycleDaysPillLabel: root.cycleDaysLeft === 1
+        ? "1 day"
+        : (root.cycleDaysLeft + " days")
+
     function applyPayload(json) {
         loading = false
         if (!json || typeof json !== "object") {
@@ -185,6 +189,25 @@ Item {
             }
         }
 
+        GridLayout {
+            Layout.fillWidth: true
+            columns: 2
+            columnSpacing: 8
+            rowSpacing: 8
+            visible: !root.isError && root.showTokens
+
+            HoverPopupStatBox {
+                value: root.loading ? "…" : root.formatTokens(root.detail.tokensTotal)
+                label: "tokens"
+            }
+
+            HoverPopupStatBox {
+                value: root.loading ? "…" : root.formatTokens(root.detail.tokensToday)
+                label: "today"
+                valueColor: Theme.accent
+            }
+        }
+
         SectionPanel {
             label: ""
             visible: !root.isError && root.hasModelDetails
@@ -260,7 +283,7 @@ Item {
 
         SectionPanel {
             label: ""
-            visible: !root.isError && (root.showTokens || root.showCycleBar)
+            visible: !root.isError && root.showCycleBar
 
             ColumnLayout {
                 Layout.fillWidth: true
@@ -268,52 +291,40 @@ Item {
 
                 RowLayout {
                     Layout.fillWidth: true
-                    spacing: 8
-                    visible: root.showTokens
+                    spacing: 6
+                    visible: !root.loading
 
-                    Text {
-                        text: root.loading ? "…" : (root.formatTokens(root.detail.tokensTotal) + " tokens")
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.tokensFont
-                        font.bold: Theme.fontBold
+                    Rectangle {
+                        radius: 4
+                        color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.14)
+                        border.color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.38)
+                        border.width: 1
+                        implicitWidth: daysPillText.implicitWidth + 16
+                        implicitHeight: daysPillText.implicitHeight + 8
+
+                        Text {
+                            id: daysPillText
+                            anchors.centerIn: parent
+                            text: root.cycleDaysPillLabel
+                            color: Theme.accent
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.tokensFont
+                            font.bold: Theme.fontBold
+                        }
                     }
 
                     Text {
-                        visible: !root.loading
-                        text: " · "
+                        text: "left on plan"
                         color: Theme.foreground
                         font.family: Theme.fontFamily
                         font.pixelSize: root.tokensFont
-                        opacity: 0.45
-                    }
-
-                    Text {
-                        visible: !root.loading
-                        text: root.formatTokens(root.detail.tokensToday) + " today"
-                        color: Theme.accent
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.tokensFont
-                        font.bold: Theme.fontBold
+                        opacity: 0.72
                     }
 
                     Item { Layout.fillWidth: true }
                 }
 
-                Text {
-                    Layout.fillWidth: true
-                    visible: root.showCycleBar && !root.loading
-                    text: root.cycleDaysLeft === 1
-                        ? "1 day left on plan"
-                        : (root.cycleDaysLeft + " days left on plan")
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.tokensFont
-                    opacity: 0.72
-                }
-
                 CycleProgressBar {
-                    visible: root.showCycleBar
                     Layout.fillWidth: true
                     Layout.preferredHeight: 4
                     progress: root.cycleProgress

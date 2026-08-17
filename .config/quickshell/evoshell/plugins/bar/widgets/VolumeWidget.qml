@@ -31,9 +31,9 @@ Item {
     readonly property int systemVolumePercent: audio ? audio.percent : 0
     readonly property bool systemVolumeMuted: audio ? audio.muted : false
 
-    property real volumeFlash: 0
     property int _trackedSystemPercent: -1
     property bool volumeHovered: false
+    readonly property int volumePeekMs: 2800
 
     readonly property int barCount: 10
     readonly property int vizBarWidth: 6
@@ -56,21 +56,11 @@ Item {
     readonly property bool audioActive: sinkReady && linkTracker.linkGroups.length > 0
     readonly property string volumeText: audio ? audio.displayText : "󰕾"
 
-    readonly property string trayIconText: {
-        if (volumeFlash > 0)
-            return root.systemVolumePercent + "%"
-        return SystemVolume.icon(root.systemVolumePercent, root.systemVolumeMuted)
-    }
+    readonly property string trayIconText: SystemVolume.icon(root.systemVolumePercent, root.systemVolumeMuted)
 
-    readonly property real trayIconOpacity: {
-        if (volumeFlash > 0)
-            return SystemVolume.flashOpacity(volumeFlash)
-        return SystemVolume.iconOpacity(root.systemVolumePercent, root.systemVolumeMuted)
-    }
+    readonly property real trayIconOpacity: SystemVolume.iconOpacity(root.systemVolumePercent, root.systemVolumeMuted)
 
     readonly property color trayIconColor: {
-        if (volumeFlash > 0)
-            return Theme.accent
         if (root.systemVolumeMuted || root.systemVolumePercent <= 0)
             return Theme.foreground
         return Theme.accent
@@ -194,19 +184,13 @@ Item {
         if (!audio) return
         if (wheel.angleDelta.y > 0) audio.stepUp()
         else if (wheel.angleDelta.y < 0) audio.stepDown()
-        pulseVolumeFlash()
-        wheel.accepted = true
-    }
-
-    function pulseVolumeFlash() {
-        volumeFlash = 1
-        volumeFlashTimer.restart()
         peekVolumePopup()
+        wheel.accepted = true
     }
 
     function peekVolumePopup() {
         if (!shell || !volumeHoverPopupId || volumeHovered) return
-        shell.peekHoverPopup(volumeHoverPopupId, volumeLabel, barPanel, volumeFlashTimer.interval)
+        shell.peekHoverPopup(volumeHoverPopupId, volumeLabel, barPanel, volumePeekMs)
     }
 
     onSystemVolumePercentChanged: {
@@ -216,11 +200,11 @@ Item {
         }
         if (systemVolumePercent !== _trackedSystemPercent) {
             _trackedSystemPercent = systemVolumePercent
-            pulseVolumeFlash()
+            peekVolumePopup()
         }
     }
 
-    onSystemVolumeMutedChanged: pulseVolumeFlash()
+    onSystemVolumeMutedChanged: peekVolumePopup()
 
     PwObjectTracker {
         objects: root.sink ? [root.sink] : []
@@ -243,20 +227,6 @@ Item {
         running: root.audioActive
         repeat: true
         onTriggered: root.applyPeak(peakMonitor.peak)
-    }
-
-    Timer {
-        id: volumeFlashTimer
-        interval: 2800
-        repeat: false
-        onTriggered: root.volumeFlash = 0
-    }
-
-    Behavior on volumeFlash {
-        NumberAnimation {
-            duration: 500
-            easing.type: Easing.OutCubic
-        }
     }
 
     onAudioActiveChanged: if (!audioActive) zeroHistory()
@@ -333,11 +303,7 @@ Item {
             color: root.trayMode ? root.trayIconColor : Theme.foreground
             opacity: root.trayMode ? root.trayIconOpacity : 1
             font.family: Theme.fontFamily
-            font.pixelSize: root.trayMode
-                ? (volumeFlash > 0
-                    ? SystemVolume.flashLabelPixelSize(root.trayIconSize)
-                    : root.trayIconSize)
-                : Theme.barFontPixelSize
+            font.pixelSize: root.trayMode ? root.trayIconSize : Theme.barFontPixelSize
             font.bold: Theme.fontBold
             anchors.verticalCenter: parent.verticalCenter
 

@@ -27,13 +27,18 @@ Item {
     readonly property int hintFont: Theme.hoverPopupHintFontPixelSize
     readonly property int listFont: hintFont
     readonly property int titleFont: bodyFont + 6
-    readonly property int nowPlayingArtMaxWidth: 550
-    readonly property int nowPlayingArtWidth: nowPlayingPanel.height > 0
+    readonly property int nowPlayingCompactBreakpoint: 1000
+    readonly property bool nowPlayingCompact: root.width > 0 && root.width < nowPlayingCompactBreakpoint
+    readonly property int nowPlayingInlineArtSize: 56
+    readonly property int nowPlayingArtMaxWidth: !nowPlayingCompact && nowPlayingPanel.width > 0
+        ? Math.floor(nowPlayingPanel.width * 0.5)
+        : 0
+    readonly property int nowPlayingArtWidth: !nowPlayingCompact && nowPlayingPanel.height > 0 && nowPlayingArtMaxWidth > 0
         ? Math.max(160, Math.min(nowPlayingPanel.height, nowPlayingArtMaxWidth))
-        : nowPlayingArtMaxWidth
+        : Math.max(160, nowPlayingArtMaxWidth)
     readonly property int nowPlayingControlsHeight: 52
     readonly property int transportBtnSize: 36
-    readonly property int nowPlayingTitleFont: bodyFont + 10
+    readonly property int nowPlayingTitleFont: nowPlayingCompact ? bodyFont + 4 : bodyFont + 10
     property var waveformSamples: []
     readonly property int iconFont: Theme.hoverPopupIconFontPixelSize
     readonly property int transportIconFont: iconFont * 2
@@ -2194,70 +2199,82 @@ Item {
                                 Layout.fillHeight: true
                                 spacing: pad
 
-                                ColumnLayout {
-                                    id: titleCol
+                                RowLayout {
+                                    id: titleRow
                                     Layout.fillWidth: true
-                                    spacing: 8
+                                    spacing: 10
 
-                                Text {
+                                    ColumnLayout {
                                         Layout.fillWidth: true
-                                        text: root.player.title || "No track"
-                                        color: Theme.foreground
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: root.nowPlayingTitleFont
-                                        font.bold: Theme.fontBold
-                                        wrapMode: Text.Wrap
-                                        maximumLineCount: 2
-                                    }
+                                        spacing: 8
 
-                                    Text {
-                                        Layout.fillWidth: true
-                                        visible: root.nowPlayingAlbum !== ""
-                                        text: root.nowPlayingAlbum
-                                        color: Theme.foreground
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: root.listFont + 1
-                                        opacity: 0.62
-                                        wrapMode: Text.Wrap
-                                        maximumLineCount: 2
-                                    }
+                                        Text {
+                                            Layout.fillWidth: true
+                                            text: root.player.title || "No track"
+                                            color: Theme.foreground
+                                            font.family: Theme.fontFamily
+                                            font.pixelSize: root.nowPlayingTitleFont
+                                            font.bold: Theme.fontBold
+                                            wrapMode: Text.Wrap
+                                            maximumLineCount: 2
+                                        }
 
-                                    Text {
-                                        Layout.fillWidth: true
-                                        visible: (root.player.artist || "") !== ""
-                                        text: root.player.artist
-                                        color: Theme.foreground
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: root.listFont + 1
-                                        font.bold: Theme.fontBold
-                                        opacity: 0.72
-                                        elide: Text.ElideRight
-                                    }
+                                        Text {
+                                            Layout.fillWidth: true
+                                            visible: root.nowPlayingAlbum !== ""
+                                            text: root.nowPlayingAlbum
+                                            color: Theme.foreground
+                                            font.family: Theme.fontFamily
+                                            font.pixelSize: root.listFont + 1
+                                            opacity: 0.62
+                                            wrapMode: Text.Wrap
+                                            maximumLineCount: 2
+                                        }
 
-                                    Flow {
-                                        Layout.fillWidth: true
-                                        spacing: 6
-                                        visible: root.nowPlayingMetaChips.length > 0
+                                        Text {
+                                            Layout.fillWidth: true
+                                            visible: (root.player.artist || "") !== ""
+                                            text: root.player.artist
+                                            color: Theme.foreground
+                                            font.family: Theme.fontFamily
+                                            font.pixelSize: root.listFont + 1
+                                            font.bold: Theme.fontBold
+                                            opacity: 0.72
+                                            elide: Text.ElideRight
+                                        }
 
-                                        Repeater {
-                                            model: root.nowPlayingMetaChips
+                                        Flow {
+                                            Layout.fillWidth: true
+                                            spacing: 6
+                                            visible: root.nowPlayingMetaChips.length > 0
 
-                                            delegate: MetaChip {
-                                                required property var modelData
-                                                label: modelData.label
-                                                accent: !!modelData.accent
+                                            Repeater {
+                                                model: root.nowPlayingMetaChips
+
+                                                delegate: MetaChip {
+                                                    required property var modelData
+                                                    label: modelData.label
+                                                    accent: !!modelData.accent
+                                                }
                                             }
+                                        }
+
+                                        Text {
+                                            Layout.fillWidth: true
+                                            visible: root.selectedPlaylist !== "" || root.currentPlaylistActive
+                                            text: "From playlist: " + root.nowPlayingPlaylistLabel()
+                                            color: Theme.foreground
+                                            font.family: Theme.fontFamily
+                                            font.pixelSize: root.libraryFont
+                                            opacity: 0.45
                                         }
                                     }
 
-                                    Text {
-                                        Layout.fillWidth: true
-                                        visible: root.selectedPlaylist !== "" || root.currentPlaylistActive
-                                        text: "From playlist: " + root.nowPlayingPlaylistLabel()
-                                        color: Theme.foreground
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: root.libraryFont
-                                        opacity: 0.45
+                                    AlbumArtThumbnail {
+                                        visible: root.nowPlayingCompact
+                                        side: root.nowPlayingInlineArtSize
+                                        showPickerOverlay: false
+                                        Layout.alignment: Qt.AlignTop | Qt.AlignRight
                                     }
                                 }
 
@@ -2458,6 +2475,7 @@ Item {
 
                     SectionPanel {
                         label: ""
+                        visible: !root.nowPlayingCompact
                         Layout.fillHeight: true
                         Layout.preferredWidth: root.nowPlayingArtWidth
                         Layout.maximumWidth: root.nowPlayingArtMaxWidth
@@ -2468,110 +2486,22 @@ Item {
                             Layout.fillWidth: true
                             Layout.fillHeight: true
 
-                            Rectangle {
-                                id: coverFrame
-                                readonly property int side: Math.min(parent.width, parent.height, root.nowPlayingArtWidth)
-                                width: side
-                                height: side
+                            AlbumArtThumbnail {
+                                readonly property int fitSide: Math.min(parent.width, parent.height, root.nowPlayingArtWidth)
+                                side: fitSide
+                                showPickerOverlay: true
                                 anchors.right: parent.right
                                 anchors.verticalCenter: parent.verticalCenter
-                                radius: 3
-                                clip: true
-                                color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.08)
-
-                                Image {
-                                    id: coverImage
-                                    anchors.fill: parent
-                                    visible: (root.player.art || "") !== "" && status === Image.Ready
-                                    source: root.artUrl(root.player.art)
-                                    fillMode: Image.PreserveAspectCrop
-                                    smooth: true
-                                    asynchronous: true
-                                }
-
-                                Text {
-                                    anchors.centerIn: parent
-                                    visible: !coverImage.visible
-                                    text: "󰎈"
-                                    color: Theme.accent
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Math.round(root.nowPlayingArtWidth * 0.22)
-                                    opacity: 0.5
-                                }
-
-                                Rectangle {
-                                    anchors.fill: parent
-                                    visible: coverDrop.containsDrag
-                                    color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.18)
-                                    border.color: Theme.accent
-                                    border.width: 2
-                                    radius: 3
-
-                                    Text {
-                                        anchors.centerIn: parent
-                                        text: "drop image"
-                                        color: Theme.accent
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: root.libraryFont
-                                        opacity: 0.9
-                                    }
-                                }
-
-                                DropArea {
-                                    id: coverDrop
-                                    anchors.fill: parent
-                                    keys: ["text/uri-list"]
-
-                                    onEntered: function(drag) {
-                                        var ok = false
-                                        if (drag.hasUrls) {
-                                            for (var i = 0; i < drag.urls.length; i++) {
-                                                if (root.isImagePath(root.localPathFromUrl(drag.urls[i]))) {
-                                                    ok = true
-                                                    break
-                                                }
-                                            }
-                                        }
-                                        drag.accepted = ok
-                                    }
-
-                                    onDropped: function(drop) {
-                                        if (!drop.hasUrls || !root.player.path)
-                                            return
-                                        for (var j = 0; j < drop.urls.length; j++) {
-                                            var p = root.localPathFromUrl(drop.urls[j])
-                                            if (root.isImagePath(p)) {
-                                                root.setAlbumArtFromFile(p)
-                                                break
-                                            }
-                                        }
-                                    }
-                                }
-
-                                MouseArea {
-                                    id: coverClick
-                                    z: 1
-                                    anchors.fill: parent
-                                    enabled: !root.artPickerOpen
-                                    hoverEnabled: true
-                                    cursorShape: (root.player.path || "") !== ""
-                                        ? Qt.PointingHandCursor : Qt.ArrowCursor
-                                    onClicked: function(mouse) {
-                                        if (!(root.player.path || ""))
-                                            return
-                                        mouse.accepted = true
-                                        root.openArtPicker()
-                                    }
-                                }
-
-                                ArtPickerOverlay {
-                                    z: 2
-                                    anchors.fill: parent
-                                    visible: root.artPickerOpen
-                                }
                             }
                         }
                     }
+                }
+
+                ArtPickerOverlay {
+                    anchors.fill: parent
+                    anchors.margins: pad
+                    visible: root.nowPlayingCompact && root.artPickerOpen
+                    z: 100
                 }
             }
 
@@ -3098,6 +3028,115 @@ Item {
 
             PlayerTransportBar {
                 Layout.fillWidth: true
+            }
+        }
+    }
+
+    component AlbumArtThumbnail: Item {
+        id: thumbRoot
+        property int side: 56
+        property bool showPickerOverlay: false
+
+        implicitWidth: side
+        implicitHeight: side
+        width: side
+        height: side
+
+        Rectangle {
+            id: coverFrame
+            anchors.fill: parent
+            radius: 3
+            clip: true
+            color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.08)
+
+            Image {
+                id: coverImage
+                anchors.fill: parent
+                visible: (root.player.art || "") !== "" && status === Image.Ready
+                source: root.artUrl(root.player.art)
+                fillMode: Image.PreserveAspectCrop
+                smooth: true
+                asynchronous: true
+            }
+
+            Text {
+                anchors.centerIn: parent
+                visible: !coverImage.visible
+                text: "󰎈"
+                color: Theme.accent
+                font.family: Theme.fontFamily
+                font.pixelSize: Math.round(thumbRoot.side * 0.38)
+                opacity: 0.5
+            }
+
+            Rectangle {
+                anchors.fill: parent
+                visible: coverDrop.containsDrag
+                color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.18)
+                border.color: Theme.accent
+                border.width: 2
+                radius: 3
+
+                Text {
+                    anchors.centerIn: parent
+                    text: "drop image"
+                    color: Theme.accent
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.libraryFont
+                    opacity: 0.9
+                }
+            }
+
+            DropArea {
+                id: coverDrop
+                anchors.fill: parent
+                keys: ["text/uri-list"]
+
+                onEntered: function(drag) {
+                    var ok = false
+                    if (drag.hasUrls) {
+                        for (var i = 0; i < drag.urls.length; i++) {
+                            if (root.isImagePath(root.localPathFromUrl(drag.urls[i]))) {
+                                ok = true
+                                break
+                            }
+                        }
+                    }
+                    drag.accepted = ok
+                }
+
+                onDropped: function(drop) {
+                    if (!drop.hasUrls || !root.player.path)
+                        return
+                    for (var j = 0; j < drop.urls.length; j++) {
+                        var p = root.localPathFromUrl(drop.urls[j])
+                        if (root.isImagePath(p)) {
+                            root.setAlbumArtFromFile(p)
+                            break
+                        }
+                    }
+                }
+            }
+
+            MouseArea {
+                z: 1
+                anchors.fill: parent
+                enabled: !root.artPickerOpen
+                hoverEnabled: true
+                cursorShape: (root.player.path || "") !== ""
+                    ? Qt.PointingHandCursor : Qt.ArrowCursor
+                onClicked: function(mouse) {
+                    if (!(root.player.path || ""))
+                        return
+                    mouse.accepted = true
+                    root.openArtPicker()
+                }
+            }
+
+            ArtPickerOverlay {
+                z: 2
+                anchors.fill: parent
+                visible: thumbRoot.showPickerOverlay && root.artPickerOpen
             }
         }
     }

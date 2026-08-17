@@ -19,14 +19,15 @@ Item {
     readonly property int bodyFont: Theme.hoverPopupBodyFontPixelSize
     readonly property int hintFont: Theme.hoverPopupHintFontPixelSize
     readonly property int statFont: Theme.hoverPopupLabelFontPixelSize
+    readonly property int heroPriceFont: Theme.popupTitleFontPixelSize
+    readonly property int headerTextBlockHeight: root.statFont * 2 + root.hintFont + 8
+    readonly property int headerIconSize: Math.max(root.heroPriceFont, root.headerTextBlockHeight)
+    readonly property int headerBlockHeight: root.headerIconSize
     readonly property int chartBlockHeight: 96
-    readonly property int headerMinHeight: Theme.hoverPopupTitleFontPixelSize
-        + (Theme.hoverPopupLabelFontPixelSize + 4) * 2 + 8
-    readonly property int sourceRowHeight: Theme.hoverPopupHintFontPixelSize + 6
     readonly property int statRowHeight: Theme.hoverPopupLabelFontPixelSize
         + Theme.hoverPopupHintFontPixelSize + 36
-    readonly property int marketPanelMinHeight: headerMinHeight + sourceRowHeight
-        + statRowHeight + chartBlockHeight + Theme.hoverPopupSectionSpacing * 3
+    readonly property int marketPanelMinHeight: root.headerBlockHeight + root.statRowHeight
+        + root.chartBlockHeight + Theme.hoverPopupSectionSpacing * 2
     readonly property int stableContentHeight: (marketPanelMinHeight + 48) * 2
         + Theme.hoverPopupSectionSpacing
 
@@ -55,12 +56,46 @@ Item {
         spcxPoll.runPoll()
     }
 
-    function marketHeader(data, fallbackName) {
-        if (!data) return fallbackName + " …"
-        var raw = data.detail ? String(data.detail) : (data.text ? String(data.text) : "")
-        if (!raw)
-            return fallbackName + " …"
-        return Format.headerLines(raw.split(" · "), fallbackName + " …")
+    function marketMetaLine(market) {
+        var parts = []
+        var change = market.quote ? market.quote.changePct : undefined
+        if (change !== undefined && change !== null && !isNaN(parseFloat(change)))
+            parts.push(fmtSignedPct(change) + " 24h")
+        var upnl = market.position ? market.position.upnlPct : undefined
+        if (upnl !== undefined && upnl !== null && !isNaN(parseFloat(upnl)))
+            parts.push(fmtSignedPct(upnl) + " P/L")
+        return parts.join(" · ")
+    }
+
+    function marketSourceLine(market) {
+        var parts = []
+        if (market.source)
+            parts.push(String(market.source))
+        var pair = market.quote ? String(market.quote.pair || "") : ""
+        if (pair)
+            parts.push(pair)
+        return parts.join(" · ")
+    }
+
+    function marketSymbolIcon(name) {
+        if (name === "BTC")
+            return "₿"
+        if (name === "SPCX")
+            return "S"
+        return name ? String(name).charAt(0) : "?"
+    }
+
+    function signedColor(val) {
+        var n = parseFloat(val)
+        if (isNaN(n) || n === 0)
+            return Theme.foreground
+        return n > 0 ? Theme.accent : Theme.urgent
+    }
+
+    function openMarketUrl(url) {
+        if (!url)
+            return
+        Quickshell.execDetached(["bash", "-lc", "xdg-open " + Util.shellQuote(url)])
     }
 
     function fmtPct(val, signed) {
@@ -134,7 +169,6 @@ Item {
         return {
             name: fallbackName,
             href: href,
-            header: root.marketHeader(data, fallbackName),
             source: String(data.source || ""),
             quote: data.quote || {},
             period: data.period || {},
@@ -170,6 +204,111 @@ Item {
 
     implicitHeight: Math.max(root.stableContentHeight, column.implicitHeight)
 
+    component MarketHeader: Item {
+        id: marketHeader
+        property var market: ({})
+
+        Layout.fillWidth: true
+        implicitHeight: headerRow.implicitHeight
+
+        readonly property string priceText: {
+            var price = market.quote ? market.quote.price : undefined
+            return price !== undefined && price !== null
+                ? root.fmtUsd(price)
+                : "—"
+        }
+
+        readonly property string metaLine: root.marketMetaLine(market)
+        readonly property string sourceLine: root.marketSourceLine(market)
+        readonly property real metaColorValue: {
+            var up = market.position ? market.position.upnlPct : undefined
+            if (up !== undefined && up !== null && !isNaN(parseFloat(up)))
+                return up
+            var change = market.quote ? market.quote.changePct : undefined
+            return change !== undefined && change !== null ? change : 0
+        }
+
+        RowLayout {
+            id: headerRow
+            anchors.left: parent.left
+            anchors.right: parent.right
+            spacing: 12
+
+            Item {
+                Layout.preferredWidth: root.headerIconSize
+                Layout.preferredHeight: root.headerIconSize
+                Layout.alignment: Qt.AlignVCenter
+
+                Text {
+                    anchors.centerIn: parent
+                    text: root.marketSymbolIcon(market.name)
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Math.round(root.headerIconSize * 0.78)
+                    font.bold: Theme.fontBold
+                    opacity: 0.9
+                }
+            }
+
+            Text {
+                Layout.alignment: Qt.AlignVCenter
+                text: marketHeader.priceText
+                color: Theme.foreground
+                font.family: Theme.fontFamily
+                font.pixelSize: root.heroPriceFont
+                font.bold: Theme.fontBold
+                lineHeight: root.heroPriceFont
+                lineHeightMode: Text.FixedHeight
+            }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.alignment: Qt.AlignVCenter
+                spacing: 2
+
+                Text {
+                    Layout.fillWidth: true
+                    text: market.name || "—"
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.statFont
+                    font.bold: Theme.fontBold
+                    elide: Text.ElideRight
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    visible: marketHeader.metaLine !== ""
+                    text: marketHeader.metaLine
+                    color: root.signedColor(marketHeader.metaColorValue)
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.hintFont
+                    font.bold: Theme.fontBold
+                    opacity: 0.85
+                    elide: Text.ElideRight
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    visible: marketHeader.sourceLine !== ""
+                    text: marketHeader.sourceLine
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.hintFont
+                    opacity: 0.55
+                    elide: Text.ElideRight
+                }
+            }
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            visible: market.href !== ""
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.openMarketUrl(market.href)
+        }
+    }
+
     component MarketPanel: SectionPanel {
         id: panel
         property var market: ({})
@@ -178,24 +317,10 @@ Item {
             Layout.fillWidth: true
             spacing: Theme.hoverPopupSectionSpacing
 
-            HoverPopupHeader {
+            MarketHeader {
                 Layout.fillWidth: true
-                Layout.minimumHeight: root.headerMinHeight
-                value: panel.market.header
-                href: panel.market.href
-            }
-
-            Text {
-                Layout.fillWidth: true
-                Layout.preferredHeight: root.sourceRowHeight
-                text: panel.market.source !== ""
-                    ? panel.market.source + (panel.market.quote.pair ? " · " + panel.market.quote.pair : "")
-                    : "\u00a0"
-                color: Theme.foreground
-                font.family: Theme.fontFamily
-                font.pixelSize: root.hintFont
-                opacity: panel.market.source !== "" ? 0.55 : 0
-                elide: Text.ElideRight
+                Layout.preferredHeight: root.headerBlockHeight
+                market: panel.market
             }
 
             GridLayout {
