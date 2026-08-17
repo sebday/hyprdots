@@ -50,10 +50,10 @@ Item {
     readonly property var outlookDays: {
         var titles = ["Today", "Tomorrow"]
         var out = []
-        for (var i = 0; i < daily.length && i < 2; i++) {
+        for (var i = 0; i < daily.length && i < 3; i++) {
             var d = daily[i]
             out.push({
-                title: titles[i] || String(d.dow || ""),
+                title: i < titles.length ? titles[i] : String(d.dow || ""),
                 dow: String(d.dow || ""),
                 icon: String(d.icon || "󰖐"),
                 range: String(d.min) + "–" + String(d.max) + "°",
@@ -201,55 +201,7 @@ Item {
         SectionPanel {
             label: ""
             Layout.fillWidth: true
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-
-                Text {
-                    Layout.fillWidth: true
-                    text: root.location
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.titleFont
-                    font.bold: Theme.fontBold
-                    elide: Text.ElideRight
-                }
-
-                RowLayout {
-                    spacing: 14
-                    visible: root.weatherOk && !root.loading
-                        && (root.sunrise !== "" || root.sunset !== "")
-
-                    Repeater {
-                        model: [
-                            { icon: "󰖜", text: root.sunrise },
-                            { icon: "󰖛", text: root.sunset }
-                        ]
-
-                        RowLayout {
-                            required property var modelData
-                            spacing: 5
-                            visible: modelData.text !== ""
-
-                            Text {
-                                text: modelData.icon
-                                color: Theme.accent
-                                font.family: Theme.fontFamily
-                                font.pixelSize: root.hintFont
-                            }
-
-                            Text {
-                                text: modelData.text
-                                color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: root.hintFont
-                                opacity: 0.72
-                            }
-                        }
-                    }
-                }
-            }
+            visible: root.loading || !root.weatherOk
 
             Text {
                 Layout.fillWidth: true
@@ -270,66 +222,121 @@ Item {
                 font.pixelSize: root.bodyFont
                 wrapMode: Text.WordWrap
             }
-
-            RowLayout {
-                Layout.fillWidth: true
-                Layout.topMargin: 4
-                spacing: 14
-                visible: root.weatherOk && !root.loading
-
-                Item {
-                    Layout.preferredWidth: root.heroTextBlockHeight
-                    Layout.preferredHeight: root.heroTextBlockHeight
-
-                    Text {
-                        anchors.centerIn: parent
-                        text: root.currentIcon
-                        color: Theme.accent
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.heroIconFont
-                        font.bold: Theme.fontBold
-                    }
-                }
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 2
-
-                    Text {
-                        text: root.currentTemp
-                        color: root.current
-                            ? root.tempColor(root.current.temp)
-                            : Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.heroTempFont
-                        font.bold: Theme.fontBold
-                    }
-
-                    Text {
-                        Layout.fillWidth: true
-                        visible: root.currentLabel !== ""
-                        text: root.currentLabel
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.bodyFont
-                        font.bold: Theme.fontBold
-                        elide: Text.ElideRight
-                    }
-                }
-            }
-
-            MouseArea {
-                anchors.fill: parent
-                visible: root.metOfficeUrl !== ""
-                cursorShape: Qt.PointingHandCursor
-                onClicked: root.openMetOffice()
-            }
         }
 
         RowLayout {
             Layout.fillWidth: true
             spacing: 10
-            visible: root.weatherOk && !root.loading && root.outlookDays.length > 0
+            visible: root.weatherOk && !root.loading
+
+            SectionPanel {
+                label: ""
+                Layout.fillWidth: true
+                fillHeight: true
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: root.location
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.titleFont
+                        font.bold: Theme.fontBold
+                        elide: Text.ElideRight
+                    }
+
+                    RowLayout {
+                        spacing: 14
+                        visible: root.sunrise !== "" || root.sunset !== ""
+
+                        Repeater {
+                            model: [
+                                { icon: "󰖜", text: root.sunrise },
+                                { icon: "󰖛", text: root.sunset }
+                            ]
+
+                            RowLayout {
+                                required property var modelData
+                                spacing: 5
+                                visible: modelData.text !== ""
+
+                                Text {
+                                    text: modelData.icon
+                                    color: Theme.accent
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: root.hintFont
+                                }
+
+                                Text {
+                                    text: modelData.text
+                                    color: Theme.foreground
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: root.hintFont
+                                    opacity: 0.72
+                                }
+                            }
+                        }
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    spacing: 14
+
+                    Item {
+                        Layout.preferredWidth: root.heroTextBlockHeight
+                        Layout.preferredHeight: root.heroTextBlockHeight
+                        Layout.alignment: Qt.AlignVCenter
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: root.currentIcon
+                            color: Theme.accent
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.heroIconFont
+                            font.bold: Theme.fontBold
+                        }
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        Layout.alignment: Qt.AlignVCenter
+                        spacing: 2
+
+                        Text {
+                            text: root.currentTemp
+                            color: root.current
+                                ? root.tempColor(root.current.temp)
+                                : Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.heroTempFont
+                            font.bold: Theme.fontBold
+                        }
+
+                        Text {
+                            Layout.fillWidth: true
+                            visible: root.currentLabel !== ""
+                            text: root.currentLabel
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.bodyFont
+                            font.bold: Theme.fontBold
+                            elide: Text.ElideRight
+                        }
+                    }
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    visible: root.metOfficeUrl !== ""
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.openMetOffice()
+                }
+            }
 
             Repeater {
                 model: root.outlookDays
@@ -337,6 +344,7 @@ Item {
                 Rectangle {
                     required property var modelData
                     Layout.fillWidth: true
+                    Layout.fillHeight: true
                     implicitHeight: outlookCol.implicitHeight + 16
                     radius: Theme.fieldsetCornerRadius
                     color: Theme.panelMantle

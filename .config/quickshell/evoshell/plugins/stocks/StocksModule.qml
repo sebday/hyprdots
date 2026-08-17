@@ -19,9 +19,8 @@ Item {
     readonly property int bodyFont: Theme.hoverPopupBodyFontPixelSize
     readonly property int hintFont: Theme.hoverPopupHintFontPixelSize
     readonly property int statFont: Theme.hoverPopupLabelFontPixelSize
-    readonly property int heroPriceFont: Theme.popupTitleFontPixelSize
-    readonly property int headerTextBlockHeight: root.statFont * 2 + root.hintFont + 8
-    readonly property int headerIconSize: Math.max(root.heroPriceFont, root.headerTextBlockHeight)
+    readonly property int headerPriceFont: Theme.hoverPopupTitleFontPixelSize
+    readonly property int headerIconSize: Math.round(Theme.popupTitleFontPixelSize * 1.25)
     readonly property int headerBlockHeight: root.headerIconSize
     readonly property int chartBlockHeight: 96
     readonly property int statRowHeight: Theme.hoverPopupLabelFontPixelSize
@@ -56,40 +55,12 @@ Item {
         spcxPoll.runPoll()
     }
 
-    function marketMetaLine(market) {
-        var parts = []
-        var change = market.quote ? market.quote.changePct : undefined
-        if (change !== undefined && change !== null && !isNaN(parseFloat(change)))
-            parts.push(fmtSignedPct(change) + " 24h")
-        var upnl = market.position ? market.position.upnlPct : undefined
-        if (upnl !== undefined && upnl !== null && !isNaN(parseFloat(upnl)))
-            parts.push(fmtSignedPct(upnl) + " P/L")
-        return parts.join(" · ")
-    }
-
-    function marketSourceLine(market) {
-        var parts = []
-        if (market.source)
-            parts.push(String(market.source))
-        var pair = market.quote ? String(market.quote.pair || "") : ""
-        if (pair)
-            parts.push(pair)
-        return parts.join(" · ")
-    }
-
     function marketSymbolIcon(name) {
         if (name === "BTC")
             return "₿"
         if (name === "SPCX")
-            return "S"
+            return "𝕏"
         return name ? String(name).charAt(0) : "?"
-    }
-
-    function signedColor(val) {
-        var n = parseFloat(val)
-        if (isNaN(n) || n === 0)
-            return Theme.foreground
-        return n > 0 ? Theme.accent : Theme.urgent
     }
 
     function openMarketUrl(url) {
@@ -218,21 +189,11 @@ Item {
                 : "—"
         }
 
-        readonly property string metaLine: root.marketMetaLine(market)
-        readonly property string sourceLine: root.marketSourceLine(market)
-        readonly property real metaColorValue: {
-            var up = market.position ? market.position.upnlPct : undefined
-            if (up !== undefined && up !== null && !isNaN(parseFloat(up)))
-                return up
-            var change = market.quote ? market.quote.changePct : undefined
-            return change !== undefined && change !== null ? change : 0
-        }
-
         RowLayout {
             id: headerRow
             anchors.left: parent.left
             anchors.right: parent.right
-            spacing: 12
+            spacing: 14
 
             Item {
                 Layout.preferredWidth: root.headerIconSize
@@ -251,53 +212,13 @@ Item {
             }
 
             Text {
+                Layout.fillWidth: true
                 Layout.alignment: Qt.AlignVCenter
                 text: marketHeader.priceText
                 color: Theme.foreground
                 font.family: Theme.fontFamily
-                font.pixelSize: root.heroPriceFont
+                font.pixelSize: root.headerPriceFont
                 font.bold: Theme.fontBold
-                lineHeight: root.heroPriceFont
-                lineHeightMode: Text.FixedHeight
-            }
-
-            ColumnLayout {
-                Layout.fillWidth: true
-                Layout.alignment: Qt.AlignVCenter
-                spacing: 2
-
-                Text {
-                    Layout.fillWidth: true
-                    text: market.name || "—"
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.statFont
-                    font.bold: Theme.fontBold
-                    elide: Text.ElideRight
-                }
-
-                Text {
-                    Layout.fillWidth: true
-                    visible: marketHeader.metaLine !== ""
-                    text: marketHeader.metaLine
-                    color: root.signedColor(marketHeader.metaColorValue)
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.hintFont
-                    font.bold: Theme.fontBold
-                    opacity: 0.85
-                    elide: Text.ElideRight
-                }
-
-                Text {
-                    Layout.fillWidth: true
-                    visible: marketHeader.sourceLine !== ""
-                    text: marketHeader.sourceLine
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.hintFont
-                    opacity: 0.55
-                    elide: Text.ElideRight
-                }
             }
         }
 
@@ -400,12 +321,12 @@ Item {
         spacing: Theme.hoverPopupSectionSpacing
 
         MarketPanel {
-            label: "BTC"
+            label: ""
             market: root.btc
         }
 
         MarketPanel {
-            label: "SPCX"
+            label: ""
             market: root.spcx
         }
     }

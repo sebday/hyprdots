@@ -17,8 +17,8 @@ Item {
 
     readonly property var glyphRules: ({
         "insync": {
-            defaultGlyph: "󰖼",
-            syncingGlyph: "󰖿",
+            defaultGlyph: "󰉋",
+            syncingGlyph: "󰉚",
             syncHint: "syncing"
         },
         "steam": {

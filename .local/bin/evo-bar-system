@@ -52,10 +52,10 @@ read_root_disk_bytes() {
 }
 
 read_gpu_name() {
-    lspci -mm 2>/dev/null | awk -F'|' '
-        /"VGA compatible controller"|"3D controller"|"Display controller"/ {
-            gsub(/^"|"$/, "", $3)
-            print $3
+    lspci 2>/dev/null | awk -F': ' '
+        /VGA compatible controller|3D controller|Display controller/ {
+            sub(/ \(rev.*\)$/, "", $2)
+            print $2
             exit
         }'
 }

@@ -23,12 +23,6 @@ bindd("SUPER + T", "GUI File Manager", hl.dsp.exec_cmd("thunar"))
 bindd("SUPER + D", "App launcher", hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.menu \'{"mode":"apps"}\''))
 bindd("SUPER + Escape", "System menu", hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.menu \'{"mode":"power"}\''))
 bindd("SUPER + F", "Fullscreen", hl.dsp.window.fullscreen({ mode = "fullscreen", action = "set" }))
-bindd("SUPER + H", "Toggle window transparency", function()
-	local window = hl.get_active_window()
-	if window then
-		hl.dispatch(hl.dsp.window.set_prop({ prop = "opaque", value = "toggle", window = window }))
-	end
-end)
 bindd("SUPER + J", "Toggle Split Direction", hl.dsp.layout("togglesplit"))
 bindd("SUPER + K", "Toggle Floating Window", hl.dsp.window.float({ action = "toggle" }))
 bindd("SUPER + L", "Lock Screen", hl.dsp.exec_cmd(bin .. "/evo-system lock"))
@@ -40,12 +34,14 @@ bindd(
 )
 bindd("SUPER + B", "Settings panel", hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.panel \'{"module":"settings"}\''))
 bindd("SUPER + M", "Library", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.library"))
-bindd(
-	"SUPER + V",
-	"Clipboard history",
-	hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.clipboard")
-)
+bindd("SUPER + V", "Clipboard history", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.clipboard"))
 bindd("SUPER + P", "Colour Picker", hl.dsp.exec_cmd("hyprpicker -al"))
+bindd("SUPER + H", "Toggle window transparency", function()
+	local window = hl.get_active_window()
+	if window then
+		hl.dispatch(hl.dsp.window.set_prop({ prop = "opaque", value = "toggle", window = window }))
+	end
+end)
 
 -- Programs
 bindd("SUPER + 1", "Brave Browser", hl.dsp.exec_cmd(browser))
@@ -162,16 +158,8 @@ bindd(
 	"Screenshot Active Monitor",
 	hl.dsp.exec_cmd('bash -c "hyprshot -m output -m active -o /tmp/ -f hyprshot.png;"')
 )
-bindd(
-	"SUPER + ALT + PRINT",
-	"Screenshot all monitors (stacked)",
-	hl.dsp.exec_cmd(bin .. "/evo-screenshot stacked")
-)
-bindd(
-	"SUPER + PRINT",
-	"Annotate screenshot",
-	hl.dsp.exec_cmd(bin .. "/evo-screenshot edit")
-)
+bindd("SUPER + ALT + PRINT", "Screenshot all monitors (stacked)", hl.dsp.exec_cmd(bin .. "/evo-screenshot stacked"))
+bindd("SUPER + PRINT", "Annotate screenshot", hl.dsp.exec_cmd(bin .. "/evo-screenshot edit"))
 bindd(
 	"SUPER + SHIFT + PRINT",
 	"Screenshot region and annotate",

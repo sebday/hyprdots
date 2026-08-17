@@ -303,7 +303,7 @@ Item {
             color: root.trayMode ? root.trayIconColor : Theme.foreground
             opacity: root.trayMode ? root.trayIconOpacity : 1
             font.family: Theme.fontFamily
-            font.pixelSize: root.trayMode ? root.trayIconSize : Theme.barFontPixelSize
+            font.pixelSize: root.trayMode ? root.trayIconSize + 3 : Theme.barFontPixelSize
             font.bold: Theme.fontBold
             anchors.verticalCenter: parent.verticalCenter
 

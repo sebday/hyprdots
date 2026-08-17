@@ -328,7 +328,7 @@ Item {
 
         SectionPanel {
             fillHeight: root.chartFillHeight
-            label: root.chartDays + " day revenue & orders"
+            label: root.chartDays + " day revenue"
             visible: (root.storeData.bars || []).length > 0
 
             ColumnLayout {
@@ -346,11 +346,17 @@ Item {
                         id: revenueChart
                         anchors.fill: parent
                         chartHeight: root.chartFillHeight ? Math.max(64, Math.round(height)) : 100
-                        style: "line"
-                        lineColor: Theme.accent
-                        secondaryLineColor: "#a6e3a1"
+                        style: "bars"
+                        showBarTooltips: true
+                        formatBarTooltip: function(bar) {
+                            var parts = []
+                            if (bar && bar.date)
+                                parts.push(Format.formatDay(bar.date))
+                            if (bar && bar.value !== undefined && bar.value !== null)
+                                parts.push(Format.formatRevenue(bar.value, root.currency))
+                            return parts.join(" · ")
+                        }
                         bars: root.storeData.bars || []
-                        secondaryBars: root.storeData.orderBars || []
                     }
 
                     Text {
@@ -367,48 +373,6 @@ Item {
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
                     }
-                }
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 12
-                    visible: (root.storeData.orderBars || []).length > 0
-
-                    RowLayout {
-                        spacing: 6
-                        Rectangle {
-                            width: 10
-                            height: 3
-                            radius: 1
-                            color: Theme.accent
-                        }
-                        Text {
-                            text: "Revenue"
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.hintFont
-                            opacity: 0.6
-                        }
-                    }
-
-                    RowLayout {
-                        spacing: 6
-                        Rectangle {
-                            width: 10
-                            height: 3
-                            radius: 1
-                            color: "#a6e3a1"
-                        }
-                        Text {
-                            text: "Orders"
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.hintFont
-                            opacity: 0.6
-                        }
-                    }
-
-                    Item { Layout.fillWidth: true }
                 }
             }
         }

@@ -12,6 +12,8 @@ Item {
     property int barSpacing: Theme.sparklineExpandedBarSpacing
     property bool fillWidth: true
     property bool showEmptyLabel: true
+    property bool showBarTooltips: false
+    property var formatBarTooltip: null
     property color lineColor: Theme.accent
     property color secondaryLineColor: "#a6e3a1"
     property int lineWidth: 2
@@ -77,6 +79,28 @@ Item {
         return valueRangeFor(bars)
     }
 
+    function tooltipTextFor(bar) {
+        if (!bar)
+            return ""
+        if (root.formatBarTooltip)
+            return String(root.formatBarTooltip(bar) || "")
+        var parts = []
+        if (bar.date)
+            parts.push(Format.formatDay(bar.date))
+        if (bar.value !== undefined && bar.value !== null)
+            parts.push(Format.formatRevenue(bar.value, "£"))
+        return parts.join(" · ")
+    }
+
+    property Item hoveredBarItem: null
+    property string hoveredTooltipText: ""
+
+    readonly property point tooltipAnchor: {
+        if (!hoveredBarItem)
+            return Qt.point(0, 0)
+        return hoveredBarItem.mapToItem(root, hoveredBarItem.width / 2, 0)
+    }
+
     Row {
         id: chartRow
         visible: !root.isLine
@@ -92,7 +116,24 @@ Item {
                 width: root.effectiveBarWidth
                 height: chartRow.height
 
+                MouseArea {
+                    id: barMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    enabled: root.showBarTooltips
+                    onContainsMouseChanged: {
+                        if (containsMouse) {
+                            root.hoveredBarItem = parent
+                            root.hoveredTooltipText = root.tooltipTextFor(modelData)
+                        } else if (root.hoveredBarItem === parent) {
+                            root.hoveredBarItem = null
+                            root.hoveredTooltipText = ""
+                        }
+                    }
+                }
+
                 Rectangle {
+                    id: barRect
                     width: parent.width
                     height: modelData.level > 0
                         ? Math.max(2, chartRow.height * modelData.level / 7)
@@ -100,7 +141,7 @@ Item {
                     anchors.bottom: parent.bottom
                     radius: 2
                     color: modelData.color || Theme.accent
-                    opacity: 0.85
+                    opacity: barMouse.containsMouse ? 1 : 0.85
                 }
             }
         }
@@ -195,5 +236,32 @@ Item {
         font.family: Theme.fontFamily
         font.pixelSize: Theme.panelHintFontPixelSize
         opacity: 0.45
+    }
+
+    Rectangle {
+        id: barTooltip
+        visible: root.showBarTooltips && root.hoveredBarItem !== null && root.hoveredTooltipText !== ""
+        z: 20
+        x: {
+            var w = implicitWidth
+            return Math.max(4, Math.min(root.tooltipAnchor.x - w / 2, root.width - w - 4))
+        }
+        y: Math.max(4, root.tooltipAnchor.y - implicitHeight - 6)
+        radius: Theme.fieldsetCornerRadius
+        color: Theme.panelMantle
+        border.color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.14)
+        border.width: 1
+        implicitWidth: tooltipText.implicitWidth + 16
+        implicitHeight: tooltipText.implicitHeight + 10
+
+        Text {
+            id: tooltipText
+            anchors.centerIn: parent
+            text: root.hoveredTooltipText
+            color: Theme.foreground
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.panelHintFontPixelSize
+            font.bold: Theme.fontBold
+        }
     }
 }

@@ -29,7 +29,7 @@ Item {
     readonly property int titleFont: bodyFont + 6
     readonly property int nowPlayingCompactBreakpoint: 1000
     readonly property bool nowPlayingCompact: root.width > 0 && root.width < nowPlayingCompactBreakpoint
-    readonly property int nowPlayingInlineArtSize: 56
+    readonly property int nowPlayingInlineArtSize: 112
     readonly property int nowPlayingArtMaxWidth: !nowPlayingCompact && nowPlayingPanel.width > 0
         ? Math.floor(nowPlayingPanel.width * 0.5)
         : 0
@@ -2259,15 +2259,6 @@ Item {
                                             }
                                         }
 
-                                        Text {
-                                            Layout.fillWidth: true
-                                            visible: root.selectedPlaylist !== "" || root.currentPlaylistActive
-                                            text: "From playlist: " + root.nowPlayingPlaylistLabel()
-                                            color: Theme.foreground
-                                            font.family: Theme.fontFamily
-                                            font.pixelSize: root.libraryFont
-                                            opacity: 0.45
-                                        }
                                     }
 
                                     AlbumArtThumbnail {
