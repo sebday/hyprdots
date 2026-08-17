@@ -332,16 +332,15 @@ Item {
                 Layout.fillWidth: true
                 spacing: 12
 
-                Text {
+                Item {
                     Layout.fillWidth: true
-                    text: root.currentHourLabel
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.hintFont
-                    lineHeight: root.hintFont
-                    lineHeightMode: Text.FixedHeight
-                    opacity: root.currentHourLabel !== "" ? 0.55 : 0
-                    elide: Text.ElideRight
+                    implicitHeight: hourPill.visible ? hourPill.implicitHeight : 0
+
+                    HoverPopupLabelPill {
+                        id: hourPill
+                        visible: root.currentHourLabel !== ""
+                        text: root.currentHourLabel
+                    }
                 }
 
                 Rectangle {
@@ -352,18 +351,16 @@ Item {
                     color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.12)
                 }
 
-                Text {
+                Item {
                     Layout.fillWidth: true
                     visible: root.todayOutlook !== null
-                    text: root.todayOutlook ? root.todayOutlook.label : ""
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.hintFont
-                    lineHeight: root.hintFont
-                    lineHeightMode: Text.FixedHeight
-                    opacity: root.todayOutlook && root.todayOutlook.label !== "" ? 0.55 : 0
-                    elide: Text.ElideRight
-                    maximumLineCount: 1
+                    implicitHeight: outlookPill.visible ? outlookPill.implicitHeight : 0
+
+                    HoverPopupLabelPill {
+                        id: outlookPill
+                        visible: root.todayOutlook && root.todayOutlook.label !== ""
+                        text: root.todayOutlook ? root.todayOutlook.label : ""
+                    }
                 }
             }
         }
@@ -397,6 +394,7 @@ Item {
 
             Text {
                 Layout.fillWidth: true
+                visible: outlook.boxTitle !== ""
                 text: outlook.boxTitle
                 color: Theme.foreground
                 font.family: Theme.fontFamily
@@ -436,17 +434,15 @@ Item {
                 }
             }
 
-            Text {
+            Item {
                 Layout.fillWidth: true
-                text: outlook.boxDetail
-                color: Theme.foreground
-                font.family: Theme.fontFamily
-                font.pixelSize: root.hintFont
-                lineHeight: root.hintFont
-                lineHeightMode: Text.FixedHeight
-                opacity: outlook.boxDetail !== "" ? 0.55 : 0
-                elide: Text.ElideRight
-                maximumLineCount: 1
+                implicitHeight: detailPill.visible ? detailPill.implicitHeight : 0
+
+                HoverPopupLabelPill {
+                    id: detailPill
+                    visible: outlook.boxDetail !== ""
+                    text: outlook.boxDetail
+                }
             }
         }
     }
@@ -511,14 +507,15 @@ Item {
                     elide: Text.ElideRight
                 }
 
-                Text {
+                Item {
                     Layout.fillWidth: true
-                    text: sunEvent.eventLabel
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.hintFont
-                    opacity: 0.55
-                    elide: Text.ElideRight
+                    implicitHeight: eventPill.visible ? eventPill.implicitHeight : 0
+
+                    HoverPopupLabelPill {
+                        id: eventPill
+                        visible: sunEvent.eventLabel !== ""
+                        text: sunEvent.eventLabel
+                    }
                 }
             }
         }

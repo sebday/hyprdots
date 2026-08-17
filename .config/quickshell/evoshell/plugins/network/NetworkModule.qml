@@ -378,39 +378,11 @@ Item {
                     Repeater {
                         model: root.networkStatRow1
 
-                        SectionPanel {
+                        HoverPopupStatBox {
                             required property var modelData
-                            Layout.fillWidth: true
-                            label: ""
-                            filled: true
-                            contentPad: 10
-
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                spacing: 2
-
-                                Text {
-                                    Layout.fillWidth: true
-                                    horizontalAlignment: Text.AlignHCenter
-                                    text: String(modelData.value)
-                                    color: Theme.accent
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.fontSizeXl
-                                    font.bold: Theme.fontBold
-                                    elide: Text.ElideRight
-                                }
-
-                                Text {
-                                    Layout.fillWidth: true
-                                    horizontalAlignment: Text.AlignHCenter
-                                    text: modelData.label
-                                    color: Theme.foreground
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: root.hintFont
-                                    opacity: 0.55
-                                    elide: Text.ElideRight
-                                }
-                            }
+                            value: String(modelData.value)
+                            label: modelData.label
+                            valueFontSize: Theme.fontSizeXl
                         }
                     }
                 }
@@ -423,39 +395,11 @@ Item {
                     Repeater {
                         model: root.networkStatRow2
 
-                        SectionPanel {
+                        HoverPopupStatBox {
                             required property var modelData
-                            Layout.fillWidth: true
-                            label: ""
-                            filled: true
-                            contentPad: 10
-
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                spacing: 2
-
-                                Text {
-                                    Layout.fillWidth: true
-                                    horizontalAlignment: Text.AlignHCenter
-                                    text: String(modelData.value)
-                                    color: Theme.accent
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.fontSizeXl
-                                    font.bold: Theme.fontBold
-                                    elide: Text.ElideRight
-                                }
-
-                                Text {
-                                    Layout.fillWidth: true
-                                    horizontalAlignment: Text.AlignHCenter
-                                    text: modelData.label
-                                    color: Theme.foreground
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: root.hintFont
-                                    opacity: 0.55
-                                    elide: Text.ElideRight
-                                }
-                            }
+                            value: String(modelData.value)
+                            label: modelData.label
+                            valueFontSize: Theme.fontSizeXl
                         }
                     }
                 }
@@ -463,7 +407,7 @@ Item {
         }
 
         SectionPanel {
-            label: "Throughput"
+            label: ""
 
             RowLayout {
                 Layout.fillWidth: true
@@ -525,7 +469,7 @@ Item {
         }
 
         SectionPanel {
-            label: "Top processes"
+            label: ""
 
             GridLayout {
                 Layout.fillWidth: true
@@ -537,13 +481,17 @@ Item {
                     Layout.fillWidth: true
                     spacing: 4
 
-                    Text {
-                        text: "Download"
-                        color: Theme.accent
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.hintFont
-                        font.bold: Theme.fontBold
-                        opacity: 0.8
+                    Item {
+                        Layout.fillWidth: true
+                        implicitHeight: downloadPill.implicitHeight
+
+                        HoverPopupLabelPill {
+                            id: downloadPill
+                            text: "Download"
+                            textColor: Theme.accent
+                            textOpacity: 1
+                            fill: Theme.withOpacity(Theme.accent, 0.12)
+                        }
                     }
 
                     Repeater {
@@ -580,13 +528,14 @@ Item {
                     Layout.fillWidth: true
                     spacing: 4
 
-                    Text {
-                        text: "Upload"
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.hintFont
-                        font.bold: Theme.fontBold
-                        opacity: 0.8
+                    Item {
+                        Layout.fillWidth: true
+                        implicitHeight: uploadPill.implicitHeight
+
+                        HoverPopupLabelPill {
+                            id: uploadPill
+                            text: "Upload"
+                        }
                     }
 
                     Repeater {

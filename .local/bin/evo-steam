@@ -103,38 +103,100 @@ def icon_path_for_app(appid):
     icon_dir = os.path.join(steam_dir, "appcache", "librarycache", appid)
     if not os.path.isdir(icon_dir):
         return ""
-    for cand in ("logo.png", "header.jpg", "library_600x900.jpg"):
-        path = os.path.join(icon_dir, cand)
-        if os.path.isfile(path):
-            return path
-    try:
-        for fn in sorted(os.listdir(icon_dir)):
-            if fn.endswith(".jpg"):
-                return os.path.join(icon_dir, fn)
-    except OSError:
-        return ""
+
+    library_names = ("library_600x900.jpg", "library_capsule.jpg")
+    matches = {name: [] for name in library_names}
+
+    for root, _, files in os.walk(icon_dir):
+        for fn in files:
+            lower = fn.lower()
+            if lower not in matches:
+                continue
+            path = os.path.join(root, fn)
+            if os.path.isfile(path):
+                matches[lower].append(path)
+
+    for name in library_names:
+        paths = matches.get(name, [])
+        if paths:
+            return sorted(paths)[0]
+
     return ""
 
 
-steamapps = os.path.join(steam_dir, "steamapps")
-manifests = sorted(glob.glob(os.path.join(steamapps, "appmanifest_*.acf")))
+def parse_all_apps(localconfig_path):
+    apps = set()
+    in_apps = False
+    depth = 0
+    try:
+        with open(localconfig_path, "r", encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                if not in_apps:
+                    if re.search(r'"apps"\s*$', line):
+                        in_apps = True
+                    continue
+                depth += line.count("{")
+                depth -= line.count("}")
+                if depth <= 0:
+                    break
+                if depth == 1:
+                    m = re.match(r'\s*"(\d+)"\s*$', line)
+                    if m:
+                        apps.add(m.group(1))
+    except OSError:
+        return set()
+    return apps
+
+
+def steam_library_paths(steam_dir):
+    paths = []
+    seen = set()
+    steamapps = os.path.join(steam_dir, "steamapps")
+    if os.path.isdir(steamapps):
+        norm = os.path.normpath(steamapps)
+        paths.append(steamapps)
+        seen.add(norm)
+    vdf = os.path.join(steamapps, "libraryfolders.vdf")
+    if os.path.isfile(vdf):
+        try:
+            with open(vdf, "r", encoding="utf-8", errors="replace") as fh:
+                for line in fh:
+                    m = re.search(r'"path"\s+"([^"]+)"', line)
+                    if m:
+                        p = m.group(1).replace("\\\\", "\\")
+                        lib = os.path.normpath(os.path.join(p, "steamapps"))
+                        if os.path.isdir(lib) and lib not in seen:
+                            paths.append(os.path.join(p, "steamapps"))
+                            seen.add(lib)
+        except OSError:
+            pass
+    return paths
+
+
 names = {}
-library_count = 0
+installed_count = 0
 running_games = []
 FLAG_RUNNING = 0x20
+seen_installed = set()
 
-for path in manifests:
-    data = read_kv_file(path)
-    if not data or not data.get("appid"):
-        continue
-    library_count += 1
-    appid = data.get("appid", "")
-    names[appid] = data.get("name", f"App {appid}")
-    flags = int_field(data, "StateFlags")
-    if flags & FLAG_RUNNING:
-        running_games.append({"appid": appid, "name": names[appid]})
+for lib_steamapps in steam_library_paths(steam_dir):
+    for path in sorted(glob.glob(os.path.join(lib_steamapps, "appmanifest_*.acf"))):
+        data = read_kv_file(path)
+        if not data or not data.get("appid"):
+            continue
+        appid = data.get("appid", "")
+        if appid in seen_installed:
+            continue
+        seen_installed.add(appid)
+        installed_count += 1
+        names[appid] = data.get("name", f"App {appid}")
+        flags = int_field(data, "StateFlags")
+        if flags & FLAG_RUNNING:
+            running_games.append({"appid": appid, "name": names[appid]})
 
 localconfig = find_localconfig()
+library_apps = parse_all_apps(localconfig) if localconfig else set()
+library_total = len(library_apps)
 played_apps = parse_played_apps(localconfig) if localconfig else {}
 played_games = []
 for appid, info in played_apps.items():
@@ -174,7 +236,9 @@ print(json.dumps({
     "error": "" if ok else "Steam directory not found",
     "running": running,
     "download_bps": download_bps,
-    "library_count": library_count,
+    "installed_count": installed_count,
+    "library_total": library_total,
+    "library_count": installed_count,
     "played_games": played_games[:3],
     "running_games": running_games,
 }))

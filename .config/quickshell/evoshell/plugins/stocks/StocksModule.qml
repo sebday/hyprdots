@@ -291,38 +291,11 @@ Item {
                 Repeater {
                     model: root.marketStatBoxes(panel.market)
 
-                    SectionPanel {
+                    HoverPopupStatBox {
                         required property var modelData
-                        Layout.fillWidth: true
-                        label: ""
-                        filled: true
-                        contentPad: 10
-
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: 2
-
-                            Text {
-                                Layout.fillWidth: true
-                                horizontalAlignment: Text.AlignHCenter
-                                text: String(modelData.value)
-                                color: Theme.accent
-                                font.family: Theme.fontFamily
-                                font.pixelSize: root.statFont
-                                font.bold: Theme.fontBold
-                                elide: Text.ElideRight
-                            }
-
-                            Text {
-                                Layout.fillWidth: true
-                                horizontalAlignment: Text.AlignHCenter
-                                text: modelData.label
-                                color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: root.hintFont
-                                opacity: 0.55
-                            }
-                        }
+                        value: String(modelData.value)
+                        label: modelData.label
+                        valueFontSize: root.statFont
                     }
                 }
             }

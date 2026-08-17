@@ -8,7 +8,8 @@ Item {
     property string label: ""
     property color valueColor: Theme.accent
     property int valueFontSize: Theme.fontSize5xl
-    property int labelFontSize: Theme.fontSizeL
+    property int labelFontSize: Theme.fontSizeXs
+    property color labelPillFill: Theme.withOpacity(Theme.foreground, 0.08)
     property int contentPad: 10
     property bool clickable: false
 
@@ -27,7 +28,7 @@ Item {
 
         ColumnLayout {
             Layout.fillWidth: true
-            spacing: 2
+            spacing: 4
 
             Text {
                 Layout.fillWidth: true
@@ -40,16 +41,19 @@ Item {
                 elide: Text.ElideRight
             }
 
-            Text {
+            Item {
                 Layout.fillWidth: true
-                horizontalAlignment: Text.AlignHCenter
-                text: root.label
-                color: Theme.foreground
-                font.family: Theme.fontFamily
-                font.pixelSize: root.labelFontSize
-                opacity: 0.55
-                elide: Text.ElideRight
-                maximumLineCount: 1
+                visible: root.label !== ""
+                implicitHeight: labelPill.implicitHeight
+
+                HoverPopupLabelPill {
+                    id: labelPill
+                    width: parent.width
+                    alignCenter: true
+                    text: root.label
+                    fontSize: root.labelFontSize
+                    fill: root.labelPillFill
+                }
             }
         }
     }

@@ -87,6 +87,18 @@ Singleton {
         return ""
     }
 
+    function themedDesktopIconSource(iconName) {
+        var themed = steamThemedIconName(iconName)
+        if (!themed)
+            return ""
+        var home = Quickshell.env("HOME") || ""
+        var theme = Theme.iconThemeName
+        if (home && theme)
+            return fileUrl(home + "/.local/share/icons/" + theme + "/apps/64/" + themed + ".svg")
+        var path = Quickshell.iconPath(themed, true)
+        return path ? fileUrl(path) : ""
+    }
+
     function iconSourceForName(iconName) {
         var name = String(iconName || "").trim()
         if (!name)
@@ -94,21 +106,11 @@ Singleton {
         if (name.indexOf("/") !== -1)
             return name.indexOf("file://") === 0 ? name : fileUrl(name)
 
-        if (name.indexOf("steam_icon_") === 0) {
-            var steamIcon = hicolorIconSource(name)
-            if (steamIcon)
-                return steamIcon
-        }
-
         var themed = steamThemedIconName(name)
         if (themed) {
-            var home = Quickshell.env("HOME") || ""
-            var theme = Theme.iconThemeName
-            if (home && theme)
-                return fileUrl(home + "/.local/share/icons/" + theme + "/apps/64/" + themed + ".svg")
-            var themedPath = Quickshell.iconPath(themed, true)
-            if (themedPath)
-                return fileUrl(themedPath)
+            var themedSrc = themedDesktopIconSource(name)
+            if (themedSrc)
+                return themedSrc
         }
 
         var path = Quickshell.iconPath(name, true)
@@ -116,43 +118,5 @@ Singleton {
             return fileUrl(path)
 
         return hicolorIconSource(name)
-    }
-
-    function buildSteamDesktopIconMap() {
-        var map = {}
-        try {
-            var values = DesktopEntries.applications.values || []
-            for (var i = 0; i < values.length; i++) {
-                var entry = values[i]
-                if (!entry)
-                    continue
-                var exec = String(entry.exec || "")
-                var idx = exec.indexOf("rungameid/")
-                if (idx < 0)
-                    continue
-                var appid = exec.slice(idx + 10).replace(/[^0-9].*/, "")
-                if (!appid)
-                    continue
-                var icon = String(entry.icon || "").trim()
-                if (icon)
-                    map[appid] = icon
-            }
-        } catch (e) {
-            console.warn("steam desktop icon map failed:", e)
-        }
-        return map
-    }
-
-    function steamGameIconSource(appid, iconName, fallbackPath) {
-        var id = String(appid || "").trim()
-        var name = String(iconName || "").trim()
-        if (!name && id)
-            name = "steam_icon_" + id
-        var src = iconSourceForName(name)
-        if (src)
-            return src
-        if (fallbackPath)
-            return fileUrl(fallbackPath)
-        return ""
     }
 }

@@ -291,15 +291,15 @@ Item {
                         Layout.fillWidth: true
                         spacing: 2
 
-                        Text {
+                        Item {
                             Layout.fillWidth: true
-                            text: "@" + root.username
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.statFont
-                            font.bold: Theme.fontBold
-                            opacity: 0.72
-                            elide: Text.ElideRight
+                            implicitHeight: usernamePill.implicitHeight
+
+                            HoverPopupLabelPill {
+                                id: usernamePill
+                                text: "@" + root.username
+                                fontSize: Theme.fontSizeS
+                            }
                         }
 
                         Text {

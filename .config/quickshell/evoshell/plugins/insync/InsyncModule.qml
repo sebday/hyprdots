@@ -19,7 +19,6 @@ Item {
     readonly property string insyncBin: Quickshell.env("HOME") + "/.local/bin/evo-insync"
     readonly property int hintFont: Theme.fontSizeL
     readonly property int titleFont: Theme.fontSize2xl
-    readonly property int statFont: Theme.fontSizeXl
     readonly property int fileFont: Theme.fontSizeS
     readonly property int fileDetailFont: Theme.fontSizeXs
     readonly property int actionIconFont: Theme.fontSizeL
@@ -36,25 +35,112 @@ Item {
 
     implicitHeight: column.implicitHeight
 
-    readonly property string accountSummary: {
-        if (accounts.length === 0)
-            return "No accounts"
-        var parts = []
-        for (var i = 0; i < accounts.length; i++) {
-            var a = accounts[i] || {}
-            parts.push(String(a.email || "") + " · " + String(a.provider || ""))
-        }
-        return parts.join("\n")
-    }
+    readonly property bool isSyncing: root.files.length > 0 && !root.paused && !root.loading
 
-    readonly property string headerSecondary: {
+    readonly property string statusLine: {
         if (loading)
             return "Loading…"
         if (errorText)
             return errorText
+        if (paused)
+            return "Paused"
+        if (isSyncing)
+            return "Syncing"
         if (statusText)
             return statusText
-        return paused ? "Paused" : "Idle"
+        return "Idle"
+    }
+
+    readonly property color statusPillFill: {
+        if (errorText)
+            return Theme.withOpacity(Theme.urgent, 0.14)
+        if (paused)
+            return Theme.withOpacity(Theme.foreground, 0.08)
+        if (isSyncing)
+            return Theme.withOpacity(Theme.accent, 0.16)
+        return Theme.withOpacity(Theme.foreground, 0.08)
+    }
+
+    readonly property color statusPillTextColor: {
+        if (errorText)
+            return Theme.urgent
+        if (isSyncing)
+            return Theme.accent
+        return Theme.foreground
+    }
+
+    function providerIconSource(provider) {
+        var p = String(provider || "").toLowerCase()
+        if (p.indexOf("google") >= 0)
+            return Util.iconSourceForName("google-drive")
+        if (p.indexOf("onedrive") >= 0)
+            return Util.iconSourceForName("ms-onedrive")
+        if (p.indexOf("dropbox") >= 0)
+            return Util.iconSourceForName("dropbox")
+        return Util.iconSourceForName(String(provider || ""))
+    }
+
+    component InsyncProviderPill: Rectangle {
+        id: pill
+
+        property string text: ""
+        property string iconUrl: ""
+        property color fill: Theme.withOpacity(Theme.foreground, 0.08)
+        property color textColor: Theme.foreground
+        property int fontSize: Theme.fontSizeS
+        property int iconSize: pill.fontSize + 2
+
+        readonly property int padH: 10
+        readonly property int padV: 5
+
+        radius: height / 2
+        color: fill
+        implicitWidth: pillRow.implicitWidth + padH * 2
+        implicitHeight: pillRow.implicitHeight + padV * 2
+
+        RowLayout {
+            id: pillRow
+            anchors.centerIn: parent
+            spacing: 6
+
+            Item {
+                Layout.preferredWidth: pill.iconSize
+                Layout.preferredHeight: pill.iconSize
+
+                Image {
+                    id: providerIcon
+                    anchors.fill: parent
+                    visible: pill.iconUrl !== "" && status === Image.Ready
+                    source: pill.iconUrl
+                    fillMode: Image.PreserveAspectFit
+                    asynchronous: true
+                    cache: true
+                    smooth: true
+                    mipmap: true
+                    sourceSize: Qt.size(pill.iconSize * 2, pill.iconSize * 2)
+                }
+
+                Text {
+                    anchors.centerIn: parent
+                    visible: pill.iconUrl === "" || providerIcon.status !== Image.Ready
+                    text: "󰖟"
+                    color: pill.textColor
+                    opacity: 0.55
+                    font.family: Theme.fontFamily
+                    font.pixelSize: pill.iconSize
+                }
+            }
+
+            Text {
+                text: pill.text
+                color: pill.textColor
+                font.family: Theme.fontFamily
+                font.pixelSize: pill.fontSize
+                font.bold: Theme.fontBold
+                elide: Text.ElideRight
+                maximumLineCount: 1
+            }
+        }
     }
 
     function basename(path) {
@@ -238,55 +324,49 @@ Item {
                         iconFallback: "󰓦"
                         titleFont: root.titleFont
                         detailFont: root.hintFont
-                        value: "Insync\n" + root.headerSecondary
+                        value: "Insync"
                     }
 
-                    Text {
+                    RowLayout {
                         Layout.fillWidth: true
+                        spacing: 6
+
+                        Text {
+                            text: "Status:"
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.hintFont
+                            font.bold: Theme.fontBold
+                            opacity: 0.72
+                        }
+
+                        HoverPopupLabelPill {
+                            text: root.statusLine
+                            fontSize: Theme.fontSizeS
+                            textColor: root.statusPillTextColor
+                            fill: root.statusPillFill
+                            textOpacity: root.errorText || root.isSyncing ? 1 : 0.72
+                        }
+
+                        Item { Layout.fillWidth: true }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 6
                         visible: root.accounts.length > 0
-                        text: root.accountSummary
-                        color: Theme.foreground
-                        opacity: 0.72
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.hintFont
-                        wrapMode: Text.WordWrap
-                    }
 
-                    GridLayout {
-                        Layout.fillWidth: true
-                        columns: 2
-                        columnSpacing: 12
-                        rowSpacing: 4
+                        Repeater {
+                            model: root.accounts
 
-                        Text {
-                            text: "Syncing"
-                            color: Theme.foreground
-                            opacity: 0.65
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.statFont
-                        }
-                        Text {
-                            text: String(root.files.length)
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.statFont
-                            font.bold: Theme.fontBold
+                            InsyncProviderPill {
+                                required property var modelData
+                                text: String(modelData.provider || "Account")
+                                iconUrl: root.providerIconSource(modelData.provider)
+                            }
                         }
 
-                        Text {
-                            text: "Accounts"
-                            color: Theme.foreground
-                            opacity: 0.65
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.statFont
-                        }
-                        Text {
-                            text: String(root.accounts.length)
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.statFont
-                            font.bold: Theme.fontBold
-                        }
+                        Item { Layout.fillWidth: true }
                     }
                 }
             }
@@ -329,7 +409,7 @@ Item {
                 visible: root.files.length > 0
 
                 Repeater {
-                    model: root.files.slice(0, 12)
+                    model: root.files.slice(0, 5)
 
                     ColumnLayout {
                         required property var modelData
@@ -429,7 +509,7 @@ Item {
                     }
 
                     Text {
-                        text: root.paused ? "Resume sync" : "Pause sync"
+                        text: root.paused ? "Resume" : "Pause"
                         color: pauseBtn.containsMouse ? Theme.accent : Theme.foreground
                         font.family: Theme.fontFamily
                         font.pixelSize: root.hintFont
@@ -463,7 +543,7 @@ Item {
                     }
 
                     Text {
-                        text: "Show Insync"
+                        text: "Show"
                         color: showBtn.containsMouse ? Theme.accent : Theme.foreground
                         font.family: Theme.fontFamily
                         font.pixelSize: root.hintFont

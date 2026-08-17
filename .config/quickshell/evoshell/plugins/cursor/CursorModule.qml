@@ -174,7 +174,7 @@ Item {
                     spacing: root.gaugeSpacing
 
                     UsageGauge {
-                        title: "Cursor models"
+                        title: "Cursor usage"
                         percent: root.cursorPercent
                         gaugeColor: root.cursorColor
                         loading: root.loading
@@ -350,7 +350,7 @@ Item {
         property int gaugeSize: 130
 
         implicitWidth: gaugeRoot.gaugeSize
-        implicitHeight: ring.height + 4 + titleLabel.implicitHeight
+        implicitHeight: ring.height + 4 + titleHost.implicitHeight
 
         readonly property int ringSize: Math.round(gaugeRoot.gaugeSize * 0.91)
         readonly property real ringRadius: gaugeRoot.gaugeSize * 0.34
@@ -407,20 +407,21 @@ Item {
             font.bold: Theme.fontBold
         }
 
-        Text {
-            id: titleLabel
+        Item {
+            id: titleHost
             anchors.top: ring.bottom
             anchors.topMargin: 4
             anchors.horizontalCenter: parent.horizontalCenter
             width: parent.width - 4
-            horizontalAlignment: Text.AlignHCenter
-            text: gaugeRoot.title
-            color: Theme.foreground
-            font.family: Theme.fontFamily
-            font.pixelSize: gaugeRoot.labelFont
-            font.bold: Theme.fontBold
-            opacity: 0.65
-            wrapMode: Text.WordWrap
+            implicitHeight: titlePill.implicitHeight
+
+            HoverPopupLabelPill {
+                id: titlePill
+                width: parent.width
+                alignCenter: true
+                text: gaugeRoot.title
+                fontSize: gaugeRoot.labelFont
+            }
         }
     }
 }

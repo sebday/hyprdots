@@ -18,26 +18,18 @@ Item {
     readonly property string steamBin: Quickshell.env("HOME") + "/.local/bin/evo-steam"
     readonly property int hintFont: Theme.fontSizeL
     readonly property int titleFont: Theme.fontSize2xl
-    readonly property int statFont: Theme.fontSizeXl
     readonly property int actionIconFont: Theme.fontSizeL
-    readonly property int tileIconSize: 76
-    readonly property int tileIconSourceSize: 128
-    readonly property int tileHeight: tileIconSize + 20
+    readonly property int tileArtWidth: 96
+    readonly property int tileArtHeight: 88
+    readonly property int tileArtSourceSize: 192
+    readonly property int tileHeight: tileArtHeight + 20
     readonly property int maxPlayedGames: 3
     readonly property var displayedGames: root.playedGames.slice(0, root.maxPlayedGames)
 
-    property var steamDesktopIcons: ({})
-
-    function gameIconSource(game) {
-        if (!game)
+    function gameArtSource(game) {
+        if (!game || !game.icon_path)
             return ""
-        var appid = String(game.appid || "")
-        var iconName = root.steamDesktopIcons[appid] || ""
-        return Util.steamGameIconSource(appid, iconName, game.icon_path)
-    }
-
-    function refreshSteamDesktopIcons() {
-        steamDesktopIcons = Util.buildSteamDesktopIconMap()
+        return Util.fileUrl(String(game.icon_path))
     }
 
     property bool loading: true
@@ -45,7 +37,8 @@ Item {
     property string errorText: ""
     property bool steamRunning: false
     property real downloadRate: 0
-    property int libraryCount: 0
+    property int installedCount: 0
+    property int libraryTotal: 0
     property var playedGames: []
     property var runningGames: []
 
@@ -68,6 +61,12 @@ Item {
         return rem > 0 ? h + "h " + rem + "m" : h + "h"
     }
 
+    readonly property string installedDisplay: {
+        if (root.libraryTotal > 0)
+            return root.installedCount + " / " + root.libraryTotal
+        return String(root.installedCount)
+    }
+
     function formatLastPlayed(ts) {
         var n = parseInt(ts, 10) || 0
         if (n <= 0)
@@ -84,7 +83,7 @@ Item {
         return d.getDate() + "/" + (d.getMonth() + 1)
     }
 
-    readonly property string headerSecondary: {
+    readonly property string statusPillText: {
         if (loading)
             return "Loading…"
         if (errorText)
@@ -95,9 +94,27 @@ Item {
             return "Playing · " + String(runningGames[0].name || "")
         if (downloadRate > 0)
             return root.formatRate(downloadRate)
-        if (playedGames.length > 0)
-            return "Last · " + String(displayedGames[0].name || "")
-        return "Idle"
+        return ""
+    }
+
+    readonly property color statusPillFill: {
+        if (errorText)
+            return Theme.withOpacity(Theme.urgent, 0.14)
+        if (!steamRunning)
+            return Theme.withOpacity(Theme.foreground, 0.08)
+        if (runningGames.length > 0)
+            return Theme.withOpacity(Theme.accent, 0.16)
+        if (downloadRate > 0)
+            return Theme.withOpacity(Theme.accent, 0.12)
+        return Theme.withOpacity(Theme.foreground, 0.08)
+    }
+
+    readonly property color statusPillTextColor: {
+        if (errorText)
+            return Theme.urgent
+        if (steamRunning && (runningGames.length > 0 || downloadRate > 0))
+            return Theme.accent
+        return Theme.foreground
     }
 
     function isKnownGame(game) {
@@ -125,7 +142,9 @@ Item {
         errorText = String(json.error || "")
         steamRunning = json.running === true
         downloadRate = parseFloat(json.download_bps || 0) || 0
-        libraryCount = parseInt(json.library_count, 10) || 0
+        installedCount = parseInt(json.installed_count !== undefined
+            ? json.installed_count : json.library_count, 10) || 0
+        libraryTotal = parseInt(json.library_total, 10) || 0
         playedGames = root.filterKnownGames(json.played_games).slice(0, maxPlayedGames)
         runningGames = root.filterKnownGames(json.running_games)
         publishCache(json)
@@ -145,7 +164,6 @@ Item {
     }
 
     function onActivated() {
-        refreshSteamDesktopIcons()
         loading = playedGames.length === 0 && !steamRunning
         bootstrapFromCache()
         refresh()
@@ -180,8 +198,6 @@ Item {
         actionProc.command = [root.steamBin, "open"]
         actionProc.running = true
     }
-
-    Component.onCompleted: refreshSteamDesktopIcons()
 
     Process {
         id: popupProc
@@ -239,43 +255,41 @@ Item {
                         iconFallback: "󰓓"
                         titleFont: root.titleFont
                         detailFont: root.hintFont
-                        value: "Steam\n" + root.headerSecondary
+                        value: "Steam"
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 6
+                        visible: root.statusPillText !== ""
+
+                        HoverPopupLabelPill {
+                            text: root.statusPillText
+                            fontSize: Theme.fontSizeS
+                            textColor: root.statusPillTextColor
+                            fill: root.statusPillFill
+                            textOpacity: root.errorText || root.runningGames.length > 0 || root.downloadRate > 0 ? 1 : 0.72
+                        }
+
+                        Item { Layout.fillWidth: true }
                     }
 
                     GridLayout {
                         Layout.fillWidth: true
                         columns: 2
-                        columnSpacing: 12
-                        rowSpacing: 4
+                        columnSpacing: 8
+                        rowSpacing: 8
 
-                        Text {
-                            text: "Library"
-                            color: Theme.foreground
-                            opacity: 0.65
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.statFont
-                        }
-                        Text {
-                            text: String(root.libraryCount)
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.statFont
-                            font.bold: Theme.fontBold
+                        HoverPopupStatBox {
+                            value: root.loading ? "…" : root.installedDisplay
+                            label: "installed"
+                            valueFontSize: Theme.fontSize5xl
                         }
 
-                        Text {
-                            text: "Recent"
-                            color: Theme.foreground
-                            opacity: 0.65
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.statFont
-                        }
-                        Text {
-                            text: String(root.displayedGames.length)
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.statFont
-                            font.bold: Theme.fontBold
+                        HoverPopupStatBox {
+                            value: root.loading ? "…" : String(root.displayedGames.length)
+                            label: "recent"
+                            valueFontSize: Theme.fontSize5xl
                         }
                     }
                 }
@@ -345,8 +359,8 @@ Item {
                             spacing: 12
 
                             Item {
-                                Layout.preferredWidth: root.tileIconSize
-                                Layout.preferredHeight: root.tileIconSize
+                                Layout.preferredWidth: root.tileArtWidth
+                                Layout.preferredHeight: root.tileArtHeight
                                 Layout.alignment: Qt.AlignVCenter
                                 clip: true
 
@@ -372,13 +386,13 @@ Item {
                                     anchors.fill: parent
                                     anchors.margins: 4
                                     visible: gameIcon.source !== "" && status !== Image.Error
-                                    source: root.gameIconSource(modelData)
-                                    fillMode: Image.PreserveAspectFit
+                                    source: root.gameArtSource(modelData)
+                                    fillMode: Image.PreserveAspectCrop
                                     asynchronous: true
                                     cache: true
                                     smooth: true
                                     mipmap: true
-                                    sourceSize: Qt.size(root.tileIconSize, root.tileIconSize)
+                                    sourceSize: Qt.size(root.tileArtSourceSize, Math.round(root.tileArtSourceSize * root.tileArtHeight / root.tileArtWidth))
                                 }
 
                                 Rectangle {
@@ -468,7 +482,7 @@ Item {
                 }
 
                 Text {
-                    text: "Open Steam"
+                    text: "Open"
                     color: openSteamBtn.containsMouse ? Theme.accent : Theme.foreground
                     font.family: Theme.fontFamily
                     font.pixelSize: root.hintFont
