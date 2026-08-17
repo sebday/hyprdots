@@ -28,7 +28,7 @@ ColumnLayout {
             text: root.label
             color: Theme.foreground
             font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontPixelSize
+            font.pixelSize: Theme.fontSizeM
             font.bold: Theme.fontBold
             elide: Text.ElideRight
         }
@@ -37,7 +37,7 @@ ColumnLayout {
             text: root.value + root.valueSuffix
             color: Theme.accent
             font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontPixelSize
+            font.pixelSize: Theme.fontSizeM
             font.bold: Theme.fontBold
             horizontalAlignment: Text.AlignRight
             Layout.minimumWidth: 28

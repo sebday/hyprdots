@@ -12,9 +12,9 @@ Item {
     readonly property string cacheKey: shell ? String(shell.hoverPopupId || "") : ""
     readonly property bool active: host && host.opened === true
     readonly property var barSource: host && host.shell ? host.shell.popupAnchorItem : null
-    readonly property int bodyFont: Theme.hoverPopupBodyFontPixelSize
-    readonly property int hintFont: Theme.hoverPopupHintFontPixelSize
-    readonly property int valueFont: Theme.fontPixelSize
+    readonly property int bodyFont: Theme.fontSize3xl
+    readonly property int hintFont: Theme.fontSizeL
+    readonly property int valueFont: Theme.fontSizeL
     readonly property int labelWidth: 76
 
     property bool loading: false

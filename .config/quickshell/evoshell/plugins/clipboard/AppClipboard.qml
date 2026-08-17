@@ -18,7 +18,7 @@ Item {
     readonly property string script: Quickshell.env("HOME") + "/.local/bin/evo-clipboard"
     readonly property string previewDir: Quickshell.env("HOME") + "/.local/state/evoshell/clipboard-previews"
     readonly property int listLimit: 30
-    readonly property int historyFontSize: 13
+    readonly property int historyFontSize: Theme.fontSizeM
     readonly property int rowHeight: 44
     readonly property bool active: host && host.opened
 
@@ -300,7 +300,7 @@ Item {
                                 text: modelData.pinned ? "󰐃" : "󰤱"
                                 color: modelData.pinned ? Theme.accent : Theme.foreground
                                 font.family: Theme.fontFamily
-                                font.pixelSize: 16
+                                font.pixelSize: Theme.fontSize2xl
                                 font.bold: Theme.fontBold
                                 opacity: pinMouse.containsMouse || modelData.pinned ? 1 : 0.45
                             }
@@ -372,7 +372,7 @@ Item {
                     clip: true
                     color: Theme.foreground
                     font.family: Theme.fontFamily
-                    font.pixelSize: 12
+                    font.pixelSize: Theme.fontSizeS
                     verticalAlignment: Text.AlignTop
                 }
 
@@ -382,7 +382,7 @@ Item {
                     text: "Select an entry"
                     color: Theme.foreground
                     font.family: Theme.fontFamily
-                    font.pixelSize: 12
+                    font.pixelSize: Theme.fontSizeS
                     opacity: 0.5
                 }
 
@@ -399,7 +399,7 @@ Item {
                     }
                     color: Theme.foreground
                     font.family: Theme.fontFamily
-                    font.pixelSize: 10
+                    font.pixelSize: Theme.fontSizeXxs
                     opacity: 0.65
                 }
             }
@@ -420,7 +420,7 @@ Item {
                         text: "󰋩"
                         color: root.entryFilter === "images" ? Theme.accent : Theme.foreground
                         font.family: Theme.fontFamily
-                        font.pixelSize: Theme.panelIconFontPixelSize
+                        font.pixelSize: Theme.fontSize2xl
                         font.bold: Theme.fontBold
                         opacity: imagesMouse.containsMouse || root.entryFilter === "images" ? 1 : 0.72
                     }
@@ -448,7 +448,7 @@ Item {
                         text: "󰈙"
                         color: root.entryFilter === "text" ? Theme.accent : Theme.foreground
                         font.family: Theme.fontFamily
-                        font.pixelSize: Theme.panelIconFontPixelSize
+                        font.pixelSize: Theme.fontSize2xl
                         font.bold: Theme.fontBold
                         opacity: textMouse.containsMouse || root.entryFilter === "text" ? 1 : 0.72
                     }

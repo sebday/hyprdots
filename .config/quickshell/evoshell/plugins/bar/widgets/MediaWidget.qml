@@ -47,7 +47,7 @@ Item {
         text: "󰍹"
         color: Theme.foreground
         font.family: Theme.fontFamily
-        font.pixelSize: root.trayMode ? root.trayIconSize : Theme.barFontPixelSize
+        font.pixelSize: root.trayMode ? root.trayIconSize : Theme.fontSizeM
         font.bold: Theme.fontBold
     }
 

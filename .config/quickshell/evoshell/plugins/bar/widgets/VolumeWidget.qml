@@ -57,6 +57,7 @@ Item {
     readonly property string volumeText: audio ? audio.displayText : "󰕾"
 
     readonly property string trayIconText: SystemVolume.icon(root.systemVolumePercent, root.systemVolumeMuted)
+    readonly property int trayIconFontSize: 20
 
     readonly property real trayIconOpacity: SystemVolume.iconOpacity(root.systemVolumePercent, root.systemVolumeMuted)
 
@@ -171,11 +172,15 @@ Item {
             shell.hoverLeave(mediaHoverPopupId)
     }
 
+    function volumeAnchorItem() {
+        return root.trayMode ? trayVolumeIcon : volumeLabel
+    }
+
     function setVolumeHoverPopup(active) {
         volumeHovered = active
         if (!shell || !volumeHoverPopupId) return
         if (active)
-            shell.hoverEnter(volumeHoverPopupId, volumeLabel, barPanel)
+            shell.hoverEnter(volumeHoverPopupId, volumeAnchorItem(), barPanel)
         else
             shell.hoverLeave(volumeHoverPopupId)
     }
@@ -190,7 +195,7 @@ Item {
 
     function peekVolumePopup() {
         if (!shell || !volumeHoverPopupId || volumeHovered) return
-        shell.peekHoverPopup(volumeHoverPopupId, volumeLabel, barPanel, volumePeekMs)
+        shell.peekHoverPopup(volumeHoverPopupId, volumeAnchorItem(), barPanel, volumePeekMs)
     }
 
     onSystemVolumePercentChanged: {
@@ -242,7 +247,7 @@ Item {
             text: "󰍹"
             color: Theme.foreground
             font.family: Theme.fontFamily
-            font.pixelSize: root.trayMode ? root.trayIconSize : Theme.barFontPixelSize
+            font.pixelSize: root.trayMode ? root.trayIconSize : Theme.fontSizeM
             font.bold: Theme.fontBold
             anchors.verticalCenter: parent.verticalCenter
 
@@ -299,11 +304,11 @@ Item {
 
         Text {
             id: volumeLabel
-            text: root.trayMode ? root.trayIconText : root.volumeText
-            color: root.trayMode ? root.trayIconColor : Theme.foreground
-            opacity: root.trayMode ? root.trayIconOpacity : 1
+            visible: !root.trayMode
+            text: root.volumeText
+            color: Theme.foreground
             font.family: Theme.fontFamily
-            font.pixelSize: root.trayMode ? root.trayIconSize + 3 : Theme.barFontPixelSize
+            font.pixelSize: Theme.fontSizeM
             font.bold: Theme.fontBold
             anchors.verticalCenter: parent.verticalCenter
 
@@ -317,6 +322,28 @@ Item {
                 onWheel: function(wheel) { root.handleWheel(wheel) }
                 onClicked: function(mouse) { root.handleVolumeClick(mouse) }
             }
+        }
+    }
+
+    Text {
+        id: trayVolumeIcon
+        visible: root.trayMode
+        anchors.centerIn: parent
+        text: root.trayIconText
+        color: root.trayIconColor
+        opacity: root.trayIconOpacity
+        font.family: Theme.fontFamily
+        font.pixelSize: root.trayIconFontSize
+        font.bold: Theme.fontBold
+
+        MouseArea {
+            anchors.fill: parent
+            hoverEnabled: true
+            acceptedButtons: Qt.LeftButton | Qt.RightButton
+            cursorShape: Qt.PointingHandCursor
+            onContainsMouseChanged: root.setVolumeHoverPopup(containsMouse)
+            onWheel: function(wheel) { root.handleWheel(wheel) }
+            onClicked: function(mouse) { root.handleVolumeClick(mouse) }
         }
     }
 }

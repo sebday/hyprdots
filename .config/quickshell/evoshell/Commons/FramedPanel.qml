@@ -9,7 +9,7 @@ Item {
     property int contentPad: 10
     property color frameBorder: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.32)
     property bool contentFill: false
-    property int labelFontSize: Theme.panelSmallFontPixelSize
+    property int labelFontSize: Theme.fontSizeS
     property color labelBackground: Theme.mantle
     property bool filled: false
     property color fillColor: Theme.panelMantle

@@ -10,8 +10,8 @@ Item {
     property string iconUrl: ""
     property string iconFallback: ""
     property int iconSize: 0
-    property int titleFont: Theme.hoverPopupTitleFontPixelSize
-    property int detailFont: Theme.hoverPopupLabelFontPixelSize
+    property int titleFont: Theme.fontSize2xl
+    property int detailFont: Theme.fontSizeL
 
     Layout.fillWidth: true
     implicitHeight: headerRow.implicitHeight

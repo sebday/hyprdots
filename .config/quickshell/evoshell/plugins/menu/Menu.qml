@@ -45,10 +45,10 @@ Item {
     readonly property int previewImageHeight: 192
     readonly property real previewDpr: 2
     readonly property int listIconSize: 40
-    readonly property int listFontSize: 24
+    readonly property int listFontSize: Theme.fontSize6xl
     readonly property int listRowHeight: 72
     readonly property int listFilterHeight: 38
-    readonly property int listFilterFontSize: Theme.panelTitleFontPixelSize
+    readonly property int listFilterFontSize: Theme.fontSizeL
     readonly property int previewMenuMargin: 48
     readonly property int appsMenuPadding: 0
     readonly property int appsMenuRadius: Theme.panelCornerRadius
@@ -762,7 +762,7 @@ Item {
                     text: root.filterText.trim() === "" ? "No applications" : "No matches"
                     color: Theme.foreground
                     font.family: Theme.fontFamily
-                    font.pixelSize: Theme.panelSmallFontPixelSize
+                    font.pixelSize: Theme.fontSizeS
                     font.bold: Theme.fontBold
                     opacity: 0.55
                 }
@@ -848,7 +848,7 @@ Item {
                                     text: modelData.name || ""
                                     color: Theme.foreground
                                     font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.panelHintFontPixelSize
+                                    font.pixelSize: Theme.fontSizeXxs
                                     font.bold: Theme.fontBold
                                     horizontalAlignment: Text.AlignHCenter
                                     elide: Text.ElideRight
@@ -910,7 +910,7 @@ Item {
                                     text: modelData.name
                                     color: Theme.foreground
                                     font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.panelHintFontPixelSize
+                                    font.pixelSize: Theme.fontSizeXxs
                                     font.bold: Theme.fontBold
                                     width: Math.min(implicitWidth, root.tileWidth - 12)
                                     horizontalAlignment: Text.AlignHCenter

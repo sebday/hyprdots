@@ -18,8 +18,8 @@ Item {
     property var exprHistory: []
 
     readonly property string script: Quickshell.env("HOME") + "/.local/bin/evo-calculator"
-    readonly property int inputFontSize: 24
-    readonly property int historyFontSize: 15
+    readonly property int inputFontSize: Theme.fontSize6xl
+    readonly property int historyFontSize: Theme.fontSizeL
     readonly property bool active: host && host.opened && host.activeModule === "calc"
 
     property string flashDigit: ""
@@ -161,8 +161,8 @@ Item {
             color: key.flashing ? Theme.accent : Theme.foreground
             font.family: Theme.fontFamily
             font.pixelSize: key.isIcon
-                ? Theme.panelIconFontPixelSize
-                : (key.label.length > 1 ? Theme.panelSmallFontPixelSize : Theme.panelTitleFontPixelSize)
+                ? Theme.fontSize2xl
+                : (key.label.length > 1 ? Theme.fontSizeS : Theme.fontSizeL)
             font.bold: Theme.fontBold
 
             Behavior on color {

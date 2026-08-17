@@ -67,7 +67,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             color: Theme.foreground
             font.family: Theme.fontFamily
-            font.pixelSize: Theme.barFontPixelSize
+            font.pixelSize: Theme.fontSizeM
             font.bold: Theme.fontBold
         }
 
@@ -123,7 +123,7 @@ Item {
                 text: root.phaseIcon
                 color: Theme.accent
                 font.family: Theme.fontFamily
-                font.pixelSize: 9
+                font.pixelSize: Theme.fontSizeS
                 font.bold: Theme.fontBold
                 opacity: 0.92
             }

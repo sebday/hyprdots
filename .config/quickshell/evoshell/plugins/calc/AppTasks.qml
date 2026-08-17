@@ -10,7 +10,7 @@ Item {
     property var host: null
 
     readonly property string taskPath: Quickshell.env("HOME") + "/.local/state/evoshell/apps/tasks.json"
-    readonly property int taskFontSize: 14
+    readonly property int taskFontSize: Theme.fontSizeL
     readonly property int taskRowMin: 28
     readonly property int taskBottomPad: 8
     readonly property bool active: host && host.opened === true
@@ -312,7 +312,7 @@ Item {
                                 text: taskRow.done ? "󰄲" : "󰄱"
                                 color: taskRow.done ? Theme.accent : Theme.foreground
                                 font.family: Theme.fontFamily
-                                font.pixelSize: root.taskFontSize + 1
+                                font.pixelSize: Theme.fontSize2xl
                                 font.bold: Theme.fontBold
                                 opacity: taskCheckMouse.containsMouse ? 1 : 0.85
                             }
@@ -379,7 +379,7 @@ Item {
                 text: "󰩈"
                 color: Theme.foreground
                 font.family: Theme.fontFamily
-                font.pixelSize: Theme.panelIconFontPixelSize
+                font.pixelSize: Theme.fontSize2xl
                 font.bold: Theme.fontBold
                 opacity: !clearCompletedMouse.enabled
                     ? 0.35

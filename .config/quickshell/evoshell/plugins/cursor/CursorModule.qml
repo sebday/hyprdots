@@ -90,12 +90,12 @@ Item {
     readonly property var modelSplit: Array.isArray(detail.modelSplit) ? detail.modelSplit : []
     readonly property bool hasModelDetails: root.modelSplit.length > 0 || root.detail.onDemand === true
 
-    readonly property int smallFont: Theme.hoverPopupIconFontPixelSize
-    readonly property int hintFont: Theme.hoverPopupBodyFontPixelSize
-    readonly property int heroFont: 34
-    readonly property int breakdownFont: Theme.panelDetailFontPixelSize + 1
-    readonly property int tokensFont: Theme.hoverPopupHintFontPixelSize
-    readonly property int gaugeLabelFont: Theme.panelHintFontPixelSize
+    readonly property int smallFont: Theme.fontSize4xl
+    readonly property int hintFont: Theme.fontSizeL
+    readonly property int heroFont: Theme.fontSizeHero
+    readonly property int breakdownFont: Theme.fontSizeXl
+    readonly property int tokensFont: Theme.fontSizeL
+    readonly property int gaugeLabelFont: Theme.fontSizeS
     readonly property int gaugeSize: 168
     readonly property int gaugeSpacing: 18
 
@@ -341,7 +341,7 @@ Item {
         property int percent: 0
         property color gaugeColor: Theme.accent
         property bool loading: false
-        property int labelFont: Theme.panelHintFontPixelSize
+        property int labelFont: Theme.fontSizeXxs
         property int gaugeSize: 130
 
         implicitWidth: gaugeRoot.gaugeSize

@@ -187,7 +187,7 @@ Item {
         text: loading ? "Loading…" : "No previews"
         color: Theme.foreground
         font.family: Theme.fontFamily
-        font.pixelSize: Theme.panelSmallFontPixelSize
+        font.pixelSize: Theme.fontSizeS
         font.bold: Theme.fontBold
         opacity: 0.72
     }

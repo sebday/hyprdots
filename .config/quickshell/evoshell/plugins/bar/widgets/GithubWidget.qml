@@ -128,7 +128,7 @@ Item {
             text: root.loading ? " …" : root.isError ? root.statusText : "  " + root.todayCount
             color: Theme.foreground
             font.family: Theme.fontFamily
-            font.pixelSize: Theme.barFontPixelSize
+            font.pixelSize: Theme.fontSizeM
             font.bold: Theme.fontBold
         }
 

@@ -198,7 +198,7 @@ Item {
                         text: dock.onRight ? "󰁍" : "󰁔"
                         color: Theme.foreground
                         font.family: Theme.fontFamily
-                        font.pixelSize: Theme.panelIconFontPixelSize
+                        font.pixelSize: Theme.fontSize2xl
                         font.bold: Theme.fontBold
                         opacity: sideMouse.containsMouse ? 1 : 0.65
                     }
@@ -235,7 +235,7 @@ Item {
                     text: dock.title
                     color: Theme.foreground
                     font.family: Theme.fontFamily
-                    font.pixelSize: Theme.panelTitleFontPixelSize
+                    font.pixelSize: Theme.fontSizeL
                     font.bold: Theme.fontBold
                 }
             }

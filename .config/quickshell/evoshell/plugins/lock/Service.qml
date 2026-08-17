@@ -119,7 +119,7 @@ Item {
                     text: "Locked"
                     color: Theme.foreground
                     font.family: Theme.fontFamily
-                    font.pixelSize: 28
+                    font.pixelSize: Theme.fontSize9xl
                     anchors.horizontalCenter: parent.horizontalCenter
                 }
 
@@ -127,7 +127,7 @@ Item {
                     text: root.failureMessage
                     color: Theme.urgent
                     font.family: Theme.fontFamily
-                    font.pixelSize: 13
+                    font.pixelSize: Theme.fontSizeM
                     visible: root.failureMessage !== ""
                     anchors.horizontalCenter: parent.horizontalCenter
                 }
@@ -146,7 +146,7 @@ Item {
                         anchors.rightMargin: 12
                         color: Theme.foreground
                         font.family: Theme.fontFamily
-                        font.pixelSize: 14
+                        font.pixelSize: Theme.fontSizeL
                         passwordCharacter: "•"
                         echoMode: TextInput.Password
                         verticalAlignment: TextInput.AlignVCenter

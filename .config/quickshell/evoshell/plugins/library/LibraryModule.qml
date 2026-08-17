@@ -512,7 +512,7 @@ Item {
                         text: (tile.item && tile.item.section === "shows") ? "󰖺" : "󰿯"
                         color: Theme.foreground
                         font.family: Theme.fontFamily
-                        font.pixelSize: Theme.popupTitleFontPixelSize
+                        font.pixelSize: Theme.fontSizeHero
                         opacity: 0.35
                     }
                 }
@@ -532,7 +532,7 @@ Item {
                 text: root.captionFor(tile.item)
                 color: Theme.foreground
                 font.family: Theme.fontFamily
-                font.pixelSize: Theme.popupSmallFontPixelSize
+                font.pixelSize: Theme.fontSize7xl
                 font.bold: Theme.fontBold
                 wrapMode: Text.WordWrap
                 maximumLineCount: 2
@@ -576,7 +576,7 @@ Item {
                         text: modelData.label
                         color: root.browseTab === modelData.id ? Theme.accent : Theme.foreground
                         font.family: Theme.fontFamily
-                        font.pixelSize: Theme.popupBodyFontPixelSize
+                        font.pixelSize: Theme.fontSize8xl
                         font.bold: Theme.fontBold
                         opacity: root.browseTab === modelData.id ? 1 : 0.55
                     }
@@ -612,7 +612,7 @@ Item {
                 text: "󰁍 Back"
                 color: Theme.foreground
                 font.family: Theme.fontFamily
-                font.pixelSize: Theme.popupSmallFontPixelSize
+                font.pixelSize: Theme.fontSize7xl
                 font.bold: Theme.fontBold
                 opacity: backMouse.containsMouse ? 1 : 0.75
 
@@ -629,7 +629,7 @@ Item {
                 text: root.selectedShowTitle
                 color: Theme.foreground
                 font.family: Theme.fontFamily
-                font.pixelSize: Theme.popupBodyFontPixelSize
+                font.pixelSize: Theme.fontSize8xl
                 font.bold: Theme.fontBold
                 Layout.fillWidth: true
                 elide: Text.ElideRight
@@ -665,7 +665,7 @@ Item {
                         text: "󰍉"
                         color: Theme.foreground
                         font.family: Theme.fontFamily
-                        font.pixelSize: Theme.popupSmallFontPixelSize
+                        font.pixelSize: Theme.fontSize7xl
                         opacity: 0.55
                     }
 
@@ -678,7 +678,7 @@ Item {
                             anchors.fill: parent
                             color: Theme.foreground
                             font.family: Theme.fontFamily
-                            font.pixelSize: Theme.popupSmallFontPixelSize
+                            font.pixelSize: Theme.fontSize7xl
                             font.bold: Theme.fontBold
                             verticalAlignment: TextInput.AlignVCenter
                             selectByMouse: true
@@ -709,7 +709,7 @@ Item {
                             text: root.searchPlaceholder
                             color: Theme.foreground
                             font.family: Theme.fontFamily
-                            font.pixelSize: Theme.popupSmallFontPixelSize
+                            font.pixelSize: Theme.fontSize7xl
                             opacity: 0.35
                         }
                     }
@@ -719,7 +719,7 @@ Item {
                         text: "󰅖"
                         color: Theme.foreground
                         font.family: Theme.fontFamily
-                        font.pixelSize: Theme.popupSmallFontPixelSize
+                        font.pixelSize: Theme.fontSize7xl
                         opacity: clearSearchMouse.containsMouse ? 1 : 0.55
 
                         MouseArea {
@@ -743,7 +743,7 @@ Item {
             text: root.dbMissing ? "Run scan library to index media" : root.statusText
             color: Theme.foreground
             font.family: Theme.fontFamily
-            font.pixelSize: Theme.popupSmallFontPixelSize
+            font.pixelSize: Theme.fontSize7xl
             opacity: scanStatusMouse.containsMouse && root.dbMissing ? 1 : 0.7
 
             MouseArea {
@@ -777,7 +777,7 @@ Item {
                 text: root.emptyLabel
                 color: Theme.foreground
                 font.family: Theme.fontFamily
-                font.pixelSize: Theme.popupHintFontPixelSize
+                font.pixelSize: Theme.fontSize4xl
                 opacity: 0.45
             }
         }

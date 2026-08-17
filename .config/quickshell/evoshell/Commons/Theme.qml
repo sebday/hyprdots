@@ -126,17 +126,22 @@ Singleton {
     readonly property string fontFamily: themeColor("fontFamily", "CaskaydiaMono Nerd Font")
     readonly property bool fontBold: true
     readonly property int fontPixelSize: themeNumber("fontPixelSize", 13)
-    readonly property int barFontPixelSize: fontPixelSize
-    readonly property int panelIconFontPixelSize: fontPixelSize + 3
-    readonly property int panelTitleFontPixelSize: fontPixelSize + 1
-    readonly property int panelSmallFontPixelSize: Math.max(9, fontPixelSize - 1)
-    readonly property int panelDetailFontPixelSize: Math.max(9, fontPixelSize - 2)
-    readonly property int panelHintFontPixelSize: Math.max(8, fontPixelSize - 3)
-    readonly property int hoverPopupBodyFontPixelSize: fontPixelSize + 6
-    readonly property int hoverPopupHintFontPixelSize: fontPixelSize + 2
-    readonly property int hoverPopupTitleFontPixelSize: fontPixelSize + 6
-    readonly property int hoverPopupIconFontPixelSize: fontPixelSize + 8
-    readonly property int hoverPopupLabelFontPixelSize: fontPixelSize + 1
+    readonly property int fontSizeXxs: Math.max(8, fontPixelSize - 3)
+    readonly property int fontSizeXs: Math.max(9, fontPixelSize - 2)
+    readonly property int fontSizeS: Math.max(9, fontPixelSize - 1)
+    readonly property int fontSizeM: fontPixelSize
+    readonly property int fontSizeL: fontPixelSize + 1
+    readonly property int fontSizeXl: fontPixelSize + 2
+    readonly property int fontSize2xl: fontPixelSize + 3
+    readonly property int fontSize3xl: fontPixelSize + 5
+    readonly property int fontSize4xl: fontPixelSize + 7
+    readonly property int fontSize5xl: fontPixelSize + 8
+    readonly property int fontSize6xl: fontPixelSize + 9
+    readonly property int fontSize7xl: fontSizeS * 2
+    readonly property int fontSize8xl: fontPixelSize * 2
+    readonly property int fontSize9xl: fontPixelSize + 15
+    readonly property int fontSizeHero: fontPixelSize * 3
+    readonly property int fontSizeHeroLg: fontPixelSize * 4
     readonly property int hoverPopupSectionSpacing: 10
     readonly property int panelSectionSpacing: 14
     readonly property int hoverPopupContentPad: 16
@@ -145,11 +150,6 @@ Singleton {
     readonly property int barHoverTopPad: 20
     readonly property int hoverPopupWidthStandard: 440
     readonly property int hoverPopupWidthWide: 580
-    readonly property int popupHeroFontPixelSize: fontPixelSize * 4
-    readonly property int popupTitleFontPixelSize: fontPixelSize * 3
-    readonly property int popupBodyFontPixelSize: fontPixelSize * 2
-    readonly property int popupSmallFontPixelSize: Math.max(9, fontPixelSize - 1) * 2
-    readonly property int popupHintFontPixelSize: Math.max(8, fontPixelSize - 3) * 2
     readonly property int barHeight: 32
     readonly property int barPaddingX: 16
     readonly property int barGap: 8
@@ -165,9 +165,6 @@ Singleton {
     readonly property int sparklineExpandedBarSpacing: 3
     readonly property int notificationWidth: 440
     readonly property int notificationPadding: 14
-    readonly property int notificationTitleSize: 17
-    readonly property int notificationBodySize: 14
-    readonly property int notificationIconSize: 22
     readonly property int notificationArtSize: 68
     readonly property int notificationMediaPad: 16
     readonly property int notificationStackSlot: 88

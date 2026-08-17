@@ -42,9 +42,9 @@ Item {
     readonly property int cellSpacing: 3
     readonly property int headerRowHeight: 18
     readonly property int gridWidth: cellWidth * 7 + cellSpacing * 6
-    readonly property int hintFont: Theme.hoverPopupHintFontPixelSize
-    readonly property int bodyFont: Theme.hoverPopupBodyFontPixelSize
-    readonly property int titleFont: Theme.hoverPopupTitleFontPixelSize
+    readonly property int hintFont: Theme.fontSizeL
+    readonly property int bodyFont: Theme.fontSize3xl
+    readonly property int titleFont: Theme.fontSize2xl
 
     function onActivated() {
         today = new Date()

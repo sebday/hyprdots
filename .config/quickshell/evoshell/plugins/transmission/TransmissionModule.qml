@@ -15,10 +15,10 @@ Item {
     readonly property string script: Quickshell.env("HOME") + "/.local/bin/evo-transmission popup"
     readonly property bool active: host && host.opened === true
     readonly property var barSource: host && host.shell ? host.shell.popupAnchorItem : null
-    readonly property int bodyFont: Theme.hoverPopupBodyFontPixelSize
-    readonly property int hintFont: Theme.hoverPopupHintFontPixelSize
-    readonly property int titleFont: Theme.hoverPopupLabelFontPixelSize
-    readonly property int statFont: Theme.hoverPopupLabelFontPixelSize
+    readonly property int bodyFont: Theme.fontSize3xl
+    readonly property int hintFont: Theme.fontSizeL
+    readonly property int titleFont: Theme.fontSize2xl
+    readonly property int statFont: Theme.fontSizeXl
     readonly property string transmissionBin: Quickshell.env("HOME") + "/.local/bin/evo-transmission"
 
     property bool loading: true

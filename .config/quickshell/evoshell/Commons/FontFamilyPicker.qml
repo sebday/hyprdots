@@ -53,7 +53,7 @@ Item {
             text: root.label
             color: Theme.foreground
             font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontPixelSize
+            font.pixelSize: Theme.fontSizeM
             font.bold: Theme.fontBold
             Layout.fillWidth: true
         }
@@ -81,7 +81,7 @@ Item {
                 text: root.value || "Select font"
                 color: Theme.foreground
                 font.family: Theme.fontFamily
-                font.pixelSize: Theme.panelSmallFontPixelSize
+                font.pixelSize: Theme.fontSizeS
                 font.bold: Theme.fontBold
                 elide: Text.ElideRight
             }
@@ -94,7 +94,7 @@ Item {
                 text: root.open ? "󰅀" : "󰅂"
                 color: Theme.foreground
                 font.family: Theme.fontFamily
-                font.pixelSize: Theme.panelTitleFontPixelSize
+                font.pixelSize: Theme.fontSizeL
                 opacity: 0.7
             }
 
@@ -162,7 +162,7 @@ Item {
                     text: modelData
                     color: selected ? Theme.accent : Theme.foreground
                     font.family: String(modelData)
-                    font.pixelSize: Theme.panelSmallFontPixelSize
+                    font.pixelSize: Theme.fontSizeS
                     elide: Text.ElideRight
                 }
 

@@ -446,7 +446,7 @@ Item {
             text: "Loading…"
             color: Theme.foreground
             font.family: Theme.fontFamily
-            font.pixelSize: Theme.panelTitleFontPixelSize
+            font.pixelSize: Theme.fontSizeL
             font.bold: Theme.fontBold
             opacity: 0.72
         }
@@ -457,7 +457,7 @@ Item {
             text: root.emptyLabel
             color: Theme.foreground
             font.family: Theme.fontFamily
-            font.pixelSize: Theme.panelTitleFontPixelSize
+            font.pixelSize: Theme.fontSizeL
             font.bold: Theme.fontBold
             opacity: 0.72
         }
@@ -644,7 +644,7 @@ Item {
                 text: (root.selectedIndex + 1) + " / " + root.entries.length
                 color: Theme.foreground
                 font.family: Theme.fontFamily
-                font.pixelSize: Theme.panelSmallFontPixelSize
+                font.pixelSize: Theme.fontSizeS
                 font.bold: Theme.fontBold
                 opacity: 0.8
             }

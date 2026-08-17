@@ -14,10 +14,10 @@ Item {
 
     readonly property bool active: host && host.opened === true
     readonly property var barSource: host && host.shell ? host.shell.popupAnchorItem : null
-    readonly property int bodyFont: Theme.hoverPopupBodyFontPixelSize
-    readonly property int hintFont: Theme.hoverPopupHintFontPixelSize
-    readonly property int statFont: Theme.hoverPopupLabelFontPixelSize
-    readonly property int todayCountFont: Theme.popupTitleFontPixelSize
+    readonly property int bodyFont: Theme.fontSize3xl
+    readonly property int hintFont: Theme.fontSizeL
+    readonly property int statFont: Theme.fontSizeXl
+    readonly property int todayCountFont: Theme.fontSizeHero
     readonly property int headerIconSize: Math.max(
         root.todayCountFont + 8,
         root.statFont * 2 + 6
@@ -239,11 +239,14 @@ Item {
         SectionPanel {
             label: ""
             visible: !root.loading && !root.isError
+            contentPad: 10
+            sectionSpacing: 0
 
             Item {
                 Layout.fillWidth: true
                 Layout.preferredHeight: root.headerBlockHeight
                 Layout.topMargin: 2
+                Layout.bottomMargin: 1
 
                 RowLayout {
                     anchors.verticalCenter: parent.verticalCenter
@@ -348,7 +351,7 @@ Item {
                             text: String(modelData.value)
                             color: Theme.accent
                             font.family: Theme.fontFamily
-                            font.pixelSize: root.statFont + 4
+                            font.pixelSize: Theme.fontSize5xl
                             font.bold: Theme.fontBold
                         }
 

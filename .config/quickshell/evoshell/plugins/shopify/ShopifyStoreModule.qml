@@ -26,10 +26,10 @@ Item {
         : home + "/.config/quickshell/evoshell/plugins/shopify/demo.json"
     readonly property bool active: host && host.opened === true
     readonly property var barSource: host && host.shell ? host.shell.popupAnchorItem : null
-    readonly property int hintFont: Theme.hoverPopupHintFontPixelSize
-    readonly property int headerIconSize: Theme.hoverPopupTitleFontPixelSize
+    readonly property int hintFont: Theme.fontSizeL
+    readonly property int headerIconSize: Theme.fontSize2xl
         + Theme.hoverPopupSectionSpacing
-        + Theme.hoverPopupLabelFontPixelSize
+        + Theme.fontSizeL
 
     readonly property string storeIconUrl: {
         if (demoMode) {

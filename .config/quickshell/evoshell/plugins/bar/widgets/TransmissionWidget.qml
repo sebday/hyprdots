@@ -101,7 +101,7 @@ Item {
             color: root.iconColor
             opacity: root.connected ? (root.trafficActive ? iconPulse.opacity : 1) : 0.45
             font.family: Theme.fontFamily
-            font.pixelSize: root.trayMode ? root.trayIconSize : Theme.barFontPixelSize
+            font.pixelSize: root.trayMode ? root.trayIconSize : Theme.fontSizeM
             font.bold: Theme.fontBold
             Behavior on color { ColorAnimation { duration: 220 } }
 
@@ -133,7 +133,7 @@ Item {
             text: root.labelText
             color: Theme.foreground
             font.family: Theme.fontFamily
-            font.pixelSize: Theme.barFontPixelSize
+            font.pixelSize: Theme.fontSizeM
             font.bold: Theme.fontBold
         }
     }

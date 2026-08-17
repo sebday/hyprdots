@@ -16,19 +16,16 @@ Item {
     readonly property string home: Quickshell.env("HOME")
     readonly property bool active: host && host.opened === true
     readonly property int chartHistoryDays: 30
-    readonly property int bodyFont: Theme.hoverPopupBodyFontPixelSize
-    readonly property int hintFont: Theme.hoverPopupHintFontPixelSize
-    readonly property int statFont: Theme.hoverPopupLabelFontPixelSize
-    readonly property int headerPriceFont: Theme.hoverPopupTitleFontPixelSize
-    readonly property int headerIconSize: Math.round(Theme.popupTitleFontPixelSize * 1.25)
+    readonly property int bodyFont: Theme.fontSize3xl
+    readonly property int hintFont: Theme.fontSizeL
+    readonly property int labelFont: Theme.fontSizeL
+    readonly property int statFont: Theme.fontSizeXl
+    readonly property int heroFont: Theme.fontSizeHero
+    readonly property int headerIconSize: Math.round(root.heroFont * 1.25)
     readonly property int headerBlockHeight: root.headerIconSize
     readonly property int chartBlockHeight: 96
-    readonly property int statRowHeight: Theme.hoverPopupLabelFontPixelSize
-        + Theme.hoverPopupHintFontPixelSize + 36
-    readonly property int marketPanelMinHeight: root.headerBlockHeight + root.statRowHeight
-        + root.chartBlockHeight + Theme.hoverPopupSectionSpacing * 2
-    readonly property int stableContentHeight: (marketPanelMinHeight + 48) * 2
-        + Theme.hoverPopupSectionSpacing
+    readonly property int statRowHeight: Theme.fontSizeL
+        + Theme.fontSizeL + 36
 
     property var btcData: ({})
     property var spcxData: ({})
@@ -53,6 +50,24 @@ Item {
     function refreshAll() {
         btcPoll.runPoll()
         spcxPoll.runPoll()
+    }
+
+    function marketMetaLine(market) {
+        var parts = []
+        var change = market.quote ? market.quote.changePct : undefined
+        if (change !== undefined && change !== null && !isNaN(parseFloat(change)))
+            parts.push(fmtSignedPct(change) + " 24h")
+        var upnl = market.position ? market.position.upnlPct : undefined
+        if (upnl !== undefined && upnl !== null && !isNaN(parseFloat(upnl)))
+            parts.push(fmtSignedPct(upnl) + " P/L")
+        return parts.join(" · ")
+    }
+
+    function signedColor(val) {
+        var n = parseFloat(val)
+        if (isNaN(n) || n === 0)
+            return Theme.foreground
+        return n > 0 ? Theme.accent : Theme.urgent
     }
 
     function marketSymbolIcon(name) {
@@ -173,7 +188,7 @@ Item {
         onPolled: function(json) { root.spcxData = json }
     }
 
-    implicitHeight: Math.max(root.stableContentHeight, column.implicitHeight)
+    implicitHeight: column.implicitHeight
 
     component MarketHeader: Item {
         id: marketHeader
@@ -187,6 +202,15 @@ Item {
             return price !== undefined && price !== null
                 ? root.fmtUsd(price)
                 : "—"
+        }
+
+        readonly property string metaLine: root.marketMetaLine(market)
+        readonly property real metaColorValue: {
+            var up = market.position ? market.position.upnlPct : undefined
+            if (up !== undefined && up !== null && !isNaN(parseFloat(up)))
+                return up
+            var change = market.quote ? market.quote.changePct : undefined
+            return change !== undefined && change !== null ? change : 0
         }
 
         RowLayout {
@@ -212,13 +236,26 @@ Item {
             }
 
             Text {
-                Layout.fillWidth: true
                 Layout.alignment: Qt.AlignVCenter
+                Layout.rightMargin: 5
                 text: marketHeader.priceText
                 color: Theme.foreground
                 font.family: Theme.fontFamily
-                font.pixelSize: root.headerPriceFont
+                font.pixelSize: root.heroFont
                 font.bold: Theme.fontBold
+            }
+
+            Text {
+                Layout.fillWidth: true
+                Layout.alignment: Qt.AlignVCenter
+                visible: marketHeader.metaLine !== ""
+                text: marketHeader.metaLine
+                color: root.signedColor(marketHeader.metaColorValue)
+                font.family: Theme.fontFamily
+                font.pixelSize: root.hintFont
+                font.bold: Theme.fontBold
+                opacity: 0.85
+                elide: Text.ElideRight
             }
         }
 
@@ -271,7 +308,7 @@ Item {
                                 text: String(modelData.value)
                                 color: Theme.accent
                                 font.family: Theme.fontFamily
-                                font.pixelSize: root.statFont + 1
+                                font.pixelSize: root.statFont
                                 font.bold: Theme.fontBold
                                 elide: Text.ElideRight
                             }

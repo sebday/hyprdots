@@ -100,11 +100,53 @@ QML in this directory:
 - 4-space indentation (match existing files)
 - New bar widgets: register in `plugins/bar/widgets/qmldir` and `BarWidgetCatalog.qml` — not `BarSection.qml`
 - `BarWidgetCatalog` root must be `Item`, not `QtObject`
-- Hover popups: `BarHoverPopup` + `SectionPanel` + `Theme.hoverPopup*` tokens
+- Hover popups: `BarHoverPopup` + `SectionPanel` + `Theme.fontSize*` tokens (see Typography)
 - `import Quickshell` when using `Quickshell.execDetached` or env
 - Clock `format`: Qt tokens (`%a %d %H:%M`), not strftime
 - Streaming bar data (e.g. cava): `SplitParser`, not interval polling
 - `CommandWidget` bar scripts print one JSON line; hover popups may read `lastPayload`
+
+## Typography
+
+All font sizes live in `Commons/Theme.qml` and derive from `fontPixelSize` in `theme.json` (default **13**). Use the generic `Theme.fontSize*` scale everywhere — bar, panel, hover popup, menu, lock screen, and overlays share the same tokens. Do not add surface-specific font properties (`hoverPopupBody`, `panelTitle`, etc.) or hardcoded `font.pixelSize` numbers.
+
+### Config
+
+| Token | Source |
+|-------|--------|
+| `Theme.fontFamily` | `theme.json` |
+| `Theme.fontBold` | `true` (fixed) |
+| `Theme.fontPixelSize` | `theme.json` — base for the whole scale |
+
+### Scale (`Theme.fontSize*`)
+
+| Token | Formula | px @13 | Typical use |
+|-------|---------|--------|-------------|
+| `fontSizeXxs` | max(8, base − 3) | 10 | Fine print, dim labels |
+| `fontSizeXs` | max(9, base − 2) | 11 | Detail text |
+| `fontSizeS` | max(9, base − 1) | 12 | Chart axes, bar secondary, small panel text |
+| `fontSizeM` | base | 13 | Body, bar, default |
+| `fontSizeL` | base + 1 | 14 | Labels, hints, secondary |
+| `fontSizeXl` | base + 2 | 15 | Stat emphasis |
+| `fontSize2xl` | base + 3 | 16 | Section titles, icons |
+| `fontSize3xl` | base + 5 | 18 | Popup body |
+| `fontSize4xl` | base + 7 | 20 | Icons |
+| `fontSize5xl` | base + 8 | 21 | Stat values |
+| `fontSize6xl` | base + 9 | 22 | Menu list, calc input |
+| `fontSize7xl` | fontSizeS × 2 | 24 | Large overlay small text |
+| `fontSize8xl` | base × 2 | 26 | Large overlay body |
+| `fontSize9xl` | base + 15 | 28 | Lock clock, large titles |
+| `fontSizeHero` | base × 3 | 39 | Hero numbers (stocks price, github count) |
+| `fontSizeHeroLg` | base × 4 | 52 | Fullscreen hero (weather temp) |
+
+### Rules
+
+- Reference `Theme.fontSize*` directly in QML, or alias at module top for readability (`readonly property int bodyFont: Theme.fontSize3xl`).
+- Reuse the same token when panel and popup need the same visual weight (e.g. both use `fontSizeL` for hints).
+- Do not use ad-hoc offsets (`statFont + 1`, `bodyFont + 6`) — pick the matching scale step or add a new step in `Theme.qml` if genuinely needed.
+- Layout-derived icon sizing (`headerIconSize * 0.72`) is fine; font size itself should still come from the scale.
+- Shared components (`HoverPopupStatBox`, `HoverPopupHeader`, `SparklineChart`) must use scale tokens, not local magic numbers.
+- Changing `fontPixelSize` in `theme.json` rescales the entire UI — prefer that over one-off pixel tweaks in modules.
 
 ## Git
 

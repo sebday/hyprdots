@@ -263,7 +263,7 @@ Scope {
         var kind = entryKind(entry)
         if (kind === "media")
             return Theme.notificationArtSize + Theme.notificationMediaPad * 2
-        return Theme.notificationPadding * 2 + Theme.notificationTitleSize + 6 + Theme.notificationBodySize
+        return Theme.notificationPadding * 2 + Theme.fontSize2xl + 6 + Theme.fontSizeL
     }
 
     function measuredHeight(entry) {
@@ -387,7 +387,7 @@ Scope {
                     text: artworkRoot.fields.kicker || ""
                     color: Theme.accent
                     font.family: Theme.fontFamily
-                    font.pixelSize: Theme.popupHintFontPixelSize
+                    font.pixelSize: Theme.fontSize4xl
                     font.bold: Theme.fontBold
                     font.letterSpacing: 1
                     elide: Text.ElideRight
@@ -400,7 +400,7 @@ Scope {
                     text: artworkRoot.fields.title || ""
                     color: Theme.foreground
                     font.family: Theme.fontFamily
-                    font.pixelSize: Theme.notificationTitleSize
+                    font.pixelSize: Theme.fontSize2xl
                     font.bold: Theme.fontBold
                     elide: Text.ElideRight
                     maximumLineCount: 1
@@ -412,7 +412,7 @@ Scope {
                     text: artworkRoot.fields.subtitle || ""
                     color: Theme.foreground
                     font.family: Theme.fontFamily
-                    font.pixelSize: Theme.notificationBodySize
+                    font.pixelSize: Theme.fontSizeL
                     font.bold: Theme.fontBold
                     elide: Text.ElideRight
                     maximumLineCount: 1
@@ -425,7 +425,7 @@ Scope {
                     text: artworkRoot.fields.footer || ""
                     color: Theme.foreground
                     font.family: Theme.fontFamily
-                    font.pixelSize: Theme.popupHintFontPixelSize
+                    font.pixelSize: Theme.fontSize4xl
                     font.bold: Theme.fontBold
                     elide: Text.ElideRight
                     maximumLineCount: 1
@@ -525,7 +525,7 @@ Scope {
                         text: root.popupIcon(modelData)
                         color: Theme.accent
                         font.family: Theme.fontFamily
-                        font.pixelSize: Theme.notificationIconSize
+                        font.pixelSize: Theme.fontSize4xl
                         font.bold: Theme.fontBold
                     }
 
@@ -537,7 +537,7 @@ Scope {
                             text: root.popupTitle(modelData)
                             color: Theme.foreground
                             font.family: Theme.fontFamily
-                            font.pixelSize: Theme.notificationTitleSize
+                            font.pixelSize: Theme.fontSize2xl
                             font.bold: Theme.fontBold
                             width: parent.width
                             elide: Text.ElideRight
@@ -550,7 +550,7 @@ Scope {
                             opacity: 0.88
                             visible: text.length > 0
                             font.family: Theme.fontFamily
-                            font.pixelSize: Theme.notificationBodySize
+                            font.pixelSize: Theme.fontSizeL
                             font.bold: Theme.fontBold
                             width: parent.width
                             wrapMode: Text.Wrap

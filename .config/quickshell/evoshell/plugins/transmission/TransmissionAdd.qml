@@ -17,8 +17,8 @@ Item {
     readonly property int dialogWidth: 520
     readonly property int dialogPad: 16
     readonly property int fieldHeight: 38
-    readonly property int titleFont: Theme.panelTitleFontPixelSize
-    readonly property int bodyFont: Theme.panelBodyFontPixelSize
+    readonly property int titleFont: Theme.fontSizeL
+    readonly property int bodyFont: Theme.fontSizeM
 
     readonly property string promptOutput: {
         if (shell && shell.shellConfig && shell.shellConfig.notifications
@@ -173,7 +173,7 @@ Item {
                     color: Theme.foreground
                     opacity: 0.55
                     font.family: Theme.fontFamily
-                    font.pixelSize: Theme.panelSmallFontPixelSize
+                    font.pixelSize: Theme.fontSizeS
                     font.bold: Theme.fontBold
                 }
             }

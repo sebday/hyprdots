@@ -87,7 +87,7 @@ Item {
             text: root.label
             color: Theme.foreground
             font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontPixelSize
+            font.pixelSize: Theme.fontSizeM
             font.bold: Theme.fontBold
             Layout.fillWidth: true
         }
@@ -115,7 +115,7 @@ Item {
                 text: root.summaryText
                 color: Theme.foreground
                 font.family: Theme.fontFamily
-                font.pixelSize: Theme.panelSmallFontPixelSize
+                font.pixelSize: Theme.fontSizeS
                 font.bold: Theme.fontBold
                 elide: Text.ElideRight
             }
@@ -128,7 +128,7 @@ Item {
                 text: root.open ? "󰅀" : "󰅂"
                 color: Theme.foreground
                 font.family: Theme.fontFamily
-                font.pixelSize: Theme.panelTitleFontPixelSize
+                font.pixelSize: Theme.fontSizeL
                 opacity: 0.7
             }
 
@@ -197,7 +197,7 @@ Item {
                         text: checked ? "󰄬" : "󰄱"
                         color: checked ? Theme.accent : Theme.foreground
                         font.family: Theme.fontFamily
-                        font.pixelSize: Theme.panelTitleFontPixelSize
+                        font.pixelSize: Theme.fontSizeL
                         opacity: checked ? 1 : 0.45
                     }
 
@@ -206,7 +206,7 @@ Item {
                         text: modelData
                         color: checked ? Theme.accent : Theme.foreground
                         font.family: Theme.fontFamily
-                        font.pixelSize: Theme.panelSmallFontPixelSize
+                        font.pixelSize: Theme.fontSizeS
                         font.bold: Theme.fontBold
                         elide: Text.ElideRight
                     }

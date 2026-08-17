@@ -25,9 +25,9 @@ Item {
         return String(sink.name || "Output")
     }
 
-    readonly property int bodyFont: Theme.hoverPopupBodyFontPixelSize
-    readonly property int hintFont: Theme.hoverPopupHintFontPixelSize
-    readonly property int iconFont: Theme.hoverPopupIconFontPixelSize
+    readonly property int bodyFont: Theme.fontSize3xl
+    readonly property int hintFont: Theme.fontSizeL
+    readonly property int iconFont: Theme.fontSize4xl
     readonly property bool systemMuted: audio ? audio.muted : false
     readonly property int systemPercent: audio ? audio.percent : 0
     readonly property real systemLevel: audio ? audio.level : 0

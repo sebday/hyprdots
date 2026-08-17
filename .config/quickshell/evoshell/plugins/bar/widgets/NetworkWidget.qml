@@ -152,7 +152,7 @@ Item {
                     : 0.4
                 font.family: Theme.fontFamily
                 font.pixelSize: root.trayMode ? root.trayIconSize
-                    : (root.iconOnly ? Theme.panelIconFontPixelSize : Theme.barFontPixelSize)
+                    : (root.iconOnly ? Theme.fontSize2xl : Theme.fontSizeM)
                 font.bold: Theme.fontBold
                 Behavior on color { ColorAnimation { duration: 220 } }
 
@@ -185,7 +185,7 @@ Item {
             text: root.labelText
             color: Theme.foreground
             font.family: Theme.fontFamily
-            font.pixelSize: Theme.barFontPixelSize
+            font.pixelSize: Theme.fontSizeM
             font.bold: Theme.fontBold
         }
     }

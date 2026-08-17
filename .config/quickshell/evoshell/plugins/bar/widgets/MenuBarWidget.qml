@@ -15,7 +15,7 @@ Item {
         text: "󰍉"
         color: Theme.foreground
         font.family: Theme.fontFamily
-        font.pixelSize: Theme.barFontPixelSize
+        font.pixelSize: Theme.fontSizeM
         font.bold: Theme.fontBold
     }
 

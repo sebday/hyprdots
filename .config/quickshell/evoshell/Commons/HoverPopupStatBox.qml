@@ -7,8 +7,8 @@ Item {
     property string value: ""
     property string label: ""
     property color valueColor: Theme.accent
-    property int valueFontSize: Theme.hoverPopupTitleFontPixelSize + 2
-    property int labelFontSize: Theme.hoverPopupHintFontPixelSize
+    property int valueFontSize: Theme.fontSize5xl
+    property int labelFontSize: Theme.fontSizeL
     property int contentPad: 10
     property bool clickable: false
 

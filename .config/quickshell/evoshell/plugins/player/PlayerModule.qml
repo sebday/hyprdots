@@ -23,10 +23,10 @@ Item {
 
     readonly property string playerScript: (Quickshell.env("HOME") || "") + "/.local/bin/evo-player"
     readonly property int pad: Theme.hoverPopupMargin
-    readonly property int bodyFont: Theme.hoverPopupBodyFontPixelSize
-    readonly property int hintFont: Theme.hoverPopupHintFontPixelSize
+    readonly property int bodyFont: Theme.fontSize3xl
+    readonly property int hintFont: Theme.fontSizeL
     readonly property int listFont: hintFont
-    readonly property int titleFont: bodyFont + 6
+    readonly property int titleFont: Theme.fontSize7xl
     readonly property int nowPlayingCompactBreakpoint: 1000
     readonly property bool nowPlayingCompact: root.width > 0 && root.width < nowPlayingCompactBreakpoint
     readonly property int nowPlayingInlineArtSize: 112
@@ -38,13 +38,15 @@ Item {
         : Math.max(160, nowPlayingArtMaxWidth)
     readonly property int nowPlayingControlsHeight: 52
     readonly property int transportBtnSize: 36
-    readonly property int nowPlayingTitleFont: nowPlayingCompact ? bodyFont + 4 : bodyFont + 10
+    readonly property int nowPlayingTitleFont: nowPlayingCompact
+        ? Theme.fontSize6xl
+        : Theme.fontSize9xl
     property var waveformSamples: []
-    readonly property int iconFont: Theme.hoverPopupIconFontPixelSize
+    readonly property int iconFont: Theme.fontSize4xl
     readonly property int transportIconFont: iconFont * 2
     readonly property int transportSecondaryIconFont: Math.round(transportIconFont * 0.74)
-    readonly property int libraryFont: Math.max(9, hintFont - 3)
-    readonly property int sectionLabelFont: Theme.hoverPopupLabelFontPixelSize
+    readonly property int libraryFont: Theme.fontSizeS
+    readonly property int sectionLabelFont: Theme.fontSizeL
     readonly property int genreTabHeight: 34
     readonly property bool playerPlaying: String(player.state || "") === "playing"
     readonly property real progress: player.duration > 0
@@ -2225,7 +2227,7 @@ Item {
                                             text: root.nowPlayingAlbum
                                             color: Theme.foreground
                                             font.family: Theme.fontFamily
-                                            font.pixelSize: root.listFont + 1
+                                            font.pixelSize: Theme.fontSizeXl
                                             opacity: 0.62
                                             wrapMode: Text.Wrap
                                             maximumLineCount: 2
@@ -2237,7 +2239,7 @@ Item {
                                             text: root.player.artist
                                             color: Theme.foreground
                                             font.family: Theme.fontFamily
-                                            font.pixelSize: root.listFont + 1
+                                            font.pixelSize: Theme.fontSizeXl
                                             font.bold: Theme.fontBold
                                             opacity: 0.72
                                             elide: Text.ElideRight
@@ -3525,7 +3527,7 @@ Item {
                     text: "󰎈"
                     color: Theme.accent
                     font.family: Theme.fontFamily
-                    font.pixelSize: 14
+                    font.pixelSize: Theme.fontSizeL
                     opacity: 0.35
                 }
 
@@ -3554,7 +3556,7 @@ Item {
                     text: "󰐊"
                     color: Theme.accent
                     font.family: Theme.fontFamily
-                    font.pixelSize: 18
+                    font.pixelSize: Theme.fontSize3xl
                     opacity: browsePlayMouse.containsMouse ? 1 : 0.92
                 }
 
@@ -3729,7 +3731,7 @@ Item {
                     text: "󰎈"
                     color: Theme.accent
                     font.family: Theme.fontFamily
-                    font.pixelSize: 14
+                    font.pixelSize: Theme.fontSizeL
                     opacity: trackArtSelectMouse.containsMouse ? 0.55 : 0.35
                 }
 
@@ -3758,7 +3760,7 @@ Item {
                     text: "󰐊"
                     color: Theme.accent
                     font.family: Theme.fontFamily
-                    font.pixelSize: 18
+                    font.pixelSize: Theme.fontSize3xl
                     opacity: trackPlayMouse.containsMouse ? 1 : 0.92
                 }
 
@@ -4096,7 +4098,7 @@ Item {
             text: iconTab.icon
             color: iconTab.active || iconTab.spinning ? Theme.accent : Theme.foreground
             font.family: Theme.fontFamily
-            font.pixelSize: root.iconFont + 4
+            font.pixelSize: Theme.fontSize7xl
             opacity: iconTab.active || iconTab.spinning ? 1 : 0.78
             transformOrigin: Item.Center
 

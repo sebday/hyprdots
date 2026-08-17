@@ -7,7 +7,7 @@ Item {
     property string label: ""
     property string labelAlign: "left"
     property int sectionSpacing: Theme.hoverPopupSectionSpacing
-    property int labelFontSize: Theme.hoverPopupLabelFontPixelSize
+    property int labelFontSize: Theme.fontSizeL
     property int contentPad: Theme.hoverPopupContentPad
     property color legendBackground: Theme.mantle
     property bool filled: false

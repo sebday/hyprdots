@@ -122,7 +122,7 @@ Item {
             return 0
         var textWidth = Math.max(label.implicitWidth, label.contentWidth)
         if (iconOnly)
-            textWidth = Math.max(textWidth, Theme.barFontPixelSize)
+            textWidth = Math.max(textWidth, Theme.fontSizeM)
         return textWidth + Theme.barPaddingX * 2
     }
     implicitHeight: Theme.barHeight
@@ -258,7 +258,7 @@ Item {
                 visible: commandRoot.trayValueText !== ""
                 color: Theme.foreground
                 font.family: Theme.fontFamily
-                font.pixelSize: Theme.barFontPixelSize - 1
+                font.pixelSize: Theme.fontSizeS
                 font.bold: Theme.fontBold
             }
         }
@@ -293,7 +293,7 @@ Item {
         textFormat: commandRoot.useRichText ? Text.RichText : Text.PlainText
         color: Theme.foreground
         font.family: Theme.fontFamily
-        font.pixelSize: commandRoot.iconOnly ? Theme.panelIconFontPixelSize : Theme.barFontPixelSize
+        font.pixelSize: commandRoot.iconOnly ? Theme.fontSize2xl : Theme.fontSizeM
         font.bold: Theme.fontBold && !commandRoot.iconOnly
     }
 

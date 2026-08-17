@@ -16,9 +16,9 @@ Item {
     readonly property string script: Quickshell.env("HOME") + "/.local/bin/evo-network"
     readonly property bool active: host && host.opened === true
     readonly property var barSource: shell ? shell.popupAnchorItem : null
-    readonly property int bodyFont: Theme.hoverPopupBodyFontPixelSize
-    readonly property int hintFont: Theme.hoverPopupHintFontPixelSize
-    readonly property int statFont: Theme.hoverPopupLabelFontPixelSize
+    readonly property int bodyFont: Theme.fontSize3xl
+    readonly property int hintFont: Theme.fontSizeL
+    readonly property int statFont: Theme.fontSizeXl
     readonly property int maxHistory: 36
 
     property var info: ({})
@@ -387,7 +387,7 @@ Item {
                                     text: String(modelData.value)
                                     color: Theme.accent
                                     font.family: Theme.fontFamily
-                                    font.pixelSize: root.statFont + 1
+                                    font.pixelSize: Theme.fontSizeXl
                                     font.bold: Theme.fontBold
                                     elide: Text.ElideRight
                                 }
@@ -432,7 +432,7 @@ Item {
                                     text: String(modelData.value)
                                     color: Theme.accent
                                     font.family: Theme.fontFamily
-                                    font.pixelSize: root.statFont + 1
+                                    font.pixelSize: Theme.fontSizeXl
                                     font.bold: Theme.fontBold
                                     elide: Text.ElideRight
                                 }

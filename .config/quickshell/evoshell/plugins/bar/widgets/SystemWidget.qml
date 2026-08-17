@@ -85,7 +85,7 @@ Item {
             text: root.cpuIcon
             color: root.cpuColor
             font.family: Theme.fontFamily
-            font.pixelSize: Theme.barFontPixelSize
+            font.pixelSize: Theme.fontSizeM
             font.bold: Theme.fontBold
             Layout.alignment: Qt.AlignVCenter
             Behavior on color {
@@ -100,7 +100,7 @@ Item {
             text: root.detailText || "…"
             color: Theme.foreground
             font.family: Theme.fontFamily
-            font.pixelSize: Theme.barFontPixelSize
+            font.pixelSize: Theme.fontSizeM
             font.bold: Theme.fontBold
             Layout.alignment: Qt.AlignVCenter
             opacity: 0.92

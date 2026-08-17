@@ -110,7 +110,7 @@ Item {
             text: root.storeIcon
             color: Theme.foreground
             font.family: Theme.fontFamily
-            font.pixelSize: Theme.barFontPixelSize
+            font.pixelSize: Theme.fontSizeM
             font.bold: Theme.fontBold
             Layout.alignment: Qt.AlignVCenter
             opacity: 0.9
@@ -142,7 +142,7 @@ Item {
             text: root.revenueText
             color: Theme.foreground
             font.family: Theme.fontFamily
-            font.pixelSize: Theme.barFontPixelSize
+            font.pixelSize: Theme.fontSizeM
             font.bold: Theme.fontBold
             Layout.alignment: Qt.AlignVCenter
         }

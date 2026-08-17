@@ -234,7 +234,7 @@ Item {
         text: "No chart data"
         color: Theme.foreground
         font.family: Theme.fontFamily
-        font.pixelSize: Theme.panelHintFontPixelSize
+        font.pixelSize: Theme.fontSizeS
         opacity: 0.45
     }
 
@@ -260,7 +260,7 @@ Item {
             text: root.hoveredTooltipText
             color: Theme.foreground
             font.family: Theme.fontFamily
-            font.pixelSize: Theme.panelHintFontPixelSize
+            font.pixelSize: Theme.fontSizeS
             font.bold: Theme.fontBold
         }
     }

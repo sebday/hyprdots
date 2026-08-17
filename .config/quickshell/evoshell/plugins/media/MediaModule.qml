@@ -13,9 +13,9 @@ Item {
     property int hoverPopupWidth: 0
 
     readonly property bool active: host && host.opened === true
-    readonly property int bodyFont: Theme.hoverPopupBodyFontPixelSize
-    readonly property int hintFont: Theme.hoverPopupHintFontPixelSize
-    readonly property int iconFont: Theme.hoverPopupIconFontPixelSize
+    readonly property int bodyFont: Theme.fontSize3xl
+    readonly property int hintFont: Theme.fontSizeL
+    readonly property int iconFont: Theme.fontSize4xl
     readonly property string mediaScript: (Quickshell.env("HOME") || "") + "/.local/bin/evo-media"
 
     property var mediaShows: []
@@ -383,7 +383,7 @@ Item {
                     text: root.player && root.player.isPlaying ? "󰏤" : "󰐊"
                     color: Theme.accent
                     font.family: Theme.fontFamily
-                    font.pixelSize: root.iconFont + 2
+                    font.pixelSize: Theme.fontSize6xl
 
                     MouseArea {
                         anchors.fill: parent
