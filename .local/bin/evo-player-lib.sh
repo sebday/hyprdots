@@ -684,7 +684,7 @@ cache_paths_for() {
   local path="$1"
   local wf art
   wf="$(waveform_cache_find "$path" 2>/dev/null || waveform_cache_canonical "$path")"
-  art="$(cache_asset_find "$path" "jpg" "$ART_DIR" 2>/dev/null || art_path_canonical "$path")"
+  art="$(art_cache_find "$path" 2>/dev/null || art_path_folder "$path")"
   printf '%s\n' "$(cache_key "$path")" "$wf" "$art"
 }
 
@@ -794,14 +794,40 @@ waveform_ensure_async() {
   disown
 }
 
+art_ensure_now() {
+  local path="$1"
+  [[ -f "$path" ]] || return 0
+  [[ -n "$(art_path_cached "$path")" ]] && return 0
+  art_path_for "$path" >/dev/null 2>&1
+}
+
 art_ensure_async() {
   local path="$1"
-  local art
   [[ -f "$path" ]] || return 0
-  art="$(art_path_resolve "$path")"
-  [[ -n "$art" && -f "$art" ]] && return 0
+  [[ -n "$(art_path_cached "$path")" ]] && return 0
   (art_path_for "$path" >/dev/null 2>&1 &)
   disown
+}
+
+art_ensure_priority_async() {
+  local path="$1"
+  [[ -f "$path" ]] || return 0
+  [[ -n "$(art_path_cached "$path")" ]] && return 0
+  (nice -n -5 art_path_for "$path" >/dev/null 2>&1 &)
+  disown
+}
+
+art_prioritize_paths() {
+  local first=1 path
+  for path in "$@"; do
+    [[ -f "$path" ]] || continue
+    if [[ "$first" -eq 1 ]]; then
+      art_ensure_now "$path"
+      first=0
+    else
+      art_ensure_priority_async "$path"
+    fi
+  done
 }
 
 browse_warm_art_async() {
@@ -821,43 +847,160 @@ browse_warm_art_async() {
   disown
 }
 
-art_path_canonical() {
+art_folder_key() {
+  local path="$1"
+  local rel dir
+  rel="${path#${MUSIC_ROOT}/}"
+  [[ "$rel" == "$path" ]] && rel="$(basename "$path")"
+  dir="$(dirname "$rel")"
+  [[ "$dir" == "." || -z "$dir" ]] && dir="$rel"
+  track_cache_slug "$dir"
+}
+
+art_image_hash() {
+  local file="$1"
+  [[ -f "$file" ]] || return 1
+  sha256sum "$file" | awk '{print $1}'
+}
+
+art_path_folder() {
+  local path="$1"
+  printf '%s/%s.jpg' "$ART_DIR" "$(art_folder_key "$path")"
+}
+
+art_path_content() {
+  local hash="$1"
+  printf '%s/%s.jpg' "$ART_DIR" "$hash"
+}
+
+art_path_legacy() {
   local path="$1"
   printf '%s/%s.jpg' "$ART_DIR" "$(cache_key "$path")"
 }
 
+art_link_folder_alias() {
+  local folder_path="$1" content_path="$2"
+  [[ -f "$content_path" ]] || return 1
+  if [[ -f "$folder_path" ]]; then
+    local ino1 ino2
+    ino1="$(stat -c '%i' "$folder_path" 2>/dev/null || echo "")"
+    ino2="$(stat -c '%i' "$content_path" 2>/dev/null || echo "")"
+    [[ -n "$ino1" && "$ino1" == "$ino2" ]] && return 0
+    rm -f "$folder_path"
+  fi
+  ln "$content_path" "$folder_path" 2>/dev/null || cp -f "$content_path" "$folder_path"
+}
+
+art_cache_find() {
+  local path="$1" candidate legacy
+  [[ -f "$path" ]] || return 1
+  candidate="$(art_path_folder "$path")"
+  [[ -f "$candidate" ]] && {
+    printf '%s' "$candidate"
+    return 0
+  }
+  candidate="$(art_path_legacy "$path")"
+  [[ -f "$candidate" ]] && {
+    printf '%s' "$candidate"
+    return 0
+  }
+  legacy="$(track_cache_slug "${path#${MUSIC_ROOT}/}")"
+  candidate="${ART_DIR}/${legacy}.jpg"
+  [[ -f "$candidate" ]] && {
+    printf '%s' "$candidate"
+    return 0
+  }
+  return 1
+}
+
+art_path_canonical() {
+  art_path_folder "$1"
+}
+
 art_path_for() {
   local path="$1"
-  local art
+  local folder legacy content imghash tmp candidate
   [[ -f "$path" ]] || return 0
-  art="$(art_path_cached "$path")"
-  if [[ -z "$art" ]]; then
-    art="$(art_path_canonical "$path")"
-    ffmpeg -y -loglevel error -i "$path" -an -vcodec copy "$art" 2>/dev/null || true
+  folder="$(art_path_folder "$path")"
+  legacy="$(art_path_legacy "$path")"
+  if [[ -f "$folder" ]]; then
+    printf '%s' "$folder"
+    return 0
   fi
-  [[ -f "$art" ]] && printf '%s' "$art"
+  if [[ -f "$legacy" ]]; then
+    art_link_folder_alias "$folder" "$legacy"
+    [[ -f "$folder" ]] && printf '%s' "$folder"
+    return 0
+  fi
+  candidate="${ART_DIR}/$(track_cache_slug "${path#${MUSIC_ROOT}/}").jpg"
+  if [[ -f "$candidate" ]]; then
+    art_link_folder_alias "$folder" "$candidate"
+    [[ -f "$folder" ]] && printf '%s' "$folder"
+    return 0
+  fi
+  tmp="$(mktemp "${ART_DIR}/.art.XXXXXX.jpg")"
+  ffmpeg -y -loglevel error -i "$path" -an -vcodec copy "$tmp" 2>/dev/null || true
+  if [[ ! -f "$tmp" || ! -s "$tmp" ]]; then
+    rm -f "$tmp"
+    return 0
+  fi
+  imghash="$(art_image_hash "$tmp")"
+  if [[ -z "$imghash" ]]; then
+    rm -f "$tmp"
+    return 0
+  fi
+  content="$(art_path_content "$imghash")"
+  if [[ ! -f "$content" ]]; then
+    mv "$tmp" "$content"
+  else
+    rm -f "$tmp"
+  fi
+  art_link_folder_alias "$folder" "$content"
+  [[ -f "$folder" ]] && printf '%s' "$folder"
 }
 
 art_path_resolve() {
-  local path="$1"
-  local art
+  local path="$1" art
   [[ -f "$path" ]] || return 0
-  art="$(art_path_cached "$path")"
+  art="$(art_cache_find "$path")"
   if [[ -n "$art" ]]; then
     printf '%s' "$art"
     return 0
   fi
-  art_path_canonical "$path"
+  art_path_folder "$path"
 }
 
 art_path_cached() {
-  local path="$1"
-  local art
+  local path="$1" art
   [[ -f "$path" ]] || return 0
-  art="$(cache_asset_find "$path" "jpg" "$ART_DIR" 2>/dev/null || true)"
-  if [[ -n "$art" ]]; then
-    printf '%s' "$art"
-  fi
+  art="$(art_cache_find "$path")"
+  [[ -n "$art" ]] && printf '%s' "$art"
   return 0
+}
+
+art_prune_legacy() {
+  ensure_dirs
+  local path legacy folder pruned=0 ino_legacy ino_folder
+  while IFS= read -r -d '' path; do
+    is_audio "$path" || continue
+    legacy="$(art_path_legacy "$path")"
+    folder="$(art_path_folder "$path")"
+    [[ -f "$legacy" ]] || continue
+    [[ "$legacy" == "$folder" ]] && continue
+    [[ -f "$folder" ]] || continue
+    ino_legacy="$(stat -c '%i' "$legacy" 2>/dev/null || echo "")"
+    ino_folder="$(stat -c '%i' "$folder" 2>/dev/null || echo "")"
+    if [[ -n "$ino_legacy" && "$ino_legacy" == "$ino_folder" ]]; then
+      rm -f "$legacy"
+      pruned=$((pruned + 1))
+      continue
+    fi
+    if cmp -s "$legacy" "$folder" 2>/dev/null; then
+      rm -f "$legacy"
+      pruned=$((pruned + 1))
+    fi
+  done < <(find "$MUSIC_ROOT" -type f -print0 2>/dev/null)
+  echo "evo-player: pruned ${pruned} duplicate art files" >&2
+  printf '%d' "$pruned"
 }
 

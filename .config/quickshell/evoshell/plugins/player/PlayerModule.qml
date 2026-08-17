@@ -69,6 +69,10 @@ Item {
     property var playlists: []
     property var libraryPlaylists: []
     property string selectedPlaylist: ""
+    readonly property string currentPlaylistId: "current"
+    property bool currentPlaylistActive: false
+    property string currentPlaylistPath: ""
+    property var currentPlaylistTracks: []
     property bool playlistsLoading: false
     property string resumePlaylist: ""
     property string playerScreen: "nowPlaying"
@@ -91,14 +95,17 @@ Item {
         var genre = String(player.genre || "").trim()
         if (genre !== "")
             chips.push({ label: genre, accent: true })
-        var album = String(player.album || "").trim()
-        var title = String(player.title || "").trim()
-        if (album !== "" && album !== title)
-            chips.push({ label: album, accent: false })
         var durationLabel = String(player.duration_label || "").trim()
         if (durationLabel !== "" && Number(player.duration || 0) > 0)
             chips.push({ label: durationLabel, accent: false })
         return chips
+    }
+    readonly property string nowPlayingAlbum: {
+        var album = String(player.album || "").trim()
+        var title = String(player.title || "").trim()
+        if (album === "" || album === title)
+            return ""
+        return album
     }
     readonly property int libraryPanelWidth: Math.round(Math.max(156, Math.min(width * 0.22, 220)))
     readonly property var genreLabelOverrides: ({
@@ -281,10 +288,161 @@ Item {
                 count: starred[k].count || 0
             })
         }
+        injectCurrentPlaylist()
+    }
+
+    function currentPlaylistEntry() {
+        return {
+            name: currentPlaylistId,
+            count: currentPlaylistTracks.length,
+            kind: "current",
+            starred: true
+        }
+    }
+
+    function injectCurrentPlaylist() {
+        if (!currentPlaylistActive) {
+            var libs = []
+            for (var i = 0; i < libraryPlaylists.length; i++) {
+                if (libraryPlaylists[i].name !== currentPlaylistId)
+                    libs.push(libraryPlaylists[i])
+            }
+            libraryPlaylists = libs
+
+            var tabNames = []
+            for (var t = 0; t < playlistTabModel.count; t++) {
+                var tabName = playlistTabModel.get(t).name
+                if (tabName !== currentPlaylistId)
+                    tabNames.push({ name: tabName, count: playlistTabModel.get(t).count })
+            }
+            playlistTabModel.clear()
+            for (var v = 0; v < tabNames.length; v++) {
+                playlistTabModel.append({
+                    name: tabNames[v].name,
+                    count: tabNames[v].count || 0
+                })
+            }
+            return
+        }
+        var entry = currentPlaylistEntry()
+        var libs = []
+        var found = false
+        for (var i = 0; i < libraryPlaylists.length; i++) {
+            if (libraryPlaylists[i].name === currentPlaylistId) {
+                libs.push(entry)
+                found = true
+            } else {
+                libs.push(libraryPlaylists[i])
+            }
+        }
+        if (!found)
+            libs.unshift(entry)
+        libraryPlaylists = libs
+
+        var tabNames = []
+        for (var t = 0; t < playlistTabModel.count; t++)
+            tabNames.push({ name: playlistTabModel.get(t).name, count: playlistTabModel.get(t).count })
+        var hasCurrent = false
+        for (var u = 0; u < tabNames.length; u++) {
+            if (tabNames[u].name === currentPlaylistId) {
+                tabNames[u].count = entry.count
+                hasCurrent = true
+                break
+            }
+        }
+        if (!hasCurrent)
+            tabNames.unshift({ name: currentPlaylistId, count: entry.count })
+        playlistTabModel.clear()
+        for (var v = 0; v < tabNames.length; v++) {
+            playlistTabModel.append({
+                name: tabNames[v].name,
+                count: tabNames[v].count || 0
+            })
+        }
+        refreshCurrentPlaylistView()
+    }
+
+    function refreshCurrentPlaylistView() {
+        if (!currentPlaylistActive)
+            return
+        if (playerScreen === "playlists" && selectedPlaylist === currentPlaylistId) {
+            tracks = currentPlaylistTracks.slice()
+            syncSelectedTrackIndex()
+        }
+    }
+
+    function commitCurrentPlaylist() {
+        injectCurrentPlaylist()
+        syncPlaylistTabPosition()
+        if (selectedPlaylist === currentPlaylistId && playerScreen === "playlists")
+            loadPlaylistTracks(currentPlaylistId)
+        prioritizeCurrentAssets()
+    }
+
+    function prioritizeCurrentAssets() {
+        if (!currentPlaylistActive || !currentPlaylistTracks.length)
+            return
+        var args = ["prioritize"]
+        var limit = Math.min(currentPlaylistTracks.length, 32)
+        for (var i = 0; i < limit; i++) {
+            if (currentPlaylistTracks[i].path)
+                args.push(currentPlaylistTracks[i].path)
+        }
+        if (args.length > 1)
+            runMusic(args, null, cmdProc)
+    }
+
+    function stageCurrentPlaylistFromBrowse(entry) {
+        if (!entry || !entry.path)
+            return
+        setCurrentPlaylistFromBrowse(entry)
+        selectedPlaylist = currentPlaylistId
+        commitCurrentPlaylist()
+    }
+
+    function clearCurrentPlaylist() {
+        if (!currentPlaylistActive)
+            return
+        currentPlaylistActive = false
+        currentPlaylistTracks = []
+        currentPlaylistPath = ""
+        injectCurrentPlaylist()
+        if (selectedPlaylist === currentPlaylistId)
+            tracks = []
+    }
+
+    function setCurrentPlaylistFromBrowse(entry) {
+        var idx = -1
+        for (var i = 0; i < tracks.length; i++) {
+            if (tracks[i].path === entry.path) {
+                idx = i
+                break
+            }
+        }
+        var queued = []
+        if (idx >= 0) {
+            for (var j = idx; j < tracks.length; j++)
+                queued.push(tracks[j])
+        } else {
+            queued = tracks.slice()
+        }
+        currentPlaylistTracks = queued
+        currentPlaylistPath = String(browsePath || "")
+        currentPlaylistActive = true
     }
 
     function playlistTabLabel(name) {
+        if (String(name || "") === currentPlaylistId)
+            return "current"
+        if (currentPlaylistActive && String(name || "") === currentPlaylistPath)
+            return "current"
         return String(name || "")
+    }
+
+    function nowPlayingPlaylistLabel() {
+        if (currentPlaylistActive || selectedPlaylist === currentPlaylistId)
+            return "current"
+        return playlistTabLabel(selectedPlaylist)
     }
 
     function onActivated() {
@@ -347,7 +505,11 @@ Item {
 
     function normalizePlaylistName(name) {
         var n = String(name || "")
-        return n === "favorites" ? "all" : n
+        if (n === "favorites")
+            return "all"
+        if (n.endsWith("-fav"))
+            return n.slice(0, -4)
+        return n
     }
 
     function loadPlaylists() {
@@ -361,7 +523,9 @@ Item {
             }
             var preferred = normalizePlaylistName(resumePlaylist)
             resumePlaylist = ""
-            if (preferred) {
+            if (preferred === currentPlaylistId) {
+                syncPlaylistTabPosition()
+            } else if (preferred) {
                 for (var i = 0; i < playlists.length; i++) {
                     if (playlists[i].name === preferred) {
                         selectPlaylist(preferred, false)
@@ -403,7 +567,7 @@ Item {
 
     function togglePlaylistStar(name) {
         var playlistName = String(name || "")
-        if (!playlistName)
+        if (!playlistName || playlistName === currentPlaylistId)
             return
         var nextList = []
         for (var i = 0; i < libraryPlaylists.length; i++) {
@@ -585,18 +749,88 @@ Item {
         for (var i = 0; i < tracks.length; i++) {
             if (tracks[i].path === entry.path) {
                 selectedTrackIndex = i
+                stageCurrentPlaylistFromBrowse(entry)
                 return
             }
         }
         selectedTrackIndex = -1
     }
 
+    function browseFolderLabel() {
+        var p = String(browsePath || "").trim()
+        return p === "" ? "library root" : p
+    }
+
+    function currentFolderLabel() {
+        var p = String(currentPlaylistPath || browsePath || "").trim()
+        return p === "" ? "library root" : p
+    }
+
+    function setCurrentPlaylistFromTracks(folderPath, folderTracks) {
+        currentPlaylistTracks = folderTracks.slice()
+        currentPlaylistPath = String(folderPath || "")
+        currentPlaylistActive = true
+    }
+
+    function browseQueueFolder(entry) {
+        if (!entry || entry.type !== "dir" || !entry.path)
+            return
+        var folderPath = String(entry.path)
+        runBrowseQuery(["browse", folderPath, "--json"], function(text) {
+            try {
+                var data = JSON.parse(String(text || "{}"))
+                var folderTracks = []
+                var entries = data.entries || []
+                for (var i = 0; i < entries.length; i++) {
+                    if (entries[i].type === "track")
+                        folderTracks.push(entries[i])
+                }
+                if (!folderTracks.length) {
+                    root.notify("no tracks in folder", 2500)
+                    return
+                }
+                if (root.currentPlaylistActive) {
+                    var seen = {}
+                    for (var j = 0; j < root.currentPlaylistTracks.length; j++)
+                        seen[root.currentPlaylistTracks[j].path] = true
+                    var toAppend = []
+                    for (var k = 0; k < folderTracks.length; k++) {
+                        if (!seen[folderTracks[k].path])
+                            toAppend.push(folderTracks[k])
+                    }
+                    if (!toAppend.length) {
+                        root.notify("folder already in queue", 2500)
+                        return
+                    }
+                    root.currentPlaylistTracks = root.currentPlaylistTracks.concat(toAppend)
+                    root.selectedPlaylist = root.currentPlaylistId
+                    root.commitCurrentPlaylist()
+                    var args = ["queue", "append"]
+                    for (var m = 0; m < toAppend.length; m++)
+                        args.push(toAppend[m].path)
+                    root.runMusic(args, function() { root.refreshStatus() }, cmdProc)
+                } else {
+                    root.setCurrentPlaylistFromTracks(folderPath, folderTracks)
+                    root.selectedPlaylist = root.currentPlaylistId
+                    root.commitCurrentPlaylist()
+                    root.playPath(folderTracks[0].path, true)
+                }
+            } catch (e) {
+                root.notify("could not load folder", 2500)
+            }
+        })
+    }
+
     function playBrowseTrack(entry) {
         if (!entry || !entry.path)
             return
-        selectBrowseTrack(entry)
-        playerScreen = "nowPlaying"
-        playPath(entry.path)
+        if (!root.isTrackSelected(entry.path)) {
+            selectBrowseTrack(entry)
+            return
+        }
+        stageCurrentPlaylistFromBrowse(entry)
+        selectedPlaylist = currentPlaylistId
+        playPathFromList(entry.path, true)
     }
 
     function browseTrackNumber(listIndex) {
@@ -635,6 +869,13 @@ Item {
             return
         }
         var requested = String(name)
+        if (requested === currentPlaylistId) {
+            tracksLoading = false
+            tracks = currentPlaylistTracks.slice()
+            syncSelectedTrackIndex()
+            mergePlayerFromTrackList()
+            return
+        }
         tracksLoading = true
         runPlaylistQuery(["playlist", requested, "--json"], function(text) {
             if (selectedPlaylist !== requested)
@@ -986,23 +1227,46 @@ Item {
         return "󰕾"
     }
 
-    function startLoad(path) {
+    function startLoad(path, useFolder) {
         if (!path)
             return
-        loadProc.command = ["bash", playerScript, "load", path]
+        var args = ["bash", playerScript, "load", path]
+        if (useFolder)
+            args.push("--folder")
+        loadProc.command = args
         loadProc.running = true
     }
 
-    function playPath(path) {
+    function playPath(path, useFolder) {
         if (!path)
             return
         primePlayerForPath(path)
         var trackPath = String(path)
+        var folderQueue = !!useFolder
         if (loadProc.running) {
             loadProc.pendingPath = trackPath
+            loadProc.pendingFolder = folderQueue
             return
         }
-        startLoad(trackPath)
+        startLoad(trackPath, folderQueue)
+    }
+
+    function playPathFromList(path, useFolder) {
+        if (!path)
+            return
+        playPath(path, useFolder)
+    }
+
+    function setCurrentPlaylistFromIndex(index) {
+        if (index < 0 || index >= tracks.length)
+            return
+        var queued = []
+        for (var j = index; j < tracks.length; j++)
+            queued.push(tracks[j])
+        currentPlaylistTracks = queued
+        currentPlaylistActive = true
+        injectCurrentPlaylist()
+        refreshCurrentPlaylistView()
     }
 
     function playTrackAt(index) {
@@ -1011,9 +1275,22 @@ Item {
         var path = tracks[index].path
         if (!path)
             return
+        if (selectedTrackIndex === index) {
+            var folderQueue = selectedPlaylist === currentPlaylistId
+            if (folderQueue)
+                setCurrentPlaylistFromIndex(index)
+            else
+                clearCurrentPlaylist()
+            playPathFromList(path, folderQueue)
+            return
+        }
         selectedTrackIndex = index
-        playerScreen = "nowPlaying"
-        playPath(path)
+    }
+
+    function selectPlaylistTrack(index) {
+        if (index < 0 || index >= tracks.length)
+            return
+        selectedTrackIndex = index
     }
 
     function toggleFavorite() {
@@ -1070,7 +1347,7 @@ Item {
                     p.liked = liked
                     player = p
                 }
-                if (!liked && String(root.selectedPlaylist).endsWith("-fav"))
+                if (!liked && root.selectedPlaylist !== "all" && root.selectedPlaylist !== root.currentPlaylistId)
                     root.loadPlaylistTracks(root.selectedPlaylist)
             } catch (e) {
             }
@@ -1177,13 +1454,16 @@ Item {
     Process {
         id: loadProc
         property string pendingPath: ""
+        property bool pendingFolder: false
         stdout: StdioCollector {}
         onExited: function() {
             root.refreshStatus()
             if (pendingPath) {
                 var next = pendingPath
+                var folder = pendingFolder
                 pendingPath = ""
-                root.startLoad(next)
+                pendingFolder = false
+                root.startLoad(next, folder)
             }
         }
     }
@@ -1495,6 +1775,18 @@ Item {
 
                                     Text {
                                         Layout.fillWidth: true
+                                        visible: root.nowPlayingAlbum !== ""
+                                        text: root.nowPlayingAlbum
+                                        color: Theme.foreground
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: root.listFont + 1
+                                        opacity: 0.62
+                                        wrapMode: Text.Wrap
+                                        maximumLineCount: 2
+                                    }
+
+                                    Text {
+                                        Layout.fillWidth: true
                                         visible: (root.player.artist || "") !== ""
                                         text: root.player.artist
                                         color: Theme.foreground
@@ -1523,8 +1815,8 @@ Item {
 
                                     Text {
                                         Layout.fillWidth: true
-                                        visible: root.selectedPlaylist !== ""
-                                        text: "From playlist: " + root.playlistTabLabel(root.selectedPlaylist)
+                                        visible: root.selectedPlaylist !== "" || root.currentPlaylistActive
+                                        text: "From playlist: " + root.nowPlayingPlaylistLabel()
                                         color: Theme.foreground
                                         font.family: Theme.fontFamily
                                         font.pixelSize: root.libraryFont
@@ -1991,6 +2283,34 @@ Item {
                                     }
 
                                     Item {
+                                        z: 2
+                                        Layout.preferredWidth: 22
+                                        Layout.preferredHeight: 22
+                                        Layout.alignment: Qt.AlignVCenter
+
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: "󰐊"
+                                            color: Theme.accent
+                                            opacity: browseFolderPlayMouse.containsMouse ? 1 : 0.55
+                                            font.family: Theme.fontFamily
+                                            font.pixelSize: root.listFont
+                                        }
+
+                                        MouseArea {
+                                            id: browseFolderPlayMouse
+                                            anchors.fill: parent
+                                            anchors.margins: -6
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: function(mouse) {
+                                                mouse.accepted = true
+                                                root.browseQueueFolder(modelData)
+                                            }
+                                        }
+                                    }
+
+                                    Item {
                                         Layout.fillWidth: true
                                         Layout.fillHeight: true
 
@@ -2135,7 +2455,8 @@ Item {
                     delegate: Rectangle {
                         required property var modelData
                         required property int index
-                        readonly property int pinReserve: 30
+                        readonly property bool isCurrentEntry: modelData.name === root.currentPlaylistId
+                        readonly property int pinReserve: isCurrentEntry ? 0 : 30
                         width: playlistLibraryList.width
                         height: 40
                         radius: 4
@@ -2153,6 +2474,7 @@ Item {
                                 Layout.preferredWidth: 22
                                 Layout.preferredHeight: 22
                                 Layout.alignment: Qt.AlignVCenter
+                                visible: !parent.parent.isCurrentEntry
 
                                 Text {
                                     anchors.centerIn: parent
@@ -2198,6 +2520,7 @@ Item {
                             anchors.verticalCenter: parent.verticalCenter
                             width: 26
                             height: 26
+                            visible: !parent.isCurrentEntry
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
                             onClicked: function(mouse) {
@@ -2274,7 +2597,7 @@ Item {
                             number: index + 1
                             selected: root.isTrackSelected(modelData.path)
                             showLike: true
-                            onPressed: root.selectedTrackIndex = index
+                            onPressed: root.selectPlaylistTrack(index)
                             onActivated: root.playTrackAt(index)
                             onLikeToggled: root.toggleTrackFavorite(modelData.path)
                         }
@@ -2776,7 +3099,12 @@ Item {
             anchors.rightMargin: browseRow.genreReserve + browseRow.likeReserve
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
-            onClicked: browseRow.pressed()
+            onClicked: {
+                if (browseRow.selected)
+                    browseRow.playRequested()
+                else
+                    browseRow.pressed()
+            }
         }
     }
 
@@ -2798,13 +3126,17 @@ Item {
         readonly property bool likeEnabled: showMeta || showLike
         readonly property int likeReserve: showMeta ? 136 : (showLike ? 36 : 0)
         readonly property int artReserve: likeEnabled ? 44 : 0
+        readonly property bool hovered: trackRowMouse.containsMouse
+            || trackPlayMouse.containsMouse
+            || trackLikeMouse.containsMouse
+            || (!trackRow.selected && trackArtSelectMouse.containsMouse)
 
         width: rowWidth
         height: 40
         radius: 4
         color: selected
             ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.14)
-            : (trackRowMouse.containsMouse
+            : (trackRow.hovered
                 ? Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.05)
                 : "transparent")
 
@@ -2847,6 +3179,46 @@ Item {
                     asynchronous: true
                     layer.enabled: true
                     layer.smooth: true
+                }
+
+                Rectangle {
+                    anchors.fill: parent
+                    radius: 4
+                    visible: trackRow.selected
+                    color: Qt.rgba(Theme.background.r, Theme.background.g, Theme.background.b, 0.48)
+                }
+
+                Text {
+                    anchors.centerIn: parent
+                    visible: trackRow.selected
+                    text: "󰐊"
+                    color: Theme.accent
+                    font.family: Theme.fontFamily
+                    font.pixelSize: 18
+                    opacity: trackPlayMouse.containsMouse ? 1 : 0.92
+                }
+
+                MouseArea {
+                    id: trackPlayMouse
+                    z: 3
+                    anchors.fill: parent
+                    visible: trackRow.selected
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: function(mouse) {
+                        mouse.accepted = true
+                        trackRow.activated()
+                    }
+                }
+
+                MouseArea {
+                    id: trackArtSelectMouse
+                    z: 2
+                    anchors.fill: parent
+                    visible: !trackRow.selected
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: trackRow.pressed()
                 }
             }
 
@@ -2930,28 +3302,11 @@ Item {
             hoverEnabled: true
             preventStealing: true
             cursorShape: Qt.PointingHandCursor
-            onClicked: trackRow.pressed()
-            onDoubleClicked: function(mouse) {
-                mouse.accepted = true
-                trackRow.activated()
-            }
-        }
-
-        MouseArea {
-            id: trackArtMouse
-            z: 2
-            visible: trackRow.likeEnabled
-            anchors.left: parent.left
-            anchors.leftMargin: 8
-            anchors.verticalCenter: parent.verticalCenter
-            width: 36
-            height: 36
-            hoverEnabled: true
-            preventStealing: true
-            cursorShape: Qt.PointingHandCursor
-            onClicked: function(mouse) {
-                mouse.accepted = true
-                trackRow.likeToggled()
+            onClicked: {
+                if (trackRow.selected)
+                    trackRow.activated()
+                else
+                    trackRow.pressed()
             }
         }
 

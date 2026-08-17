@@ -10,13 +10,15 @@ source "${EVOSHELL_BIN}/evo-player-lib.sh"
 usage() {
   cat >&2 <<'EOF'
 usage:
-  evo-player start|load <path>|play [playlist|m3u]
+  evo-player start|load <path> [--folder]|play [playlist|m3u]
+  evo-player queue append <path> [<path>...]
+  evo-player prioritize <path> [<path>...]
   evo-player toggle|next|prev|seek <sec>|shuffle [toggle|on|off]
   evo-player volume set <0-100>|volume <delta>
   evo-player save|open|restore|resume|close|stop|status [--json]
   evo-player sync|import|playlists [--force]|soundcloud
   evo-player build all|quick [--json]
-  evo-player cache [--force] [--json] [genre]
+  evo-player cache [--force] [--prune-art] [--json] [genre]
   evo-player job status [--json]
   evo-player genres [--json]
   evo-player tracks <genre> [--json]
@@ -238,15 +240,86 @@ cmd_player_resume() {
   fi
 }
 
-cmd_player_load() {
+mpv_load_file() {
   local path="$1"
+  local mode="${2:-replace}"
+  local escaped="${path//\\/\\\\}"
+  mpv_ipc "{\"command\":[\"loadfile\",\"${escaped}\",\"${mode}\"]}" >/dev/null
+}
+
+cmd_player_load() {
+  local path="" folder=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --folder) folder=1 ;;
+      --json) ;;
+      -h|--help|help) usage ;;
+      -*) usage ;;
+      *) path="$1" ;;
+    esac
+    shift
+  done
+  [[ -n "$path" ]] || usage
   [[ -f "$path" ]] || { echo "evo-player: not a file: $path" >&2; return 1; }
   cmd_player_start
-  local escaped="${path//\\/\\\\}"
-  mpv_ipc "{\"command\":[\"loadfile\",\"${escaped}\",\"replace\"]}" >/dev/null
+  if [[ "$folder" -eq 1 ]]; then
+    local dir f
+    local -a files=()
+    dir="$(dirname "$path")"
+    while IFS= read -r -d '' f; do
+      is_audio "$f" && files+=("$f")
+    done < <(find "$dir" -maxdepth 1 -type f -print0 2>/dev/null | sort -z)
+    local idx=-1 i
+    for i in "${!files[@]}"; do
+      if [[ "${files[$i]}" == "$path" ]]; then
+        idx=$i
+        break
+      fi
+    done
+    [[ "$idx" -ge 0 ]] || { echo "evo-player: track not in folder listing: $path" >&2; return 1; }
+    mpv_ipc '{"command":["playlist-clear"]}' >/dev/null || true
+    mpv_load_file "$path" replace
+    for ((i = idx + 1; i < ${#files[@]}; i++)); do
+      mpv_load_file "${files[$i]}" append
+    done
+    art_ensure_now "$path"
+    for ((i = idx + 1; i < ${#files[@]}; i++)); do
+      art_ensure_priority_async "${files[$i]}"
+    done
+  else
+    mpv_load_file "$path" replace
+    art_ensure_now "$path"
+  fi
   mpv_ipc '{"command":["set_property","pause",false]}' >/dev/null
   player_save_state "$path" "$(genre_from_path "$path")" "" "0"
   waveform_ensure_async "$path"
+}
+
+cmd_player_prioritize() {
+  [[ $# -gt 0 ]] || return 0
+  art_prioritize_paths "$@"
+}
+
+cmd_player_queue_append() {
+  [[ $# -gt 0 ]] || usage
+  cmd_player_start
+  local path
+  for path in "$@"; do
+    [[ -f "$path" ]] || { echo "evo-player: not a file: $path" >&2; return 1; }
+    mpv_load_file "$path" append
+    waveform_ensure_async "$path"
+  done
+  art_prioritize_paths "$@"
+}
+
+cmd_player_queue() {
+  local sub="${1:-}"
+  shift || true
+  case "$sub" in
+    append) cmd_player_queue_append "$@" ;;
+    -h|--help|help|"") usage ;;
+    *) echo "evo-player: unknown queue command: $sub" >&2; usage ;;
+  esac
 }
 
 cmd_player_play() {
@@ -375,6 +448,10 @@ player_saved_status_json() {
     title="${title%.*}"
     dur="$(ffprobe_duration "$path")"
     art="$(art_path_cached "$path")"
+    if [[ -z "$art" ]]; then
+      art_ensure_now "$path"
+      art="$(art_path_cached "$path")"
+    fi
     wf="$(waveform_cache_path "$path")"
     waveform_ensure_async "$path"
     is_liked "$path" && liked="true"
@@ -441,6 +518,10 @@ cmd_player_status() {
     [[ -z "$title" ]] && title="$(basename "$path")"
     title="${title%.*}"
     art="$(art_path_cached "$path")"
+    if [[ -z "$art" ]]; then
+      art_ensure_now "$path"
+      art="$(art_path_cached "$path")"
+    fi
     wf="$(waveform_cache_path "$path")"
     waveform_ensure_async "$path"
     is_liked "$path" && liked="true"
@@ -592,7 +673,7 @@ write_likes_m3u() {
 
 write_playlist() {
   local genre="${1%-fav}"
-  local out="${PLAYLIST_DIR}/${genre}-fav.m3u"
+  local out="${PLAYLIST_DIR}/${genre}.m3u"
   likes_init
   local tmp count line
   tmp="$(mktemp)"
@@ -612,10 +693,11 @@ write_playlist() {
     count=$((count + 1))
   done <"$tmp"
   if [[ "$count" -eq 0 ]]; then
-    rm -f "$out" "$tmp"
+    rm -f "$out" "${PLAYLIST_DIR}/${genre}-fav.m3u" "$tmp"
     return 0
   fi
   mv "$tmp" "$out"
+  rm -f "${PLAYLIST_DIR}/${genre}-fav.m3u"
 }
 
 cmd_playlists() {
@@ -636,6 +718,7 @@ cmd_playlists() {
   done < <(list_genres)
   write_likes_m3u "${PLAYLIST_DIR}/all.m3u"
   rm -f "${PLAYLIST_DIR}/favorites.m3u"
+  rm -f "${PLAYLIST_DIR}"/*-fav.m3u
   echo "evo-player: rebuilding track tag caches..." >&2
   if [[ "$force" -eq 1 ]]; then
     cmd_cache --force
@@ -828,6 +911,8 @@ cmd_build_impl() {
     echo "evo-player: warming art..." >&2
     cmd_warm --art
   fi
+  echo "evo-player: pruning duplicate art..." >&2
+  art_prune_legacy >/dev/null
   echo "evo-player: build ${mode} complete at $(date -Iseconds)" >&2
 }
 
@@ -857,17 +942,26 @@ cmd_soundcloud() {
 }
 
 cmd_cache() {
-  local force=0 json=0 genre=""
+  local force=0 json=0 prune_art=0 genre=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --force) force=1 ;;
       --json) json=1 ;;
+      --prune-art) prune_art=1 ;;
       -*) usage ;;
       *) genre="$1" ;;
     esac
     shift
   done
   ensure_dirs
+  if [[ "$prune_art" -eq 1 ]]; then
+    local pruned
+    pruned="$(art_prune_legacy)"
+    if [[ "$json" -eq 1 ]]; then
+      jq -n --argjson pruned "$pruned" '{pruned:$pruned}'
+    fi
+    return 0
+  fi
   local g cache built=0 skipped=0 total=0 count
   cache_one() {
     local name="$1"
@@ -977,13 +1071,7 @@ browse_track_art_json() {
     browse_track_enrich_json "$line"
     return 0
   }
-  art="$(jq -r '.art // ""' <<<"$line")"
-  if [[ -n "$art" ]]; then
-    browse_track_enrich_json "$line"
-    return 0
-  fi
   art="$(art_path_cached "$path")"
-  [[ -n "$art" ]] || art="$(art_path_resolve "$path")"
   browse_track_enrich_json "$(jq -c --arg art "$art" '.art = $art' <<<"$line")"
 }
 
@@ -1101,12 +1189,21 @@ playlist_stars_save() {
   printf '%s\n' "$json" >"$PLAYLIST_STARS"
 }
 
+playlist_stars_migrate() {
+  [[ -f "$PLAYLIST_STARS" ]] || return 0
+  local json
+  json="$(jq -c 'map(if endswith("-fav") then .[0:length-4] else . end) | unique' "$PLAYLIST_STARS" 2>/dev/null || printf '[]')"
+  playlist_stars_save "$json"
+}
+
 playlist_stars_prune() {
+  playlist_stars_migrate
   local stars json kept=() m3u base
   stars="$(playlist_stars_load)"
   for m3u in "$PLAYLIST_DIR"/*.m3u; do
     [[ -f "$m3u" ]] || continue
     base="$(basename "$m3u" .m3u)"
+    [[ "$base" == favorites ]] && continue
     if jq -e --arg n "$base" 'index($n) != null' <<<"$stars" >/dev/null 2>&1; then
       kept+=("$base")
     fi
@@ -1129,15 +1226,26 @@ playlist_kind() {
   case "$name" in
     all|favorites) printf 'system' ;;
     *)
-      if [[ "$name" == *-fav ]]; then
+      if [[ -d "${MUSIC_ROOT}/${name}" ]]; then
         printf 'fav'
-      elif [[ -d "${MUSIC_ROOT}/${name}" ]]; then
-        printf 'genre'
       else
         printf 'other'
       fi
       ;;
   esac
+}
+
+playlist_emit_tracks_json() {
+  local list="$1"
+  local first=1 line
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line="${line//$'\r'/}"
+    [[ -z "$line" || "$line" == \#* ]] && continue
+    [[ -f "$line" ]] || continue
+    [[ "$first" -eq 1 ]] || printf ','
+    first=0
+    track_list_json "$line"
+  done <"$list"
 }
 
 cmd_playlist_star_toggle() {
@@ -1298,15 +1406,7 @@ cmd_playlist() {
   [[ -f "$list" ]] || { echo "evo-player: unknown playlist: $name" >&2; return 1; }
   if [[ "$json" -eq 1 ]]; then
     printf '['
-    local first=1 line
-    while IFS= read -r line || [[ -n "$line" ]]; do
-      line="${line//$'\r'/}"
-      [[ -z "$line" || "$line" == \#* ]] && continue
-      [[ -f "$line" ]] || continue
-      [[ "$first" -eq 1 ]] || printf ','
-      first=0
-      track_list_json "$line"
-    done <"$list"
+    playlist_emit_tracks_json "$list"
     printf ']\n'
   else
     local line
@@ -1543,7 +1643,9 @@ main() {
   shift || true
   case "$cmd" in
     start) cmd_player_start ;;
-    load) cmd_player_load "${1:-}" ;;
+    load) cmd_player_load "$@" ;;
+    queue) cmd_player_queue "$@" ;;
+    prioritize) cmd_player_prioritize "$@" ;;
     play) cmd_player_play "${1:-all}" ;;
     toggle) cmd_player_toggle ;;
     next) cmd_player_next ;;
