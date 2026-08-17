@@ -291,9 +291,11 @@ cmd_player_load() {
     for ((i = idx + 1; i < ${#files[@]}; i++)); do
       art_ensure_priority_async "${files[$i]}"
     done
+    queue_save "${files[@]}"
   else
     mpv_load_file "$path" replace
     art_ensure_now "$path"
+    queue_save "$path"
   fi
   mpv_ipc '{"command":["set_property","pause",false]}' >/dev/null
   player_save_state "$path" "$(genre_from_path "$path")" "" "0"
@@ -322,7 +324,8 @@ cmd_player_queue_play() {
   local start="$1"
   shift
   local -a paths=()
-  local path idx=-1 i
+  local -a queue_paths=()
+  local path idx=-1 i j
   if [[ $# -gt 0 ]]; then
     paths=("$@")
   else
@@ -335,10 +338,20 @@ cmd_player_queue_play() {
     fi
   done
   [[ "$idx" -ge 0 ]] || { echo "evo-player: start path not in queue: $start" >&2; return 1; }
+  queue_paths=("${paths[@]}")
+  paths=()
+  for ((j = idx; j < ${#queue_paths[@]}; j++)); do
+    paths+=("${queue_paths[$j]}")
+  done
+  for ((j = 0; j < idx; j++)); do
+    paths+=("${queue_paths[$j]}")
+  done
+  start="${paths[0]}"
   cmd_player_start
   mpv_ipc '{"command":["playlist-clear"]}' >/dev/null || true
-  for path in "${paths[@]}"; do
-    if [[ "$path" == "${paths[0]}" ]]; then
+  for i in "${!paths[@]}"; do
+    path="${paths[$i]}"
+    if [[ "$i" -eq 0 ]]; then
       mpv_load_file "$path" replace
     else
       mpv_load_file "$path" append
@@ -352,10 +365,10 @@ cmd_player_queue_play() {
     sleep 0.02
     tries=$((tries + 1))
   done
-  mpv_ipc "{\"command\":[\"playlist-play-index\",${idx}]}" >/dev/null
   mpv_ipc '{"command":["set_property","pause",false]}' >/dev/null
   art_ensure_now "$start"
   art_prioritize_paths "$start"
+  queue_save "${queue_paths[@]}"
   player_save_state "$start" "$(genre_from_path "$start")" "" "0"
 }
 
@@ -407,12 +420,69 @@ cmd_player_toggle() {
 
 cmd_player_next() {
   cmd_player_start
-  mpv_ipc '{"command":["playlist-next","weak"]}' >/dev/null
+  local count
+  count="$(mpv_prop playlist-count 2>/dev/null || echo 1)"
+  count="${count%.*}"
+  if [[ "$count" -gt 1 ]]; then
+    mpv_ipc '{"command":["playlist-next","weak"]}' >/dev/null
+    player_save_state
+    return 0
+  fi
+  player_queue_advance 1
+  player_save_state
 }
 
 cmd_player_prev() {
   cmd_player_start
-  mpv_ipc '{"command":["playlist-prev","weak"]}' >/dev/null
+  local count
+  count="$(mpv_prop playlist-count 2>/dev/null || echo 1)"
+  count="${count%.*}"
+  if [[ "$count" -gt 1 ]]; then
+    mpv_ipc '{"command":["playlist-prev","weak"]}' >/dev/null
+    player_save_state
+    return 0
+  fi
+  player_queue_advance -1
+  player_save_state
+}
+
+queue_save() {
+  ensure_dirs
+  local -a paths=("$@")
+  : >"$CURRENT_QUEUE"
+  local p
+  for p in "${paths[@]}"; do
+    [[ -f "$p" ]] || continue
+    printf '%s\n' "$p" >>"$CURRENT_QUEUE"
+  done
+}
+
+player_queue_advance() {
+  local delta="$1"
+  [[ "$delta" == "1" || "$delta" == "-1" ]] || return 1
+  local -a paths=()
+  local line cur idx=-1 i next
+  [[ -f "$CURRENT_QUEUE" ]] || return 1
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line="${line//$'\r'/}"
+    [[ -f "$line" ]] && paths+=("$line")
+  done <"$CURRENT_QUEUE"
+  ((${#paths[@]})) || return 1
+  cur="$(mpv_prop path 2>/dev/null || true)"
+  for i in "${!paths[@]}"; do
+    if [[ "${paths[$i]}" == "$cur" ]]; then
+      idx=$i
+      break
+    fi
+  done
+  if [[ "$idx" -lt 0 ]]; then
+    idx=0
+  fi
+  next=$((idx + delta))
+  if [[ "$next" -lt 0 || "$next" -ge ${#paths[@]} ]]; then
+    return 0
+  fi
+  cmd_player_queue_play "${paths[$next]}" "${paths[@]}"
 }
 
 cmd_player_seek() {

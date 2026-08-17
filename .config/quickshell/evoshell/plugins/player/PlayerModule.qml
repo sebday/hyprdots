@@ -906,32 +906,12 @@ Item {
                     root.notify("no tracks in folder", 2500)
                     return
                 }
-                if (root.currentPlaylistActive) {
-                    var seen = {}
-                    for (var j = 0; j < root.currentPlaylistTracks.length; j++)
-                        seen[root.currentPlaylistTracks[j].path] = true
-                    var toAppend = []
-                    for (var k = 0; k < folderTracks.length; k++) {
-                        if (!seen[folderTracks[k].path])
-                            toAppend.push(folderTracks[k])
-                    }
-                    if (!toAppend.length) {
-                        root.notify("folder already in queue", 2500)
-                        return
-                    }
-                    root.currentPlaylistTracks = root.currentPlaylistTracks.concat(toAppend)
-                    root.selectedPlaylist = root.currentPlaylistId
-                    root.commitCurrentPlaylist()
-                    var args = ["queue", "append"]
-                    for (var m = 0; m < toAppend.length; m++)
-                        args.push(toAppend[m].path)
-                    root.runMusic(args, function() { root.refreshStatus() }, cmdProc)
-                } else {
-                    root.setCurrentPlaylistFromTracks(folderPath, folderTracks)
-                    root.selectedPlaylist = root.currentPlaylistId
-                    root.commitCurrentPlaylist()
-                    root.playPath(folderTracks[0].path, true)
-                }
+                root.setCurrentPlaylistFromTracks(folderPath, folderTracks)
+                root.selectedPlaylist = root.currentPlaylistId
+                root.selectedTrackIndex = 0
+                var paths = root.pathsFromTracks(folderTracks)
+                root.playQueueAt(paths[0], paths)
+                root.commitCurrentPlaylist()
             } catch (e) {
                 root.notify("could not load folder", 2500)
             }
@@ -1418,12 +1398,18 @@ Item {
     }
 
     function jumpCurrentAt(index) {
-        if (index < 0 || index >= currentPlaylistTracks.length)
+        if (index < 0)
             return
-        var startPath = currentPlaylistTracks[index].path
+        var startPath = ""
+        if (index < tracks.length && tracks[index] && tracks[index].path)
+            startPath = tracks[index].path
+        else if (index < currentPlaylistTracks.length && currentPlaylistTracks[index])
+            startPath = currentPlaylistTracks[index].path
         if (!startPath)
             return
         var paths = pathsFromTracks(currentPlaylistTracks)
+        if (paths.indexOf(startPath) < 0)
+            return
         playQueueAt(startPath, paths)
         selectedTrackIndex = index
     }
@@ -1499,6 +1485,15 @@ Item {
         favoriteProc.running = true
     }
 
+    function restoreListViewport(listView, contentY) {
+        if (!listView || contentY < 0)
+            return
+        Qt.callLater(function() {
+            if (listView)
+                listView.contentY = contentY
+        })
+    }
+
     function toggleTrackFavorite(path) {
         var trackPath = String(path || "")
         if (!trackPath)
@@ -1515,7 +1510,6 @@ Item {
                     else
                         nextTracks.push(entry)
                 }
-                tracks = nextTracks
                 for (i = 0; i < browseEntries.length; i++) {
                     entry = browseEntries[i]
                     if (entry.type === "track" && entry.path === trackPath)
@@ -1523,7 +1517,12 @@ Item {
                     else
                         nextBrowse.push(entry)
                 }
+                var playlistY = playlistTrackList ? playlistTrackList.contentY : -1
+                var browseY = browseList ? browseList.contentY : -1
+                tracks = nextTracks
                 browseEntries = nextBrowse
+                restoreListViewport(playlistTrackList, playlistY)
+                restoreListViewport(browseList, browseY)
                 if (player.path === trackPath) {
                     var p = Object.assign({}, player)
                     p.liked = liked
@@ -1553,6 +1552,31 @@ Item {
         }
         applyFavorite(JSON.stringify({ liked: optimisticLiked }))
         runFavoriteQuery(["favorite", "toggle", trackPath, "--json"], applyFavorite)
+    }
+
+    function skipTrack(forward) {
+        if (currentPlaylistTracks.length > 1) {
+            var path = String(player.path || "")
+            var idx = -1
+            var i
+            for (i = 0; i < currentPlaylistTracks.length; i++) {
+                if (currentPlaylistTracks[i].path === path) {
+                    idx = i
+                    break
+                }
+            }
+            if (idx < 0 && selectedTrackIndex >= 0 && selectedTrackIndex < currentPlaylistTracks.length)
+                idx = selectedTrackIndex
+            if (idx >= 0) {
+                var nextIdx = forward ? idx + 1 : idx - 1
+                if (nextIdx >= 0 && nextIdx < currentPlaylistTracks.length
+                        && selectedPlaylist === currentPlaylistId) {
+                    jumpCurrentAt(nextIdx)
+                    return
+                }
+            }
+        }
+        runPlayer([forward ? "next" : "prev"], function() { root.refreshStatus() }, transportProc)
     }
 
     function toggleBrowseFavorite(path) {
@@ -1741,6 +1765,17 @@ Item {
             onStreamFinished: {
                 if (queuePlayProc._onDone)
                     queuePlayProc._onDone(text)
+            }
+        }
+    }
+
+    Process {
+        id: transportProc
+        property var _onDone: null
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (transportProc._onDone)
+                    transportProc._onDone(text)
             }
         }
     }
@@ -2385,7 +2420,7 @@ Item {
                 spacing: pad
 
                 SectionPanel {
-                    label: "Filesystem"
+                    label: ""
                     labelFontSize: root.sectionLabelFont
                     Layout.fillWidth: true
                     Layout.fillHeight: true
@@ -2683,7 +2718,7 @@ Item {
                 spacing: pad
 
                 SectionPanel {
-                    label: "Playlists"
+                    label: ""
                     labelFontSize: root.sectionLabelFont
                     Layout.fillWidth: true
                     Layout.fillHeight: true
@@ -2813,7 +2848,7 @@ Item {
                 spacing: pad
 
                 SectionPanel {
-                    label: root.selectedPlaylist !== "" ? root.playlistTabLabel(root.selectedPlaylist) : "Playlist"
+                    label: ""
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     fillHeight: true
@@ -3006,7 +3041,7 @@ Item {
 
                 TransportBtn {
                     icon: "󰒮"
-                    onActivated: root.runPlayer(["prev"], root.refreshStatus, cmdProc)
+                    onActivated: root.skipTrack(false)
                 }
                 TransportBtn {
                     icon: root.playerPlaying ? "󰏤" : "󰐊"
@@ -3015,13 +3050,13 @@ Item {
                 }
                 TransportBtn {
                     icon: "󰒭"
-                    onActivated: root.runPlayer(["next"], root.refreshStatus, cmdProc)
+                    onActivated: root.skipTrack(true)
                 }
                 TransportBtn {
                     icon: "󰒟"
                     smallGlyph: true
                     dimmed: !root.player.shuffle
-                    onActivated: root.runPlayer(["shuffle", "toggle"], root.refreshStatus, cmdProc)
+                    onActivated: root.runPlayer(["shuffle", "toggle"], root.refreshStatus, transportProc)
                 }
 
                 TransportBtn {
@@ -3722,12 +3757,8 @@ Item {
         border.width: 1
         clip: true
 
-        readonly property int gridColumns: 2
         readonly property int gridSpacing: 4
         readonly property int gridPad: 6
-        readonly property int cellSize: Math.max(
-            52,
-            Math.floor((width - gridPad * 2 - gridSpacing * (gridColumns - 1)) / gridColumns))
 
         ColumnLayout {
             anchors.fill: parent
@@ -3769,7 +3800,7 @@ Item {
                     text: "󰇘"
                     color: Theme.accent
                     font.family: Theme.fontFamily
-                    font.pixelSize: Math.round(artPickerRoot.cellSize * 0.45)
+                    font.pixelSize: Math.round(artPickerRoot.width * 0.12)
                     opacity: 0.9
                     transformOrigin: Item.Center
 
@@ -3800,16 +3831,14 @@ Item {
                 Layout.fillHeight: true
                 clip: true
                 contentWidth: width
-                contentHeight: artPickerGrid.implicitHeight
+                contentHeight: artPickerColumn.implicitHeight
                 boundsBehavior: Flickable.StopAtBounds
                 visible: !root.artPickerLoading && root.artPickerResults.length > 0
 
-                GridLayout {
-                    id: artPickerGrid
+                Column {
+                    id: artPickerColumn
                     width: parent.width
-                    columns: artPickerRoot.gridColumns
-                    columnSpacing: artPickerRoot.gridSpacing
-                    rowSpacing: artPickerRoot.gridSpacing
+                    spacing: artPickerRoot.gridSpacing
 
                     Repeater {
                         model: root.artPickerResults
@@ -3817,8 +3846,8 @@ Item {
                         Rectangle {
                             required property var modelData
                             required property int index
-                            Layout.preferredWidth: artPickerRoot.cellSize
-                            Layout.preferredHeight: artPickerRoot.cellSize
+                            width: artPickerColumn.width
+                            height: width
                             radius: 3
                             clip: true
                             color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.06)
