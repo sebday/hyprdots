@@ -488,13 +488,18 @@ Item {
             }
         }
 
-        RowLayout {
+        Item {
             Layout.fillWidth: true
-            spacing: 16
+            implicitHeight: actionRow.implicitHeight
 
-            Item {
-                implicitWidth: pauseRow.implicitWidth
-                implicitHeight: pauseRow.implicitHeight
+            RowLayout {
+                id: actionRow
+                anchors.right: parent.right
+                spacing: 16
+
+                Item {
+                    implicitWidth: pauseRow.implicitWidth
+                    implicitHeight: pauseRow.implicitHeight
 
                 RowLayout {
                     id: pauseRow
@@ -558,6 +563,7 @@ Item {
                     cursorShape: Qt.PointingHandCursor
                     onClicked: Quickshell.execDetached(["insync", "show"])
                 }
+            }
             }
         }
 

@@ -554,9 +554,48 @@ Item {
             label: ""
             Layout.fillWidth: true
 
-            HoverPopupLabelPill {
-                text: "Transmission"
-                fontSize: Theme.fontSizeS
+            Item {
+                Layout.fillWidth: true
+                implicitHeight: transmissionHeader.implicitHeight
+
+                RowLayout {
+                    id: transmissionHeader
+                    anchors.fill: parent
+                    spacing: 8
+
+                    HoverPopupLabelPill {
+                        text: "Transmission"
+                        fontSize: Theme.fontSizeS
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    Item {
+                        Layout.preferredWidth: 22
+                        Layout.preferredHeight: 22
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: "󰐕"
+                            color: transmissionAddBtn.containsMouse ? Theme.accent : Theme.foreground
+                            opacity: transmissionAddBtn.containsMouse ? 1 : 0.72
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.hintFont
+                            font.bold: Theme.fontBold
+                        }
+
+                        MouseArea {
+                            id: transmissionAddBtn
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                if (root.shell)
+                                    root.shell.toggle("evo.transmission.add", "")
+                            }
+                        }
+                    }
+                }
             }
 
             TransmissionPanel {

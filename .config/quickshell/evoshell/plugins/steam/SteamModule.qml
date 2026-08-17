@@ -470,11 +470,12 @@ Item {
         }
 
         Item {
-            implicitWidth: openSteamRow.implicitWidth
+            Layout.fillWidth: true
             implicitHeight: openSteamRow.implicitHeight
 
             RowLayout {
                 id: openSteamRow
+                anchors.right: parent.right
                 spacing: 6
 
                 Text {

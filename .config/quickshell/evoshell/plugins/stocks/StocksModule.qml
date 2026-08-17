@@ -21,7 +21,7 @@ Item {
     readonly property int labelFont: Theme.fontSizeL
     readonly property int statFont: Theme.fontSizeXl
     readonly property int heroFont: Theme.fontSizeHero
-    readonly property int headerIconSize: Math.round(root.heroFont * 1.25)
+    readonly property int headerIconSize: root.heroFont
     readonly property int headerBlockHeight: root.headerIconSize
     readonly property int chartBlockHeight: 96
     readonly property int statRowHeight: Theme.fontSizeL
@@ -224,30 +224,37 @@ Item {
             anchors.right: parent.right
             spacing: 14
 
-            Item {
-                Layout.preferredWidth: root.headerIconSize
-                Layout.preferredHeight: root.headerIconSize
-                Layout.alignment: Qt.AlignVCenter
+            RowLayout {
+                spacing: 12
+                Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
+
+                Item {
+                    Layout.preferredWidth: root.headerIconSize
+                    Layout.preferredHeight: root.headerIconSize
+                    Layout.alignment: Qt.AlignVCenter
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: root.marketSymbolIcon(market.name)
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Math.round(root.headerIconSize * 0.78)
+                        font.bold: Theme.fontBold
+                        opacity: 0.9
+                    }
+                }
 
                 Text {
-                    anchors.centerIn: parent
-                    text: root.marketSymbolIcon(market.name)
+                    Layout.alignment: Qt.AlignVCenter
+                    text: marketHeader.priceText
                     color: Theme.foreground
                     font.family: Theme.fontFamily
-                    font.pixelSize: Math.round(root.headerIconSize * 0.78)
+                    font.pixelSize: root.heroFont
                     font.bold: Theme.fontBold
-                    opacity: 0.9
+                    horizontalAlignment: Text.AlignLeft
+                    lineHeight: root.heroFont
+                    lineHeightMode: Text.FixedHeight
                 }
-            }
-
-            Text {
-                Layout.alignment: Qt.AlignVCenter
-                Layout.rightMargin: 5
-                text: marketHeader.priceText
-                color: Theme.foreground
-                font.family: Theme.fontFamily
-                font.pixelSize: root.heroFont
-                font.bold: Theme.fontBold
             }
 
             RowLayout {

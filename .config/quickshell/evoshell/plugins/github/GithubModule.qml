@@ -395,11 +395,6 @@ Item {
             label: ""
             visible: !root.loading && !root.isError
 
-            HoverPopupLabelPill {
-                text: "Last 30 days"
-                fontSize: Theme.fontSizeS
-            }
-
             Item {
                 Layout.fillWidth: true
                 implicitHeight: heatmapRow.height

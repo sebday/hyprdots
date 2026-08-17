@@ -30,6 +30,7 @@ Item {
     readonly property int headerIconSize: Theme.fontSize2xl
         + Theme.hoverPopupSectionSpacing
         + Theme.fontSizeL
+    readonly property int actionIconFont: Theme.fontSizeL
 
     readonly property string storeIconUrl: {
         if (demoMode) {
@@ -191,6 +192,12 @@ Item {
         if (isNaN(revenue) || isNaN(orders) || orders <= 0)
             return "—"
         return Format.formatRevenue(revenue / orders, currency)
+    }
+
+    function openAdminUrl() {
+        if (!adminUrl)
+            return
+        Quickshell.execDetached(["bash", "-lc", "xdg-open " + Util.shellQuote(adminUrl)])
     }
 
     function applyPayload(json) {
@@ -433,6 +440,42 @@ Item {
                         }
                     }
                 }
+            }
+        }
+
+        Item {
+            Layout.fillWidth: true
+            visible: root.adminUrl !== ""
+            implicitHeight: adminLinkRow.implicitHeight
+
+            RowLayout {
+                id: adminLinkRow
+                anchors.right: parent.right
+                spacing: 6
+
+                Text {
+                    text: "󰍉"
+                    color: adminLinkBtn.containsMouse ? Theme.accent : Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.actionIconFont
+                    font.bold: Theme.fontBold
+                }
+
+                Text {
+                    text: "Admin"
+                    color: adminLinkBtn.containsMouse ? Theme.accent : Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.hintFont
+                    font.bold: Theme.fontBold
+                }
+            }
+
+            MouseArea {
+                id: adminLinkBtn
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.openAdminUrl()
             }
         }
     }

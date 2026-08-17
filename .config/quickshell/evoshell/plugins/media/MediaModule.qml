@@ -599,26 +599,49 @@ Item {
                 Item {
                     Layout.fillWidth: true
                     Layout.preferredHeight: root.tvLibraryLinkHeight
+                    visible: !root.mediaLoading && root.mediaPreviewItems.length > 0
+
+                    RowLayout {
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: 6
 
                         Text {
-                            anchors.right: parent.right
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: parent.width
-                            visible: !root.mediaLoading && root.mediaPreviewItems.length > 0
-                            text: "Open media library 󰁔"
+                            text: "󰖺"
                             color: Theme.accent
+                            opacity: openLink.containsMouse ? 1 : 0.85
                             font.family: Theme.fontFamily
                             font.pixelSize: root.hintFont
                             font.bold: Theme.fontBold
-                            horizontalAlignment: Text.AlignRight
+                        }
 
-                            MouseArea {
-                                anchors.fill: parent
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: root.openMediaLibrary()
-                            }
+                        Text {
+                            text: "Open"
+                            color: Theme.accent
+                            opacity: openLink.containsMouse ? 1 : 0.85
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.hintFont
+                            font.bold: Theme.fontBold
+                        }
+
+                        Text {
+                            text: "󰁔"
+                            color: Theme.accent
+                            opacity: openLink.containsMouse ? 1 : 0.85
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.hintFont
+                            font.bold: Theme.fontBold
                         }
                     }
+
+                    MouseArea {
+                        id: openLink
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.openMediaLibrary()
+                    }
+                }
                 }
         }
     }
