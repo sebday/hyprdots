@@ -1,0 +1,207 @@
+#!/usr/bin/env bash
+# Insync status for evoshell hover popup (evo.insync).
+
+set -euo pipefail
+
+INSYNC_BIN="${INSYNC_BIN:-insync}"
+
+insync_available() {
+    command -v "$INSYNC_BIN" >/dev/null 2>&1
+}
+
+parse_bytes() {
+    local raw="${1:-0}"
+    raw="$(tr '[:upper:]' '[:lower:]' <<<"$raw")"
+    if [[ "$raw" =~ ^([0-9]+(\.[0-9]+)?)[[:space:]]*(b|kb|mb|gb)$ ]]; then
+        local n="${BASH_REMATCH[1]}"
+        local unit="${BASH_REMATCH[3]}"
+        awk -v n="$n" -v u="$unit" 'BEGIN {
+            if (u == "b") printf "%.0f", n
+            else if (u == "kb") printf "%.0f", n * 1024
+            else if (u == "mb") printf "%.0f", n * 1048576
+            else if (u == "gb") printf "%.0f", n * 1073741824
+            else printf "%.0f", n
+        }'
+        return
+    fi
+    printf '%s' "${raw//[^0-9.]}"
+}
+
+cmd_popup() {
+    if ! insync_available; then
+        local cache_path="${XDG_STATE_HOME:-${HOME}/.local/state}/evoshell/insync-accounts.json"
+        mkdir -p "$(dirname "$cache_path")"
+        jq -n '{ok:false,error:"insync not found",status:"",paused:false,accounts:[],files:[],errors:[]}' | tee "$cache_path"
+        return
+    fi
+
+    local status_text errors_text
+    status_text="$("$INSYNC_BIN" status 2>&1 || true)"
+    errors_text="$("$INSYNC_BIN" error list 2>&1 || true)"
+
+    STATUS_TEXT="$status_text" ERRORS_TEXT="$errors_text" python3 - <<'PY'
+import json
+import os
+import re
+
+status_text = os.environ.get("STATUS_TEXT", "")
+errors_text = os.environ.get("ERRORS_TEXT", "")
+
+accounts = []
+files = []
+errors = []
+sync_status = ""
+paused = False
+ok = True
+error = ""
+
+section = None
+for line in status_text.splitlines():
+    line = line.rstrip()
+    if line == "Accounts:":
+        section = "accounts"
+        continue
+    if line.startswith("Sync status:"):
+        sync_status = line.split(":", 1)[1].strip()
+        section = None
+        continue
+    if line == "Syncing files:":
+        section = "files"
+        continue
+    if not line.strip():
+        section = None
+        continue
+
+    if section == "accounts":
+        m = re.match(r"^(.+?)\s+\((.+)\)\s*$", line.strip())
+        if m:
+            accounts.append({"email": m.group(1).strip(), "provider": m.group(2).strip()})
+    elif section == "files":
+        m = re.match(
+            r"^(.+?)\s+-\s+(\w+)\s+(.+)$",
+            line.strip(),
+        )
+        if not m:
+            continue
+        path = m.group(1).strip()
+        action = m.group(2).strip().lower()
+        detail = m.group(3).strip()
+        done = 0
+        total = 0
+        percent = 0.0
+        pm = re.search(
+            r"([0-9]+(?:\.[0-9]+)?)\s*(bytes|kb|mb|gb)\s+of\s+([0-9]+(?:\.[0-9]+)?)\s*(bytes|kb|mb|gb)\s+\(([0-9.]+)%\)",
+            detail,
+            re.I,
+        )
+        if pm:
+            def to_bytes(n, unit):
+                n = float(n)
+                unit = unit.lower()
+                if unit == "bytes":
+                    return int(n)
+                if unit == "kb":
+                    return int(n * 1024)
+                if unit == "mb":
+                    return int(n * 1048576)
+                if unit == "gb":
+                    return int(n * 1073741824)
+                return int(n)
+
+            done = to_bytes(pm.group(1), pm.group(2))
+            total = to_bytes(pm.group(3), pm.group(4))
+            percent = float(pm.group(5))
+        files.append({
+            "path": path,
+            "action": action,
+            "done": done,
+            "total": total,
+            "percent": percent,
+            "detail": detail,
+        })
+
+status_upper = sync_status.upper()
+if "PAUSED" in status_upper:
+    paused = True
+if "ERROR" in status_upper:
+    ok = False
+
+err_clean = errors_text.strip()
+if err_clean and err_clean.lower() != "no errors or actions required.":
+    for line in err_clean.splitlines():
+        line = line.strip()
+        if line:
+            errors.append(line)
+
+if "not running" in status_text.lower() or "cannot connect" in status_text.lower():
+    ok = False
+    error = status_text.splitlines()[0].strip()
+
+payload = {
+    "ok": ok,
+    "error": error,
+    "status": sync_status,
+    "paused": paused,
+    "accounts": accounts,
+    "files": files,
+    "errors": errors,
+}
+
+state_dir = os.environ.get(
+    "XDG_STATE_HOME",
+    os.path.join(os.path.expanduser("~"), ".local", "state", "evoshell"),
+)
+cache_path = os.path.join(state_dir, "insync-accounts.json")
+account_cache = {
+    "ok": payload["ok"],
+    "error": payload["error"],
+    "status": payload["status"],
+    "paused": payload["paused"],
+    "accounts": payload["accounts"],
+    "errors": payload["errors"],
+}
+try:
+    os.makedirs(state_dir, exist_ok=True)
+    with open(cache_path, "w", encoding="utf-8") as fh:
+        json.dump(account_cache, fh)
+except OSError:
+    pass
+
+print(json.dumps(payload))
+PY
+}
+
+cmd_account_cache() {
+    local path="${XDG_STATE_HOME:-${HOME}/.local/state}/evoshell/insync-accounts.json"
+    [[ -f "$path" ]] || return 1
+    cat "$path"
+}
+
+cmd_pause() {
+    insync_available || return 1
+    "$INSYNC_BIN" pause
+}
+
+cmd_resume() {
+    insync_available || return 1
+    "$INSYNC_BIN" resume
+}
+
+case "${1:-}" in
+popup)
+    cmd_popup
+    ;;
+account-cache)
+    cmd_account_cache
+    ;;
+pause)
+    cmd_pause
+    ;;
+resume)
+    cmd_resume
+    ;;
+*)
+    echo "usage: $0 popup|account-cache|pause|resume" >&2
+    exit 1
+    ;;
+esac

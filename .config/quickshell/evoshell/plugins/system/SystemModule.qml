@@ -43,14 +43,14 @@ Item {
     function bootstrapFromCache() {
         if (!cacheKey || !shell)
             return
-        var cached = shell.hoverPopupDataFor(cacheKey)
+        var cached = Util.hoverPopupCacheRead(shell, cacheKey)
         if (cached)
             applyPayload(cached)
     }
 
     function publishCache(json) {
         if (cacheKey && shell && json && typeof json === "object")
-            shell.setHoverPopupData(cacheKey, json)
+            Util.hoverPopupCacheWrite(shell, cacheKey, json)
     }
 
     function syncFromBar() {
@@ -62,8 +62,13 @@ Item {
         }
         if (item && item.lastPayload)
             applyPayload(item.lastPayload)
-        else
-            applyPayload(null)
+        else {
+            var cached = Util.hoverPopupCacheRead(shell, cacheKey)
+            if (cached)
+                applyPayload(cached)
+            else
+                applyPayload(null)
+        }
     }
 
     function applyPayload(json) {

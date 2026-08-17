@@ -2,6 +2,7 @@ pragma Singleton
 
 import Quickshell
 import QtQuick
+import "."
 
 Singleton {
     function fileUrl(path) {
@@ -18,6 +19,18 @@ Singleton {
 
     function isPlainObject(value) {
         return value !== null && typeof value === "object" && !Array.isArray(value)
+    }
+
+    function hoverPopupCacheRead(shell, cacheKey) {
+        if (!shell || !cacheKey)
+            return null
+        return shell.hoverPopupDataFor(String(cacheKey))
+    }
+
+    function hoverPopupCacheWrite(shell, cacheKey, json) {
+        if (!shell || !cacheKey || !isPlainObject(json))
+            return
+        shell.setHoverPopupData(String(cacheKey), json)
     }
 
     function screenForOutput(outputName, fallbackOutput) {
@@ -41,5 +54,105 @@ Singleton {
         if (shell && shell.barConfig && shell.barConfig.output)
             return String(shell.barConfig.output).trim()
         return String(fallbackOutput || "").trim()
+    }
+
+    function steamThemedIconName(name) {
+        var value = String(name || "")
+        if (value === "steam_icon_220" || value === "half-life2")
+            return "half-life2"
+        if (value === "steam_icon_2536520" || value === "diablo-2")
+            return "diablo-2"
+        return ""
+    }
+
+    function iconPathInHicolor(iconName, size) {
+        var home = Quickshell.env("HOME") || ""
+        var name = String(iconName || "").trim()
+        if (!home || !name)
+            return ""
+        var dim = parseInt(size, 10) || 64
+        return home + "/.local/share/icons/hicolor/" + dim + "x" + dim + "/apps/" + name + ".png"
+    }
+
+    function hicolorIconSource(iconName) {
+        var name = String(iconName || "").trim()
+        if (!name)
+            return ""
+        var sizes = [256, 128, 64, 96, 48]
+        for (var i = 0; i < sizes.length; i++) {
+            var hicolor = iconPathInHicolor(name, sizes[i])
+            if (hicolor)
+                return fileUrl(hicolor)
+        }
+        return ""
+    }
+
+    function iconSourceForName(iconName) {
+        var name = String(iconName || "").trim()
+        if (!name)
+            return ""
+        if (name.indexOf("/") !== -1)
+            return name.indexOf("file://") === 0 ? name : fileUrl(name)
+
+        if (name.indexOf("steam_icon_") === 0) {
+            var steamIcon = hicolorIconSource(name)
+            if (steamIcon)
+                return steamIcon
+        }
+
+        var themed = steamThemedIconName(name)
+        if (themed) {
+            var home = Quickshell.env("HOME") || ""
+            var theme = Theme.iconThemeName
+            if (home && theme)
+                return fileUrl(home + "/.local/share/icons/" + theme + "/apps/64/" + themed + ".svg")
+            var themedPath = Quickshell.iconPath(themed, true)
+            if (themedPath)
+                return fileUrl(themedPath)
+        }
+
+        var path = Quickshell.iconPath(name, true)
+        if (path)
+            return fileUrl(path)
+
+        return hicolorIconSource(name)
+    }
+
+    function buildSteamDesktopIconMap() {
+        var map = {}
+        try {
+            var values = DesktopEntries.applications.values || []
+            for (var i = 0; i < values.length; i++) {
+                var entry = values[i]
+                if (!entry)
+                    continue
+                var exec = String(entry.exec || "")
+                var idx = exec.indexOf("rungameid/")
+                if (idx < 0)
+                    continue
+                var appid = exec.slice(idx + 10).replace(/[^0-9].*/, "")
+                if (!appid)
+                    continue
+                var icon = String(entry.icon || "").trim()
+                if (icon)
+                    map[appid] = icon
+            }
+        } catch (e) {
+            console.warn("steam desktop icon map failed:", e)
+        }
+        return map
+    }
+
+    function steamGameIconSource(appid, iconName, fallbackPath) {
+        var id = String(appid || "").trim()
+        var name = String(iconName || "").trim()
+        if (!name && id)
+            name = "steam_icon_" + id
+        var src = iconSourceForName(name)
+        if (src)
+            return src
+        if (fallbackPath)
+            return fileUrl(fallbackPath)
+        return ""
     }
 }

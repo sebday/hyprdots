@@ -17,7 +17,6 @@ Item {
     property var dynamicEntries: []
     property var visibleEntries: []
     property var cachedApps: []
-    property var iconPathCache: ({})
     property int iconWarmIndex: 0
     property bool dynamicLoading: false
     property int selectedIndex: 0
@@ -308,42 +307,13 @@ Item {
         commandEntries = []
     }
 
-    function steamThemedIconName(name) {
-        if (name === "steam_icon_220" || name === "half-life2") return "half-life2"
-        if (name === "steam_icon_2536520" || name === "diablo-2") return "diablo-2"
-        return ""
-    }
-
-    function cachedIconPath(name) {
-        var key = String(name || "") + "|" + String(Theme.iconThemeName || "")
-        if (iconPathCache[key] !== undefined)
-            return iconPathCache[key]
-        var path = Quickshell.iconPath(name, true) || ""
-        iconPathCache[key] = path
-        return path
-    }
-
     function entryIconSource(entry) {
         if (!entry) return ""
         if (entry.iconSource)
             return entry.iconSource
         if (entry.kind !== "app" || !entry.entryRef || !entry.entryRef.icon)
             return ""
-        var name = String(entry.entryRef.icon)
-        if (name.indexOf("/") !== -1)
-            return name.indexOf("file://") === 0 ? name : ("file://" + name)
-        var themed = steamThemedIconName(name)
-        var src = ""
-        if (themed) {
-            var home = Quickshell.env("HOME") || ""
-            var theme = Theme.iconThemeName
-            if (home && theme)
-                src = "file://" + home + "/.local/share/icons/" + theme + "/apps/64/" + themed + ".svg"
-            else
-                src = cachedIconPath(themed)
-        } else {
-            src = cachedIconPath(name)
-        }
+        var src = Util.iconSourceForName(String(entry.entryRef.icon))
         entry.iconSource = src
         return src
     }

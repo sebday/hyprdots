@@ -28,6 +28,8 @@ Item {
     readonly property int bodyFont: Theme.fontSize3xl
     readonly property int hintFont: Theme.fontSizeL
     readonly property int iconFont: Theme.fontSize4xl
+    readonly property int sliderBodyHeight: host ? host.minContentHeight : 180
+    readonly property color fillOverlayText: Theme.foreground
     readonly property bool systemMuted: audio ? audio.muted : false
     readonly property int systemPercent: audio ? audio.percent : 0
     readonly property real systemLevel: audio ? audio.level : 0
@@ -42,7 +44,7 @@ Item {
     })()
     readonly property bool outputActive: sinkReady && linkTracker.linkGroups.length > 0
 
-    implicitHeight: column.implicitHeight
+    implicitHeight: root.sliderOnly ? sliderPopup.implicitHeight : column.implicitHeight
     width: hoverPopupWidth
 
     function onActivated() {}
@@ -136,103 +138,82 @@ Item {
         onTriggered: root.applyPeak(peakMonitor.peak)
     }
 
-    ColumnLayout {
-        id: column
-        anchors.left: parent.left
-        anchors.right: parent.right
-        spacing: Theme.hoverPopupSectionSpacing
+    Item {
+        id: sliderPopup
+        visible: root.sliderOnly
+        width: root.hoverPopupWidth
+        implicitHeight: root.sliderBodyHeight
 
-        FramedPanel {
-            visible: root.sliderOnly
-            Layout.fillWidth: true
-            label: ""
-            contentPad: 12
+        Rectangle {
+            anchors.bottom: parent.bottom
+            width: parent.width
+            height: parent.height * root.sliderRatio
+            color: Theme.accent
+            opacity: root.systemMuted ? 0.35 : 0.95
+            radius: Theme.panelCornerRadius
+        }
 
-            Item {
-                width: parent.width
-                implicitHeight: sliderColumn.implicitHeight
+        MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
 
-                ColumnLayout {
-                    id: sliderColumn
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    spacing: 10
+            onPressed: function(mouse) {
+                root.setLevelFromVerticalRatio(mouse.y, height)
+            }
 
-                    Text {
-                        Layout.alignment: Qt.AlignHCenter
-                        text: root.systemMuted ? "Muted" : root.systemPercent + "%"
-                        color: Theme.accent
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.bodyFont
-                        font.bold: Theme.fontBold
-                    }
+            onPositionChanged: function(mouse) {
+                if (pressed)
+                    root.setLevelFromVerticalRatio(mouse.y, height)
+            }
 
-                    Item {
-                        Layout.alignment: Qt.AlignHCenter
-                        width: 14
-                        height: 120
+            onWheel: function(wheel) {
+                if (wheel.angleDelta.y > 0)
+                    root.stepVolume(1)
+                else if (wheel.angleDelta.y < 0)
+                    root.stepVolume(-1)
+                wheel.accepted = true
+            }
+        }
 
-                        Rectangle {
-                            anchors.fill: parent
-                            radius: 4
-                            color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.14)
-                        }
+        RowLayout {
+            z: 1
+            anchors.top: parent.top
+            anchors.topMargin: 10
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: 8
 
-                        Rectangle {
-                            anchors.bottom: parent.bottom
-                            width: parent.width
-                            height: parent.height * root.sliderRatio
-                            radius: 4
-                            color: Theme.accent
-                            opacity: root.systemMuted ? 0.35 : 0.95
-                        }
+            Text {
+                text: root.systemMuted ? "Muted" : root.systemPercent + "%"
+                color: root.fillOverlayText
+                font.family: Theme.fontFamily
+                font.pixelSize: root.bodyFont
+                font.bold: Theme.fontBold
+                style: Text.PlainText
+            }
 
-                        MouseArea {
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
+            Text {
+                text: SystemVolume.icon(root.systemPercent, root.systemMuted)
+                color: root.fillOverlayText
+                font.family: Theme.fontFamily
+                font.pixelSize: root.iconFont
+                opacity: root.systemMuted ? 0.55 : 1
 
-                            onPressed: function(mouse) {
-                                root.setLevelFromVerticalRatio(mouse.y, height)
-                            }
-
-                            onPositionChanged: function(mouse) {
-                                if (pressed)
-                                    root.setLevelFromVerticalRatio(mouse.y, height)
-                            }
-
-                            onWheel: function(wheel) {
-                                if (wheel.angleDelta.y > 0)
-                                    root.stepVolume(1)
-                                else if (wheel.angleDelta.y < 0)
-                                    root.stepVolume(-1)
-                                wheel.accepted = true
-                            }
-                        }
-                    }
-
-                    Item {
-                        Layout.alignment: Qt.AlignHCenter
-                        implicitWidth: root.iconFont
-                        implicitHeight: root.iconFont
-
-                        Text {
-                            anchors.centerIn: parent
-                            text: SystemVolume.icon(root.systemPercent, root.systemMuted)
-                            color: root.systemMuted ? Theme.foreground : Theme.accent
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.iconFont
-                            opacity: SystemVolume.iconOpacity(root.systemPercent, root.systemMuted)
-                        }
-
-                        MouseArea {
-                            anchors.fill: parent
-                            anchors.margins: -6
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: if (root.audio) root.audio.toggleMute()
-                        }
-                    }
+                MouseArea {
+                    anchors.fill: parent
+                    anchors.margins: -8
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: if (root.audio) root.audio.toggleMute()
                 }
             }
         }
+    }
+
+    ColumnLayout {
+        id: column
+        visible: !root.sliderOnly
+        anchors.left: parent.left
+        anchors.right: parent.right
+        spacing: Theme.hoverPopupSectionSpacing
 
         SectionPanel {
             label: "Volume"

@@ -62,7 +62,7 @@ Item {
             var json = JSON.parse(raw)
             lastPayload = json
             if (root.shell && root.hoverPopupId)
-                root.shell.setHoverPopupData(root.hoverPopupId, json)
+                Util.hoverPopupCacheWrite(root.shell, root.hoverPopupId, json)
             if (json.store)
                 storeLabel = String(json.store).trim()
             if (json.symbol)
@@ -74,6 +74,16 @@ Item {
             console.warn("shopify widget parse failed:", store, e)
             lastPayload = null
         }
+    }
+
+    function bootstrapFromCache() {
+        if (!shell || !hoverPopupId)
+            return false
+        var cached = Util.hoverPopupCacheRead(shell, hoverPopupId)
+        if (!cached)
+            return false
+        applyJson(JSON.stringify(cached))
+        return true
     }
 
     function poll() {
@@ -177,5 +187,9 @@ Item {
     }
 
     onSettingsChanged: restartPolling()
-    Component.onCompleted: restartPolling()
+    onShellChanged: bootstrapFromCache()
+    Component.onCompleted: {
+        bootstrapFromCache()
+        restartPolling()
+    }
 }

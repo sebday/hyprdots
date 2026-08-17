@@ -158,7 +158,7 @@ Item {
     function applyJsonPayload(json) {
         lastPayload = json
         if (commandRoot.shell && commandRoot.hoverPopupId)
-            commandRoot.shell.setHoverPopupData(commandRoot.hoverPopupId, json)
+            Util.hoverPopupCacheWrite(commandRoot.shell, commandRoot.hoverPopupId, json)
         var text = String(json.text || json.content || "")
         className = String(json.class || "")
         if (text.indexOf("<span") !== -1) {
@@ -175,7 +175,7 @@ Item {
     function bootstrapFromCache() {
         if (!shell || !hoverPopupId)
             return false
-        var cached = shell.hoverPopupDataFor(hoverPopupId)
+        var cached = Util.hoverPopupCacheRead(shell, hoverPopupId)
         if (!cached || typeof cached !== "object")
             return false
         applyJsonPayload(cached)

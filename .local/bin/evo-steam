@@ -1,0 +1,210 @@
+#!/usr/bin/env bash
+# Steam library/recent play status for evoshell hover popup (evo.steam).
+
+set -euo pipefail
+
+STEAM_DIR="${STEAM_DIR:-${HOME}/.local/share/Steam}"
+STEAM_BIN="${STEAM_BIN:-steam}"
+
+cmd_popup() {
+    STEAM_DIR="$STEAM_DIR" STEAM_BIN="$STEAM_BIN" python3 - <<'PY'
+import glob
+import json
+import os
+import re
+import subprocess
+import time
+
+steam_dir = os.environ.get("STEAM_DIR", "")
+steam_bin = os.environ.get("STEAM_BIN", "steam")
+
+
+def running_process(pattern):
+    try:
+        out = subprocess.check_output(["pgrep", "-af", pattern], text=True, stderr=subprocess.DEVNULL)
+        return bool(out.strip())
+    except subprocess.CalledProcessError:
+        return False
+
+
+def read_kv_file(path):
+    data = {}
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                m = re.match(r'\s*"([^"]+)"\s+"([^"]*)"\s*$', line)
+                if m:
+                    data[m.group(1)] = m.group(2)
+    except OSError:
+        return None
+    return data
+
+
+def int_field(data, key):
+    try:
+        return int(data.get(key, "0") or "0")
+    except (TypeError, ValueError):
+        return 0
+
+
+def find_localconfig():
+    pattern = os.path.join(steam_dir, "userdata", "*", "config", "localconfig.vdf")
+    paths = sorted(glob.glob(pattern))
+    if not paths:
+        return ""
+    best = paths[0]
+    best_mtime = 0
+    for path in paths:
+        try:
+            mtime = os.path.getmtime(path)
+        except OSError:
+            continue
+        if mtime >= best_mtime:
+            best = path
+            best_mtime = mtime
+    return best
+
+
+def parse_played_apps(localconfig_path):
+    apps = {}
+    current_app = None
+    in_apps = False
+    depth = 0
+    try:
+        with open(localconfig_path, "r", encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                if not in_apps:
+                    if re.search(r'"apps"\s*$', line):
+                        in_apps = True
+                    continue
+                depth += line.count("{")
+                depth -= line.count("}")
+                if depth <= 0:
+                    break
+                if depth == 1:
+                    m = re.match(r'\s*"(\d+)"\s*$', line)
+                    if m:
+                        current_app = m.group(1)
+                        apps.setdefault(current_app, {})
+                    continue
+                if depth >= 2 and current_app:
+                    m = re.match(r'\s*"LastPlayed"\s+"(\d+)"', line)
+                    if m:
+                        apps[current_app]["last_played"] = int(m.group(1))
+                    m = re.match(r'\s*"Playtime"\s+"(\d+)"', line)
+                    if m:
+                        apps[current_app]["playtime"] = int(m.group(1))
+    except OSError:
+        return {}
+    return apps
+
+
+def icon_path_for_app(appid):
+    icon_dir = os.path.join(steam_dir, "appcache", "librarycache", appid)
+    if not os.path.isdir(icon_dir):
+        return ""
+    for cand in ("logo.png", "header.jpg", "library_600x900.jpg"):
+        path = os.path.join(icon_dir, cand)
+        if os.path.isfile(path):
+            return path
+    try:
+        for fn in sorted(os.listdir(icon_dir)):
+            if fn.endswith(".jpg"):
+                return os.path.join(icon_dir, fn)
+    except OSError:
+        return ""
+    return ""
+
+
+steamapps = os.path.join(steam_dir, "steamapps")
+manifests = sorted(glob.glob(os.path.join(steamapps, "appmanifest_*.acf")))
+names = {}
+library_count = 0
+running_games = []
+FLAG_RUNNING = 0x20
+
+for path in manifests:
+    data = read_kv_file(path)
+    if not data or not data.get("appid"):
+        continue
+    library_count += 1
+    appid = data.get("appid", "")
+    names[appid] = data.get("name", f"App {appid}")
+    flags = int_field(data, "StateFlags")
+    if flags & FLAG_RUNNING:
+        running_games.append({"appid": appid, "name": names[appid]})
+
+localconfig = find_localconfig()
+played_apps = parse_played_apps(localconfig) if localconfig else {}
+played_games = []
+for appid, info in played_apps.items():
+    # skip hidden/private games — not in local manifests, name unknown
+    if appid not in names:
+        continue
+    last_played = int(info.get("last_played", 0) or 0)
+    if last_played <= 0:
+        continue
+    played_games.append({
+        "appid": appid,
+        "name": names[appid],
+        "last_played": last_played,
+        "playtime_min": int(info.get("playtime", 0) or 0),
+        "icon_path": icon_path_for_app(appid),
+    })
+
+played_games.sort(key=lambda x: -x.get("last_played", 0))
+
+log_path = os.path.join(steam_dir, "logs", "content_log.txt")
+download_bps = 0
+if os.path.isfile(log_path):
+    try:
+        with open(log_path, "r", encoding="utf-8", errors="replace") as fh:
+            tail = fh.readlines()[-400:]
+        for line in tail:
+            m = re.search(r"Current download rate:\s*([0-9.]+)\s*Mbps", line)
+            if m:
+                download_bps = int(float(m.group(1)) * 125000)
+    except OSError:
+        pass
+
+running = running_process(r"steam.*-srt-logger-opened|/Steam/ubuntu12_32/steam")
+ok = os.path.isdir(steam_dir)
+print(json.dumps({
+    "ok": ok,
+    "error": "" if ok else "Steam directory not found",
+    "running": running,
+    "download_bps": download_bps,
+    "library_count": library_count,
+    "played_games": played_games[:3],
+    "running_games": running_games,
+}))
+PY
+}
+
+cmd_launch() {
+    local appid="${1:-}"
+    [[ -n "$appid" ]] || { echo "usage: $0 launch <appid>" >&2; return 1; }
+    command -v "$STEAM_BIN" >/dev/null 2>&1 || return 1
+    "$STEAM_BIN" -applaunch "$appid" >/dev/null 2>&1 &
+}
+
+cmd_open() {
+    command -v "$STEAM_BIN" >/dev/null 2>&1 || return 1
+    "$STEAM_BIN" >/dev/null 2>&1 &
+}
+
+case "${1:-}" in
+popup)
+    cmd_popup
+    ;;
+launch)
+    cmd_launch "${2:-}"
+    ;;
+open|open-downloads)
+    cmd_open
+    ;;
+*)
+    echo "usage: $0 popup|launch <appid>|open" >&2
+    exit 1
+    ;;
+esac

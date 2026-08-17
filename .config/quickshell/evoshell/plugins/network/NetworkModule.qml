@@ -134,13 +134,13 @@ Item {
             return
         }
         if (shell)
-            applyThroughputCache(shell.hoverPopupDataFor(cacheKey))
+            applyThroughputCache(Util.hoverPopupCacheRead(shell, cacheKey))
     }
 
     function bootstrapFromCache() {
         if (!shell)
             return
-        var cached = shell.hoverPopupDataFor(cacheKey)
+        var cached = Util.hoverPopupCacheRead(shell, cacheKey)
         if (!cached || typeof cached !== "object")
             return
         if (cached.iface) {
@@ -163,7 +163,7 @@ Item {
             data.upHistory = bar.upHistory
             data.connected = bar.networkConnected
         } else {
-            var existing = shell.hoverPopupDataFor(cacheKey)
+            var existing = Util.hoverPopupCacheRead(shell, cacheKey)
             if (existing && typeof existing === "object") {
                 if (existing.downHistory)
                     data.downHistory = existing.downHistory
@@ -177,7 +177,7 @@ Item {
                     data.connected = existing.connected
             }
         }
-        shell.setHoverPopupData(cacheKey, data)
+        Util.hoverPopupCacheWrite(shell, cacheKey, data)
     }
 
     function onDeactivated() {

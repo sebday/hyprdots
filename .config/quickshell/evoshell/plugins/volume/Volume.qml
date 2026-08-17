@@ -5,7 +5,8 @@ import "."
 BarHoverPopup {
     layerNamespace: "bar-volume"
     contentWidth: 104
-    minContentHeight: 196
+    contentMargin: 0
+    minContentHeight: 180
 
     VolumeModule {
         sliderOnly: true

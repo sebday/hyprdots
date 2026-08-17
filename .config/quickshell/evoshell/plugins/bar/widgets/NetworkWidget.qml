@@ -94,7 +94,7 @@ Item {
     function publishCache() {
         if (!shell || !hoverPopupId)
             return
-        var existing = shell.hoverPopupDataFor(hoverPopupId)
+        var existing = Util.hoverPopupCacheRead(shell, hoverPopupId)
         var next = {}
         if (existing && typeof existing === "object") {
             for (var k in existing)
@@ -109,13 +109,13 @@ Item {
         next.connected = networkConnected
         if (lastTransmissionPayload)
             next.transmission = lastTransmissionPayload
-        shell.setHoverPopupData(hoverPopupId, next)
+        Util.hoverPopupCacheWrite(shell, hoverPopupId, next)
     }
 
     function bootstrapFromCache() {
         if (!shell || !hoverPopupId)
             return
-        applyThroughputCache(shell.hoverPopupDataFor(hoverPopupId))
+        applyThroughputCache(Util.hoverPopupCacheRead(shell, hoverPopupId))
     }
 
     function applyNetworkJson(line) {

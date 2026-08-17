@@ -87,14 +87,14 @@ Item {
     function publishCache(json) {
         if (!shell || !json)
             return
-        var existing = shell.hoverPopupDataFor(cacheKey)
+        var existing = Util.hoverPopupCacheRead(shell, cacheKey)
         var next = {}
         if (existing && typeof existing === "object") {
             for (var k in existing)
                 next[k] = existing[k]
         }
         next.transmission = json
-        shell.setHoverPopupData(cacheKey, next)
+        Util.hoverPopupCacheWrite(shell, cacheKey, next)
     }
 
     function syncFromBar() {
@@ -102,7 +102,7 @@ Item {
         if (item && item.lastTransmissionPayload)
             applyPayload(item.lastTransmissionPayload)
         else if (shell) {
-            var cached = shell.hoverPopupDataFor(cacheKey)
+            var cached = Util.hoverPopupCacheRead(shell, cacheKey)
             if (cached && cached.transmission)
                 applyPayload(cached.transmission)
         }

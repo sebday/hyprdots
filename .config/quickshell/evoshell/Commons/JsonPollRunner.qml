@@ -31,7 +31,7 @@ Item {
     function restoreFromCache() {
         if (!shell || !cacheKey)
             return false
-        var cached = shell.hoverPopupDataFor(cacheKey)
+        var cached = Util.hoverPopupCacheRead(shell, cacheKey)
         if (!cached || typeof cached !== "object" || Object.keys(cached).length === 0)
             return false
         value = cached
@@ -42,7 +42,7 @@ Item {
     function publishCache(json) {
         if (!shell || !cacheKey || !json || typeof json !== "object")
             return
-        shell.setHoverPopupData(cacheKey, json)
+        Util.hoverPopupCacheWrite(shell, cacheKey, json)
     }
 
     function runPoll() {

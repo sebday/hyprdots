@@ -61,13 +61,24 @@ Item {
     }
     readonly property bool shuffleOn: hasPlayer && player.shuffleSupported && player.shuffle
 
-    readonly property int tvLibraryRowHeight: 54
-    readonly property int tvLibraryReservedRows: 6
+    readonly property int artSize: 64
+    readonly property int posterWidth: Math.round(artSize * 36 / 54)
+
+    readonly property int posterCellWidth: {
+        if (hoverPopupWidth <= 0)
+            return 100
+        return Math.floor((hoverPopupWidth - tvLibraryTileSpacing) / tvLibraryGridCols)
+    }
+    readonly property int posterHeight: Math.round(posterCellWidth * 3 / 2)
+
+    readonly property int tvLibraryGridCols: 2
+    readonly property int tvLibraryVisibleRows: 2
+    readonly property int tvLibraryTileSpacing: Theme.hoverPopupSectionSpacing
     readonly property int tvLibraryLinkHeight: hintFont + 8
-    readonly property int tvLibraryListHeight: Math.max(0, Math.round(
-        (tvLibraryReservedRows * tvLibraryRowHeight
-            + Math.max(0, tvLibraryReservedRows - 1) * Theme.hoverPopupSectionSpacing) * 0.75
-    ) - 40)
+    readonly property int tvLibraryNameHeight: hintFont + 6
+    readonly property int tvLibraryTileHeight: posterHeight + tvLibraryNameHeight
+    readonly property int tvLibraryListHeight: tvLibraryVisibleRows * tvLibraryTileHeight
+        + (tvLibraryVisibleRows - 1) * tvLibraryTileSpacing
     readonly property int tvLibraryBodyHeight: tvLibraryListHeight
         + Theme.hoverPopupSectionSpacing + tvLibraryLinkHeight
 
@@ -202,8 +213,8 @@ Item {
                     spacing: 12
 
                     Item {
-                        Layout.preferredWidth: 64
-                        Layout.preferredHeight: 64
+                        Layout.preferredWidth: root.artSize
+                        Layout.preferredHeight: root.artSize
 
                         Rectangle {
                             anchors.fill: parent
@@ -515,13 +526,15 @@ Item {
                             visible: !root.mediaLoading && root.mediaPreviewItems.length > 0
                             clip: true
                             boundsBehavior: Flickable.StopAtBounds
-                            contentHeight: showColumn.implicitHeight
+                            contentHeight: showGrid.implicitHeight
                             contentWidth: width
 
-                            ColumnLayout {
-                                id: showColumn
+                            GridLayout {
+                                id: showGrid
                                 width: parent.width
-                                spacing: Theme.hoverPopupSectionSpacing
+                                columns: root.tvLibraryGridCols
+                                columnSpacing: root.tvLibraryTileSpacing
+                                rowSpacing: root.tvLibraryTileSpacing
 
                                 Repeater {
                                     model: root.mediaPreviewItems
@@ -529,16 +542,18 @@ Item {
                                     Item {
                                         required property var modelData
                                         Layout.fillWidth: true
-                                        Layout.preferredHeight: root.tvLibraryRowHeight
+                                        Layout.preferredWidth: (showGrid.width - showGrid.columnSpacing) / root.tvLibraryGridCols
+                                        implicitHeight: posterCol.implicitHeight
 
-                                        RowLayout {
-                                            id: mediaRow
-                                            anchors.fill: parent
-                                            spacing: 10
+                                        ColumnLayout {
+                                            id: posterCol
+                                            anchors.left: parent.left
+                                            anchors.right: parent.right
+                                            spacing: 4
 
                                             Item {
-                                                Layout.preferredWidth: 36
-                                                Layout.preferredHeight: root.tvLibraryRowHeight
+                                                Layout.fillWidth: true
+                                                Layout.preferredHeight: root.posterHeight
 
                                                 Rectangle {
                                                     anchors.fill: parent
@@ -551,7 +566,7 @@ Item {
                                                     id: showPosterImage
                                                     anchors.fill: parent
                                                     source: root.showPoster(modelData)
-                                                    fillMode: Image.PreserveAspectCrop
+                                                    fillMode: Image.PreserveAspectFit
                                                     smooth: true
                                                     asynchronous: true
                                                     visible: status === Image.Ready
@@ -578,6 +593,7 @@ Item {
                                                 font.pixelSize: root.hintFont
                                                 font.bold: Theme.fontBold
                                                 elide: Text.ElideRight
+                                                horizontalAlignment: Text.AlignHCenter
                                             }
                                         }
 

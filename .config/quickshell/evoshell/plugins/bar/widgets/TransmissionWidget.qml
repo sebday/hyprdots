@@ -66,7 +66,7 @@ Item {
             var json = JSON.parse(raw)
             lastPayload = json
             if (root.shell && root.hoverPopupId)
-                root.shell.setHoverPopupData(root.hoverPopupId, json)
+                Util.hoverPopupCacheWrite(root.shell, root.hoverPopupId, json)
 
             connected = json.connected === true
             isError = json.class === "error" || !connected
@@ -177,6 +177,29 @@ Item {
         onTriggered: root.poll()
     }
 
+    function bootstrapFromCache() {
+        if (!shell || !hoverPopupId)
+            return false
+        var cached = Util.hoverPopupCacheRead(shell, hoverPopupId)
+        if (!cached)
+            return false
+        try {
+            lastPayload = cached
+            connected = cached.connected === true
+            isError = cached.class === "error" || !connected
+            statusText = String(cached.tooltip || "")
+            labelText = String(cached.label || "0")
+            downloadRate = parseFloat(cached.download_bps || 0) || 0
+            uploadRate = parseFloat(cached.upload_bps || 0) || 0
+            activeCount = parseInt(cached.active, 10) || 0
+            downloadingCount = parseInt(cached.downloading, 10) || 0
+            loading = false
+            return true
+        } catch (e) {
+            return false
+        }
+    }
+
     function restartPolling() {
         intervalTimer.interval = Math.max(2, parseInt(settings.interval, 10) || 3) * 1000
         intervalTimer.stop()
@@ -193,9 +216,9 @@ Item {
     }
 
     onSettingsChanged: restartPolling()
-    onShellChanged: {
-        if (lastPayload && shell && hoverPopupId)
-            shell.setHoverPopupData(hoverPopupId, lastPayload)
+    onShellChanged: bootstrapFromCache()
+    Component.onCompleted: {
+        bootstrapFromCache()
+        restartPolling()
     }
-    Component.onCompleted: restartPolling()
 }

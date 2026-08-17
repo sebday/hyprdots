@@ -1,0 +1,508 @@
+import Quickshell
+import Quickshell.Io
+import QtQuick
+import QtQuick.Layouts
+import "../../Commons"
+
+Item {
+    id: root
+
+    property var host: null
+    property var shell: null
+    property int hoverPopupWidth: 0
+
+    readonly property string cacheKey: shell ? String(shell.hoverPopupId || "") : ""
+    readonly property bool active: host && host.opened === true
+    readonly property var barSource: host && host.shell ? host.shell.popupAnchorItem : null
+    readonly property string script: Quickshell.env("HOME") + "/.local/bin/evo-steam popup"
+    readonly property string steamBin: Quickshell.env("HOME") + "/.local/bin/evo-steam"
+    readonly property int hintFont: Theme.fontSizeL
+    readonly property int titleFont: Theme.fontSize2xl
+    readonly property int statFont: Theme.fontSizeXl
+    readonly property int actionIconFont: Theme.fontSizeL
+    readonly property int tileIconSize: 76
+    readonly property int tileIconSourceSize: 128
+    readonly property int tileHeight: tileIconSize + 20
+    readonly property int maxPlayedGames: 3
+    readonly property var displayedGames: root.playedGames.slice(0, root.maxPlayedGames)
+
+    property var steamDesktopIcons: ({})
+
+    function gameIconSource(game) {
+        if (!game)
+            return ""
+        var appid = String(game.appid || "")
+        var iconName = root.steamDesktopIcons[appid] || ""
+        return Util.steamGameIconSource(appid, iconName, game.icon_path)
+    }
+
+    function refreshSteamDesktopIcons() {
+        steamDesktopIcons = Util.buildSteamDesktopIconMap()
+    }
+
+    property bool loading: true
+    property bool ok: false
+    property string errorText: ""
+    property bool steamRunning: false
+    property real downloadRate: 0
+    property int libraryCount: 0
+    property var playedGames: []
+    property var runningGames: []
+
+    implicitHeight: column.implicitHeight
+
+    function formatRate(bytesPerSec) {
+        var n = Number(bytesPerSec) || 0
+        if (n < 1024) return Math.round(n) + " B/s"
+        if (n < 1048576) return (n / 1024).toFixed(1) + " KB/s"
+        if (n < 1048576 * 10) return (n / 1048576).toFixed(1) + " MB/s"
+        return (n / 1048576).toFixed(2) + " GB/s"
+    }
+
+    function formatPlaytime(minutes) {
+        var m = parseInt(minutes, 10) || 0
+        if (m < 60)
+            return m + " min"
+        var h = Math.floor(m / 60)
+        var rem = m % 60
+        return rem > 0 ? h + "h " + rem + "m" : h + "h"
+    }
+
+    function formatLastPlayed(ts) {
+        var n = parseInt(ts, 10) || 0
+        if (n <= 0)
+            return "—"
+        var now = Math.floor(Date.now() / 1000)
+        var diff = now - n
+        if (diff < 3600)
+            return Math.max(1, Math.floor(diff / 60)) + "m ago"
+        if (diff < 86400)
+            return Math.floor(diff / 3600) + "h ago"
+        if (diff < 86400 * 7)
+            return Math.floor(diff / 86400) + "d ago"
+        var d = new Date(n * 1000)
+        return d.getDate() + "/" + (d.getMonth() + 1)
+    }
+
+    readonly property string headerSecondary: {
+        if (loading)
+            return "Loading…"
+        if (errorText)
+            return errorText
+        if (!steamRunning)
+            return "Not running"
+        if (runningGames.length > 0)
+            return "Playing · " + String(runningGames[0].name || "")
+        if (downloadRate > 0)
+            return root.formatRate(downloadRate)
+        if (playedGames.length > 0)
+            return "Last · " + String(displayedGames[0].name || "")
+        return "Idle"
+    }
+
+    function isKnownGame(game) {
+        var appid = String(game.appid || "").trim()
+        var name = String(game.name || "").trim()
+        return appid.length > 0 && name.length > 0 && name !== "App " + appid
+    }
+
+    function filterKnownGames(games) {
+        var out = []
+        if (!Array.isArray(games))
+            return out
+        for (var i = 0; i < games.length; i++) {
+            if (root.isKnownGame(games[i]))
+                out.push(games[i])
+        }
+        return out
+    }
+
+    function applyPayload(json) {
+        if (!json || typeof json !== "object")
+            return
+        loading = false
+        ok = json.ok === true
+        errorText = String(json.error || "")
+        steamRunning = json.running === true
+        downloadRate = parseFloat(json.download_bps || 0) || 0
+        libraryCount = parseInt(json.library_count, 10) || 0
+        playedGames = root.filterKnownGames(json.played_games).slice(0, maxPlayedGames)
+        runningGames = root.filterKnownGames(json.running_games)
+        publishCache(json)
+    }
+
+    function publishCache(json) {
+        if (cacheKey && shell && json)
+            Util.hoverPopupCacheWrite(shell, cacheKey, json)
+    }
+
+    function bootstrapFromCache() {
+        if (!cacheKey || !shell)
+            return
+        var cached = Util.hoverPopupCacheRead(shell, cacheKey)
+        if (cached)
+            applyPayload(cached)
+    }
+
+    function onActivated() {
+        refreshSteamDesktopIcons()
+        loading = playedGames.length === 0 && !steamRunning
+        bootstrapFromCache()
+        refresh()
+        pollTimer.start()
+    }
+
+    function onDeactivated() {
+        pollTimer.stop()
+        if (popupProc.running)
+            popupProc.running = false
+        if (actionProc.running)
+            actionProc.running = false
+    }
+
+    function refresh() {
+        if (!script || popupProc.running)
+            return
+        popupProc.running = true
+    }
+
+    function launchGame(appid) {
+        var id = String(appid || "").trim()
+        if (!id || actionProc.running)
+            return
+        actionProc.command = [root.steamBin, "launch", id]
+        actionProc.running = true
+    }
+
+    function openSteam() {
+        if (actionProc.running)
+            return
+        actionProc.command = [root.steamBin, "open"]
+        actionProc.running = true
+    }
+
+    Component.onCompleted: refreshSteamDesktopIcons()
+
+    Process {
+        id: popupProc
+        command: ["bash", "-lc", root.script]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                var raw = String(text || "").trim()
+                if (!raw) {
+                    root.loading = false
+                    return
+                }
+                try {
+                    root.applyPayload(JSON.parse(raw))
+                } catch (e) {
+                    root.loading = false
+                    root.errorText = "Parse error"
+                }
+            }
+        }
+        onExited: root.loading = false
+    }
+
+    Process {
+        id: actionProc
+    }
+
+    Timer {
+        id: pollTimer
+        interval: 2000
+        repeat: true
+        onTriggered: root.refresh()
+    }
+
+    ColumnLayout {
+        id: column
+        width: root.hoverPopupWidth
+        spacing: Theme.hoverPopupSectionSpacing
+
+        FramedPanel {
+            Layout.fillWidth: true
+            label: ""
+            contentPad: Theme.hoverPopupContentPad
+
+            Item {
+                width: parent.width
+                implicitHeight: steamTopCol.implicitHeight
+
+                ColumnLayout {
+                    id: steamTopCol
+                    width: parent.width
+                    spacing: Theme.hoverPopupSectionSpacing
+
+                    HoverPopupHeader {
+                        Layout.fillWidth: true
+                        iconFallback: "󰓓"
+                        titleFont: root.titleFont
+                        detailFont: root.hintFont
+                        value: "Steam\n" + root.headerSecondary
+                    }
+
+                    GridLayout {
+                        Layout.fillWidth: true
+                        columns: 2
+                        columnSpacing: 12
+                        rowSpacing: 4
+
+                        Text {
+                            text: "Library"
+                            color: Theme.foreground
+                            opacity: 0.65
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.statFont
+                        }
+                        Text {
+                            text: String(root.libraryCount)
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.statFont
+                            font.bold: Theme.fontBold
+                        }
+
+                        Text {
+                            text: "Recent"
+                            color: Theme.foreground
+                            opacity: 0.65
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.statFont
+                        }
+                        Text {
+                            text: String(root.displayedGames.length)
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.statFont
+                            font.bold: Theme.fontBold
+                        }
+                    }
+                }
+            }
+        }
+
+        SectionPanel {
+            Layout.fillWidth: true
+            label: "Recent"
+            sectionSpacing: 8
+            contentPad: Theme.hoverPopupContentPad
+            visible: root.displayedGames.length > 0
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 8
+
+                Repeater {
+                    model: root.displayedGames
+
+                    Item {
+                        required property var modelData
+                        Layout.fillWidth: true
+                        implicitWidth: parent.width
+                        implicitHeight: root.tileHeight
+
+                        readonly property bool isRunning: {
+                            var id = String(modelData.appid || "")
+                            for (var i = 0; i < root.runningGames.length; i++) {
+                                if (String(root.runningGames[i].appid || "") === id)
+                                    return true
+                            }
+                            return false
+                        }
+
+                        scale: tileMouse.pressed ? 0.97 : 1
+                        opacity: tileMouse.pressed ? 0.88 : 1
+
+                        Behavior on scale {
+                            NumberAnimation {
+                                duration: 90
+                                easing.type: Easing.OutCubic
+                            }
+                        }
+
+                        Behavior on opacity {
+                            NumberAnimation {
+                                duration: 90
+                            }
+                        }
+
+                        Rectangle {
+                            anchors.fill: parent
+                            radius: Theme.panelCornerRadius
+                            color: tileMouse.pressed
+                                ? Theme.withOpacity(Theme.accent, 0.14)
+                                : (tileMouse.containsMouse
+                                    ? Theme.withOpacity(Theme.foreground, 0.07)
+                                    : Theme.withOpacity(Theme.mantle, 0.65))
+                            border.width: tileMouse.containsMouse || isRunning ? 1 : 0
+                            border.color: isRunning ? Theme.accent : Theme.withOpacity(Theme.accent, 0.55)
+                        }
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.margins: 10
+                            spacing: 12
+
+                            Item {
+                                Layout.preferredWidth: root.tileIconSize
+                                Layout.preferredHeight: root.tileIconSize
+                                Layout.alignment: Qt.AlignVCenter
+                                clip: true
+
+                                Rectangle {
+                                    anchors.fill: parent
+                                    radius: Theme.fieldsetCornerRadius
+                                    color: Theme.panelMantle
+                                }
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    visible: gameIcon.source === "" || gameIcon.status === Image.Error
+                                    text: "󰓓"
+                                    color: Theme.foreground
+                                    opacity: 0.35
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.fontSize3xl
+                                    font.bold: Theme.fontBold
+                                }
+
+                                Image {
+                                    id: gameIcon
+                                    anchors.fill: parent
+                                    anchors.margins: 4
+                                    visible: gameIcon.source !== "" && status !== Image.Error
+                                    source: root.gameIconSource(modelData)
+                                    fillMode: Image.PreserveAspectFit
+                                    asynchronous: true
+                                    cache: true
+                                    smooth: true
+                                    mipmap: true
+                                    sourceSize: Qt.size(root.tileIconSize, root.tileIconSize)
+                                }
+
+                                Rectangle {
+                                    anchors.fill: parent
+                                    radius: Theme.fieldsetCornerRadius
+                                    color: Theme.withOpacity(Theme.accent, 0.08)
+                                    visible: tileMouse.containsMouse
+                                }
+                            }
+
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 4
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: String(modelData.name || "Game")
+                                    color: tileMouse.containsMouse ? Theme.accent : Theme.foreground
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: root.titleFont
+                                    font.bold: Theme.fontBold
+                                    elide: Text.ElideRight
+                                    maximumLineCount: 2
+                                    wrapMode: Text.Wrap
+                                }
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: root.formatLastPlayed(modelData.last_played)
+                                        + " · " + root.formatPlaytime(modelData.playtime_min)
+                                    color: Theme.foreground
+                                    opacity: 0.72
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: root.hintFont
+                                    elide: Text.ElideRight
+                                }
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    visible: isRunning
+                                    text: "Playing now"
+                                    color: Theme.accent
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: root.hintFont
+                                    font.bold: Theme.fontBold
+                                }
+                            }
+
+                            Text {
+                                visible: tileMouse.containsMouse && !tileMouse.pressed
+                                text: "󰐊"
+                                color: Theme.accent
+                                opacity: 0.85
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.titleFont
+                                font.bold: Theme.fontBold
+                                Layout.alignment: Qt.AlignVCenter
+                            }
+                        }
+
+                        MouseArea {
+                            id: tileMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.launchGame(modelData.appid)
+                        }
+                    }
+                }
+            }
+        }
+
+        Item {
+            implicitWidth: openSteamRow.implicitWidth
+            implicitHeight: openSteamRow.implicitHeight
+
+            RowLayout {
+                id: openSteamRow
+                spacing: 6
+
+                Text {
+                    text: "󰓓"
+                    color: openSteamBtn.containsMouse ? Theme.accent : Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.actionIconFont
+                    font.bold: Theme.fontBold
+                }
+
+                Text {
+                    text: "Open Steam"
+                    color: openSteamBtn.containsMouse ? Theme.accent : Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.hintFont
+                    font.bold: Theme.fontBold
+                }
+            }
+
+            MouseArea {
+                id: openSteamBtn
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.openSteam()
+            }
+        }
+
+        Text {
+            Layout.fillWidth: true
+            visible: root.errorText !== ""
+            text: root.errorText
+            color: Theme.urgent
+            font.family: Theme.fontFamily
+            font.pixelSize: root.hintFont
+            wrapMode: Text.WordWrap
+        }
+
+        Text {
+            Layout.fillWidth: true
+            visible: !root.loading && root.displayedGames.length === 0 && !root.errorText
+            text: root.steamRunning ? "No recent play history" : "Steam not running"
+            color: Theme.foreground
+            font.family: Theme.fontFamily
+            font.pixelSize: root.hintFont
+            opacity: 0.65
+        }
+    }
+}

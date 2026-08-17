@@ -45,7 +45,23 @@ Item {
     function publishCache(json) {
         if (!shell || !hoverPopupId || !json)
             return
-        shell.setHoverPopupData(hoverPopupId, json)
+        Util.hoverPopupCacheWrite(shell, hoverPopupId, json)
+    }
+
+    function bootstrapFromCache() {
+        if (!shell || !hoverPopupId)
+            return false
+        var cached = Util.hoverPopupCacheRead(shell, hoverPopupId)
+        if (!cached)
+            return false
+        try {
+            lastPayload = cached
+            cpuPercent = parseInt(cached.cpuPercent, 10) || 0
+            detailText = cached.detail ? String(cached.detail) : "—"
+            return true
+        } catch (e) {
+            return false
+        }
     }
 
     function poll() {
@@ -80,14 +96,15 @@ Item {
         anchors.centerIn: parent
         spacing: 6
 
-        Text {
-            id: cpuIconText
-            text: root.cpuIcon
+        TrayUsageDial {
+            size: 17
+            percent: root.cpuPercent
             color: root.cpuColor
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontSizeM
-            font.bold: Theme.fontBold
+            lineWidth: 1.75
+            showDot: true
+            centerIcon: root.cpuIcon
             Layout.alignment: Qt.AlignVCenter
+
             Behavior on color {
                 ColorAnimation {
                     duration: 300
@@ -133,9 +150,9 @@ Item {
     }
 
     onSettingsChanged: restartPolling()
-    onShellChanged: {
-        if (lastPayload)
-            publishCache(lastPayload)
+    onShellChanged: bootstrapFromCache()
+    Component.onCompleted: {
+        bootstrapFromCache()
+        restartPolling()
     }
-    Component.onCompleted: restartPolling()
 }

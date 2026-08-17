@@ -50,6 +50,27 @@ Item {
         if (typeof item.restartPolling === "function") item.restartPolling()
     }
 
+    function trayHoverPopupId(trayItem) {
+        if (!trayItem)
+            return ""
+        var key = String(trayItem.id || trayItem.title || "").toLowerCase()
+        if (key.indexOf("insync") >= 0)
+            return "evo.insync"
+        if (key.indexOf("steam") >= 0)
+            return "evo.steam"
+        return ""
+    }
+
+    function setTrayHoverPopup(trayItem, trayCell, active) {
+        var popupId = root.trayHoverPopupId(trayItem)
+        if (!popupId || !root.shell)
+            return
+        if (active)
+            root.shell.hoverEnter(popupId, trayCell, root.barPanel)
+        else
+            root.shell.hoverLeave(popupId)
+    }
+
     function rewireTrayWidgets() {
         if (weatherLoader.item) wireBarWidget(weatherLoader.item, settings.weather, "evo.weather")
         if (githubLoader.item) wireBarWidget(githubLoader.item, settings.github, "evo.github")
@@ -218,6 +239,7 @@ Item {
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
+                    onContainsMouseChanged: root.setTrayHoverPopup(modelData, trayCell, containsMouse)
                     onClicked: function(mouse) {
                         if (!modelData) return
                         if (mouse.button === Qt.MiddleButton) {
