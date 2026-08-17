@@ -29,6 +29,10 @@ usage:
   evo-player retag <path> <genre> [--json]
   evo-player favorite toggle <path> [--json]
   evo-player mixes migrate [--dry-run] [--json]
+  evo-player art search <track-path> [--json]
+  evo-player art set <track-path> <image-path> [--json]
+  evo-player art apply <track-path> <url> [--json]
+  evo-player art embed [--json]
   evo-player stats [--json]
 EOF
   exit 1
@@ -1676,6 +1680,209 @@ cmd_favorite_toggle() {
   fi
 }
 
+cmd_art_search() {
+  local path="" json=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --json) json=1 ;;
+      -h|--help|help) usage ;;
+      -*) usage ;;
+      *) path="$1" ;;
+    esac
+    shift
+  done
+  [[ -n "$path" && -f "$path" ]] || {
+    echo "evo-player: not a file: ${path:-<missing>}" >&2
+    return 1
+  }
+  is_audio "$path" || {
+    echo "evo-player: not an audio file: $path" >&2
+    return 1
+  }
+  local artist album title query
+  artist="$(ffprobe_meta "$path" artist)"
+  album="$(ffprobe_meta "$path" album)"
+  title="$(ffprobe_meta "$path" title)"
+  query="${artist} ${album}"
+  query="${query#"${query%%[![:space:]]*}"}"
+  query="${query%"${query##*[![:space:]]}"}"
+  [[ -n "$query" ]] || query="${title:-$(basename "$path")}"
+  python3 - "$query" "$json" <<'PY'
+import json, sys, urllib.parse, urllib.request
+query, json_mode = sys.argv[1], sys.argv[2] == "1"
+term = urllib.parse.quote(query)
+url = f"https://itunes.apple.com/search?term={term}&entity=album&limit=8"
+try:
+    with urllib.request.urlopen(url, timeout=20) as resp:
+        data = json.load(resp)
+except Exception as exc:
+    print(f"evo-player: art search failed — {exc}", file=sys.stderr)
+    sys.exit(1)
+results = []
+for item in data.get("results", []):
+    thumb = item.get("artworkUrl100") or ""
+    art = thumb.replace("100x100bb", "600x600bb") if thumb else ""
+    if not art:
+        continue
+    label = f"{item.get('artistName', '').strip()} — {item.get('collectionName', '').strip()}".strip(" —")
+    results.append({
+        "url": art,
+        "thumb": art,
+        "label": label,
+        "source": "itunes",
+    })
+payload = {"query": query, "results": results}
+if json_mode:
+    print(json.dumps(payload, ensure_ascii=False))
+else:
+    for row in results:
+        print(f"{row['label']}\t{row['url']}")
+PY
+}
+
+cmd_art_set() {
+  local path="" image="" json=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --json) json=1 ;;
+      -h|--help|help) usage ;;
+      -*) usage ;;
+      *)
+        if [[ -z "$path" ]]; then
+          path="$1"
+        elif [[ -z "$image" ]]; then
+          image="$1"
+        else
+          usage
+        fi
+        ;;
+    esac
+    shift
+  done
+  [[ -n "$path" && -f "$path" ]] || {
+    echo "evo-player: not a file: ${path:-<missing>}" >&2
+    return 1
+  }
+  [[ -n "$image" && -f "$image" ]] || {
+    echo "evo-player: not a file: ${image:-<missing>}" >&2
+    return 1
+  }
+  local art folder content
+  art="$(art_install_image "$path" "$image")" || {
+    echo "evo-player: could not install art" >&2
+    return 1
+  }
+  folder="$(art_path_folder "$path")"
+  content="$(readlink -f "$art" 2>/dev/null || printf '%s' "$art")"
+  if [[ "$json" -eq 1 ]]; then
+    jq -n \
+      --arg art "$art" \
+      --arg folder "$folder" \
+      --arg content "$content" \
+      '{art:$art,folder:$folder,content:$content}'
+  else
+    printf '%s\n' "$art"
+  fi
+}
+
+cmd_art_apply() {
+  local path="" url="" json=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --json) json=1 ;;
+      -h|--help|help) usage ;;
+      -*) usage ;;
+      *)
+        if [[ -z "$path" ]]; then
+          path="$1"
+        elif [[ -z "$url" ]]; then
+          url="$1"
+        else
+          usage
+        fi
+        ;;
+    esac
+    shift
+  done
+  [[ -n "$path" && -f "$path" ]] || {
+    echo "evo-player: not a file: ${path:-<missing>}" >&2
+    return 1
+  }
+  [[ -n "$url" ]] || usage
+  local tmp art folder content
+  tmp="$(mktemp "${ART_DIR}/.fetch.XXXXXX.jpg")"
+  if ! curl -fsSL --max-time 30 -o "$tmp" "$url"; then
+    rm -f "$tmp"
+    echo "evo-player: could not download art" >&2
+    return 1
+  fi
+  art="$(art_install_image "$path" "$tmp")" || {
+    rm -f "$tmp"
+    echo "evo-player: could not install art" >&2
+    return 1
+  }
+  rm -f "$tmp"
+  folder="$(art_path_folder "$path")"
+  content="$(readlink -f "$art" 2>/dev/null || printf '%s' "$art")"
+  if [[ "$json" -eq 1 ]]; then
+    jq -n \
+      --arg art "$art" \
+      --arg folder "$folder" \
+      --arg content "$content" \
+      '{art:$art,folder:$folder,content:$content}'
+  else
+    printf '%s\n' "$art"
+  fi
+}
+
+cmd_art_embed_impl() {
+  echo "evo-player: embed art started at $(date -Iseconds)" >&2
+  ensure_dirs
+  local -A seen=()
+  local path dir art embedded=0 failed=0 folders=0 emb fail
+  while IFS= read -r -d '' path; do
+    is_audio "$path" || continue
+    dir="$(dirname "$path")"
+    [[ -n "${seen[$dir]:-}" ]] && continue
+    seen["$dir"]=1
+    art="$(art_path_folder "$path")"
+    [[ -f "$art" ]] || continue
+    read -r emb fail < <(art_embed_folder "$dir")
+    embedded=$((embedded + emb))
+    failed=$((failed + fail))
+    folders=$((folders + 1))
+    if (( folders % 25 == 0 )); then
+      echo "evo-player: embedded art in ${folders} folders (${embedded} tracks, ${failed} failed)" >&2
+    fi
+  done < <(find "$MUSIC_ROOT" -type f -print0 2>/dev/null)
+  echo "evo-player: embed art complete — ${folders} folders, ${embedded} tracks embedded, ${failed} failed" >&2
+  printf '%d %d %d' "$folders" "$embedded" "$failed"
+}
+
+cmd_art_embed() {
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --json) ;;
+      -h|--help|help) usage ;;
+      -*) usage ;;
+    esac
+    shift
+  done
+  run_exclusive_job art-embed "embed art" cmd_art_embed_impl
+}
+
+cmd_art() {
+  local sub="${1:-}"
+  shift || true
+  case "$sub" in
+    search) cmd_art_search "$@" ;;
+    set) cmd_art_set "$@" ;;
+    apply) cmd_art_apply "$@" ;;
+    embed) cmd_art_embed "$@" ;;
+    *) usage ;;
+  esac
+}
+
 cmd_status() {
   local json="${1:-}"
   ensure_dirs
@@ -1747,6 +1954,7 @@ main() {
       cmd_favorite_toggle "${1:-}" "${2:-}"
       ;;
     stats) cmd_status "$@" ;;
+    art) cmd_art "$@" ;;
     -h|--help|help|"") usage ;;
     *)
       echo "evo-player: unknown command: $cmd" >&2

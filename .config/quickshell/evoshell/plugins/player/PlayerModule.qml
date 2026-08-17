@@ -92,8 +92,14 @@ Item {
         { icon: "󰖟", label: "build quick", args: ["build", "quick"] },
         { icon: "󰕧", label: "sync soundcloud", args: ["soundcloud"] },
         { icon: "󰋋", label: "import incoming", args: ["import"] },
-        { icon: "󰩹", label: "prune art", args: ["cache", "--prune-art"] }
+        { icon: "󰩹", label: "prune art", args: ["cache", "--prune-art"] },
+        { icon: "󰋩", label: "embed art", args: ["art", "embed"] }
     ]
+    property int artRevision: 0
+    property bool artPickerOpen: false
+    property bool artPickerLoading: false
+    property string artPickerQuery: ""
+    property var artPickerResults: []
     readonly property var nowPlayingMetaChips: {
         var chips = []
         var year = String(player.year || "").trim()
@@ -123,8 +129,92 @@ Item {
 
     function artUrl(path) {
         if (!path) return ""
-        if (path.startsWith("file://")) return path
-        return Util.fileUrl(path)
+        var base = path.startsWith("file://") ? path : Util.fileUrl(path)
+        var sep = base.indexOf("?") >= 0 ? "&" : "?"
+        return base + sep + "rev=" + artRevision
+    }
+
+    function localPathFromUrl(url) {
+        if (!url)
+            return ""
+        var s = url.toString ? url.toString() : String(url)
+        if (s.indexOf("file://") === 0) {
+            var p = s.replace(/^file:\/\//, "")
+            if (p.indexOf("localhost/") === 0)
+                p = p.substring("localhost/".length)
+            return decodeURIComponent(p)
+        }
+        return s
+    }
+
+    function isImagePath(path) {
+        var p = String(path || "").toLowerCase()
+        return /\.(jpe?g|png|webp|gif|bmp)$/.test(p)
+    }
+
+    function bumpArtRevision() {
+        artRevision++
+    }
+
+    function onAlbumArtUpdated() {
+        bumpArtRevision()
+        refreshStatus()
+        notify("album art updated", 2500)
+    }
+
+    function setAlbumArtFromFile(imagePath) {
+        var track = String(player.path || "")
+        if (!track || !imagePath)
+            return
+        runMusic(["art", "set", track, imagePath, "--json"], function(text) {
+            try {
+                JSON.parse(String(text || "{}"))
+                root.onAlbumArtUpdated()
+            } catch (e) {
+                root.notify("could not update art", 3000)
+            }
+        })
+    }
+
+    function applyAlbumArtFromUrl(url) {
+        var track = String(player.path || "")
+        if (!track || !url)
+            return
+        artPickerLoading = true
+        runMusic(["art", "apply", track, url, "--json"], function(text) {
+            artPickerLoading = false
+            try {
+                JSON.parse(String(text || "{}"))
+                artPickerOpen = false
+                root.onAlbumArtUpdated()
+            } catch (e) {
+                root.notify("could not update art", 3000)
+            }
+        })
+    }
+
+    function openArtPicker() {
+        var track = String(player.path || "")
+        if (!track)
+            return
+        artPickerOpen = true
+        artPickerLoading = true
+        artPickerResults = []
+        artPickerQuery = ""
+        runQuery(["art", "search", track, "--json"], function(text) {
+            root.artPickerLoading = false
+            try {
+                var data = JSON.parse(String(text || "{}"))
+                root.artPickerQuery = String(data.query || "")
+                root.artPickerResults = data.results || []
+            } catch (e) {
+                root.artPickerResults = []
+            }
+        })
+    }
+
+    function closeArtPicker() {
+        artPickerOpen = false
     }
 
     function notify(body, durationMs) {
@@ -2062,6 +2152,77 @@ Item {
                                     font.pixelSize: Math.round(root.nowPlayingArtWidth * 0.22)
                                     opacity: 0.5
                                 }
+
+                                Rectangle {
+                                    anchors.fill: parent
+                                    visible: coverDrop.containsDrag
+                                    color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.18)
+                                    border.color: Theme.accent
+                                    border.width: 2
+                                    radius: 3
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: "drop image"
+                                        color: Theme.accent
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: root.libraryFont
+                                        opacity: 0.9
+                                    }
+                                }
+
+                                DropArea {
+                                    id: coverDrop
+                                    anchors.fill: parent
+                                    keys: ["text/uri-list"]
+
+                                    onEntered: function(drag) {
+                                        var ok = false
+                                        if (drag.hasUrls) {
+                                            for (var i = 0; i < drag.urls.length; i++) {
+                                                if (root.isImagePath(root.localPathFromUrl(drag.urls[i]))) {
+                                                    ok = true
+                                                    break
+                                                }
+                                            }
+                                        }
+                                        drag.accepted = ok
+                                    }
+
+                                    onDropped: function(drop) {
+                                        if (!drop.hasUrls || !root.player.path)
+                                            return
+                                        for (var j = 0; j < drop.urls.length; j++) {
+                                            var p = root.localPathFromUrl(drop.urls[j])
+                                            if (root.isImagePath(p)) {
+                                                root.setAlbumArtFromFile(p)
+                                                break
+                                            }
+                                        }
+                                    }
+                                }
+
+                                MouseArea {
+                                    id: coverClick
+                                    z: 1
+                                    anchors.fill: parent
+                                    enabled: !root.artPickerOpen
+                                    hoverEnabled: true
+                                    cursorShape: (root.player.path || "") !== ""
+                                        ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                    onClicked: function(mouse) {
+                                        if (!(root.player.path || ""))
+                                            return
+                                        mouse.accepted = true
+                                        root.openArtPicker()
+                                    }
+                                }
+
+                                ArtPickerOverlay {
+                                    z: 2
+                                    anchors.fill: parent
+                                    visible: root.artPickerOpen
+                                }
                             }
                         }
                     }
@@ -3304,6 +3465,141 @@ Item {
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
             onClicked: crumb.activated()
+        }
+    }
+
+    component ArtPickerOverlay: Rectangle {
+        id: artPickerRoot
+        radius: 3
+        color: Qt.rgba(Theme.mantle.r, Theme.mantle.g, Theme.mantle.b, 0.97)
+        border.color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.16)
+        border.width: 1
+        clip: true
+
+        readonly property int gridColumns: 2
+        readonly property int gridSpacing: 4
+        readonly property int gridPad: 6
+        readonly property int cellSize: Math.max(
+            52,
+            Math.floor((width - gridPad * 2 - gridSpacing * (gridColumns - 1)) / gridColumns))
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: gridPad
+            spacing: 4
+
+            Item {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 18
+
+                Text {
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "󰅖"
+                    color: Theme.foreground
+                    opacity: artPickerCloseMouse.containsMouse ? 1 : 0.55
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.libraryFont + 1
+
+                    MouseArea {
+                        id: artPickerCloseMouse
+                        anchors.fill: parent
+                        anchors.margins: -8
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.closeArtPicker()
+                    }
+                }
+            }
+
+            Item {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                visible: root.artPickerLoading
+
+                Text {
+                    id: artPickerSpinner
+                    anchors.centerIn: parent
+                    text: "󰇘"
+                    color: Theme.accent
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Math.round(artPickerRoot.cellSize * 0.45)
+                    opacity: 0.9
+                    transformOrigin: Item.Center
+
+                    RotationAnimation on rotation {
+                        running: root.artPickerLoading
+                        from: 0
+                        to: 360
+                        duration: 900
+                        loops: Animation.Infinite
+                    }
+                }
+            }
+
+            Text {
+                Layout.fillWidth: true
+                Layout.alignment: Qt.AlignHCenter
+                visible: !root.artPickerLoading && root.artPickerResults.length === 0
+                text: "no results"
+                horizontalAlignment: Text.AlignHCenter
+                color: Theme.foreground
+                font.family: Theme.fontFamily
+                font.pixelSize: root.libraryFont
+                opacity: 0.45
+            }
+
+            Flickable {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
+                contentWidth: width
+                contentHeight: artPickerGrid.implicitHeight
+                boundsBehavior: Flickable.StopAtBounds
+                visible: !root.artPickerLoading && root.artPickerResults.length > 0
+
+                GridLayout {
+                    id: artPickerGrid
+                    width: parent.width
+                    columns: artPickerRoot.gridColumns
+                    columnSpacing: artPickerRoot.gridSpacing
+                    rowSpacing: artPickerRoot.gridSpacing
+
+                    Repeater {
+                        model: root.artPickerResults
+
+                        Rectangle {
+                            required property var modelData
+                            required property int index
+                            Layout.preferredWidth: artPickerRoot.cellSize
+                            Layout.preferredHeight: artPickerRoot.cellSize
+                            radius: 3
+                            clip: true
+                            color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.06)
+                            border.color: artPickMouse.containsMouse
+                                ? Theme.accent
+                                : Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.12)
+                            border.width: artPickMouse.containsMouse ? 2 : 1
+
+                            Image {
+                                anchors.fill: parent
+                                source: modelData.url || ""
+                                fillMode: Image.PreserveAspectCrop
+                                smooth: true
+                                asynchronous: true
+                            }
+
+                            MouseArea {
+                                id: artPickMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.applyAlbumArtFromUrl(modelData.url)
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 

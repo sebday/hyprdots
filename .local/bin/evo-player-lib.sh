@@ -1004,3 +1004,118 @@ art_prune_legacy() {
   printf '%d' "$pruned"
 }
 
+is_image() {
+  local path="$1"
+  [[ -f "$path" ]] || return 1
+  local ext="${path##*.}"
+  ext="${ext,,}"
+  case "$ext" in
+    jpg|jpeg|png|webp|gif|bmp) return 0 ;;
+  esac
+  return 1
+}
+
+art_normalize_jpg() {
+  local src="$1"
+  local dest="$2"
+  [[ -f "$src" ]] || return 1
+  if ffmpeg -y -loglevel error -i "$src" \
+    -vf "scale=1200:1200:force_original_aspect_ratio=decrease" \
+    -q:v 2 "$dest" 2>/dev/null && [[ -s "$dest" ]]; then
+    return 0
+  fi
+  if command -v magick >/dev/null 2>&1; then
+    magick "$src" -thumbnail 1200x1200\> -quality 90 "$dest" 2>/dev/null && [[ -s "$dest" ]] && return 0
+  fi
+  cp -f "$src" "$dest"
+  [[ -s "$dest" ]]
+}
+
+art_install_image() {
+  local track_path="$1"
+  local image_path="$2"
+  local folder content imghash tmp
+  [[ -f "$track_path" ]] && is_audio "$track_path" || return 1
+  [[ -f "$image_path" ]] && is_image "$image_path" || return 1
+  ensure_dirs
+  folder="$(art_path_folder "$track_path")"
+  tmp="$(mktemp "${ART_DIR}/.install.XXXXXX.jpg")"
+  art_normalize_jpg "$image_path" "$tmp" || {
+    rm -f "$tmp"
+    return 1
+  }
+  imghash="$(art_image_hash "$tmp")"
+  if [[ -z "$imghash" ]]; then
+    rm -f "$tmp"
+    return 1
+  fi
+  content="$(art_path_content "$imghash")"
+  if [[ ! -f "$content" ]]; then
+    mv "$tmp" "$content"
+  else
+    rm -f "$tmp"
+  fi
+  art_link_folder_alias "$folder" "$content" || return 1
+  printf '%s' "$folder"
+}
+
+art_embed_audio() {
+  local audio="$1"
+  local art="$2"
+  local ext tmp
+  [[ -f "$audio" && -f "$art" ]] || return 1
+  is_audio "$audio" || return 1
+  ext="${audio##*.}"
+  ext="${ext,,}"
+  tmp="$(mktemp "${audio}.XXXXXX.${ext}")"
+  case "$ext" in
+    mp3)
+      ffmpeg -y -loglevel error -i "$audio" -i "$art" \
+        -map 0:a -map 1:v -c:a copy -c:v mjpeg \
+        -id3v2_version 3 \
+        -metadata:s:v title="Album cover" \
+        -metadata:s:v comment="Cover (front)" \
+        "$tmp" 2>/dev/null || {
+        rm -f "$tmp"
+        return 1
+      }
+      ;;
+    flac|ogg|opus|m4a)
+      ffmpeg -y -loglevel error -i "$audio" -i "$art" \
+        -map 0 -map 1 -c copy -disposition:v:0 attached_pic \
+        "$tmp" 2>/dev/null || {
+        rm -f "$tmp"
+        return 1
+      }
+      ;;
+    *)
+      rm -f "$tmp"
+      return 1
+      ;;
+  esac
+  mv "$tmp" "$audio"
+}
+
+art_embed_folder() {
+  local dir_path="$1"
+  local track="" art="" entry embedded=0 failed=0
+  [[ -d "$dir_path" ]] || return 1
+  while IFS= read -r -d '' entry; do
+    is_audio "$entry" || continue
+    track="$entry"
+    break
+  done < <(find "$dir_path" -maxdepth 1 -type f -print0 2>/dev/null)
+  [[ -n "$track" ]] || return 0
+  art="$(art_path_folder "$track")"
+  [[ -f "$art" ]] || return 0
+  while IFS= read -r -d '' entry; do
+    is_audio "$entry" || continue
+    if art_embed_audio "$entry" "$art"; then
+      embedded=$((embedded + 1))
+    else
+      failed=$((failed + 1))
+    fi
+  done < <(find "$dir_path" -maxdepth 1 -type f -print0 2>/dev/null)
+  printf '%d %d' "$embedded" "$failed"
+}
+
