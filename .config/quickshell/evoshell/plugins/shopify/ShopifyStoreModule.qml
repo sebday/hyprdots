@@ -31,6 +31,9 @@ Item {
         + Theme.hoverPopupSectionSpacing
         + Theme.fontSizeL
     readonly property int actionIconFont: Theme.fontSizeL
+    readonly property color sectionLegendBackground: root.chartFillHeight
+        ? Theme.background
+        : Theme.mantle
 
     readonly property string storeIconUrl: {
         if (demoMode) {
@@ -78,18 +81,19 @@ Item {
 
     readonly property var channelRows: {
         var total = channelTotal
+        var palette = Theme.chartPalette
         var defs = [
-            { label: "Paid", value: parseFloat(channels.paid) || 0, color: "#89b4fa" },
-            { label: "Organic", value: parseFloat(channels.organic) || 0, color: "#a6e3a1" },
-            { label: "Direct", value: parseFloat(channels.direct) || 0, color: "#f9e2af" },
-            { label: "Email", value: parseFloat(channels.email) || 0, color: "#cba6f7" }
+            { label: "Paid", value: parseFloat(channels.paid) || 0 },
+            { label: "Organic", value: parseFloat(channels.organic) || 0 },
+            { label: "Direct", value: parseFloat(channels.direct) || 0 },
+            { label: "Email", value: parseFloat(channels.email) || 0 }
         ]
         var out = []
         for (var i = 0; i < defs.length; i++) {
             out.push({
                 label: defs[i].label,
                 value: defs[i].value,
-                color: defs[i].color,
+                color: palette[i % palette.length],
                 share: total > 0 ? defs[i].value / total : 0
             })
         }
@@ -201,10 +205,25 @@ Item {
     }
 
     function applyPayload(json) {
-        if (!json || typeof json !== "object")
+        if (!json || typeof json !== "object") {
             storeData = ({})
-        else
-            storeData = json
+            return
+        }
+        if (demoMode && Array.isArray(json.bars)) {
+            var themed = Object.assign({}, json)
+            var bars = []
+            for (var i = 0; i < json.bars.length; i++) {
+                var bar = Object.assign({}, json.bars[i])
+                var level = parseInt(bar.colorLevel, 10)
+                if (!isNaN(level) && level >= 0 && level < Theme.heatmapColors.length)
+                    bar.color = Theme.heatmapColors[level]
+                bars.push(bar)
+            }
+            themed.bars = bars
+            storeData = themed
+            return
+        }
+        storeData = json
         if (demoMode || !shell || !json || typeof json !== "object")
             return
         var days = (json.period && json.period.days) || (Array.isArray(json.bars) ? json.bars.length : 0)
@@ -262,6 +281,7 @@ Item {
 
         SectionPanel {
             label: ""
+            legendBackground: root.sectionLegendBackground
 
             HoverPopupHeader {
                 Layout.fillWidth: true
@@ -276,6 +296,7 @@ Item {
 
         SectionPanel {
             label: ""
+            legendBackground: root.sectionLegendBackground
             Layout.fillWidth: true
 
             ColumnLayout {
@@ -335,8 +356,14 @@ Item {
 
         SectionPanel {
             fillHeight: root.chartFillHeight
-            label: root.chartDays + " day revenue"
+            label: ""
+            legendBackground: root.sectionLegendBackground
             visible: (root.storeData.bars || []).length > 0
+
+            HoverPopupLabelPill {
+                text: root.chartDays + " day revenue"
+                fontSize: Theme.fontSizeS
+            }
 
             ColumnLayout {
                 Layout.fillWidth: true
@@ -385,8 +412,14 @@ Item {
         }
 
         SectionPanel {
-            label: "Channels " + root.chartDays + " days"
+            label: ""
+            legendBackground: root.sectionLegendBackground
             visible: root.channelTotal > 0
+
+            HoverPopupLabelPill {
+                text: "Channels " + root.chartDays + " days"
+                fontSize: Theme.fontSizeS
+            }
 
             ColumnLayout {
                 Layout.fillWidth: true

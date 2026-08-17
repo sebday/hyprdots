@@ -4,7 +4,7 @@ foreground = "#f8f8f2"
 background = "#0a0e19"
 mantle = "#080a12"
 icon_text = "#0db9d7"
-icon_highlight = "#5294e2"
+icon_highlight = "#8be9fd"
 selection_foreground = "#0a0e19"
 selection_background = "#f8f8f2"
 

@@ -1,12 +1,12 @@
 hl.config({
     general = {
         col = {
-            active_border = "rgb(8be9fd)",
+            active_border = "rgb(e68e0d)",
         },
     },
     group = {
         col = {
-            border_active = "rgb(8be9fd)",
+            border_active = "rgb(e68e0d)",
         },
     },
 })

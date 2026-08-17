@@ -63,12 +63,11 @@ Singleton {
 
     function contributionColor(count) {
         var n = parseInt(count, 10) || 0
-        var colors = ["#45475a", "#89b4fa", "#74c7ec", "#89dceb", "#cba6f7"]
         var level = 0
         if (n >= 30) level = 4
         else if (n >= 18) level = 3
         else if (n >= 10) level = 2
         else if (n >= 1) level = 1
-        return colors[level]
+        return Theme.heatmapColors[level]
     }
 }

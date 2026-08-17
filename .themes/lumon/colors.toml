@@ -10,8 +10,8 @@ cursor = "#f2fcff"
 foreground = "#d6e2ee"
 background = "#16242d"
 mantle = "#111c24"
-icon_text = "#c8d3f5"
-icon_highlight = "#5294e2"
+icon_text = "#d6e2ee"
+icon_highlight = "#6fb8e3"
 
 # Selection colors
 selection_foreground = "#1b2d40"

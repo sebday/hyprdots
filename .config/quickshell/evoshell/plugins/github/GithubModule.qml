@@ -28,9 +28,20 @@ Item {
 
     readonly property int trendMax: 40
     readonly property int heatmapSpacing: 3
-    readonly property var legendColors: [
-        "#45475a", "#89b4fa", "#74c7ec", "#89dceb", "#cba6f7"
-    ]
+    readonly property var legendColors: {
+        var colors = []
+        for (var level = 0; level < 5; level++) {
+            var found = ""
+            for (var i = 0; i < cells.length; i++) {
+                if ((parseInt(cells[i].level, 10) || 0) === level && cells[i].color) {
+                    found = String(cells[i].color)
+                    break
+                }
+            }
+            colors.push(found || Theme.heatmapColors[level])
+        }
+        return colors
+    }
 
     property bool loading: false
     property bool isError: false
@@ -265,7 +276,9 @@ Item {
                         Text {
                             anchors.centerIn: parent
                             text: ""
-                            color: Theme.foreground
+                            color: root.loading
+                                ? Theme.foreground
+                                : Format.contributionColor(root.todayCount)
                             font.family: Theme.fontFamily
                             font.pixelSize: Math.round(root.headerIconSize * 0.78)
                             font.bold: Theme.fontBold
@@ -414,7 +427,9 @@ Item {
                             width: root.heatmapCellSize
                             height: root.heatmapCellSize
                             radius: 3
-                            color: modelData.color || Theme.foreground
+                            color: modelData.color
+                                || Theme.heatmapColors[Math.max(0, Math.min(4, parseInt(modelData.level, 10) || 0))]
+                                || Theme.foreground
                             opacity: (modelData.count || 0) > 0 ? 1 : 0.35
                             border.width: index === root.cells.length - 1 ? 1 : 0
                             border.color: Theme.accent

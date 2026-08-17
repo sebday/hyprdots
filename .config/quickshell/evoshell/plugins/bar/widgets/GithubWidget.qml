@@ -134,9 +134,31 @@ Item {
         spacing: Theme.sparklineGap
         visible: !root.trayMode
 
+        Row {
+            spacing: 0
+            visible: !root.loading && !root.isError
+
+            Text {
+                text: "  "
+                color: Format.contributionColor(root.todayCount)
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSizeM
+                font.bold: Theme.fontBold
+            }
+
+            Text {
+                text: String(root.todayCount)
+                color: Theme.foreground
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSizeM
+                font.bold: Theme.fontBold
+            }
+        }
+
         Text {
-            text: root.loading ? " …" : root.isError ? root.statusText : "  " + root.todayCount
-            color: Theme.foreground
+            visible: root.loading || root.isError
+            text: root.loading ? " …" : root.statusText
+            color: root.isError ? Theme.urgent : Theme.foreground
             font.family: Theme.fontFamily
             font.pixelSize: Theme.fontSizeM
             font.bold: Theme.fontBold
@@ -160,7 +182,9 @@ Item {
                     required property var modelData
                     width: Theme.sparklineCellSize
                     height: Theme.sparklineCellSize
-                    color: modelData.color || Theme.foreground
+                    color: modelData.color
+                        || Theme.heatmapColors[Math.max(0, Math.min(4, parseInt(modelData.level, 10) || 0))]
+                        || Theme.foreground
                 }
             }
         }

@@ -314,8 +314,13 @@ Item {
             SectionPanel {
                 contentPad: Theme.panelContentPad
                 legendBackground: Theme.background
-                label: "Hyprland"
+                label: ""
                 sectionSpacing: 12
+
+                HoverPopupLabelPill {
+                    text: "Hyprland"
+                    fontSize: Theme.fontSizeS
+                }
 
                 ToggleRow {
                     Layout.fillWidth: true
@@ -384,8 +389,13 @@ Item {
             SectionPanel {
                 contentPad: Theme.panelContentPad
                 legendBackground: Theme.background
-                label: "Evoshell"
+                label: ""
                 sectionSpacing: 12
+
+                HoverPopupLabelPill {
+                    text: "Evoshell"
+                    fontSize: Theme.fontSizeS
+                }
 
                 FontFamilyPicker {
                     Layout.fillWidth: true
@@ -433,7 +443,12 @@ Item {
             SectionPanel {
                 contentPad: Theme.panelContentPad
                 legendBackground: Theme.background
-                label: "Theme"
+                label: ""
+
+                HoverPopupLabelPill {
+                    text: "Theme"
+                    fontSize: Theme.fontSizeS
+                }
 
                 Item {
                     Layout.fillWidth: true

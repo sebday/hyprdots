@@ -123,6 +123,18 @@ Singleton {
     readonly property color panelBackground: overlaySurface
     readonly property real panelMantleLift: themeNumber("panelMantleLift", 0.12)
     readonly property color panelMantle: mixColors(mantle, foreground, panelMantleLift)
+    readonly property color heatmap0: mixColors(mantle, foreground, 0.12)
+    readonly property color heatmap1: mixColors(mantle, accent, 0.4)
+    readonly property color heatmap2: mixColors(mantle, accent, 0.6)
+    readonly property color heatmap3: mixColors(mantle, accent, 0.8)
+    readonly property color heatmap4: accent
+    readonly property var heatmapColors: [heatmap0, heatmap1, heatmap2, heatmap3, heatmap4]
+    readonly property var chartPalette: [
+        accent,
+        mixColors(accent, foreground, 0.4),
+        mixColors(mantle, foreground, 0.5),
+        mixColors(accent, urgent, 0.35)
+    ]
     readonly property string fontFamily: themeColor("fontFamily", "CaskaydiaMono Nerd Font")
     readonly property bool fontBold: true
     readonly property int fontPixelSize: themeNumber("fontPixelSize", 13)

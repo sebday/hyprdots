@@ -13,8 +13,8 @@ Thank you to [Bjarne](https://github.com/bjarneo) for some gorgeous themes.
 ## Features
 
 - Master `colors.toml`
-- Auto generated themes for Obsidian and Neovim
-- Everything I need for a desktop now in Quickshell
+- Generated themes for Obsidian and Neovim
+- Generated icons based on Papirus
 - Themed websites (Soundcloud, Grok, X etc)  
 
 ## Quickshell 

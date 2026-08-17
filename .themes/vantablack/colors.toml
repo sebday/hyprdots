@@ -6,8 +6,8 @@ cursor = "#ffffff"
 foreground = "#ffffff"
 background = "#0d0d0d"
 mantle = "#090909"
-icon_text = "#c8d3f5"
-icon_highlight = "#5294e2"
+icon_text = "#ffffff"
+icon_highlight = "#8d8d8d"
 
 # Selection colors
 selection_foreground = "#0d0d0d"

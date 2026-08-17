@@ -21,6 +21,8 @@ Item {
     readonly property int hintFont: Theme.fontSizeL
     readonly property int chartAxisFont: Theme.fontSizeS
     readonly property int sectionSpacing: 6
+    readonly property int nowStatRowHeight: root.primaryStatFont + root.sectionSpacing + root.hintFont
+    readonly property int nowTempFont: root.primaryStatFont + root.hintFont + 2
     readonly property int statBoxPad: 10
     readonly property int sunEventRowHeight: Theme.hoverPopupContentPad * 2
         + Math.max(root.primaryStatFont + 10, root.primaryStatFont + root.hintFont + 2)
@@ -212,15 +214,16 @@ Item {
         sectionSpacing: 0
         Layout.fillWidth: true
         Layout.minimumWidth: 0
-        Layout.preferredWidth: 2
+        Layout.preferredWidth: 1
 
-        ColumnLayout {
+        RowLayout {
             Layout.fillWidth: true
-            spacing: root.sectionSpacing
+            spacing: 12
 
-            RowLayout {
+            ColumnLayout {
                 Layout.fillWidth: true
-                spacing: 12
+                Layout.preferredWidth: 1
+                spacing: root.sectionSpacing
 
                 Item {
                     Layout.fillWidth: true
@@ -233,42 +236,18 @@ Item {
                     }
                 }
 
-                Rectangle {
-                    visible: root.todayOutlook !== null
-                    Layout.preferredWidth: 1
-                    Layout.preferredHeight: root.hintFont
-                    Layout.alignment: Qt.AlignVCenter
-                    color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.12)
-                }
-
-                Item {
-                    Layout.fillWidth: true
-                    visible: root.todayOutlook !== null
-                    implicitHeight: todayPill.implicitHeight
-
-                    HoverPopupLabelPill {
-                        id: todayPill
-                        text: "Today"
-                        fontSize: Theme.fontSizeS
-                    }
-                }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 12
-
                 RowLayout {
                     Layout.fillWidth: true
+                    Layout.preferredHeight: root.nowStatRowHeight
                     spacing: 4
 
                     Text {
                         text: root.currentIcon
                         color: Theme.accent
                         font.family: Theme.fontFamily
-                        font.pixelSize: root.primaryStatFont
+                        font.pixelSize: root.nowTempFont
                         font.bold: Theme.fontBold
-                        lineHeight: root.primaryStatFont
+                        lineHeight: root.nowTempFont
                         lineHeightMode: Text.FixedHeight
                     }
 
@@ -279,25 +258,34 @@ Item {
                             ? root.tempColor(root.current.temp)
                             : Theme.foreground
                         font.family: Theme.fontFamily
-                        font.pixelSize: root.primaryStatFont
+                        font.pixelSize: root.nowTempFont
                         font.bold: Theme.fontBold
-                        lineHeight: root.primaryStatFont
+                        lineHeight: root.nowTempFont
                         lineHeightMode: Text.FixedHeight
                         elide: Text.ElideRight
                     }
                 }
+            }
 
-                Rectangle {
-                    visible: root.todayOutlook !== null
-                    Layout.preferredWidth: 1
-                    Layout.preferredHeight: root.primaryStatFont
-                    Layout.alignment: Qt.AlignVCenter
-                    color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.12)
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.preferredWidth: 1
+                visible: root.todayOutlook !== null
+                spacing: root.sectionSpacing
+
+                Item {
+                    Layout.fillWidth: true
+                    implicitHeight: todayPill.implicitHeight
+
+                    HoverPopupLabelPill {
+                        id: todayPill
+                        text: "Today"
+                        fontSize: Theme.fontSizeS
+                    }
                 }
 
                 RowLayout {
                     Layout.fillWidth: true
-                    visible: root.todayOutlook !== null
                     spacing: 4
 
                     Text {
@@ -322,35 +310,9 @@ Item {
                         elide: Text.ElideRight
                     }
                 }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 12
 
                 Text {
                     Layout.fillWidth: true
-                    text: root.currentHourLabel
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.hintFont
-                    lineHeight: root.hintFont
-                    lineHeightMode: Text.FixedHeight
-                    opacity: root.currentHourLabel !== "" ? 0.55 : 0
-                    elide: Text.ElideRight
-                }
-
-                Rectangle {
-                    visible: root.todayOutlook !== null
-                    Layout.preferredWidth: 1
-                    Layout.preferredHeight: root.hintFont
-                    Layout.alignment: Qt.AlignVCenter
-                    color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.12)
-                }
-
-                Text {
-                    Layout.fillWidth: true
-                    visible: root.todayOutlook !== null
                     text: root.todayOutlook ? root.todayOutlook.label : ""
                     color: Theme.foreground
                     font.family: Theme.fontFamily
@@ -559,7 +521,7 @@ Item {
 
             CurrentDayPanel {
                 Layout.fillWidth: true
-                Layout.preferredWidth: 2
+                Layout.preferredWidth: 66
                 Layout.minimumWidth: 0
                 Layout.alignment: Qt.AlignTop
                 linkable: root.metOfficeUrl !== ""
@@ -569,7 +531,7 @@ Item {
             OutlookStatBox {
                 visible: root.tomorrowOutlook !== null
                 Layout.fillWidth: true
-                Layout.preferredWidth: 1
+                Layout.preferredWidth: 34
                 Layout.minimumWidth: 0
                 Layout.alignment: Qt.AlignTop
                 boxTitle: root.tomorrowOutlook ? root.tomorrowOutlook.title : ""

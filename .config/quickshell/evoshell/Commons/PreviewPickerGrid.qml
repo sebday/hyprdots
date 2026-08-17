@@ -19,6 +19,9 @@ Item {
     property bool pendingReload: false
     property int cursorIndex: 0
     property bool keyboardFocus: false
+    property bool showLabels: kind === "themes"
+    property int labelFontSize: Theme.fontSizeS
+    property int labelSpacing: 4
 
     signal activated(var entry)
     signal focused()
@@ -31,10 +34,12 @@ Item {
         : 0
     readonly property int gridWidth: columns * tileWidth + Math.max(0, columns - 1) * spacing
     readonly property int gridHeight: rowCount > 0
-        ? rowCount * tileHeight + Math.max(0, rowCount - 1) * spacing
+        ? rowCount * cellHeight + Math.max(0, rowCount - 1) * spacing
         : 0
 
     readonly property int tileInset: 0
+    readonly property int labelHeight: showLabels ? labelFontSize + 6 : 0
+    readonly property int cellHeight: tileHeight + (showLabels ? labelHeight + labelSpacing : 0)
     implicitWidth: gridWidth
     implicitHeight: statusText.visible
         ? statusText.implicitHeight
@@ -141,7 +146,7 @@ Item {
     function cursorRowY() {
         var cols = Math.max(1, columns)
         var row = Math.floor(Math.max(0, cursorIndex) / cols)
-        return row * (tileHeight + spacing)
+        return row * (cellHeight + spacing)
     }
 
     function isSelected(entry) {
@@ -208,46 +213,70 @@ Item {
                 required property var modelData
                 required property int index
                 width: root.tileWidth
-                height: root.tileHeight
-                clip: true
+                height: root.cellHeight
 
-                Image {
-                    id: previewImage
+                Column {
                     anchors.fill: parent
-                    source: Util.fileUrl(modelData.preview)
-                    fillMode: Image.PreserveAspectCrop
-                    smooth: true
-                    asynchronous: true
-                    cache: true
-                    mipmap: true
-                    sourceSize: Qt.size(
-                        Math.ceil(root.tileWidth * root.previewDpr),
-                        Math.ceil(root.tileHeight * root.previewDpr)
-                    )
-                }
+                    spacing: root.showLabels ? root.labelSpacing : 0
 
-                Rectangle {
-                    anchors.fill: parent
-                    color: Theme.overlaySurface
-                    visible: !modelData.preview || previewImage.status === Image.Error
-                }
+                    Item {
+                        width: root.tileWidth
+                        height: root.tileHeight
+                        clip: true
 
-                Text {
-                    anchors.centerIn: parent
-                    visible: !modelData.preview || previewImage.status === Image.Error
-                    text: root.fallbackIcon
-                    color: Theme.accent
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.tileIconSize
-                    font.bold: Theme.fontBold
-                }
+                        Image {
+                            id: previewImage
+                            anchors.fill: parent
+                            source: Util.fileUrl(modelData.preview)
+                            fillMode: Image.PreserveAspectCrop
+                            smooth: true
+                            asynchronous: true
+                            cache: true
+                            mipmap: true
+                            sourceSize: Qt.size(
+                                Math.ceil(root.tileWidth * root.previewDpr),
+                                Math.ceil(root.tileHeight * root.previewDpr)
+                            )
+                        }
 
-                Rectangle {
-                    anchors.fill: parent
-                    color: "transparent"
-                    border.color: Theme.accent
-                    border.width: 2
-                    visible: (root.keyboardFocus && index === root.cursorIndex) || root.isSelected(modelData)
+                        Rectangle {
+                            anchors.fill: parent
+                            color: Theme.overlaySurface
+                            visible: !modelData.preview || previewImage.status === Image.Error
+                        }
+
+                        Text {
+                            anchors.centerIn: parent
+                            visible: !modelData.preview || previewImage.status === Image.Error
+                            text: root.fallbackIcon
+                            color: Theme.accent
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.tileIconSize
+                            font.bold: Theme.fontBold
+                        }
+
+                        Rectangle {
+                            anchors.fill: parent
+                            color: "transparent"
+                            border.color: Theme.accent
+                            border.width: 2
+                            visible: (root.keyboardFocus && index === root.cursorIndex) || root.isSelected(modelData)
+                        }
+                    }
+
+                    Text {
+                        width: root.tileWidth
+                        visible: root.showLabels
+                        text: modelData.name || ""
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.labelFontSize
+                        font.bold: Theme.fontBold
+                        opacity: 0.72
+                        elide: Text.ElideRight
+                        horizontalAlignment: Text.AlignHCenter
+                        maximumLineCount: 1
+                    }
                 }
 
                 MouseArea {
