@@ -25,6 +25,7 @@ Item {
     property int inactiveOpacityPercent: 88
     property bool barOnDp1Top: false
     property bool notificationsOnHdmiBottom: true
+    property bool fieldsetRoundingOn: true
     property string fontFamily: "CaskaydiaMono Nerd Font"
     property var fontFamilies: []
     property var mediaShows: []
@@ -32,13 +33,14 @@ Item {
     property bool hyprReady: false
     property bool barReady: false
     property bool notificationsReady: false
+    property bool uiReady: false
     property bool fontReady: false
     property bool mediaReady: false
     readonly property bool ready: hyprReady && barReady && fontReady
     readonly property bool fontBusy: fontSetProc.running
     readonly property bool mediaBusy: mediaSetProc.running
     readonly property bool settingsBusy: fontBusy || mediaBusy || hyprToggleProc.running || hyprSetProc.running
-        || barToggleProc.running || notificationsToggleProc.running
+        || barToggleProc.running || notificationsToggleProc.running || uiToggleProc.running
     readonly property bool active: host && host.opened && host.activeModule === "settings"
 
     Keys.onEscapePressed: if (host) host.dismiss()
@@ -50,6 +52,7 @@ Item {
         if (!loadFontProc.running) loadFontProc.running = true
         if (!loadFontListProc.running) loadFontListProc.running = true
         if (!loadNotificationsProc.running) loadNotificationsProc.running = true
+        if (!loadUiProc.running) loadUiProc.running = true
         if (!loadMediaProc.running) loadMediaProc.running = true
     }
 
@@ -74,6 +77,11 @@ Item {
     function toggleNotifications() {
         if (!notificationsReady || settingsBusy) return
         notificationsToggleProc.running = true
+    }
+
+    function toggleFieldsetRounding() {
+        if (!uiReady || settingsBusy) return
+        uiToggleProc.running = true
     }
 
     function setFont(key, value) {
@@ -151,6 +159,16 @@ Item {
         }
     }
 
+    function parseUiState(raw) {
+        try {
+            var data = JSON.parse(String(raw || "{}"))
+            root.fieldsetRoundingOn = data.fieldsetRounding !== false
+            root.uiReady = true
+        } catch (e) {
+            root.uiReady = false
+        }
+    }
+
     function parseFontState(raw) {
         try {
             var data = JSON.parse(String(raw || "{}"))
@@ -206,6 +224,14 @@ Item {
         command: ["bash", root.barScript, "notifications", "get"]
         stdout: StdioCollector {
             onStreamFinished: root.parseNotificationsState(text)
+        }
+    }
+
+    Process {
+        id: loadUiProc
+        command: ["bash", root.barScript, "ui", "get"]
+        stdout: StdioCollector {
+            onStreamFinished: root.parseUiState(text)
         }
     }
 
@@ -278,6 +304,15 @@ Item {
         stdout: StdioCollector {
             onStreamFinished: root.parseNotificationsState(text)
         }
+    }
+
+    Process {
+        id: uiToggleProc
+        command: ["bash", root.barScript, "ui", "toggle", "fieldsetRounding"]
+        stdout: StdioCollector {
+            onStreamFinished: root.parseUiState(text)
+        }
+        onExited: Theme.reloadUi()
     }
 
     Process {
@@ -434,6 +469,15 @@ Item {
                     checked: !root.notificationsOnHdmiBottom
                     enabled: root.notificationsReady && !settingsBusy
                     onToggled: root.toggleNotifications()
+                }
+
+                ToggleRow {
+                    Layout.fillWidth: true
+                    label: "Fieldset radius"
+                    detail: root.fieldsetRoundingOn ? "4px" : "Square"
+                    checked: root.fieldsetRoundingOn
+                    enabled: root.uiReady && !settingsBusy
+                    onToggled: root.toggleFieldsetRounding()
                 }
 
                 MultiSelectPicker {

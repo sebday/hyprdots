@@ -103,6 +103,7 @@ Item {
         id: trayRow
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.verticalCenter: parent.verticalCenter
+        anchors.verticalCenterOffset: 1
         spacing: root.traySpacing
         height: Theme.barHeight
 

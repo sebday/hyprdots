@@ -103,7 +103,7 @@ build_theme_icons() {
     fi
 
     mkdir -p "$CACHE_ROOT"
-    rsync -a --delete "$PAPIRUS_BASE/" "$cache_dir/"
+    rsync -aL --delete "$PAPIRUS_BASE/" "$cache_dir/"
     sed -i "s/^Name=.*/Name=$ICON_THEME_NAME/" "$cache_dir/index.theme"
     recolor_svgs "$cache_dir"
     printf '%s' "$expected_stamp" >"$stamp"

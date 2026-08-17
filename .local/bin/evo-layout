@@ -5,6 +5,8 @@ set -euo pipefail
 
 SHELL_JSON="${HOME}/.config/quickshell/evoshell/shell.json"
 SHELL_IPC="${HOME}/.local/bin/evo-ipc"
+STATE_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/evoshell"
+UI_STATE="${STATE_DIR}/ui.json"
 
 read_bar_state() {
     jq -c '{barOnDp1Top: ((.bar.output // "") == "DP-1" and (.bar.position // "") == "top")}' "$SHELL_JSON"
@@ -58,12 +60,40 @@ reload_shell_config() {
     "$SHELL_IPC" shell reloadConfig >/dev/null
 }
 
+read_ui_state() {
+    mkdir -p "$STATE_DIR"
+    if [[ -f "$UI_STATE" ]] && jq -e 'type == "object"' "$UI_STATE" >/dev/null 2>&1; then
+        jq -c '{fieldsetRounding: (.fieldsetRounding != false)}' "$UI_STATE"
+    else
+        echo '{"fieldsetRounding":true}'
+    fi
+}
+
+write_ui_state() {
+    local fieldset_rounding="$1"
+    mkdir -p "$STATE_DIR"
+    jq -n --argjson fieldsetRounding "$fieldset_rounding" '{fieldsetRounding: $fieldsetRounding}' >"$UI_STATE"
+}
+
+toggle_fieldset_rounding() {
+    local current on
+    current="$(read_ui_state)"
+    on="$(jq -r 'if .fieldsetRounding then "true" else "false" end' <<<"$current")"
+    if [[ "$on" == "true" ]]; then
+        write_ui_state false
+    else
+        write_ui_state true
+    fi
+    read_ui_state
+}
+
 usage() {
     cat >&2 <<'EOF'
 usage:
   evo-layout bar get|toggle|reset
   evo-layout panel get|toggle
   evo-layout notifications get|toggle
+  evo-layout ui get|toggle fieldsetRounding
 EOF
     exit 1
 }
@@ -134,6 +164,27 @@ notifications)
         fi
         reload_shell_config
         read_notifications_state
+        ;;
+    *)
+        usage
+        ;;
+    esac
+    ;;
+ui)
+    case "$action" in
+    get)
+        read_ui_state
+        ;;
+    toggle)
+        key="${3:-}"
+        case "$key" in
+        fieldsetRounding)
+            toggle_fieldset_rounding
+            ;;
+        *)
+            usage
+            ;;
+        esac
         ;;
     *)
         usage

@@ -11,8 +11,11 @@ Singleton {
 
     readonly property string looksStatePath: (Quickshell.env("HOME") || "") + "/.local/state/evoshell/hypr-looks.json"
 
+    readonly property string uiStatePath: (Quickshell.env("XDG_STATE_HOME") || ((Quickshell.env("HOME") || "") + "/.local/state")) + "/evoshell/ui.json"
+
     property var themeData: ({})
     property var looksData: ({})
+    property var uiData: ({})
 
     FileView {
         id: themeFile
@@ -31,6 +34,16 @@ Singleton {
         printErrors: false
         onLoaded: root.applyLooksFile()
         onLoadFailed: root.applyLooksFile()
+        onFileChanged: reload()
+    }
+
+    FileView {
+        id: uiFile
+        path: root.uiStatePath
+        watchChanges: true
+        printErrors: false
+        onLoaded: root.applyUiFile()
+        onLoadFailed: root.applyUiFile()
         onFileChanged: reload()
     }
 
@@ -60,8 +73,25 @@ Singleton {
         }
     }
 
+    function applyUiFile() {
+        var text = uiFile.text() || ""
+        if (!text.trim()) {
+            uiData = {}
+            return
+        }
+        try {
+            uiData = JSON.parse(text)
+        } catch (e) {
+            uiData = {}
+        }
+    }
+
     function reloadLooks() {
         looksFile.reload()
+    }
+
+    function reloadUi() {
+        uiFile.reload()
     }
 
     function themeColor(key, fallback) {
@@ -117,7 +147,8 @@ Singleton {
     readonly property bool gapsOn: looksData.gapsOn === true
     readonly property int gapsOut: gapsOn ? 20 : 0
     readonly property int panelCornerRadius: roundingOn ? 4 : 0
-    readonly property int fieldsetCornerRadius: 4
+    readonly property bool fieldsetRoundingOn: uiData.fieldsetRounding !== false
+    readonly property int fieldsetCornerRadius: fieldsetRoundingOn ? 4 : 0
     readonly property color overlaySurface: withOpacity(mantle, surfaceOpacity)
     readonly property color overlaySurfaceInactive: withOpacity(mantle, surfaceOpacityInactive)
     readonly property color panelBackground: overlaySurface
@@ -185,5 +216,6 @@ Singleton {
     Component.onCompleted: {
         applyThemeFile()
         applyLooksFile()
+        applyUiFile()
     }
 }

@@ -55,8 +55,30 @@ wallpapers)
                 done
         done
     ;;
+bindings)
+    bindings_file="$home/.config/hypr/bindings.lua"
+    [[ -f "$bindings_file" ]] || exit 0
+    python3 - "$bindings_file" <<'PY'
+import re, sys
+
+path = sys.argv[1]
+text = open(path, encoding="utf-8").read()
+pattern = re.compile(r'bindd\(\s*"([^"]+)"\s*,\s*"([^"]+)"', re.S)
+seen = set()
+for keys, desc in pattern.findall(text):
+    keys = keys.strip()
+    desc = desc.strip()
+    if not keys or not desc:
+        continue
+    pair = (keys, desc)
+    if pair in seen:
+        continue
+    seen.add(pair)
+    print(f"{desc}\t{keys}")
+PY
+    ;;
 *)
-    echo "usage: $0 themes|wallpapers" >&2
+    echo "usage: $0 themes|wallpapers|bindings" >&2
     exit 1
     ;;
 esac

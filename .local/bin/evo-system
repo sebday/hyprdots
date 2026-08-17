@@ -196,7 +196,9 @@ cmd_start() {
     }
 
     run_shell() {
-        systemd-cat -t evoshell -- env QS_NO_RELOAD_POPUP=1 quickshell -n -c evoshell &
+        # shellcheck source=/dev/null
+        source "${HOME}/.local/bin/evo-theme-lib" 2>/dev/null || true
+        systemd-cat -t evoshell -- env QS_NO_RELOAD_POPUP=1 QS_ICON_THEME="${EVO_ICON_THEME:-evo-current}" quickshell -n -c evoshell &
         shell_pid=$!
         printf '%s\n' "$shell_pid" >"$SHELL_PID_FILE"
 

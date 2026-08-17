@@ -65,26 +65,11 @@ Singleton {
         return ""
     }
 
-    function iconPathInHicolor(iconName, size) {
-        var home = Quickshell.env("HOME") || ""
-        var name = String(iconName || "").trim()
-        if (!home || !name)
+    function normalizeIconSource(path) {
+        var value = String(path || "").trim()
+        if (!value)
             return ""
-        var dim = parseInt(size, 10) || 64
-        return home + "/.local/share/icons/hicolor/" + dim + "x" + dim + "/apps/" + name + ".png"
-    }
-
-    function hicolorIconSource(iconName) {
-        var name = String(iconName || "").trim()
-        if (!name)
-            return ""
-        var sizes = [256, 128, 64, 96, 48]
-        for (var i = 0; i < sizes.length; i++) {
-            var hicolor = iconPathInHicolor(name, sizes[i])
-            if (hicolor)
-                return fileUrl(hicolor)
-        }
-        return ""
+        return value.indexOf("file://") === 0 ? value : fileUrl(value)
     }
 
     function themedDesktopIconSource(iconName) {
@@ -96,7 +81,7 @@ Singleton {
         if (home && theme)
             return fileUrl(home + "/.local/share/icons/" + theme + "/apps/64/" + themed + ".svg")
         var path = Quickshell.iconPath(themed, true)
-        return path ? fileUrl(path) : ""
+        return path ? normalizeIconSource(path) : ""
     }
 
     function iconSourceForName(iconName) {
@@ -115,8 +100,12 @@ Singleton {
 
         var path = Quickshell.iconPath(name, true)
         if (path)
-            return fileUrl(path)
+            return normalizeIconSource(path)
 
-        return hicolorIconSource(name)
+        path = Quickshell.iconPath(name, "application-x-executable")
+        if (path)
+            return normalizeIconSource(path)
+
+        return ""
     }
 }

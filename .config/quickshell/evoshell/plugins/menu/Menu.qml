@@ -26,19 +26,21 @@ Item {
     readonly property bool tileMode: mode === "power" && !submenu
     readonly property bool previewTileMode: submenu === "themes" || submenu === "wallpaper"
     readonly property bool appsGridMode: mode === "apps"
+    readonly property bool styledMenuMode: tileMode || appsGridMode
     readonly property bool boxTileMode: tileMode || previewTileMode
     readonly property bool framedMode: !boxTileMode && !appsGridMode
     readonly property string previewFallbackIcon: submenu === "wallpaper" ? "󰏘" : "󰸌"
     readonly property int tileWidth: 160
     readonly property int tileHeight: 160
+    readonly property int powerTileWidth: 136
+    readonly property int powerTileHeight: 124
+    readonly property int powerGridColumns: 5
+    readonly property int powerMenuPadding: 28
+    readonly property int powerHeaderHeight: 104
+    readonly property int powerLogoFont: Theme.fontSize8xl * 2
+    readonly property int powerTileIconSize: 52
     readonly property int tileSpacing: 24
     readonly property int tileIconSize: 64
-    readonly property int appGridColumns: 6
-    readonly property int appIconSize: 110
-    readonly property int appIconSourceSize: 128
-    readonly property int appTileWidth: 160
-    readonly property int appTileHeight: 160
-    readonly property int appTileSpacing: 24
     readonly property int previewTileWidth: 296
     readonly property int previewTileHeight: 204
     readonly property int previewImageHeight: 192
@@ -49,19 +51,19 @@ Item {
     readonly property int listFilterHeight: 38
     readonly property int listFilterFontSize: Theme.fontSizeL
     readonly property int previewMenuMargin: 48
-    readonly property int appsMenuPadding: 0
-    readonly property int appsMenuRadius: Theme.panelCornerRadius
+    readonly property int appIconSourceSize: 128
+    readonly property string menuHeaderIcon: appsGridMode ? "󰀻" : "󰣇"
+    readonly property string menuHeaderTitle: appsGridMode ? "Apps" : "Evo shell"
+    readonly property string menuHeaderSubtitle: appsGridMode ? "Desktop programs" : "Panels · overlays · session"
 
     readonly property int previewGridColumns: 5
     readonly property int previewColumnCount: gridColumnCount
-    readonly property int activeTileWidth: previewTileMode ? previewTileWidth : (appsGridMode ? appTileWidth : tileWidth)
-    readonly property int activeTileHeight: previewTileMode ? previewTileHeight : (appsGridMode ? appTileHeight : tileHeight)
+    readonly property int activeTileWidth: previewTileMode ? previewTileWidth : (styledMenuMode ? powerTileWidth : tileWidth)
+    readonly property int activeTileHeight: previewTileMode ? previewTileHeight : (styledMenuMode ? powerTileHeight : tileHeight)
 
     readonly property int gridColumnCount: {
         var n = visibleEntries.length
-        if (tileMode) return Math.max(1, n)
-        if (appsGridMode)
-            return appGridColumns
+        if (styledMenuMode) return Math.max(1, Math.min(n, powerGridColumns))
         if (n <= 0) return 1
         if (previewTileMode)
             return Math.max(1, Math.min(n, previewGridColumns))
@@ -73,29 +75,24 @@ Item {
     readonly property int gridRowCount: {
         var n = visibleEntries.length
         if (n <= 0) return 1
-        if (tileMode) return 1
         return Math.ceil(n / gridColumnCount)
     }
 
     readonly property int gridWidth: {
         var cols = gridColumnCount
         if (cols <= 0) return activeTileWidth
-        if (appsGridMode)
-            return cols * (appTileWidth + appTileSpacing)
         return cols * activeTileWidth + (cols - 1) * tileSpacing
     }
 
     readonly property int gridHeight: {
         var rows = gridRowCount
         if (rows <= 0) return activeTileHeight
-        if (appsGridMode)
-            return rows * (appTileHeight + appTileSpacing)
         return rows * activeTileHeight + (rows - 1) * tileSpacing
     }
 
-    readonly property int appsGridViewportHeight: {
-        var chrome = appsMenuPadding * 2
-        var available = Math.max(appTileHeight + appTileSpacing,
+    readonly property int styledMenuViewportHeight: {
+        var chrome = powerHeaderHeight + powerMenuPadding * 2 + 28
+        var available = Math.max(powerTileHeight + tileSpacing,
             panel.previewAreaMaxHeight - chrome)
         return Math.min(gridHeight, available)
     }
@@ -116,18 +113,39 @@ Item {
         return n * previewTileWidth + (n - 1) * tileSpacing
     }
 
-    readonly property int boxRowWidth: previewTileMode ? gridWidth : tileRowWidth
+    readonly property int boxRowWidth: previewTileMode ? gridWidth : (tileMode ? gridWidth : tileRowWidth)
     readonly property int boxRowHeight: previewTileMode
         ? gridHeight
-        : tileHeight
-    readonly property int appsHostWidth: gridWidth + appsMenuPadding * 2
-    readonly property int appsHostHeight: appsMenuPadding * 2 + appsGridViewportHeight
+        : (tileMode ? gridHeight + powerHeaderHeight + 12 : tileHeight)
+    readonly property int styledMenuHostHeight: styledMenuViewportHeight + powerHeaderHeight + powerMenuPadding * 2 + 28
 
     readonly property string home: Quickshell.env("HOME")
     readonly property string placeholderText: {
-        if (mode === "power") return "System…"
+        if (mode === "power") return "Search system…"
         if (mode === "apps") return "Applications…"
         return "Search…"
+    }
+
+    function focusSearchField() {
+        if (root.styledMenuMode)
+            menuFilterField.forceActiveFocus()
+        else if (root.framedMode)
+            filterField.forceActiveFocus()
+        else if (root.previewTileMode)
+            menuHost.forceActiveFocus()
+    }
+
+    function appendFilterText(text) {
+        if (!text)
+            return
+        root.filterText = root.filterText + text
+        if (root.styledMenuMode) {
+            menuFilterField.text = root.filterText
+            menuFilterField.forceActiveFocus()
+        } else if (root.framedMode) {
+            filterField.text = root.filterText
+            filterField.forceActiveFocus()
+        }
     }
 
     function open(payloadJson) {
@@ -154,12 +172,7 @@ Item {
         Qt.callLater(function() {
             root.previewAreaMaxWidth = panel.previewAreaMaxWidth
             root.previewAreaMaxHeight = panel.previewAreaMaxHeight
-            if (root.boxTileMode)
-                menuHost.forceActiveFocus()
-            else if (root.appsGridMode)
-                appsFilterField.forceActiveFocus()
-            else
-                filterField.forceActiveFocus()
+            root.focusSearchField()
         })
     }
 
@@ -194,8 +207,19 @@ Item {
     }
 
     function ensureGridSelectionVisible() {
-        if (appsGridMode)
-            appGrid.positionViewAtIndex(selectedIndex, GridView.Contain)
+        if (!appsGridMode)
+            return
+        var cols = gridColumnCount
+        if (cols <= 0)
+            return
+        var row = Math.floor(selectedIndex / cols)
+        var rowHeight = powerTileHeight + tileSpacing
+        var itemTop = row * rowHeight
+        var itemBottom = itemTop + powerTileHeight
+        if (itemTop < appFlickable.contentY)
+            appFlickable.contentY = itemTop
+        else if (itemBottom > appFlickable.contentY + appFlickable.height)
+            appFlickable.contentY = Math.max(0, itemBottom - appFlickable.height)
     }
 
     function moveGridSelection(dx, dy) {
@@ -235,24 +259,20 @@ Item {
     }
 
     function handlePreviewLeft() {
-        if (previewTileMode || appsGridMode) moveGridSelection(-1, 0)
-        else if (tileMode) moveTileSelection(-1, 0)
+        if (previewTileMode || appsGridMode || tileMode) moveGridSelection(-1, 0)
     }
 
     function handlePreviewRight() {
-        if (previewTileMode || appsGridMode) moveGridSelection(1, 0)
-        else if (tileMode) moveTileSelection(1, 0)
+        if (previewTileMode || appsGridMode || tileMode) moveGridSelection(1, 0)
     }
 
     function handlePreviewUp() {
-        if (previewTileMode || appsGridMode) moveGridSelection(0, -1)
-        else if (tileMode) moveTileSelection(0, -1)
+        if (previewTileMode || appsGridMode || tileMode) moveGridSelection(0, -1)
         else if (framedMode) moveSelection(-1)
     }
 
     function handlePreviewDown() {
-        if (previewTileMode || appsGridMode) moveGridSelection(0, 1)
-        else if (tileMode) moveTileSelection(0, 1)
+        if (previewTileMode || appsGridMode || tileMode) moveGridSelection(0, 1)
         else if (framedMode) moveSelection(1)
     }
 
@@ -277,7 +297,12 @@ Item {
             dynamicEntries = []
             filterText = ""
             selectedIndex = 0
-        } else dismiss()
+        } else if (styledMenuMode && filterText.trim() !== "") {
+            filterText = ""
+            selectedIndex = 0
+        } else {
+            dismiss()
+        }
     }
 
     function handleActivateKey() {
@@ -309,13 +334,12 @@ Item {
 
     function entryIconSource(entry) {
         if (!entry) return ""
-        if (entry.iconSource)
-            return entry.iconSource
-        if (entry.kind !== "app" || !entry.entryRef || !entry.entryRef.icon)
+        var iconName = ""
+        if (entry.entryRef && entry.entryRef.icon)
+            iconName = String(entry.entryRef.icon)
+        if (!iconName)
             return ""
-        var src = Util.iconSourceForName(String(entry.entryRef.icon))
-        entry.iconSource = src
-        return src
+        return Util.iconSourceForName(iconName)
     }
 
     function entryGlyphIcon(entry) {
@@ -374,6 +398,14 @@ Item {
         if (submenu) {
             if (dynamicEntries.length === 0) return []
             return MenuEntries.filterEntries(dynamicEntries, q).map(function(e) {
+                if (root.submenu === "bindings") {
+                    return {
+                        kind: "info",
+                        name: e.name,
+                        keys: e.keys || e.command || "",
+                        icon: "󰌌"
+                    }
+                }
                 return {
                     kind: "command",
                     name: e.name,
@@ -398,7 +430,7 @@ Item {
             return out
         }
         if (mode === "power") {
-            return MenuEntries.filterEntries(commandEntries, q, 16).map(MenuEntries.mapEntry)
+            return MenuEntries.filterEntries(commandEntries, q).map(MenuEntries.mapEntry)
         }
         return []
     }
@@ -438,10 +470,29 @@ Item {
                 if (entry.submenu === "themes" || entry.submenu === "wallpaper")
                     menuHost.forceActiveFocus()
                 else
-                    filterField.forceActiveFocus()
+                    root.focusSearchField()
             })
             return
         }
+        if (entry.kind === "mode" && entry.mode) {
+            mode = String(entry.mode)
+            submenu = ""
+            filterText = ""
+            selectedIndex = 0
+            refreshCommandEntries()
+            dynamicEntries = []
+            if (mode === "apps" && cachedApps.length === 0)
+                rebuildAppCache()
+            refreshVisibleEntries()
+            Qt.callLater(function() {
+                root.previewAreaMaxWidth = panel.previewAreaMaxWidth
+                root.previewAreaMaxHeight = panel.previewAreaMaxHeight
+                root.focusSearchField()
+            })
+            return
+        }
+        if (entry.kind === "info")
+            return
         if (entry.command) runCommand(entry.command)
     }
 
@@ -455,13 +506,13 @@ Item {
         dynamicLoading = true
         dynamicEntries = []
         var listScript = home + "/.local/bin/evo-menu-list"
-        if (kind !== "themes" && kind !== "wallpaper") {
+        if (kind !== "themes" && kind !== "wallpaper" && kind !== "bindings") {
             dynamicLoading = false
             return
         }
         dynamicProc.command = ["bash", "-lc",
             "test -x " + Util.shellQuote(listScript) + " && " +
-            Util.shellQuote(listScript) + " " + (kind === "wallpaper" ? "wallpapers" : "themes")
+            Util.shellQuote(listScript) + " " + kind
         ]
         dynamicProc.running = true
     }
@@ -477,11 +528,15 @@ Item {
                 out.push({ name: line, command: line, preview: "" })
             } else {
                 var parts = line.split("\t")
-                out.push({
-                    name: parts[0] || "",
-                    command: parts[1] || "",
-                    preview: parts[2] || ""
-                })
+                if (parts.length === 2 && parts[1].indexOf("/") < 0 && parts[1].indexOf("evo-") !== 0) {
+                    out.push({ name: parts[0] || "", keys: parts[1] || "" })
+                } else {
+                    out.push({
+                        name: parts[0] || "",
+                        command: parts[1] || "",
+                        preview: parts[2] || ""
+                    })
+                }
             }
         }
         dynamicEntries = out
@@ -543,15 +598,15 @@ Item {
             id: menuHost
             z: 1
             anchors.centerIn: parent
-            width: root.appsGridMode
-                ? root.appsHostWidth
+            width: root.styledMenuMode
+                ? root.gridWidth + root.powerMenuPadding * 2
                 : root.boxTileMode
                     ? root.boxRowWidth
                     : 720
-            height: root.appsGridMode
-                ? root.appsHostHeight
+            height: root.styledMenuMode
+                ? (root.appsGridMode ? root.styledMenuHostHeight : root.gridHeight + root.powerHeaderHeight + root.powerMenuPadding * 2 + 28)
                 : root.boxTileMode ? root.boxRowHeight : 640
-            focus: root.opened
+            focus: root.opened && root.previewTileMode
 
             Keys.onEscapePressed: root.handleEscapeKey()
             Keys.onLeftPressed: root.handlePreviewLeft()
@@ -559,6 +614,17 @@ Item {
             Keys.onUpPressed: root.handlePreviewUp()
             Keys.onDownPressed: root.handlePreviewDown()
             Keys.onReturnPressed: root.handleActivateKey()
+            Keys.onPressed: function(event) {
+                if (!root.styledMenuMode && !root.framedMode)
+                    return
+                if (event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier))
+                    return
+                var text = event.text
+                if (!text || text.length === 0 || event.isAutoRepeat)
+                    return
+                root.appendFilterText(text)
+                event.accepted = true
+            }
 
             Rectangle {
                 anchors.fill: parent
@@ -568,39 +634,19 @@ Item {
                 border.width: 1
             }
 
-            TextInput {
-                id: appsFilterField
-                x: 0
-                y: 0
-                width: 1
-                height: 1
-                opacity: 0
-                visible: root.appsGridMode
-                enabled: root.appsGridMode
-                color: "transparent"
-                cursorVisible: false
-                text: root.filterText
-                onTextEdited: root.filterText = text
-                Keys.onEscapePressed: root.handleEscapeKey()
-                Keys.onLeftPressed: root.handlePreviewLeft()
-                Keys.onRightPressed: root.handlePreviewRight()
-                Keys.onUpPressed: root.handlePreviewUp()
-                Keys.onDownPressed: root.handlePreviewDown()
-                Keys.onReturnPressed: root.handleActivateKey()
-                onActiveFocusChanged: {
-                    if (activeFocus || !root.opened || !root.appsGridMode)
-                        return
-                    Qt.callLater(function() {
-                        if (root.opened && root.appsGridMode)
-                            appsFilterField.forceActiveFocus()
-                    })
-                }
+            Rectangle {
+                anchors.fill: parent
+                visible: root.styledMenuMode
+                color: Theme.withOpacity(Theme.background, 0.94)
+                border.color: Theme.withOpacity(Theme.accent, 0.5)
+                border.width: 1
+                radius: Theme.panelCornerRadius
             }
 
             Column {
                 anchors.fill: parent
-                anchors.margins: root.boxTileMode ? 0 : (root.appsGridMode ? root.appsMenuPadding : 16)
-                spacing: 12
+                anchors.margins: root.styledMenuMode ? root.powerMenuPadding : (root.boxTileMode ? 0 : 16)
+                spacing: root.styledMenuMode ? 14 : 12
 
                 Item {
                     width: parent.width
@@ -726,177 +772,318 @@ Item {
                     }
                 }
 
-                Text {
-                    visible: root.appsGridMode && !root.dynamicLoading && root.visibleEntries.length === 0
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: root.filterText.trim() === "" ? "No applications" : "No matches"
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeS
-                    font.bold: Theme.fontBold
-                    opacity: 0.55
-                }
+                Column {
+                    visible: root.styledMenuMode
+                    width: parent.width
+                    spacing: 14
 
-                GridView {
-                    id: appGrid
-                    visible: root.appsGridMode && root.visibleEntries.length > 0
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    width: root.gridWidth
-                    height: root.appsGridViewportHeight
-                    clip: true
-                    reuseItems: true
-                    highlightFollowsCurrentItem: false
-                    cacheBuffer: root.appTileHeight + root.appTileSpacing
-                    cellWidth: root.appTileWidth + root.appTileSpacing
-                    cellHeight: root.appTileHeight + root.appTileSpacing
-                    model: root.visibleEntries
-                    currentIndex: root.selectedIndex
+                    Item {
+                        width: parent.width
+                        height: root.powerHeaderHeight
 
-                    onCountChanged: if (root.selectedIndex >= count) root.selectedIndex = Math.max(0, count - 1)
+                        Row {
+                            id: menuHeaderRow
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: 12
 
-                    delegate: Item {
-                        id: appTile
-                        required property var modelData
-                        required property int index
-                        width: root.appTileWidth + root.appTileSpacing
-                        height: root.appTileHeight + root.appTileSpacing
-                        opacity: appMouse.containsMouse || index === root.selectedIndex ? 1 : 0.88
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: root.menuHeaderIcon
+                                color: Theme.accent
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.powerLogoFont
+                                font.bold: Theme.fontBold
+                            }
 
-                        readonly property string appIconSource: modelData.iconSource || root.entryIconSource(modelData)
-                        readonly property string glyphIcon: root.entryGlyphIcon(modelData)
-                        readonly property bool appSelected: index === root.selectedIndex
+                            Column {
+                                anchors.verticalCenter: parent.verticalCenter
+                                spacing: 2
+
+                                Text {
+                                    text: root.menuHeaderTitle
+                                    color: Theme.foreground
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.fontSize6xl
+                                    font.bold: Theme.fontBold
+                                }
+
+                                Text {
+                                    text: root.menuHeaderSubtitle
+                                    color: Theme.foreground
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.fontSizeS
+                                    font.bold: Theme.fontBold
+                                    opacity: 0.5
+                                }
+                            }
+                        }
 
                         Item {
-                            id: tileFrame
-                            anchors.centerIn: parent
-                            width: root.appTileWidth
-                            height: root.appTileHeight
+                            anchors.left: menuHeaderRow.right
+                            anchors.leftMargin: 20
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            height: root.listFilterHeight
 
                             Rectangle {
                                 anchors.fill: parent
                                 color: Theme.overlaySurface
-                                border.width: appTile.appSelected ? 2 : 0
-                                border.color: Theme.accent
+                                border.color: Theme.withOpacity(Theme.accent, 0.22)
+                                border.width: 1
                                 radius: Theme.panelCornerRadius
                             }
 
-                            Column {
-                                anchors.centerIn: parent
-                                spacing: 4
-
-                                Item {
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    width: root.appIconSize
-                                    height: root.appIconSize
-
-                                    Image {
-                                        id: appIcon
-                                        anchors.fill: parent
-                                        visible: appTile.appIconSource.length > 0 && status !== Image.Error
-                                        source: appTile.appIconSource
-                                        fillMode: Image.PreserveAspectFit
-                                        smooth: true
-                                        asynchronous: true
-                                        cache: true
-                                        sourceSize: Qt.size(root.appIconSourceSize, root.appIconSourceSize)
-                                    }
-
-                                    Text {
-                                        anchors.centerIn: parent
-                                        visible: appTile.appIconSource.length === 0 || appIcon.status === Image.Error
-                                        text: appTile.glyphIcon
-                                        color: Theme.accent
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: root.appIconSize * 0.5
-                                        font.bold: Theme.fontBold
-                                    }
-                                }
-
-                                Text {
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    width: Math.min(implicitWidth, root.appTileWidth - 12)
-                                    text: modelData.name || ""
-                                    color: Theme.foreground
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.fontSizeXxs
-                                    font.bold: Theme.fontBold
-                                    horizontalAlignment: Text.AlignHCenter
-                                    elide: Text.ElideRight
-                                    maximumLineCount: 1
-                                    opacity: 0.8
-                                }
+                            Text {
+                                visible: menuFilterField.text.length === 0 && !menuFilterField.activeFocus
+                                anchors.left: parent.left
+                                anchors.leftMargin: 12
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: root.placeholderText
+                                color: Theme.foreground
+                                opacity: 0.45
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.listFilterFontSize
+                                font.bold: Theme.fontBold
                             }
 
-                            MouseArea {
-                                id: appMouse
+                            TextInput {
+                                id: menuFilterField
                                 anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onEntered: root.selectedIndex = index
-                                onClicked: {
-                                    root.selectedIndex = index
-                                    root.activateEntry(modelData)
+                                anchors.leftMargin: 12
+                                anchors.rightMargin: 12
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.listFilterFontSize
+                                font.bold: Theme.fontBold
+                                text: root.filterText
+                                selectByMouse: true
+                                verticalAlignment: TextInput.AlignVCenter
+                                onTextEdited: root.filterText = text
+                                Keys.onEscapePressed: root.handleEscapeKey()
+                                Keys.onLeftPressed: root.handlePreviewLeft()
+                                Keys.onRightPressed: root.handlePreviewRight()
+                                Keys.onUpPressed: root.handlePreviewUp()
+                                Keys.onDownPressed: root.handlePreviewDown()
+                                Keys.onReturnPressed: root.handleActivateKey()
+                            }
+                        }
+                    }
+
+                    Text {
+                        visible: root.appsGridMode && !root.dynamicLoading && root.visibleEntries.length === 0
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: root.filterText.trim() === "" ? "No applications" : "No matches"
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeS
+                        font.bold: Theme.fontBold
+                        opacity: 0.55
+                    }
+
+                    Flickable {
+                        id: appFlickable
+                        visible: root.appsGridMode && root.visibleEntries.length > 0
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        width: root.gridWidth
+                        height: root.styledMenuViewportHeight
+                        clip: true
+                        boundsBehavior: Flickable.StopAtBounds
+                        contentWidth: width
+                        contentHeight: appFlow.height
+
+                        Flow {
+                            id: appFlow
+                            width: parent.width
+                            spacing: root.tileSpacing
+                            flow: Flow.LeftToRight
+
+                            Repeater {
+                                model: root.visibleEntries
+
+                                Item {
+                                    id: appTile
+                                    required property var modelData
+                                    required property int index
+                                    width: root.powerTileWidth
+                                    height: root.powerTileHeight
+
+                                    readonly property string appIconSource: {
+                                        var _theme = Theme.iconThemeName
+                                        if (!modelData || !modelData.entryRef)
+                                            return ""
+                                        return root.entryIconSource(modelData)
+                                    }
+                                    readonly property string glyphIcon: root.entryGlyphIcon(modelData)
+                                    readonly property bool appSelected: index === root.selectedIndex
+
+                                    scale: appMouse.pressed ? 0.96 : (appMouse.containsMouse ? 1.02 : 1)
+                                    transformOrigin: Item.Center
+
+                                    Behavior on scale {
+                                        NumberAnimation {
+                                            duration: 120
+                                            easing.type: Easing.OutCubic
+                                        }
+                                    }
+
+                                    Rectangle {
+                                        id: tileBg
+                                        anchors.fill: parent
+                                        radius: Theme.panelCornerRadius
+                                        color: appTile.appSelected
+                                            ? Theme.withOpacity(Theme.accent, 0.14)
+                                            : Theme.withOpacity(Theme.panelMantle, appMouse.containsMouse ? 0.95 : 0.72)
+                                        border.color: appTile.appSelected
+                                            ? Theme.accent
+                                            : Theme.withOpacity(Theme.accent, appMouse.containsMouse ? 0.45 : 0.22)
+                                        border.width: appTile.appSelected ? 2 : 1
+
+                                        Column {
+                                            anchors.centerIn: parent
+                                            width: parent.width - 16
+                                            spacing: 8
+
+                                            Item {
+                                                anchors.horizontalCenter: parent.horizontalCenter
+                                                width: root.powerTileIconSize
+                                                height: root.powerTileIconSize
+
+                                                Image {
+                                                    id: appIcon
+                                                    anchors.fill: parent
+                                                    visible: appTile.appIconSource.length > 0 && status !== Image.Error
+                                                    source: appTile.appIconSource
+                                                    fillMode: Image.PreserveAspectFit
+                                                    smooth: true
+                                                    asynchronous: false
+                                                    cache: true
+                                                    mipmap: true
+                                                    sourceSize: Qt.size(root.appIconSourceSize, root.appIconSourceSize)
+                                                }
+
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    visible: appTile.appIconSource.length === 0 || appIcon.status === Image.Error
+                                                    text: appTile.glyphIcon
+                                                    color: appTile.appSelected ? Theme.accent : Theme.foreground
+                                                    font.family: Theme.fontFamily
+                                                    font.pixelSize: root.powerTileIconSize
+                                                    font.bold: Theme.fontBold
+                                                }
+                                            }
+
+                                            Text {
+                                                anchors.horizontalCenter: parent.horizontalCenter
+                                                width: parent.width
+                                                text: modelData.name || ""
+                                                color: Theme.foreground
+                                                font.family: Theme.fontFamily
+                                                font.pixelSize: Theme.fontSizeXs
+                                                font.bold: Theme.fontBold
+                                                horizontalAlignment: Text.AlignHCenter
+                                                wrapMode: Text.Wrap
+                                                maximumLineCount: 2
+                                                elide: Text.ElideRight
+                                                opacity: appTile.appSelected ? 1 : 0.82
+                                            }
+                                        }
+                                    }
+
+                                    MouseArea {
+                                        id: appMouse
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onEntered: root.selectedIndex = index
+                                        onClicked: {
+                                            root.selectedIndex = index
+                                            root.activateEntry(modelData)
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
-                }
 
-                Row {
-                    id: tileRow
-                    visible: root.tileMode
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    spacing: root.tileSpacing
-                    width: root.tileRowWidth
-                    height: root.tileHeight
+                    Item {
+                        visible: root.tileMode
+                        width: parent.width
+                        implicitHeight: powerFlow.implicitHeight
 
-                    Repeater {
-                        model: root.visibleEntries
+                        Flow {
+                            id: powerFlow
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            width: root.gridWidth
+                            spacing: root.tileSpacing
+                            flow: Flow.LeftToRight
 
-                        Rectangle {
-                            required property var modelData
-                            required property int index
-                            width: root.tileWidth
-                            height: root.tileHeight
-                            color: Theme.overlaySurface
-                            border.color: index === root.selectedIndex ? Theme.accent : Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.35)
-                            border.width: index === root.selectedIndex ? 2 : 1
+                            Repeater {
+                                model: root.visibleEntries
 
-                            Column {
-                                anchors.centerIn: parent
-                                spacing: 4
+                                Rectangle {
+                                    required property var modelData
+                                    required property int index
+                                    width: root.powerTileWidth
+                                    height: root.powerTileHeight
+                                    radius: Theme.panelCornerRadius
+                                    color: index === root.selectedIndex
+                                        ? Theme.withOpacity(Theme.accent, 0.14)
+                                        : Theme.withOpacity(Theme.panelMantle, powerMouse.containsMouse ? 0.95 : 0.72)
+                                    border.color: index === root.selectedIndex
+                                        ? Theme.accent
+                                        : Theme.withOpacity(Theme.accent, powerMouse.containsMouse ? 0.45 : 0.22)
+                                    border.width: index === root.selectedIndex ? 2 : 1
 
-                                Text {
-                                    text: modelData.icon || "󰍉"
-                                    color: Theme.accent
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: root.tileIconSize
-                                    font.bold: Theme.fontBold
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                }
+                                    scale: powerMouse.pressed ? 0.96 : (powerMouse.containsMouse ? 1.02 : 1)
+                                    Behavior on scale {
+                                        NumberAnimation {
+                                            duration: 120
+                                            easing.type: Easing.OutCubic
+                                        }
+                                    }
 
-                                Text {
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    text: modelData.name
-                                    color: Theme.foreground
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.fontSizeXxs
-                                    font.bold: Theme.fontBold
-                                    width: Math.min(implicitWidth, root.tileWidth - 12)
-                                    horizontalAlignment: Text.AlignHCenter
-                                    wrapMode: Text.Wrap
-                                    maximumLineCount: 2
-                                    elide: Text.ElideRight
-                                }
-                            }
+                                    Column {
+                                        anchors.centerIn: parent
+                                        width: parent.width - 16
+                                        spacing: 8
 
-                            MouseArea {
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                onEntered: root.selectedIndex = index
-                                onClicked: {
-                                    root.selectedIndex = index
-                                    root.activateEntry(modelData)
+                                        Text {
+                                            anchors.horizontalCenter: parent.horizontalCenter
+                                            text: modelData.icon || "󰍉"
+                                            color: index === root.selectedIndex ? Theme.accent : Theme.foreground
+                                            font.family: Theme.fontFamily
+                                            font.pixelSize: root.powerTileIconSize
+                                            font.bold: Theme.fontBold
+                                        }
+
+                                        Text {
+                                            anchors.horizontalCenter: parent.horizontalCenter
+                                            width: parent.width
+                                            text: modelData.name
+                                            color: Theme.foreground
+                                            font.family: Theme.fontFamily
+                                            font.pixelSize: Theme.fontSizeXs
+                                            font.bold: Theme.fontBold
+                                            horizontalAlignment: Text.AlignHCenter
+                                            wrapMode: Text.Wrap
+                                            maximumLineCount: 2
+                                            elide: Text.ElideRight
+                                            opacity: index === root.selectedIndex ? 1 : 0.82
+                                        }
+                                    }
+
+                                    MouseArea {
+                                        id: powerMouse
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onEntered: root.selectedIndex = index
+                                        onClicked: {
+                                            root.selectedIndex = index
+                                            root.activateEntry(modelData)
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -927,13 +1114,16 @@ Item {
                             return root.entryIconSource(modelData)
                         }
                         readonly property string glyphIcon: root.entryGlyphIcon(modelData)
+                        readonly property bool infoRow: modelData.kind === "info"
+                        readonly property string keysLabel: String(modelData.keys || "")
 
                         Row {
                             anchors.left: parent.left
                             anchors.leftMargin: 8
                             anchors.verticalCenter: parent.verticalCenter
+                            anchors.right: entryRow.infoRow ? keysLabel.left : parent.right
+                            anchors.rightMargin: entryRow.infoRow ? 12 : 8
                             spacing: 20
-                            width: parent.width - 16
 
                             Item {
                                 width: root.listIconSize
@@ -941,7 +1131,7 @@ Item {
 
                                 Image {
                                     anchors.fill: parent
-                                    visible: entryRow.appIconSource.length > 0
+                                    visible: !entryRow.infoRow && entryRow.appIconSource.length > 0
                                     source: entryRow.appIconSource
                                     fillMode: Image.PreserveAspectFit
                                     smooth: true
@@ -952,7 +1142,7 @@ Item {
 
                                 Text {
                                     anchors.centerIn: parent
-                                    visible: entryRow.appIconSource.length === 0
+                                    visible: entryRow.infoRow || entryRow.appIconSource.length === 0
                                     text: entryRow.glyphIcon
                                     color: Theme.accent
                                     font.family: Theme.fontFamily
@@ -962,14 +1152,28 @@ Item {
                             }
 
                             Text {
+                                width: parent.width - root.listIconSize - 20
                                 text: modelData.name
                                 color: Theme.foreground
                                 font.family: Theme.fontFamily
                                 font.pixelSize: root.listFontSize
                                 font.bold: Theme.fontBold
                                 elide: Text.ElideRight
-                                width: parent.width - root.listIconSize - 20
                             }
+                        }
+
+                        Text {
+                            id: keysLabel
+                            visible: entryRow.infoRow && entryRow.keysLabel !== ""
+                            anchors.right: parent.right
+                            anchors.rightMargin: 12
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: entryRow.keysLabel
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.listFilterFontSize
+                            font.bold: Theme.fontBold
+                            opacity: 0.55
                         }
 
                         MouseArea {

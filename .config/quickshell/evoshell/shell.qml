@@ -1,3 +1,5 @@
+//@ pragma IconTheme evo-current
+
 import QtQuick
 import QtQml.Models
 import Quickshell
