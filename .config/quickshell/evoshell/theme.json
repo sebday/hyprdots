@@ -1,10 +1,10 @@
 {
-  "foreground": "#cdd6f4",
-  "background": "#1e1e2e",
-  "accent": "#89b4fa",
-  "mantle": "#181825",
-  "urgent": "#f38ba8",
-  "iconTheme": "Catppuccin-Mocha",
+  "foreground": "#f8f8f2",
+  "background": "#0a0e19",
+  "accent": "#8be9fd",
+  "mantle": "#080a12",
+  "urgent": "#ff5555",
+  "iconTheme": "evo-current",
   "fontFamily": "CaskaydiaMono Nerd Font",
   "fontPixelSize": 13
 }

@@ -4,6 +4,7 @@
 THEME_DIR="${THEME_DIR:-$HOME/.themes}"
 TEMPLATES_DIR="${TEMPLATES_DIR:-$THEME_DIR/shared/templates}"
 CURRENT_THEME="${CURRENT_THEME:-$THEME_DIR/current}"
+EVO_ICON_THEME="${EVO_ICON_THEME:-evo-current}"
 
 theme_wallpapers_dir() {
     local theme_path="${1:-$CURRENT_THEME}"
@@ -198,13 +199,12 @@ themes_sync_evo_shell() {
     local font_state="${XDG_STATE_HOME:-$HOME/.local/state}/evoshell/font.json"
     [ -f "$toml" ] || return 0
 
-    local fg bg accent mantle urgent icon_theme
+    local fg bg accent mantle urgent
     fg=$(toml_val foreground "$toml")
     bg=$(toml_val background "$toml")
     accent=$(toml_val accent "$toml")
     mantle=$(toml_val mantle "$toml")
     urgent=$(toml_val color1 "$toml")
-    icon_theme=$(toml_val icon_theme "$toml")
 
     local prev_json='{}'
     local fonts_json='{}'
@@ -218,7 +218,7 @@ themes_sync_evo_shell() {
         --arg accent "$accent" \
         --arg mantle "$mantle" \
         --arg urgent "$urgent" \
-        --arg iconTheme "$icon_theme" \
+        --arg iconTheme "$EVO_ICON_THEME" \
         --argjson prev "$prev_json" \
         --argjson fonts "$fonts_json" \
         '
@@ -241,11 +241,7 @@ themes_sync_evo_shell() {
 }
 
 themes_sync_icon_theme_gsettings() {
-    local toml="${CURRENT_PATH:-$THEME_DIR/current}/colors.toml"
-    local icon_theme
-    icon_theme=$(toml_val icon_theme "$toml") || return 0
-    [ -n "$icon_theme" ] || return 0
-    gsettings set org.gnome.desktop.interface icon-theme "$icon_theme" 2>/dev/null || true
+    gsettings set org.gnome.desktop.interface icon-theme "$EVO_ICON_THEME" 2>/dev/null || true
 }
 
 # Override with OBSIDIAN_VAULT_DIR if your vault moves.

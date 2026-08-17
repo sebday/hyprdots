@@ -61,12 +61,7 @@ ensure_gtk_icon_theme_name() {
 
 activate_gtk() {
     local gtk_theme="current"
-    local icon_theme=""
-    local toml="${CURRENT_PATH:-$THEME_DIR/current}/colors.toml"
-    if [[ -f "$toml" ]]; then
-        # shellcheck source=/dev/null
-        icon_theme=$(toml_val icon_theme "$toml")
-    fi
+    local icon_theme="$EVO_ICON_THEME"
     ensure_gtk_theme_name "$HOME/.config/gtk-3.0/settings.ini" "$gtk_theme"
     ensure_gtk_theme_name "$HOME/.config/gtk-4.0/settings.ini" "$gtk_theme"
     ensure_gtk_icon_theme_name "$HOME/.config/gtk-3.0/settings.ini" "$icon_theme"
@@ -116,7 +111,12 @@ promote_theme() {
 
 activate_theme() {
     local wallpaper_path="${1:-}"
+    local theme_slug
+    theme_slug=$(get_current_theme)
     install_theme_manifest
+    if [[ -n "$theme_slug" ]]; then
+        "$HOME/.local/bin/evo-theme-icons" activate "$theme_slug"
+    fi
     themes_sync_evo_shell
     activate_gtk
 

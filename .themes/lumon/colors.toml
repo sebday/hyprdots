@@ -10,7 +10,8 @@ cursor = "#f2fcff"
 foreground = "#d6e2ee"
 background = "#16242d"
 mantle = "#111c24"
-icon_theme = "Tokyonight-Moon"
+icon_text = "#c8d3f5"
+icon_highlight = "#5294e2"
 
 # Selection colors
 selection_foreground = "#1b2d40"

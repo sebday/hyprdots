@@ -4,3 +4,8 @@
 **/__pycache__/
 *.pyc
 **/secrets.env
+.local/share/icons/Catppuccin-Mocha/
+.local/share/icons/Gruvbox-Dark/
+.local/share/icons/Tokyonight-Moon/
+.local/share/icons/Tokyonight-Dark-Cyan/
+.local/share/icons/Everforest-Dark/
