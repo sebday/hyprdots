@@ -11,6 +11,9 @@ usage() {
   cat >&2 <<'EOF'
 usage:
   evo-player start|load <path> [--folder]|play [playlist|m3u]
+  evo-player current save <path> [<path>...]
+  evo-player current load [--json]
+  evo-player current clear
   evo-player queue append <path> [<path>...]
   evo-player queue play <start-path> <path> [<path>...]
   evo-player prioritize <path> [<path>...]
@@ -369,7 +372,7 @@ cmd_player_queue_play() {
   art_ensure_now "$start"
   art_prioritize_paths "$start"
   queue_save "${queue_paths[@]}"
-  player_save_state "$start" "$(genre_from_path "$start")" "" "0"
+  player_save_state "$start" "$(genre_from_path "$start")" "current" "0"
 }
 
 cmd_player_queue() {
@@ -447,14 +450,66 @@ cmd_player_prev() {
 }
 
 queue_save() {
+  write_current_m3u "$@"
+}
+
+write_current_m3u() {
   ensure_dirs
   local -a paths=("$@")
-  : >"$CURRENT_QUEUE"
-  local p
-  for p in "${paths[@]}"; do
-    [[ -f "$p" ]] || continue
-    printf '%s\n' "$p" >>"$CURRENT_QUEUE"
+  local tmp p
+  tmp="$(mktemp)"
+  {
+    printf '#EXTM3U\n'
+    for p in "${paths[@]}"; do
+      [[ -f "$p" ]] || continue
+      is_audio "$p" || continue
+      printf '%s\n' "$p"
+    done
+  } >"$tmp"
+  mv "$tmp" "$CURRENT_M3U"
+}
+
+current_m3u_clear() {
+  rm -f "$CURRENT_M3U"
+}
+
+cmd_current_save() {
+  write_current_m3u "$@"
+}
+
+cmd_current_load() {
+  local json=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --json) json=1 ;;
+      -h|--help|help) usage ;;
+    esac
+    shift
   done
+  ensure_dirs
+  if [[ ! -f "$CURRENT_M3U" ]]; then
+    [[ "$json" -eq 1 ]] && printf '[]\n'
+    return 0
+  fi
+  if [[ "$json" -eq 1 ]]; then
+    printf '['
+    playlist_emit_tracks_json "$CURRENT_M3U"
+    printf ']\n'
+    return 0
+  fi
+  cat "$CURRENT_M3U"
+}
+
+cmd_current() {
+  local sub="${1:-}"
+  shift || true
+  case "$sub" in
+    save) cmd_current_save "$@" ;;
+    load) cmd_current_load "$@" ;;
+    clear) current_m3u_clear ;;
+    -h|--help|help|"") usage ;;
+    *) usage ;;
+  esac
 }
 
 player_queue_advance() {
@@ -462,11 +517,12 @@ player_queue_advance() {
   [[ "$delta" == "1" || "$delta" == "-1" ]] || return 1
   local -a paths=()
   local line cur idx=-1 i next
-  [[ -f "$CURRENT_QUEUE" ]] || return 1
+  [[ -f "$CURRENT_M3U" ]] || return 1
   while IFS= read -r line || [[ -n "$line" ]]; do
     line="${line//$'\r'/}"
+    [[ -z "$line" || "$line" == \#* ]] && continue
     [[ -f "$line" ]] && paths+=("$line")
-  done <"$CURRENT_QUEUE"
+  done <"$CURRENT_M3U"
   ((${#paths[@]})) || return 1
   cur="$(mpv_prop path 2>/dev/null || true)"
   for i in "${!paths[@]}"; do
@@ -1321,7 +1377,7 @@ playlist_stars_prune() {
   for m3u in "$PLAYLIST_DIR"/*.m3u; do
     [[ -f "$m3u" ]] || continue
     base="$(basename "$m3u" .m3u)"
-    [[ "$base" == favorites ]] && continue
+    [[ "$base" == favorites || "$base" == current ]] && continue
     if jq -e --arg n "$base" 'index($n) != null' <<<"$stars" >/dev/null 2>&1; then
       kept+=("$base")
     fi
@@ -1549,7 +1605,7 @@ cmd_playlist() {
       for m3u in "$PLAYLIST_DIR"/*.m3u; do
         [[ -f "$m3u" ]] || continue
         base="$(basename "$m3u" .m3u)"
-        [[ "$base" == favorites ]] && continue
+        [[ "$base" == favorites || "$base" == current ]] && continue
         count="$(playlist_track_count "$m3u")"
         kind="$(playlist_kind "$base")"
         if playlist_is_starred "$base"; then
@@ -1568,7 +1624,7 @@ cmd_playlist() {
       for m3u in "$PLAYLIST_DIR"/*.m3u; do
         [[ -f "$m3u" ]] || continue
         base="$(basename "$m3u" .m3u)"
-        [[ "$base" == favorites ]] && continue
+        [[ "$base" == favorites || "$base" == current ]] && continue
         basename "$m3u" .m3u
       done | sort
     fi
@@ -2020,6 +2076,7 @@ main() {
     start) cmd_player_start ;;
     load) cmd_player_load "$@" ;;
     queue) cmd_player_queue "$@" ;;
+    current) cmd_current "$@" ;;
     prioritize) cmd_player_prioritize "$@" ;;
     play) cmd_player_play "${1:-all}" ;;
     toggle) cmd_player_toggle ;;

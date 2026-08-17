@@ -79,6 +79,9 @@ Item {
     property string playerScreen: "nowPlaying"
     property int volumeApplyTarget: 100
     property bool volumeApplyPending: false
+    property bool transportApplyPending: false
+    property var transportApplyTarget: null
+    property string transportPreviewPath: ""
     property real seekApplyTarget: 0
     property bool seekApplyPending: false
     property bool playbackStatePending: false
@@ -498,7 +501,37 @@ Item {
         syncPlaylistTabPosition()
         if (selectedPlaylist === currentPlaylistId && playerScreen === "playlists")
             loadPlaylistTracks(currentPlaylistId)
+        persistCurrentPlaylist()
         prioritizeCurrentAssets()
+    }
+
+    function persistCurrentPlaylist() {
+        if (!currentPlaylistActive || !currentPlaylistTracks.length) {
+            runMusic(["current", "clear"], null, saveCurrentProc)
+            return
+        }
+        var args = ["current", "save"]
+        for (var i = 0; i < currentPlaylistTracks.length; i++) {
+            if (currentPlaylistTracks[i].path)
+                args.push(currentPlaylistTracks[i].path)
+        }
+        runMusic(args, null, saveCurrentProc)
+    }
+
+    function loadCurrentPlaylist(onDone) {
+        runPlaylistQuery(["current", "load", "--json"], function(text) {
+            try {
+                var list = JSON.parse(String(text || "[]"))
+                if (list.length > 0) {
+                    currentPlaylistTracks = list
+                    currentPlaylistActive = true
+                    injectCurrentPlaylist()
+                }
+            } catch (e) {
+            }
+            if (onDone)
+                onDone()
+        })
     }
 
     function prioritizeCurrentAssets() {
@@ -531,6 +564,7 @@ Item {
         injectCurrentPlaylist()
         if (selectedPlaylist === currentPlaylistId)
             tracks = []
+        runMusic(["current", "clear"], null, saveCurrentProc)
     }
 
     function setCurrentPlaylistFromBrowse(entry) {
@@ -568,22 +602,24 @@ Item {
     }
 
     function onActivated() {
-        if (!runPlayerQuery(["open", "--json"], function(text) {
-            try {
-                var saved = JSON.parse(String(text || "{}"))
-                resumePlaylist = root.normalizePlaylistName(saved.playlist || "")
-                applyStatus(text)
-            } catch (e) {
-                resumePlaylist = ""
-            }
-            loadGenres()
-            loadPlaylists()
-        }))
-            Qt.callLater(onActivated)
-        statusTimer.start()
-        saveStateTimer.start()
-        jobStatusTimer.start()
-        syncExternalJobStatus()
+        loadCurrentPlaylist(function() {
+            if (!runPlayerQuery(["open", "--json"], function(text) {
+                try {
+                    var saved = JSON.parse(String(text || "{}"))
+                    resumePlaylist = root.normalizePlaylistName(saved.playlist || "")
+                    applyStatus(text)
+                } catch (e) {
+                    resumePlaylist = ""
+                }
+                loadGenres()
+                loadPlaylists()
+            }))
+                Qt.callLater(onActivated)
+            statusTimer.start()
+            saveStateTimer.start()
+            jobStatusTimer.start()
+            syncExternalJobStatus()
+        })
     }
 
     function finishDeactivate() {
@@ -600,6 +636,11 @@ Item {
             volumeApplyTimer.stop()
             volumeSettleTimer.stop()
             flushVolumeApply()
+        }
+        if (transportApplyPending) {
+            transportApplyTimer.stop()
+            transportSettleTimer.stop()
+            flushTransportApply()
         }
         if (playbackStatePending) {
             playbackToggleTimer.stop()
@@ -646,6 +687,11 @@ Item {
             var preferred = normalizePlaylistName(resumePlaylist)
             resumePlaylist = ""
             if (preferred === currentPlaylistId) {
+                if (currentPlaylistActive) {
+                    selectedPlaylist = currentPlaylistId
+                    tracks = currentPlaylistTracks.slice()
+                    syncSelectedTrackIndex()
+                }
                 syncPlaylistTabPosition()
             } else if (preferred) {
                 for (var i = 0; i < playlists.length; i++) {
@@ -991,6 +1037,8 @@ Item {
     function syncSelectedTrackIndex() {
         if (!player.path || !tracks.length)
             return
+        if (transportApplyPending)
+            return
         var path = String(player.path)
         var playingIdx = -1
         for (var i = 0; i < tracks.length; i++) {
@@ -1175,6 +1223,25 @@ Item {
                 playbackSettleTimer.stop()
             } else {
                 parsed = Object.assign({}, parsed, { state: playbackStateTarget })
+            }
+        }
+        if (transportApplyPending && transportPreviewPath) {
+            var reportedTrack = String(parsed.path || "")
+            if (reportedTrack !== transportPreviewPath) {
+                var previewMeta = trackMetaForPath(transportPreviewPath)
+                var held = {
+                    path: transportPreviewPath,
+                    state: "playing"
+                }
+                if (previewMeta) {
+                    if (previewMeta.title)
+                        held.title = previewMeta.title
+                    if (previewMeta.artist)
+                        held.artist = previewMeta.artist
+                    if (previewMeta.genre)
+                        held.genre = previewMeta.genre
+                }
+                parsed = Object.assign({}, parsed, held)
             }
         }
         player = Object.assign({}, player, parsed)
@@ -1397,7 +1464,7 @@ Item {
         runMusic(args, function() { root.refreshStatus() }, queuePlayProc)
     }
 
-    function jumpCurrentAt(index) {
+    function jumpCurrentAtNow(index) {
         if (index < 0)
             return
         var startPath = ""
@@ -1414,7 +1481,7 @@ Item {
         selectedTrackIndex = index
     }
 
-    function playFromPlaylistAt(index) {
+    function playFromPlaylistAtNow(index) {
         if (index < 0 || index >= tracks.length)
             return
         var startPath = tracks[index].path
@@ -1436,6 +1503,83 @@ Item {
         commitCurrentPlaylist()
     }
 
+    function resolveCurrentTrackIndex() {
+        var path = String(player.path || "")
+        var i
+        if (path) {
+            for (i = 0; i < tracks.length; i++) {
+                if (tracks[i].path === path)
+                    return i
+            }
+            for (i = 0; i < currentPlaylistTracks.length; i++) {
+                if (currentPlaylistTracks[i].path === path)
+                    return i
+            }
+        }
+        if (selectedTrackIndex >= 0)
+            return selectedTrackIndex
+        return 0
+    }
+
+    function previewTrackIndex(index) {
+        var path = ""
+        if (index >= 0 && index < tracks.length && tracks[index] && tracks[index].path)
+            path = tracks[index].path
+        else if (index >= 0 && index < currentPlaylistTracks.length && currentPlaylistTracks[index])
+            path = currentPlaylistTracks[index].path
+        if (!path)
+            return false
+        selectedTrackIndex = index
+        transportPreviewPath = path
+        primePlayerForPath(path)
+        var next = Object.assign({}, player)
+        next.state = "playing"
+        player = next
+        return true
+    }
+
+    function queueTransportAction(target) {
+        transportApplyTarget = target
+        transportApplyPending = true
+        transportSettleTimer.stop()
+        transportApplyTimer.restart()
+    }
+
+    function flushTransportApply() {
+        if (!transportApplyPending || !transportApplyTarget)
+            return
+        if (queuePlayProc.running || transportProc.running) {
+            transportApplyTimer.restart()
+            return
+        }
+        var t = transportApplyTarget
+        if (t.kind === "jump")
+            jumpCurrentAtNow(t.index)
+        else if (t.kind === "playlist")
+            playFromPlaylistAtNow(t.index)
+        else if (t.kind === "mpv")
+            runPlayer([t.forward ? "next" : "prev"], function() { root.refreshStatus() }, transportProc)
+        transportSettleTimer.restart()
+    }
+
+    function finishTransportSettle() {
+        if (!transportApplyPending)
+            return
+        transportApplyPending = false
+        transportApplyTarget = null
+        transportPreviewPath = ""
+    }
+
+    function jumpCurrentAt(index) {
+        previewTrackIndex(index)
+        queueTransportAction({ kind: "jump", index: index })
+    }
+
+    function playFromPlaylistAt(index) {
+        previewTrackIndex(index)
+        queueTransportAction({ kind: "playlist", index: index })
+    }
+
     function playPathFromList(path, useFolder) {
         if (!path)
             return
@@ -1445,10 +1589,8 @@ Item {
     function playTrackAt(index) {
         if (index < 0 || index >= tracks.length)
             return
-        var path = tracks[index].path
-        if (!path)
+        if (!tracks[index].path)
             return
-        selectedTrackIndex = index
         if (selectedPlaylist === currentPlaylistId)
             jumpCurrentAt(index)
         else
@@ -1555,28 +1697,16 @@ Item {
     }
 
     function skipTrack(forward) {
-        if (currentPlaylistTracks.length > 1) {
-            var path = String(player.path || "")
-            var idx = -1
-            var i
-            for (i = 0; i < currentPlaylistTracks.length; i++) {
-                if (currentPlaylistTracks[i].path === path) {
-                    idx = i
-                    break
-                }
-            }
-            if (idx < 0 && selectedTrackIndex >= 0 && selectedTrackIndex < currentPlaylistTracks.length)
-                idx = selectedTrackIndex
-            if (idx >= 0) {
-                var nextIdx = forward ? idx + 1 : idx - 1
-                if (nextIdx >= 0 && nextIdx < currentPlaylistTracks.length
-                        && selectedPlaylist === currentPlaylistId) {
-                    jumpCurrentAt(nextIdx)
-                    return
-                }
+        if (currentPlaylistTracks.length > 1 && selectedPlaylist === currentPlaylistId) {
+            var idx = resolveCurrentTrackIndex()
+            var nextIdx = forward ? idx + 1 : idx - 1
+            if (nextIdx >= 0 && nextIdx < currentPlaylistTracks.length) {
+                previewTrackIndex(nextIdx)
+                queueTransportAction({ kind: "jump", index: nextIdx })
+                return
             }
         }
-        runPlayer([forward ? "next" : "prev"], function() { root.refreshStatus() }, transportProc)
+        queueTransportAction({ kind: "mpv", forward: forward })
     }
 
     function toggleBrowseFavorite(path) {
@@ -1781,6 +1911,17 @@ Item {
     }
 
     Process {
+        id: saveCurrentProc
+        property var _onDone: null
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (saveCurrentProc._onDone)
+                    saveCurrentProc._onDone(text)
+            }
+        }
+    }
+
+    Process {
         id: playlistQueryProc
         property var _onDone: null
         stdout: StdioCollector {
@@ -1870,6 +2011,20 @@ Item {
         interval: 1500
         repeat: false
         onTriggered: root.finishVolumeSettle()
+    }
+
+    Timer {
+        id: transportApplyTimer
+        interval: 120
+        repeat: false
+        onTriggered: root.flushTransportApply()
+    }
+
+    Timer {
+        id: transportSettleTimer
+        interval: 1500
+        repeat: false
+        onTriggered: root.finishTransportSettle()
     }
 
     Timer {
