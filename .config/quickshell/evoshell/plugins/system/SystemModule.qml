@@ -23,10 +23,29 @@ Item {
     property string hostName: ""
     property string osName: ""
     property int cpuPercent: 0
+    property int memPercent: 0
+    property int diskPercent: 0
     property string memWarning: ""
     property var memHogs: []
 
     implicitHeight: column.implicitHeight
+
+    readonly property var resourcePills: [
+        { label: "CPU", percent: root.cpuPercent, color: Format.loadPercentColor(root.cpuPercent) },
+        { label: "RAM", percent: root.memPercent, color: Format.usagePercentColor(root.memPercent) },
+        { label: "Disk", percent: root.diskPercent, color: Format.usagePercentColor(root.diskPercent) }
+    ]
+
+    readonly property var detailLines: {
+        var skip = { cpu: true, memory: true, disk: true }
+        var out = []
+        for (var i = 0; i < lines.length; i++) {
+            var label = String(lines[i].label || "")
+            if (!skip[label])
+                out.push(lines[i])
+        }
+        return out
+    }
 
     readonly property string headerValue: {
         var parts = []
@@ -91,6 +110,8 @@ Item {
             hostName = ""
             osName = ""
             cpuPercent = 0
+            memPercent = 0
+            diskPercent = 0
             memWarning = ""
             memHogs = []
             return
@@ -98,6 +119,8 @@ Item {
         hostName = String(json.host || "")
         osName = String(json.os || "")
         cpuPercent = parseInt(json.cpuPercent, 10) || 0
+        memPercent = parseInt(json.memPercent, 10) || 0
+        diskPercent = parseInt(json.diskPercent, 10) || 0
         memWarning = String(json.memWarning || "")
         memHogs = Array.isArray(json.memHogs) ? json.memHogs : []
         lines = Array.isArray(json.lines) ? json.lines : []
@@ -163,14 +186,39 @@ Item {
 
         SectionPanel {
             label: ""
-            visible: !root.loading && root.lines.length > 0
+            visible: !root.loading
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 6
+
+                Repeater {
+                    model: root.resourcePills
+
+                    HoverPopupLabelPill {
+                        required property var modelData
+                        text: modelData.label + " " + modelData.percent + "%"
+                        fontSize: Theme.fontSizeS
+                        textColor: modelData.color
+                        fill: Theme.withOpacity(modelData.color, 0.14)
+                        textOpacity: 1
+                    }
+                }
+
+                Item { Layout.fillWidth: true }
+            }
+        }
+
+        SectionPanel {
+            label: ""
+            visible: !root.loading && root.detailLines.length > 0
 
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 4
 
                 Repeater {
-                    model: root.lines
+                    model: root.detailLines
 
                     RowLayout {
                         required property var modelData
@@ -195,13 +243,7 @@ Item {
                         Text {
                             Layout.fillWidth: true
                             text: String(modelData.value || "—")
-                            color: {
-                                if (modelData.label === "warning")
-                                    return Theme.urgent
-                                if (modelData.label === "cpu")
-                                    return Format.loadPercentColor(root.cpuPercent)
-                                return Theme.foreground
-                            }
+                            color: modelData.label === "warning" ? Theme.urgent : Theme.foreground
                             font.family: Theme.fontFamily
                             font.pixelSize: root.valueFont
                             font.bold: Theme.fontBold

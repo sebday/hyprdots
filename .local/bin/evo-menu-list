@@ -77,8 +77,99 @@ for keys, desc in pattern.findall(text):
     print(f"{desc}\t{keys}")
 PY
     ;;
+icons)
+    # shellcheck source=/dev/null
+    source "$script_dir/evo-theme-lib"
+    python3 - "$home" "${EVO_ICON_THEME:-evo-current}" <<'PY'
+import os, sys
+
+home, theme = sys.argv[1], sys.argv[2]
+roots = [
+    os.path.join(home, ".local/share/icons", theme),
+    "/usr/share/icons/Papirus-Dark",
+    "/usr/share/icons/Papirus",
+    os.path.join(home, ".local/share/icons/hicolor"),
+]
+sizes = ("48x48", "64x64", "scalable", "32x32", "128x128", "256x256")
+exts = (".svg", ".png")
+categories = ("apps", "devices", "status", "places", "mimetypes")
+app_dirs = [
+    os.path.join(home, ".local/share/applications"),
+    "/usr/share/applications",
+    "/var/lib/flatpak/exports/share/applications",
+    os.path.join(home, ".local/share/flatpak/exports/share/applications"),
+]
+seen_ids = set()
+icon_cache = {}
+
+def resolve_icon(icon):
+    icon = (icon or "").strip()
+    if not icon:
+        return ""
+    if icon in icon_cache:
+        return icon_cache[icon]
+    if icon.startswith("/"):
+        path = icon if os.path.isabs(icon) else os.path.join(home, icon.lstrip("/"))
+        if os.path.isfile(path):
+            icon_cache[icon] = "file://" + path
+            return icon_cache[icon]
+        icon_cache[icon] = ""
+        return ""
+    for base in roots:
+        for size in sizes:
+            for category in categories:
+                for ext in exts:
+                    path = os.path.join(base, size, category, icon + ext)
+                    if os.path.isfile(path):
+                        icon_cache[icon] = "file://" + path
+                        return icon_cache[icon]
+    icon_cache[icon] = ""
+    return ""
+
+def parse_desktop(path):
+    data = {}
+    try:
+        with open(path, encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if line == "[Desktop Entry]":
+                    continue
+                if "=" not in line:
+                    continue
+                key, value = line.split("=", 1)
+                data[key] = value
+    except OSError:
+        return None
+    if data.get("Type") != "Application":
+        return None
+    if data.get("NoDisplay", "").lower() == "true":
+        return None
+    if data.get("Hidden", "").lower() == "true":
+        return None
+    return data
+
+for app_dir in app_dirs:
+    if not os.path.isdir(app_dir):
+        continue
+    for name in sorted(os.listdir(app_dir)):
+        if not name.endswith(".desktop"):
+            continue
+        desktop_id = name[:-8]
+        if desktop_id in seen_ids:
+            continue
+        data = parse_desktop(os.path.join(app_dir, name))
+        if not data:
+            continue
+        seen_ids.add(desktop_id)
+        icon_url = resolve_icon(data.get("Icon", ""))
+        if icon_url:
+            print(f"{desktop_id}\t{icon_url}")
+PY
+    ;;
 *)
-    echo "usage: $0 themes|wallpapers|bindings" >&2
+    echo "usage: $0 themes|wallpapers|bindings|icons" >&2
     exit 1
     ;;
 esac

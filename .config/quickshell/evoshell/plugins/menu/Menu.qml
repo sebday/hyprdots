@@ -17,7 +17,8 @@ Item {
     property var dynamicEntries: []
     property var visibleEntries: []
     property var cachedApps: []
-    property int iconWarmIndex: 0
+    property var appIconMap: ({})
+    property int appIconEpoch: 0
     property bool dynamicLoading: false
     property int selectedIndex: 0
     property real previewAreaMaxWidth: 1600
@@ -334,12 +335,43 @@ Item {
 
     function entryIconSource(entry) {
         if (!entry) return ""
+        if (entry.iconSource)
+            return entry.iconSource
+        if (entry.id && root.appIconMap[entry.id])
+            return root.appIconMap[entry.id]
         var iconName = ""
         if (entry.entryRef && entry.entryRef.icon)
             iconName = String(entry.entryRef.icon)
-        if (!iconName)
-            return ""
+        if (iconName && root.appIconMap[iconName])
+            return root.appIconMap[iconName]
         return Util.iconSourceForName(iconName)
+    }
+
+    function applyAppIconMap(raw) {
+        var map = {}
+        var lines = String(raw || "").split("\n")
+        for (var i = 0; i < lines.length; i++) {
+            var line = lines[i].trim()
+            if (!line) continue
+            var tab = line.indexOf("\t")
+            if (tab === -1) continue
+            map[line.slice(0, tab)] = line.slice(tab + 1)
+        }
+        root.appIconMap = map
+        var rebuilt = []
+        for (var j = 0; j < root.cachedApps.length; j++) {
+            var app = root.cachedApps[j]
+            rebuilt.push({
+                kind: app.kind,
+                name: app.name,
+                id: app.id,
+                entryRef: app.entryRef,
+                iconSource: (app.id && map[app.id]) ? map[app.id] : (app.iconSource || "")
+            })
+        }
+        root.cachedApps = rebuilt
+        root.appIconEpoch++
+        root.visibleEntries = root.filteredEntries()
     }
 
     function entryGlyphIcon(entry) {
@@ -359,7 +391,8 @@ Item {
                     kind: "app",
                     name: String(entry.name || entry.id),
                     id: entry.id,
-                    entryRef: entry
+                    entryRef: entry,
+                    iconSource: root.appIconMap[entry.id] || ""
                 }
                 list.push(item)
             }
@@ -367,8 +400,17 @@ Item {
             console.warn("evo.menu app list failed:", e)
         }
         cachedApps = list
-        iconWarmIndex = 0
-        iconWarmTimer.running = cachedApps.length > 0
+        loadAppIcons()
+    }
+
+    function loadAppIcons() {
+        var listScript = home + "/.local/bin/evo-menu-list"
+        loadAppIconsProc.command = ["bash", "-lc",
+            "test -x " + Util.shellQuote(listScript) + " && " +
+            Util.shellQuote(listScript) + " icons"
+        ]
+        if (!loadAppIconsProc.running)
+            loadAppIconsProc.running = true
     }
 
     function appEntries() {
@@ -557,6 +599,13 @@ Item {
 
     Process {
         id: previewWarmProc
+    }
+
+    Process {
+        id: loadAppIconsProc
+        stdout: StdioCollector {
+            onStreamFinished: root.applyAppIconMap(text)
+        }
     }
 
     PanelWindow {
@@ -909,9 +958,13 @@ Item {
                                     height: root.powerTileHeight
 
                                     readonly property string appIconSource: {
-                                        var _theme = Theme.iconThemeName
-                                        if (!modelData || !modelData.entryRef)
+                                        var _epoch = root.appIconEpoch
+                                        if (!modelData)
                                             return ""
+                                        if (modelData.iconSource)
+                                            return modelData.iconSource
+                                        if (modelData.id && root.appIconMap[modelData.id])
+                                            return root.appIconMap[modelData.id]
                                         return root.entryIconSource(modelData)
                                     }
                                     readonly property string glyphIcon: root.entryGlyphIcon(modelData)
@@ -953,10 +1006,10 @@ Item {
                                                     id: appIcon
                                                     anchors.fill: parent
                                                     visible: appTile.appIconSource.length > 0 && status !== Image.Error
-                                                    source: appTile.appIconSource
+                                                    source: Util.normalizeIconSource(appTile.appIconSource)
                                                     fillMode: Image.PreserveAspectFit
                                                     smooth: true
-                                                    asynchronous: false
+                                                    asynchronous: true
                                                     cache: true
                                                     mipmap: true
                                                     sourceSize: Qt.size(root.appIconSourceSize, root.appIconSourceSize)
@@ -1110,7 +1163,7 @@ Item {
                         color: index === entryList.currentIndex || mouseArea.containsMouse ? Theme.panelMantle : "transparent"
 
                         readonly property string appIconSource: {
-                            var _theme = Theme.iconThemeName
+                            var _epoch = root.appIconEpoch
                             return root.entryIconSource(modelData)
                         }
                         readonly property string glyphIcon: root.entryGlyphIcon(modelData)
@@ -1132,7 +1185,7 @@ Item {
                                 Image {
                                     anchors.fill: parent
                                     visible: !entryRow.infoRow && entryRow.appIconSource.length > 0
-                                    source: entryRow.appIconSource
+                                    source: Util.normalizeIconSource(entryRow.appIconSource)
                                     fillMode: Image.PreserveAspectFit
                                     smooth: true
                                     asynchronous: true
@@ -1195,25 +1248,5 @@ Item {
         refreshCommandEntries()
         Qt.callLater(rebuildAppCache)
         Qt.callLater(warmPreviewCache)
-    }
-
-    Timer {
-        id: iconWarmTimer
-        interval: 16
-        repeat: true
-        running: false
-        onTriggered: {
-            var n = root.cachedApps.length
-            if (root.iconWarmIndex >= n) {
-                running = false
-                return
-            }
-            var end = Math.min(n, root.iconWarmIndex + 6)
-            for (var i = root.iconWarmIndex; i < end; i++)
-                root.entryIconSource(root.cachedApps[i])
-            root.iconWarmIndex = end
-            if (root.iconWarmIndex >= n)
-                running = false
-        }
     }
 }
