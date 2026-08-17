@@ -15,6 +15,13 @@ Item {
     property int cpuPercent: 0
     property string detailText: "…"
     property var lastPayload: null
+    property bool widgetHovered: false
+    property real highLoadSince: 0
+    property bool loadAlertActive: false
+
+    readonly property int loadAlertThreshold: 80
+    readonly property int loadClearThreshold: 75
+    readonly property int loadAlertDurationMs: 30000
 
     readonly property string home: Quickshell.env("HOME") || ""
     readonly property string script: home + "/.local/bin/evo-bar-system"
@@ -37,6 +44,7 @@ Item {
             cpuPercent = parseInt(json.cpuPercent, 10) || 0
             detailText = json.detail ? String(json.detail) : "—"
             publishCache(json)
+            updateLoadAlert(cpuPercent)
         } catch (e) {
             console.warn("system widget parse failed:", e)
         }
@@ -58,10 +66,34 @@ Item {
             lastPayload = cached
             cpuPercent = parseInt(cached.cpuPercent, 10) || 0
             detailText = cached.detail ? String(cached.detail) : "—"
+            updateLoadAlert(cpuPercent)
             return true
         } catch (e) {
             return false
         }
+    }
+
+    function updateLoadAlert(pct) {
+        var now = Date.now()
+        if (pct > loadAlertThreshold) {
+            if (highLoadSince <= 0)
+                highLoadSince = now
+            else if (!loadAlertActive && (now - highLoadSince) >= loadAlertDurationMs)
+                loadAlertActive = true
+        } else if (pct < loadClearThreshold) {
+            highLoadSince = 0
+            loadAlertActive = false
+        }
+        syncHoverPopup()
+    }
+
+    function syncHoverPopup() {
+        if (!shell || !hoverPopupId)
+            return
+        if (widgetHovered || loadAlertActive)
+            shell.hoverEnter(hoverPopupId, root, barPanel)
+        else
+            shell.hoverLeave(hoverPopupId)
     }
 
     function poll() {
@@ -80,15 +112,6 @@ Item {
 
     function swapShopifyBtop() {
         Quickshell.execDetached(["bash", btopScript, "swap"])
-    }
-
-    function setHoverPopup(active) {
-        if (!shell || !hoverPopupId)
-            return
-        if (active)
-            shell.hoverEnter(hoverPopupId, root, barPanel)
-        else
-            shell.hoverLeave(hoverPopupId)
     }
 
     RowLayout {
@@ -124,15 +147,18 @@ Item {
         }
     }
 
-    HoverHandler {
-        enabled: root.hoverPopupId !== "" && root.shell
-        onHoveredChanged: root.setHoverPopup(hovered)
-    }
-
     MouseArea {
         anchors.fill: parent
         cursorShape: Qt.PointingHandCursor
         onClicked: root.swapShopifyBtop()
+    }
+
+    HoverHandler {
+        enabled: root.hoverPopupId !== "" && root.shell
+        onHoveredChanged: {
+            root.widgetHovered = hovered
+            root.syncHoverPopup()
+        }
     }
 
     Process {
@@ -149,6 +175,7 @@ Item {
         onTriggered: root.poll()
     }
 
+    onLoadAlertActiveChanged: syncHoverPopup()
     onSettingsChanged: restartPolling()
     onShellChanged: bootstrapFromCache()
     Component.onCompleted: {

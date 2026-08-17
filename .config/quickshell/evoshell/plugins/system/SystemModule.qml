@@ -16,6 +16,7 @@ Item {
     readonly property int hintFont: Theme.fontSizeL
     readonly property int valueFont: Theme.fontSizeXl
     readonly property int labelWidth: 76
+    readonly property int actionIconFont: Theme.fontSize4xl
 
     property bool loading: false
     property var lines: []
@@ -71,6 +72,18 @@ Item {
         }
     }
 
+    function openSettings() {
+        if (!shell)
+            return
+        shell.toggle("evo.panel", '{"module":"settings"}')
+    }
+
+    function openPowerMenu() {
+        if (!shell)
+            return
+        shell.toggle("evo.menu", '{"mode":"power"}')
+    }
+
     function applyPayload(json) {
         loading = false
         if (!json || typeof json !== "object") {
@@ -120,6 +133,21 @@ Item {
             font.family: Theme.fontFamily
             font.pixelSize: root.bodyFont
             font.bold: Theme.fontBold
+        }
+
+        SectionPanel {
+            label: ""
+            visible: !root.loading && root.cpuPercent >= 80
+
+            Text {
+                Layout.fillWidth: true
+                text: "High CPU load — " + root.cpuPercent + "%"
+                color: Theme.urgent
+                font.family: Theme.fontFamily
+                font.pixelSize: root.bodyFont
+                font.bold: Theme.fontBold
+                wrapMode: Text.WordWrap
+            }
         }
 
         SectionPanel {
@@ -181,6 +209,86 @@ Item {
                             elide: Text.ElideRight
                             maximumLineCount: 2
                         }
+                    }
+                }
+            }
+        }
+
+        Item {
+            Layout.fillWidth: true
+            visible: !root.loading
+            implicitHeight: actionRow.implicitHeight
+
+            RowLayout {
+                id: actionRow
+                anchors.right: parent.right
+                spacing: 16
+
+                Item {
+                    implicitWidth: settingsRow.implicitWidth
+                    implicitHeight: settingsRow.implicitHeight
+
+                    RowLayout {
+                        id: settingsRow
+                        spacing: 6
+
+                        Text {
+                            text: "󰒓"
+                            color: settingsBtn.containsMouse ? Theme.accent : Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.actionIconFont
+                            font.bold: Theme.fontBold
+                        }
+
+                        Text {
+                            text: "Settings"
+                            color: settingsBtn.containsMouse ? Theme.accent : Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.hintFont
+                            font.bold: Theme.fontBold
+                        }
+                    }
+
+                    MouseArea {
+                        id: settingsBtn
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.openSettings()
+                    }
+                }
+
+                Item {
+                    implicitWidth: powerRow.implicitWidth
+                    implicitHeight: powerRow.implicitHeight
+
+                    RowLayout {
+                        id: powerRow
+                        spacing: 6
+
+                        Text {
+                            text: "󰐥"
+                            color: powerBtn.containsMouse ? Theme.accent : Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.actionIconFont
+                            font.bold: Theme.fontBold
+                        }
+
+                        Text {
+                            text: "Power"
+                            color: powerBtn.containsMouse ? Theme.accent : Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.hintFont
+                            font.bold: Theme.fontBold
+                        }
+                    }
+
+                    MouseArea {
+                        id: powerBtn
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.openPowerMenu()
                     }
                 }
             }

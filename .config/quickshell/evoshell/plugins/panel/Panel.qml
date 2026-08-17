@@ -127,6 +127,12 @@ Item {
         })
     }
 
+    Shortcut {
+        sequences: ["Escape"]
+        enabled: root.opened
+        onActivated: root.dismiss()
+    }
+
     Process {
         id: sideToggleProc
         command: ["bash", root.layoutScript, "panel", "toggle"]

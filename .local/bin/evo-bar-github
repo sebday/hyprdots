@@ -170,9 +170,12 @@ for count in "${day_counts[@]}"; do
 done
 
 STREAK=0
-for ((i = HEATMAP_DAYS - 1; i >= 0; i--)); do
-    if [[ "${day_counts[$i]}" -gt 0 ]]; then
+DAY_ISO="$LOCAL_TODAY_ISO"
+for ((i = 0; i < 400; i++)); do
+    COUNT_FOR_DAY=${contribs_by_date["$DAY_ISO"]:-0}
+    if [[ "$COUNT_FOR_DAY" -gt 0 ]]; then
         STREAK=$((STREAK + 1))
+        DAY_ISO=$(date -d "${DAY_ISO} - 1 day" +'%Y-%m-%d')
     else
         break
     fi

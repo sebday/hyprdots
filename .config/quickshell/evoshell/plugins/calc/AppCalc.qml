@@ -112,11 +112,29 @@ Item {
     }
 
     function focusInput(selectAll) {
-        Qt.callLater(function() {
+        var all = selectAll !== false
+        function apply() {
+            if (!root.active) return
             inputField.forceActiveFocus()
-            if (selectAll !== false)
+            if (all)
                 inputField.selectAll()
-        })
+        }
+        Qt.callLater(apply)
+        focusRetryTimer.selectAll = all
+        focusRetryTimer.restart()
+    }
+
+    Timer {
+        id: focusRetryTimer
+        property bool selectAll: true
+        interval: 100
+        repeat: false
+        onTriggered: {
+            if (!root.active) return
+            inputField.forceActiveFocus()
+            if (selectAll)
+                inputField.selectAll()
+        }
     }
 
     function focusInputFromKeypad() {
@@ -189,6 +207,14 @@ Item {
         refreshHistory()
         tasksBlock.onActivated()
         if (focusTarget === "tasks")
+            tasksBlock.focusNewTask()
+        else
+            focusInput()
+    }
+
+    onActiveChanged: {
+        if (!active) return
+        if (host && host.focusTarget === "tasks")
             tasksBlock.focusNewTask()
         else
             focusInput()

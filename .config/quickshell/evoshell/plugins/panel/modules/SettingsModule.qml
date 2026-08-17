@@ -39,6 +39,9 @@ Item {
     readonly property bool mediaBusy: mediaSetProc.running
     readonly property bool settingsBusy: fontBusy || mediaBusy || hyprToggleProc.running || hyprSetProc.running
         || barToggleProc.running || notificationsToggleProc.running
+    readonly property bool active: host && host.opened && host.activeModule === "settings"
+
+    Keys.onEscapePressed: if (host) host.dismiss()
 
     function refresh() {
         Theme.reloadLooks()
@@ -106,6 +109,12 @@ Item {
         themeNameFile.reload()
         themePicker.reload()
         refresh()
+        Qt.callLater(function() { root.forceActiveFocus() })
+    }
+
+    onActiveChanged: {
+        if (active)
+            Qt.callLater(function() { root.forceActiveFocus() })
     }
 
     function parseHyprState(raw) {
