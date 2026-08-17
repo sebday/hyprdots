@@ -22,7 +22,7 @@ usage:
   evo-player job status [--json]
   evo-player genres [--json]
   evo-player tracks <genre> [--json]
-  evo-player browse [path] [--json]
+  evo-player browse [path] [--json] [--queue]
   evo-player playlist [--json]
   evo-player playlist <name> [--json]
   evo-player playlist star toggle <name> [--json]
@@ -1294,11 +1294,46 @@ cmd_playlist_star() {
   esac
 }
 
+browse_subdirs() {
+  local rel="$1"
+  local dir="$2"
+  local entry name
+  if [[ -z "$rel" ]]; then
+    list_genres
+    return 0
+  fi
+  while IFS= read -r -d '' entry; do
+    [[ -d "$entry" ]] || continue
+    name="$(basename "$entry")"
+    skip_dir "$name" && continue
+    printf '%s\n' "${rel}/${name}"
+  done < <(find "$dir" -mindepth 1 -maxdepth 1 -type d -print0 2>/dev/null | sort -z)
+}
+
+browse_collect_queue_tracks() {
+  local rel="${1:-}"
+  local resolved dir line had_direct=0 sub_rel
+  resolved="$(browse_resolve "$rel")" || return 1
+  rel="$(sed -n '1p' <<<"$resolved")"
+  dir="$(sed -n '2p' <<<"$resolved")"
+  while IFS= read -r line; do
+    [[ -n "$line" ]] || continue
+    had_direct=1
+    printf '%s\n' "$line"
+  done < <(browse_emit_tracks "$rel" "$dir" | sed '/^$/d')
+  [[ "$had_direct" -eq 1 ]] && return 0
+  while IFS= read -r sub_rel; do
+    [[ -n "$sub_rel" ]] || continue
+    browse_collect_queue_tracks "$sub_rel"
+  done < <(browse_subdirs "$rel" "$dir")
+}
+
 cmd_browse() {
-  local rel="" json=0
+  local rel="" json=0 queue=0
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --json) json=1 ;;
+      --queue) queue=1 ;;
       *) rel="$1" ;;
     esac
     shift
@@ -1314,6 +1349,25 @@ cmd_browse() {
     parent="${rel%/*}"
   else
     parent=""
+  fi
+  if [[ "$queue" -eq 1 && "$json" -eq 1 ]]; then
+    printf '{'
+    printf '"path":"%s",' "$(json_escape "$rel")"
+    if [[ -z "$rel" ]]; then
+      printf '"parent":null,'
+    else
+      printf '"parent":"%s",' "$(json_escape "$parent")"
+    fi
+    printf '"tracks":['
+    local first=1 track_line
+    while IFS= read -r track_line; do
+      [[ -n "$track_line" ]] || continue
+      [[ "$first" -eq 1 ]] || printf ','
+      first=0
+      printf '%s' "$track_line"
+    done < <(browse_collect_queue_tracks "$rel")
+    printf ']}\n'
+    return 0
   fi
   if [[ "$json" -eq 1 ]]; then
     printf '{'

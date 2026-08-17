@@ -84,9 +84,16 @@ Item {
     property string playbackStateTarget: ""
     readonly property int screenStackIndex:
         playerScreen === "nowPlaying" ? 0
-        : (playerScreen === "library" ? 1
-        : (playerScreen === "browse" ? 2
-        : (playerScreen === "playlistLibrary" ? 3 : 4)))
+        : (playerScreen === "browse" ? 1
+        : (playerScreen === "playlistLibrary" ? 2 : 3))
+    property bool libraryMenuOpen: true
+    readonly property var libraryActions: [
+        { icon: "󰲹", label: "build all", args: ["build", "all"] },
+        { icon: "󰖟", label: "build quick", args: ["build", "quick"] },
+        { icon: "󰕧", label: "sync soundcloud", args: ["soundcloud"] },
+        { icon: "󰋋", label: "import incoming", args: ["import"] },
+        { icon: "󰩹", label: "prune art", args: ["cache", "--prune-art"] }
+    ]
     readonly property var nowPlayingMetaChips: {
         var chips = []
         var year = String(player.year || "").trim()
@@ -145,6 +152,12 @@ Item {
             jobLog = parts.join("\n")
     }
 
+    function runLibraryAction(action) {
+        if (!action)
+            return
+        runJob(action.args || [], action.label || "library task")
+    }
+
     function runJob(args, label, options) {
         if (libraryJobBusy) {
             notify("busy — " + libraryJobActiveLabel, 2000)
@@ -153,8 +166,11 @@ Item {
         jobBusy = true
         jobLabel = label
         jobLog = label + "…\n"
-        if (!(options && options.stayOnScreen))
-            playerScreen = "library"
+        if (!(options && options.stayOnScreen)) {
+            if (playerScreen !== "playlistLibrary" && playerScreen !== "playlists")
+                playerScreen = "playlistLibrary"
+        }
+        libraryMenuOpen = false
         jobProc.command = ["bash", playerScript].concat(args || [])
         notify(label + "…", 2000)
         jobProc.running = true
@@ -776,15 +792,10 @@ Item {
         if (!entry || entry.type !== "dir" || !entry.path)
             return
         var folderPath = String(entry.path)
-        runBrowseQuery(["browse", folderPath, "--json"], function(text) {
+        runBrowseQuery(["browse", folderPath, "--json", "--queue"], function(text) {
             try {
                 var data = JSON.parse(String(text || "{}"))
-                var folderTracks = []
-                var entries = data.entries || []
-                for (var i = 0; i < entries.length; i++) {
-                    if (entries[i].type === "track")
-                        folderTracks.push(entries[i])
-                }
+                var folderTracks = data.tracks || []
                 if (!folderTracks.length) {
                     root.notify("no tracks in folder", 2500)
                     return
@@ -1637,13 +1648,8 @@ Item {
                 }
                 IconTab {
                     icon: "󰎄"
-                    active: root.playerScreen === "playlistLibrary"
+                    active: root.playerScreen === "playlistLibrary" || root.playerScreen === "playlists"
                     onActivated: root.openPlaylistLibrary()
-                }
-                IconTab {
-                    icon: "󰠮"
-                    active: root.playerScreen === "library"
-                    onActivated: root.playerScreen = "library"
                 }
 
                 Rectangle {
@@ -2062,91 +2068,6 @@ Item {
                 }
             }
 
-            RowLayout {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                spacing: pad
-
-                SectionPanel {
-                    label: root.libraryJobBusy ? root.libraryJobActiveLabel : (root.jobLog !== "" ? "log" : "Library log")
-                    labelFontSize: root.sectionLabelFont
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    fillHeight: true
-
-                    Flickable {
-                        id: jobLogScroll
-                        anchors.fill: parent
-                        clip: true
-                        contentWidth: width
-                        contentHeight: jobLogText.height
-                        boundsBehavior: Flickable.StopAtBounds
-
-                        Text {
-                            id: jobLogText
-                            width: jobLogScroll.width
-                            text: root.jobLog || (root.libraryJobBusy ? (root.libraryJobActiveLabel + "…") : "run a library task to see output here")
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.libraryFont
-                            opacity: 0.75
-                            wrapMode: Text.Wrap
-                        }
-
-                        onContentHeightChanged: contentY = Math.max(0, contentHeight - height)
-                    }
-
-                    Connections {
-                        target: root
-                        function onJobLogChanged() {
-                            jobLogScroll.contentY = Math.max(0, jobLogScroll.contentHeight - jobLogScroll.height)
-                        }
-                    }
-                }
-
-                SectionPanel {
-                    label: "Library"
-                    Layout.preferredWidth: root.libraryPanelWidth
-                    Layout.minimumWidth: 148
-                    Layout.fillHeight: true
-                    fillHeight: true
-
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 8
-
-                        Text {
-                            Layout.fillWidth: true
-                            text: root.libraryJobBusy
-                                ? root.libraryJobActiveLabel + "…"
-                                : (root.libraryStats.tracks || 0) + " tracks · " + (root.libraryStats.genres || 0) + " genres"
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.libraryFont
-                            opacity: root.libraryJobBusy ? 0.9 : 0.55
-                            wrapMode: Text.Wrap
-                        }
-
-                        LibraryBtn {
-                            icon: "󰲹"
-                            label: "build all"
-                            dimmed: root.libraryJobBusy
-                            spinning: root.libraryJobBusy && root.libraryJobActiveLabel === "build all"
-                            onActivated: if (!root.libraryJobBusy) root.runJob(["build", "all"], "build all")
-                        }
-                        LibraryBtn {
-                            icon: "󰖟"
-                            label: "build quick"
-                            dimmed: root.libraryJobBusy
-                            spinning: root.libraryJobBusy && root.libraryJobActiveLabel === "build quick"
-                            onActivated: if (!root.libraryJobBusy) root.runJob(["build", "quick"], "build quick")
-                        }
-
-                        Item { Layout.fillHeight: true }
-                    }
-                }
-            }
-
             SectionPanel {
                 label: ""
                 Layout.fillWidth: true
@@ -2418,191 +2339,207 @@ Item {
                 }
             }
 
-            SectionPanel {
-                label: "Playlists"
-                labelFontSize: root.sectionLabelFont
+            RowLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                fillHeight: true
+                spacing: pad
 
-                ListView {
-                    id: playlistLibraryList
-                    anchors.fill: parent
-                    clip: true
-                    spacing: 2
-                    model: root.libraryPlaylists
+                SectionPanel {
+                    label: "Playlists"
+                    labelFontSize: root.sectionLabelFont
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    fillHeight: true
 
-                    Text {
-                        anchors.centerIn: parent
-                        visible: root.playlistsLoading && root.libraryPlaylists.length === 0
-                        text: "loading…"
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.listFont
-                        opacity: 0.45
-                    }
+                    ListView {
+                        id: playlistLibraryList
+                        anchors.fill: parent
+                        clip: true
+                        spacing: 2
+                        model: root.libraryPlaylists
 
-                    Text {
-                        anchors.centerIn: parent
-                        visible: !root.playlistsLoading && root.libraryPlaylists.length === 0
-                        text: "no playlists"
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.listFont
-                        opacity: 0.45
-                    }
+                        Text {
+                            anchors.centerIn: parent
+                            visible: root.playlistsLoading && root.libraryPlaylists.length === 0
+                            text: "loading…"
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.listFont
+                            opacity: 0.45
+                        }
 
-                    delegate: Rectangle {
-                        required property var modelData
-                        required property int index
-                        readonly property bool isCurrentEntry: modelData.name === root.currentPlaylistId
-                        readonly property int pinReserve: isCurrentEntry ? 0 : 30
-                        width: playlistLibraryList.width
-                        height: 40
-                        radius: 4
-                        color: genrePlaylistMouse.containsMouse
-                            ? Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.05)
-                            : "transparent"
+                        Text {
+                            anchors.centerIn: parent
+                            visible: !root.playlistsLoading && root.libraryPlaylists.length === 0
+                            text: "no playlists"
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.listFont
+                            opacity: 0.45
+                        }
 
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.leftMargin: 10
-                            anchors.rightMargin: 10
-                            spacing: 8
+                        delegate: Rectangle {
+                            required property var modelData
+                            required property int index
+                            readonly property bool isCurrentEntry: modelData.name === root.currentPlaylistId
+                            readonly property int pinReserve: isCurrentEntry ? 0 : 30
+                            width: playlistLibraryList.width
+                            height: 40
+                            radius: 4
+                            color: genrePlaylistMouse.containsMouse
+                                ? Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.05)
+                                : "transparent"
 
-                            Item {
-                                Layout.preferredWidth: 22
-                                Layout.preferredHeight: 22
-                                Layout.alignment: Qt.AlignVCenter
-                                visible: !parent.parent.isCurrentEntry
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: 10
+                                anchors.rightMargin: 10
+                                spacing: 8
+
+                                Item {
+                                    Layout.preferredWidth: 22
+                                    Layout.preferredHeight: 22
+                                    Layout.alignment: Qt.AlignVCenter
+                                    visible: !parent.parent.isCurrentEntry
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: modelData.starred ? "󰓎" : "󰓄"
+                                        color: modelData.starred ? Theme.accent : Theme.foreground
+                                        opacity: modelData.starred ? 1 : (playlistPinMouse.containsMouse ? 0.65 : 0.42)
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: root.listFont
+                                    }
+                                }
 
                                 Text {
-                                    anchors.centerIn: parent
-                                    text: modelData.starred ? "󰓎" : "󰓄"
-                                    color: modelData.starred ? Theme.accent : Theme.foreground
-                                    opacity: modelData.starred ? 1 : (playlistPinMouse.containsMouse ? 0.65 : 0.42)
+                                    Layout.fillWidth: true
+                                    text: root.playlistTabLabel(modelData.name || "")
+                                    color: Theme.foreground
                                     font.family: Theme.fontFamily
                                     font.pixelSize: root.listFont
+                                    elide: Text.ElideRight
+                                }
+
+                                Text {
+                                    text: String(modelData.count || 0)
+                                    color: Theme.foreground
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: root.listFont
+                                    opacity: 0.45
                                 }
                             }
 
-                            Text {
-                                Layout.fillWidth: true
-                                text: root.playlistTabLabel(modelData.name || "")
-                                color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: root.listFont
-                                elide: Text.ElideRight
+                            MouseArea {
+                                id: genrePlaylistMouse
+                                anchors.fill: parent
+                                anchors.leftMargin: pinReserve
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.selectGenrePlaylist(modelData.name)
                             }
 
+                            MouseArea {
+                                id: playlistPinMouse
+                                anchors.left: parent.left
+                                anchors.leftMargin: 10
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 26
+                                height: 26
+                                visible: !parent.isCurrentEntry
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: function(mouse) {
+                                    mouse.accepted = true
+                                    root.togglePlaylistStar(modelData.name)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                LibrarySidePanel {}
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                spacing: pad
+
+                SectionPanel {
+                    label: root.selectedPlaylist !== "" ? root.playlistTabLabel(root.selectedPlaylist) : "Playlist"
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    fillHeight: true
+
+                    Item {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+
+                        ListView {
+                            id: playlistTrackList
+                            anchors.fill: parent
+                            clip: true
+                            spacing: 2
+                            model: root.tracks
+
                             Text {
-                                text: String(modelData.count || 0)
+                                anchors.centerIn: parent
+                                visible: root.playlistsLoading && root.playlists.length === 0
+                                text: "loading…"
                                 color: Theme.foreground
                                 font.family: Theme.fontFamily
                                 font.pixelSize: root.listFont
                                 opacity: 0.45
                             }
-                        }
 
-                        MouseArea {
-                            id: genrePlaylistMouse
-                            anchors.fill: parent
-                            anchors.leftMargin: pinReserve
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: root.selectGenrePlaylist(modelData.name)
-                        }
+                            Text {
+                                anchors.centerIn: parent
+                                visible: root.tracksLoading && root.selectedPlaylist !== ""
+                                text: "loading…"
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.listFont
+                                opacity: 0.45
+                            }
 
-                        MouseArea {
-                            id: playlistPinMouse
-                            anchors.left: parent.left
-                            anchors.leftMargin: 10
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: 26
-                            height: 26
-                            visible: !parent.isCurrentEntry
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: function(mouse) {
-                                mouse.accepted = true
-                                root.togglePlaylistStar(modelData.name)
+                            Text {
+                                anchors.centerIn: parent
+                                visible: !root.playlistsLoading && root.selectedPlaylist === ""
+                                text: "select a playlist"
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.listFont
+                                opacity: 0.45
+                            }
+
+                            Text {
+                                anchors.centerIn: parent
+                                visible: !root.tracksLoading && root.tracks.length === 0 && root.selectedPlaylist !== ""
+                                text: "no tracks"
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.listFont
+                                opacity: 0.45
+                            }
+
+                            delegate: TrackListRow {
+                                required property var modelData
+                                required property int index
+                                rowWidth: playlistTrackList.width
+                                track: modelData
+                                number: index + 1
+                                selected: root.isTrackSelected(modelData.path)
+                                showLike: true
+                                onPressed: root.selectPlaylistTrack(index)
+                                onActivated: root.playTrackAt(index)
+                                onLikeToggled: root.toggleTrackFavorite(modelData.path)
                             }
                         }
                     }
                 }
-            }
 
-            SectionPanel {
-                label: root.selectedPlaylist !== "" ? root.playlistTabLabel(root.selectedPlaylist) : "Playlist"
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                fillHeight: true
-
-                Item {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-
-                    ListView {
-                        id: playlistTrackList
-                        anchors.fill: parent
-                        clip: true
-                        spacing: 2
-                        model: root.tracks
-
-                        Text {
-                            anchors.centerIn: parent
-                            visible: root.playlistsLoading && root.playlists.length === 0
-                            text: "loading…"
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.listFont
-                            opacity: 0.45
-                        }
-
-                        Text {
-                            anchors.centerIn: parent
-                            visible: root.tracksLoading && root.selectedPlaylist !== ""
-                            text: "loading…"
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.listFont
-                            opacity: 0.45
-                        }
-
-                        Text {
-                            anchors.centerIn: parent
-                            visible: !root.playlistsLoading && root.selectedPlaylist === ""
-                            text: "select a playlist"
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.listFont
-                            opacity: 0.45
-                        }
-
-                        Text {
-                            anchors.centerIn: parent
-                            visible: !root.tracksLoading && root.tracks.length === 0 && root.selectedPlaylist !== ""
-                            text: "no tracks"
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.listFont
-                            opacity: 0.45
-                        }
-
-                        delegate: TrackListRow {
-                            required property var modelData
-                            required property int index
-                            rowWidth: playlistTrackList.width
-                            track: modelData
-                            number: index + 1
-                            selected: root.isTrackSelected(modelData.path)
-                            showLike: true
-                            onPressed: root.selectPlaylistTrack(index)
-                            onActivated: root.playTrackAt(index)
-                            onLikeToggled: root.toggleTrackFavorite(modelData.path)
-                        }
-                        }
-                }
+                LibrarySidePanel {}
             }
         }
 
@@ -3408,34 +3345,170 @@ Item {
         }
     }
 
-    component LibraryBtn: Item {
-        id: libBtn
+    component LibrarySidePanel: SectionPanel {
+        label: "Library"
+        Layout.preferredWidth: root.libraryPanelWidth
+        Layout.minimumWidth: 148
+        Layout.fillHeight: true
+        fillHeight: true
+
+        ColumnLayout {
+            Layout.fillWidth: true
+            spacing: 8
+
+            Text {
+                Layout.fillWidth: true
+                text: root.libraryJobBusy
+                    ? root.libraryJobActiveLabel + "…"
+                    : (root.libraryStats.tracks || 0) + " tracks · " + (root.libraryStats.genres || 0) + " genres"
+                color: Theme.foreground
+                font.family: Theme.fontFamily
+                font.pixelSize: root.libraryFont
+                opacity: root.libraryJobBusy ? 0.9 : 0.55
+                wrapMode: Text.Wrap
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 30
+                radius: 4
+                color: libraryMenuMouse.containsMouse
+                    ? Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.07)
+                    : Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.04)
+                border.color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.1)
+                border.width: 1
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 8
+                    anchors.rightMargin: 8
+                    spacing: 6
+
+                    Text {
+                        text: "󰍜"
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.libraryFont + 1
+                        opacity: 0.8
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: "actions"
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.libraryFont
+                        opacity: libraryMenuMouse.containsMouse ? 1 : 0.78
+                    }
+
+                    Text {
+                        text: root.libraryMenuOpen ? "󰅃" : "󰅀"
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.libraryFont
+                        opacity: 0.45
+                    }
+                }
+
+                MouseArea {
+                    id: libraryMenuMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.libraryMenuOpen = !root.libraryMenuOpen
+                }
+            }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                visible: root.libraryMenuOpen
+                spacing: 2
+
+                Repeater {
+                    model: root.libraryActions
+
+                    LibraryMenuItem {
+                        required property var modelData
+                        icon: modelData.icon
+                        label: modelData.label
+                        dimmed: root.libraryJobBusy
+                        spinning: root.libraryJobBusy && root.libraryJobActiveLabel === modelData.label
+                        onActivated: if (!root.libraryJobBusy) root.runLibraryAction(modelData)
+                    }
+                }
+            }
+
+            Flickable {
+                id: libraryJobLogFlickable
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                Layout.minimumHeight: 72
+                visible: root.libraryJobBusy || root.jobLog !== ""
+                clip: true
+                contentWidth: width
+                contentHeight: libraryJobLogText.height
+                boundsBehavior: Flickable.StopAtBounds
+
+                Text {
+                    id: libraryJobLogText
+                    width: parent.width
+                    text: root.jobLog || (root.libraryJobBusy ? (root.libraryJobActiveLabel + "…") : "")
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.libraryFont
+                    opacity: 0.75
+                    wrapMode: Text.Wrap
+                }
+
+                onContentHeightChanged: contentY = Math.max(0, contentHeight - height)
+            }
+
+            Connections {
+                target: root
+                function onJobLogChanged() {
+                    libraryJobLogFlickable.contentY = Math.max(0, libraryJobLogFlickable.contentHeight - libraryJobLogFlickable.height)
+                }
+            }
+
+            Item { Layout.fillHeight: true }
+        }
+    }
+
+    component LibraryMenuItem: Item {
+        id: menuItem
         property string icon: ""
         property string label: ""
-        property bool accent: false
         property bool dimmed: false
         property bool spinning: false
         signal activated()
 
-        implicitWidth: libRow.implicitWidth + 8
-        implicitHeight: libRow.implicitHeight + 4
+        Layout.fillWidth: true
+        implicitHeight: 28
+
+        Rectangle {
+            anchors.fill: parent
+            radius: 4
+            color: menuMouse.containsMouse
+                ? Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.06)
+                : "transparent"
+        }
 
         Row {
-            id: libRow
-            anchors.centerIn: parent
+            anchors.left: parent.left
+            anchors.leftMargin: 6
+            anchors.verticalCenter: parent.verticalCenter
             spacing: 6
 
             Text {
-                id: libIcon
-                text: libBtn.icon
-                color: accent ? Theme.accent : Theme.foreground
-                opacity: dimmed && !libBtn.spinning ? 0.35 : 0.9
+                text: menuItem.icon
+                color: Theme.foreground
+                opacity: dimmed && !menuItem.spinning ? 0.35 : 0.9
                 font.family: Theme.fontFamily
-                font.pixelSize: root.libraryFont + 2
+                font.pixelSize: root.libraryFont + 1
                 transformOrigin: Item.Center
 
                 RotationAnimation on rotation {
-                    running: libBtn.spinning
+                    running: menuItem.spinning
                     from: 0
                     to: 360
                     duration: 900
@@ -3444,23 +3517,21 @@ Item {
             }
 
             Text {
-                text: libBtn.label
-                color: accent ? Theme.accent : Theme.foreground
-                opacity: dimmed && !libBtn.spinning ? 0.35 : (libMouse.containsMouse ? 1 : 0.78)
+                text: menuItem.label
+                color: Theme.foreground
+                opacity: dimmed && !menuItem.spinning ? 0.35 : (menuMouse.containsMouse ? 1 : 0.78)
                 font.family: Theme.fontFamily
                 font.pixelSize: root.libraryFont
-                font.bold: accent && Theme.fontBold
             }
         }
 
         MouseArea {
-            id: libMouse
+            id: menuMouse
             anchors.fill: parent
-            anchors.margins: -4
             enabled: !dimmed
             hoverEnabled: true
             cursorShape: dimmed ? Qt.ArrowCursor : Qt.PointingHandCursor
-            onClicked: libBtn.activated()
+            onClicked: menuItem.activated()
         }
     }
 
