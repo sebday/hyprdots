@@ -34,6 +34,8 @@ Item {
     property bool transmissionError: false
     property real downloadRate: 0
     property real uploadRate: 0
+    property real networkDownloadRate: 0
+    property real networkUploadRate: 0
     property var downHistory: []
     property var upHistory: []
     property var lastTransmissionPayload: null
@@ -73,6 +75,10 @@ Item {
     function applyThroughputCache(cached) {
         if (!cached || typeof cached !== "object")
             return
+        if (cached.network_download_bps !== undefined)
+            networkDownloadRate = parseFloat(cached.network_download_bps) || 0
+        if (cached.network_upload_bps !== undefined)
+            networkUploadRate = parseFloat(cached.network_upload_bps) || 0
         if (cached.download_bps !== undefined)
             downloadRate = parseFloat(cached.download_bps) || 0
         if (cached.upload_bps !== undefined)
@@ -94,6 +100,8 @@ Item {
             for (var k in existing)
                 next[k] = existing[k]
         }
+        next.network_download_bps = networkDownloadRate
+        next.network_upload_bps = networkUploadRate
         next.download_bps = downloadRate
         next.upload_bps = uploadRate
         next.downHistory = downHistory
@@ -122,6 +130,8 @@ Item {
             var up = parseFloat(json.upload_bps || "0")
             if (!isFinite(down)) down = 0
             if (!isFinite(up)) up = 0
+            networkDownloadRate = down
+            networkUploadRate = up
             if (!lastTransmissionPayload) {
                 downloadRate = down
                 uploadRate = up

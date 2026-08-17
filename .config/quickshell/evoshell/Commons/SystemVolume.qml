@@ -4,8 +4,8 @@ import Quickshell
 import QtQuick
 
 Singleton {
-    readonly property int lowMax: 19
-    readonly property int midMax: 49
+    readonly property int lowMax: 20
+    readonly property int midMax: 39
 
     function icon(level, muted) {
         if (muted) return "󰝟"

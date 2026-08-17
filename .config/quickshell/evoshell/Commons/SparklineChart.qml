@@ -79,6 +79,18 @@ Item {
         return valueRangeFor(bars)
     }
 
+    function combinedValueRange() {
+        if (!hasSecondary)
+            return valueRangeFor(bars)
+        var combined = []
+        var i
+        for (i = 0; i < bars.length; i++)
+            combined.push(bars[i])
+        for (i = 0; i < secondaryBars.length; i++)
+            combined.push(secondaryBars[i])
+        return valueRangeFor(combined)
+    }
+
     function tooltipTextFor(bar) {
         if (!bar)
             return ""
@@ -165,13 +177,14 @@ Item {
             var usableW = Math.max(1, w - padX * 2)
             var usableH = Math.max(1, h - padY * 2)
             var step = pts.length > 1 ? usableW / (pts.length - 1) : 0
+            var sharedRange = root.hasSecondary ? root.combinedValueRange() : null
 
-            function drawSeries(series, color, fill) {
+            function drawSeries(series, color, fill, range) {
                 if (!series || series.length === 0)
                     return
-                var range = root.valueRangeFor(series)
-                var minV = range.min
-                var maxV = range.max
+                var resolved = range || root.valueRangeFor(series)
+                var minV = resolved.min
+                var maxV = resolved.max
                 var span = maxV - minV || 1
 
                 function yAt(v) {
@@ -219,8 +232,8 @@ Item {
             }
 
             if (root.hasSecondary)
-                drawSeries(root.secondaryBars, root.secondaryLineColor, false)
-            drawSeries(pts, root.lineColor, true)
+                drawSeries(root.secondaryBars, root.secondaryLineColor, false, sharedRange)
+            drawSeries(pts, root.lineColor, !root.hasSecondary, sharedRange)
         }
 
         Component.onCompleted: requestPaint()

@@ -20,14 +20,17 @@ Item {
     readonly property int bodyFont: Theme.fontSize3xl
     readonly property int hintFont: Theme.fontSizeL
     readonly property int statFont: Theme.fontSizeXl
+    readonly property int throughputRateFont: Theme.fontSizeL
+    readonly property int throughputHintFont: Theme.fontSizeS
+    readonly property int throughputChartHeight: 80
     readonly property int maxHistory: 36
 
     property var info: ({})
     property bool loading: true
     property bool hasTransferStats: false
     property bool hasPingStats: false
-    property real downloadRate: 0
-    property real uploadRate: 0
+    property real networkDownloadRate: 0
+    property real networkUploadRate: 0
     property var downHistory: []
     property var upHistory: []
     property var topDown: []
@@ -105,9 +108,13 @@ Item {
     function applyThroughputCache(data) {
         if (!data || typeof data !== "object")
             return
-        if (data.download_bps !== undefined || data.upload_bps !== undefined) {
-            downloadRate = parseFloat(data.download_bps) || 0
-            uploadRate = parseFloat(data.upload_bps) || 0
+        if (data.network_download_bps !== undefined || data.network_upload_bps !== undefined) {
+            networkDownloadRate = parseFloat(data.network_download_bps) || 0
+            networkUploadRate = parseFloat(data.network_upload_bps) || 0
+            hasTransferStats = data.connected === true || !!info.iface
+        } else if (data.download_bps !== undefined || data.upload_bps !== undefined) {
+            networkDownloadRate = parseFloat(data.download_bps) || 0
+            networkUploadRate = parseFloat(data.upload_bps) || 0
             hasTransferStats = data.connected === true || !!info.iface
         }
         if (Array.isArray(data.downHistory) && data.downHistory.length > 0)
@@ -121,9 +128,9 @@ Item {
         if (item && Array.isArray(item.downHistory) && item.downHistory.length > 0) {
             downHistory = item.downHistory.slice()
             upHistory = item.upHistory.slice()
-            downloadRate = item.downloadRate || 0
-            uploadRate = item.uploadRate || 0
-            hasTransferStats = item.connected === true
+            networkDownloadRate = item.networkDownloadRate || 0
+            networkUploadRate = item.networkUploadRate || 0
+            hasTransferStats = item.networkConnected === true
             return
         }
         if (shell)
@@ -150,11 +157,11 @@ Item {
             return
         var bar = barSource
         if (bar) {
-            data.download_bps = bar.downloadRate
-            data.upload_bps = bar.uploadRate
+            data.network_download_bps = bar.networkDownloadRate
+            data.network_upload_bps = bar.networkUploadRate
             data.downHistory = bar.downHistory
             data.upHistory = bar.upHistory
-            data.connected = bar.connected
+            data.connected = bar.networkConnected
         } else {
             var existing = shell.hoverPopupDataFor(cacheKey)
             if (existing && typeof existing === "object") {
@@ -162,10 +169,10 @@ Item {
                     data.downHistory = existing.downHistory
                 if (existing.upHistory)
                     data.upHistory = existing.upHistory
-                if (existing.download_bps !== undefined)
-                    data.download_bps = existing.download_bps
-                if (existing.upload_bps !== undefined)
-                    data.upload_bps = existing.upload_bps
+                if (existing.network_download_bps !== undefined)
+                    data.network_download_bps = existing.network_download_bps
+                if (existing.network_upload_bps !== undefined)
+                    data.network_upload_bps = existing.network_upload_bps
                 if (existing.connected !== undefined)
                     data.connected = existing.connected
             }
@@ -331,11 +338,11 @@ Item {
     Connections {
         target: root.barSource
         enabled: root.barSource !== null
-        function onDownloadRateChanged() {
+        function onNetworkDownloadRateChanged() {
             if (root.active)
                 root.syncFromBar()
         }
-        function onUploadRateChanged() {
+        function onNetworkUploadRateChanged() {
             if (root.active)
                 root.syncFromBar()
         }
@@ -456,44 +463,65 @@ Item {
         }
 
         SectionPanel {
-            label: "Download"
+            label: "Throughput"
 
-            Text {
-                    text: root.hasTransferStats ? root.formatRate(root.downloadRate) : "--"
-                    color: Theme.accent
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.bodyFont
-                    font.bold: Theme.fontBold
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 16
+
+                ColumnLayout {
+                    spacing: 2
+
+                    Text {
+                        text: root.hasTransferStats ? root.formatRate(root.networkDownloadRate) : "--"
+                        color: Theme.accent
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.throughputRateFont
+                        font.bold: Theme.fontBold
+                    }
+
+                    Text {
+                        text: "Download"
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.throughputHintFont
+                        opacity: 0.55
+                    }
                 }
 
-                SparklineChart {
-                    Layout.fillWidth: true
-                    bars: root.downHistory
-                    style: "line"
-                    lineColor: Theme.accent
-                    chartHeight: Theme.sparklineExpandedHeight
-                }
-        }
+                ColumnLayout {
+                    spacing: 2
 
-        SectionPanel {
-            label: "Upload"
+                    Text {
+                        text: root.hasTransferStats ? root.formatRate(root.networkUploadRate) : "--"
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.throughputRateFont
+                        font.bold: Theme.fontBold
+                        opacity: 0.88
+                    }
 
-            Text {
-                    text: root.hasTransferStats ? root.formatRate(root.uploadRate) : "--"
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.bodyFont
-                    font.bold: Theme.fontBold
-                    opacity: 0.88
+                    Text {
+                        text: "Upload"
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.throughputHintFont
+                        opacity: 0.55
+                    }
                 }
 
-                SparklineChart {
-                    Layout.fillWidth: true
-                    bars: root.upHistory
-                    style: "line"
-                    lineColor: Theme.foreground
-                    chartHeight: Theme.sparklineExpandedHeight
-                }
+                Item { Layout.fillWidth: true }
+            }
+
+            SparklineChart {
+                Layout.fillWidth: true
+                bars: root.downHistory
+                secondaryBars: root.upHistory
+                style: "line"
+                lineColor: Theme.accent
+                secondaryLineColor: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.88)
+                chartHeight: root.throughputChartHeight
+            }
         }
 
         SectionPanel {
