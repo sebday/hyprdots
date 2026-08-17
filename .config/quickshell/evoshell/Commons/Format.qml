@@ -56,9 +56,8 @@ Singleton {
         if (isNaN(p))
             return Theme.foreground
         p = Math.max(0, Math.min(100, p))
-        var green = "#a6e3a1"
         if (p <= 50)
-            return Theme.mixColors(green, Theme.accent, p / 50)
+            return Theme.mixColors(Theme.foreground, Theme.accent, p / 50)
         return Theme.mixColors(Theme.accent, Theme.urgent, (p - 50) / 50)
     }
 

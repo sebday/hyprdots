@@ -14,9 +14,8 @@ usage:
   evo-player toggle|next|prev|seek <sec>|shuffle [toggle|on|off]
   evo-player volume set <0-100>|volume <delta>
   evo-player save|open|restore|resume|close|stop|status [--json]
-  evo-player sync|import|playlists [--force]|rebuild|soundcloud
-  evo-player build [genre] [--json]
-  evo-player warm [--tags] [--art] [--waveforms] [genre] [--json]
+  evo-player sync|import|playlists [--force]|soundcloud
+  evo-player build all|quick [--json]
   evo-player cache [--force] [--json] [genre]
   evo-player job status [--json]
   evo-player genres [--json]
@@ -27,6 +26,7 @@ usage:
   evo-player playlist star toggle <name> [--json]
   evo-player retag <path> <genre> [--json]
   evo-player favorite toggle <path> [--json]
+  evo-player mixes migrate [--dry-run] [--json]
   evo-player stats [--json]
 EOF
   exit 1
@@ -635,7 +635,7 @@ cmd_playlists() {
     write_playlist "$g"
   done < <(list_genres)
   write_likes_m3u "${PLAYLIST_DIR}/all.m3u"
-  write_likes_m3u "${PLAYLIST_DIR}/favorites.m3u"
+  rm -f "${PLAYLIST_DIR}/favorites.m3u"
   echo "evo-player: rebuilding track tag caches..." >&2
   if [[ "$force" -eq 1 ]]; then
     cmd_cache --force
@@ -808,8 +808,8 @@ cmd_warm() {
 }
 
 cmd_build_impl() {
-  local genre="${1:-}"
-  echo "evo-player: build library started at $(date -Iseconds)" >&2
+  local mode="${1:-}"
+  echo "evo-player: build ${mode} started at $(date -Iseconds)" >&2
   ensure_dirs
   likes_init
   echo "evo-player: refreshing playlists..." >&2
@@ -818,33 +818,32 @@ cmd_build_impl() {
     write_playlist "$g"
   done < <(list_genres)
   write_likes_m3u "${PLAYLIST_DIR}/all.m3u"
-  write_likes_m3u "${PLAYLIST_DIR}/favorites.m3u"
+  rm -f "${PLAYLIST_DIR}/favorites.m3u"
   echo "evo-player: indexing track tags..." >&2
-  if [[ -n "$genre" ]]; then
-    cmd_cache "$genre"
-  else
-    cmd_cache
-  fi
-  echo "evo-player: warming art and waveforms..." >&2
-  if [[ -n "$genre" ]]; then
-    cmd_warm --art --waveforms "$genre"
-  else
+  cmd_cache
+  if [[ "$mode" == "all" ]]; then
+    echo "evo-player: warming art and waveforms..." >&2
     cmd_warm --art --waveforms
+  else
+    echo "evo-player: warming art..." >&2
+    cmd_warm --art
   fi
-  echo "evo-player: build library complete at $(date -Iseconds)" >&2
+  echo "evo-player: build ${mode} complete at $(date -Iseconds)" >&2
 }
 
 cmd_build() {
-  local genre=""
+  local mode=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --json) ;;
-      -*) usage ;;
-      *) genre="$1" ;;
+      all|quick) mode="$1" ;;
+      -h|--help|help) usage ;;
+      *) usage ;;
     esac
     shift
   done
-  run_exclusive_job build "build library" cmd_build_impl "$genre"
+  [[ -n "$mode" ]] || usage
+  run_exclusive_job build "build ${mode}" cmd_build_impl "$mode"
 }
 
 cmd_soundcloud_impl() {
@@ -1270,6 +1269,7 @@ cmd_playlist() {
       for m3u in "$PLAYLIST_DIR"/*.m3u; do
         [[ -f "$m3u" ]] || continue
         base="$(basename "$m3u" .m3u)"
+        [[ "$base" == favorites ]] && continue
         count="$(playlist_track_count "$m3u")"
         kind="$(playlist_kind "$base")"
         if playlist_is_starred "$base"; then
@@ -1287,6 +1287,8 @@ cmd_playlist() {
       local m3u base
       for m3u in "$PLAYLIST_DIR"/*.m3u; do
         [[ -f "$m3u" ]] || continue
+        base="$(basename "$m3u" .m3u)"
+        [[ "$base" == favorites ]] && continue
         basename "$m3u" .m3u
       done | sort
     fi
@@ -1361,6 +1363,131 @@ cmd_retag() {
   fi
 }
 
+mixes_refresh_playlists() {
+  local genre
+  write_likes_m3u "${PLAYLIST_DIR}/all.m3u"
+  rm -f "${PLAYLIST_DIR}/favorites.m3u"
+  shift
+  for genre in "$@"; do
+    [[ -n "$genre" ]] || continue
+    write_playlist "$genre"
+    tracks_cache_invalidate_genre "$genre"
+  done
+  tracks_cache_invalidate_genre "mixes"
+}
+
+cmd_mixes_migrate() {
+  local dry_run=0 json=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --dry-run) dry_run=1 ;;
+      --json) json=1 ;;
+      *) usage ;;
+    esac
+    shift
+  done
+  ensure_dirs
+  likes_init
+  local mixes_dir="${MUSIC_ROOT}/mixes"
+  if [[ ! -d "$mixes_dir" ]]; then
+    echo "evo-player: mixes directory not found (already migrated)" >&2
+    return 0
+  fi
+
+  local -a files=()
+  local f
+  while IFS= read -r -d '' f; do
+    is_audio "$f" && files+=("$f")
+  done < <(find "$mixes_dir" -maxdepth 1 -type f -print0 2>/dev/null | sort -z)
+
+  if [[ ${#files[@]} -eq 0 ]]; then
+    echo "evo-player: no audio files in mixes" >&2
+    if [[ $dry_run -eq 0 ]]; then
+      rmdir "$mixes_dir" 2>/dev/null || true
+      mixes_refresh_playlists
+    fi
+    return 0
+  fi
+
+  local path tag genre status new_path failed=0
+  local -a touched_genres=()
+  if [[ "$json" -eq 1 ]]; then
+    printf '['
+  fi
+  local first=1
+  for path in "${files[@]}"; do
+    tag="$(ffprobe_meta "$path" genre)"
+    if mixes_override_genre "$path" >/dev/null; then
+      genre="$(mixes_override_genre "$path")"
+      status="override"
+    elif genre="$(genre_tag_to_folder "$tag")"; then
+      status="auto"
+    else
+      echo "evo-player: cannot resolve genre for $(basename "$path") (tag: ${tag:-empty})" >&2
+      failed=1
+      continue
+    fi
+    [[ -d "${MUSIC_ROOT}/${genre}" ]] || mkdir -p "${MUSIC_ROOT}/${genre}"
+
+    if [[ "$json" -eq 1 ]]; then
+      [[ "$first" -eq 1 ]] || printf ','
+      first=0
+      printf '{"path":"%s","tag":"%s","genre":"%s","status":"%s"}' \
+        "$(json_escape "$path")" "$(json_escape "$tag")" "$(json_escape "$genre")" "$status"
+    elif [[ $dry_run -eq 1 ]]; then
+      printf '%s -> %s (%s)\n' "$(basename "$path")" "$genre" "$status"
+    fi
+
+    if [[ $dry_run -eq 1 ]]; then
+      continue
+    fi
+
+    likes_add "$path"
+    local old_path="$path"
+    new_path="$(retag_manual "$path" "$genre")"
+    if [[ ! -f "$new_path" ]]; then
+      echo "evo-player: retag failed for $(basename "$path")" >&2
+      failed=1
+      continue
+    fi
+    if is_liked "$old_path" && [[ "$old_path" != "$new_path" ]]; then
+      jq --arg old "$old_path" --arg new "$new_path" \
+        'if has($old) then .[$new] = .[$old] | del(.[$old]) else . end' \
+        "$LIKES_FILE" >"${LIKES_FILE}.tmp" && mv "${LIKES_FILE}.tmp" "$LIKES_FILE"
+    fi
+    touched_genres+=("$genre")
+    if [[ $json -eq 0 ]]; then
+      printf 'moved %s -> %s\n' "$(basename "$old_path")" "$genre"
+    fi
+  done
+  if [[ "$json" -eq 1 ]]; then
+    printf ']\n'
+  fi
+
+  if [[ $dry_run -eq 1 ]]; then
+    return 0
+  fi
+
+  [[ $failed -eq 0 ]] || return 1
+
+  mixes_refresh_playlists "${touched_genres[@]}"
+
+  if [[ -z "$(find "$mixes_dir" -mindepth 1 -print -quit 2>/dev/null)" ]]; then
+    rmdir "$mixes_dir" 2>/dev/null || true
+    echo "evo-player: removed empty mixes directory" >&2
+  fi
+}
+
+cmd_mixes() {
+  local sub="${1:-}"
+  shift || true
+  case "$sub" in
+    migrate) cmd_mixes_migrate "$@" ;;
+    -h|--help|help|"") usage ;;
+    *) echo "evo-player: unknown mixes command: $sub" >&2; usage ;;
+  esac
+}
+
 cmd_favorite_toggle() {
   local path="$1"
   local json="${2:-}"
@@ -1382,8 +1509,8 @@ cmd_favorite_toggle() {
       '.[$p] = {title:$title, artist:$artist, liked_at:$at}' \
       "$LIKES_FILE" >"${LIKES_FILE}.tmp" && mv "${LIKES_FILE}.tmp" "$LIKES_FILE"
   fi
-  write_likes_m3u "${PLAYLIST_DIR}/favorites.m3u"
   write_likes_m3u "${PLAYLIST_DIR}/all.m3u"
+  rm -f "${PLAYLIST_DIR}/favorites.m3u"
   [[ -n "$genre" ]] && write_playlist "$genre"
   if [[ "$json" == --json ]]; then
     jq -n --arg path "$path" --argjson liked "$([[ $liked == true ]] && echo true || echo false)" \
@@ -1434,9 +1561,7 @@ main() {
     sync) cmd_sync ;;
     import) cmd_import ;;
     playlists) cmd_playlists "$@" ;;
-    rebuild) cmd_rebuild ;;
     build) cmd_build "$@" ;;
-    warm) cmd_warm "$@" ;;
     cache) cmd_cache "$@" ;;
     soundcloud) cmd_soundcloud ;;
     job)
@@ -1458,6 +1583,7 @@ main() {
         cmd_playlist "$@"
       fi
       ;;
+    mixes) cmd_mixes "$@" ;;
     retag) cmd_retag "${1:-}" "${2:-}" "${3:-}" ;;
     favorite)
       [[ "${1:-}" == toggle ]] || usage

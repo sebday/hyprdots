@@ -25,6 +25,7 @@ Item {
     readonly property int pad: Theme.hoverPopupMargin
     readonly property int bodyFont: Theme.hoverPopupBodyFontPixelSize
     readonly property int hintFont: Theme.hoverPopupHintFontPixelSize
+    readonly property int listFont: hintFont
     readonly property int titleFont: bodyFont + 6
     readonly property int nowPlayingArtWidth: nowPlayingPanel.height > 0
         ? Math.max(160, nowPlayingPanel.height)
@@ -56,8 +57,8 @@ Item {
     property string externalJobLabel: ""
     readonly property bool libraryJobBusy: jobBusy || externalJobBusy
     readonly property string libraryJobActiveLabel: jobBusy ? jobLabel : externalJobLabel
-    readonly property bool buildBusy: libraryJobBusy && (libraryJobActiveLabel === "build library" || libraryJobActiveLabel === "warm cache")
-    readonly property bool rebuildBusy: libraryJobBusy && libraryJobActiveLabel === "rebuild library"
+    readonly property bool buildBusy: libraryJobBusy
+        && (libraryJobActiveLabel === "build all" || libraryJobActiveLabel === "build quick" || libraryJobActiveLabel === "build")
     property bool tracksLoading: false
     property string browsePath: ""
     property string browseParent: ""
@@ -100,11 +101,11 @@ Item {
         return chips
     }
     readonly property int libraryPanelWidth: Math.round(Math.max(156, Math.min(width * 0.22, 220)))
-    readonly property var browseGenrePresets: [
-        { label: "Drum & Bass", folder: "drum&bass" },
-        { label: "Dubstep", folder: "dubstep" },
-        { label: "Hip-Hop", folder: "hiphop" }
-    ]
+    readonly property var genreLabelOverrides: ({
+        "drum&bass": "Drum & Bass",
+        "dubstep": "Dubstep",
+        "hiphop": "Hip-Hop"
+    })
 
     function artUrl(path) {
         if (!path) return ""
@@ -477,6 +478,24 @@ Item {
         return slash < 0 ? p : p.substring(0, slash)
     }
 
+    function retaggableGenres() {
+        var names = []
+        for (var i = 0; i < genres.length; i++) {
+            var name = String(genres[i].name || "").trim()
+            if (name !== "")
+                names.push(name)
+        }
+        names.sort(function(a, b) { return a.localeCompare(b) })
+        return names
+    }
+
+    function genreFolderLabel(folder) {
+        var key = String(folder || "")
+        if (genreLabelOverrides[key])
+            return genreLabelOverrides[key]
+        return key
+    }
+
     function browseGenreLabel(entry) {
         if (!entry)
             return ""
@@ -484,25 +503,23 @@ Item {
         if (tag !== "")
             return tag
         var folder = root.browseDirGenre(String(entry.path || ""))
-        for (var i = 0; i < browseGenrePresets.length; i++) {
-            if (browseGenrePresets[i].folder === folder)
-                return browseGenrePresets[i].label
-        }
-        return folder
+        return root.genreFolderLabel(folder)
     }
 
-    function browseGenrePresetIndex(entry) {
+    function browseGenreIndex(entry) {
         if (!entry)
+            return -1
+        var folders = root.retaggableGenres()
+        if (!folders.length)
             return -1
         var tag = String(entry.genre || "").trim().toLowerCase()
         var folder = root.browseDirGenre(String(entry.path || ""))
-        for (var i = 0; i < browseGenrePresets.length; i++) {
-            var preset = browseGenrePresets[i]
-            if (preset.folder === folder)
+        for (var i = 0; i < folders.length; i++) {
+            if (folders[i] === folder)
                 return i
-            if (preset.label.toLowerCase() === tag)
+            if (root.genreFolderLabel(folders[i]).toLowerCase() === tag)
                 return i
-            if (preset.folder.toLowerCase() === tag)
+            if (folders[i].toLowerCase() === tag)
                 return i
         }
         return -1
@@ -511,9 +528,14 @@ Item {
     function cycleBrowseGenre(entry) {
         if (!entry || !entry.path)
             return
-        var idx = root.browseGenrePresetIndex(entry)
-        var next = browseGenrePresets[(idx + 1) % browseGenrePresets.length]
-        root.retagBrowseTrack(entry, next.folder)
+        var folders = root.retaggableGenres()
+        if (!folders.length) {
+            root.notify("no genres available", 2500)
+            return
+        }
+        var idx = root.browseGenreIndex(entry)
+        var next = folders[(idx + 1) % folders.length]
+        root.retagBrowseTrack(entry, next)
     }
 
     function retagBrowseTrack(entry, genreFolder) {
@@ -1394,7 +1416,7 @@ Item {
                                     text: root.playlistTabLabel(name)
                                     color: root.playerScreen === "playlists" && root.selectedPlaylist === name ? Theme.accent : Theme.foreground
                                     font.family: Theme.fontFamily
-                                    font.pixelSize: root.hintFont
+                                    font.pixelSize: root.listFont
                                     font.bold: root.playerScreen === "playlists" && root.selectedPlaylist === name && Theme.fontBold
                                     opacity: root.playerScreen === "playlists" && root.selectedPlaylist === name ? 1 : 0.78
                                 }
@@ -1477,7 +1499,7 @@ Item {
                                         text: root.player.artist
                                         color: Theme.foreground
                                         font.family: Theme.fontFamily
-                                        font.pixelSize: root.hintFont + 1
+                                        font.pixelSize: root.listFont + 1
                                         font.bold: Theme.fontBold
                                         opacity: 0.72
                                         elide: Text.ElideRight
@@ -1673,7 +1695,7 @@ Item {
                                         text: root.player.position_label || "0:00"
                                         color: Theme.foreground
                                         font.family: Theme.fontFamily
-                                        font.pixelSize: root.hintFont
+                                        font.pixelSize: root.listFont
                                         opacity: 0.65
                                     }
 
@@ -1683,7 +1705,7 @@ Item {
                                         text: root.player.duration_label || "0:00"
                                         color: Theme.foreground
                                         font.family: Theme.fontFamily
-                                        font.pixelSize: root.hintFont
+                                        font.pixelSize: root.listFont
                                         opacity: 0.65
                                     }
                                 }
@@ -1815,35 +1837,17 @@ Item {
 
                         LibraryBtn {
                             icon: "󰲹"
-                            label: "build library"
+                            label: "build all"
                             dimmed: root.libraryJobBusy
-                            spinning: root.buildBusy
-                            onActivated: if (!root.libraryJobBusy) root.runJob(["build"], "build library")
+                            spinning: root.libraryJobBusy && root.libraryJobActiveLabel === "build all"
+                            onActivated: if (!root.libraryJobBusy) root.runJob(["build", "all"], "build all")
                         }
                         LibraryBtn {
                             icon: "󰖟"
-                            label: "warm cache"
+                            label: "build quick"
                             dimmed: root.libraryJobBusy
-                            onActivated: if (!root.libraryJobBusy) root.runJob(["warm"], "warm cache")
-                        }
-                        LibraryBtn {
-                            icon: "󰕧"
-                            label: "sync soundcloud"
-                            dimmed: true
-                            onActivated: if (!root.libraryJobBusy) root.runJob(["soundcloud"], "sync soundcloud")
-                        }
-                        LibraryBtn {
-                            icon: "󰋋"
-                            label: "import incoming"
-                            dimmed: true
-                            onActivated: if (!root.libraryJobBusy) root.runJob(["import"], "import incoming")
-                        }
-                        LibraryBtn {
-                            icon: "󰑐"
-                            label: "rebuild tags"
-                            dimmed: root.libraryJobBusy
-                            spinning: root.rebuildBusy
-                            onActivated: if (!root.libraryJobBusy) root.runJob(["rebuild"], "rebuild library")
+                            spinning: root.libraryJobBusy && root.libraryJobActiveLabel === "build quick"
+                            onActivated: if (!root.libraryJobBusy) root.runJob(["build", "quick"], "build quick")
                         }
 
                         Item { Layout.fillHeight: true }
@@ -1941,7 +1945,7 @@ Item {
                                 text: "loading…"
                                 color: Theme.foreground
                                 font.family: Theme.fontFamily
-                                font.pixelSize: root.hintFont
+                                font.pixelSize: root.listFont
                                 opacity: 0.45
                             }
 
@@ -1951,7 +1955,7 @@ Item {
                                 text: "empty folder"
                                 color: Theme.foreground
                                 font.family: Theme.fontFamily
-                                font.pixelSize: root.hintFont
+                                font.pixelSize: root.listFont
                                 opacity: 0.45
                             }
 
@@ -1983,7 +1987,7 @@ Item {
                                         color: Theme.foreground
                                         opacity: 0.55
                                         font.family: Theme.fontFamily
-                                        font.pixelSize: root.libraryFont + 2
+                                        font.pixelSize: root.listFont
                                     }
 
                                     Item {
@@ -1995,7 +1999,7 @@ Item {
                                             text: modelData.name
                                             color: Theme.foreground
                                             font.family: Theme.fontFamily
-                                            font.pixelSize: root.hintFont
+                                            font.pixelSize: root.listFont
                                             elide: Text.ElideRight
                                             opacity: 0.85
                                             verticalAlignment: Text.AlignVCenter
@@ -2069,7 +2073,7 @@ Item {
                                             text: String(modelData.count)
                                             color: Theme.foreground
                                             font.family: Theme.fontFamily
-                                            font.pixelSize: root.libraryFont
+                                            font.pixelSize: root.listFont
                                             opacity: 0.72
                                         }
                                     }
@@ -2114,7 +2118,7 @@ Item {
                         text: "loading…"
                         color: Theme.foreground
                         font.family: Theme.fontFamily
-                        font.pixelSize: root.hintFont
+                        font.pixelSize: root.listFont
                         opacity: 0.45
                     }
 
@@ -2124,7 +2128,7 @@ Item {
                         text: "no playlists"
                         color: Theme.foreground
                         font.family: Theme.fontFamily
-                        font.pixelSize: root.hintFont
+                        font.pixelSize: root.listFont
                         opacity: 0.45
                     }
 
@@ -2156,7 +2160,7 @@ Item {
                                     color: modelData.starred ? Theme.accent : Theme.foreground
                                     opacity: modelData.starred ? 1 : (playlistPinMouse.containsMouse ? 0.65 : 0.42)
                                     font.family: Theme.fontFamily
-                                    font.pixelSize: root.bodyFont
+                                    font.pixelSize: root.listFont
                                 }
                             }
 
@@ -2165,7 +2169,7 @@ Item {
                                 text: root.playlistTabLabel(modelData.name || "")
                                 color: Theme.foreground
                                 font.family: Theme.fontFamily
-                                font.pixelSize: root.bodyFont
+                                font.pixelSize: root.listFont
                                 elide: Text.ElideRight
                             }
 
@@ -2173,7 +2177,7 @@ Item {
                                 text: String(modelData.count || 0)
                                 color: Theme.foreground
                                 font.family: Theme.fontFamily
-                                font.pixelSize: root.libraryFont
+                                font.pixelSize: root.listFont
                                 opacity: 0.45
                             }
                         }
@@ -2228,7 +2232,7 @@ Item {
                             text: "loading…"
                             color: Theme.foreground
                             font.family: Theme.fontFamily
-                            font.pixelSize: root.hintFont
+                            font.pixelSize: root.listFont
                             opacity: 0.45
                         }
 
@@ -2238,7 +2242,7 @@ Item {
                             text: "loading…"
                             color: Theme.foreground
                             font.family: Theme.fontFamily
-                            font.pixelSize: root.hintFont
+                            font.pixelSize: root.listFont
                             opacity: 0.45
                         }
 
@@ -2248,7 +2252,7 @@ Item {
                             text: "select a playlist"
                             color: Theme.foreground
                             font.family: Theme.fontFamily
-                            font.pixelSize: root.hintFont
+                            font.pixelSize: root.listFont
                             opacity: 0.45
                         }
 
@@ -2258,7 +2262,7 @@ Item {
                             text: "no tracks"
                             color: Theme.foreground
                             font.family: Theme.fontFamily
-                            font.pixelSize: root.hintFont
+                            font.pixelSize: root.listFont
                             opacity: 0.45
                         }
 
@@ -2317,7 +2321,7 @@ Item {
             text: parent.label
             color: parent.accent ? Theme.accent : Theme.foreground
             font.family: Theme.fontFamily
-            font.pixelSize: root.libraryFont
+            font.pixelSize: root.listFont
             font.bold: parent.accent && Theme.fontBold
             opacity: parent.accent ? 0.95 : 0.68
             elide: parent.maxLabelWidth > 0 ? Text.ElideRight : Text.ElideNone
@@ -2517,7 +2521,7 @@ Item {
                     text: volBtn.level + "%"
                     color: Theme.accent
                     font.family: Theme.fontFamily
-                    font.pixelSize: root.hintFont - 1
+                    font.pixelSize: root.listFont - 1
                     font.bold: Theme.fontBold
                 }
 
@@ -2709,7 +2713,7 @@ Item {
                     text: browseRow.track.title || ""
                     color: Theme.accent
                     font.family: Theme.fontFamily
-                    font.pixelSize: root.hintFont
+                    font.pixelSize: root.listFont
                     elide: Text.ElideRight
                     opacity: browseRow.selected ? 1 : 0.9
                 }
@@ -2720,7 +2724,7 @@ Item {
                     text: browseRow.track.artist || ""
                     color: Theme.foreground
                     font.family: Theme.fontFamily
-                    font.pixelSize: root.libraryFont
+                    font.pixelSize: root.listFont
                     elide: Text.ElideRight
                     opacity: 0.55
                 }
@@ -2850,7 +2854,7 @@ Item {
                 text: String(trackRow.number)
                 color: Theme.accent
                 font.family: Theme.fontFamily
-                font.pixelSize: root.hintFont
+                font.pixelSize: root.listFont
                 font.bold: Theme.fontBold
             }
 
@@ -2858,7 +2862,7 @@ Item {
                 text: "·"
                 color: Theme.foreground
                 font.family: Theme.fontFamily
-                font.pixelSize: root.hintFont
+                font.pixelSize: root.listFont
                 opacity: 0.35
             }
 
@@ -2867,7 +2871,7 @@ Item {
                 text: trackRow.track.artist || "—"
                 color: Theme.foreground
                 font.family: Theme.fontFamily
-                font.pixelSize: root.hintFont
+                font.pixelSize: root.listFont
                 opacity: 0.65
                 elide: Text.ElideRight
             }
@@ -2876,7 +2880,7 @@ Item {
                 text: "·"
                 color: Theme.foreground
                 font.family: Theme.fontFamily
-                font.pixelSize: root.hintFont
+                font.pixelSize: root.listFont
                 opacity: 0.35
             }
 
@@ -2886,7 +2890,7 @@ Item {
                 text: trackRow.track.title || ""
                 color: Theme.accent
                 font.family: Theme.fontFamily
-                font.pixelSize: root.hintFont
+                font.pixelSize: root.listFont
                 elide: Text.ElideRight
                 opacity: trackRow.selected ? 1 : 0.9
             }

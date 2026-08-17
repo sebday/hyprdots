@@ -31,7 +31,8 @@ Item {
     readonly property bool systemMuted: audio ? audio.muted : false
     readonly property int systemPercent: audio ? audio.percent : 0
     readonly property real systemLevel: audio ? audio.level : 0
-    readonly property real systemMax: audio ? audio.maxVolume : 1
+    readonly property real sliderMax: 1
+    readonly property real sliderRatio: Math.max(0, Math.min(1, systemLevel / sliderMax))
 
     readonly property int barCount: 16
     property var barLevels: (function() {
@@ -59,7 +60,7 @@ Item {
     function setLevelFromRatio(ratio) {
         if (!audio) return
         var r = Math.max(0, Math.min(1, ratio))
-        audio.setVolume(r * systemMax)
+        audio.setVolume(r * sliderMax)
     }
 
     function setLevelFromVerticalRatio(y, height) {
@@ -179,7 +180,7 @@ Item {
                         Rectangle {
                             anchors.bottom: parent.bottom
                             width: parent.width
-                            height: parent.height * Math.max(0, Math.min(1, root.systemLevel / root.systemMax))
+                            height: parent.height * root.sliderRatio
                             radius: 4
                             color: Theme.accent
                             opacity: root.systemMuted ? 0.35 : 0.95
@@ -279,7 +280,7 @@ Item {
 
                     Rectangle {
                         height: parent.height
-                        width: parent.width * Math.max(0, Math.min(1, root.systemLevel / root.systemMax))
+                        width: parent.width * root.sliderRatio
                         radius: 3
                         color: Theme.accent
                         opacity: root.systemMuted ? 0.35 : 0.95

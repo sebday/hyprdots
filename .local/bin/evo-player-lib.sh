@@ -51,9 +51,7 @@ run_exclusive_job() {
   running="$(library_job_running "$$")"
   if [[ -n "$running" ]]; then
     case "${running##* }" in
-      rebuild) run_label="rebuild library" ;;
-      build) run_label="build library" ;;
-      warm) run_label="warm cache" ;;
+      build) run_label="build" ;;
       soundcloud) run_label="sync soundcloud" ;;
       import) run_label="import incoming" ;;
       *) run_label="${running##* }" ;;
@@ -87,7 +85,16 @@ run_exclusive_job() {
 library_job_running() {
   local exclude="${1:-}"
   ps -eo pid=,ppid=,args= | awk -v exclude="$exclude" '
-    /\/evo-player (rebuild|build|warm|soundcloud|import)$/ {
+    /\/evo-player build (all|quick)$/ {
+      pid=$1
+      gsub(/^[[:space:]]+/, "", pid)
+      ppid=$2
+      gsub(/^[[:space:]]+/, "", ppid)
+      rows[pid]=ppid "|build"
+      order[++n]=pid
+      next
+    }
+    /\/evo-player (soundcloud|import)$/ {
       pid=$1
       gsub(/^[[:space:]]+/, "", pid)
       ppid=$2
@@ -127,9 +134,7 @@ cmd_job_status() {
     pid="${running%% *}"
     cmd="${running##* }"
     case "$cmd" in
-      rebuild) label="rebuild library" ;;
-      build) label="build library" ;;
-      warm) label="warm cache" ;;
+      build) label="build" ;;
       soundcloud) label="sync soundcloud" ;;
       import) label="import incoming" ;;
       *) label="$cmd" ;;
@@ -282,12 +287,96 @@ json_escape() {
   printf '%s' "$s"
 }
 
+skip_dirs_list() {
+  if [[ -f "$MUSIC_CONFIG" ]]; then
+    python3 - "$MUSIC_CONFIG" <<'PY'
+import re, sys
+text = open(sys.argv[1]).read()
+match = re.search(r'^\s*skip\s*=\s*\[(.*?)\]', text, re.M | re.S)
+if match:
+    for item in re.findall(r'"([^"]+)"', match.group(1)):
+        print(item)
+PY
+  fi
+}
+
 skip_dir() {
   local name="$1"
+  local skip
+  while IFS= read -r skip; do
+    [[ -n "$skip" && "$name" == "$skip" ]] && return 0
+  done < <(skip_dirs_list)
   case "$name" in
     incoming) return 0 ;;
   esac
   return 1
+}
+
+genre_tag_to_folder() {
+  local tag="$1"
+  local lower
+  lower="$(printf '%s' "$tag" | tr '[:upper:]' '[:lower:]' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+  [[ -z "$lower" ]] && return 1
+  case "$lower" in
+    *drum*|*dnb*|*jungle*) printf 'drum&bass'; return 0 ;;
+    *dub*) printf 'dubstep'; return 0 ;;
+    *house*) printf 'house'; return 0 ;;
+    *grime*) printf 'grime'; return 0 ;;
+    *hip*hop*|*hiphop*) printf 'hiphop'; return 0 ;;
+    liquid) printf 'drum&bass'; return 0 ;;
+  esac
+  return 1
+}
+
+mixes_override_genre() {
+  local path="$1"
+  local stem="${path##*/}"
+  stem="${stem%.*}"
+  case "$stem" in
+    ant_tc1_mc_visionobi*) printf 'drum&bass'; return 0 ;;
+    calibre-essential_mix_*) printf 'drum&bass'; return 0 ;;
+    chase_status_boiler_room_london*) printf 'drum&bass'; return 0 ;;
+    dj_d-send_fizzy_comp_mix*) printf 'drum&bass'; return 0 ;;
+    future_beats_radio_show_04-06-15*) printf 'drum&bass'; return 0 ;;
+    hospital_records_with_lens*) printf 'drum&bass'; return 0 ;;
+    huscher-subtle_radio*) printf 'drum&bass'; return 0 ;;
+    jdizz_vol_1*) printf 'drum&bass'; return 0 ;;
+    jook*) printf 'drum&bass'; return 0 ;;
+    cream_live_mixed_by_paul_oakenfold*) printf 'house'; return 0 ;;
+    bufera_beats_w_limmz*) printf 'grime'; return 0 ;;
+    excision-darkside_dubstep_2006*) printf 'dubstep'; return 0 ;;
+  esac
+  return 1
+}
+
+mixes_resolve_genre() {
+  local path="$1"
+  local tag genre=""
+  if genre="$(mixes_override_genre "$path")"; then
+    printf '%s' "$genre"
+    return 0
+  fi
+  tag="$(ffprobe_meta "$path" genre)"
+  if genre="$(genre_tag_to_folder "$tag")"; then
+    printf '%s' "$genre"
+    return 0
+  fi
+  return 1
+}
+
+likes_add() {
+  local path="$1"
+  [[ -f "$path" ]] || return 1
+  likes_init
+  is_liked "$path" && return 0
+  local title artist now
+  title="$(ffprobe_meta "$path" title)"
+  artist="$(ffprobe_meta "$path" artist)"
+  [[ -z "$title" ]] && title="$(basename "${path%.*}")"
+  now="$(date -Iseconds)"
+  jq --arg p "$path" --arg title "$title" --arg artist "$artist" --arg at "$now" \
+    '.[$p] = {title:$title, artist:$artist, liked_at:$at}' \
+    "$LIKES_FILE" >"${LIKES_FILE}.tmp" && mv "${LIKES_FILE}.tmp" "$LIKES_FILE"
 }
 
 list_genres() {
