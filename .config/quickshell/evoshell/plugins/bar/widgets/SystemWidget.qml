@@ -117,7 +117,7 @@ Item {
     RowLayout {
         id: contentRow
         anchors.centerIn: parent
-        spacing: 6
+        spacing: Theme.spacingS
 
         TrayUsageDial {
             size: 17
@@ -143,7 +143,7 @@ Item {
             font.pixelSize: Theme.fontSizeM
             font.bold: Theme.fontBold
             Layout.alignment: Qt.AlignVCenter
-            opacity: 0.92
+            opacity: Theme.opacityEmphasis2
         }
     }
 

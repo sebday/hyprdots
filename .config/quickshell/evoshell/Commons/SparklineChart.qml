@@ -151,7 +151,7 @@ Item {
                         ? Math.max(2, chartRow.height * modelData.level / 7)
                         : 0
                     anchors.bottom: parent.bottom
-                    radius: 2
+                    radius: Theme.radiusS
                     color: modelData.color || Theme.accent
                     opacity: barMouse.containsMouse ? 1 : 0.85
                 }
@@ -248,7 +248,7 @@ Item {
         color: Theme.foreground
         font.family: Theme.fontFamily
         font.pixelSize: Theme.fontSizeS
-        opacity: 0.45
+        opacity: Theme.opacityDisabled
     }
 
     Rectangle {
@@ -262,7 +262,7 @@ Item {
         y: Math.max(4, root.tooltipAnchor.y - implicitHeight - 6)
         radius: Theme.fieldsetCornerRadius
         color: Theme.panelMantle
-        border.color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.14)
+        border.color: Theme.foregroundDivider
         border.width: 1
         implicitWidth: tooltipText.implicitWidth + 16
         implicitHeight: tooltipText.implicitHeight + 10

@@ -221,7 +221,7 @@ Item {
                         Rectangle {
                             anchors.fill: parent
                             radius: Theme.fieldsetCornerRadius
-                            color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.08)
+                            color: Theme.foregroundFaint
                             visible: root.trackArtUrl === ""
                         }
 
@@ -249,7 +249,7 @@ Item {
 
                     ColumnLayout {
                         Layout.fillWidth: true
-                        spacing: 2
+                        spacing: Theme.spacing2
 
                         Text {
                             Layout.fillWidth: true
@@ -281,7 +281,7 @@ Item {
                             color: Theme.foreground
                             font.family: Theme.fontFamily
                             font.pixelSize: root.hintFont
-                            opacity: 0.55
+                            opacity: Theme.opacityMuted
                             elide: Text.ElideRight
                         }
 
@@ -291,7 +291,7 @@ Item {
                             color: Theme.accent
                             font.family: Theme.fontFamily
                             font.pixelSize: root.hintFont
-                            opacity: 0.72
+                            opacity: Theme.opacitySecondary
                             elide: Text.ElideRight
                         }
                     }
@@ -307,7 +307,7 @@ Item {
 
             ColumnLayout {
                 Layout.fillWidth: true
-                spacing: 6
+                spacing: Theme.spacingS
                 visible: root.trackLength > 0 || root.playerPlaying
 
                 Item {
@@ -316,8 +316,8 @@ Item {
 
                     Rectangle {
                         anchors.fill: parent
-                        radius: 2
-                        color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.14)
+                        radius: Theme.radiusS
+                        color: Theme.foregroundDivider
                     }
 
                     Rectangle {
@@ -325,7 +325,7 @@ Item {
                         anchors.top: parent.top
                         height: parent.height
                         width: parent.width * root.trackProgress
-                        radius: 2
+                        radius: Theme.radiusS
                         color: Theme.accent
                     }
 
@@ -345,7 +345,7 @@ Item {
                         color: Theme.foreground
                         font.family: Theme.fontFamily
                         font.pixelSize: root.hintFont
-                        opacity: 0.65
+                        opacity: Theme.opacityHover
                     }
 
                     Item { Layout.fillWidth: true }
@@ -356,7 +356,7 @@ Item {
                         color: Theme.foreground
                         font.family: Theme.fontFamily
                         font.pixelSize: root.hintFont
-                        opacity: 0.55
+                        opacity: Theme.opacityMuted
                     }
 
                     Text {
@@ -364,14 +364,14 @@ Item {
                         color: Theme.foreground
                         font.family: Theme.fontFamily
                         font.pixelSize: root.hintFont
-                        opacity: 0.65
+                        opacity: Theme.opacityHover
                     }
                 }
             }
 
             RowLayout {
                 Layout.fillWidth: true
-                spacing: 8
+                spacing: Theme.spacingM
                 visible: root.hasPlayer && (root.player.canGoPrevious || root.player.canTogglePlaying || root.player.canGoNext)
 
                 Item { Layout.fillWidth: true }
@@ -434,7 +434,7 @@ Item {
             color: Theme.foreground
             font.family: Theme.fontFamily
             font.pixelSize: root.bodyFont
-            opacity: 0.55
+            opacity: Theme.opacityMuted
         }
 
         SectionPanel {
@@ -453,7 +453,7 @@ Item {
                         id: playerRow
                         anchors.left: parent.left
                         anchors.right: parent.right
-                        spacing: 8
+                        spacing: Theme.spacingM
 
                         Text {
                             Layout.fillWidth: true
@@ -473,7 +473,7 @@ Item {
                             color: Theme.foreground
                             font.family: Theme.fontFamily
                             font.pixelSize: root.hintFont
-                            opacity: 0.45
+                            opacity: Theme.opacityDisabled
                         }
                     }
 
@@ -512,7 +512,7 @@ Item {
                         color: Theme.foreground
                         font.family: Theme.fontFamily
                         font.pixelSize: root.hintFont
-                        opacity: 0.55
+                        opacity: Theme.opacityMuted
                     }
 
                     Text {
@@ -523,7 +523,7 @@ Item {
                         color: Theme.foreground
                         font.family: Theme.fontFamily
                         font.pixelSize: root.hintFont
-                        opacity: 0.55
+                        opacity: Theme.opacityMuted
                     }
 
                     GridLayout {
@@ -557,7 +557,7 @@ Item {
                                         Rectangle {
                                             anchors.fill: parent
                                             radius: Theme.fieldsetCornerRadius
-                                            color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.08)
+                                            color: Theme.foregroundFaint
                                             visible: showPosterImage.status !== Image.Ready
                                         }
 
@@ -616,7 +616,7 @@ Item {
             RowLayout {
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: 6
+                spacing: Theme.spacingS
 
                 Text {
                     text: "󰖺"

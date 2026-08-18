@@ -101,7 +101,7 @@ Item {
         RowLayout {
             id: pillRow
             anchors.centerIn: parent
-            spacing: 6
+            spacing: Theme.spacingS
 
             Item {
                 Layout.preferredWidth: pill.iconSize
@@ -125,7 +125,7 @@ Item {
                     visible: pill.iconUrl === "" || providerIcon.status !== Image.Ready
                     text: "󰖟"
                     color: pill.textColor
-                    opacity: 0.55
+                    opacity: Theme.opacityMuted
                     font.family: Theme.fontFamily
                     font.pixelSize: pill.iconSize
                 }
@@ -329,7 +329,7 @@ Item {
 
                     RowLayout {
                         Layout.fillWidth: true
-                        spacing: 6
+                        spacing: Theme.spacingS
 
                         Text {
                             text: "Status:"
@@ -337,7 +337,7 @@ Item {
                             font.family: Theme.fontFamily
                             font.pixelSize: root.hintFont
                             font.bold: Theme.fontBold
-                            opacity: 0.72
+                            opacity: Theme.opacitySecondary
                         }
 
                         HoverPopupLabelPill {
@@ -353,7 +353,7 @@ Item {
 
                     RowLayout {
                         Layout.fillWidth: true
-                        spacing: 6
+                        spacing: Theme.spacingS
                         visible: root.accounts.length > 0
 
                         Repeater {
@@ -391,7 +391,7 @@ Item {
                     color: Theme.accent
                     font.family: Theme.fontFamily
                     font.pixelSize: root.titleFont
-                    opacity: 0.9
+                    opacity: Theme.opacityEmphasis
                     transformOrigin: Item.Center
 
                     RotationAnimation on rotation {
@@ -406,7 +406,7 @@ Item {
 
             ColumnLayout {
                 Layout.fillWidth: true
-                spacing: 6
+                spacing: Theme.spacingS
                 visible: root.files.length > 0
 
                 Repeater {
@@ -439,7 +439,7 @@ Item {
                                 return action + (modelData.detail ? " · " + String(modelData.detail) : "")
                             }
                             color: Theme.foreground
-                            opacity: 0.72
+                            opacity: Theme.opacitySecondary
                             font.family: Theme.fontFamily
                             font.pixelSize: root.fileDetailFont
                             elide: Text.ElideRight
@@ -468,7 +468,7 @@ Item {
                 color: Theme.foreground
                 font.family: Theme.fontFamily
                 font.pixelSize: root.hintFont
-                opacity: 0.65
+                opacity: Theme.opacityHover
             }
         }
 
@@ -514,7 +514,7 @@ Item {
 
                 RowLayout {
                     id: pauseRow
-                    spacing: 6
+                    spacing: Theme.spacingS
 
                     Text {
                         text: root.paused ? "󰐊" : "󰏤"
@@ -548,7 +548,7 @@ Item {
 
                 RowLayout {
                     id: showRow
-                    spacing: 6
+                    spacing: Theme.spacingS
 
                     Text {
                         text: "󰍉"

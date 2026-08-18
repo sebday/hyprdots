@@ -54,7 +54,7 @@ Item {
         id: headerRow
         anchors.left: parent.left
         anchors.right: parent.right
-        spacing: 10
+        spacing: Theme.spacingL
 
         Item {
             Layout.preferredWidth: root.resolvedIconSize
@@ -75,7 +75,7 @@ Item {
                 font.bold: Theme.fontBold
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
-                opacity: 0.9
+                opacity: Theme.opacityEmphasis
             }
 
             Image {
@@ -95,7 +95,7 @@ Item {
         ColumnLayout {
             id: headerCol
             Layout.fillWidth: true
-            spacing: 6
+            spacing: Theme.spacingS
 
             Text {
                 id: titleText
@@ -117,7 +117,7 @@ Item {
                 font.family: Theme.fontFamily
                 font.pixelSize: root.detailFont
                 font.bold: Theme.fontBold
-                opacity: 0.72
+                opacity: Theme.opacitySecondary
                 elide: Text.ElideRight
             }
         }

@@ -108,7 +108,7 @@ Item {
             Rectangle {
                 anchors.fill: parent
                 color: Theme.background
-                opacity: 0.72
+                opacity: Theme.opacitySecondary
             }
 
             Column {
@@ -137,7 +137,7 @@ Item {
                     height: 36
                     color: Theme.mantle
                     border.color: Theme.accent
-                    radius: 4
+                    radius: Theme.radiusL
 
                     TextInput {
                         id: passwordField

@@ -6,7 +6,7 @@ Item {
     property var shell: null
     property bool opened: false
     property string layerNamespace: "evo-hover"
-    property int contentWidth: 420
+    property int contentWidth: Theme.overlayWidthDefault
     property int contentMargin: Theme.hoverPopupMargin
     property int minContentHeight: 0
 

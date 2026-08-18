@@ -6,18 +6,18 @@ Item {
 
     property string label: ""
     property string labelAlign: "left"
-    property int contentPad: 10
-    property color frameBorder: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.32)
+    property int contentPad: Theme.panelContentPad
+    property color frameBorder: Theme.foregroundBorder
     property bool contentFill: false
     property int labelFontSize: Theme.fontSizeS
     property color labelBackground: Theme.mantle
     property bool filled: false
     property color fillColor: Theme.panelMantle
-    property int labelPadH: 6
-    property real labelOpacity: 0.72
+    property int labelPadH: Theme.panelLabelPadH
+    property real labelOpacity: Theme.opacitySecondary
     property bool labelProminent: false
     property bool labelClickable: false
-    property int labelGap: 8
+    property int labelGap: Theme.spacingM
 
     signal labelClicked()
 

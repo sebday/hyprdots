@@ -2423,13 +2423,13 @@ Item {
                 id: tabBarHost
                 Layout.fillWidth: true
                 Layout.preferredHeight: root.genreTabHeight
-                spacing: 8
+                spacing: Theme.spacingM
 
                 RowLayout {
                     id: standardTabBar
                     visible: !root.libraryPanelOpen
                     Layout.fillWidth: true
-                    spacing: 8
+                    spacing: Theme.spacingM
 
                 IconTab {
                     icon: "󰎆"
@@ -2458,7 +2458,7 @@ Item {
                     Layout.preferredWidth: 1
                     Layout.preferredHeight: Math.max(12, root.genreTabHeight - 16)
                     Layout.alignment: Qt.AlignVCenter
-                    color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.14)
+                    color: Theme.foregroundDivider
                 }
 
                 Item {
@@ -2471,7 +2471,7 @@ Item {
                         id: playlistTabBar
                         anchors.fill: parent
                         orientation: ListView.Horizontal
-                        spacing: 6
+                        spacing: Theme.spacingS
                         clip: true
                         boundsBehavior: Flickable.StopAtBounds
                         model: playlistTabModel
@@ -2492,14 +2492,14 @@ Item {
                                 color: root.playlistPanelOpen && root.selectedPlaylist === name
                                     ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.2)
                                     : (playlistTabMouse.containsMouse
-                                        ? Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.06)
+                                        ? Theme.foregroundWash
                                         : "transparent")
                             }
 
                             Row {
                                 id: playlistTabContent
                                 anchors.centerIn: parent
-                                spacing: 6
+                                spacing: Theme.spacingS
 
                                 Text {
                                     text: root.playlistTabLabel(name)
@@ -2515,7 +2515,7 @@ Item {
                                     color: Theme.foreground
                                     font.family: Theme.fontFamily
                                     font.pixelSize: root.libraryFont
-                                    opacity: 0.45
+                                    opacity: Theme.opacityDisabled
                                     anchors.verticalCenter: parent.verticalCenter
                                 }
                             }
@@ -2539,7 +2539,7 @@ Item {
                     Rectangle {
                         anchors.fill: parent
                         radius: 6
-                        color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.06)
+                        color: Theme.foregroundWash
                         border.color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.35)
                         border.width: 1
 
@@ -2606,6 +2606,7 @@ Item {
                 IconTab {
                     icon: "󰍉"
                     active: root.tabSearchMode
+                    visible: !root.libraryPanelOpen
                     onActivated: {
                         if (root.tabSearchMode) {
                             tabSearchDebounce.stop()
@@ -2617,26 +2618,12 @@ Item {
                         }
                     }
                 }
-
-                IconTab {
-                    icon: "󰠮"
-                    active: root.libraryPanelOpen
-                    spinning: root.libraryJobBusy
-                    onActivated: root.toggleLibraryPanel()
-                }
                 }
 
                 RowLayout {
                     visible: root.libraryPanelOpen
                     Layout.fillWidth: true
-                    spacing: 8
-
-                    IconTab {
-                        icon: "󰠮"
-                        active: true
-                        spinning: root.libraryJobBusy
-                        onActivated: root.toggleLibraryPanel()
-                    }
+                    spacing: Theme.spacingM
 
                     Text {
                         visible: root.libraryJobBusy
@@ -2665,7 +2652,7 @@ Item {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         orientation: ListView.Horizontal
-                        spacing: 6
+                        spacing: Theme.spacingS
                         clip: true
                         boundsBehavior: Flickable.StopAtBounds
                         model: root.libraryActions
@@ -2680,6 +2667,13 @@ Item {
                             onActivated: if (!root.libraryJobBusy) root.runLibraryAction(modelData)
                         }
                     }
+                }
+
+                IconTab {
+                    icon: "󰠮"
+                    active: root.libraryPanelOpen
+                    spinning: root.libraryJobBusy
+                    onActivated: root.toggleLibraryPanel()
                 }
             }
         }
@@ -2715,11 +2709,11 @@ Item {
                                 RowLayout {
                                     id: titleRow
                                     Layout.fillWidth: true
-                                    spacing: 10
+                                    spacing: Theme.spacingL
 
                                     ColumnLayout {
                                         Layout.fillWidth: true
-                                        spacing: 8
+                                        spacing: Theme.spacingM
 
                                         Text {
                                             Layout.fillWidth: true
@@ -2772,7 +2766,7 @@ Item {
 
                                         Flow {
                                             Layout.fillWidth: true
-                                            spacing: 6
+                                            spacing: Theme.spacingS
                                             visible: root.nowPlayingMetaChips.length > 0
 
                                             Repeater {
@@ -2806,7 +2800,7 @@ Item {
                             ColumnLayout {
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
-                                spacing: 6
+                                spacing: Theme.spacingS
 
                                 Item {
                                     Layout.fillWidth: true
@@ -2838,7 +2832,7 @@ Item {
                                         if (n === 0) {
                                             var trackH = 3
                                             var trackY = mid - trackH / 2
-                                            ctx.fillStyle = Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.1)
+                                            ctx.fillStyle = Theme.foregroundHoverWash
                                             ctx.fillRect(0, trackY, width, trackH)
                                             if (prog > 0) {
                                                 ctx.fillStyle = Theme.accent
@@ -2960,14 +2954,14 @@ Item {
 
                                 RowLayout {
                                     Layout.fillWidth: true
-                                    spacing: 8
+                                    spacing: Theme.spacingM
 
                                     Text {
                                         text: root.player.position_label || "0:00"
                                         color: Theme.foreground
                                         font.family: Theme.fontFamily
                                         font.pixelSize: root.listFont
-                                        opacity: 0.65
+                                        opacity: Theme.opacityHover
                                     }
 
                                     Item { Layout.fillWidth: true }
@@ -2977,7 +2971,7 @@ Item {
                                         color: Theme.foreground
                                         font.family: Theme.fontFamily
                                         font.pixelSize: root.listFont
-                                        opacity: 0.65
+                                        opacity: Theme.opacityHover
                                     }
                                 }
                             }
@@ -3011,7 +3005,7 @@ Item {
                         SectionPanel {
                             label: ""
                             Layout.fillWidth: true
-                            contentPad: 10
+                            contentPad: Theme.panelContentPad
 
                             PlayerTransportBar {
                                 Layout.fillWidth: true
@@ -3071,7 +3065,7 @@ Item {
             anchors.fill: parent
             radius: fillPane ? Theme.fieldsetCornerRadius : 3
             clip: true
-            color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.08)
+            color: Theme.foregroundFaint
 
             Image {
                 id: coverImage
@@ -3099,7 +3093,7 @@ Item {
                 color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.18)
                 border.color: Theme.accent
                 border.width: 2
-                radius: 3
+                radius: Theme.radiusM
 
                 Text {
                     anchors.centerIn: parent
@@ -3107,7 +3101,7 @@ Item {
                     color: Theme.accent
                     font.family: Theme.fontFamily
                     font.pixelSize: root.libraryFont
-                    opacity: 0.9
+                    opacity: Theme.opacityEmphasis
                 }
             }
 
@@ -3175,10 +3169,10 @@ Item {
         radius: 10
         color: accent
             ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, (clickable && chipMouse.containsMouse) ? 0.22 : 0.14)
-            : Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, (clickable && chipMouse.containsMouse) ? 0.1 : 0.06)
+            : (clickable && chipMouse.containsMouse) ? Theme.foregroundHoverWash : Theme.foregroundWash
         border.color: accent
             ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.38)
-            : Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.14)
+            : Theme.foregroundDivider
         border.width: 1
         implicitWidth: (maxLabelWidth > 0 ? Math.min(chipText.implicitWidth, maxLabelWidth) : chipText.implicitWidth) + 16
         implicitHeight: chipText.implicitHeight + 6
@@ -3214,9 +3208,9 @@ Item {
         property string label: ""
         property bool highlight: false
 
-        radius: 4
-        color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.06)
-        border.color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.14)
+        radius: Theme.radiusL
+        color: Theme.foregroundWash
+        border.color: Theme.foregroundDivider
         border.width: 1
         implicitWidth: pillText.implicitWidth + 20
         implicitHeight: pillText.implicitHeight + 10
@@ -3374,14 +3368,14 @@ Item {
                 anchors.fill: parent
                 radius: 6
                 color: Theme.mantle
-                border.color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.18)
+                border.color: Theme.foregroundTrack
                 border.width: 1
             }
 
             ColumnLayout {
                 anchors.fill: parent
                 anchors.margins: 10
-                spacing: 8
+                spacing: Theme.spacingM
 
                 Text {
                     Layout.alignment: Qt.AlignHCenter
@@ -3404,8 +3398,8 @@ Item {
                         anchors.centerIn: parent
                         width: 4
                         height: parent.height
-                        radius: 2
-                        color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.14)
+                        radius: Theme.radiusS
+                        color: Theme.foregroundDivider
                     }
 
                     Rectangle {
@@ -3413,7 +3407,7 @@ Item {
                         anchors.bottom: volTrack.bottom
                         width: volTrack.width
                         height: volTrack.height * (volBtn.level / 100)
-                        radius: 2
+                        radius: Theme.radiusS
                         color: Theme.accent
                     }
 
@@ -3526,11 +3520,11 @@ Item {
 
         width: rowWidth
         height: 40
-        radius: 4
+        radius: Theme.radiusL
         color: selected
             ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.14)
             : (browseRowMouse.containsMouse
-                ? Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.05)
+                ? Theme.foregroundGhost
                 : "transparent")
 
         RowLayout {
@@ -3538,7 +3532,7 @@ Item {
             anchors.fill: parent
             anchors.leftMargin: 8
             anchors.rightMargin: 8
-            spacing: 8
+            spacing: Theme.spacingM
 
             Item {
                 Layout.preferredWidth: 36
@@ -3546,9 +3540,9 @@ Item {
 
                 Rectangle {
                     anchors.fill: parent
-                    radius: 4
+                    radius: Theme.radiusL
                     clip: true
-                    color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.08)
+                    color: Theme.foregroundFaint
                     visible: !browseArt.visible
                 }
 
@@ -3576,7 +3570,7 @@ Item {
 
                 Rectangle {
                     anchors.fill: parent
-                    radius: 4
+                    radius: Theme.radiusL
                     visible: browseRow.selected
                     color: Qt.rgba(Theme.background.r, Theme.background.g, Theme.background.b, 0.48)
                 }
@@ -3638,7 +3632,7 @@ Item {
                     font.family: Theme.fontFamily
                     font.pixelSize: root.listFont
                     elide: Text.ElideRight
-                    opacity: 0.55
+                    opacity: Theme.opacityMuted
                 }
             }
 
@@ -3731,11 +3725,11 @@ Item {
 
         width: rowWidth
         height: 40
-        radius: 4
+        radius: Theme.radiusL
         color: selected
             ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.14)
             : (trackRow.hovered
-                ? Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.05)
+                ? Theme.foregroundGhost
                 : "transparent")
 
         RowLayout {
@@ -3743,7 +3737,7 @@ Item {
             anchors.fill: parent
             anchors.leftMargin: 8
             anchors.rightMargin: 8
-            spacing: 10
+            spacing: Theme.spacingL
 
             Item {
                 Layout.preferredWidth: 36
@@ -3751,9 +3745,9 @@ Item {
 
                 Rectangle {
                     anchors.fill: parent
-                    radius: 4
+                    radius: Theme.radiusL
                     clip: true
-                    color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.08)
+                    color: Theme.foregroundFaint
                     visible: !trackArt.visible
                 }
 
@@ -3781,7 +3775,7 @@ Item {
 
                 Rectangle {
                     anchors.fill: parent
-                    radius: 4
+                    radius: Theme.radiusL
                     visible: trackRow.selected
                     color: Qt.rgba(Theme.background.r, Theme.background.g, Theme.background.b, 0.48)
                 }
@@ -3844,7 +3838,7 @@ Item {
                 color: Theme.foreground
                 font.family: Theme.fontFamily
                 font.pixelSize: root.listFont
-                opacity: 0.65
+                opacity: Theme.opacityHover
                 elide: Text.ElideRight
             }
 
@@ -3963,7 +3957,7 @@ Item {
             height: 1
             visible: !crumb.current && crumbMouse.containsMouse
             color: Theme.accent
-            opacity: 0.55
+            opacity: Theme.opacityMuted
         }
 
         MouseArea {
@@ -3978,9 +3972,9 @@ Item {
 
     component ArtPickerOverlay: Rectangle {
         id: artPickerRoot
-        radius: 3
+        radius: Theme.radiusM
         color: Qt.rgba(Theme.mantle.r, Theme.mantle.g, Theme.mantle.b, 0.97)
-        border.color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.16)
+        border.color: Theme.foregroundSubtle
         border.width: 1
         clip: true
 
@@ -4040,12 +4034,12 @@ Item {
                 Layout.fillWidth: true
                 Layout.preferredHeight: Math.min(artPickerRoot.width * 0.42, 120)
                 visible: (root.player.art || "") !== "" && !root.artPickerLoading
-                radius: 3
+                radius: Theme.radiusM
                 clip: true
-                color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.06)
+                color: Theme.foregroundWash
                 border.color: artCurrentMouse.containsMouse
                     ? Theme.accent
-                    : Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.12)
+                    : Theme.foregroundRaised
                 border.width: artCurrentMouse.containsMouse ? 2 : 1
 
                 Image {
@@ -4094,7 +4088,7 @@ Item {
                     color: Theme.accent
                     font.family: Theme.fontFamily
                     font.pixelSize: Math.round(artPickerRoot.width * 0.12)
-                    opacity: 0.9
+                    opacity: Theme.opacityEmphasis
                     transformOrigin: Item.Center
 
                     RotationAnimation on rotation {
@@ -4116,7 +4110,7 @@ Item {
                 color: Theme.foreground
                 font.family: Theme.fontFamily
                 font.pixelSize: root.libraryFont
-                opacity: 0.45
+                opacity: Theme.opacityDisabled
             }
 
             Flickable {
@@ -4141,12 +4135,12 @@ Item {
                             required property int index
                             width: artPickerColumn.width
                             height: width
-                            radius: 3
+                            radius: Theme.radiusM
                             clip: true
-                            color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.06)
+                            color: Theme.foregroundWash
                             border.color: artPickMouse.containsMouse
                                 ? Theme.accent
-                                : Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.12)
+                                : Theme.foregroundRaised
                             border.width: artPickMouse.containsMouse ? 2 : 1
 
                             Image {
@@ -4231,7 +4225,7 @@ Item {
             color: iconTab.active
                 ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.2)
                 : (iconTabMouse.containsMouse
-                    ? Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.06)
+                    ? Theme.foregroundWash
                     : "transparent")
         }
 
@@ -4281,7 +4275,7 @@ Item {
             id: sideBrowseTree
             anchors.fill: parent
             clip: true
-            spacing: 2
+            spacing: Theme.spacing2
             model: root.browseTreeRows
 
             Component.onCompleted: root.browseTreeListView = sideBrowseTree
@@ -4333,7 +4327,7 @@ Item {
                     color: Theme.foreground
                     font.family: Theme.fontFamily
                     font.pixelSize: root.listFont
-                    opacity: 0.45
+                    opacity: Theme.opacityDisabled
                 }
 
                 delegate: Rectangle {
@@ -4343,22 +4337,22 @@ Item {
                     readonly property int indent: 8 + (Number(modelData.depth || 0) * 14)
                     width: sideBrowseTree.width
                     height: isDir ? 34 : 36
-                    radius: 4
+                    radius: Theme.radiusL
                     color: isDir
                         ? (treeRowMouse.containsMouse
-                            ? Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.05)
+                            ? Theme.foregroundGhost
                             : "transparent")
                         : (root.isTrackPlaying(modelData.path)
                             ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.14)
                             : (treeTrackMouse.containsMouse
-                                ? Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.05)
+                                ? Theme.foregroundGhost
                                 : "transparent"))
 
                     RowLayout {
                         anchors.fill: parent
                         anchors.leftMargin: indent
                         anchors.rightMargin: 6
-                        spacing: 6
+                        spacing: Theme.spacingS
                         visible: isDir
 
                         Text {
@@ -4385,7 +4379,7 @@ Item {
                         Text {
                             text: "󰉋"
                             color: Theme.foreground
-                            opacity: 0.55
+                            opacity: Theme.opacityMuted
                             font.family: Theme.fontFamily
                             font.pixelSize: root.listFont
                         }
@@ -4405,7 +4399,7 @@ Item {
                             color: Theme.foreground
                             font.family: Theme.fontFamily
                             font.pixelSize: root.libraryFont
-                            opacity: 0.45
+                            opacity: Theme.opacityDisabled
                         }
 
                         Text {
@@ -4473,13 +4467,13 @@ Item {
                         anchors.fill: parent
                         anchors.leftMargin: indent + 14
                         anchors.rightMargin: 6
-                        spacing: 8
+                        spacing: Theme.spacingM
                         visible: !isDir
 
                         Text {
                             text: "󰎈"
                             color: Theme.accent
-                            opacity: 0.45
+                            opacity: Theme.opacityDisabled
                             font.family: Theme.fontFamily
                             font.pixelSize: root.listFont
                         }
@@ -4560,11 +4554,11 @@ Item {
 
         ColumnLayout {
             anchors.fill: parent
-            spacing: 6
+            spacing: Theme.spacingS
 
             RowLayout {
                 Layout.fillWidth: true
-                spacing: 6
+                spacing: Theme.spacingS
 
                 RowIconButton {
                     icon: root.playlistPanelMode === "library" ? "󰎄" : "󰉹"
@@ -4587,7 +4581,7 @@ Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 clip: true
-                spacing: 2
+                spacing: Theme.spacing2
                 visible: root.playlistPanelMode === "library"
                 model: root.libraryPlaylists
 
@@ -4595,16 +4589,16 @@ Item {
                     required property var modelData
                     width: sidePlaylistLibraryList.width
                     height: 38
-                    radius: 4
+                    radius: Theme.radiusL
                     color: sideLibPlaylistMouse.containsMouse
-                        ? Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.05)
+                        ? Theme.foregroundGhost
                         : "transparent"
 
                     RowLayout {
                         anchors.fill: parent
                         anchors.leftMargin: 10
                         anchors.rightMargin: 10
-                        spacing: 8
+                        spacing: Theme.spacingM
 
                         Text {
                             Layout.fillWidth: true
@@ -4620,7 +4614,7 @@ Item {
                             color: Theme.foreground
                             font.family: Theme.fontFamily
                             font.pixelSize: root.listFont
-                            opacity: 0.45
+                            opacity: Theme.opacityDisabled
                         }
                     }
 
@@ -4639,7 +4633,7 @@ Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 clip: true
-                spacing: 2
+                spacing: Theme.spacing2
                 visible: root.playlistPanelMode !== "library"
                 model: root.tracks
 
@@ -4650,7 +4644,7 @@ Item {
                     color: Theme.foreground
                     font.family: Theme.fontFamily
                     font.pixelSize: root.listFont
-                    opacity: 0.45
+                    opacity: Theme.opacityDisabled
                 }
 
                 delegate: TrackListRow {
@@ -4679,7 +4673,7 @@ Item {
             id: sideTagsGenreList
             anchors.fill: parent
             clip: true
-            spacing: 2
+            spacing: Theme.spacing2
             model: root.genres
 
             Text {
@@ -4689,7 +4683,7 @@ Item {
                 color: Theme.foreground
                 font.family: Theme.fontFamily
                 font.pixelSize: root.listFont
-                opacity: 0.45
+                opacity: Theme.opacityDisabled
             }
 
             delegate: Rectangle {
@@ -4697,16 +4691,16 @@ Item {
                 required property int index
                 width: sideTagsGenreList.width
                 height: 40
-                radius: 4
+                radius: Theme.radiusL
                 color: sideTagGenreMouse.containsMouse
-                    ? Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.05)
+                    ? Theme.foregroundGhost
                     : "transparent"
 
                 RowLayout {
                     anchors.fill: parent
                     anchors.leftMargin: 10
                     anchors.rightMargin: 10
-                    spacing: 8
+                    spacing: Theme.spacingM
 
                     Text {
                         Layout.fillWidth: true
@@ -4722,7 +4716,7 @@ Item {
                         color: Theme.foreground
                         font.family: Theme.fontFamily
                         font.pixelSize: root.listFont
-                        opacity: 0.45
+                        opacity: Theme.opacityDisabled
                     }
                 }
 
@@ -4743,11 +4737,11 @@ Item {
 
         ColumnLayout {
             anchors.fill: parent
-            spacing: 8
+            spacing: Theme.spacingM
 
             RowLayout {
                 Layout.fillWidth: true
-                spacing: 8
+                spacing: Theme.spacingM
 
                 RowIconButton {
                     icon: "󰁍"
@@ -4773,7 +4767,7 @@ Item {
                     id: sideFilterTrackList
                     anchors.fill: parent
                     clip: true
-                    spacing: 2
+                    spacing: Theme.spacing2
                     model: root.filterTracks
 
                     Text {
@@ -4783,7 +4777,7 @@ Item {
                         color: Theme.foreground
                         font.family: Theme.fontFamily
                         font.pixelSize: root.listFont
-                        opacity: 0.45
+                        opacity: Theme.opacityDisabled
                     }
 
                     Text {
@@ -4793,7 +4787,7 @@ Item {
                         color: Theme.foreground
                         font.family: Theme.fontFamily
                         font.pixelSize: root.listFont
-                        opacity: 0.45
+                        opacity: Theme.opacityDisabled
                     }
 
                     delegate: TrackListRow {
@@ -4828,7 +4822,7 @@ Item {
         width: actionRow.implicitWidth + 16
         radius: 6
         color: barMouse.containsMouse
-            ? Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.06)
+            ? Theme.foregroundWash
             : (dimmed
                 ? "transparent"
                 : Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.03))
@@ -4836,7 +4830,7 @@ Item {
         Row {
             id: actionRow
             anchors.centerIn: parent
-            spacing: 6
+            spacing: Theme.spacingS
 
             Text {
                 text: barAction.icon

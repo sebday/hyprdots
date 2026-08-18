@@ -9,7 +9,7 @@ Item {
     property color valueColor: Theme.accent
     property int valueFontSize: Theme.fontSize5xl
     property int labelFontSize: Theme.fontSizeS
-    property int contentPad: 10
+    property int contentPad: Theme.panelContentPad
     property bool clickable: false
     property bool special: false
 
@@ -31,7 +31,7 @@ Item {
 
         ColumnLayout {
             Layout.fillWidth: true
-            spacing: 2
+            spacing: Theme.spacing2
 
             Text {
                 Layout.fillWidth: true
@@ -53,7 +53,7 @@ Item {
                 font.family: Theme.fontFamily
                 font.pixelSize: root.labelFontSize
                 font.bold: root.special ? Theme.fontBold : false
-                opacity: root.special ? 0.82 : 0.55
+                opacity: root.special ? 0.82 : Theme.opacityMuted
                 elide: Text.ElideRight
                 maximumLineCount: 1
             }

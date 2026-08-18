@@ -6,9 +6,9 @@ Item {
     id: root
 
     property bool opened: false
-    property int contentWidth: 420
+    property int contentWidth: Theme.overlayWidthDefault
     property int contentHeight: 520
-    property int contentMargin: 16
+    property int contentMargin: Theme.overlayMargin
     property bool framed: true
     property int borderWidth: 1
     property bool fillScreen: false

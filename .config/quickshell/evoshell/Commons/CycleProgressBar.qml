@@ -13,15 +13,15 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        radius: 2
-        color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.12)
+        radius: Theme.radiusS
+        color: Theme.foregroundRaised
     }
 
     Rectangle {
         height: parent.height
         width: parent.width * Math.max(0, Math.min(1, root.progress))
-        radius: 2
+        radius: Theme.radiusS
         color: Theme.accent
-        opacity: 0.9
+        opacity: Theme.opacityEmphasis
     }
 }

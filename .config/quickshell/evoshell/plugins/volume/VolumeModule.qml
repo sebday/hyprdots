@@ -180,7 +180,7 @@ Item {
             anchors.top: parent.top
             anchors.topMargin: 10
             anchors.horizontalCenter: parent.horizontalCenter
-            spacing: 8
+            spacing: Theme.spacingM
 
             Text {
                 text: root.systemMuted ? "Muted" : root.systemPercent + "%"
@@ -225,13 +225,13 @@ Item {
                 color: Theme.foreground
                 font.family: Theme.fontFamily
                 font.pixelSize: root.hintFont
-                opacity: 0.72
+                opacity: Theme.opacitySecondary
                 elide: Text.ElideRight
             }
 
             RowLayout {
                 Layout.fillWidth: true
-                spacing: 10
+                spacing: Theme.spacingL
 
                 Text {
                     text: SystemVolume.icon(root.systemPercent, root.systemMuted)
@@ -255,14 +255,14 @@ Item {
                     Rectangle {
                         id: levelTrack
                         anchors.fill: parent
-                        radius: 3
-                        color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.14)
+                        radius: Theme.radiusM
+                        color: Theme.foregroundDivider
                     }
 
                     Rectangle {
                         height: parent.height
                         width: parent.width * root.sliderRatio
-                        radius: 3
+                        radius: Theme.radiusM
                         color: Theme.accent
                         opacity: root.systemMuted ? 0.35 : 0.95
                     }
@@ -321,10 +321,10 @@ Item {
 
             Row {
                 Layout.fillWidth: true
-                spacing: 2
+                spacing: Theme.spacing2
                 height: 28
                 visible: root.outputActive
-                opacity: 0.9
+                opacity: Theme.opacityEmphasis
 
                 Repeater {
                     model: root.barCount

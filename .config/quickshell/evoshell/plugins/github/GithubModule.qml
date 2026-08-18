@@ -255,7 +255,7 @@ Item {
         SectionPanel {
             label: ""
             visible: !root.loading && !root.isError
-            contentPad: 10
+            contentPad: Theme.panelContentPad
             sectionSpacing: 0
 
             Item {
@@ -284,7 +284,7 @@ Item {
                             font.bold: Theme.fontBold
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
-                            opacity: 0.9
+                            opacity: Theme.opacityEmphasis
                         }
                     }
 
@@ -301,7 +301,7 @@ Item {
 
                     RowLayout {
                         Layout.fillWidth: true
-                        spacing: 8
+                        spacing: Theme.spacingM
 
                         HoverPopupLabelPill {
                             id: usernamePill
@@ -316,7 +316,7 @@ Item {
                             font.family: Theme.fontFamily
                             font.pixelSize: root.hintFont
                             font.bold: Theme.fontBold
-                            opacity: 0.72
+                            opacity: Theme.opacitySecondary
                             elide: Text.ElideRight
                         }
                     }
@@ -351,11 +351,11 @@ Item {
                     Layout.fillWidth: true
                     label: ""
                     filled: true
-                    contentPad: 10
+                    contentPad: Theme.panelContentPad
 
                     ColumnLayout {
                         Layout.fillWidth: true
-                        spacing: 2
+                        spacing: Theme.spacing2
 
                         Text {
                             Layout.fillWidth: true
@@ -374,7 +374,7 @@ Item {
                             color: Theme.foreground
                             font.family: Theme.fontFamily
                             font.pixelSize: root.hintFont
-                            opacity: 0.55
+                            opacity: Theme.opacityMuted
                         }
                     }
                 }
@@ -420,7 +420,7 @@ Item {
                             required property int index
                             width: root.heatmapCellSize
                             height: root.heatmapCellSize
-                            radius: 3
+                            radius: Theme.radiusM
                             color: modelData.color
                                 || Theme.heatmapColors[Math.max(0, Math.min(4, parseInt(modelData.level, 10) || 0))]
                                 || Theme.foreground
@@ -438,13 +438,13 @@ Item {
                 color: Theme.foreground
                 font.family: Theme.fontFamily
                 font.pixelSize: root.hintFont
-                opacity: 0.45
+                opacity: Theme.opacityDisabled
             }
 
             RowLayout {
                 Layout.fillWidth: true
                 Layout.alignment: Qt.AlignHCenter
-                spacing: 6
+                spacing: Theme.spacingS
                 visible: root.cells.length > 0
 
                 Text {
@@ -452,7 +452,7 @@ Item {
                     color: Theme.foreground
                     font.family: Theme.fontFamily
                     font.pixelSize: root.hintFont
-                    opacity: 0.45
+                    opacity: Theme.opacityDisabled
                 }
 
                 Repeater {
@@ -462,7 +462,7 @@ Item {
                         required property string modelData
                         width: 12
                         height: 12
-                        radius: 2
+                        radius: Theme.radiusS
                         color: modelData
                     }
                 }
@@ -472,7 +472,7 @@ Item {
                     color: Theme.foreground
                     font.family: Theme.fontFamily
                     font.pixelSize: root.hintFont
-                    opacity: 0.45
+                    opacity: Theme.opacityDisabled
                 }
             }
         }

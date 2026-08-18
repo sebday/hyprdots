@@ -240,7 +240,7 @@ Item {
                         font.family: Theme.fontFamily
                         font.pixelSize: Math.round(root.headerIconSize * 0.78)
                         font.bold: Theme.fontBold
-                        opacity: 0.9
+                        opacity: Theme.opacityEmphasis
                     }
                 }
 
@@ -260,7 +260,7 @@ Item {
             Item { Layout.fillWidth: true }
 
             RowLayout {
-                spacing: 6
+                spacing: Theme.spacingS
                 Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
                 visible: marketHeader.metaPills.length > 0
 

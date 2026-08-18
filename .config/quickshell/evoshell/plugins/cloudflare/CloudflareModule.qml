@@ -342,7 +342,7 @@ Item {
         RowLayout {
             id: content
             width: parent.width
-            spacing: 10
+            spacing: Theme.spacingL
 
             Item {
                 Layout.preferredWidth: root.activityRowIconSize
@@ -390,13 +390,13 @@ Item {
 
                 RowLayout {
                     Layout.fillWidth: true
-                    spacing: 8
+                    spacing: Theme.spacingM
                     visible: activityLine.statusLabel !== "" || activityLine.metaLine !== ""
                         || activityLine.showChevron
 
                     Rectangle {
                         visible: activityLine.statusLabel !== ""
-                        radius: 4
+                        radius: Theme.radiusL
                         color: Qt.rgba(
                             activityLine.statusColor.r,
                             activityLine.statusColor.g,
@@ -424,7 +424,7 @@ Item {
                         color: Theme.foreground
                         font.family: Theme.fontFamily
                         font.pixelSize: root.hintFont
-                        opacity: 0.55
+                        opacity: Theme.opacityMuted
                         elide: Text.ElideRight
                         maximumLineCount: 1
                     }
@@ -436,7 +436,7 @@ Item {
                         font.family: Theme.fontFamily
                         font.pixelSize: root.hintFont
                         font.bold: Theme.fontBold
-                        opacity: 0.45
+                        opacity: Theme.opacityDisabled
                     }
                 }
             }
@@ -479,7 +479,7 @@ Item {
                 visible: cf && cf.actionStatus !== ""
                 text: cf ? cf.actionStatus : ""
                 color: Theme.foreground
-                opacity: 0.65
+                opacity: Theme.opacityHover
                 font.family: Theme.fontFamily
                 font.pixelSize: root.hintFont
                 font.bold: Theme.fontBold
@@ -530,7 +530,7 @@ Item {
 
                     ColumnLayout {
                         Layout.fillWidth: true
-                        spacing: 8
+                        spacing: Theme.spacingM
 
                         Repeater {
                             model: modelData.rows
@@ -550,7 +550,7 @@ Item {
             visible: cf && cf.loggedIn && root.rows.length === 0
             text: cf && cf.busy ? "Loading…" : "No data"
             color: Theme.foreground
-            opacity: 0.55
+            opacity: Theme.opacityMuted
             font.family: Theme.fontFamily
             font.pixelSize: root.hintFont
             horizontalAlignment: Text.AlignHCenter

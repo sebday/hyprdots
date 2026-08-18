@@ -166,6 +166,40 @@ Singleton {
         mixColors(mantle, foreground, 0.5),
         mixColors(accent, urgent, 0.35)
     ]
+
+    // Opacity scale
+    readonly property real opacityDisabled: 0.45
+    readonly property real opacityMuted: 0.55
+    readonly property real opacityHover: 0.65
+    readonly property real opacitySecondary: 0.72
+    readonly property real opacityEmphasis: 0.9
+
+    // Foreground alpha colours
+    readonly property color foregroundGhost: withOpacity(foreground, 0.05)
+    readonly property color foregroundWash: withOpacity(foreground, 0.06)
+    readonly property color foregroundFaint: withOpacity(foreground, 0.08)
+    readonly property color foregroundHoverWash: withOpacity(foreground, 0.1)
+    readonly property color foregroundRaised: withOpacity(foreground, 0.12)
+    readonly property color foregroundDivider: withOpacity(foreground, 0.14)
+    readonly property color foregroundSubtle: withOpacity(foreground, 0.16)
+    readonly property color foregroundTrack: withOpacity(foreground, 0.18)
+    readonly property color foregroundPickerBorder: withOpacity(foreground, 0.22)
+    readonly property color foregroundBorder: withOpacity(foreground, 0.32)
+
+    // Spacing scale
+    readonly property int spacing2: 2
+    readonly property int spacingS: 6
+    readonly property int spacingM: 8
+    readonly property int spacingL: 10
+    readonly property int panelLabelPadH: spacingS
+
+    // Radius scale
+    readonly property int radiusS: 2
+    readonly property int radiusM: 3
+    readonly property int radiusL: fieldsetCornerRadius
+    readonly property int radiusToggleTrack: 12
+    readonly property int radiusToggleThumb: 9
+
     readonly property string fontFamily: themeColor("fontFamily", "CaskaydiaMono Nerd Font")
     readonly property bool fontBold: true
     readonly property int fontPixelSize: themeNumber("fontPixelSize", 13)
@@ -189,9 +223,13 @@ Singleton {
     readonly property int panelSectionSpacing: 14
     readonly property int hoverPopupContentPad: 16
     readonly property int panelContentPad: 10
+    readonly property int panelDockPad: panelContentPad + spacingS
     readonly property int hoverPopupMargin: 16
     readonly property int hoverPopupBorderWidth: 2
     readonly property int barHoverTopPad: 20
+    readonly property int overlayWidthDefault: hoverPopupWidthStandard
+    readonly property int overlayMargin: hoverPopupMargin
+    readonly property int screenEdgeInset: barHoverTopPad
     readonly property int hoverPopupWidthStandard: 440
     readonly property int hoverPopupWidthWide: 580
     readonly property int barHeight: 32

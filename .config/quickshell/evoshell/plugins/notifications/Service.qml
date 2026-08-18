@@ -449,7 +449,7 @@ Scope {
                 id: textCol
                 width: parent.width - artworkRoot.artSize - parent.spacing
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: 6
+                spacing: Theme.spacingS
 
                 Text {
                     width: parent.width
@@ -462,7 +462,7 @@ Scope {
                     font.letterSpacing: 1
                     elide: Text.ElideRight
                     maximumLineCount: 1
-                    opacity: 0.9
+                    opacity: Theme.opacityEmphasis
                 }
 
                 Text {
@@ -499,7 +499,7 @@ Scope {
                     font.bold: Theme.fontBold
                     elide: Text.ElideRight
                     maximumLineCount: 1
-                    opacity: 0.55
+                    opacity: Theme.opacityMuted
                 }
             }
         }
@@ -600,7 +600,7 @@ Scope {
                     }
 
                     Column {
-                        spacing: 6
+                        spacing: Theme.spacingS
                         width: parent.width - iconLine.width - parent.spacing
 
                         Text {

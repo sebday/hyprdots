@@ -211,7 +211,7 @@ Item {
             Text {
                 text: "Active"
                 color: Theme.foreground
-                opacity: 0.65
+                opacity: Theme.opacityHover
                 font.family: Theme.fontFamily
                 font.pixelSize: root.statFont
             }
@@ -226,7 +226,7 @@ Item {
             Text {
                 text: "Downloading"
                 color: Theme.foreground
-                opacity: 0.65
+                opacity: Theme.opacityHover
                 font.family: Theme.fontFamily
                 font.pixelSize: root.statFont
             }
@@ -248,7 +248,7 @@ Item {
 
             ColumnLayout {
                 Layout.fillWidth: true
-                spacing: 8
+                spacing: Theme.spacingM
 
                 Repeater {
                     model: root.torrents
@@ -256,11 +256,11 @@ Item {
                     ColumnLayout {
                         required property var modelData
                         Layout.fillWidth: true
-                        spacing: 2
+                        spacing: Theme.spacing2
 
                         RowLayout {
                             Layout.fillWidth: true
-                            spacing: 6
+                            spacing: Theme.spacingS
 
                             Text {
                                 Layout.fillWidth: true
@@ -343,7 +343,7 @@ Item {
                                     + " · " + down + " · ETA " + eta
                             }
                             color: Theme.foreground
-                            opacity: 0.72
+                            opacity: Theme.opacitySecondary
                             font.family: Theme.fontFamily
                             font.pixelSize: root.hintFont
                             wrapMode: Text.NoWrap
@@ -383,7 +383,7 @@ Item {
             color: Theme.foreground
             font.family: Theme.fontFamily
             font.pixelSize: root.hintFont
-            opacity: 0.65
+            opacity: Theme.opacityHover
             horizontalAlignment: Text.AlignLeft
         }
     }

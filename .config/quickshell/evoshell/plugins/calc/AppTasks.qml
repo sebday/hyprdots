@@ -262,7 +262,7 @@ Item {
 
     ColumnLayout {
         anchors.fill: parent
-        spacing: 10
+        spacing: Theme.spacingL
 
         FramedPanel {
             id: tasksPanel
@@ -276,7 +276,7 @@ Item {
                 id: taskList
                 anchors.fill: parent
                 clip: true
-                spacing: 2
+                spacing: Theme.spacing2
                 boundsBehavior: Flickable.StopAtBounds
                 model: taskModel
                 footer: Item {
@@ -299,7 +299,7 @@ Item {
                         anchors.left: parent.left
                         anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter
-                        spacing: 8
+                        spacing: Theme.spacingM
 
                         Item {
                             Layout.preferredWidth: 20
@@ -362,7 +362,7 @@ Item {
                                 color: Theme.foreground
                                 font.family: Theme.fontFamily
                                 font.pixelSize: root.taskFontSize
-                                opacity: 0.45
+                                opacity: Theme.opacityDisabled
                             }
                         }
                     }

@@ -111,7 +111,7 @@ Item {
 
             RowLayout {
                 Layout.fillWidth: true
-                spacing: 10
+                spacing: Theme.spacingL
 
                 Text {
                     text: "Week " + root.selectedWeek
@@ -135,7 +135,7 @@ Item {
                     color: Theme.foreground
                     font.family: Theme.fontFamily
                     font.pixelSize: root.hintFont
-                    opacity: 0.55
+                    opacity: Theme.opacityMuted
                 }
 
                 Item { Layout.fillWidth: true }
@@ -145,15 +145,15 @@ Item {
                     color: Theme.foreground
                     font.family: Theme.fontFamily
                     font.pixelSize: root.hintFont
-                    opacity: 0.55
+                    opacity: Theme.opacityMuted
                 }
             }
 
             Rectangle {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 5
-                radius: 2
-                color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.1)
+                radius: Theme.radiusS
+                color: Theme.foregroundHoverWash
 
                 Rectangle {
                     width: Math.round(parent.width * root.yearDone)
@@ -177,7 +177,7 @@ Item {
                 Layout.fillWidth: true
                 Layout.preferredWidth: root.gridWidth
                 Layout.alignment: Qt.AlignHCenter
-                spacing: 6
+                spacing: Theme.spacingS
 
                 NavButton {
                     icon: "󰅁"
@@ -277,7 +277,7 @@ Item {
             radius: Theme.fieldsetCornerRadius
             color: navMouse.containsMouse
                 ? Theme.panelMantle
-                : Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.06)
+                : Theme.foregroundWash
         }
 
         Text {
@@ -344,7 +344,7 @@ Item {
                 if (dayCell.isToday)
                     return Theme.accent
                 if (dayCell.isWeekend)
-                    return Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.72)
+                    return Theme.withOpacity(Theme.foreground, Theme.opacitySecondary)
                 return Theme.foreground
             }
             font.family: Theme.fontFamily

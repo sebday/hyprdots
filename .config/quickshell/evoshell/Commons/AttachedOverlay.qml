@@ -6,11 +6,11 @@ Item {
     id: root
 
     property bool opened: false
-    property int contentWidth: 420
+    property int contentWidth: Theme.overlayWidthDefault
     property int contentHeight: 320
-    property int contentMargin: 12
+    property int contentMargin: Theme.overlayMargin
     property int contentTopMargin: contentMargin
-    readonly property int screenEdgeOffset: 20
+    readonly property int screenEdgeOffset: Theme.screenEdgeInset
     readonly property int borderWidth: Theme.hoverPopupBorderWidth
     property var anchorItem: null
     property var anchorWindow: null
@@ -65,10 +65,10 @@ Item {
             var point = anchorItem.mapToItem(win.contentItem, 0, 0)
             x = Math.round(point.x + (anchorItem.width - width) / 2)
         }
-        if (x < 8)
-            x = 8
-        if (x + width > screenW - 8)
-            x = Math.max(8, screenW - width - 8)
+        if (x < Theme.spacingM)
+            x = Theme.spacingM
+        if (x + width > screenW - Theme.spacingM)
+            x = Math.max(Theme.spacingM, screenW - width - Theme.spacingM)
         boxX = x
     }
 

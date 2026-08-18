@@ -259,16 +259,16 @@ Item {
 
                         Rectangle {
                             anchors.fill: parent
-                            radius: 2
-                            color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.12)
+                            radius: Theme.radiusS
+                            color: Theme.foregroundRaised
                         }
 
                         Rectangle {
                             height: parent.height
                             width: parent.width * Math.max(0, Math.min(1, modelData.percent / 100))
-                            radius: 2
+                            radius: Theme.radiusS
                             color: modelData.color || Theme.accent
-                            opacity: 0.9
+                            opacity: Theme.opacityEmphasis
                         }
                     }
                 }
@@ -292,15 +292,15 @@ Item {
 
             ColumnLayout {
                 Layout.fillWidth: true
-                spacing: 10
+                spacing: Theme.spacingL
 
                 RowLayout {
                     Layout.fillWidth: true
-                    spacing: 6
+                    spacing: Theme.spacingS
                     visible: !root.loading
 
                     Rectangle {
-                        radius: 4
+                        radius: Theme.radiusL
                         color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.14)
                         border.color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.38)
                         border.width: 1
@@ -323,7 +323,7 @@ Item {
                         color: Theme.foreground
                         font.family: Theme.fontFamily
                         font.pixelSize: root.tokensFont
-                        opacity: 0.72
+                        opacity: Theme.opacitySecondary
                     }
 
                     Item { Layout.fillWidth: true }
@@ -370,7 +370,7 @@ Item {
                 var cy = height / 2
                 var r = gaugeRoot.ringRadius
                 var lw = gaugeRoot.ringLineWidth
-                var track = Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.14)
+                var track = Theme.foregroundDivider
 
                 ctx.beginPath()
                 ctx.arc(cx, cy, r, 0, Math.PI * 2)

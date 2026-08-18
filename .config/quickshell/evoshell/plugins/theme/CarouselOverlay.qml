@@ -430,7 +430,7 @@ Item {
             Rectangle {
                 anchors.fill: parent
                 color: root.dimColor
-                opacity: 0.55
+                opacity: Theme.opacityMuted
             }
         }
 
@@ -448,7 +448,7 @@ Item {
             font.family: Theme.fontFamily
             font.pixelSize: Theme.fontSizeL
             font.bold: Theme.fontBold
-            opacity: 0.72
+            opacity: Theme.opacitySecondary
         }
 
         Text {
@@ -459,7 +459,7 @@ Item {
             font.family: Theme.fontFamily
             font.pixelSize: Theme.fontSizeL
             font.bold: Theme.fontBold
-            opacity: 0.72
+            opacity: Theme.opacitySecondary
         }
 
         Item {
@@ -620,7 +620,7 @@ Item {
                 anchors.top: carousel.bottom
                 anchors.topMargin: 18
                 anchors.horizontalCenter: parent.horizontalCenter
-                spacing: 8
+                spacing: Theme.spacingM
                 visible: root.entries.length > 0 && root.entries.length <= 21
 
                 Repeater {
@@ -629,7 +629,7 @@ Item {
                         required property int index
                         width: index === root.selectedIndex ? 18 : 6
                         height: 6
-                        radius: 3
+                        radius: Theme.radiusM
                         color: index === root.selectedIndex ? Theme.accent : Theme.withOpacity(Theme.foreground, 0.35)
                         Behavior on width { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
                     }

@@ -277,7 +277,7 @@ Item {
 
                     RowLayout {
                         Layout.fillWidth: true
-                        spacing: 6
+                        spacing: Theme.spacingS
                         visible: root.statusPillText !== ""
 
                         HoverPopupLabelPill {
@@ -303,7 +303,7 @@ Item {
 
             ColumnLayout {
                 Layout.fillWidth: true
-                spacing: 8
+                spacing: Theme.spacingM
 
                 Repeater {
                     model: root.displayedGames
@@ -419,7 +419,7 @@ Item {
 
                                 RowLayout {
                                     Layout.fillWidth: true
-                                    spacing: 6
+                                    spacing: Theme.spacingS
 
                                     HoverPopupLabelPill {
                                         visible: root.formatLastPlayed(modelData.last_played) !== "—"
@@ -476,7 +476,7 @@ Item {
             RowLayout {
                 id: openSteamRow
                 anchors.right: parent.right
-                spacing: 6
+                spacing: Theme.spacingS
 
                 Text {
                     text: "󰓓"
@@ -521,7 +521,7 @@ Item {
             color: Theme.foreground
             font.family: Theme.fontFamily
             font.pixelSize: root.hintFont
-            opacity: 0.65
+            opacity: Theme.opacityHover
         }
     }
 }

@@ -91,7 +91,7 @@ Item {
                     var r = Math.min(width, height) / 2 - lw - 0.5
                     var start = -Math.PI / 2
                     var sweep = root.secondProgress * Math.PI * 2
-                    var track = Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.16)
+                    var track = Theme.foregroundSubtle
 
                     ctx.lineWidth = lw
                     ctx.lineCap = "round"
@@ -125,7 +125,7 @@ Item {
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.fontSizeS
                 font.bold: Theme.fontBold
-                opacity: 0.92
+                opacity: Theme.opacityEmphasis2
             }
 
             Connections {

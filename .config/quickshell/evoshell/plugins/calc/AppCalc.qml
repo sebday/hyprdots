@@ -270,7 +270,7 @@ Item {
         anchors.top: parent.top
         anchors.topMargin: 10
         anchors.bottom: parent.bottom
-        spacing: 10
+        spacing: Theme.spacingL
 
         SectionPanel {
             contentPad: Theme.panelContentPad

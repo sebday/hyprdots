@@ -171,7 +171,7 @@ Item {
                             anchors.fill: parent
                             anchors.leftMargin: 12
                             anchors.rightMargin: 12
-                            spacing: 8
+                            spacing: Theme.spacingM
 
                             Text {
                                 visible: modelData.buttonType !== 0
@@ -185,7 +185,7 @@ Item {
 
                             Text {
                                 text: modelData.text
-                                color: modelData.enabled ? Theme.foreground : Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.45)
+                                color: modelData.enabled ? Theme.foreground : Theme.withOpacity(Theme.foreground, Theme.opacityDisabled)
                                 font.family: Theme.fontFamily
                                 font.pixelSize: Theme.fontSizeM
                                 font.bold: Theme.fontBold

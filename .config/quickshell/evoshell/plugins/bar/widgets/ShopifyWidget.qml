@@ -123,7 +123,7 @@ Item {
             font.pixelSize: Theme.fontSizeM
             font.bold: Theme.fontBold
             Layout.alignment: Qt.AlignVCenter
-            opacity: 0.9
+            opacity: Theme.opacityEmphasis
         }
 
         Item {

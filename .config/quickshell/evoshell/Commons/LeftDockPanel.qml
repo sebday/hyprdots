@@ -15,8 +15,8 @@ Item {
     property bool pinned: false
     property string title: ""
     property bool showSideButton: false
-    property int contentSpacing: 10
-    property int contentMargin: 12
+    property int contentSpacing: Theme.spacingL
+    property int contentMargin: Theme.panelDockPad
     property bool hovered: false
 
     readonly property bool onRight: side === "right"
@@ -184,7 +184,7 @@ Item {
                 anchors.bottom: parent.bottom
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.bottomMargin: dock.contentMargin - 2
-                spacing: 2
+                spacing: Theme.spacing2
                 z: 10
                 visible: dock.showSideButton
 
@@ -200,7 +200,7 @@ Item {
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontSize2xl
                         font.bold: Theme.fontBold
-                        opacity: sideMouse.containsMouse ? 1 : 0.65
+                        opacity: sideMouse.containsMouse ? 1 : Theme.opacityHover
                     }
 
                     MouseArea {

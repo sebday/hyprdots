@@ -7,7 +7,7 @@ Item {
     property int size: 18
     property real percent: 0
     property color color: Theme.accent
-    property color trackColor: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.16)
+    property color trackColor: Theme.foregroundSubtle
     property real lineWidth: 1.75
     property bool loading: false
     property bool showDot: false

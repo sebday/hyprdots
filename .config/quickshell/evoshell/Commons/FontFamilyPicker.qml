@@ -27,7 +27,7 @@ Item {
 
     implicitHeight: header.implicitHeight + (open ? (6 + listHeight) : 0)
     implicitWidth: 200
-    opacity: root.enabled ? 1 : 0.45
+    opacity: root.enabled ? 1 : Theme.opacityDisabled
 
     function toggle() {
         if (!root.enabled) return
@@ -47,7 +47,7 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        spacing: 6
+        spacing: Theme.spacingS
 
         Text {
             text: root.label
@@ -64,11 +64,11 @@ Item {
 
             Rectangle {
                 anchors.fill: parent
-                radius: 4
+                radius: Theme.radiusL
                 color: Theme.panelMantle
                 border.color: root.open || triggerMouse.containsMouse
                     ? Theme.accent
-                    : Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.22)
+                    : Theme.foregroundPickerBorder
                 border.width: 1
             }
 
@@ -76,8 +76,8 @@ Item {
                 anchors.left: parent.left
                 anchors.right: chevron.left
                 anchors.verticalCenter: parent.verticalCenter
-                anchors.leftMargin: 10
-                anchors.rightMargin: 8
+                anchors.leftMargin: Theme.panelContentPad
+                anchors.rightMargin: Theme.spacingM
                 text: root.value || "Select font"
                 color: Theme.foreground
                 font.family: Theme.fontFamily
@@ -89,7 +89,7 @@ Item {
             Text {
                 id: chevron
                 anchors.right: parent.right
-                anchors.rightMargin: 10
+                anchors.rightMargin: Theme.panelContentPad
                 anchors.verticalCenter: parent.verticalCenter
                 text: root.open ? "󰅀" : "󰅂"
                 color: Theme.foreground
@@ -113,14 +113,14 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: header.bottom
-        anchors.topMargin: 6
+        anchors.topMargin: Theme.spacingS
         height: root.listHeight
         visible: root.open
         clip: true
 
         Rectangle {
             anchors.fill: parent
-            radius: 4
+            radius: Theme.radiusL
             color: Theme.panelMantle
             border.color: Theme.accent
             border.width: 1
@@ -146,9 +146,9 @@ Item {
 
                 Rectangle {
                     anchors.fill: parent
-                    radius: 3
+                    radius: Theme.radiusM
                     color: selected || hovered
-                        ? Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.08)
+                        ? Theme.foregroundFaint
                         : "transparent"
                     border.color: selected ? Theme.accent : "transparent"
                     border.width: selected ? 1 : 0
@@ -156,8 +156,8 @@ Item {
 
                 Text {
                     anchors.fill: parent
-                    anchors.leftMargin: 8
-                    anchors.rightMargin: 8
+                    anchors.leftMargin: Theme.spacingM
+                    anchors.rightMargin: Theme.spacingM
                     verticalAlignment: Text.AlignVCenter
                     text: modelData
                     color: selected ? Theme.accent : Theme.foreground

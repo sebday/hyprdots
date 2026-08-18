@@ -33,7 +33,7 @@ Item {
         return Math.max(4, Math.floor(w / 270))
     }
     readonly property int gridSpacing: 18
-    readonly property color frameColor: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.32)
+    readonly property color frameColor: Theme.foregroundBorder
     readonly property int cellWidth: gridView.width > 0
         ? Math.floor(gridView.width / gridColumns)
         : 88
@@ -553,7 +553,7 @@ Item {
 
     ColumnLayout {
         anchors.fill: parent
-        spacing: 8
+        spacing: Theme.spacingM
 
         RowLayout {
             Layout.fillWidth: true
@@ -659,14 +659,14 @@ Item {
                     anchors.fill: parent
                     anchors.leftMargin: 12
                     anchors.rightMargin: 12
-                    spacing: 10
+                    spacing: Theme.spacingL
 
                     Text {
                         text: "󰍉"
                         color: Theme.foreground
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontSize7xl
-                        opacity: 0.55
+                        opacity: Theme.opacityMuted
                     }
 
                     Item {
@@ -778,7 +778,7 @@ Item {
                 color: Theme.foreground
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.fontSize4xl
-                opacity: 0.45
+                opacity: Theme.opacityDisabled
             }
         }
     }

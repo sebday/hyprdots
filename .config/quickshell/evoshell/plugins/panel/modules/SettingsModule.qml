@@ -514,7 +514,7 @@ Item {
                         columns: 3
                         tileWidth: Math.floor((parent.width - spacing * 2) / 3)
                         tileHeight: 58
-                        spacing: 8
+                        spacing: Theme.spacingM
                         previewDpr: 1.5
                         selectedKey: root.currentThemeName
                         keyboardFocus: false

@@ -16,12 +16,12 @@ ColumnLayout {
     signal valueEdited(int value)
     signal valueCommitted(int value)
 
-    spacing: 6
-    opacity: root.enabled ? 1 : 0.45
+    spacing: Theme.spacingS
+    opacity: root.enabled ? 1 : Theme.opacityDisabled
 
     RowLayout {
         Layout.fillWidth: true
-        spacing: 8
+        spacing: Theme.spacingM
 
         Text {
             Layout.fillWidth: true
@@ -53,15 +53,15 @@ ColumnLayout {
             anchors.verticalCenter: parent.verticalCenter
             width: parent.width
             height: 4
-            radius: 2
-            color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.18)
+            radius: Theme.radiusS
+            color: Theme.foregroundTrack
         }
 
         Rectangle {
             anchors.verticalCenter: parent.verticalCenter
             width: root.maximum === root.minimum ? 0 : ((root.value - root.minimum) / (root.maximum - root.minimum)) * track.width
             height: 4
-            radius: 2
+            radius: Theme.radiusS
             color: Theme.accent
         }
 

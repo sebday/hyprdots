@@ -730,7 +730,7 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                         text: root.placeholderText
                         color: Theme.foreground
-                        opacity: 0.45
+                        opacity: Theme.opacityDisabled
                         font.family: Theme.fontFamily
                         font.pixelSize: root.listFilterFontSize
                         font.bold: Theme.fontBold
@@ -863,7 +863,7 @@ Item {
 
                             Column {
                                 anchors.verticalCenter: parent.verticalCenter
-                                spacing: 2
+                                spacing: Theme.spacing2
 
                                 Text {
                                     text: root.menuHeaderTitle
@@ -893,7 +893,7 @@ Item {
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontSizeS
                         font.bold: Theme.fontBold
-                        opacity: 0.55
+                        opacity: Theme.opacityMuted
                     }
 
                     Flickable {
@@ -961,7 +961,7 @@ Item {
                                         Column {
                                             anchors.centerIn: parent
                                             width: parent.width - 16
-                                            spacing: 8
+                                            spacing: Theme.spacingM
 
                                             Item {
                                                 anchors.horizontalCenter: parent.horizontalCenter
@@ -1065,7 +1065,7 @@ Item {
                                     Column {
                                         anchors.centerIn: parent
                                         width: parent.width - 16
-                                        spacing: 8
+                                        spacing: Theme.spacingM
 
                                         Text {
                                             anchors.horizontalCenter: parent.horizontalCenter
@@ -1192,7 +1192,7 @@ Item {
                             font.family: Theme.fontFamily
                             font.pixelSize: root.listFilterFontSize
                             font.bold: Theme.fontBold
-                            opacity: 0.55
+                            opacity: Theme.opacityMuted
                         }
 
                         MouseArea {

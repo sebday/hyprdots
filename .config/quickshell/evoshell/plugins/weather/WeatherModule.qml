@@ -401,7 +401,7 @@ Item {
                 font.pixelSize: root.hintFont
                 lineHeight: root.hintFont
                 lineHeightMode: Text.FixedHeight
-                opacity: 0.55
+                opacity: Theme.opacityMuted
                 elide: Text.ElideRight
                 maximumLineCount: 1
             }
@@ -419,14 +419,14 @@ Item {
 
         label: ""
         filled: true
-        contentPad: 10
+        contentPad: Theme.panelContentPad
         sectionSpacing: 0
         Layout.fillWidth: true
         Layout.minimumWidth: 0
 
         RowLayout {
             Layout.fillWidth: true
-            spacing: 10
+            spacing: Theme.spacingL
 
             Item {
                 Layout.preferredWidth: sunEvent.glyphBox
@@ -454,7 +454,7 @@ Item {
             ColumnLayout {
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
-                spacing: 2
+                spacing: Theme.spacing2
 
                 Text {
                     Layout.fillWidth: true
@@ -475,7 +475,7 @@ Item {
                     color: Theme.foreground
                     font.family: Theme.fontFamily
                     font.pixelSize: root.hintFont
-                    opacity: 0.55
+                    opacity: Theme.opacityMuted
                     elide: Text.ElideRight
                 }
             }
@@ -499,7 +499,7 @@ Item {
                 color: Theme.foreground
                 font.family: Theme.fontFamily
                 font.pixelSize: root.bodyFont
-                opacity: 0.72
+                opacity: Theme.opacitySecondary
             }
 
             Text {
@@ -515,7 +515,7 @@ Item {
 
         RowLayout {
             Layout.fillWidth: true
-            spacing: 10
+            spacing: Theme.spacingL
             visible: root.weatherOk && !root.loading
 
             CurrentDayPanel {
@@ -542,7 +542,7 @@ Item {
 
         RowLayout {
             Layout.fillWidth: true
-            spacing: 10
+            spacing: Theme.spacingL
             visible: root.weatherOk && !root.loading
                 && (root.sunrise !== "" || root.sunset !== "")
 
@@ -635,7 +635,7 @@ Item {
                                             nowIndex = i
                                     }
 
-                                    var gridColor = Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.08)
+                                    var gridColor = Theme.foregroundFaint
                                     for (var g = 0; g <= 2; g++) {
                                         var gy = padY + (usableH / 2) * g
                                         ctx.beginPath()
@@ -680,7 +680,7 @@ Item {
                                         ctx.beginPath()
                                         ctx.moveTo(nx, padY)
                                         ctx.lineTo(nx, height - padY)
-                                        ctx.strokeStyle = Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.2)
+                                        ctx.strokeStyle = Theme.withOpacity(Theme.foreground, 0.2)
                                         ctx.lineWidth = 1
                                         ctx.stroke()
 
@@ -720,7 +720,7 @@ Item {
                                 color: Theme.foreground
                                 font.family: Theme.fontFamily
                                 font.pixelSize: root.chartAxisFont
-                                opacity: 0.45
+                                opacity: Theme.opacityDisabled
                             }
                         }
                     }
@@ -776,7 +776,7 @@ Item {
                                         return padY + usableH - ((n - minV) / span) * usableH
                                     }
 
-                                    var gridColor = Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.08)
+                                    var gridColor = Theme.foregroundFaint
                                     for (var g = 0; g <= 2; g++) {
                                         var gy = padY + (usableH / 2) * g
                                         ctx.beginPath()
@@ -835,7 +835,7 @@ Item {
                                     ctx.beginPath()
                                     ctx.moveTo(nx, padY)
                                     ctx.lineTo(nx, height - padY)
-                                    ctx.strokeStyle = Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.2)
+                                    ctx.strokeStyle = Theme.withOpacity(Theme.foreground, 0.2)
                                     ctx.lineWidth = 1
                                     ctx.stroke()
 
@@ -873,7 +873,7 @@ Item {
                                 color: Theme.foreground
                                 font.family: Theme.fontFamily
                                 font.pixelSize: root.chartAxisFont
-                                opacity: 0.45
+                                opacity: Theme.opacityDisabled
                             }
                         }
                     }

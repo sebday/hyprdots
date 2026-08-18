@@ -34,12 +34,15 @@ EVOSHELL_DATA="${EVOSHELL_DATA:-${XDG_DATA_HOME:-$HOME/.local/share}/evoshell}"
 |--------|--------|
 | `shell.json` | `evo-ipc shell reloadConfig` |
 | `theme.json` | live — `Theme.qml` watches the file |
-| `shell.qml` plugin table, new widget type | full restart (`evo-system-restart`) |
+| `Theme.qml` tokens | full restart (`evo-system-restart`) |
+| `shell.qml` plugin table, new widget type | full restart |
 | `evoshell.lua` layer rules | Hypr reload; often needs shell restart too |
 
-## Design tokens
+## Design tokens (`Commons/Theme.qml`)
 
-All visual constants live in `Commons/Theme.qml`. Reference `Theme.*` in QML — no hardcoded colours, font sizes, or repeated layout numbers.
+All visual constants go through `Theme.*` — no hardcoded colours, font sizes, spacing, opacity, or radius in QML.
+
+Add a new token when a value appears 3+ times or has clear semantic meaning. Layout-derived ratios (`iconSize * 0.72`) are OK; never derive font sizes. No surface-specific aliases (`panelTitle`, `hoverBody`).
 
 ### Sources
 
@@ -47,51 +50,82 @@ All visual constants live in `Commons/Theme.qml`. Reference `Theme.*` in QML —
 |--------|------|--------|
 | `theme.json` | `foreground`, `background`, `accent`, `mantle`, `urgent`, `iconTheme`, `fontFamily`, `fontPixelSize` | live |
 | `hypr-looks.json` | `activeOpacity`, `inactiveOpacity`, `roundingOn`, `gapsOn` | live |
-| `Theme.qml` | layout, derived colours, font scale | code change + restart |
+| `ui.json` | `fieldsetRounding` | live |
+| `Theme.qml` | spacing, opacity, radius, layout, derived colours | restart |
 
 Optional `theme.json` overrides: `inactiveBorder`, `surfaceOpacity`, `surfaceOpacityInactive`, `panelMantleLift`.
 
-### Colours (derived in Theme.qml)
+### Opacity scale
 
-- **Surfaces** — `overlaySurface`, `overlaySurfaceInactive`, `panelBackground`, `panelMantle`
-- **Charts** — `heatmapColors`, `chartPalette`
-- **Helpers** — `withOpacity()`, `mixColors()`
+| Token | Value | Use |
+|-------|-------|-----|
+| `opacityDisabled` | 0.45 | disabled controls |
+| `opacityMuted` | 0.55 | de-emphasised labels |
+| `opacityHover` | 0.65 | hover states |
+| `opacitySecondary` | 0.72 | secondary text |
+| `opacityEmphasis` | 0.9 | near-primary text/icons |
 
-### Layout tokens (already in Theme.qml)
+### Foreground alpha colours
+
+| Token | Alpha | Use |
+|-------|-------|-----|
+| `foregroundGhost` | 0.05 | idle row wash |
+| `foregroundWash` | 0.06 | chip/list backgrounds |
+| `foregroundFaint` | 0.08 | hover row wash |
+| `foregroundHoverWash` | 0.1 | chip hover |
+| `foregroundRaised` | 0.12 | pressed rows |
+| `foregroundDivider` | 0.14 | chip/row borders |
+| `foregroundSubtle` | 0.16 | toggle track off |
+| `foregroundTrack` | 0.18 | slider track |
+| `foregroundPickerBorder` | 0.22 | combobox border |
+| `foregroundBorder` | 0.32 | fieldset borders |
+
+Use `Theme.withOpacity(Theme.foreground, n)` for one-off alphas (canvas, charts).
+
+### Spacing scale
+
+| Token | Value | Matches |
+|-------|-------|---------|
+| `spacing2` | 2 | tight stacks |
+| `spacingS` | 6 | form rows (`sparklineGap`) |
+| `spacingM` | 8 | row gaps (`barGap`) |
+| `spacingL` | 10 | sections (`hoverPopupSectionSpacing`) |
+
+Surface padding: `panelContentPad` (10), `panelDockPad` (12), `hoverPopupContentPad` (16), `hoverPopupMargin` / `overlayMargin` (16).
+
+### Radius scale
+
+| Token | Value | Use |
+|-------|-------|-----|
+| `radiusS` | 2 | tracks, sparkline cells |
+| `radiusM` | 3 | list item highlight |
+| `radiusL` | 4 | inputs (`fieldsetCornerRadius`) |
+| `radiusToggleTrack` | 12 | toggle pill |
+| `radiusToggleThumb` | 9 | toggle knob |
+| `panelCornerRadius` | 0/4 | panels (from `roundingOn`) |
+
+### Layout tokens
 
 | Group | Tokens |
 |-------|--------|
+| Overlays | `overlayWidthDefault` (440), `overlayMargin` (16), `screenEdgeInset` (20), `hoverPopupWidthWide` (580) |
 | Bar | `barHeight`, `barPaddingX`, `barGap`, `barSectionGap`, `barHoverTopPad` |
-| Hover popup | `hoverPopupWidthStandard` (440), `hoverPopupWidthWide` (580), `hoverPopupMargin`, `hoverPopupContentPad`, `hoverPopupSectionSpacing`, `hoverPopupBorderWidth` |
-| Panel | `panelContentPad`, `panelSectionSpacing`, `panelCornerRadius`, `fieldsetCornerRadius` |
-| Sparkline | `sparklineHeight`, `sparklineGap`, `sparklineChartMargin`, `sparklineExpanded*` |
-| Notifications | `notificationWidth`, `notificationPadding`, `notificationArtSize`, `notificationMediaPad`, `notificationStackSlot` |
-| Hypr sync | `gapsOut`, `surfaceOpacity`, `surfaceOpacityInactive` |
+| Panel | `panelContentPad`, `panelDockPad`, `panelSectionSpacing`, `panelLabelPadH` |
+| Sparkline / notifications | `sparkline*`, `notification*` — see `Theme.qml` |
 
 ### Typography
 
 - `fontPixelSize` in `theme.json` is the base (default 13); `fontBold` is fixed `true`
-- Use `Theme.fontSize*` scale only — no hardcoded `font.pixelSize` or surface-specific aliases (`panelTitle`, etc.)
-- Steps: `fontSizeXxs` … `fontSize9xl`, `fontSizeHero`, `fontSizeHeroLg` — see `Theme.qml` for formulas
-- Layout-derived icon sizing (e.g. `headerIconSize * 0.72`) is fine; text size must still use the scale
-
-### Not yet tokenized (candidates)
-
-These repeat across Commons/plugins — good next pulls into `Theme.qml`:
-
-- **Opacity scale** — `0.45` disabled, `0.55` muted, `0.65` hover, `0.72` secondary text, `0.9` emphasis (100+ hardcoded uses)
-- **Spacing scale** — `2`, `6`, `8`, `10` in `FramedPanel`, `HoverPopupHeader`, `ToggleRow`, settings rows
-- **Border alpha** — `0.32` frame borders, `0.16`/`0.18` track fills (`FramedPanel`, `ToggleRow`, `SliderSetting`)
-- **Overlay defaults** — `AttachedOverlay`/`BarHoverPopup` use `contentWidth: 420` and `contentMargin: 12`; popups elsewhere use `hoverPopupWidthStandard` (440) and `hoverPopupMargin` (16) — unify
-- **FramedPanel chrome** — `labelPadH` (6), `labelGap` (8), `contentPad` (10) should alias `panelContentPad`
+- Use `Theme.fontSize*` only — see `Theme.qml` for the full scale (`fontSizeXxs` … `fontSizeHeroLg`)
 
 ## Testing
 
 ```bash
 evo-ipc shell ping
 evo-ipc shell reloadConfig    # after shell.json edits
+evo-system-restart            # after Theme.qml edits
 .local/bin/evo-bar-weather    # bar script → valid JSON
 journalctl -t evoshell -f
 ```
 
-Visual/QML changes need manual check in the running desktop.
+Visual/QML changes need manual check: bar popups, panel, player dashboard, overlays, notifications.

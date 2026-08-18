@@ -19,11 +19,11 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        spacing: 10
+        spacing: Theme.spacingL
 
         ColumnLayout {
             Layout.fillWidth: true
-            spacing: 2
+            spacing: Theme.spacing2
 
             Text {
                 text: root.label
@@ -41,7 +41,7 @@ Item {
                 color: Theme.foreground
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.fontSizeXs
-                opacity: 0.55
+                opacity: Theme.opacityMuted
                 elide: Text.ElideRight
                 Layout.fillWidth: true
             }
@@ -53,14 +53,14 @@ Item {
 
             Rectangle {
                 anchors.fill: parent
-                radius: 12
-                color: root.checked ? Theme.accent : Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.16)
-                opacity: root.enabled ? 1 : 0.45
+                radius: Theme.radiusToggleTrack
+                color: root.checked ? Theme.accent : Theme.foregroundSubtle
+                opacity: root.enabled ? 1 : Theme.opacityDisabled
 
                 Rectangle {
                     width: 18
                     height: 18
-                    radius: 9
+                    radius: Theme.radiusToggleThumb
                     y: 3
                     x: root.checked ? parent.width - width - 3 : 3
                     color: root.checked ? Theme.background : Theme.foreground

@@ -119,7 +119,7 @@ Item {
 
                 RowLayout {
                     Layout.fillWidth: true
-                    spacing: 8
+                    spacing: Theme.spacingM
 
                     Text {
                         text: "󰇚"
@@ -156,7 +156,7 @@ Item {
                             anchors.verticalCenter: parent.verticalCenter
                             text: "https://… or magnet:…"
                             color: Theme.foreground
-                            opacity: 0.45
+                            opacity: Theme.opacityDisabled
                             font.family: Theme.fontFamily
                             font.pixelSize: root.bodyFont
                             font.bold: Theme.fontBold
@@ -182,7 +182,7 @@ Item {
 
                 ColumnLayout {
                     Layout.fillWidth: true
-                    spacing: 6
+                    spacing: Theme.spacingS
 
                     Item {
                         Layout.fillWidth: true
@@ -190,7 +190,7 @@ Item {
 
                         RowLayout {
                             id: downloadActionRow
-                            spacing: 8
+                            spacing: Theme.spacingM
 
                             Text {
                                 text: "󰁝"
@@ -226,7 +226,7 @@ Item {
 
                         RowLayout {
                             id: cancelActionRow
-                            spacing: 8
+                            spacing: Theme.spacingM
 
                             Text {
                                 text: "󰁍"

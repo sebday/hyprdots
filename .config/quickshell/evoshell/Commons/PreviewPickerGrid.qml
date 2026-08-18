@@ -10,7 +10,7 @@ Item {
     property int tileWidth: 96
     property int tileHeight: 62
     property int columns: 3
-    property int spacing: 8
+    property int spacing: Theme.spacingM
     property bool enabled: true
     property real previewDpr: 2
 
@@ -194,7 +194,7 @@ Item {
         font.family: Theme.fontFamily
         font.pixelSize: Theme.fontSizeS
         font.bold: Theme.fontBold
-        opacity: 0.72
+        opacity: Theme.opacitySecondary
     }
 
     Flow {
@@ -272,7 +272,7 @@ Item {
                         font.family: Theme.fontFamily
                         font.pixelSize: root.labelFontSize
                         font.bold: Theme.fontBold
-                        opacity: 0.72
+                        opacity: Theme.opacitySecondary
                         elide: Text.ElideRight
                         horizontalAlignment: Text.AlignHCenter
                         maximumLineCount: 1

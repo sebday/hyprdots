@@ -294,7 +294,7 @@ Item {
 
             ColumnLayout {
                 Layout.fillWidth: true
-                spacing: 8
+                spacing: Theme.spacingM
 
                 GridLayout {
                     Layout.fillWidth: true
@@ -361,7 +361,7 @@ Item {
             ColumnLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: root.chartFillHeight
-                spacing: 6
+                spacing: Theme.spacingS
 
                 Item {
                     Layout.fillWidth: true
@@ -416,7 +416,7 @@ Item {
 
             ColumnLayout {
                 Layout.fillWidth: true
-                spacing: 8
+                spacing: Theme.spacingM
 
                 Repeater {
                     model: root.channelRows
@@ -424,7 +424,7 @@ Item {
                     RowLayout {
                         required property var modelData
                         Layout.fillWidth: true
-                        spacing: 8
+                        spacing: Theme.spacingM
 
                         Text {
                             Layout.preferredWidth: 56
@@ -432,7 +432,7 @@ Item {
                             color: Theme.foreground
                             font.family: Theme.fontFamily
                             font.pixelSize: root.hintFont
-                            opacity: 0.72
+                            opacity: Theme.opacitySecondary
                         }
 
                         Item {
@@ -441,7 +441,7 @@ Item {
 
                             Rectangle {
                                 anchors.fill: parent
-                                radius: 2
+                                radius: Theme.radiusS
                                 color: Theme.foreground
                                 opacity: 0.12
                             }
@@ -449,9 +449,9 @@ Item {
                             Rectangle {
                                 height: parent.height
                                 width: Math.max(0, parent.width * modelData.share)
-                                radius: 2
+                                radius: Theme.radiusS
                                 color: modelData.color
-                                opacity: 0.9
+                                opacity: Theme.opacityEmphasis
                             }
                         }
 

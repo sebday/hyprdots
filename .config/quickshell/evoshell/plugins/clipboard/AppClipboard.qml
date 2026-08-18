@@ -224,7 +224,7 @@ Item {
         ColumnLayout {
             anchors.fill: parent
             anchors.topMargin: 10
-            spacing: 10
+            spacing: Theme.spacingL
 
             FramedPanel {
                 label: "History"
@@ -251,12 +251,12 @@ Item {
                         color: listView.currentIndex === index || rowMouse.containsMouse
                             ? Theme.panelMantle
                             : "transparent"
-                        radius: 3
+                        radius: Theme.radiusM
 
                         Row {
                             anchors.fill: parent
                             anchors.margins: 4
-                            spacing: 8
+                            spacing: Theme.spacingM
 
                             Item {
                                 width: 32
@@ -400,7 +400,7 @@ Item {
                     color: Theme.foreground
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeXxs
-                    opacity: 0.65
+                    opacity: Theme.opacityHover
                 }
             }
 
@@ -408,7 +408,7 @@ Item {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 28
                 Layout.topMargin: 2
-                spacing: 8
+                spacing: Theme.spacingM
 
                 Item {
                     Layout.preferredWidth: 28

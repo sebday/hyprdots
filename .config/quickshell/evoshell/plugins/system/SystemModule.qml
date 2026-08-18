@@ -190,7 +190,7 @@ Item {
 
             RowLayout {
                 Layout.fillWidth: true
-                spacing: 6
+                spacing: Theme.spacingS
 
                 Repeater {
                     model: root.resourcePills
@@ -223,7 +223,7 @@ Item {
                     RowLayout {
                         required property var modelData
                         Layout.fillWidth: true
-                        spacing: 8
+                        spacing: Theme.spacingM
 
                         Text {
                             Layout.preferredWidth: root.labelWidth
@@ -272,7 +272,7 @@ Item {
 
                     RowLayout {
                         id: settingsRow
-                        spacing: 6
+                        spacing: Theme.spacingS
 
                         Text {
                             text: "󰒓"
@@ -306,7 +306,7 @@ Item {
 
                     RowLayout {
                         id: powerRow
-                        spacing: 6
+                        spacing: Theme.spacingS
 
                         Text {
                             text: "󰐥"

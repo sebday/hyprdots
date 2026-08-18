@@ -356,7 +356,7 @@ Item {
 
             ColumnLayout {
                 Layout.fillWidth: true
-                spacing: 8
+                spacing: Theme.spacingM
 
                 GridLayout {
                     Layout.fillWidth: true
@@ -423,11 +423,11 @@ Item {
 
             ColumnLayout {
                 Layout.fillWidth: true
-                spacing: 8
+                spacing: Theme.spacingM
 
                 RowLayout {
                     Layout.fillWidth: true
-                    spacing: 6
+                    spacing: Theme.spacingS
 
                     HoverPopupLabelPill {
                         text: "Download"
@@ -461,7 +461,7 @@ Item {
 
                 RowLayout {
                     Layout.fillWidth: true
-                    spacing: 8
+                    spacing: Theme.spacingM
                     visible: root.topDownloadProcess !== null || root.processesLoading
 
                     Text {
@@ -501,7 +501,7 @@ Item {
                 RowLayout {
                     id: transmissionHeader
                     anchors.fill: parent
-                    spacing: 8
+                    spacing: Theme.spacingM
 
                     HoverPopupLabelPill {
                         text: "Transmission"
