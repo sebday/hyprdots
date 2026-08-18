@@ -158,7 +158,11 @@ bindd(
 	"Screenshot Active Monitor",
 	hl.dsp.exec_cmd('bash -c "hyprshot -m output -m active -o /tmp/ -f hyprshot.png;"')
 )
-bindd("SUPER + ALT + PRINT", "Screenshot all monitors (stacked)", hl.dsp.exec_cmd(bin .. "/evo-screenshot stacked"))
+bindd(
+	"SUPER + ALT + PRINT",
+	"Screenshot Active Window",
+	hl.dsp.exec_cmd('bash -c "hyprshot -m window -m active -o /tmp/ -f hyprshot.png;"')
+)
 bindd("SUPER + PRINT", "Annotate screenshot", hl.dsp.exec_cmd(bin .. "/evo-screenshot edit"))
 bindd(
 	"SUPER + SHIFT + PRINT",

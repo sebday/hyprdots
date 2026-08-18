@@ -117,6 +117,8 @@ Item {
     property bool seekApplyPending: false
     property bool playbackStatePending: false
     property string playbackStateTarget: ""
+    property bool jobStopRequested: false
+    property bool sortStopRequested: false
     property bool libraryPanelOpen: false
     property var volumeTransportBtn: null
     readonly property var libraryActions: [
@@ -211,7 +213,7 @@ Item {
     function onAlbumArtUpdated() {
         bumpArtRevision()
         refreshStatus()
-        notify("album art updated", 2500)
+        notify("track art updated", 2500)
     }
 
     function setAlbumArtFromFile(imagePath) {
@@ -440,6 +442,7 @@ Item {
             notify("busy — " + libraryJobActiveLabel, 2000)
             return
         }
+        jobStopRequested = false
         jobBusy = true
         jobLabel = label
         jobLog = label + "…\n"
@@ -477,18 +480,52 @@ Item {
         })
     }
 
+    function stopLibraryJob() {
+        if (!libraryJobBusy && !sortProc.running)
+            return
+        var label = libraryJobActiveLabel || (sortProc.running ? "sort" : "library task")
+        jobStopRequested = true
+        if (sortProc.running) {
+            sortStopRequested = true
+            sortProc.running = false
+        }
+        if (jobBusy && jobProc.running)
+            jobProc.running = false
+        runQuery(["job", "stop", "--json"], function(text) {
+            var stopped = false
+            try {
+                stopped = !!JSON.parse(String(text || "{}")).stopped
+            } catch (e) {}
+            jobBusy = false
+            jobLabel = ""
+            externalJobBusy = false
+            externalJobLabel = ""
+            jobStopRequested = false
+            syncJobLog()
+            jobLog = String(jobLog || "") + "\n" + label + " stopped"
+            notify((stopped ? label : "job") + " stopped", 3000)
+        })
+    }
+
     function onJobFinished(exitCode) {
         syncJobLog()
         var label = jobLabel
         jobBusy = false
         jobLabel = ""
+        if (jobStopRequested) {
+            jobStopRequested = false
+            if (label)
+                jobLog = String(jobLog || "") + "\n" + label + " stopped"
+            syncExternalJobStatus()
+            return
+        }
         if (exitCode === 0) {
             notify(label + " complete", 4000)
             loadGenres()
             loadLibraryStats()
             loadPlaylists()
             if (browsePanelOpen || browseTreeRows.length > 0)
-                loadBrowseTreeRoot()
+                reloadBrowseTreeView()
             if (playlistPanelOpen && selectedPlaylist)
                 loadPlaylistTracks(selectedPlaylist)
             jobLog = jobLog + "\n\n" + label + " complete"
@@ -1087,6 +1124,68 @@ Item {
         })
     }
 
+    function refreshBrowseTree() {
+        if (browseTreeLoading)
+            return
+        saveBrowseTreeScroll()
+        var anchorY = browseTreeListView ? browseTreeListView.contentY : -1
+        var expanded = []
+        for (var p in browseTreeExpanded) {
+            if (browseTreeExpanded[p])
+                expanded.push(String(p))
+        }
+        expanded.sort(function(a, b) {
+            var da = a === "" ? 0 : a.split("/").length
+            var db = b === "" ? 0 : b.split("/").length
+            return da - db || a.localeCompare(b)
+        })
+        var paths = [""].concat(expanded)
+        var pathIndex = 0
+        var nextChildren = {}
+        var nextMeta = {}
+        browseTreeLoading = true
+
+        function step() {
+            if (pathIndex >= paths.length) {
+                browseTreeChildren = nextChildren
+                browseTreeFolderMeta = nextMeta
+                browseTreeLoading = false
+                rebuildBrowseTreeRows(true)
+                browseTreeRestoreY = anchorY >= 0 ? anchorY : -1
+                return
+            }
+            var path = paths[pathIndex++]
+            fetchBrowseTreeEntries(path, 0, false, function(entries, meta) {
+                var trackCount = 0
+                for (var i = 0; i < entries.length; i++) {
+                    if (entries[i].type === "track")
+                        trackCount++
+                }
+                nextChildren[path] = entries
+                if (path !== "") {
+                    nextMeta[path] = {
+                        total: Number(meta.trackTotal) || trackCount,
+                        loaded: trackCount
+                    }
+                }
+                step()
+            })
+        }
+        step()
+    }
+
+    function reloadBrowseTreeView() {
+        if (!browsePanelOpen && browseTreeRows.length === 0)
+            return
+        for (var p in browseTreeExpanded) {
+            if (browseTreeExpanded[p]) {
+                refreshBrowseTree()
+                return
+            }
+        }
+        loadBrowseTreeRoot()
+    }
+
     function toggleBrowseTreeNode(path) {
         path = String(path || "")
         saveBrowseTreeScroll()
@@ -1268,6 +1367,7 @@ Item {
     }
 
     function runSortDuringBuild(folderPath, label) {
+        sortStopRequested = false
         sortProc.command = ["bash", playerScript, "sort", folderPath, "--json"]
         sortProc._label = label
         jobLog = String(jobLog || "") + (jobLog ? "\n" : "") + label + "…"
@@ -1278,11 +1378,15 @@ Item {
     function onSortFinished(exitCode) {
         var label = sortProc._label || "sort"
         sortProc._label = ""
+        if (sortStopRequested) {
+            sortStopRequested = false
+            return
+        }
         if (exitCode === 0) {
             notify(label + " complete", 4000)
             jobLog = String(jobLog || "") + "\n" + label + " complete"
             if (browsePanelOpen || browseTreeRows.length > 0)
-                loadBrowseTreeRoot()
+                reloadBrowseTreeView()
         } else if (exitCode === 2) {
             notify("busy — cannot sort now", 4000)
         } else {
@@ -2690,6 +2794,15 @@ Item {
                             spinning: root.libraryJobBusy && root.libraryJobActiveLabel === modelData.label
                             onActivated: if (!root.libraryJobBusy) root.runLibraryAction(modelData)
                         }
+                    }
+
+                    LibraryBarAction {
+                        visible: root.libraryJobBusy || sortProc.running
+                        barHeight: root.genreTabHeight
+                        icon: "󰓛"
+                        label: "stop"
+                        hint: "stop " + root.libraryJobActiveLabel
+                        onActivated: root.stopLibraryJob()
                     }
 
                     Item {
@@ -4865,61 +4978,138 @@ Item {
         label: ""
         fillHeight: true
 
-        ListView {
-            id: sideBrowseTree
+        ColumnLayout {
             anchors.fill: parent
-            clip: true
-            spacing: Theme.spacing2
-            model: root.browseTreeRows
+            spacing: Theme.spacingS
 
-            Component.onCompleted: root.browseTreeListView = sideBrowseTree
-            Component.onDestruction: {
-                if (root.browseTreeListView === sideBrowseTree)
-                    root.browseTreeListView = null
-            }
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: Theme.spacingS
 
-            onContentYChanged: {
-                if (root.browseTreeRestoreY < 0)
-                    root.saveBrowseTreeScroll()
-            }
+                Item {
+                    implicitWidth: refreshBrowseBtn.width
+                    implicitHeight: refreshBrowseBtn.height
 
-            onMovementEnded: {
-                if (atYEnd)
-                    root.loadMoreBrowseTreeTracks()
-            }
-
-            Timer {
-                id: browseTreeScrollRestoreTimer
-                interval: 0
-                repeat: true
-                property int attempts: 0
-                onTriggered: {
-                    if (root.browseTreeRestoreY < 0) {
-                        stop()
-                        attempts = 0
-                        return
+                    RowIconButton {
+                        id: refreshBrowseBtn
+                        icon: "󰑐"
+                        opacityIdle: 0.5
+                        enabled: !root.browseTreeLoading
+                        onActivated: root.refreshBrowseTree()
                     }
-                    sideBrowseTree.contentY = root.browseTreeRestoreY
-                    attempts++
-                    if (sideBrowseTree.contentHeight > 0 || attempts > 8) {
-                        root.browseTreeRestoreY = -1
-                        stop()
-                        attempts = 0
+
+                    BriefTooltip {
+                        show: refreshBrowseMouse.containsMouse
+                        text: "refresh filesystem view"
+                        anchors.horizontalCenter: parent.horizontalCenter
                     }
+
+                    MouseArea {
+                        id: refreshBrowseMouse
+                        anchors.fill: parent
+                        anchors.margins: -4
+                        hoverEnabled: true
+                        propagateComposedEvents: true
+                        onPressed: function(mouse) { mouse.accepted = false }
+                    }
+                }
+
+                Item {
+                    implicitWidth: browseHomeBtn.width
+                    implicitHeight: browseHomeBtn.height
+
+                    RowIconButton {
+                        id: browseHomeBtn
+                        icon: "󰋜"
+                        opacityIdle: 0.5
+                        enabled: !root.browseTreeLoading
+                        onActivated: root.browseTreeHome()
+                    }
+
+                    BriefTooltip {
+                        show: browseHomeMouse.containsMouse
+                        text: "collapse all folders"
+                        anchors.horizontalCenter: parent.horizontalCenter
+                    }
+
+                    MouseArea {
+                        id: browseHomeMouse
+                        anchors.fill: parent
+                        anchors.margins: -4
+                        hoverEnabled: true
+                        propagateComposedEvents: true
+                        onPressed: function(mouse) { mouse.accepted = false }
+                    }
+                }
+
+                Item { Layout.fillWidth: true }
+
+                Text {
+                    visible: root.browseTreeLoading
+                    text: "refreshing…"
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.libraryFont
+                    opacity: Theme.opacityDisabled
                 }
             }
 
-            Connections {
-                target: root
-                function onBrowseTreeRowsChanged() {
+            ListView {
+                id: sideBrowseTree
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
+                spacing: Theme.spacing2
+                model: root.browseTreeRows
+
+                Component.onCompleted: root.browseTreeListView = sideBrowseTree
+                Component.onDestruction: {
+                    if (root.browseTreeListView === sideBrowseTree)
+                        root.browseTreeListView = null
+                }
+
+                onContentYChanged: {
                     if (root.browseTreeRestoreY < 0)
-                        return
-                    browseTreeScrollRestoreTimer.attempts = 0
-                    browseTreeScrollRestoreTimer.restart()
+                        root.saveBrowseTreeScroll()
                 }
-            }
 
-            Text {
+                onMovementEnded: {
+                    if (atYEnd)
+                        root.loadMoreBrowseTreeTracks()
+                }
+
+                Timer {
+                    id: browseTreeScrollRestoreTimer
+                    interval: 0
+                    repeat: true
+                    property int attempts: 0
+                    onTriggered: {
+                        if (root.browseTreeRestoreY < 0) {
+                            stop()
+                            attempts = 0
+                            return
+                        }
+                        sideBrowseTree.contentY = root.browseTreeRestoreY
+                        attempts++
+                        if (sideBrowseTree.contentHeight > 0 || attempts > 8) {
+                            root.browseTreeRestoreY = -1
+                            stop()
+                            attempts = 0
+                        }
+                    }
+                }
+
+                Connections {
+                    target: root
+                    function onBrowseTreeRowsChanged() {
+                        if (root.browseTreeRestoreY < 0)
+                            return
+                        browseTreeScrollRestoreTimer.attempts = 0
+                        browseTreeScrollRestoreTimer.restart()
+                    }
+                }
+
+                Text {
                     anchors.centerIn: parent
                     visible: root.browseTreeLoading && root.browseTreeRows.length === 0
                     text: "loading…"
@@ -4929,16 +5119,16 @@ Item {
                     opacity: Theme.opacityDisabled
                 }
 
-            footer: Text {
-                width: sideBrowseTree.width
-                visible: root.browseTreeLoadingMore
-                horizontalAlignment: Text.AlignHCenter
-                text: "loading more…"
-                color: Theme.foreground
-                font.family: Theme.fontFamily
-                font.pixelSize: root.listFont
-                opacity: Theme.opacityDisabled
-            }
+                footer: Text {
+                    width: sideBrowseTree.width
+                    visible: root.browseTreeLoadingMore
+                    horizontalAlignment: Text.AlignHCenter
+                    text: "loading more…"
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.listFont
+                    opacity: Theme.opacityDisabled
+                }
 
                 delegate: Item {
                     required property var modelData
@@ -5055,6 +5245,7 @@ Item {
                     }
                 }
             }
+        }
     }
 
     component PlayerSidePlaylistPanel: SectionPanel {

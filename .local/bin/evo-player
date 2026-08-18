@@ -28,7 +28,7 @@ usage:
   evo-player sort <folder> [--json]
   evo-player config get [--json]|config set <section.key> <value> [--json]|config pick
   evo-player cache [--force] [--prune-art] [--json] [genre]
-  evo-player job status [--json]
+  evo-player job status [--json]|job stop [--json]
   evo-player genres [--json]
   evo-player tracks <genre> [--json]
   evo-player browse [path] [--json] [--queue] [--offset N] [--limit N]
@@ -2349,11 +2349,10 @@ cmd_art_clear() {
     echo "evo-player: not a file: ${path:-<missing>}" >&2
     return 1
   }
-  local folder legacy content
+  local track_art folder content
+  track_art="$(art_path_legacy "$path")"
   folder="$(art_path_folder "$path")"
-  legacy="$(art_path_legacy "$path")"
-  [[ -f "$folder" ]] && rm -f "$folder"
-  [[ -n "$legacy" && -f "$legacy" && "$legacy" != "$folder" ]] && rm -f "$legacy"
+  [[ -f "$track_art" ]] && rm -f "$track_art"
   if [[ "$json" -eq 1 ]]; then
     jq -n --arg path "$path" '{ok:true,path:$path}'
   else
@@ -2676,19 +2675,21 @@ cmd_art_set() {
     echo "evo-player: not a file: ${image:-<missing>}" >&2
     return 1
   }
-  local art folder content
+  local art track_art folder content
   art="$(art_install_image "$path" "$image")" || {
     echo "evo-player: could not install art" >&2
     return 1
   }
+  track_art="$(art_path_legacy "$path")"
   folder="$(art_path_folder "$path")"
   content="$(readlink -f "$art" 2>/dev/null || printf '%s' "$art")"
   if [[ "$json" -eq 1 ]]; then
     jq -n \
       --arg art "$art" \
+      --arg track "$track_art" \
       --arg folder "$folder" \
       --arg content "$content" \
-      '{art:$art,folder:$folder,content:$content}'
+      '{art:$art,track:$track,folder:$folder,content:$content}'
   else
     printf '%s\n' "$art"
   fi
@@ -2718,7 +2719,7 @@ cmd_art_apply() {
     return 1
   }
   [[ -n "$url" ]] || usage
-  local tmp art folder content
+  local tmp art track_art folder content
   tmp="$(mktemp "${ART_DIR}/.fetch.XXXXXX.jpg")"
   if ! curl -fsSL --max-time 30 -o "$tmp" "$url"; then
     rm -f "$tmp"
@@ -2731,14 +2732,16 @@ cmd_art_apply() {
     return 1
   }
   rm -f "$tmp"
+  track_art="$(art_path_legacy "$path")"
   folder="$(art_path_folder "$path")"
   content="$(readlink -f "$art" 2>/dev/null || printf '%s' "$art")"
   if [[ "$json" -eq 1 ]]; then
     jq -n \
       --arg art "$art" \
+      --arg track "$track_art" \
       --arg folder "$folder" \
       --arg content "$content" \
-      '{art:$art,folder:$folder,content:$content}'
+      '{art:$art,track:$track,folder:$folder,content:$content}'
   else
     printf '%s\n' "$art"
   fi
@@ -2879,6 +2882,7 @@ main() {
       shift || true
       case "$sub" in
         status) cmd_job_status "${1:-}" ;;
+        stop) cmd_job_stop "${1:-}" ;;
         *) usage ;;
       esac
       ;;

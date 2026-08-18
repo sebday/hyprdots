@@ -160,7 +160,26 @@ library_job_running() {
       order[++n]=pid
       next
     }
-    /\/evo-player (soundcloud|import|sync|sort)$/ {
+    /\/evo-player art (maintain|embed)/ {
+      pid=$1
+      gsub(/^[[:space:]]+/, "", pid)
+      ppid=$2
+      gsub(/^[[:space:]]+/, "", ppid)
+      cmd=$NF
+      rows[pid]=ppid "|" cmd
+      order[++n]=pid
+      next
+    }
+    /\/evo-player sort( |$)/ {
+      pid=$1
+      gsub(/^[[:space:]]+/, "", pid)
+      ppid=$2
+      gsub(/^[[:space:]]+/, "", ppid)
+      rows[pid]=ppid "|sort"
+      order[++n]=pid
+      next
+    }
+    /\/evo-player (soundcloud|import|sync)$/ {
       pid=$1
       gsub(/^[[:space:]]+/, "", pid)
       ppid=$2
@@ -182,6 +201,51 @@ library_job_running() {
       }
     }
   '
+}
+
+kill_job_tree() {
+  local pid="$1"
+  [[ "$pid" =~ ^[0-9]+$ ]] || return 1
+  kill -0 "$pid" 2>/dev/null || return 0
+  pkill -TERM -P "$pid" 2>/dev/null || true
+  kill -TERM "$pid" 2>/dev/null || true
+  sleep 0.15
+  pkill -KILL -P "$pid" 2>/dev/null || true
+  kill -KILL "$pid" 2>/dev/null || true
+}
+
+cmd_job_stop() {
+  local json="${1:-}" stopped=0 label="" pid running
+  ensure_dirs
+  if [[ -f "$JOB_STATE" ]]; then
+    label="$(jq -r '.label // .command // "library task"' "$JOB_STATE" 2>/dev/null || echo "library task")"
+    pid="$(jq -r '.pid // empty' "$JOB_STATE" 2>/dev/null || echo "")"
+    [[ -n "$pid" ]] && kill_job_tree "$pid" && stopped=1
+    rm -f "$JOB_STATE"
+  fi
+  while true; do
+    running="$(library_job_running)"
+    [[ -n "$running" ]] || break
+    pid="${running%% *}"
+    [[ -z "$label" ]] && label="${running##* }"
+    kill_job_tree "$pid"
+    stopped=1
+    sleep 0.05
+  done
+  if [[ "$json" == --json ]]; then
+    jq -n \
+      --argjson stopped "$stopped" \
+      --arg label "${label:-library task}" \
+      '{stopped:($stopped == 1),label:$label}'
+    [[ "$stopped" -eq 1 ]]
+    return
+  fi
+  if [[ "$stopped" -eq 1 ]]; then
+    printf 'stopped %s\n' "${label:-library task}"
+    return 0
+  fi
+  echo "evo-player: no library job running" >&2
+  return 1
 }
 
 cmd_job_status() {
@@ -1528,6 +1592,11 @@ art_link_folder_alias() {
 art_cache_find() {
   local path="$1" candidate
   [[ -f "$path" ]] || return 1
+  candidate="$(art_path_legacy "$path")"
+  [[ -f "$candidate" ]] && {
+    printf '%s' "$candidate"
+    return 0
+  }
   candidate="$(art_path_folder "$path")"
   [[ -f "$candidate" ]] && {
     printf '%s' "$candidate"
@@ -1638,11 +1707,11 @@ art_normalize_jpg() {
 art_install_image() {
   local track_path="$1"
   local image_path="$2"
-  local folder content imghash tmp
+  local track_art content imghash tmp
   [[ -f "$track_path" ]] && is_audio "$track_path" || return 1
   [[ -f "$image_path" ]] && is_image "$image_path" || return 1
   ensure_dirs
-  folder="$(art_path_folder "$track_path")"
+  track_art="$(art_path_legacy "$track_path")"
   tmp="$(mktemp "${ART_DIR}/.install.XXXXXX.jpg")"
   art_normalize_jpg "$image_path" "$tmp" || {
     rm -f "$tmp"
@@ -1659,8 +1728,8 @@ art_install_image() {
   else
     rm -f "$tmp"
   fi
-  art_link_folder_alias "$folder" "$content" || return 1
-  printf '%s' "$folder"
+  art_link_folder_alias "$track_art" "$content" || return 1
+  printf '%s' "$track_art"
 }
 
 art_notify_cache() {
