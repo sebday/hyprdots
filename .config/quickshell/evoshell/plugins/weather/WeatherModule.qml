@@ -19,12 +19,20 @@ Item {
     readonly property bool active: host && host.opened === true
     readonly property var barSource: host && host.shell ? host.shell.popupAnchorItem : null
 
-    readonly property int primaryStatFont: Theme.fontSize9xl
+    readonly property int primaryStatFont: Theme.fontSize6xl
+    readonly property int outlookStatFont: Theme.fontSize4xl
+    readonly property int outlookIconFont: Theme.fontSize3xl
     readonly property int bodyFont: Theme.fontSize3xl
     readonly property int hintFont: Theme.fontSizeL
     readonly property int chartAxisFont: Theme.fontSizeS
     readonly property int sectionSpacing: 6
-    readonly property int statBoxMinHeight: root.primaryStatFont + root.hintFont + 44
+    readonly property int statBoxPad: 14
+    readonly property int statBoxMinHeight: root.statBoxPad * 2
+        + Theme.fontSizeS + 8
+        + Math.max(root.outlookIconFont, root.outlookStatFont)
+        + root.hintFont
+        + root.sectionSpacing * 2
+        + 10
     readonly property int chartHeight: 150
     readonly property int chartLabelPad: 4
     readonly property int chartBottomPad: 22
@@ -268,259 +276,197 @@ Item {
         Quickshell.execDetached(["bash", "-lc", "xdg-open " + Util.shellQuote(metOfficeUrl)])
     }
 
-    component WeatherStatBackdrop: Item {
-        id: backdrop
-        property var mood: root.weatherStyle(0)
-        property string watermarkIcon: ""
+    component OutlookStatColumn: ColumnLayout {
+        id: col
+        Layout.fillWidth: true
+        Layout.minimumWidth: 0
+        spacing: root.sectionSpacing
 
-        default property alias content: body.data
+        property string colTitle: ""
+        property string colIcon: ""
+        property string colValue: ""
+        property string colDetail: ""
+        property color colValueColor: Theme.foreground
+        property color colAccent: Theme.accent
 
-        property color moodAccent: backdrop.mood.accent
+        HoverPopupLabelPill {
+            text: col.colTitle
+            fontSize: Theme.fontSizeS
+            fill: Qt.rgba(col.colAccent.r, col.colAccent.g, col.colAccent.b, 0.12)
+            textColor: col.colAccent
+        }
 
-        implicitWidth: body.implicitWidth
-        implicitHeight: body.implicitHeight
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 6
 
-        Rectangle {
-            anchors.fill: parent
-            radius: Theme.fieldsetCornerRadius
-            gradient: Gradient {
-                orientation: Gradient.Vertical
-                GradientStop { position: 0.0; color: Qt.rgba(backdrop.moodAccent.r, backdrop.moodAccent.g, backdrop.moodAccent.b, 0.16) }
-                GradientStop { position: 1.0; color: "transparent" }
+            Text {
+                visible: col.colIcon !== ""
+                text: col.colIcon
+                color: col.colAccent
+                font.family: Theme.fontFamily
+                font.pixelSize: root.outlookIconFont
+                font.bold: Theme.fontBold
+            }
+
+            Text {
+                Layout.fillWidth: true
+                text: col.colValue
+                color: col.colValueColor
+                font.family: Theme.fontFamily
+                font.pixelSize: root.outlookStatFont
+                font.bold: Theme.fontBold
+                wrapMode: Text.NoWrap
+                maximumLineCount: 1
+                minimumPixelSize: Theme.fontSizeL
+                fontSizeMode: Text.Fit
             }
         }
 
         Text {
-            anchors.right: parent.right
-            anchors.top: parent.top
-            anchors.rightMargin: 2
-            anchors.topMargin: -4
-            text: backdrop.watermarkIcon
-            color: backdrop.moodAccent
+            Layout.fillWidth: true
+            visible: col.colDetail !== ""
+            text: col.colDetail
+            color: Theme.foreground
             font.family: Theme.fontFamily
-            font.pixelSize: 52
-            opacity: 0.1
-        }
-
-        ColumnLayout {
-            id: body
-            anchors.fill: parent
-            spacing: root.sectionSpacing
+            font.pixelSize: root.hintFont
+            opacity: Theme.opacityMuted
+            elide: Text.ElideRight
+            maximumLineCount: 1
         }
     }
 
-    component CurrentDayPanel: SectionPanel {
-        id: currentDay
+    component OutlookStatCard: Item {
+        id: card
+        property color accentColor: Theme.accent
+        property string cornerIcon: ""
         property bool linkable: false
+
         signal linkActivated()
 
-        readonly property var mood: root.weatherStyle(
-            root.current ? (Number(root.current.code) || root.todayCode) : root.todayCode)
-        readonly property color moodAccent: currentDay.mood.accent
+        default property alias content: body.data
 
-        label: ""
-        filled: true
-        fillColor: currentDay.mood.fill
-        contentPad: 12
-        sectionSpacing: 0
         Layout.fillWidth: true
         Layout.minimumWidth: 0
-        Layout.preferredWidth: 1
-        Layout.preferredHeight: root.statBoxMinHeight
+        implicitHeight: root.statBoxMinHeight
+        clip: true
 
-        WeatherStatBackdrop {
-            Layout.fillWidth: true
-            mood: currentDay.mood
-            watermarkIcon: root.currentIcon
+        Rectangle {
+            anchors.fill: parent
+            radius: Theme.fieldsetCornerRadius
+            color: Theme.panelMantle
+            clip: true
+        }
 
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 10
+        Rectangle {
+            anchors.left: parent.left
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            width: 3
+            color: card.accentColor
+            opacity: 0.75
+        }
 
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    Layout.preferredWidth: 1
-                    spacing: root.sectionSpacing
+        Text {
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            anchors.rightMargin: 6
+            anchors.bottomMargin: -2
+            visible: card.cornerIcon !== ""
+            text: card.cornerIcon
+            color: card.accentColor
+            font.family: Theme.fontFamily
+            font.pixelSize: 30
+            opacity: 0.05
+        }
 
-                    HoverPopupLabelPill {
-                        text: "Now"
-                        fontSize: Theme.fontSizeS
-                        fill: Qt.rgba(currentDay.moodAccent.r, currentDay.moodAccent.g, currentDay.moodAccent.b, 0.16)
-                        textColor: currentDay.moodAccent
-                    }
-
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 6
-
-                        Text {
-                            text: root.currentIcon
-                            color: currentDay.moodAccent
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.primaryStatFont
-                            font.bold: Theme.fontBold
-                        }
-
-                        Text {
-                            Layout.fillWidth: true
-                            text: root.currentTemp
-                            color: root.current
-                                ? root.tempColor(root.current.temp)
-                                : Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.primaryStatFont
-                            font.bold: Theme.fontBold
-                            elide: Text.ElideRight
-                        }
-                    }
-
-                    Text {
-                        Layout.fillWidth: true
-                        text: root.currentLabel
-                        visible: root.currentLabel !== ""
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.hintFont
-                        opacity: Theme.opacityMuted
-                        elide: Text.ElideRight
-                        maximumLineCount: 1
-                    }
-                }
-
-                Rectangle {
-                    Layout.preferredWidth: 1
-                    Layout.fillHeight: true
-                    Layout.topMargin: 4
-                    Layout.bottomMargin: 2
-                    color: Theme.foregroundDivider
-                    opacity: 0.45
-                    visible: root.todayOutlook !== null
-                }
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    Layout.preferredWidth: 1
-                    visible: root.todayOutlook !== null
-                    spacing: root.sectionSpacing
-
-                    HoverPopupLabelPill {
-                        text: "Today"
-                        fontSize: Theme.fontSizeS
-                        fill: Qt.rgba(currentDay.moodAccent.r, currentDay.moodAccent.g, currentDay.moodAccent.b, 0.12)
-                    }
-
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 6
-
-                        Text {
-                            text: root.todayOutlook ? root.todayOutlook.icon : ""
-                            color: currentDay.moodAccent
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.primaryStatFont
-                            font.bold: Theme.fontBold
-                        }
-
-                        Text {
-                            Layout.fillWidth: true
-                            text: root.todayOutlook ? root.todayOutlook.range : ""
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.primaryStatFont
-                            font.bold: Theme.fontBold
-                            elide: Text.ElideRight
-                        }
-                    }
-
-                    Text {
-                        Layout.fillWidth: true
-                        text: root.todayOutlook ? root.todayOutlook.label : ""
-                        visible: root.todayOutlook && root.todayOutlook.label !== ""
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.hintFont
-                        opacity: Theme.opacityMuted
-                        elide: Text.ElideRight
-                        maximumLineCount: 1
-                    }
-                }
-            }
+        Item {
+            id: body
+            anchors.fill: parent
+            anchors.leftMargin: 15
+            anchors.margins: root.statBoxPad
+            z: 1
         }
 
         MouseArea {
             anchors.fill: parent
-            visible: currentDay.linkable
+            visible: card.linkable
             cursorShape: Qt.PointingHandCursor
-            onClicked: currentDay.linkActivated()
+            onClicked: card.linkActivated()
         }
     }
 
-    component OutlookStatBox: SectionPanel {
+    component OutlookStatBox: OutlookStatCard {
         id: outlook
         property string boxTitle: ""
         property string boxIcon: ""
         property string boxValue: ""
         property string boxDetail: ""
+        property color boxValueColor: Theme.foreground
+        property int moodCode: 0
 
-        readonly property var mood: root.weatherStyle(root.tomorrowCode)
-        readonly property color moodAccent: outlook.mood.accent
+        readonly property var mood: root.weatherStyle(outlook.moodCode)
 
-        label: ""
-        filled: true
-        fillColor: outlook.mood.fill
-        contentPad: 12
-        sectionSpacing: 0
-        Layout.fillWidth: true
-        Layout.minimumWidth: 0
+        accentColor: outlook.mood.accent
+        cornerIcon: outlook.boxIcon
         Layout.preferredWidth: 1
-        Layout.preferredHeight: root.statBoxMinHeight
 
-        WeatherStatBackdrop {
-            Layout.fillWidth: true
-            mood: outlook.mood
-            watermarkIcon: outlook.boxIcon
+        OutlookStatColumn {
+            anchors.fill: parent
+            colTitle: outlook.boxTitle
+            colIcon: outlook.boxIcon
+            colValue: outlook.boxValue
+            colDetail: outlook.boxDetail
+            colValueColor: outlook.boxValueColor
+            colAccent: outlook.mood.accent
+        }
+    }
 
-            HoverPopupLabelPill {
-                text: outlook.boxTitle
-                fontSize: Theme.fontSizeS
-                fill: Qt.rgba(outlook.moodAccent.r, outlook.moodAccent.g, outlook.moodAccent.b, 0.16)
-                textColor: outlook.moodAccent
+    component NowTodayStatBox: OutlookStatCard {
+        id: nowToday
+        property int nowMoodCode: 0
+        property int todayMoodCode: 0
+
+        readonly property var nowMood: root.weatherStyle(nowToday.nowMoodCode)
+        readonly property var todayMood: root.weatherStyle(nowToday.todayMoodCode)
+
+        accentColor: nowToday.nowMood.accent
+        cornerIcon: root.currentIcon
+        linkable: root.metOfficeUrl !== ""
+        Layout.preferredWidth: 2
+        onLinkActivated: root.openMetOffice()
+
+        RowLayout {
+            anchors.fill: parent
+            spacing: 8
+
+            OutlookStatColumn {
+                colTitle: "Now"
+                colIcon: root.currentIcon
+                colValue: root.currentTemp
+                colValueColor: root.current
+                    ? root.tempColor(root.current.temp)
+                    : Theme.foreground
+                colDetail: root.currentLabel
+                colAccent: nowToday.nowMood.accent
             }
 
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 6
-
-                Text {
-                    visible: outlook.boxIcon !== ""
-                    text: outlook.boxIcon
-                    color: outlook.moodAccent
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.primaryStatFont
-                    font.bold: Theme.fontBold
-                }
-
-                Text {
-                    Layout.fillWidth: true
-                    text: outlook.boxValue
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.primaryStatFont
-                    font.bold: Theme.fontBold
-                    elide: Text.ElideRight
-                }
+            Rectangle {
+                Layout.preferredWidth: 1
+                Layout.fillHeight: true
+                Layout.topMargin: 2
+                Layout.bottomMargin: 2
+                color: Theme.foregroundBorder
+                opacity: 0.35
             }
 
-            Text {
-                Layout.fillWidth: true
-                visible: outlook.boxDetail !== ""
-                text: outlook.boxDetail
-                color: Theme.foreground
-                font.family: Theme.fontFamily
-                font.pixelSize: root.hintFont
-                opacity: Theme.opacityMuted
-                elide: Text.ElideRight
-                maximumLineCount: 1
+            OutlookStatColumn {
+                visible: root.todayOutlook !== null
+                colTitle: "Today"
+                colIcon: root.todayOutlook ? root.todayOutlook.icon : ""
+                colValue: root.todayOutlook ? root.todayOutlook.range : ""
+                colDetail: root.todayOutlook ? root.todayOutlook.label : ""
+                colAccent: nowToday.todayMood.accent
             }
         }
     }
@@ -559,27 +505,27 @@ Item {
         RowLayout {
             Layout.fillWidth: true
             spacing: Theme.spacingL
+            clip: true
             visible: root.weatherOk && !root.loading
 
-            CurrentDayPanel {
+            NowTodayStatBox {
                 Layout.fillWidth: true
-                Layout.preferredWidth: 66
                 Layout.minimumWidth: 0
-                Layout.alignment: Qt.AlignTop
-                linkable: root.metOfficeUrl !== ""
-                onLinkActivated: root.openMetOffice()
+                Layout.preferredWidth: 2
+                nowMoodCode: root.current ? (Number(root.current.code) || root.todayCode) : root.todayCode
+                todayMoodCode: root.todayCode
             }
 
             OutlookStatBox {
-                visible: root.tomorrowOutlook !== null
                 Layout.fillWidth: true
-                Layout.preferredWidth: 34
                 Layout.minimumWidth: 0
-                Layout.alignment: Qt.AlignTop
+                Layout.preferredWidth: 1
+                visible: root.tomorrowOutlook !== null
                 boxTitle: root.tomorrowOutlook ? root.tomorrowOutlook.title : ""
                 boxIcon: root.tomorrowOutlook ? root.tomorrowOutlook.icon : ""
                 boxValue: root.tomorrowOutlook ? root.tomorrowOutlook.range : ""
                 boxDetail: root.tomorrowOutlook ? root.tomorrowOutlook.label : ""
+                moodCode: root.tomorrowCode
             }
         }
 

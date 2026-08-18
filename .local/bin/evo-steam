@@ -241,6 +241,12 @@ for appid, info in played_apps.items():
 
 played_games.sort(key=lambda x: -x.get("last_played", 0))
 
+total_playtime_min = 0
+for appid, info in played_apps.items():
+    if appid in private_apps:
+        continue
+    total_playtime_min += int(info.get("playtime", 0) or 0)
+
 log_path = os.path.join(steam_dir, "logs", "content_log.txt")
 download_bps = 0
 if os.path.isfile(log_path):
@@ -266,6 +272,7 @@ print(json.dumps({
     "library_count": installed_count,
     "played_games": played_games[:3],
     "running_games": running_games,
+    "total_playtime_min": total_playtime_min,
 }))
 PY
 }

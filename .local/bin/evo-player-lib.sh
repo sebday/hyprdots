@@ -25,6 +25,7 @@ LIKES_FILE="${MUSIC_STATE}/likes.json"
 PLAYLIST_STARS="${MUSIC_STATE}/playlist-stars.json"
 JOB_LOCK="${MUSIC_STATE}/.job.lock"
 JOB_STATE="${MUSIC_STATE}/job.json"
+SCROBBLE_LOG="${MUSIC_STATE}/scrobble.jsonl"
 LEGACY_STATE="${EVOSHELL_STATE}/music"
 PLAYER_SOCKET_DEFAULT="${XDG_RUNTIME_DIR:-/tmp}/evo-player.sock"
 LEGACY_MPV_SOCKET="${XDG_RUNTIME_DIR:-/tmp}/evo-music.sock"
@@ -488,6 +489,31 @@ print(json.dumps({"title": title, "artist": artist, "genre": genre, "album": alb
 PY
 }
 
+tag_set_metadata() {
+  local path="$1" field="$2" value="$3"
+  local meta_key tmp genre ext
+  [[ -f "$path" ]] || return 1
+  case "$field" in
+    title|artist|album|genre) meta_key="$field" ;;
+    year) meta_key="date" ;;
+    *) return 1 ;;
+  esac
+  ext="${path##*.}"
+  if [[ "$ext" == "$path" || -z "$ext" ]]; then
+    ext="mp3"
+  fi
+  tmp="$(mktemp "${TMPDIR:-/tmp}/evo-music-tag.XXXXXX.${ext}")"
+  if ffmpeg -y -hide_banner -loglevel error -i "$path" -metadata "${meta_key}=${value}" -codec copy "$tmp" 2>/dev/null; then
+    mv "$tmp" "$path"
+  else
+    rm -f "$tmp"
+    return 1
+  fi
+  genre="$(genre_from_path "$path")"
+  [[ -n "$genre" ]] && tracks_cache_invalidate_genre "$genre"
+  return 0
+}
+
 track_meta_json() {
   local path="$1"
   local tags title artist genre album
@@ -539,12 +565,150 @@ track_list_cached_json() {
         art="$(art_path_cached "$path")"
         is_liked "$path" && liked_json=true
         jq -c --arg art "$art" --argjson liked "$liked_json" \
-          'if (.year // "") == "" then . else . end | . + {art:$art, liked:$liked}' <<<"$row"
+          '. + {art:$art, liked:$liked}' <<<"$row"
         return 0
       fi
     fi
   fi
   track_list_json "$path"
+}
+
+playlist_paths_collect() {
+  local list="$1"
+  local line
+  [[ -f "$list" ]] || return 0
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line="${line//$'\r'/}"
+    [[ -z "$line" || "$line" == \#* ]] && continue
+    [[ -f "$line" ]] || continue
+    printf '%s\0' "$line"
+  done <"$list"
+}
+
+playlist_emit_tracks_page() {
+  local list="$1" offset="${2:-0}" limit="${3:-0}"
+  python3 - "$list" "$offset" "$limit" "$TRACKS_CACHE_DIR" "$LIKES_FILE" "$ART_DIR" "$MUSIC_ROOT" <<'PY'
+import json, os, re, subprocess, sys
+
+list_path, offset_s, limit_s, cache_dir, likes_file, art_dir, music_root = sys.argv[1:8]
+offset = max(0, int(offset_s or 0))
+limit = max(0, int(limit_s or 0))
+
+paths = []
+with open(list_path, encoding="utf-8", errors="replace") as fh:
+    for line in fh:
+        line = line.strip("\r\n")
+        if not line or line.startswith("#"):
+            continue
+        if os.path.isfile(line):
+            paths.append(line)
+
+total = len(paths)
+if limit > 0:
+    paths = paths[offset:offset + limit]
+else:
+    paths = paths[offset:]
+
+genre_cache = {}
+
+def slug(value):
+    return re.sub(r"[^a-zA-Z0-9&_-]", "_", value or "")
+
+def load_genre(genre):
+    if genre in genre_cache:
+        return genre_cache[genre]
+    path = os.path.join(cache_dir, f"{slug(genre)}.tags.json")
+    lookup = {}
+    if os.path.isfile(path):
+        try:
+            with open(path, encoding="utf-8") as fh:
+                for row in json.load(fh):
+                    p = row.get("path")
+                    if p:
+                        lookup[p] = row
+        except Exception:
+            pass
+    genre_cache[genre] = lookup
+    return lookup
+
+def read_tags(path):
+    try:
+        proc = subprocess.run(
+            ["ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", path],
+            capture_output=True, text=True, check=False,
+        )
+        if proc.returncode != 0 or not proc.stdout.strip():
+            return {}
+        tags = json.loads(proc.stdout).get("format", {}).get("tags", {}) or {}
+        lower = {k.lower(): str(v).strip() for k, v in tags.items() if v}
+
+        def pick(*keys):
+            for key in keys:
+                val = lower.get(key.lower())
+                if val:
+                    return val
+            return ""
+
+        title = pick("title") or os.path.splitext(os.path.basename(path))[0]
+        year = pick("date", "year", "originaldate", "original_year", "tyer")
+        m = re.search(r"(\d{4})", year or "")
+        return {
+            "title": title,
+            "artist": pick("artist", "album_artist", "albumartist"),
+            "genre": pick("genre"),
+            "album": pick("album"),
+            "year": m.group(1) if m else "",
+        }
+    except Exception:
+        return {"title": os.path.splitext(os.path.basename(path))[0]}
+
+def art_path(path):
+    rel = path[len(music_root) + 1:] if path.startswith(music_root + os.sep) else os.path.basename(path)
+    key = slug(rel)
+    candidate = os.path.join(art_dir, f"{key}.jpg")
+    if os.path.isfile(candidate):
+        return candidate
+    legacy = slug(os.path.basename(path))
+    candidate = os.path.join(art_dir, f"{legacy}.jpg")
+    return candidate if os.path.isfile(candidate) else ""
+
+likes = set()
+if os.path.isfile(likes_file):
+    try:
+        with open(likes_file, encoding="utf-8") as fh:
+            likes = set(json.load(fh).keys())
+    except Exception:
+        likes = set()
+
+def genre_from_path(path):
+    rel = path[len(music_root) + 1:] if path.startswith(music_root + os.sep) else ""
+    if not rel or rel == path:
+        return ""
+    return rel.split(os.sep, 1)[0]
+
+items = []
+for path in paths:
+    genre = genre_from_path(path)
+    row = load_genre(genre).get(path) if genre else None
+    if not row:
+        meta = read_tags(path)
+        row = {
+            "path": path,
+            "title": meta.get("title", ""),
+            "artist": meta.get("artist", ""),
+            "genre": meta.get("genre", ""),
+            "album": meta.get("album", ""),
+            "year": meta.get("year", ""),
+        }
+    else:
+        row = dict(row)
+    row["path"] = path
+    row["art"] = row.get("art") or art_path(path)
+    row["liked"] = path in likes
+    items.append(row)
+
+print(json.dumps({"total": total, "offset": offset, "items": items}, ensure_ascii=False))
+PY
 }
 
 load_evoshell_secrets() {
@@ -1134,6 +1298,113 @@ art_notify_cache() {
   mkdir -p "$(dirname "$dest")"
   cp -f "$art" "$dest"
   printf '%s' "$dest"
+}
+
+scrobble_art_for_path() {
+  local path="$1" art=""
+  [[ -f "$path" ]] || return 0
+  art="$(art_path_cached "$path")"
+  if [[ -z "$art" ]]; then
+    art_ensure_now "$path"
+    art="$(art_path_cached "$path")"
+  fi
+  if [[ -n "$art" && -f "$art" ]]; then
+    art="$(art_notify_cache "$path" 2>/dev/null || printf '%s' "$art")"
+  fi
+  printf '%s' "$art"
+}
+
+scrobble_record_entry() {
+  local path="$1" event="${2:-submit}"
+  [[ -f "$path" ]] || return 0
+  ensure_dirs
+  local tags artist title album art liked="false"
+  tags="$(track_tags_read "$path")"
+  artist="$(jq -r '.artist // ""' <<<"$tags")"
+  title="$(jq -r '.title // ""' <<<"$tags")"
+  album="$(jq -r '.album // ""' <<<"$tags")"
+  [[ -n "$artist" && -n "$title" ]] || return 0
+  art="$(scrobble_art_for_path "$path")"
+  is_liked "$path" && liked="true"
+  jq -nc \
+    --arg at "$(date -Iseconds)" \
+    --arg event "$event" \
+    --arg path "$path" \
+    --arg artist "$artist" \
+    --arg title "$title" \
+    --arg album "$album" \
+    --arg art "$art" \
+    --argjson liked "$([[ $liked == true ]] && echo true || echo false)" \
+    '{at:$at,event:$event,path:$path,artist:$artist,title:$title,album:$album,art:$art,liked:$liked}' >>"$SCROBBLE_LOG"
+}
+
+scrobble_recent_json() {
+  local limit="${1:-12}"
+  ensure_dirs
+  if [[ ! -f "$SCROBBLE_LOG" ]]; then
+    printf '[]\n'
+    return 0
+  fi
+  local rows
+  rows="$(
+    python3 - "$SCROBBLE_LOG" "$limit" <<'PY'
+import json, sys
+
+log_path, limit = sys.argv[1], int(sys.argv[2])
+seen, out = set(), []
+if not log_path:
+    print("[]")
+    raise SystemExit
+with open(log_path, encoding="utf-8") as fh:
+    lines = [ln.strip() for ln in fh if ln.strip()]
+for line in reversed(lines):
+    try:
+        row = json.loads(line)
+    except json.JSONDecodeError:
+        continue
+    key = row.get("path") or (row.get("artist", ""), row.get("title", ""))
+    if key in seen:
+        continue
+    seen.add(key)
+    out.append(row)
+    if len(out) >= limit:
+        break
+print(json.dumps(out, ensure_ascii=False))
+PY
+  )"
+  [[ -n "$rows" && "$rows" != "[]" ]] || {
+    printf '[]\n'
+    return 0
+  }
+  local items=() row path art liked cached
+  while IFS= read -r row; do
+    [[ -n "$row" ]] || continue
+    path="$(jq -r '.path // ""' <<<"$row")"
+    art="$(jq -r '.art // ""' <<<"$row")"
+    liked="$(jq -r '.liked // false' <<<"$row")"
+    if [[ -n "$path" && -f "$path" ]]; then
+      cached="$(art_path_cached "$path")"
+      [[ -n "$cached" ]] && art="$cached"
+      is_liked "$path" && liked=true || liked=false
+    fi
+    items+=("$(
+      jq -c \
+        --arg art "$art" \
+        --argjson liked "$([[ $liked == true ]] && echo true || echo false)" \
+        '.art = $art | .liked = $liked' <<<"$row"
+    )")
+  done < <(jq -c '.[]' <<<"$rows")
+  if ((${#items[@]} == 0)); then
+    printf '[]\n'
+    return 0
+  fi
+  local joined=""
+  local i
+  for i in "${!items[@]}"; do
+    [[ -n "$joined" ]] && joined+=","
+    joined+="${items[$i]}"
+  done
+  printf '[%s]\n' "$joined"
 }
 
 art_embed_audio() {

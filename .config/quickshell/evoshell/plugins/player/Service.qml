@@ -40,6 +40,8 @@ Item {
             runScrobble(["nowplaying"])
             scrobblePath = path
             scrobbleSubmitted = false
+        } else if (needsArtUpdate) {
+            runScrobble(["touch"])
         }
         lastNotifiedPath = path
         lastNotifiedHadArt = art !== ""

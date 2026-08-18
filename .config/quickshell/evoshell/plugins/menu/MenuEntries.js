@@ -37,11 +37,11 @@ function systemEntries(home) {
 function matchesQuery(entry, query) {
     if (!query) return true
     var q = query.toLowerCase()
-    if (entry.name && entry.name.toLowerCase().indexOf(q) !== -1) return true
-    if (entry.keys && String(entry.keys).toLowerCase().indexOf(q) !== -1) return true
+    if (entry.name && entry.name.toLowerCase().indexOf(q) === 0) return true
+    if (entry.keys && String(entry.keys).toLowerCase().indexOf(q) === 0) return true
     if (entry.keywords) {
         for (var i = 0; i < entry.keywords.length; i++) {
-            if (String(entry.keywords[i]).toLowerCase().indexOf(q) !== -1) return true
+            if (String(entry.keywords[i]).toLowerCase().indexOf(q) === 0) return true
         }
     }
     return false

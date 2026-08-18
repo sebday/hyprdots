@@ -39,6 +39,7 @@ Item {
     property real downloadRate: 0
     property int installedCount: 0
     property int libraryTotal: 0
+    property int totalPlaytimeMin: 0
     property var playedGames: []
     property var runningGames: []
 
@@ -63,6 +64,15 @@ Item {
         if (root.libraryTotal > 0)
             return root.installedCount + " / " + root.libraryTotal
         return String(root.installedCount)
+    }
+
+    readonly property string totalPlayedDisplay: {
+        if (root.loading)
+            return "…"
+        var days = Math.round(root.totalPlaytimeMin / 1440)
+        if (days <= 0)
+            return "—"
+        return days.toLocaleString(Qt.locale()) + "d"
     }
 
     function formatLastPlayed(ts) {
@@ -143,6 +153,7 @@ Item {
         installedCount = parseInt(json.installed_count !== undefined
             ? json.installed_count : json.library_count, 10) || 0
         libraryTotal = parseInt(json.library_total, 10) || 0
+        totalPlaytimeMin = parseInt(json.total_playtime_min, 10) || 0
         playedGames = root.filterKnownGames(json.played_games).slice(0, maxPlayedGames)
         runningGames = root.filterKnownGames(json.running_games)
         publishCache(json)
@@ -269,8 +280,8 @@ Item {
                         }
 
                         HoverPopupStatBox {
-                            value: root.loading ? "…" : String(root.displayedGames.length)
-                            label: "recent"
+                            value: root.totalPlayedDisplay
+                            label: "played"
                             valueFontSize: Theme.fontSize5xl
                         }
                     }

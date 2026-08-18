@@ -1,5 +1,6 @@
 import Quickshell
 import Quickshell.Io
+import Quickshell.Services.Pipewire
 import QtQuick
 import QtQuick.Layouts
 import "../../Commons"
@@ -74,6 +75,8 @@ Item {
     property real browseTreeScrollY: 0
     property real browseTreeRestoreY: -1
     property var browseTreeListView: null
+    property var browseTreeFolderMeta: ({})
+    property bool browseTreeLoadingMore: false
     property var playlists: []
     property var libraryPlaylists: []
     property string selectedPlaylist: ""
@@ -82,6 +85,11 @@ Item {
     property string currentPlaylistPath: ""
     property var currentPlaylistTracks: []
     property bool playlistsLoading: false
+    property int playlistTrackTotal: 0
+    property int playlistTrackOffset: 0
+    property bool playlistTracksLoadingMore: false
+    property var playlistTrackList: null
+    readonly property int playlistPageSize: 50
     property string resumePlaylist: ""
     property string playerScreen: "nowPlaying"
     property string tabSearchText: ""
@@ -261,9 +269,11 @@ Item {
         browsePanelOpen = false
         libraryPanelOpen = false
         playlistPanelOpen = true
-        playlistPanelMode = "library"
+        playlistPanelMode = selectedPlaylist ? "tracks" : "library"
         playerScreen = "nowPlaying"
-        if (!libraryPlaylists.length && !playlistsLoading)
+        if (selectedPlaylist)
+            loadPlaylistTracks(selectedPlaylist)
+        else if (!libraryPlaylists.length && !playlistsLoading)
             loadPlaylists()
     }
 
@@ -885,6 +895,7 @@ Item {
                 if (kid.type === "track") {
                     rows.push({
                         type: "track",
+                        folderPath: key,
                         path: String(kid.path || ""),
                         name: String(kid.title || kid.name || String(kid.path || "").split("/").pop() || ""),
                         artist: String(kid.artist || ""),
@@ -917,28 +928,110 @@ Item {
         browseTreeRows = rows
     }
 
-    function fetchBrowseTreeEntries(relPath, onDone) {
-        runBrowseQuery(["browse", String(relPath || ""), "--json"], function(text) {
+    function applyBrowseTreeEntries(relPath, entries, meta, append) {
+        relPath = String(relPath || "")
+        var next = Object.assign({}, browseTreeChildren)
+        var nextMeta = Object.assign({}, browseTreeFolderMeta)
+        var trackCount = 0
+        var i
+        for (i = 0; i < entries.length; i++) {
+            if (entries[i].type === "track")
+                trackCount++
+        }
+        if (append && next[relPath]) {
+            var existing = next[relPath]
+            var dirs = []
+            var tracks = []
+            var j
+            for (j = 0; j < existing.length; j++) {
+                if (existing[j].type === "dir")
+                    dirs.push(existing[j])
+                else if (existing[j].type === "track")
+                    tracks.push(existing[j])
+            }
+            for (j = 0; j < entries.length; j++) {
+                if (entries[j].type === "track")
+                    tracks.push(entries[j])
+            }
+            next[relPath] = dirs.concat(tracks)
+            trackCount = tracks.length
+        } else {
+            next[relPath] = entries
+        }
+        if (relPath !== "") {
+            nextMeta[relPath] = {
+                total: Number(meta.trackTotal) || trackCount,
+                loaded: trackCount
+            }
+        }
+        browseTreeChildren = next
+        browseTreeFolderMeta = nextMeta
+        rebuildBrowseTreeRows(!!append)
+    }
+
+    function fetchBrowseTreeEntries(relPath, offset, append, onDone) {
+        relPath = String(relPath || "")
+        var args = ["browse", relPath, "--json"]
+        if (relPath !== "") {
+            args = args.concat([
+                "--offset", String(offset || 0),
+                "--limit", String(playlistPageSize)
+            ])
+        }
+        runBrowseQuery(args, function(text) {
             try {
                 var data = JSON.parse(String(text || "{}"))
                 var entries = data.entries || []
-                if (onDone)
-                    onDone(entries)
+                if (onDone) {
+                    onDone(entries, {
+                        trackTotal: relPath === ""
+                            ? 0
+                            : (Number(data.trackTotal) || 0),
+                        trackOffset: Number(data.trackOffset) || 0,
+                        trackLimit: Number(data.trackLimit) || playlistPageSize
+                    })
+                }
             } catch (e) {
                 if (onDone)
-                    onDone([])
+                    onDone([], { trackTotal: 0, trackOffset: 0, trackLimit: playlistPageSize })
             }
+        })
+    }
+
+    function loadMoreBrowseTreeTracks() {
+        if (browseTreeLoadingMore || browseTreeLoading)
+            return
+        var folderPath = ""
+        var i
+        for (i = browseTreeRows.length - 1; i >= 0; i--) {
+            if (browseTreeRows[i].type === "track") {
+                folderPath = String(browseTreeRows[i].folderPath || "")
+                break
+            }
+        }
+        if (!folderPath)
+            return
+        var meta = browseTreeFolderMeta[folderPath]
+        if (!meta || meta.loaded >= meta.total)
+            return
+        var list = browseTreeListView
+        var anchorY = list ? list.contentY : -1
+        var anchorIndex = list && list.count > 0
+            ? Math.max(0, list.indexAt(0, list.contentY + 1))
+            : -1
+        browseTreeLoadingMore = true
+        fetchBrowseTreeEntries(folderPath, meta.loaded, true, function(entries, pagMeta) {
+            browseTreeLoadingMore = false
+            applyBrowseTreeEntries(folderPath, entries, pagMeta, true)
+            restoreListViewport(list, anchorY, anchorIndex)
         })
     }
 
     function loadBrowseTreeRoot() {
         browseTreeLoading = true
-        fetchBrowseTreeEntries("", function(entries) {
+        fetchBrowseTreeEntries("", 0, false, function(entries) {
             browseTreeLoading = false
-            var next = Object.assign({}, browseTreeChildren)
-            next[""] = entries
-            browseTreeChildren = next
-            rebuildBrowseTreeRows(false)
+            applyBrowseTreeEntries("", entries, {}, false)
         })
     }
 
@@ -957,11 +1050,8 @@ Item {
             rebuildBrowseTreeRows(true)
             return
         }
-        fetchBrowseTreeEntries(path, function(entries) {
-            var nextChild = Object.assign({}, browseTreeChildren)
-            nextChild[path] = entries
-            browseTreeChildren = nextChild
-            rebuildBrowseTreeRows(true)
+        fetchBrowseTreeEntries(path, 0, false, function(entries, meta) {
+            applyBrowseTreeEntries(path, entries, meta, false)
         })
     }
 
@@ -974,6 +1064,7 @@ Item {
     function browseTreeHome() {
         browseTreeExpanded = {}
         browseTreeChildren = {}
+        browseTreeFolderMeta = {}
         browseTreeRows = []
         loadBrowseTreeRoot()
     }
@@ -1255,28 +1346,88 @@ Item {
         if (!name) {
             tracks = []
             tracksLoading = false
+            playlistTrackTotal = 0
+            playlistTrackOffset = 0
             return
         }
         var requested = String(name)
         if (requested === currentPlaylistId) {
             tracksLoading = false
             tracks = currentPlaylistTracks.slice()
+            playlistTrackTotal = tracks.length
+            playlistTrackOffset = tracks.length
             syncSelectedTrackIndex()
             mergePlayerFromTrackList()
             return
         }
         tracksLoading = true
-        runPlaylistQuery(["playlist", requested, "--json"], function(text) {
+        playlistTracksLoadingMore = false
+        playlistTrackOffset = 0
+        playlistTrackTotal = 0
+        runPlaylistQuery([
+            "playlist", requested, "--json",
+            "--offset", "0",
+            "--limit", String(playlistPageSize)
+        ], function(text) {
             if (selectedPlaylist !== requested)
                 return
             tracksLoading = false
-            try {
-                tracks = JSON.parse(String(text || "[]"))
-            } catch (e) {
-                tracks = []
-            }
+            applyPlaylistTracksPage(text, false)
             syncSelectedTrackIndex()
             mergePlayerFromTrackList()
+        })
+    }
+
+    function applyPlaylistTracksPage(text, append) {
+        try {
+            var parsed = JSON.parse(String(text || "{}"))
+            if (parsed && Array.isArray(parsed.items)) {
+                var items = parsed.items
+                tracks = append ? tracks.concat(items) : items
+                playlistTrackTotal = Number(parsed.total) || tracks.length
+                playlistTrackOffset = tracks.length
+                return
+            }
+            if (Array.isArray(parsed)) {
+                tracks = append ? tracks.concat(parsed) : parsed
+                playlistTrackTotal = tracks.length
+                playlistTrackOffset = tracks.length
+                return
+            }
+        } catch (e) {
+        }
+        if (!append)
+            tracks = []
+        playlistTrackTotal = tracks.length
+        playlistTrackOffset = tracks.length
+    }
+
+    function loadMorePlaylistTracks() {
+        if (playlistTracksLoadingMore || tracksLoading)
+            return
+        if (!selectedPlaylist || selectedPlaylist === currentPlaylistId)
+            return
+        if (playlistTrackOffset >= playlistTrackTotal)
+            return
+        var requested = String(selectedPlaylist)
+        var list = playlistTrackList
+        var anchorY = list ? list.contentY : -1
+        var anchorIndex = list && list.count > 0
+            ? Math.max(0, list.indexAt(0, list.contentY + 1))
+            : -1
+        playlistTracksLoadingMore = true
+        runPlaylistQuery([
+            "playlist", requested, "--json",
+            "--offset", String(playlistTrackOffset),
+            "--limit", String(playlistPageSize)
+        ], function(text) {
+            if (selectedPlaylist !== requested) {
+                playlistTracksLoadingMore = false
+                return
+            }
+            applyPlaylistTracksPage(text, true)
+            playlistTracksLoadingMore = false
+            restoreListViewport(list, anchorY, anchorIndex)
         })
     }
 
@@ -1874,11 +2025,15 @@ Item {
         favoriteProc.running = true
     }
 
-    function restoreListViewport(listView, contentY) {
-        if (!listView || contentY < 0)
+    function restoreListViewport(listView, contentY, anchorIndex) {
+        if (!listView)
             return
         Qt.callLater(function() {
-            if (listView)
+            if (!listView)
+                return
+            if (anchorIndex >= 0 && listView.count > anchorIndex)
+                listView.positionViewAtIndex(anchorIndex, ListView.Beginning)
+            else if (contentY >= 0)
                 listView.contentY = contentY
         })
     }
@@ -2411,7 +2566,7 @@ Item {
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
-                                onClicked: root.selectPlaylist(name)
+                                onClicked: root.selectPlaylist(name, false)
                             }
                         }
                     }
@@ -2805,11 +2960,13 @@ Item {
                                 }
                                 }
 
-                                RowLayout {
+                                Item {
                                     Layout.fillWidth: true
-                                    spacing: Theme.spacingM
+                                    Layout.preferredHeight: 22
 
                                     Text {
+                                        anchors.left: parent.left
+                                        anchors.verticalCenter: parent.verticalCenter
                                         text: root.player.position_label || "0:00"
                                         color: Theme.foreground
                                         font.family: Theme.fontFamily
@@ -2817,9 +2974,15 @@ Item {
                                         opacity: Theme.opacityHover
                                     }
 
-                                    Item { Layout.fillWidth: true }
+                                    PlayerSpectrumBars {
+                                        anchors.centerIn: parent
+                                        active: root.active && root.playerPlaying
+                                    }
 
                                     Text {
+                                        anchors.right: parent.right
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        horizontalAlignment: Text.AlignRight
                                         text: root.player.duration_label || "0:00"
                                         color: Theme.foreground
                                         font.family: Theme.fontFamily
@@ -3081,6 +3244,197 @@ Item {
         }
     }
 
+    component PlayerSpectrumBars: Item {
+        id: spectrum
+        property bool active: false
+
+        readonly property int barCount: 18
+        readonly property int vizBarWidth: 7
+        readonly property int vizBarSpacing: 2
+        readonly property int vizHeight: 22
+        readonly property PwNode sink: Pipewire.defaultAudioSink
+        readonly property bool sinkReady: sink !== null && sink.ready
+        readonly property int contentWidth: barCount * vizBarWidth + (barCount - 1) * vizBarSpacing
+        readonly property real peakGate: 0.09
+        readonly property real maxBarLevel: 0.92
+        readonly property real transientMargin: 0.02
+        readonly property real sustainedCap: 0.28
+        readonly property real mid: (barCount - 1) / 2
+        readonly property bool audioActive: active && sinkReady && linkTracker.linkGroups.length > 0
+
+        property real peakBaseline: 0
+        property var barLevels: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+        implicitWidth: contentWidth
+        implicitHeight: vizHeight
+        opacity: audioActive ? 1 : 0.28
+
+        function resetBars() {
+            peakBaseline = 0
+            var levels = []
+            for (var i = 0; i < barCount; i++)
+                levels.push(0)
+            barLevels = levels
+        }
+
+        function decayBars(levels, factor) {
+            for (var i = 0; i < barCount; i++) {
+                var ef = edgeFactor(i)
+                levels[i] *= factor - ef * 0.1
+            }
+        }
+
+        function barWeight(index) {
+            var dist = Math.abs(index - mid) / mid
+            return 1 - dist * dist * 0.68
+        }
+
+        function edgeFactor(index) {
+            return Math.abs(index - mid) / mid
+        }
+
+        function applyPeak(peak) {
+            var levels = barLevels.slice()
+
+            if (peak < peakBaseline)
+                peakBaseline = peakBaseline * 0.96 + peak * 0.04
+            else
+                peakBaseline = peakBaseline * 0.99 + peak * 0.01
+
+            if (peak < peakGate) {
+                decayBars(levels, 0.48)
+            } else {
+                var excursion = Math.max(0, peak - peakBaseline - transientMargin)
+                var transient = Math.min(1, excursion / 0.14)
+                transient = Math.pow(transient, 1.25)
+
+                var sustained = Math.max(0, peak - peakGate - 0.01)
+                sustained = Math.pow(Math.min(1, sustained / 0.28), 1.35) * sustainedCap
+
+                var baseTarget = Math.min(maxBarLevel, transient * 1.44 + sustained)
+
+                decayBars(levels, 0.96)
+
+                if (baseTarget > 0.01) {
+                    for (var j = 0; j < barCount; j++) {
+                        var target = baseTarget * barWeight(j)
+                        var edge = edgeFactor(j)
+                        if (target >= levels[j]) {
+                            var attack = 0.28 + edge * 0.34
+                            levels[j] = levels[j] * (1 - attack) + target * attack
+                        } else {
+                            var retain = 0.38 - edge * 0.1
+                            levels[j] = levels[j] * retain + target * (1 - retain)
+                        }
+                    }
+                }
+            }
+
+            barLevels = levels
+        }
+
+        PwObjectTracker {
+            objects: spectrum.sink ? [spectrum.sink] : []
+        }
+
+        PwNodeLinkTracker {
+            id: linkTracker
+            node: spectrum.sink
+        }
+
+        PwNodePeakMonitor {
+            id: peakMonitor
+            node: spectrum.sink
+            enabled: spectrum.audioActive
+            onPeakChanged: spectrum.applyPeak(peakMonitor.peak)
+        }
+
+        Timer {
+            interval: 40
+            running: spectrum.audioActive
+            repeat: true
+            onTriggered: spectrum.applyPeak(peakMonitor.peak)
+        }
+
+        onAudioActiveChanged: {
+            if (!audioActive)
+                resetBars()
+        }
+
+        Row {
+            anchors.centerIn: parent
+            spacing: spectrum.vizBarSpacing
+            height: spectrum.vizHeight
+
+            Repeater {
+                model: spectrum.barCount
+
+                Item {
+                    required property int index
+                    width: spectrum.vizBarWidth
+                    height: parent.height
+
+                    readonly property real level: spectrum.barLevels[index]
+
+                    Rectangle {
+                        width: spectrum.vizBarWidth
+                        height: Math.max(2, parent.height * parent.level)
+                        anchors.bottom: parent.bottom
+                        radius: 1
+                        color: Theme.accent
+                        opacity: 0.35 + parent.level * 0.65
+                    }
+                }
+            }
+        }
+    }
+
+    component TransportProgressBar: Item {
+        id: transportProgress
+        Layout.preferredWidth: 140
+        Layout.minimumWidth: 72
+        Layout.maximumWidth: 240
+        Layout.fillWidth: true
+        Layout.alignment: Qt.AlignVCenter
+        implicitHeight: 20
+
+        readonly property real value: root.progress
+        readonly property bool seekable: Number(root.player.duration) > 0
+
+        Rectangle {
+            id: transportProgressTrack
+            anchors.verticalCenter: parent.verticalCenter
+            width: parent.width
+            height: 4
+            radius: 2
+            color: Theme.foregroundFaint
+
+            Rectangle {
+                width: parent.width * transportProgress.value
+                height: parent.height
+                radius: parent.radius
+                color: Theme.accent
+                opacity: transportProgress.seekable ? 1 : 0.35
+            }
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            enabled: transportProgress.seekable
+            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+            onPressed: function(mouse) {
+                root.previewSeekFromX(mouse.x, width)
+            }
+            onPositionChanged: function(mouse) {
+                if (pressed)
+                    root.previewSeekFromX(mouse.x, width)
+            }
+            onReleased: function(mouse) {
+                root.commitSeekFromX(mouse.x, width)
+            }
+        }
+    }
+
     component PlayerTransportBar: Item {
         property bool showTimestamps: true
         implicitHeight: root.nowPlayingControlsHeight
@@ -3123,6 +3477,9 @@ Item {
                     icon: "󰒭"
                     onActivated: root.skipTrack(true)
                 }
+
+                TransportProgressBar {}
+
                 TransportBtn {
                     icon: "󰒟"
                     smallGlyph: true
@@ -3356,15 +3713,17 @@ Item {
         property bool selected: false
         property int rowWidth: 0
         property string genreLabel: ""
+        property bool showGenre: true
+        property bool showFolder: true
         signal pressed()
         signal playRequested()
         signal likeToggled()
         signal folderOpenRequested()
 
         readonly property bool trackLiked: !!track.liked
-        readonly property int genreReserve: 108
+        readonly property int genreReserve: browseRow.showGenre && browseRow.genreLabel !== "" ? 108 : 0
         readonly property int likeReserve: 30
-        readonly property int folderReserve: 30
+        readonly property int folderReserve: browseRow.showFolder ? 30 : 0
         readonly property bool hovered: browseRowMouse.containsMouse
             || browsePlayMouse.containsMouse
             || browseLikeMouse.containsMouse
@@ -3489,7 +3848,7 @@ Item {
             }
 
             MetaChip {
-                visible: browseRow.genreLabel !== ""
+                visible: browseRow.showGenre && browseRow.genreLabel !== ""
                 label: browseRow.genreLabel
                 accent: true
                 clickable: false
@@ -3498,6 +3857,7 @@ Item {
             }
 
             RowIconButton {
+                visible: browseRow.showFolder
                 icon: "󰉖"
                 onActivated: browseRow.folderOpenRequested()
             }
@@ -4140,6 +4500,11 @@ Item {
                     root.browseTreeScrollY = contentY
             }
 
+            onMovementEnded: {
+                if (atYEnd)
+                    root.loadMoreBrowseTreeTracks()
+            }
+
             Timer {
                 id: browseTreeScrollRestoreTimer
                 interval: 0
@@ -4181,161 +4546,71 @@ Item {
                     opacity: Theme.opacityDisabled
                 }
 
-                delegate: Rectangle {
+            footer: Text {
+                width: sideBrowseTree.width
+                visible: root.browseTreeLoadingMore
+                horizontalAlignment: Text.AlignHCenter
+                text: "loading more…"
+                color: Theme.foreground
+                font.family: Theme.fontFamily
+                font.pixelSize: root.listFont
+                opacity: Theme.opacityDisabled
+            }
+
+                delegate: Item {
                     required property var modelData
                     required property int index
                     readonly property bool isDir: modelData.type === "dir"
                     readonly property int indent: 8 + (Number(modelData.depth || 0) * 14)
                     width: sideBrowseTree.width
-                    height: isDir ? 34 : 36
-                    radius: Theme.radiusL
-                    color: isDir
-                        ? (treeRowMouse.containsMouse
-                            ? Theme.foregroundGhost
-                            : "transparent")
-                        : (root.isTrackPlaying(modelData.path)
-                            ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.14)
-                            : (treeTrackMouse.containsMouse
-                                ? Theme.foregroundGhost
-                                : "transparent"))
+                    height: isDir ? 34 : 40
 
-                    RowLayout {
+                    Rectangle {
                         anchors.fill: parent
-                        anchors.leftMargin: indent
-                        anchors.rightMargin: 6
-                        spacing: Theme.spacingS
                         visible: isDir
+                        radius: Theme.radiusL
+                        color: treeRowMouse.containsMouse
+                            ? Theme.foregroundGhost
+                            : "transparent"
 
-                        Text {
-                            Layout.preferredWidth: 14
-                            text: modelData.expanded ? "󰅃" : "󰅂"
-                            color: Theme.foreground
-                            opacity: treeChevronMouse.containsMouse ? 0.9 : 0.45
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.libraryFont
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: indent
+                            anchors.rightMargin: 6
+                            spacing: Theme.spacingS
 
-                            MouseArea {
-                                id: treeChevronMouse
-                                anchors.fill: parent
-                                anchors.margins: -4
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: function(mouse) {
-                                    mouse.accepted = true
-                                    root.toggleBrowseTreeNode(modelData.path)
+                            Text {
+                                Layout.preferredWidth: 14
+                                text: modelData.expanded ? "󰅃" : "󰅂"
+                                color: Theme.foreground
+                                opacity: treeChevronMouse.containsMouse ? 0.9 : 0.45
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.libraryFont
+
+                                MouseArea {
+                                    id: treeChevronMouse
+                                    anchors.fill: parent
+                                    anchors.margins: -4
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: function(mouse) {
+                                        mouse.accepted = true
+                                        root.toggleBrowseTreeNode(modelData.path)
+                                    }
                                 }
                             }
-                        }
 
-                        Text {
-                            text: "󰉋"
-                            color: Theme.foreground
-                            opacity: Theme.opacityMuted
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.listFont
-                        }
-
-                        Text {
-                            Layout.fillWidth: true
-                            text: root.playlistTabLabel(modelData.name || "")
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.listFont
-                            elide: Text.ElideRight
-                        }
-
-                        Text {
-                            visible: modelData.count !== undefined && modelData.count !== null
-                            text: String(modelData.count)
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.libraryFont
-                            opacity: Theme.opacityDisabled
-                        }
-
-                        Text {
-                            text: "󰐕"
-                            color: Theme.accent
-                            opacity: treeAppendMouse.containsMouse ? 1 : 0.55
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.listFont
-
-                            MouseArea {
-                                id: treeAppendMouse
-                                anchors.fill: parent
-                                anchors.margins: -6
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: function(mouse) {
-                                    mouse.accepted = true
-                                    root.browseAppendFolder(modelData)
-                                }
+                            Text {
+                                text: "󰉋"
+                                color: Theme.foreground
+                                opacity: Theme.opacityMuted
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.listFont
                             }
-                        }
-
-                        Text {
-                            text: "󰐊"
-                            color: Theme.accent
-                            opacity: treePlayMouse.containsMouse ? 1 : 0.55
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.listFont
-
-                            MouseArea {
-                                id: treePlayMouse
-                                anchors.fill: parent
-                                anchors.margins: -6
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: function(mouse) {
-                                    mouse.accepted = true
-                                    root.browseQueueFolder(modelData)
-                                }
-                            }
-                        }
-
-                        Text {
-                            text: "󰉖"
-                            color: Theme.foreground
-                            opacity: treeOpenMouse.containsMouse ? 0.85 : 0.45
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.listFont
-
-                            MouseArea {
-                                id: treeOpenMouse
-                                anchors.fill: parent
-                                anchors.margins: -6
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: function(mouse) {
-                                    mouse.accepted = true
-                                    root.openBrowseFolder(modelData)
-                                }
-                            }
-                        }
-                    }
-
-                    RowLayout {
-                        anchors.fill: parent
-                        anchors.leftMargin: indent + 14
-                        anchors.rightMargin: 6
-                        spacing: Theme.spacingM
-                        visible: !isDir
-
-                        Text {
-                            text: "󰎈"
-                            color: Theme.accent
-                            opacity: Theme.opacityDisabled
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.listFont
-                        }
-
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: 0
 
                             Text {
                                 Layout.fillWidth: true
-                                text: modelData.name || ""
+                                text: root.playlistTabLabel(modelData.name || "")
                                 color: Theme.foreground
                                 font.family: Theme.fontFamily
                                 font.pixelSize: root.listFont
@@ -4343,56 +4618,97 @@ Item {
                             }
 
                             Text {
-                                Layout.fillWidth: true
-                                visible: (modelData.artist || "") !== ""
-                                text: modelData.artist
+                                visible: modelData.count !== undefined && modelData.count !== null
+                                text: String(modelData.count)
                                 color: Theme.foreground
                                 font.family: Theme.fontFamily
                                 font.pixelSize: root.libraryFont
-                                opacity: 0.5
-                                elide: Text.ElideRight
+                                opacity: Theme.opacityDisabled
                             }
-                        }
 
-                        Text {
-                            text: "󰐊"
-                            color: Theme.accent
-                            opacity: treeTrackPlayMouse.containsMouse ? 1 : 0.55
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.listFont
+                            Text {
+                                text: "󰐕"
+                                color: Theme.accent
+                                opacity: treeAppendMouse.containsMouse ? 1 : 0.55
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.listFont
 
-                            MouseArea {
-                                id: treeTrackPlayMouse
-                                anchors.fill: parent
-                                anchors.margins: -6
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: function(mouse) {
-                                    mouse.accepted = true
-                                    root.playBrowseTreeTrack(modelData.track || modelData)
+                                MouseArea {
+                                    id: treeAppendMouse
+                                    anchors.fill: parent
+                                    anchors.margins: -6
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: function(mouse) {
+                                        mouse.accepted = true
+                                        root.browseAppendFolder(modelData)
+                                    }
+                                }
+                            }
+
+                            Text {
+                                text: "󰐊"
+                                color: Theme.accent
+                                opacity: treePlayMouse.containsMouse ? 1 : 0.55
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.listFont
+
+                                MouseArea {
+                                    id: treePlayMouse
+                                    anchors.fill: parent
+                                    anchors.margins: -6
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: function(mouse) {
+                                        mouse.accepted = true
+                                        root.browseQueueFolder(modelData)
+                                    }
+                                }
+                            }
+
+                            Text {
+                                text: "󰉖"
+                                color: Theme.foreground
+                                opacity: treeOpenMouse.containsMouse ? 0.85 : 0.45
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.listFont
+
+                                MouseArea {
+                                    id: treeOpenMouse
+                                    anchors.fill: parent
+                                    anchors.margins: -6
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: function(mouse) {
+                                        mouse.accepted = true
+                                        root.openBrowseFolder(modelData)
+                                    }
                                 }
                             }
                         }
+
+                        MouseArea {
+                            id: treeRowMouse
+                            anchors.fill: parent
+                            anchors.rightMargin: 76
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.toggleBrowseTreeNode(modelData.path)
+                        }
                     }
 
-                    MouseArea {
-                        id: treeRowMouse
-                        anchors.fill: parent
-                        anchors.rightMargin: 76
-                        hoverEnabled: true
-                        visible: isDir
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.toggleBrowseTreeNode(modelData.path)
-                    }
-
-                    MouseArea {
-                        id: treeTrackMouse
-                        anchors.fill: parent
-                        anchors.rightMargin: 28
-                        hoverEnabled: true
+                    BrowseTrackRow {
                         visible: !isDir
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.playBrowseTreeTrack(modelData.track || modelData)
+                        x: indent + 14
+                        width: parent.width - x - 6
+                        height: 40
+                        track: modelData.track || modelData
+                        selected: root.isTrackPlaying(modelData.path)
+                        showGenre: false
+                        showFolder: false
+                        onPressed: root.playBrowseTreeTrack(modelData.track || modelData)
+                        onPlayRequested: root.playBrowseTreeTrack(modelData.track || modelData)
+                        onLikeToggled: root.toggleTrackFavorite(modelData.path)
                     }
                 }
             }
@@ -4505,6 +4821,13 @@ Item {
                 spacing: Theme.spacing2
                 model: root.tracks
 
+                Component.onCompleted: root.playlistTrackList = sidePlaylistTrackList
+
+                onMovementEnded: {
+                    if (atYEnd)
+                        root.loadMorePlaylistTracks()
+                }
+
                 Text {
                     anchors.centerIn: parent
                     visible: root.tracksLoading
@@ -4515,16 +4838,27 @@ Item {
                     opacity: Theme.opacityDisabled
                 }
 
-                delegate: TrackListRow {
+                footer: Text {
+                    width: sidePlaylistTrackList.width
+                    visible: root.playlistTracksLoadingMore
+                    horizontalAlignment: Text.AlignHCenter
+                    text: "loading more…"
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.listFont
+                    opacity: Theme.opacityDisabled
+                }
+
+                delegate: BrowseTrackRow {
                     required property var modelData
                     required property int index
                     rowWidth: sidePlaylistTrackList.width
                     track: modelData
-                    showNumber: false
                     selected: root.isTrackSelected(modelData.path)
-                    showLike: true
+                    showGenre: false
+                    showFolder: false
                     onPressed: root.selectPlaylistTrack(index)
-                    onActivated: root.playTrackAt(index)
+                    onPlayRequested: root.playTrackAt(index)
                     onLikeToggled: root.toggleTrackFavorite(modelData.path)
                 }
             }

@@ -27,11 +27,10 @@ usage:
   evo-player job status [--json]
   evo-player genres [--json]
   evo-player tracks <genre> [--json]
-  evo-player browse [path] [--json] [--queue]
+  evo-player browse [path] [--json] [--queue] [--offset N] [--limit N]
   evo-player playlist [--json]
-  evo-player playlist <name> [--json]
+  evo-player playlist <name> [--json] [--offset N] [--limit N]
   evo-player playlist star toggle <name> [--json]
-  evo-player retag <path> <genre> [--json]
   evo-player favorite toggle <path> [--json]
   evo-player mixes migrate [--dry-run] [--json]
   evo-player art search <track-path> [--json]
@@ -42,7 +41,7 @@ usage:
   evo-player art notify-cache <track-path>
   evo-player find [--artist|--genre|--year] <value> [--json]
   evo-player find <query> [--json]
-  evo-player scrobble auth|token <token>|nowplaying|submit [--json]
+  evo-player scrobble auth|token <token>|nowplaying|submit|recent|touch [--json]
   evo-player stats [--json]
 EOF
   exit 1
@@ -891,42 +890,6 @@ beet_item_id_for_path() {
   printf '%s' "$id"
 }
 
-retag_manual() {
-  local path="$1"
-  local new_genre="$2"
-  local dest_dir="${MUSIC_ROOT}/${new_genre}"
-  mkdir -p "$dest_dir"
-
-  local base dest tmp stem ext n
-  base="$(basename "$path")"
-  dest="${dest_dir}/${base}"
-
-  if [[ -e "$dest" ]] && [[ "$(realpath "$dest")" != "$(realpath "$path")" ]]; then
-    stem="${base%.*}"
-    ext="${base##*.}"
-    n=1
-    while [[ -e "${dest_dir}/${stem}-${n}.${ext}" ]]; do
-      n=$((n + 1))
-    done
-    dest="${dest_dir}/${stem}-${n}.${ext}"
-  fi
-
-  if [[ "$(realpath "$path")" == "$(realpath "$dest")" ]]; then
-    printf '%s' "$dest"
-    return 0
-  fi
-
-  tmp="$(mktemp "${TMPDIR:-/tmp}/evo-music-retag.XXXXXX")"
-  if ffmpeg -y -hide_banner -loglevel error -i "$path" -metadata genre="$new_genre" -codec copy "$tmp" 2>/dev/null; then
-    mv "$tmp" "$dest"
-    rm -f "$path"
-  else
-    rm -f "$tmp"
-    mv "$path" "$dest"
-  fi
-  printf '%s' "$dest"
-}
-
 cmd_sync() {
   ensure_dirs
   local cookies user url
@@ -1459,6 +1422,73 @@ browse_emit_tracks_parallel() {
   rm -rf "$tmpdir"
 }
 
+browse_emit_tracks_page() {
+  local rel="$1" dir="$2" offset="${3:-0}" limit="${4:-50}"
+  local genre cache cached=0
+  local -a page_items=()
+  local total=0 line path i end n batch=24 tmpdir j
+
+  offset="${offset:-0}"
+  limit="${limit:-50}"
+  genre="${rel%%/*}"
+  cache="$(tracks_cache_path "$genre")"
+  if [[ -n "$genre" && -f "$cache" && -s "$cache" ]]; then
+    cached=1
+    local -a lines=()
+    while IFS= read -r line; do
+      [[ -n "$line" ]] || continue
+      path="$(jq -r '.path // ""' <<<"$line")"
+      [[ -n "$path" && -f "$path" ]] || continue
+      lines+=("$line")
+    done < <(browse_tracks_cached_lines "$dir" "$cache")
+    total=${#lines[@]}
+    end=$((offset + limit))
+    for ((i = offset; i < end && i < total; i++)); do
+      page_items+=("${lines[i]}")
+    done
+  else
+    local -a files=()
+    local entry
+    while IFS= read -r -d '' entry; do
+      is_audio "$entry" || continue
+      files+=("$entry")
+    done < <(find "$dir" -mindepth 1 -maxdepth 1 -type f -print0 2>/dev/null | sort -z)
+    total=${#files[@]}
+    end=$((offset + limit))
+    for ((i = offset; i < end && i < total; i++)); do
+      page_items+=("${files[i]}")
+    done
+  fi
+
+  BROWSE_TRACK_TOTAL="$total"
+  [[ ${#page_items[@]} -eq 0 ]] && return 0
+
+  n=${#page_items[@]}
+  tmpdir="$(mktemp -d)"
+  i=0
+  for item in "${page_items[@]}"; do
+    if [[ "$cached" -eq 1 ]]; then
+      browse_track_art_json "$item" >"${tmpdir}/${i}.json" &
+    else
+      browse_track_json "$item" >"${tmpdir}/${i}.json" &
+    fi
+    i=$((i + 1))
+    if (( i % batch == 0 )); then
+      wait
+    fi
+  done
+  wait
+  for ((j = 0; j < n; j++)); do
+    [[ -f "${tmpdir}/${j}.json" ]] || continue
+    cat "${tmpdir}/${j}.json"
+    printf '\n'
+  done
+  rm -rf "$tmpdir"
+  if [[ "$cached" -eq 1 ]]; then
+    browse_warm_art_async "$(printf '%s\n' "${page_items[@]}")"
+  fi
+}
+
 browse_emit_tracks() {
   local rel="$1"
   local dir="$2"
@@ -1641,11 +1671,19 @@ browse_collect_queue_tracks() {
 }
 
 cmd_browse() {
-  local rel="" json=0 queue=0
+  local rel="" json=0 queue=0 offset="" limit=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --json) json=1 ;;
       --queue) queue=1 ;;
+      --offset)
+        offset="$2"
+        shift
+        ;;
+      --limit)
+        limit="$2"
+        shift
+        ;;
       *) rel="$1" ;;
     esac
     shift
@@ -1699,23 +1737,47 @@ cmd_browse() {
         printf '{"type":"dir","name":"%s","path":"%s","count":%s}' \
           "$(json_escape "$name")" "$(json_escape "$name")" "$count"
       done < <(list_genres)
+      printf ']}\n'
     else
-      while IFS= read -r -d '' entry; do
-        [[ -d "$entry" ]] || continue
-        name="$(basename "$entry")"
-        [[ "$first" -eq 1 ]] || printf ','
-        first=0
-        printf '{"type":"dir","name":"%s","path":"%s"}' \
-          "$(json_escape "$name")" "$(json_escape "${rel}/${name}")"
-      done < <(find "$dir" -mindepth 1 -maxdepth 1 -type d -print0 2>/dev/null | sort -z)
-      while IFS= read -r track_line; do
-        [[ -n "$track_line" ]] || continue
-        [[ "$first" -eq 1 ]] || printf ','
-        first=0
-        printf '%s' "$track_line"
-      done < <(browse_emit_tracks "$rel" "$dir" | sed '/^$/d')
+      local track_offset="${offset:-0}"
+      local track_limit="${limit:-50}"
+      local paginate=0 track_total=0
+      [[ -n "$offset" || -n "$limit" ]] && paginate=1
+      if [[ "$track_offset" -eq 0 ]]; then
+        while IFS= read -r -d '' entry; do
+          [[ -d "$entry" ]] || continue
+          name="$(basename "$entry")"
+          [[ "$first" -eq 1 ]] || printf ','
+          first=0
+          printf '{"type":"dir","name":"%s","path":"%s"}' \
+            "$(json_escape "$name")" "$(json_escape "${rel}/${name}")"
+        done < <(find "$dir" -mindepth 1 -maxdepth 1 -type d -print0 2>/dev/null | sort -z)
+      fi
+      if [[ "$paginate" -eq 1 ]]; then
+        local page_tmp
+        page_tmp="$(mktemp)"
+        browse_emit_tracks_page "$rel" "$dir" "$track_offset" "$track_limit" >"$page_tmp"
+        track_total="${BROWSE_TRACK_TOTAL:-0}"
+        while IFS= read -r track_line; do
+          [[ -n "$track_line" ]] || continue
+          [[ "$first" -eq 1 ]] || printf ','
+          first=0
+          printf '%s' "$track_line"
+        done < <(sed '/^$/d' "$page_tmp")
+        rm -f "$page_tmp"
+        track_total="${BROWSE_TRACK_TOTAL:-0}"
+        printf '],"trackTotal":%s,"trackOffset":%s,"trackLimit":%s}\n' \
+          "$track_total" "$track_offset" "$track_limit"
+      else
+        while IFS= read -r track_line; do
+          [[ -n "$track_line" ]] || continue
+          [[ "$first" -eq 1 ]] || printf ','
+          first=0
+          printf '%s' "$track_line"
+        done < <(browse_emit_tracks "$rel" "$dir" | sed '/^$/d')
+        printf ']}\n'
+      fi
     fi
-    printf ']}\n'
   else
     if [[ -z "$rel" ]]; then
       list_genres
@@ -1726,10 +1788,18 @@ cmd_browse() {
 }
 
 cmd_playlist() {
-  local name="" json=0
+  local name="" json=0 offset="" limit=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --json) json=1 ;;
+      --offset)
+        offset="$2"
+        shift
+        ;;
+      --limit)
+        limit="$2"
+        shift
+        ;;
       *) name="$1" ;;
     esac
     shift
@@ -1771,9 +1841,13 @@ cmd_playlist() {
   local list="${PLAYLIST_DIR}/${name}.m3u"
   [[ -f "$list" ]] || { echo "evo-player: unknown playlist: $name" >&2; return 1; }
   if [[ "$json" -eq 1 ]]; then
-    printf '['
-    playlist_emit_tracks_json "$list"
-    printf ']\n'
+    if [[ -n "$offset" || -n "$limit" ]]; then
+      playlist_emit_tracks_page "$list" "${offset:-0}" "${limit:-50}"
+    else
+      printf '['
+      playlist_emit_tracks_json "$list"
+      printf ']\n'
+    fi
   else
     local line
     while IFS= read -r line || [[ -n "$line" ]]; do
@@ -1781,51 +1855,6 @@ cmd_playlist() {
       [[ -z "$line" || "$line" == \#* ]] && continue
       [[ -f "$line" ]] && printf '%s\n' "$line"
     done <"$list"
-  fi
-}
-
-cmd_retag() {
-  local path="$1"
-  local new_genre="$2"
-  local json="${3:-}"
-  [[ -f "$path" ]] || { echo "evo-player: not a file: $path" >&2; return 1; }
-  [[ -n "$new_genre" ]] || { echo "evo-player: genre required" >&2; return 1; }
-  [[ -d "${MUSIC_ROOT}/${new_genre}" ]] || { echo "evo-player: unknown genre: $new_genre" >&2; return 1; }
-
-  local old_path="$path" new_path id=""
-  if command -v beet >/dev/null 2>&1; then
-    id="$(beet_item_id_for_path "$path" || true)"
-  fi
-
-  new_path="$(retag_manual "$path" "$new_genre")"
-  [[ -f "$new_path" ]] || { echo "evo-player: retag failed" >&2; return 1; }
-
-  if [[ -n "$id" ]]; then
-    beet remove -d "id:$id" 2>/dev/null || true
-  fi
-
-  if is_liked "$old_path"; then
-    likes_init
-    jq --arg old "$old_path" --arg new "$new_path" \
-      'if has($old) then .[$new] = .[$old] | del(.[$old]) else . end' \
-      "$LIKES_FILE" >"${LIKES_FILE}.tmp" && mv "${LIKES_FILE}.tmp" "$LIKES_FILE"
-  fi
-
-  cmd_playlists
-
-  local old_genre
-  old_genre="$(genre_from_path "$old_path")"
-  tracks_cache_invalidate_genre "$old_genre"
-  tracks_cache_invalidate_genre "$new_genre"
-
-  if [[ "$json" == --json ]]; then
-    jq -n \
-      --arg path "$new_path" \
-      --arg genre "$new_genre" \
-      --arg old_path "$old_path" \
-      '{path:$path,genre:$genre,old_path:$old_path}'
-  else
-    printf 'moved to %s\n' "$new_path"
   fi
 }
 
@@ -1875,7 +1904,7 @@ cmd_mixes_migrate() {
     return 0
   fi
 
-  local path tag genre status new_path failed=0
+  local path tag genre status failed=0
   local -a touched_genres=()
   if [[ "$json" -eq 1 ]]; then
     printf '['
@@ -1893,8 +1922,6 @@ cmd_mixes_migrate() {
       failed=1
       continue
     fi
-    [[ -d "${MUSIC_ROOT}/${genre}" ]] || mkdir -p "${MUSIC_ROOT}/${genre}"
-
     if [[ "$json" -eq 1 ]]; then
       [[ "$first" -eq 1 ]] || printf ','
       first=0
@@ -1909,21 +1936,14 @@ cmd_mixes_migrate() {
     fi
 
     likes_add "$path"
-    local old_path="$path"
-    new_path="$(retag_manual "$path" "$genre")"
-    if [[ ! -f "$new_path" ]]; then
-      echo "evo-player: retag failed for $(basename "$path")" >&2
+    if ! tag_set_metadata "$path" genre "$genre"; then
+      echo "evo-player: tag update failed for $(basename "$path")" >&2
       failed=1
       continue
     fi
-    if is_liked "$old_path" && [[ "$old_path" != "$new_path" ]]; then
-      jq --arg old "$old_path" --arg new "$new_path" \
-        'if has($old) then .[$new] = .[$old] | del(.[$old]) else . end' \
-        "$LIKES_FILE" >"${LIKES_FILE}.tmp" && mv "${LIKES_FILE}.tmp" "$LIKES_FILE"
-    fi
     touched_genres+=("$genre")
     if [[ $json -eq 0 ]]; then
-      printf 'moved %s -> %s\n' "$(basename "$old_path")" "$genre"
+      printf 'tagged %s -> %s\n' "$(basename "$path")" "$genre"
     fi
   done
   if [[ "$json" -eq 1 ]]; then
@@ -2128,6 +2148,8 @@ cmd_scrobble() {
     token) cmd_scrobble_token "$@" ;;
     nowplaying) cmd_scrobble_nowplaying "$@" ;;
     submit) cmd_scrobble_submit "$@" ;;
+    recent) cmd_scrobble_recent "$@" ;;
+    touch) cmd_scrobble_touch "$@" ;;
     -h|--help|help|"") usage ;;
     *) echo "evo-player: unknown scrobble command: $sub" >&2; usage ;;
   esac
@@ -2208,6 +2230,7 @@ cmd_scrobble_nowplaying() {
   duration="$(mpv_prop duration 2>/dev/null || echo 0)"
   [[ -n "$artist" && -n "$title" ]] || return 0
   scrobble_api_call "track.updateNowPlaying" "$artist" "$title" "$album" "$duration"
+  scrobble_record_entry "$path" "nowplaying"
 }
 
 cmd_scrobble_submit() {
@@ -2224,6 +2247,35 @@ cmd_scrobble_submit() {
   started="$(date +%s)"
   [[ -n "$artist" && -n "$title" ]] || return 0
   scrobble_api_call "track.scrobble" "$artist" "$title" "$album" "$duration" "$started"
+  scrobble_record_entry "$path" "submit"
+}
+
+cmd_scrobble_touch() {
+  local path
+  path="$(mpv_prop path 2>/dev/null || true)"
+  [[ -n "$path" && -f "$path" ]] || return 0
+  scrobble_record_entry "$path" "nowplaying"
+}
+
+cmd_scrobble_recent() {
+  local json="" limit=12
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --json) json=1; shift ;;
+      --limit)
+        limit="${2:-12}"
+        shift 2
+        ;;
+      *) shift ;;
+    esac
+  done
+  local out
+  out="$(scrobble_recent_json "$limit")"
+  if [[ -n "$json" ]]; then
+    printf '%s\n' "$out"
+  else
+    jq -r '.[] | "\(.artist) — \(.title)"' <<<"$out"
+  fi
 }
 
 scrobble_api_call() {
@@ -2476,7 +2528,6 @@ main() {
       fi
       ;;
     mixes) cmd_mixes "$@" ;;
-    retag) cmd_retag "${1:-}" "${2:-}" "${3:-}" ;;
     favorite)
       [[ "${1:-}" == toggle ]] || usage
       shift
