@@ -315,10 +315,21 @@ clear_media_show_settings() {
 
 cmd_settings_get() {
     media_roots
+    local available enabled uses_whitelist=false
+    available="$(list_tv_show_names | jq -R . | jq -s 'sort')"
+    if uses_show_whitelist; then
+        uses_whitelist=true
+        enabled="$(jq -c '.enabledShows // []' "$MEDIA_SETTINGS_FILE")"
+    else
+        enabled="$available"
+    fi
     jq -n \
         --arg tvRoot "$TV_ROOT" \
         --arg filmsRoot "$FILMS_ROOT" \
-        '{ok: true, tvRoot: $tvRoot, filmsRoot: $filmsRoot}'
+        --argjson availableShows "$available" \
+        --argjson enabledShows "$enabled" \
+        --argjson usesShowWhitelist "$uses_whitelist" \
+        '{ok: true, tvRoot: $tvRoot, filmsRoot: $filmsRoot, availableShows: $availableShows, enabledShows: $enabledShows, usesShowWhitelist: $usesShowWhitelist}'
 }
 
 cmd_settings_set_path() {
@@ -343,6 +354,7 @@ cmd_settings_set_path() {
         return 1
     }
     merge_media_field ".${field} = \$path" --arg path "$path"
+    cmd_scan >/dev/null 2>&1 &
     cmd_settings_get
 }
 

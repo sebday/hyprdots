@@ -32,7 +32,10 @@ Item {
     property var fontFamilies: []
     property string mediaTvRoot: ""
     property string mediaFilmsRoot: ""
+    property var mediaAvailableShows: []
+    property var mediaEnabledShows: []
     property bool mediaReady: false
+    property bool suppressMediaPathCommit: false
     property bool hyprReady: false
     property bool barReady: false
     property bool notificationsReady: false
@@ -49,7 +52,7 @@ Item {
     readonly property bool ready: hyprReady && barReady && fontReady
     readonly property bool fontBusy: fontSetProc.running
     readonly property bool mediaBusy: mediaTvSetProc.running || mediaFilmsSetProc.running
-        || mediaTvPickProc.running || mediaFilmsPickProc.running
+        || mediaTvPickProc.running || mediaFilmsPickProc.running || mediaShowsSetProc.running
     readonly property bool playerBusy: playerSetProc.running || playerLibraryPickProc.running
     readonly property bool tasksBusy: taskVaultSetProc.running || taskVaultPickProc.running
     readonly property bool settingsBusy: fontBusy || mediaBusy || playerBusy || tasksBusy || hyprToggleProc.running || hyprSetProc.running
@@ -120,16 +123,31 @@ Item {
         mediaFilmsSetProc.running = true
     }
 
+    function finishMediaPick(raw) {
+        suppressMediaPathCommit = false
+        if (raw !== undefined && String(raw || "").trim())
+            parseMediaSettings(raw)
+    }
+
     function pickMediaTv() {
         if (!mediaReady || settingsBusy)
             return
+        suppressMediaPathCommit = true
         mediaTvPickProc.running = true
     }
 
     function pickMediaFilms() {
         if (!mediaReady || settingsBusy)
             return
+        suppressMediaPathCommit = true
         mediaFilmsPickProc.running = true
+    }
+
+    function setMediaEnabledShows(shows) {
+        if (!mediaReady || settingsBusy)
+            return
+        mediaShowsSetProc.payload = JSON.stringify(shows || [])
+        mediaShowsSetProc.running = true
     }
 
     function setMusicLibrary(path) {
@@ -227,10 +245,16 @@ Item {
             var data = JSON.parse(String(raw || "{}"))
             root.mediaTvRoot = data.tvRoot ? String(data.tvRoot) : ""
             root.mediaFilmsRoot = data.filmsRoot ? String(data.filmsRoot) : ""
+            var available = Array.isArray(data.availableShows) ? data.availableShows : []
+            var enabled = Array.isArray(data.enabledShows) ? data.enabledShows : available
+            root.mediaAvailableShows = available
+            root.mediaEnabledShows = enabled
             root.mediaReady = data.ok === true
         } catch (e) {
             root.mediaTvRoot = ""
             root.mediaFilmsRoot = ""
+            root.mediaAvailableShows = []
+            root.mediaEnabledShows = []
             root.mediaReady = false
         }
     }
@@ -438,21 +462,28 @@ Item {
         id: mediaTvPickProc
         command: ["bash", root.mediaScript, "settings", "pick", "tv"]
         stdout: StdioCollector {
-            onStreamFinished: {
-                if (String(text || "").trim())
-                    root.parseMediaSettings(text)
-            }
+            onStreamFinished: root.finishMediaPick(text)
         }
+        onExited: root.finishMediaPick()
     }
 
     Process {
         id: mediaFilmsPickProc
         command: ["bash", root.mediaScript, "settings", "pick", "films"]
         stdout: StdioCollector {
-            onStreamFinished: {
-                if (String(text || "").trim())
-                    root.parseMediaSettings(text)
-            }
+            onStreamFinished: root.finishMediaPick(text)
+        }
+        onExited: root.finishMediaPick()
+    }
+
+    Process {
+        id: mediaShowsSetProc
+        property string payload: "[]"
+        command: ["bash", "-lc",
+            Util.shellQuote(root.mediaScript) + " settings set " + Util.shellQuote(mediaShowsSetProc.payload)
+        ]
+        stdout: StdioCollector {
+            onStreamFinished: root.parseMediaSettings(text)
         }
     }
 
@@ -516,18 +547,20 @@ Item {
         }
     }
 
+    readonly property int settingsContentTopPad: 8
+
     Flickable {
         anchors.fill: parent
         clip: true
         contentWidth: width
-        contentHeight: settingsColumn.implicitHeight + Theme.spacing2
+        contentHeight: settingsColumn.implicitHeight + settingsContentTopPad + Theme.spacing2
         boundsBehavior: Flickable.StopAtBounds
         flickableDirection: Flickable.VerticalFlick
 
         ColumnLayout {
             id: settingsColumn
             width: parent.width
-            y: Theme.spacing2
+            y: settingsContentTopPad
             spacing: 16
 
             SectionPanel {
@@ -785,7 +818,10 @@ Item {
                                 clip: true
                                 text: root.mediaTvRoot
                                 enabled: root.mediaReady && !settingsBusy
-                                onEditingFinished: root.setMediaTvRoot(text)
+                                onEditingFinished: {
+                                    if (!root.suppressMediaPathCommit)
+                                        root.setMediaTvRoot(text)
+                                }
                             }
                         }
 
@@ -853,7 +889,10 @@ Item {
                                 clip: true
                                 text: root.mediaFilmsRoot
                                 enabled: root.mediaReady && !settingsBusy
-                                onEditingFinished: root.setMediaFilmsRoot(text)
+                                onEditingFinished: {
+                                    if (!root.suppressMediaPathCommit)
+                                        root.setMediaFilmsRoot(text)
+                                }
                             }
                         }
 
@@ -881,6 +920,20 @@ Item {
                                 onClicked: root.pickMediaFilms()
                             }
                         }
+                    }
+                }
+
+                MultiSelectPicker {
+                    Layout.fillWidth: true
+                    label: "TV shows in media popup"
+                    placeholder: root.mediaAvailableShows.length > 0
+                        ? "Select shows…"
+                        : "Set TV folder and scan library"
+                    options: root.mediaAvailableShows
+                    selected: root.mediaEnabledShows
+                    enabled: root.mediaReady && !settingsBusy && root.mediaAvailableShows.length > 0
+                    onSelectionChanged: function(next) {
+                        root.setMediaEnabledShows(next)
                     }
                 }
             }

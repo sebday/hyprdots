@@ -27,7 +27,7 @@ Item {
         radius: height / 2
         color: root.fieldsetLegend ? root.fieldsetFill : root.fill
         implicitWidth: labelText.implicitWidth + 12
-        implicitHeight: labelText.implicitHeight + 6
+        implicitHeight: labelText.implicitHeight + (root.fieldsetLegend ? 8 : 6)
         width: implicitWidth
         height: implicitHeight
 

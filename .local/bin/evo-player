@@ -1085,6 +1085,34 @@ cmd_sort_impl() {
   [[ "$failed" -eq 0 ]]
 }
 
+run_sort_job() {
+  local folder="$1"
+  local json="$2"
+  local rel="${folder#${MUSIC_ROOT}/}"
+  rel="${rel#/}"
+  local label="sort ${rel:-/}"
+  ensure_dirs
+  local running
+  running="$(library_job_running "$$")"
+  if [[ -n "$running" ]]; then
+    local running_cmd="${running##* }"
+    if [[ "$running_cmd" != "build" ]]; then
+      local run_label="$running_cmd"
+      case "$running_cmd" in
+        build) run_label="build" ;;
+        soundcloud|sync) run_label="download soundcloud" ;;
+        import) run_label="import incoming" ;;
+        sort) run_label="sort" ;;
+      esac
+      echo "evo-player: busy — ${run_label} already running" >&2
+      return 2
+    fi
+    cmd_sort_impl "$folder" "$json"
+    return $?
+  fi
+  run_exclusive_job sort "$label" cmd_sort_impl "$folder" "$json"
+}
+
 cmd_sort() {
   local folder="" json=0
   while [[ $# -gt 0 ]]; do
@@ -1097,11 +1125,7 @@ cmd_sort() {
     shift
   done
   [[ -n "$folder" ]] || usage
-  if [[ "$json" -eq 1 ]]; then
-    run_exclusive_job sort "sort ${folder}" cmd_sort_impl "$folder" 1
-  else
-    run_exclusive_job sort "sort ${folder}" cmd_sort_impl "$folder" 0
-  fi
+  run_sort_job "$folder" "$json"
 }
 
 cmd_config_get() {

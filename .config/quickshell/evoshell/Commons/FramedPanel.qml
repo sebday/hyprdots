@@ -27,7 +27,7 @@ Item {
     readonly property bool hasLabel: label !== ""
     readonly property bool hasLegendOverlay: legendOverlay && legendOverlay.visible
     readonly property int legendOverlayHeight: hasLegendOverlay ? legendOverlay.implicitHeight : 0
-    readonly property int legendTopInset: hasLegendOverlay ? 4 : 0
+    readonly property int legendTopInset: hasLegendOverlay ? 6 : 0
     readonly property int legendOverlap: legendOverlayHeight > 0
         ? Math.ceil(legendOverlayHeight / 2) + legendTopInset : 0
     readonly property int cornerRadius: Theme.fieldsetCornerRadius
@@ -35,7 +35,9 @@ Item {
     readonly property int contentWidth: Math.max(contentHost.childrenRect.width, 1)
     readonly property int contentHeight: Math.max(contentHost.childrenRect.height, 1)
     readonly property int labelRowHeight: hasLabel ? frameLabel.implicitHeight + labelGap : 0
-    readonly property int legendContentGap: hasLegendOverlay ? Math.max(Theme.spacingS, Math.ceil(legendOverlayHeight / 2)) : 0
+    readonly property int legendContentGap: hasLegendOverlay
+        ? Math.max(Theme.spacingS, Math.ceil(legendOverlayHeight / 2)) + 4
+        : 0
     readonly property int verticalChrome: scaledPad * 2 + labelRowHeight + legendContentGap
     readonly property int frameHeight: contentHeight + verticalChrome
 

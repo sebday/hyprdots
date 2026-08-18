@@ -147,6 +147,10 @@ Item {
     readonly property bool infoListMode: submenu === "bindings" || submenu === "shell"
     readonly property int framedMenuWidth: infoListMode ? 960 : 720
     readonly property int infoKeysWidth: Math.min(380, Math.floor(framedMenuWidth * 0.42))
+    readonly property int framedMenuHeight: 640
+    readonly property int framedPadding: 16
+    readonly property int framedFilterChromeHeight: listFilterHeight
+    readonly property int framedListHeight: Math.max(120, framedMenuHeight - framedPadding * 2 - framedFilterChromeHeight - 12)
 
     function focusSearchField() {
         if (root.styledMenuMode)
@@ -700,7 +704,7 @@ Item {
                     : root.framedMenuWidth
             height: root.styledMenuMode
                 ? (root.appsGridMode ? root.styledMenuHostHeight : root.gridHeight + root.powerHeaderHeight + root.powerMenuPadding * 2 + 28)
-                : root.boxTileMode ? root.boxRowHeight : 640
+                : root.boxTileMode ? root.boxRowHeight : root.framedMenuHeight
             focus: root.opened && (root.previewTileMode || root.styledMenuMode)
 
             TextInput {
@@ -755,45 +759,48 @@ Item {
             }
 
             Column {
+                id: framedColumn
                 anchors.fill: parent
-                anchors.margins: root.styledMenuMode ? root.powerMenuPadding : (root.boxTileMode ? 0 : 16)
+                anchors.margins: root.styledMenuMode ? root.powerMenuPadding : (root.boxTileMode ? 0 : root.framedPadding)
                 spacing: root.styledMenuMode ? 14 : 12
+                clip: root.framedMode
 
                 Item {
+                    id: filterChrome
                     width: parent.width
-                    height: root.submenu === "shell" ? root.listFilterHeight + 34 : root.listFilterHeight
+                    height: root.framedFilterChromeHeight
                     visible: root.framedMode
 
                     Rectangle {
                         id: filterBg
-                        anchors.top: parent.top
-                        width: parent.width
-                        height: root.listFilterHeight
+                        anchors.fill: parent
                         color: Theme.overlaySurface
                     }
 
                     Text {
                         visible: filterField.text.length === 0 && !filterField.activeFocus
-                        anchors.left: filterBg.left
+                        anchors.left: parent.left
                         anchors.leftMargin: 12
-                        anchors.verticalCenter: filterBg.verticalCenter
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.right: shellToggleRow.visible ? shellToggleRow.left : parent.right
+                        anchors.rightMargin: shellToggleRow.visible ? 12 : 12
                         text: root.placeholderText
                         color: Theme.foreground
                         opacity: Theme.opacityDisabled
                         font.family: Theme.fontFamily
                         font.pixelSize: root.listFilterFontSize
                         font.bold: Theme.fontBold
+                        elide: Text.ElideRight
                     }
 
                     TextInput {
                         id: filterField
-                        anchors.top: filterBg.top
-                        width: filterBg.width
-                        height: filterBg.height
+                        anchors.top: parent.top
+                        anchors.bottom: parent.bottom
+                        anchors.left: parent.left
+                        anchors.right: shellToggleRow.visible ? shellToggleRow.left : parent.right
                         anchors.leftMargin: 12
                         anchors.rightMargin: 12
-                        leftPadding: 12
-                        rightPadding: 12
                         color: Theme.foreground
                         font.family: Theme.fontFamily
                         font.pixelSize: root.listFilterFontSize
@@ -811,12 +818,13 @@ Item {
                     }
 
                     Row {
+                        id: shellToggleRow
                         visible: root.submenu === "shell"
-                        anchors.top: filterBg.bottom
-                        anchors.topMargin: 8
-                        anchors.left: parent.left
-                        anchors.leftMargin: 8
+                        anchors.right: parent.right
+                        anchors.rightMargin: 10
+                        anchors.verticalCenter: parent.verticalCenter
                         spacing: 8
+                        height: parent.height
 
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
@@ -1200,7 +1208,7 @@ Item {
                 ListView {
                     id: entryList
                     width: parent.width
-                    height: parent.height
+                    height: root.framedMode ? root.framedListHeight : parent.height - y
                     clip: true
                     visible: root.framedMode
                     model: root.visibleEntries
@@ -1229,7 +1237,7 @@ Item {
                         Row {
                             anchors.fill: parent
                             anchors.leftMargin: 8
-                            anchors.rightMargin: 8
+                            anchors.rightMargin: 12
                             spacing: 12
 
                             Item {

@@ -118,11 +118,32 @@ Item {
     property bool playbackStatePending: false
     property string playbackStateTarget: ""
     property bool libraryPanelOpen: false
+    property var volumeTransportBtn: null
     readonly property var libraryActions: [
-        { icon: "󰲹", label: "build", args: ["build"] },
-        { icon: "󰕧", label: "download soundcloud", args: ["sync"] },
-        { icon: "󰋋", label: "import incoming", args: ["import"] },
-        { icon: "󰋩", label: "fix art", args: ["art", "maintain"] }
+        {
+            icon: "󰲹",
+            label: "build",
+            hint: "rebuild playlists, tag cache, art and waveforms",
+            args: ["build"]
+        },
+        {
+            icon: "󰕧",
+            label: "download soundcloud",
+            hint: "download new tracks from soundcloud",
+            args: ["sync"]
+        },
+        {
+            icon: "󰋋",
+            label: "import incoming",
+            hint: "import files from .incoming into the library",
+            args: ["import"]
+        },
+        {
+            icon: "󰋩",
+            label: "fix art",
+            hint: "find and fix missing album art",
+            args: ["art", "maintain"]
+        }
     ]
     readonly property string libraryStatusLine: {
         var busyLabel = root.libraryJobBusy
@@ -1229,12 +1250,45 @@ Item {
     function browseSortFolder(entry) {
         if (!entry || entry.type !== "dir" || !entry.path)
             return
-        if (libraryJobBusy) {
+        if (sortProc.running) {
+            notify("busy — sort", 2000)
+            return
+        }
+        if (libraryJobBusy && !buildBusy) {
             notify("busy — " + libraryJobActiveLabel, 2000)
             return
         }
         var folderPath = String(entry.path)
-        runJob(["sort", folderPath, "--json"], "sort " + folderPath.split("/").pop(), { stayOnScreen: false })
+        var label = "sort " + folderPath.split("/").pop()
+        if (buildBusy && libraryJobBusy) {
+            runSortDuringBuild(folderPath, label)
+            return
+        }
+        runJob(["sort", folderPath, "--json"], label, { stayOnScreen: false })
+    }
+
+    function runSortDuringBuild(folderPath, label) {
+        sortProc.command = ["bash", playerScript, "sort", folderPath, "--json"]
+        sortProc._label = label
+        jobLog = String(jobLog || "") + (jobLog ? "\n" : "") + label + "…"
+        notify(label + "…", 2000)
+        sortProc.running = true
+    }
+
+    function onSortFinished(exitCode) {
+        var label = sortProc._label || "sort"
+        sortProc._label = ""
+        if (exitCode === 0) {
+            notify(label + " complete", 4000)
+            jobLog = String(jobLog || "") + "\n" + label + " complete"
+            if (browsePanelOpen || browseTreeRows.length > 0)
+                loadBrowseTreeRoot()
+        } else if (exitCode === 2) {
+            notify("busy — cannot sort now", 4000)
+        } else {
+            var err = sortErr.text ? String(sortErr.text).trim().split("\n").pop() : ""
+            notify(label + " failed" + (err ? " — " + err : ""), 5000)
+        }
     }
 
     function browseAppendFolder(entry) {
@@ -2265,6 +2319,18 @@ Item {
         }
     }
 
+    Process {
+        id: sortProc
+        property string _label: ""
+        stdout: StdioCollector {}
+        stderr: StdioCollector {
+            id: sortErr
+        }
+        onExited: function(exitCode) {
+            root.onSortFinished(exitCode)
+        }
+    }
+
     Timer {
         id: jobStatusTimer
         interval: 2000
@@ -2619,6 +2685,7 @@ Item {
                             barHeight: root.genreTabHeight
                             icon: modelData.icon
                             label: modelData.label
+                            hint: modelData.hint || ""
                             dimmed: root.libraryJobBusy
                             spinning: root.libraryJobBusy && root.libraryJobActiveLabel === modelData.label
                             onActivated: if (!root.libraryJobBusy) root.runLibraryAction(modelData)
@@ -3267,15 +3334,14 @@ Item {
         property int side: 56
         property bool showPickerOverlay: false
         property bool fillPane: false
-        property bool wheelPopupActive: false
-        readonly property int volumeLevel: Math.round(root.player.volume !== undefined ? root.player.volume : 100)
 
         function nudgeVolume(delta) {
             if (!delta)
                 return
-            wheelPopupActive = true
-            volumePopupHideTimer.restart()
-            root.adjustVolume(delta)
+            if (root.volumeTransportBtn)
+                root.volumeTransportBtn.nudgeVolume(delta)
+            else
+                root.adjustVolume(delta)
         }
 
         function handleWheel(wheel) {
@@ -3283,13 +3349,6 @@ Item {
                 return
             nudgeVolume(wheel.angleDelta.y > 0 ? 5 : -5)
             wheel.accepted = true
-        }
-
-        Timer {
-            id: volumePopupHideTimer
-            interval: 1600
-            repeat: false
-            onTriggered: thumbRoot.wheelPopupActive = false
         }
 
         implicitWidth: fillPane ? 0 : side
@@ -3394,26 +3453,6 @@ Item {
                 anchors.fill: parent
                 visible: thumbRoot.showPickerOverlay && root.artPickerOpen
             }
-        }
-
-        VolumeSliderPopup {
-            id: artVolPopup
-            visible: thumbRoot.wheelPopupActive || artVolPopup.sliderPressed
-            z: 10
-            level: thumbRoot.volumeLevel
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.bottom: parent.top
-            anchors.bottomMargin: 8
-            onVolumeSet: function(v) {
-                thumbRoot.wheelPopupActive = true
-                volumePopupHideTimer.restart()
-                root.setVolume(v)
-            }
-            onInteracted: {
-                thumbRoot.wheelPopupActive = true
-                volumePopupHideTimer.restart()
-            }
-            onWheelNudge: function(delta) { thumbRoot.nudgeVolume(delta) }
         }
     }
 
@@ -3917,6 +3956,12 @@ Item {
         readonly property int level: Math.round(root.player.volume !== undefined ? root.player.volume : 100)
         property bool wheelPopupActive: false
         readonly property bool popupVisible: volHover.containsMouse || volSliderPopup.sliderPressed || wheelPopupActive
+
+        Component.onCompleted: root.volumeTransportBtn = volBtn
+        Component.onDestruction: {
+            if (root.volumeTransportBtn === volBtn)
+                root.volumeTransportBtn = null
+        }
 
         implicitWidth: root.transportBtnSize
         implicitHeight: root.transportBtnSize
@@ -4917,25 +4962,13 @@ Item {
                             anchors.rightMargin: 6
                             spacing: Theme.spacingS
 
-                            Text {
+                            BrowseTreeIcon {
                                 Layout.preferredWidth: 14
-                                text: modelData.expanded ? "󰅃" : "󰅂"
-                                color: Theme.foreground
-                                opacity: treeChevronMouse.containsMouse ? 0.9 : 0.45
-                                font.family: Theme.fontFamily
-                                font.pixelSize: root.libraryFont
-
-                                MouseArea {
-                                    id: treeChevronMouse
-                                    anchors.fill: parent
-                                    anchors.margins: -4
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: function(mouse) {
-                                        mouse.accepted = true
-                                        root.toggleBrowseTreeNode(modelData.path)
-                                    }
-                                }
+                                icon: modelData.expanded ? "󰅃" : "󰅂"
+                                hint: "expand or collapse folder"
+                                glyphOpacity: 0.45
+                                hoverOpacity: 0.9
+                                onActivated: root.toggleBrowseTreeNode(modelData.path)
                             }
 
                             Text {
@@ -4964,84 +4997,34 @@ Item {
                                 opacity: Theme.opacityDisabled
                             }
 
-                            Text {
-                                text: "󰉖"
-                                color: Theme.foreground
-                                opacity: treeOpenMouse.containsMouse ? 0.85 : 0.45
-                                font.family: Theme.fontFamily
-                                font.pixelSize: root.listFont
-
-                                MouseArea {
-                                    id: treeOpenMouse
-                                    anchors.fill: parent
-                                    anchors.margins: -6
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: function(mouse) {
-                                        mouse.accepted = true
-                                        root.openBrowseFolder(modelData)
-                                    }
-                                }
+                            BrowseTreeIcon {
+                                icon: "󰉖"
+                                hint: "open folder in file manager"
+                                onActivated: root.openBrowseFolder(modelData)
                             }
 
-                            Text {
-                                text: "󰉚"
-                                color: Theme.foreground
-                                opacity: treeSortMouse.containsMouse ? 0.85 : 0.45
-                                font.family: Theme.fontFamily
-                                font.pixelSize: root.listFont
-
-                                MouseArea {
-                                    id: treeSortMouse
-                                    anchors.fill: parent
-                                    anchors.margins: -6
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: function(mouse) {
-                                        mouse.accepted = true
-                                        root.browseSortFolder(modelData)
-                                    }
-                                }
+                            BrowseTreeIcon {
+                                icon: "󰉚"
+                                hint: "sort files into album folders"
+                                onActivated: root.browseSortFolder(modelData)
                             }
 
-                            Text {
-                                text: "󰐕"
-                                color: Theme.accent
-                                opacity: treeAppendMouse.containsMouse ? 1 : 0.55
-                                font.family: Theme.fontFamily
-                                font.pixelSize: root.listFont
-
-                                MouseArea {
-                                    id: treeAppendMouse
-                                    anchors.fill: parent
-                                    anchors.margins: -6
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: function(mouse) {
-                                        mouse.accepted = true
-                                        root.browseAppendFolder(modelData)
-                                    }
-                                }
+                            BrowseTreeIcon {
+                                icon: "󰐕"
+                                hint: "append folder to current playlist"
+                                glyphColor: Theme.accent
+                                glyphOpacity: 0.55
+                                hoverOpacity: 1
+                                onActivated: root.browseAppendFolder(modelData)
                             }
 
-                            Text {
-                                text: "󰐊"
-                                color: Theme.accent
-                                opacity: treePlayMouse.containsMouse ? 1 : 0.55
-                                font.family: Theme.fontFamily
-                                font.pixelSize: root.listFont
-
-                                MouseArea {
-                                    id: treePlayMouse
-                                    anchors.fill: parent
-                                    anchors.margins: -6
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: function(mouse) {
-                                        mouse.accepted = true
-                                        root.browseQueueFolder(modelData)
-                                    }
-                                }
+                            BrowseTreeIcon {
+                                icon: "󰐊"
+                                hint: "play all tracks in folder"
+                                glyphColor: Theme.accent
+                                glyphOpacity: 0.55
+                                hoverOpacity: 1
+                                onActivated: root.browseQueueFolder(modelData)
                             }
                         }
 
@@ -5326,11 +5309,73 @@ Item {
         }
     }
 
+    component BriefTooltip: Item {
+        property bool show: false
+        property string text: ""
+
+        z: 200
+        width: 1
+        height: 1
+
+        HoverPopupLabelPill {
+            visible: show && text !== ""
+            anchors.bottom: parent.top
+            anchors.bottomMargin: 5
+            anchors.horizontalCenter: parent.horizontalCenter
+            text: parent.text
+            fontSize: Theme.fontSizeXs
+            textOpacity: 0.9
+            fieldsetLegend: false
+            fill: Qt.rgba(Theme.mantle.r, Theme.mantle.g, Theme.mantle.b, 0.96)
+        }
+    }
+
+    component BrowseTreeIcon: Item {
+        id: treeIcon
+        property string icon: ""
+        property string hint: ""
+        property color glyphColor: Theme.foreground
+        property real glyphOpacity: 0.45
+        property real hoverOpacity: 0.85
+        signal activated()
+
+        implicitWidth: glyph.implicitWidth + 8
+        implicitHeight: glyph.implicitHeight + 8
+
+        Text {
+            id: glyph
+            anchors.centerIn: parent
+            text: treeIcon.icon
+            color: treeIcon.glyphColor
+            opacity: iconMouse.containsMouse ? treeIcon.hoverOpacity : treeIcon.glyphOpacity
+            font.family: Theme.fontFamily
+            font.pixelSize: root.listFont
+        }
+
+        MouseArea {
+            id: iconMouse
+            anchors.fill: parent
+            anchors.margins: -6
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: function(mouse) {
+                mouse.accepted = true
+                treeIcon.activated()
+            }
+        }
+
+        BriefTooltip {
+            show: iconMouse.containsMouse && treeIcon.hint !== ""
+            text: treeIcon.hint
+        }
+    }
+
     component LibraryBarAction: Rectangle {
         id: barAction
         property int barHeight: 34
         property string icon: ""
         property string label: ""
+        property string hint: ""
         property bool dimmed: false
         property bool spinning: false
         signal activated()
@@ -5345,6 +5390,11 @@ Item {
                 : (dimmed
                     ? "transparent"
                     : Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.03)))
+
+        BriefTooltip {
+            show: barMouse.containsMouse && barAction.hint !== ""
+            text: barAction.hint
+        }
 
         Row {
             id: actionRow
