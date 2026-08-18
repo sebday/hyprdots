@@ -59,8 +59,8 @@ run_exclusive_job() {
   if [[ -n "$running" ]]; then
     case "${running##* }" in
       build) run_label="build" ;;
-      soundcloud) run_label="sync soundcloud" ;;
-      import) run_label="import .incoming" ;;
+      soundcloud|sync) run_label="download soundcloud" ;;
+      import) run_label="import incoming" ;;
       *) run_label="${running##* }" ;;
     esac
     echo "evo-player: busy — ${run_label} already running" >&2
@@ -92,7 +92,7 @@ run_exclusive_job() {
 library_job_running() {
   local exclude="${1:-}"
   ps -eo pid=,ppid=,args= | awk -v exclude="$exclude" '
-    /\/evo-player build (all|quick)$/ {
+    /\/evo-player build( |$)/ {
       pid=$1
       gsub(/^[[:space:]]+/, "", pid)
       ppid=$2
@@ -101,7 +101,7 @@ library_job_running() {
       order[++n]=pid
       next
     }
-    /\/evo-player (soundcloud|import)$/ {
+    /\/evo-player (soundcloud|import|sync|sort)$/ {
       pid=$1
       gsub(/^[[:space:]]+/, "", pid)
       ppid=$2
@@ -142,8 +142,9 @@ cmd_job_status() {
     cmd="${running##* }"
     case "$cmd" in
       build) label="build" ;;
-      soundcloud) label="sync soundcloud" ;;
-      import) label="import .incoming" ;;
+      soundcloud|sync) label="download soundcloud" ;;
+      import) label="import incoming" ;;
+      sort) label="sort" ;;
       *) label="$cmd" ;;
     esac
     if [[ "$json" == --json ]]; then
@@ -232,6 +233,106 @@ config_val() {
   fi
   printf '%s' "$default"
 }
+
+config_toml_get() {
+  local section="$1" key="$2" default="${3:-}"
+  python3 - "$MUSIC_CONFIG" "$section" "$key" "$default" <<'PY'
+import sys
+try:
+    import tomllib
+except ImportError:
+    import tomli as tomllib
+
+path, section, key, default = sys.argv[1:5]
+try:
+    with open(path, "rb") as fh:
+        data = tomllib.load(fh)
+    val = data.get(section, {}).get(key)
+    if val is None:
+        print(default, end="")
+    elif isinstance(val, bool):
+        print("true" if val else "false", end="")
+    else:
+        print(val, end="")
+except FileNotFoundError:
+    print(default, end="")
+PY
+}
+
+config_toml_set() {
+  local section="$1" key="$2" value="$3"
+  ensure_dirs
+  python3 - "$MUSIC_CONFIG" "$section" "$key" "$value" <<'PY'
+import os, sys
+try:
+    import tomllib
+except ImportError:
+    import tomli as tomllib
+
+path, section, key, value = sys.argv[1:5]
+
+def load(path):
+    if not os.path.isfile(path):
+        return {}
+    with open(path, "rb") as fh:
+        return tomllib.load(fh)
+
+def esc(s):
+    return s.replace("\\", "\\\\").replace('"', '\\"')
+
+def write(path, data):
+    lines = []
+    for sec, vals in data.items():
+        lines.append(f"[{sec}]")
+        for k, v in vals.items():
+            if isinstance(v, str):
+                lines.append(f'{k} = "{esc(v)}"')
+            elif isinstance(v, bool):
+                lines.append(f'{k} = {"true" if v else "false"}')
+            elif isinstance(v, list):
+                items = ", ".join(f'"{esc(str(x))}"' for x in v)
+                lines.append(f"{k} = [{items}]")
+            else:
+                lines.append(f"{k} = {v}")
+        lines.append("")
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write("\n".join(lines).rstrip() + "\n")
+
+data = load(path)
+data.setdefault(section, {})[key] = value
+write(path, data)
+PY
+}
+
+config_toml_json() {
+  python3 - "$MUSIC_CONFIG" <<'PY'
+import json, os, sys
+try:
+    import tomllib
+except ImportError:
+    import tomli as tomllib
+
+path = sys.argv[1]
+try:
+    with open(path, "rb") as fh:
+        data = tomllib.load(fh)
+except FileNotFoundError:
+    data = {}
+sc = data.get("soundcloud", {})
+user = sc.get("user") or "seb-day"
+likes = sc.get("likes_url") or f"https://soundcloud.com/{user}/likes"
+print(json.dumps({
+    "soundcloud": {
+        "user": user,
+        "cookies_from": sc.get("cookies_from") or "brave",
+        "likes_url": likes,
+    }
+}, ensure_ascii=False))
+PY
+}
+
+PLACE_MIX_SECONDS=1200
 
 is_audio() {
   local path="$1"
@@ -451,6 +552,164 @@ ffprobe_year() {
   fi
 }
 
+ffprobe_duration() {
+  local path="$1"
+  ffprobe -v quiet -show_entries format=duration -of default=nw=1:nk=1 "$path" 2>/dev/null \
+    | head -1 \
+    | awk '{d=$1+0; if (d>0) printf "%d", int(d); else print 0}'
+}
+
+year_from_path_string() {
+  local p="$1"
+  python3 - "$p" <<'PY'
+import re, sys
+p = sys.argv[1]
+m = re.search(r"(?:19|20)\d{2}", p)
+if m:
+    print(m.group(0), end="")
+    raise SystemExit
+m = re.search(r"(\d{2})[.-](\d{2})[.-](20\d{2})", p)
+if m:
+    print(m.group(3), end="")
+    raise SystemExit
+m = re.search(r"(?:^|[-_.])(\d{2})[.-](\d{2})[.-](\d{2})(?:\D|$)", p)
+if m:
+    yy = int(m.group(3))
+    print(2000 + yy if yy < 70 else 1900 + yy, end="")
+PY
+}
+
+resolve_year() {
+  local path="$1"
+  local year tags
+  tags="$(track_tags_read "$path")"
+  year="$(jq -r '.year // ""' <<<"$tags")"
+  if [[ "$year" =~ ^[0-9]{4}$ ]]; then
+    printf '%s' "$year"
+    return 0
+  fi
+  year="$(ffprobe_year "$path")"
+  if [[ -n "$year" ]]; then
+    printf '%s' "$year"
+    return 0
+  fi
+  year="$(year_from_path_string "$path")"
+  if [[ -n "$year" ]]; then
+    printf '%s' "$year"
+    return 0
+  fi
+  printf 'unknown'
+}
+
+resolve_genre_from_tags() {
+  local path="$1"
+  local tag genre="" path_genre
+  tag="$(jq -r '.genre // ""' <<<"$(track_tags_read "$path")")"
+  if mixes_override_genre "$path" >/dev/null; then
+    genre="$(mixes_override_genre "$path")"
+    printf '%s' "$genre"
+    return 0
+  fi
+  if genre="$(genre_tag_to_folder "$tag")"; then
+    printf '%s' "$genre"
+    return 0
+  fi
+  path_genre="$(genre_from_path "$path")"
+  if [[ -n "$path_genre" ]] && ! skip_dir "$path_genre"; then
+    printf '%s' "$path_genre"
+    return 0
+  fi
+  return 1
+}
+
+track_is_mix() {
+  local path="$1"
+  local dur stem lower
+  dur="$(ffprobe_duration "$path")"
+  dur="${dur%%.*}"
+  [[ "$dur" =~ ^[0-9]+$ ]] || dur=0
+  if (( dur > PLACE_MIX_SECONDS )); then
+    return 0
+  fi
+  if (( dur > 0 )); then
+    return 1
+  fi
+  stem="$(basename "${path%.*}")"
+  lower="$(printf '%s' "$stem" | tr '[:upper:]' '[:lower:]')"
+  case "$lower" in
+    *mixed*|*essential*|*euphoria*|*session*|*boiler*|*radio_show*|*radio-show*|*-mix|*_mix|*live_mixed*)
+      return 0
+      ;;
+  esac
+  return 1
+}
+
+sort_folder_collect_audio() {
+  local dir="$1"
+  find "$dir" -maxdepth 1 -type f -print0 2>/dev/null
+}
+
+paths_equal() {
+  local a="$1" b="$2"
+  [[ -n "$a" && -n "$b" ]] || return 1
+  a="$(realpath -m "$a" 2>/dev/null || printf '%s' "$a")"
+  b="$(realpath -m "$b" 2>/dev/null || printf '%s' "$b")"
+  [[ "$a" == "$b" ]]
+}
+
+beet_path_query_lib() {
+  local path="$1"
+  local rel escaped
+  rel="${path#${MUSIC_ROOT}/}"
+  [[ "$rel" == "$path" ]] && rel="$(basename "$path")"
+  escaped="${rel//\\/\\\\}"
+  escaped="${escaped//\"/\\\"}"
+  printf 'path:"%s"' "$escaped"
+}
+
+canonical_track_dest() {
+  local path="$1"
+  local genre year dest_dir basename
+  genre="$(resolve_genre_from_tags "$path")" || return 1
+  basename="$(basename "$path")"
+  if track_is_mix "$path"; then
+    year="$(resolve_year "$path")"
+    dest_dir="${MUSIC_ROOT}/${genre}/mixes/${year}"
+  else
+    dest_dir="${MUSIC_ROOT}/${genre}/soundcloud"
+  fi
+  printf '%s/%s' "$dest_dir" "$basename"
+}
+
+place_track() {
+  local src="$1"
+  local dest src_genre dest_genre stale_id
+  [[ -f "$src" ]] || return 1
+  is_audio "$src" || return 1
+  dest="$(canonical_track_dest "$src")" || return 1
+  if paths_equal "$src" "$dest"; then
+    printf '%s' "$dest"
+    return 0
+  fi
+  mkdir -p "$(dirname "$dest")"
+  if [[ -e "$dest" ]]; then
+    echo "evo-player: skip existing dest: $dest" >&2
+    return 1
+  fi
+  if command -v beet >/dev/null 2>&1; then
+    stale_id="$(beet ls -f '$id' "$(beet_path_query_lib "$src")" 2>/dev/null | grep -E '^[0-9]+$' | head -1 || true)"
+  fi
+  src_genre="$(genre_from_path "$src")"
+  mv "$src" "$dest"
+  if [[ -n "${stale_id:-}" ]]; then
+    beet remove -d "$stale_id" 2>/dev/null || true
+  fi
+  dest_genre="$(genre_from_path "$dest")"
+  [[ -n "$src_genre" ]] && tracks_cache_invalidate_genre "$src_genre"
+  [[ -n "$dest_genre" ]] && tracks_cache_invalidate_genre "$dest_genre"
+  printf '%s' "$dest"
+}
+
 track_tags_read() {
   local path="$1"
   python3 - "$path" <<'PY'
@@ -477,6 +736,7 @@ try:
         artist = pick("artist", "album_artist", "albumartist")
         genre = pick("genre")
         album = pick("album")
+        album_artist = pick("album_artist", "albumartist")
         year = pick("date", "year", "originaldate", "original_year", "tyer")
         import re
         m = re.search(r"(\d{4})", year or "")
@@ -485,7 +745,7 @@ except Exception:
     pass
 if not title:
     title = os.path.splitext(os.path.basename(path))[0]
-print(json.dumps({"title": title, "artist": artist, "genre": genre, "album": album, "year": year}, ensure_ascii=False))
+print(json.dumps({"title": title, "artist": artist, "genre": genre, "album": album, "album_artist": album_artist, "year": year}, ensure_ascii=False))
 PY
 }
 
@@ -1298,6 +1558,37 @@ art_notify_cache() {
   mkdir -p "$(dirname "$dest")"
   cp -f "$art" "$dest"
   printf '%s' "$dest"
+}
+
+scrobble_recording_mbid() {
+  local artist="$1" title="$2" album="${3:-}"
+  [[ -n "$artist" && -n "$title" ]] || return 0
+  python3 - "$artist" "$title" "$album" <<'PY'
+import json, sys, time, urllib.parse, urllib.request
+
+artist, title, album = sys.argv[1:4]
+terms = [f'artist:"{artist}"', f'recording:"{title}"']
+if album:
+    terms.append(f'release:"{album}"')
+query = " AND ".join(terms)
+url = "https://musicbrainz.org/ws/2/recording/?" + urllib.parse.urlencode({
+    "query": query,
+    "fmt": "json",
+    "limit": 1,
+})
+req = urllib.request.Request(url, headers={"User-Agent": "evo-player/1.0 (local scrobbler)"})
+time.sleep(1)
+try:
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        data = json.load(resp)
+except Exception:
+    raise SystemExit
+for rec in data.get("recordings") or []:
+    mbid = rec.get("id") or ""
+    if mbid:
+        print(mbid)
+        break
+PY
 }
 
 scrobble_art_for_path() {

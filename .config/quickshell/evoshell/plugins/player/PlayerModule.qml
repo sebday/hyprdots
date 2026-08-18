@@ -59,7 +59,7 @@ Item {
     readonly property bool libraryJobBusy: jobBusy || externalJobBusy
     readonly property string libraryJobActiveLabel: jobBusy ? jobLabel : externalJobLabel
     readonly property bool buildBusy: libraryJobBusy
-        && (libraryJobActiveLabel === "build all" || libraryJobActiveLabel === "build quick" || libraryJobActiveLabel === "build")
+        && libraryJobActiveLabel === "build"
     property bool tracksLoading: false
     property string browsePath: ""
     property string browseParent: ""
@@ -119,13 +119,19 @@ Item {
     property string playbackStateTarget: ""
     property bool libraryPanelOpen: false
     readonly property var libraryActions: [
-        { icon: "󰲹", label: "build all", args: ["build", "all"] },
-        { icon: "󰖟", label: "build quick", args: ["build", "quick"] },
-        { icon: "󰕧", label: "sync soundcloud", args: ["soundcloud"] },
-        { icon: "󰋋", label: "import .incoming", args: ["import"] },
-        { icon: "󰩹", label: "prune art", args: ["cache", "--prune-art"] },
-        { icon: "󰋩", label: "embed art", args: ["art", "embed"] }
+        { icon: "󰲹", label: "build", args: ["build"] },
+        { icon: "󰕧", label: "download soundcloud", args: ["sync"] },
+        { icon: "󰋋", label: "import incoming", args: ["import"] },
+        { icon: "󰋩", label: "fix art", args: ["art", "maintain"] }
     ]
+    readonly property string libraryStatusLine: {
+        var busyLabel = root.libraryJobBusy
+            ? root.libraryJobActiveLabel
+            : (root.externalJobBusy ? root.externalJobLabel : "")
+        if (busyLabel)
+            return root.libraryLogTail(root.jobLog, busyLabel + "…")
+        return root.libraryLogTail(root.jobLog, "")
+    }
     property int artRevision: 0
     property bool artPickerOpen: false
     property bool artPickerLoading: false
@@ -273,11 +279,9 @@ Item {
         browsePanelOpen = false
         libraryPanelOpen = false
         playlistPanelOpen = true
-        playlistPanelMode = selectedPlaylist ? "tracks" : "library"
+        playlistPanelMode = "library"
         playerScreen = "nowPlaying"
-        if (selectedPlaylist)
-            loadPlaylistTracks(selectedPlaylist)
-        else if (!libraryPlaylists.length && !playlistsLoading)
+        if (!libraryPlaylists.length && !playlistsLoading)
             loadPlaylists()
     }
 
@@ -349,6 +353,31 @@ Item {
         if (!text)
             return ""
         return String(text).replace(/\r\n/g, "\n").replace(/\r/g, "\n")
+    }
+
+    function libraryLogTail(log, busyFallback) {
+        var lines = String(log || "").split("\n")
+        var i, line, cleaned
+        for (i = lines.length - 1; i >= 0; i--) {
+            line = String(lines[i] || "").trim()
+            if (!line)
+                continue
+            if (line.indexOf("evo-player:") >= 0) {
+                cleaned = line.replace(/^.*evo-player:\s*/, "").trim()
+                if (cleaned)
+                    return cleaned
+            }
+            if (line.indexOf("…") < 0 && line.indexOf(" complete") < 0)
+                return line
+        }
+        for (i = lines.length - 1; i >= 0; i--) {
+            line = String(lines[i] || "").trim()
+            if (line)
+                return line
+        }
+        if (busyFallback)
+            return busyFallback
+        return (root.libraryStats.tracks || 0) + " tracks · " + (root.libraryStats.genres || 0) + " genres"
     }
 
     function syncJobLog() {
@@ -430,7 +459,7 @@ Item {
             loadGenres()
             loadLibraryStats()
             loadPlaylists()
-            if (browsePanelOpen)
+            if (browsePanelOpen || browseTreeRows.length > 0)
                 loadBrowseTreeRoot()
             if (playlistPanelOpen && selectedPlaylist)
                 loadPlaylistTracks(selectedPlaylist)
@@ -520,85 +549,38 @@ Item {
         })
         libraryPlaylists = all
         playlists = starred
+        rebuildPlaylistTabs()
+    }
+
+    function rebuildPlaylistTabs() {
         playlistTabModel.clear()
-        for (var k = 0; k < starred.length; k++) {
-            playlistTabModel.append({
-                name: starred[k].name,
-                count: starred[k].count || 0
-            })
-        }
-        injectCurrentPlaylist()
-    }
-
-    function currentPlaylistEntry() {
-        return {
+        playlistTabModel.append({
             name: currentPlaylistId,
-            count: currentPlaylistTracks.length,
-            kind: "current",
-            starred: true
-        }
-    }
-
-    function injectCurrentPlaylist() {
-        if (!currentPlaylistActive) {
-            var libs = []
-            for (var i = 0; i < libraryPlaylists.length; i++) {
-                if (libraryPlaylists[i].name !== currentPlaylistId)
-                    libs.push(libraryPlaylists[i])
-            }
-            libraryPlaylists = libs
-
-            var tabNames = []
-            for (var t = 0; t < playlistTabModel.count; t++) {
-                var tabName = playlistTabModel.get(t).name
-                if (tabName !== currentPlaylistId)
-                    tabNames.push({ name: tabName, count: playlistTabModel.get(t).count })
-            }
-            playlistTabModel.clear()
-            for (var v = 0; v < tabNames.length; v++) {
-                playlistTabModel.append({
-                    name: tabNames[v].name,
-                    count: tabNames[v].count || 0
-                })
-            }
-            return
-        }
-        var entry = currentPlaylistEntry()
-        var libs = []
-        var found = false
+            count: currentPlaylistActive ? currentPlaylistTracks.length : 0
+        })
+        var allCount = 0
         for (var i = 0; i < libraryPlaylists.length; i++) {
-            if (libraryPlaylists[i].name === currentPlaylistId) {
-                libs.push(entry)
-                found = true
-            } else {
-                libs.push(libraryPlaylists[i])
-            }
-        }
-        if (!found)
-            libs.unshift(entry)
-        libraryPlaylists = libs
-
-        var tabNames = []
-        for (var t = 0; t < playlistTabModel.count; t++)
-            tabNames.push({ name: playlistTabModel.get(t).name, count: playlistTabModel.get(t).count })
-        var hasCurrent = false
-        for (var u = 0; u < tabNames.length; u++) {
-            if (tabNames[u].name === currentPlaylistId) {
-                tabNames[u].count = entry.count
-                hasCurrent = true
+            if (libraryPlaylists[i].name === "all") {
+                allCount = libraryPlaylists[i].count || 0
                 break
             }
         }
-        if (!hasCurrent)
-            tabNames.unshift({ name: currentPlaylistId, count: entry.count })
-        playlistTabModel.clear()
-        for (var v = 0; v < tabNames.length; v++) {
+        playlistTabModel.append({ name: "all", count: allCount })
+        for (var k = 0; k < playlists.length; k++) {
+            var tabName = String(playlists[k].name || "")
+            if (!tabName || tabName === currentPlaylistId || tabName === "all")
+                continue
             playlistTabModel.append({
-                name: tabNames[v].name,
-                count: tabNames[v].count || 0
+                name: tabName,
+                count: playlists[k].count || 0
             })
         }
         refreshCurrentPlaylistView()
+    }
+
+    function playlistCanStar(name) {
+        var n = String(name || "")
+        return n && n !== currentPlaylistId && n !== "all"
     }
 
     function refreshCurrentPlaylistView() {
@@ -611,7 +593,7 @@ Item {
     }
 
     function commitCurrentPlaylist() {
-        injectCurrentPlaylist()
+        rebuildPlaylistTabs()
         syncPlaylistTabPosition()
         if (selectedPlaylist === currentPlaylistId && playlistPanelOpen)
             loadPlaylistTracks(currentPlaylistId)
@@ -639,7 +621,7 @@ Item {
                 if (list.length > 0) {
                     currentPlaylistTracks = list
                     currentPlaylistActive = true
-                    injectCurrentPlaylist()
+                    rebuildPlaylistTabs()
                 }
             } catch (e) {
             }
@@ -675,7 +657,7 @@ Item {
         currentPlaylistActive = false
         currentPlaylistTracks = []
         currentPlaylistPath = ""
-        injectCurrentPlaylist()
+        rebuildPlaylistTabs()
         if (selectedPlaylist === currentPlaylistId)
             tracks = []
         runMusic(["current", "clear"], null, saveCurrentProc)
@@ -806,6 +788,8 @@ Item {
                     syncSelectedTrackIndex()
                 }
                 syncPlaylistTabPosition()
+            } else if (preferred === "all") {
+                selectPlaylist("all", false)
             } else if (preferred) {
                 for (var i = 0; i < playlists.length; i++) {
                     if (playlists[i].name === preferred) {
@@ -813,8 +797,10 @@ Item {
                         return
                     }
                 }
+                syncPlaylistTabPosition()
+            } else {
+                syncPlaylistTabPosition()
             }
-            syncPlaylistTabPosition()
         })
     }
 
@@ -853,7 +839,7 @@ Item {
 
     function togglePlaylistStar(name) {
         var playlistName = String(name || "")
-        if (!playlistName || playlistName === currentPlaylistId)
+        if (!playlistCanStar(playlistName))
             return
         var nextList = []
         for (var i = 0; i < libraryPlaylists.length; i++) {
@@ -1231,6 +1217,17 @@ Item {
                 root.notify("could not load folder", 2500)
             }
         })
+    }
+
+    function browseSortFolder(entry) {
+        if (!entry || entry.type !== "dir" || !entry.path)
+            return
+        if (libraryJobBusy) {
+            notify("busy — " + libraryJobActiveLabel, 2000)
+            return
+        }
+        var folderPath = String(entry.path)
+        runJob(["sort", folderPath, "--json"], "sort " + folderPath.split("/").pop(), { stayOnScreen: false })
     }
 
     function browseAppendFolder(entry) {
@@ -2268,7 +2265,7 @@ Item {
         id: jobLogTimer
         interval: 100
         repeat: true
-        running: root.jobBusy
+        running: root.jobBusy || root.externalJobBusy || root.libraryPanelOpen
         onTriggered: root.syncJobLog()
     }
 
@@ -2716,12 +2713,14 @@ Item {
                 }
 
                 Item {
-                    Layout.preferredWidth: root.tabSearchBarWidth
+                    Layout.fillWidth: root.libraryPanelOpen
+                    Layout.preferredWidth: root.libraryPanelOpen ? 0 : root.tabSearchBarWidth
                     Layout.preferredHeight: root.genreTabHeight
                     Layout.alignment: Qt.AlignVCenter
 
                     Rectangle {
                         anchors.fill: parent
+                        visible: !root.libraryPanelOpen
                         radius: 6
                         color: Theme.foregroundWash
                         border.color: tabSearchInput.activeFocus
@@ -2766,6 +2765,30 @@ Item {
                             font.family: Theme.fontFamily
                             font.pixelSize: root.libraryFont
                             opacity: 0.4
+                        }
+                    }
+
+                    Rectangle {
+                        anchors.fill: parent
+                        visible: root.libraryPanelOpen
+                        radius: 6
+                        color: Theme.foregroundWash
+                        border.color: Theme.foregroundDivider
+                        border.width: 1
+                        clip: true
+
+                        Text {
+                            anchors.fill: parent
+                            anchors.leftMargin: 8
+                            anchors.rightMargin: 8
+                            verticalAlignment: Text.AlignVCenter
+                            text: root.libraryStatusLine
+                            color: root.libraryJobBusy || root.externalJobBusy ? Theme.accent : Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.libraryFont
+                            font.bold: root.libraryJobBusy || root.externalJobBusy
+                            elide: Text.ElideRight
+                            opacity: root.libraryJobBusy || root.externalJobBusy ? 1 : 0.72
                         }
                     }
                 }
@@ -4793,6 +4816,26 @@ Item {
                             }
 
                             Text {
+                                text: "󰉚"
+                                color: Theme.foreground
+                                opacity: treeSortMouse.containsMouse ? 0.85 : 0.45
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.listFont
+
+                                MouseArea {
+                                    id: treeSortMouse
+                                    anchors.fill: parent
+                                    anchors.margins: -6
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: function(mouse) {
+                                        mouse.accepted = true
+                                        root.browseSortFolder(modelData)
+                                    }
+                                }
+                            }
+
+                            Text {
                                 text: "󰐕"
                                 color: Theme.accent
                                 opacity: treeAppendMouse.containsMouse ? 1 : 0.55
@@ -4836,7 +4879,7 @@ Item {
                         MouseArea {
                             id: treeRowMouse
                             anchors.fill: parent
-                            anchors.rightMargin: 76
+                            anchors.rightMargin: 98
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
                             onClicked: root.toggleBrowseTreeNode(modelData.path)
@@ -4947,6 +4990,29 @@ Item {
                             font.family: Theme.fontFamily
                             font.pixelSize: root.listFont
                             opacity: Theme.opacityDisabled
+                        }
+
+                        Text {
+                            visible: root.playlistCanStar(modelData.name || "")
+                            text: modelData.starred === true ? "󰓎" : "󰓒"
+                            color: modelData.starred === true ? Theme.accent : Theme.foreground
+                            opacity: modelData.starred === true
+                                ? 1
+                                : (playlistStarMouse.containsMouse ? 0.75 : 0.35)
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.listFont
+
+                            MouseArea {
+                                id: playlistStarMouse
+                                anchors.fill: parent
+                                anchors.margins: -6
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: function(mouse) {
+                                    mouse.accepted = true
+                                    root.togglePlaylistStar(modelData.name)
+                                }
+                            }
                         }
                     }
 

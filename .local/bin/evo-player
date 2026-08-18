@@ -23,7 +23,10 @@ usage:
   evo-player volume set <0-100>|volume <delta>
   evo-player save|open|restore|resume|close|stop|status [--json]
   evo-player sync|import|playlists [--force]|soundcloud
-  evo-player build all|quick [--json]
+  evo-player build [--json]
+  evo-player warm [<track-path>]
+  evo-player sort <folder> [--json]
+  evo-player config get [--json]|config set <section.key> <value> [--json]
   evo-player cache [--force] [--prune-art] [--json] [genre]
   evo-player job status [--json]
   evo-player genres [--json]
@@ -38,7 +41,7 @@ usage:
   evo-player art set <track-path> <image-path> [--json]
   evo-player art apply <track-path> <url> [--json]
   evo-player art clear <track-path> [--json]
-  evo-player art embed [--json]
+  evo-player art embed|maintain [--json]
   evo-player art notify-cache <track-path>
   evo-player find [--artist|--genre|--year] <value> [--json]
   evo-player find <query> [--json]
@@ -807,11 +810,6 @@ mpv_running() {
   [[ -S "$MPV_SOCKET" ]] && pgrep -f "input-ipc-server=${MPV_SOCKET}" >/dev/null 2>&1
 }
 
-ffprobe_duration() {
-  local path="$1"
-  ffprobe -v quiet -show_entries format=duration -of default=nw=1:nk=1 "$path" 2>/dev/null | head -1 || printf '0'
-}
-
 player_saved_status_json() {
   ensure_dirs
   local path="" pos="0" genre="" playlist=""
@@ -969,18 +967,60 @@ beet_item_id_for_path() {
   printf '%s' "$id"
 }
 
-cmd_sync() {
+beet_remove_item_id() {
+  local id="$1"
+  [[ -n "$id" ]] || return 0
+  command -v beet >/dev/null 2>&1 || return 0
+  beet remove -d "$id" 2>/dev/null || true
+}
+
+beet_catalog_file() {
+  local path="$1"
+  local id
+  [[ -f "$path" ]] || return 1
+  if ! command -v beet >/dev/null 2>&1; then
+    echo "evo-player: beet not found (run: uv tool install beets)" >&2
+    return 1
+  fi
+  id="$(beet_item_id_for_path "$path")"
+  if [[ -n "$id" ]]; then
+    return 0
+  fi
+  beet import -qA -s "$path" 2>/dev/null || true
+  return 0
+}
+
+cmd_sync_impl() {
   ensure_dirs
   local cookies user url
-  cookies="$(config_val cookies_from brave)"
-  user="$(config_val user seb-day)"
-  url="$(config_val likes_url "https://soundcloud.com/${user}/likes")"
+  cookies="$(config_toml_get soundcloud cookies_from brave)"
+  user="$(config_toml_get soundcloud user seb-day)"
+  url="$(config_toml_get soundcloud likes_url "https://soundcloud.com/${user}/likes")"
   yt-dlp \
     --cookies-from-browser "$cookies" \
     --download-archive "$SYNC_ARCHIVE" \
     -x --audio-format mp3 --embed-metadata --embed-thumbnail \
     -o "${MUSIC_ROOT}/.incoming/%(uploader)s - %(title)s.%(ext)s" \
     "$url"
+}
+
+cmd_sync() {
+  run_exclusive_job sync "download soundcloud" cmd_sync_impl
+}
+
+incoming_skip_file() {
+  local path="$1"
+  local base ext
+  base="$(basename "$path")"
+  case "$base" in
+    *.part|*.ytdl|*.temp.*|*.temp) return 0 ;;
+  esac
+  ext="${path##*.}"
+  ext="${ext,,}"
+  case "$ext" in
+    part|ytdl|temp|jpg|jpeg|png|webp|gif) return 0 ;;
+  esac
+  return 1
 }
 
 cmd_import_impl() {
@@ -990,17 +1030,143 @@ cmd_import_impl() {
   fi
   local incoming="${MUSIC_ROOT}/.incoming"
   [[ -d "$incoming" ]] || mkdir -p "$incoming"
-  local count
-  count="$(find "$incoming" -maxdepth 1 -type f | wc -l)"
-  if [[ "$count" -eq 0 ]]; then
-    echo "evo-player: nothing in .incoming/" >&2
+  local moved=0 failed=0 f dest
+  while IFS= read -r -d '' f; do
+    incoming_skip_file "$f" && continue
+    is_audio "$f" || continue
+    dest="$(place_track "$f")" || {
+      failed=$((failed + 1))
+      continue
+    }
+    moved=$((moved + 1))
+    beet_catalog_file "$dest" || failed=$((failed + 1))
+  done < <(find "$incoming" -maxdepth 1 -type f -print0 2>/dev/null)
+  if [[ "$moved" -eq 0 && "$failed" -eq 0 ]]; then
+    echo "evo-player: nothing to import in .incoming/" >&2
     return 0
   fi
-  beet import -q "$incoming"
+  echo "evo-player: imported ${moved} file(s) from .incoming/" >&2
+  cmd_playlists
+  [[ "$failed" -eq 0 ]]
+}
+
+cmd_sort_impl() {
+  local rel="$1" json="${2:-0}"
+  local dir moved=0 failed=0 f dest canon
+  rel="${rel#${MUSIC_ROOT}/}"
+  rel="${rel#/}"
+  dir="${MUSIC_ROOT}/${rel}"
+  [[ -d "$dir" ]] || {
+    echo "evo-player: not a folder: ${rel:-/}" >&2
+    return 1
+  }
+  while IFS= read -r -d '' f; do
+    is_audio "$f" || continue
+    canon="$(canonical_track_dest "$f")" || {
+      failed=$((failed + 1))
+      continue
+    }
+    if ! paths_equal "$f" "$canon"; then
+      dest="$(place_track "$f")" || {
+        failed=$((failed + 1))
+        continue
+      }
+      moved=$((moved + 1))
+      f="$dest"
+    fi
+    beet_catalog_file "$f" || failed=$((failed + 1))
+  done < <(sort_folder_collect_audio "$dir")
+  if [[ "$json" -eq 1 ]]; then
+    jq -n --arg folder "$rel" --argjson moved "$moved" --argjson failed "$failed" \
+      '{folder:$folder,moved:$moved,failed:$failed}'
+  else
+    printf 'sorted %s: moved %d, failed %d\n' "$rel" "$moved" "$failed"
+  fi
+  [[ "$failed" -eq 0 ]]
+}
+
+cmd_sort() {
+  local folder="" json=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --json) json=1 ;;
+      -h|--help|help) usage ;;
+      -*) usage ;;
+      *) folder="$1" ;;
+    esac
+    shift
+  done
+  [[ -n "$folder" ]] || usage
+  if [[ "$json" -eq 1 ]]; then
+    run_exclusive_job sort "sort ${folder}" cmd_sort_impl "$folder" 1
+  else
+    run_exclusive_job sort "sort ${folder}" cmd_sort_impl "$folder" 0
+  fi
+}
+
+cmd_config_get() {
+  local json=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --json) json=1 ;;
+      *) usage ;;
+    esac
+    shift
+  done
+  ensure_dirs
+  if [[ "$json" -eq 1 ]]; then
+    config_toml_json
+  else
+    config_toml_json | jq -r '.soundcloud | "user: \(.user)\ncookies_from: \(.cookies_from)\nlikes_url: \(.likes_url)"'
+  fi
+}
+
+cmd_config_set() {
+  local key="" value="" json=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --json) json=1 ;;
+      -h|--help|help) usage ;;
+      -*) usage ;;
+      *)
+        if [[ -z "$key" ]]; then
+          key="$1"
+        else
+          value="$1"
+        fi
+        ;;
+    esac
+    shift
+  done
+  [[ -n "$key" && -n "$value" ]] || usage
+  local section field
+  section="${key%%.*}"
+  field="${key#*.}"
+  [[ "$section" != "$field" && -n "$section" && -n "$field" ]] || {
+    echo "evo-player: usage: evo-player config set section.key value" >&2
+    return 1
+  }
+  config_toml_set "$section" "$field" "$value"
+  if [[ "$json" -eq 1 ]]; then
+    config_toml_json
+  else
+    printf 'ok\n'
+  fi
+}
+
+cmd_config() {
+  local sub="${1:-}"
+  shift || true
+  case "$sub" in
+    get) cmd_config_get "$@" ;;
+    set) cmd_config_set "$@" ;;
+    -h|--help|help|"") usage ;;
+    *) usage ;;
+  esac
 }
 
 cmd_import() {
-  run_exclusive_job import "import .incoming" cmd_import_impl
+  run_exclusive_job import "import incoming" cmd_import_impl
 }
 
 write_likes_m3u() {
@@ -1150,7 +1316,7 @@ warm_asset_needed() {
 }
 
 cmd_warm() {
-  local do_art=0 do_wf=0 do_tags=0 json=0 genre=""
+  local do_art=0 do_wf=0 do_tags=0 json=0 genre="" track_path=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --art) do_art=1 ;;
@@ -1158,7 +1324,13 @@ cmd_warm() {
       --tags) do_tags=1 ;;
       --json) json=1 ;;
       -*) usage ;;
-      *) genre="$1" ;;
+      *)
+        if [[ -f "$1" ]] && is_audio "$1"; then
+          track_path="$1"
+        else
+          genre="$1"
+        fi
+        ;;
     esac
     shift
   done
@@ -1167,6 +1339,23 @@ cmd_warm() {
     do_wf=1
   }
   ensure_dirs
+  if [[ -n "$track_path" ]]; then
+    local art_built=0 wf_built=0
+    if [[ "$do_art" -eq 1 ]]; then
+      art_path_for "$track_path" >/dev/null 2>&1 && art_built=1
+    fi
+    if [[ "$do_wf" -eq 1 ]]; then
+      waveform_build "$track_path" >/dev/null 2>&1 && wf_built=1
+    fi
+    if [[ "$json" -eq 1 ]]; then
+      jq -n \
+        --arg path "$track_path" \
+        --argjson art_built "$art_built" \
+        --argjson wf_built "$wf_built" \
+        '{path:$path,art_built:$art_built,waveform_built:$wf_built}'
+    fi
+    return 0
+  fi
   if [[ "$do_tags" -eq 1 ]]; then
     if [[ -n "$genre" ]]; then
       cmd_cache "$genre"
@@ -1239,8 +1428,7 @@ cmd_warm() {
 }
 
 cmd_build_impl() {
-  local mode="${1:-}"
-  echo "evo-player: build ${mode} started at $(date -Iseconds)" >&2
+  echo "evo-player: build started at $(date -Iseconds)" >&2
   ensure_dirs
   likes_init
   echo "evo-player: refreshing playlists..." >&2
@@ -1252,41 +1440,32 @@ cmd_build_impl() {
   rm -f "${PLAYLIST_DIR}/favorites.m3u"
   echo "evo-player: indexing track tags..." >&2
   cmd_cache
-  if [[ "$mode" == "all" ]]; then
-    echo "evo-player: warming art and waveforms..." >&2
-    cmd_warm --art --waveforms
-  else
-    echo "evo-player: warming art..." >&2
-    cmd_warm --art
-  fi
+  echo "evo-player: warming art and waveforms..." >&2
+  cmd_warm --art --waveforms
   echo "evo-player: pruning duplicate art..." >&2
   art_prune_legacy >/dev/null
-  echo "evo-player: build ${mode} complete at $(date -Iseconds)" >&2
+  echo "evo-player: build complete at $(date -Iseconds)" >&2
 }
 
 cmd_build() {
-  local mode=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --json) ;;
-      all|quick) mode="$1" ;;
+      all|quick) ;;
       -h|--help|help) usage ;;
       *) usage ;;
     esac
     shift
   done
-  [[ -n "$mode" ]] || usage
-  run_exclusive_job build "build ${mode}" cmd_build_impl "$mode"
+  run_exclusive_job build "build" cmd_build_impl
 }
 
 cmd_soundcloud_impl() {
-  cmd_sync
-  cmd_import_impl
-  cmd_playlists
+  cmd_sync_impl
 }
 
 cmd_soundcloud() {
-  run_exclusive_job soundcloud "sync soundcloud" cmd_soundcloud_impl
+  run_exclusive_job soundcloud "download soundcloud" cmd_soundcloud_impl
 }
 
 cmd_cache() {
@@ -2298,34 +2477,47 @@ PY
 
 cmd_scrobble_nowplaying() {
   load_evoshell_secrets
-  local path artist title album duration
+  local path artist title album album_artist duration tags
   path="$(mpv_prop path 2>/dev/null || true)"
   [[ -n "$path" && -f "$path" ]] || return 0
-  local tags
   tags="$(track_tags_read "$path")"
   artist="$(jq -r '.artist // ""' <<<"$tags")"
   title="$(jq -r '.title // ""' <<<"$tags")"
   album="$(jq -r '.album // ""' <<<"$tags")"
+  album_artist="$(jq -r '.album_artist // ""' <<<"$tags")"
   duration="$(mpv_prop duration 2>/dev/null || echo 0)"
   [[ -n "$artist" && -n "$title" ]] || return 0
-  scrobble_api_call "track.updateNowPlaying" "$artist" "$title" "$album" "$duration"
+  scrobble_api_call "track.updateNowPlaying" "$artist" "$title" "$album" "$duration" "" "$album_artist" ""
   scrobble_record_entry "$path" "nowplaying"
 }
 
 cmd_scrobble_submit() {
   load_evoshell_secrets
-  local path artist title album duration started
+  local path artist title album album_artist duration started="" mbid tags pos
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --started)
+        started="$2"
+        shift 2
+        ;;
+      *) shift ;;
+    esac
+  done
   path="$(mpv_prop path 2>/dev/null || true)"
   [[ -n "$path" && -f "$path" ]] || return 0
-  local tags
   tags="$(track_tags_read "$path")"
   artist="$(jq -r '.artist // ""' <<<"$tags")"
   title="$(jq -r '.title // ""' <<<"$tags")"
   album="$(jq -r '.album // ""' <<<"$tags")"
+  album_artist="$(jq -r '.album_artist // ""' <<<"$tags")"
   duration="$(mpv_prop duration 2>/dev/null || echo 0)"
-  started="$(date +%s)"
+  if [[ -z "$started" ]]; then
+    pos="$(mpv_prop time-pos 2>/dev/null || echo 0)"
+    started="$(($(date +%s) - ${pos%.*}))"
+  fi
   [[ -n "$artist" && -n "$title" ]] || return 0
-  scrobble_api_call "track.scrobble" "$artist" "$title" "$album" "$duration" "$started"
+  mbid="$(scrobble_recording_mbid "$artist" "$title" "$album" 2>/dev/null || true)"
+  scrobble_api_call "track.scrobble" "$artist" "$title" "$album" "$duration" "$started" "$album_artist" "$mbid" || return 1
   scrobble_record_entry "$path" "submit"
 }
 
@@ -2358,33 +2550,59 @@ cmd_scrobble_recent() {
 }
 
 scrobble_api_call() {
-  local method="$1" artist="$2" title="$3" album="$4" duration="${5:-0}" timestamp="${6:-}"
+  local method="$1" artist="$2" title="$3" album="$4" duration="${5:-0}" timestamp="${6:-}" album_artist="${7:-}" mbid="${8:-}"
   local api_key="${LASTFM_API_KEY:-}"
   local secret="${LASTFM_API_SECRET:-}"
   local session="${LASTFM_SESSION_KEY:-}"
-  [[ -n "$api_key" && -n "$secret" && -n "$session" ]] || return 0
-  python3 - "$method" "$api_key" "$secret" "$session" "$artist" "$title" "$album" "$duration" "$timestamp" <<'PY'
+  [[ -n "$api_key" && -n "$secret" && -n "$session" ]] || {
+    echo "evo-player: last.fm credentials missing in secrets.env" >&2
+    return 1
+  }
+  python3 - "$method" "$api_key" "$secret" "$session" "$artist" "$title" "$album" "$duration" "$timestamp" "$album_artist" "$mbid" <<'PY'
 import hashlib, json, sys, urllib.parse, urllib.request
 
-method, api_key, secret, session, artist, title, album, duration, timestamp = sys.argv[1:10]
+method, api_key, secret, session, artist, title, album, duration, timestamp, album_artist, mbid = sys.argv[1:12]
 params = {
     "method": method,
     "api_key": api_key,
     "sk": session,
     "artist": artist,
     "track": title,
-    "album": album,
 }
+if album:
+    params["album"] = album
+if album_artist and album_artist != artist:
+    params["albumArtist"] = album_artist
 if duration and float(duration) > 0:
     params["duration"] = str(int(float(duration)))
 if timestamp:
     params["timestamp"] = str(int(timestamp))
+if mbid:
+    params["mbid"] = mbid
+if method == "track.scrobble":
+    params["chosenByUser"] = "1"
 sig_src = "".join(f"{k}{params[k]}" for k in sorted(params)) + secret
 params["api_sig"] = hashlib.md5(sig_src.encode()).hexdigest()
 params["format"] = "json"
 data = urllib.parse.urlencode(params).encode()
-with urllib.request.urlopen("https://ws.audioscrobbler.com/2.0/", data=data, timeout=20) as resp:
-    json.load(resp)
+req = urllib.request.Request("https://ws.audioscrobbler.com/2.0/", data=data)
+try:
+    with urllib.request.urlopen(req, timeout=20) as resp:
+        body = json.load(resp)
+except Exception as exc:
+    print(f"evo-player: last.fm request failed: {exc}", file=sys.stderr)
+    raise SystemExit(1)
+if isinstance(body, dict) and body.get("error"):
+    print(f"evo-player: last.fm error {body.get('error')}: {body.get('message', '')}", file=sys.stderr)
+    raise SystemExit(1)
+if method == "track.scrobble":
+    scrobbles = ((body.get("scrobbles") or {}).get("scrobble") or [])
+    if isinstance(scrobbles, dict):
+        scrobbles = [scrobbles]
+    for row in scrobbles:
+        if row.get("@attr", {}).get("ignoredMessage"):
+            print(f"evo-player: last.fm ignored scrobble: {row['@attr']['ignoredMessage']}", file=sys.stderr)
+            raise SystemExit(1)
 PY
 }
 
@@ -2507,6 +2725,28 @@ cmd_art_embed_impl() {
   printf '%d %d %d' "$folders" "$embedded" "$failed"
 }
 
+cmd_art_maintain_impl() {
+  echo "evo-player: fix art started at $(date -Iseconds)" >&2
+  ensure_dirs
+  local pruned
+  pruned="$(art_prune_legacy)"
+  echo "evo-player: pruned ${pruned} legacy art file(s)" >&2
+  cmd_art_embed_impl
+  echo "evo-player: fix art complete at $(date -Iseconds)" >&2
+}
+
+cmd_art_maintain() {
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --json) ;;
+      -h|--help|help) usage ;;
+      -*) usage ;;
+    esac
+    shift
+  done
+  run_exclusive_job art-maintain "fix art" cmd_art_maintain_impl
+}
+
 cmd_art_embed() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -2537,6 +2777,7 @@ cmd_art() {
     apply) cmd_art_apply "$@" ;;
     clear) cmd_art_clear "$@" ;;
     embed) cmd_art_embed "$@" ;;
+    maintain) cmd_art_maintain "$@" ;;
     notify-cache) cmd_art_notify_cache "$@" ;;
     *) usage ;;
   esac
@@ -2585,6 +2826,9 @@ main() {
     import) cmd_import ;;
     playlists) cmd_playlists "$@" ;;
     build) cmd_build "$@" ;;
+    warm) cmd_warm "$@" ;;
+    sort) cmd_sort "$@" ;;
+    config) cmd_config "$@" ;;
     cache) cmd_cache "$@" ;;
     soundcloud) cmd_soundcloud ;;
     job)
