@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import Quickshell.Services.Notifications
 import Quickshell.Wayland
 import "../../Commons"
@@ -59,7 +60,7 @@ Scope {
         var next = []
         for (var i = 0; i < activePopups.length; i++) {
             var item = activePopups[i]
-            if (item.local && String(item.title) === titleStr) continue
+            if (item.local && !item.localMedia && String(item.title) === titleStr) continue
             next.push(item)
         }
         next.push({
@@ -70,6 +71,42 @@ Scope {
         })
         activePopups = next
         scheduleDismiss(Math.max(500, parseInt(durationMs, 10) || root.durationMs))
+    }
+
+    function showMedia(opts) {
+        var o = opts || {}
+        var titleStr = String(o.title || "Unknown")
+        var artistStr = String(o.artist || "")
+        var iconPath = notifyIconPath(o.art || "")
+        var timeout = Math.max(1000, parseInt(o.durationMs, 10) || root.durationMs)
+        var appStr = String(o.app || "evo.player")
+
+        if (publishProc.running)
+            return false
+
+        var cmd = ["notify-send", "-a", appStr, "-t", String(timeout)]
+        if (iconPath)
+            cmd.push("-i", iconPath)
+        cmd.push(titleStr)
+        if (artistStr)
+            cmd.push(artistStr)
+        publishProc.command = cmd
+        publishProc.running = true
+        return true
+    }
+
+    function notifyIconPath(art) {
+        var s = String(art || "")
+        if (s.indexOf("file://") === 0) {
+            try {
+                s = decodeURIComponent(s.slice(7))
+            } catch (e) {
+                s = s.slice(7)
+            }
+        }
+        if (s.charAt(0) === "/")
+            return s
+        return ""
     }
 
     function scheduleDismiss(intervalMs) {
@@ -101,6 +138,7 @@ Scope {
 
     function popupTitle(entry) {
         if (!entry) return ""
+        if (entry.localMedia) return String(entry.title || "")
         if (entry.local) return String(entry.title || "")
         if (entry.notification) return String(entry.notification.summary || entry.notification.appName || "")
         return ""
@@ -108,6 +146,7 @@ Scope {
 
     function popupBody(entry) {
         if (!entry) return ""
+        if (entry.localMedia) return String(entry.body || "")
         if (entry.local) return String(entry.body || "")
         if (entry.notification) return String(entry.notification.body || "")
         return ""
@@ -154,6 +193,8 @@ Scope {
     }
 
     function popupImage(entry) {
+        if (entry && entry.localMedia && entry.art)
+            return imageSource(entry.art)
         var n = entry && entry.notification
         if (!n) return ""
         if (n.image) return imageSource(n.image)
@@ -181,6 +222,12 @@ Scope {
         if (!entry || entry.local) return false
         var app = String(entry.notification && entry.notification.appName || "").toLowerCase()
         return app === "hyprshot"
+    }
+
+    function isPlayerNotification(entry) {
+        if (!entry || entry.local) return false
+        var app = String(entry.notification && entry.notification.appName || "").toLowerCase()
+        return app === "evo.player"
     }
 
     function normalizeLocalPath(path) {
@@ -223,7 +270,10 @@ Scope {
     }
 
     function isMedia(entry) {
-        if (!entry || entry.local) return false
+        if (!entry) return false
+        if (entry.localMedia) return true
+        if (entry.local) return false
+        if (isPlayerNotification(entry)) return true
         if (isScrobbler(entry)) return true
         return popupImage(entry) !== ""
     }
@@ -237,7 +287,23 @@ Scope {
     }
 
     function mediaFields(entry) {
+        if (entry && entry.localMedia) {
+            return {
+                kicker: String(entry.app || "evo.player"),
+                title: String(entry.title || ""),
+                subtitle: String(entry.body || ""),
+                footer: ""
+            }
+        }
         var lines = bodyLines(entry)
+        if (isPlayerNotification(entry)) {
+            return {
+                kicker: "now playing",
+                title: popupTitle(entry),
+                subtitle: lines[0] || "",
+                footer: ""
+            }
+        }
         if (isScrobbler(entry) && lines.length >= 2) {
             return {
                 kicker: mediaKicker(entry),
@@ -304,6 +370,10 @@ Scope {
         interval: root.durationMs
         repeat: false
         onTriggered: root.dismissOldest()
+    }
+
+    Process {
+        id: publishProc
     }
 
     component NotificationArtworkCard: Item {

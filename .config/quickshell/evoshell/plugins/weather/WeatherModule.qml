@@ -27,8 +27,7 @@ Item {
     readonly property int sunEventRowHeight: Theme.hoverPopupContentPad * 2
         + Math.max(root.primaryStatFont + 10, root.primaryStatFont + root.hintFont + 2)
     readonly property int chartHeight: 150
-    readonly property int yAxisWidth: 28
-    readonly property int chartGap: 4
+    readonly property int chartLabelPad: 4
 
     property var weather: ({})
     property bool loading: false
@@ -584,43 +583,28 @@ Item {
                     spacing: 0
                     visible: root.hourly.length > 0
 
-                    RowLayout {
+                    Item {
                         Layout.fillWidth: true
-                        spacing: root.chartGap
+                        Layout.preferredHeight: root.chartHeight
 
-                        ColumnLayout {
-                            Layout.preferredWidth: root.yAxisWidth
-                            Layout.preferredHeight: root.chartHeight
-                            spacing: 0
-
-                            Text {
-                                text: Math.round(root.hourlyTempRange.rawMax) + "°"
-                                color: root.tempColor(root.hourlyTempRange.rawMax)
-                                font.family: Theme.fontFamily
-                                font.pixelSize: root.chartAxisFont
-                                font.bold: Theme.fontBold
-                                opacity: 0.85
-                            }
-
-                            Item { Layout.fillHeight: true }
-
-                            Text {
-                                text: Math.round(root.hourlyTempRange.rawMin) + "°"
-                                color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: root.chartAxisFont
-                                font.bold: Theme.fontBold
-                                opacity: 0.5
-                            }
+                        Text {
+                            id: hourlyMaxLabel
+                            anchors.top: parent.top
+                            anchors.left: parent.left
+                            anchors.topMargin: 2
+                            anchors.leftMargin: root.chartLabelPad
+                            z: 1
+                            text: Math.round(root.hourlyTempRange.rawMax) + "°"
+                            color: root.tempColor(root.hourlyTempRange.rawMax)
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.chartAxisFont
+                            font.bold: Theme.fontBold
+                            opacity: 0.85
                         }
 
-                        Item {
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: root.chartHeight
-
-                            Canvas {
-                                id: hourlyChart
-                                anchors.fill: parent
+                        Canvas {
+                            id: hourlyChart
+                            anchors.fill: parent
 
                                 onPaint: {
                                     var ctx = getContext("2d")
@@ -717,37 +701,26 @@ Item {
                                 onHeightChanged: requestPaint()
                                 Component.onCompleted: requestPaint()
                             }
-                        }
                     }
 
                     RowLayout {
                         Layout.fillWidth: true
-                        spacing: root.chartGap
+                        spacing: 0
 
-                        Item {
-                            Layout.preferredWidth: root.yAxisWidth
-                            Layout.maximumWidth: root.yAxisWidth
-                        }
+                        Repeater {
+                            model: ["00", "06", "12", "18"]
 
-                        RowLayout {
-                            Layout.fillWidth: true
-                            spacing: 0
-
-                            Repeater {
-                                model: ["00", "06", "12", "18"]
-
-                                Text {
-                                    required property string modelData
-                                    required property int index
-                                    Layout.fillWidth: true
-                                    horizontalAlignment: index === 0 ? Text.AlignLeft
-                                        : (index === 3 ? Text.AlignRight : Text.AlignHCenter)
-                                    text: modelData
-                                    color: Theme.foreground
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: root.chartAxisFont
-                                    opacity: 0.45
-                                }
+                            Text {
+                                required property string modelData
+                                required property int index
+                                Layout.fillWidth: true
+                                horizontalAlignment: index === 0 ? Text.AlignLeft
+                                    : (index === 3 ? Text.AlignRight : Text.AlignHCenter)
+                                text: modelData
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.chartAxisFont
+                                opacity: 0.45
                             }
                         }
                     }
@@ -758,43 +731,28 @@ Item {
                     spacing: 0
                     visible: root.weekDays.length > 0
 
-                    RowLayout {
+                    Item {
                         Layout.fillWidth: true
-                        spacing: root.chartGap
+                        Layout.preferredHeight: root.chartHeight
 
-                        ColumnLayout {
-                            Layout.preferredWidth: root.yAxisWidth
-                            Layout.preferredHeight: root.chartHeight
-                            spacing: 0
-
-                            Text {
-                                text: Math.round(root.dailyTempRange.rawMax) + "°"
-                                color: root.tempColor(root.dailyTempRange.rawMax)
-                                font.family: Theme.fontFamily
-                                font.pixelSize: root.chartAxisFont
-                                font.bold: Theme.fontBold
-                                opacity: 0.85
-                            }
-
-                            Item { Layout.fillHeight: true }
-
-                            Text {
-                                text: Math.round(root.dailyTempRange.rawMin) + "°"
-                                color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: root.chartAxisFont
-                                font.bold: Theme.fontBold
-                                opacity: 0.5
-                            }
+                        Text {
+                            id: weeklyMaxLabel
+                            anchors.top: parent.top
+                            anchors.left: parent.left
+                            anchors.topMargin: 2
+                            anchors.leftMargin: root.chartLabelPad
+                            z: 1
+                            text: Math.round(root.dailyTempRange.rawMax) + "°"
+                            color: root.tempColor(root.dailyTempRange.rawMax)
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.chartAxisFont
+                            font.bold: Theme.fontBold
+                            opacity: 0.85
                         }
 
-                        Item {
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: root.chartHeight
-
-                            Canvas {
-                                id: weeklyChart
-                                anchors.fill: parent
+                        Canvas {
+                            id: weeklyChart
+                            anchors.fill: parent
 
                                 onPaint: {
                                     var ctx = getContext("2d")
@@ -896,37 +854,26 @@ Item {
                                 onHeightChanged: requestPaint()
                                 Component.onCompleted: requestPaint()
                             }
-                        }
                     }
 
                     RowLayout {
                         Layout.fillWidth: true
-                        spacing: root.chartGap
+                        spacing: 0
 
-                        Item {
-                            Layout.preferredWidth: root.yAxisWidth
-                            Layout.maximumWidth: root.yAxisWidth
-                        }
+                        Repeater {
+                            model: root.weekDays
 
-                        RowLayout {
-                            Layout.fillWidth: true
-                            spacing: 0
-
-                            Repeater {
-                                model: root.weekDays
-
-                                Text {
-                                    required property var modelData
-                                    required property int index
-                                    Layout.fillWidth: true
-                                    horizontalAlignment: index === 0 ? Text.AlignLeft
-                                        : (index === root.weekDays.length - 1 ? Text.AlignRight : Text.AlignHCenter)
-                                    text: String(modelData.dow || "")
-                                    color: Theme.foreground
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: root.chartAxisFont
-                                    opacity: 0.45
-                                }
+                            Text {
+                                required property var modelData
+                                required property int index
+                                Layout.fillWidth: true
+                                horizontalAlignment: index === 0 ? Text.AlignLeft
+                                    : (index === root.weekDays.length - 1 ? Text.AlignRight : Text.AlignHCenter)
+                                text: String(modelData.dow || "")
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.chartAxisFont
+                                opacity: 0.45
                             }
                         }
                     }

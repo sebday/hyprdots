@@ -57,7 +57,8 @@ ShellRoot {
         "evo.panel": { kinds: ["panel"], path: "plugins/panel/Panel.qml", keepLoaded: true },
         "evo.bar": { kinds: ["bar"], path: "plugins/bar/Bar.qml" },
         "evo.shopify": { kinds: ["dashboard"], path: "plugins/shopify/Shopify.qml", keepLoaded: true },
-        "evo.player": { kinds: ["dashboard"], path: "plugins/player/Player.qml", keepLoaded: true }
+        "evo.player": { kinds: ["dashboard"], path: "plugins/player/Player.qml", keepLoaded: true },
+        "evo.player.monitor": { kinds: ["service"], path: "plugins/player/Service.qml", keepLoaded: true }
     })
 
     property var shellConfig: builtinShellConfig
@@ -529,12 +530,14 @@ ShellRoot {
     function ensureStartupDashboards() {
         if (_startupDashboardsPinned)
             return
-        if (!shopifyLoader.item || !playerLoader.item)
+        if (!shopifyLoader.item && !playerLoader.item)
             return
         _startupDashboardsPinned = true
         Qt.callLater(function() {
-            openDashboardOnly("evo.shopify")
-            openDashboardOnly("evo.player")
+            if (shopifyLoader.item)
+                openDashboardOnly("evo.shopify")
+            if (playerLoader.item)
+                openDashboardOnly("evo.player")
         })
     }
 

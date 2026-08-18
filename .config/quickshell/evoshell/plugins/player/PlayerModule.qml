@@ -12,15 +12,6 @@ Item {
 
     readonly property bool active: host && host.opened === true
 
-    Connections {
-        target: root.host
-        ignoreUnknownSignals: true
-        function onOpenedChanged() {
-            if (root.active)
-                root.loadPlaylists()
-        }
-    }
-
     readonly property string playerScript: (Quickshell.env("HOME") || "") + "/.local/bin/evo-player"
     readonly property int pad: Theme.hoverPopupMargin
     readonly property int bodyFont: Theme.fontSize3xl
@@ -75,6 +66,13 @@ Item {
     property bool browseLoading: false
     property string browseForPath: ""
     property var browseCrumbs: []
+    property var browseTreeExpanded: ({})
+    property var browseTreeChildren: ({})
+    property var browseTreeRows: []
+    property bool browseTreeLoading: false
+    property real browseTreeScrollY: 0
+    property real browseTreeRestoreY: -1
+    property var browseTreeListView: null
     property var playlists: []
     property var libraryPlaylists: []
     property string selectedPlaylist: ""
@@ -85,6 +83,22 @@ Item {
     property bool playlistsLoading: false
     property string resumePlaylist: ""
     property string playerScreen: "nowPlaying"
+    property bool tabSearchMode: false
+    property string tabSearchText: ""
+    property bool browseQueueBusy: false
+    property bool browsePanelOpen: false
+    property bool playlistPanelOpen: false
+    readonly property bool sidePanelOpen: browsePanelOpen || playlistPanelOpen
+    readonly property bool splitSidePanelMode: browsePanelOpen || playlistPanelOpen
+        || playerScreen === "tags" || playerScreen === "filter"
+    readonly property bool nowPlayingTabActive: !browsePanelOpen && !playlistPanelOpen
+        && !libraryPanelOpen && playerScreen === "nowPlaying" && !tabSearchMode
+    property string playlistPanelMode: "tracks"
+    property bool queueExtendBusy: false
+    property string filterKind: ""
+    property string filterLabel: ""
+    property var filterTracks: []
+    property bool filterLoading: false
     property int volumeApplyTarget: 100
     property bool volumeApplyPending: false
     property bool transportApplyPending: false
@@ -94,17 +108,12 @@ Item {
     property bool seekApplyPending: false
     property bool playbackStatePending: false
     property string playbackStateTarget: ""
-    readonly property int screenStackIndex:
-        playerScreen === "nowPlaying" ? 0
-        : (playerScreen === "browse" ? 1
-        : (playerScreen === "playlistLibrary" ? 2 : 3))
-    property bool libraryMenuOpen: true
     property bool libraryPanelOpen: false
     readonly property var libraryActions: [
         { icon: "󰲹", label: "build all", args: ["build", "all"] },
         { icon: "󰖟", label: "build quick", args: ["build", "quick"] },
         { icon: "󰕧", label: "sync soundcloud", args: ["soundcloud"] },
-        { icon: "󰋋", label: "import incoming", args: ["import"] },
+        { icon: "󰋋", label: "import .incoming", args: ["import"] },
         { icon: "󰩹", label: "prune art", args: ["cache", "--prune-art"] },
         { icon: "󰋩", label: "embed art", args: ["art", "embed"] }
     ]
@@ -117,13 +126,13 @@ Item {
         var chips = []
         var year = String(player.year || "").trim()
         if (year !== "")
-            chips.push({ label: year, accent: false })
+            chips.push({ label: year, accent: false, kind: "year", value: year })
         var genre = String(player.genre || "").trim()
         if (genre !== "")
-            chips.push({ label: genre, accent: true })
+            chips.push({ label: genre, accent: true, kind: "genre", value: genre })
         var durationLabel = String(player.duration_label || "").trim()
         if (durationLabel !== "" && Number(player.duration || 0) > 0)
-            chips.push({ label: durationLabel, accent: false })
+            chips.push({ label: durationLabel, accent: false, kind: "duration", value: durationLabel })
         return chips
     }
     readonly property string nowPlayingAlbum: {
@@ -133,7 +142,6 @@ Item {
             return ""
         return album
     }
-    readonly property int libraryPanelWidth: Math.round(Math.max(156, Math.min(width * 0.22, 220)))
     readonly property var genreLabelOverrides: ({
         "drum&bass": "Drum & Bass",
         "dubstep": "Dubstep",
@@ -230,11 +238,113 @@ Item {
         artPickerOpen = false
     }
 
+    function showNowPlaying() {
+        tabSearchMode = false
+        browsePanelOpen = false
+        playlistPanelOpen = false
+        libraryPanelOpen = false
+        playerScreen = "nowPlaying"
+    }
+
+    function toggleBrowsePanel() {
+        if (browsePanelOpen) {
+            browsePanelOpen = false
+            return
+        }
+        playlistPanelOpen = false
+        libraryPanelOpen = false
+        browsePanelOpen = true
+        playerScreen = "nowPlaying"
+        if (!browsePath && !browseTreeRows.length)
+            loadBrowseTreeRoot()
+    }
+
+    function togglePlaylistPanel() {
+        if (playlistPanelOpen) {
+            playlistPanelOpen = false
+            return
+        }
+        browsePanelOpen = false
+        libraryPanelOpen = false
+        playlistPanelOpen = true
+        playerScreen = "nowPlaying"
+        if (!selectedPlaylist) {
+            selectedPlaylist = currentPlaylistId
+            loadPlaylistTracks(selectedPlaylist)
+        }
+    }
+
+    function toggleTagsPanel() {
+        if (playerScreen === "tags") {
+            playerScreen = "nowPlaying"
+            return
+        }
+        tabSearchMode = false
+        browsePanelOpen = false
+        playlistPanelOpen = false
+        libraryPanelOpen = false
+        playerScreen = "tags"
+        loadGenres()
+    }
+
+    function checkAutoExtendQueue() {
+        if (queueExtendBusy || !currentPlaylistTracks.length)
+            return
+        var path = String(player.path || "")
+        if (!path)
+            return
+        var idx = -1
+        for (var i = 0; i < currentPlaylistTracks.length; i++) {
+            if (currentPlaylistTracks[i].path === path) {
+                idx = i
+                break
+            }
+        }
+        if (idx < 0 || idx < currentPlaylistTracks.length - 1)
+            return
+        var dur = Number(player.duration) || 0
+        var pos = Number(player.position) || 0
+        if (dur > 0 && String(player.state || "") === "playing" && pos < dur - 1.5)
+            return
+        autoExtendQueue()
+    }
+
+    function autoExtendQueue() {
+        if (queueExtendBusy)
+            return
+        queueExtendBusy = true
+        runMusic(["queue", "extend", "--json"], function(text) {
+            queueExtendBusy = false
+            try {
+                var result = JSON.parse(String(text || "{}"))
+                if (Number(result.added || 0) > 0) {
+                    root.loadCurrentPlaylist(function() {
+                        if (root.playlistPanelOpen && root.selectedPlaylist === root.currentPlaylistId)
+                            root.tracks = root.currentPlaylistTracks.slice()
+                    })
+                    root.notify("+" + result.added + " from " + String(result.folder || "").split("/").pop(), 2500)
+                }
+            } catch (e) {
+            }
+            root.refreshStatus()
+        }, queuePlayProc)
+    }
+
     function notify(body, durationMs) {
         if (!shell) return
         var notif = shell.serviceFor("evo.notifications")
         if (notif && typeof notif.showBrief === "function")
             notif.showBrief("evo.player", String(body || ""), durationMs || 3000)
+    }
+
+    function clearAlbumArt() {
+        var track = String(player.path || "")
+        if (!track)
+            return
+        runMusic(["art", "clear", track, "--json"], function() {
+            root.onAlbumArtUpdated()
+            root.artPickerOpen = false
+        })
     }
 
     function formatJobLog(text) {
@@ -260,8 +370,8 @@ Item {
             libraryPanelOpen = false
             return
         }
-        if (playerScreen !== "browse" && playerScreen !== "playlistLibrary" && playerScreen !== "playlists")
-            openBrowse()
+        tabSearchMode = false
+        playerScreen = "nowPlaying"
         libraryPanelOpen = true
     }
 
@@ -281,10 +391,10 @@ Item {
         jobLog = label + "…\n"
         if (!(options && options.stayOnScreen)) {
             libraryPanelOpen = true
-            if (playerScreen !== "browse" && playerScreen !== "playlistLibrary" && playerScreen !== "playlists")
-                playerScreen = "playlistLibrary"
+            tabSearchMode = false
+            if (playerScreen !== "tags" && playerScreen !== "filter")
+                playerScreen = "nowPlaying"
         }
-        libraryMenuOpen = false
         jobProc.command = ["bash", playerScript].concat(args || [])
         notify(label + "…", 2000)
         jobProc.running = true
@@ -324,9 +434,9 @@ Item {
             loadGenres()
             loadLibraryStats()
             loadPlaylists()
-            if (playerScreen === "browse")
-                loadBrowse(browsePath)
-            if (playerScreen === "playlists" && selectedPlaylist)
+            if (browsePanelOpen)
+                loadBrowseTreeRoot()
+            if (playlistPanelOpen && selectedPlaylist)
                 loadPlaylistTracks(selectedPlaylist)
             jobLog = jobLog + "\n\n" + label + " complete"
         } else if (exitCode === 2) {
@@ -498,7 +608,7 @@ Item {
     function refreshCurrentPlaylistView() {
         if (!currentPlaylistActive)
             return
-        if (playerScreen === "playlists" && selectedPlaylist === currentPlaylistId) {
+        if (playlistPanelOpen && selectedPlaylist === currentPlaylistId) {
             tracks = currentPlaylistTracks.slice()
             syncSelectedTrackIndex()
         }
@@ -507,7 +617,7 @@ Item {
     function commitCurrentPlaylist() {
         injectCurrentPlaylist()
         syncPlaylistTabPosition()
-        if (selectedPlaylist === currentPlaylistId && playerScreen === "playlists")
+        if (selectedPlaylist === currentPlaylistId && playlistPanelOpen)
             loadPlaylistTracks(currentPlaylistId)
         persistCurrentPlaylist()
         prioritizeCurrentAssets()
@@ -610,24 +720,23 @@ Item {
     }
 
     function onActivated() {
-        loadCurrentPlaylist(function() {
-            if (!runPlayerQuery(["open", "--json"], function(text) {
-                try {
-                    var saved = JSON.parse(String(text || "{}"))
-                    resumePlaylist = root.normalizePlaylistName(saved.playlist || "")
-                    applyStatus(text)
-                } catch (e) {
-                    resumePlaylist = ""
-                }
-                loadGenres()
-                loadPlaylists()
-            }))
-                Qt.callLater(onActivated)
-            statusTimer.start()
-            saveStateTimer.start()
-            jobStatusTimer.start()
-            syncExternalJobStatus()
-        })
+        if (!runPlayerQuery(["open", "--json"], function(text) {
+            try {
+                var saved = JSON.parse(String(text || "{}"))
+                resumePlaylist = root.normalizePlaylistName(saved.playlist || "")
+                applyStatus(text)
+            } catch (e) {
+                resumePlaylist = ""
+            }
+            loadGenres()
+            loadPlaylists()
+            loadCurrentPlaylist()
+        }))
+            Qt.callLater(onActivated)
+        statusTimer.start()
+        saveStateTimer.start()
+        jobStatusTimer.start()
+        syncExternalJobStatus()
     }
 
     function finishDeactivate() {
@@ -725,12 +834,14 @@ Item {
     }
 
     function openBrowse() {
-        playerScreen = "browse"
-        loadBrowse(browsePath)
+        toggleBrowsePanel()
     }
 
     function openPlaylistLibrary() {
-        playerScreen = "playlistLibrary"
+        playerScreen = "nowPlaying"
+        browsePanelOpen = false
+        playlistPanelOpen = true
+        playlistPanelMode = "library"
         if (!libraryPlaylists.length && !playlistsLoading)
             loadPlaylists()
     }
@@ -771,6 +882,115 @@ Item {
         browseProc.command = ["bash", playerScript].concat(args || [])
         browseProc._onDone = onDone || null
         browseProc.running = true
+    }
+
+    function browseTreeFolderEntry(path, name) {
+        return { type: "dir", path: String(path || ""), name: String(name || "") }
+    }
+
+    function rebuildBrowseTreeRows(preserveScroll) {
+        var rows = []
+        function appendChildren(parentPath, depth) {
+            var key = String(parentPath || "")
+            var kids = browseTreeChildren[key]
+            if (!kids)
+                return
+            for (var i = 0; i < kids.length; i++) {
+                var kid = kids[i]
+                if (kid.type === "track") {
+                    rows.push({
+                        type: "track",
+                        path: String(kid.path || ""),
+                        name: String(kid.title || kid.name || String(kid.path || "").split("/").pop() || ""),
+                        artist: String(kid.artist || ""),
+                        track: kid,
+                        depth: depth
+                    })
+                    continue
+                }
+                var path = String(kid.path || "")
+                var expanded = !!browseTreeExpanded[path]
+                rows.push({
+                    type: "dir",
+                    path: path,
+                    name: String(kid.name || path.split("/").pop() || path),
+                    depth: depth,
+                    expanded: expanded,
+                    count: kid.count
+                })
+                if (expanded)
+                    appendChildren(path, depth + 1)
+            }
+        }
+        appendChildren("", 0)
+        if (preserveScroll && browseTreeListView)
+            browseTreeRestoreY = browseTreeListView.contentY
+        else if (preserveScroll)
+            browseTreeRestoreY = browseTreeScrollY
+        else
+            browseTreeRestoreY = -1
+        browseTreeRows = rows
+    }
+
+    function fetchBrowseTreeEntries(relPath, onDone) {
+        runBrowseQuery(["browse", String(relPath || ""), "--json"], function(text) {
+            try {
+                var data = JSON.parse(String(text || "{}"))
+                var entries = data.entries || []
+                if (onDone)
+                    onDone(entries)
+            } catch (e) {
+                if (onDone)
+                    onDone([])
+            }
+        })
+    }
+
+    function loadBrowseTreeRoot() {
+        browseTreeLoading = true
+        fetchBrowseTreeEntries("", function(entries) {
+            browseTreeLoading = false
+            var next = Object.assign({}, browseTreeChildren)
+            next[""] = entries
+            browseTreeChildren = next
+            rebuildBrowseTreeRows(false)
+        })
+    }
+
+    function toggleBrowseTreeNode(path) {
+        path = String(path || "")
+        var nextExp = Object.assign({}, browseTreeExpanded)
+        if (nextExp[path]) {
+            delete nextExp[path]
+            browseTreeExpanded = nextExp
+            rebuildBrowseTreeRows(true)
+            return
+        }
+        nextExp[path] = true
+        browseTreeExpanded = nextExp
+        if (browseTreeChildren[path]) {
+            rebuildBrowseTreeRows(true)
+            return
+        }
+        fetchBrowseTreeEntries(path, function(entries) {
+            var nextChild = Object.assign({}, browseTreeChildren)
+            nextChild[path] = entries
+            browseTreeChildren = nextChild
+            rebuildBrowseTreeRows(true)
+        })
+    }
+
+    function playBrowseTreeTrack(entry) {
+        if (!entry || !entry.path)
+            return
+        playPath(entry.path, false)
+    }
+
+    function browseTreeHome() {
+        browseTreeExpanded = {}
+        browseTreeChildren = {}
+        browseTreeRows = []
+        loadBrowseTreeRoot()
     }
 
     function loadBrowse(relPath) {
@@ -916,7 +1136,7 @@ Item {
     }
 
     function browseHome() {
-        loadBrowse("")
+        browseTreeHome()
     }
 
     function selectBrowseTrack(entry) {
@@ -951,8 +1171,10 @@ Item {
     function browseQueueFolder(entry) {
         if (!entry || entry.type !== "dir" || !entry.path)
             return
+        browseQueueBusy = true
         var folderPath = String(entry.path)
         runBrowseQuery(["browse", folderPath, "--json", "--queue"], function(text) {
+            browseQueueBusy = false
             try {
                 var data = JSON.parse(String(text || "{}"))
                 var folderTracks = data.tracks || []
@@ -968,6 +1190,123 @@ Item {
                 root.commitCurrentPlaylist()
             } catch (e) {
                 root.notify("could not load folder", 2500)
+            }
+        })
+    }
+
+    function browseAppendFolder(entry) {
+        if (!entry || entry.type !== "dir" || !entry.path)
+            return
+        browseQueueBusy = true
+        var folderPath = String(entry.path)
+        runBrowseQuery(["browse", folderPath, "--json", "--queue"], function(text) {
+            browseQueueBusy = false
+            try {
+                var data = JSON.parse(String(text || "{}"))
+                var folderTracks = data.tracks || []
+                if (!folderTracks.length) {
+                    root.notify("no tracks in folder", 2500)
+                    return
+                }
+                root.appendTracksToCurrent(folderTracks)
+                root.selectedPlaylist = root.currentPlaylistId
+                var paths = root.pathsFromTracks(folderTracks)
+                if (!paths.length)
+                    return
+                var args = ["queue", "append"].concat(paths)
+                runMusic(args, function() {
+                    root.refreshStatus()
+                    root.commitCurrentPlaylist()
+                }, queuePlayProc)
+            } catch (e) {
+                root.notify("could not append folder", 2500)
+            }
+        })
+    }
+
+    function openTagsScreen() {
+        toggleTagsPanel()
+    }
+
+    function openFilter(kind, value, label) {
+        tabSearchMode = false
+        browsePanelOpen = false
+        playlistPanelOpen = false
+        filterKind = String(kind || "")
+        filterLabel = String(label || value || "")
+        filterTracks = []
+        filterLoading = true
+        playerScreen = "filter"
+        var args = ["find"]
+        if (kind === "artist")
+            args = args.concat(["--artist", String(value || "")])
+        else if (kind === "genre")
+            args = args.concat(["--genre", String(value || "")])
+        else if (kind === "year")
+            args = args.concat(["--year", String(value || "")])
+        else
+            args.push(String(value || ""))
+        args.push("--json")
+        runQuery(args, function(text) {
+            filterLoading = false
+            try {
+                filterTracks = JSON.parse(String(text || "[]"))
+            } catch (e) {
+                filterTracks = []
+            }
+        })
+    }
+
+    function runTabSearch() {
+        var q = String(tabSearchText || "").trim()
+        if (!q) {
+            tabSearchMode = false
+            return
+        }
+        tabSearchMode = false
+        openFilter("search", q, q)
+    }
+
+    function filterHeaderTitle() {
+        if (filterKind === "artist")
+            return "Artist · " + filterLabel
+        if (filterKind === "genre")
+            return "Genre · " + filterLabel
+        if (filterKind === "year")
+            return "Year · " + filterLabel
+        if (filterKind === "search")
+            return "Search · " + filterLabel
+        return filterLabel
+    }
+
+    function playFilterTrackAt(index) {
+        if (index < 0 || index >= filterTracks.length)
+            return
+        var folderTracks = filterTracks.slice()
+        var label = filterHeaderTitle()
+        setCurrentPlaylistFromTracks(label, folderTracks)
+        selectedPlaylist = currentPlaylistId
+        selectedTrackIndex = index
+        var paths = pathsFromTracks(folderTracks)
+        playQueueAt(paths[index], paths)
+        commitCurrentPlaylist()
+    }
+
+    function openGenreTracks(genreName) {
+        tabSearchMode = false
+        browsePanelOpen = false
+        playlistPanelOpen = false
+        filterKind = "genre"
+        filterLabel = playlistTabLabel(genreName)
+        filterTracks = []
+        filterLoading = true
+        playerScreen = "filter"
+        runQuery(["tracks", genreName, "--json"], function(text) {
+            filterLoading = false
+            try {
+                filterTracks = JSON.parse(String(text || "[]"))
+            } catch (e) {
+                filterTracks = []
             }
         })
     }
@@ -1008,8 +1347,12 @@ Item {
     function selectPlaylist(name, switchScreen) {
         selectedPlaylist = normalizePlaylistName(name)
         syncPlaylistTabPosition()
-        if (switchScreen !== false)
-            playerScreen = "playlists"
+        if (switchScreen !== false) {
+            playerScreen = "nowPlaying"
+            browsePanelOpen = false
+            playlistPanelOpen = true
+            playlistPanelMode = "tracks"
+        }
         loadPlaylistTracks(selectedPlaylist)
     }
 
@@ -1255,6 +1598,7 @@ Item {
         player = Object.assign({}, player, parsed)
         if (String(player.path || "") !== prevPath)
             waveformSamples = []
+        checkAutoExtendQueue()
         mergePlayerFromTrackList()
     }
 
@@ -1980,6 +2324,20 @@ Item {
     }
 
     Timer {
+        id: tabSearchDebounce
+        interval: 650
+        repeat: false
+        onTriggered: {
+            if (!root.tabSearchMode)
+                return
+            var q = String(root.tabSearchText || "").trim()
+            if (!q)
+                return
+            root.runTabSearch()
+        }
+    }
+
+    Timer {
         id: statusTimer
         interval: 500
         repeat: true
@@ -2067,23 +2425,36 @@ Item {
                 Layout.preferredHeight: root.genreTabHeight
                 spacing: 8
 
+                RowLayout {
+                    id: standardTabBar
+                    visible: !root.libraryPanelOpen
+                    Layout.fillWidth: true
+                    spacing: 8
+
                 IconTab {
-                    icon: "󰎈"
-                    active: root.playerScreen === "nowPlaying"
-                    onActivated: root.playerScreen = "nowPlaying"
+                    icon: "󰎆"
+                    active: root.nowPlayingTabActive
+                    spinning: queuePlayProc.running || loadProc.running || root.browseQueueBusy
+                    onActivated: root.showNowPlaying()
                 }
                 IconTab {
                     icon: "󰉋"
-                    active: root.playerScreen === "browse"
-                    onActivated: root.openBrowse()
+                    active: root.browsePanelOpen
+                    onActivated: root.toggleBrowsePanel()
                 }
                 IconTab {
-                    icon: "󰎄"
-                    active: root.playerScreen === "playlistLibrary" || root.playerScreen === "playlists"
-                    onActivated: root.openPlaylistLibrary()
+                    icon: "󰎶"
+                    active: root.playlistPanelOpen
+                    onActivated: root.togglePlaylistPanel()
+                }
+                IconTab {
+                    icon: "󰓹"
+                    active: root.playerScreen === "tags" || root.playerScreen === "filter"
+                    onActivated: root.toggleTagsPanel()
                 }
 
                 Rectangle {
+                    visible: !root.tabSearchMode
                     Layout.preferredWidth: 1
                     Layout.preferredHeight: Math.max(12, root.genreTabHeight - 16)
                     Layout.alignment: Qt.AlignVCenter
@@ -2094,6 +2465,7 @@ Item {
                     id: playlistTabBarHost
                     Layout.fillWidth: true
                     Layout.fillHeight: true
+                    visible: !root.tabSearchMode
 
                     ListView {
                         id: playlistTabBar
@@ -2117,7 +2489,7 @@ Item {
                             Rectangle {
                                 anchors.fill: parent
                                 radius: 6
-                                color: root.playerScreen === "playlists" && root.selectedPlaylist === name
+                                color: root.playlistPanelOpen && root.selectedPlaylist === name
                                     ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.2)
                                     : (playlistTabMouse.containsMouse
                                         ? Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.06)
@@ -2131,11 +2503,11 @@ Item {
 
                                 Text {
                                     text: root.playlistTabLabel(name)
-                                    color: root.playerScreen === "playlists" && root.selectedPlaylist === name ? Theme.accent : Theme.foreground
+                                    color: root.playlistPanelOpen && root.selectedPlaylist === name ? Theme.accent : Theme.foreground
                                     font.family: Theme.fontFamily
                                     font.pixelSize: root.listFont
-                                    font.bold: root.playerScreen === "playlists" && root.selectedPlaylist === name && Theme.fontBold
-                                    opacity: root.playerScreen === "playlists" && root.selectedPlaylist === name ? 1 : 0.78
+                                    font.bold: root.playlistPanelOpen && root.selectedPlaylist === name && Theme.fontBold
+                                    opacity: root.playlistPanelOpen && root.selectedPlaylist === name ? 1 : 0.78
                                 }
 
                                 Text {
@@ -2159,29 +2531,167 @@ Item {
                     }
                 }
 
+                Item {
+                    visible: root.tabSearchMode
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: root.genreTabHeight
+
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: 6
+                        color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.06)
+                        border.color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.35)
+                        border.width: 1
+
+                        TextInput {
+                            id: tabSearchInput
+                            anchors.fill: parent
+                            anchors.leftMargin: 10
+                            anchors.rightMargin: 10
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.listFont
+                            selectionColor: Theme.accent
+                            selectedTextColor: Theme.mantle
+                            verticalAlignment: TextInput.AlignVCenter
+                            clip: true
+                            onTextChanged: {
+                                root.tabSearchText = text
+                                tabSearchDebounce.restart()
+                            }
+                            onAccepted: {
+                                tabSearchDebounce.stop()
+                                root.runTabSearch()
+                            }
+                            Keys.onEscapePressed: {
+                                tabSearchDebounce.stop()
+                                root.tabSearchMode = false
+                                root.tabSearchText = ""
+                                text = ""
+                            }
+                            onActiveFocusChanged: {
+                                if (!activeFocus && String(text || "").trim() === "") {
+                                    tabSearchDebounce.stop()
+                                    root.tabSearchMode = false
+                                }
+                            }
+                            Component.onCompleted: forceActiveFocus()
+                        }
+
+                        Connections {
+                            target: root
+                            function onTabSearchModeChanged() {
+                                if (root.tabSearchMode) {
+                                    tabSearchInput.text = ""
+                                    root.tabSearchText = ""
+                                    tabSearchDebounce.stop()
+                                }
+                            }
+                        }
+
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            anchors.left: parent.left
+                            anchors.leftMargin: 10
+                            visible: !tabSearchInput.text && !tabSearchInput.activeFocus
+                            text: "search library…"
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.listFont
+                            opacity: 0.4
+                        }
+                    }
+                }
+
+                IconTab {
+                    icon: "󰍉"
+                    active: root.tabSearchMode
+                    onActivated: {
+                        if (root.tabSearchMode) {
+                            tabSearchDebounce.stop()
+                            root.runTabSearch()
+                        } else {
+                            root.libraryPanelOpen = false
+                            root.tabSearchMode = true
+                            root.tabSearchText = ""
+                        }
+                    }
+                }
+
                 IconTab {
                     icon: "󰠮"
                     active: root.libraryPanelOpen
                     spinning: root.libraryJobBusy
                     onActivated: root.toggleLibraryPanel()
                 }
+                }
+
+                RowLayout {
+                    visible: root.libraryPanelOpen
+                    Layout.fillWidth: true
+                    spacing: 8
+
+                    IconTab {
+                        icon: "󰠮"
+                        active: true
+                        spinning: root.libraryJobBusy
+                        onActivated: root.toggleLibraryPanel()
+                    }
+
+                    Text {
+                        visible: root.libraryJobBusy
+                        text: root.libraryJobActiveLabel + "…"
+                        color: Theme.accent
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.libraryFont
+                        font.bold: Theme.fontBold
+                        elide: Text.ElideRight
+                        Layout.maximumWidth: 140
+                    }
+
+                    Text {
+                        visible: !root.libraryJobBusy
+                        text: (root.libraryStats.tracks || 0) + " tracks · " + (root.libraryStats.genres || 0) + " genres"
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.libraryFont
+                        opacity: 0.5
+                        elide: Text.ElideRight
+                        Layout.maximumWidth: 160
+                    }
+
+                    ListView {
+                        id: libraryActionBar
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        orientation: ListView.Horizontal
+                        spacing: 6
+                        clip: true
+                        boundsBehavior: Flickable.StopAtBounds
+                        model: root.libraryActions
+
+                        delegate: LibraryBarAction {
+                            required property var modelData
+                            barHeight: root.genreTabHeight
+                            icon: modelData.icon
+                            label: modelData.label
+                            dimmed: root.libraryJobBusy
+                            spinning: root.libraryJobBusy && root.libraryJobActiveLabel === modelData.label
+                            onActivated: if (!root.libraryJobBusy) root.runLibraryAction(modelData)
+                        }
+                    }
+                }
             }
         }
 
-        // Now playing / tracklist
-        StackLayout {
-            id: screenStack
+        // Now playing / library panels
+        Item {
+            id: nowPlayingPanel
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.minimumHeight: 0
-            currentIndex: root.screenStackIndex
 
-            Item {
-                id: nowPlayingPanel
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-
-                RowLayout {
+            RowLayout {
                     anchors.fill: parent
                     spacing: pad
 
@@ -2192,6 +2702,7 @@ Item {
 
                         SectionPanel {
                             label: ""
+                            visible: !root.splitSidePanelMode
                             Layout.fillWidth: true
                             Layout.fillHeight: true
                             fillHeight: true
@@ -2236,13 +2747,27 @@ Item {
                                         Text {
                                             Layout.fillWidth: true
                                             visible: (root.player.artist || "") !== ""
-                                            text: root.player.artist
+                                            text: String(root.player.artist || "")
                                             color: Theme.foreground
                                             font.family: Theme.fontFamily
                                             font.pixelSize: Theme.fontSizeXl
                                             font.bold: Theme.fontBold
-                                            opacity: 0.72
+                                            opacity: artistMouse.containsMouse ? 1 : 0.72
                                             elide: Text.ElideRight
+
+                                            MouseArea {
+                                                id: artistMouse
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: function(mouse) {
+                                                    var artist = String(root.player.artist || "").trim()
+                                                    if (!artist)
+                                                        return
+                                                    mouse.accepted = true
+                                                    root.openFilter("artist", artist, artist)
+                                                }
+                                            }
                                         }
 
                                         Flow {
@@ -2257,6 +2782,13 @@ Item {
                                                     required property var modelData
                                                     label: modelData.label
                                                     accent: !!modelData.accent
+                                                    clickable: modelData.kind === "genre" || modelData.kind === "year"
+                                                    onActivated: {
+                                                        if (modelData.kind === "genre")
+                                                            root.openFilter("genre", modelData.value, modelData.value)
+                                                        else if (modelData.kind === "year")
+                                                            root.openFilter("year", modelData.value, modelData.value)
+                                                    }
                                                 }
                                             }
                                         }
@@ -2452,6 +2984,30 @@ Item {
                         }
                         }
 
+                        PlayerSideBrowsePanel {
+                            visible: root.browsePanelOpen
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                        }
+
+                        PlayerSidePlaylistPanel {
+                            visible: root.playlistPanelOpen
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                        }
+
+                        PlayerSideTagsPanel {
+                            visible: root.playerScreen === "tags"
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                        }
+
+                        PlayerSideFilterPanel {
+                            visible: root.playerScreen === "filter"
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                        }
+
                         SectionPanel {
                             label: ""
                             Layout.fillWidth: true
@@ -2488,7 +3044,6 @@ Item {
                             }
                         }
                     }
-                }
 
                 ArtPickerOverlay {
                     anchors.fill: parent
@@ -2497,531 +3052,6 @@ Item {
                     z: 100
                 }
             }
-
-            RowLayout {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                spacing: pad
-
-                SectionPanel {
-                    label: ""
-                    labelFontSize: root.sectionLabelFont
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    fillHeight: true
-
-                    Item {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-
-                        ColumnLayout {
-                            anchors.fill: parent
-                            spacing: 6
-
-                            RowLayout {
-                                Layout.fillWidth: true
-                                Layout.bottomMargin: root.browsePath !== "" ? 10 : 0
-                                visible: root.browsePath !== ""
-                                spacing: 6
-
-                                Text {
-                                    visible: root.browsePath !== ""
-                                text: "󰋜"
-                                color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: root.sectionLabelFont
-                                opacity: browseHomeMouse.containsMouse ? 0.95 : 0.62
-                                Layout.alignment: Qt.AlignVCenter
-
-                                MouseArea {
-                                    id: browseHomeMouse
-                                    anchors.fill: parent
-                                    anchors.margins: -6
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: root.browseHome()
-                                }
-                            }
-
-                            Item {
-                                Layout.fillWidth: true
-                                Layout.preferredHeight: browseCrumbRow.implicitHeight
-                                clip: true
-
-                                Row {
-                                    id: browseCrumbRow
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    width: Math.min(implicitWidth, parent.width)
-                                    spacing: 0
-
-                                    Repeater {
-                                        model: root.browseCrumbs
-
-                                        Row {
-                                            spacing: 0
-
-                                            Text {
-                                                visible: index > 0
-                                                text: " / "
-                                                color: Theme.foreground
-                                                font.family: Theme.fontFamily
-                                                font.pixelSize: root.sectionLabelFont
-                                                opacity: 0.28
-                                            }
-
-                                            BrowseCrumb {
-                                                label: modelData.label
-                                                path: modelData.path
-                                                current: index === root.browseCrumbCount() - 1
-                                                onActivated: root.loadBrowse(path)
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        ListView {
-                            id: browseList
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
-                            clip: true
-                            spacing: 2
-                            model: root.browseEntries
-
-                            Text {
-                                anchors.centerIn: parent
-                                visible: root.browseLoading
-                                text: "loading…"
-                                color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: root.listFont
-                                opacity: 0.45
-                            }
-
-                            Text {
-                                anchors.centerIn: parent
-                                visible: !root.browseLoading && root.browseEntries.length === 0
-                                text: "empty folder"
-                                color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: root.listFont
-                                opacity: 0.45
-                            }
-
-                            delegate: Rectangle {
-                                required property var modelData
-                                required property int index
-                                width: browseList.width
-                                height: 40
-                                radius: 4
-                                color: modelData.type === "dir"
-                                    ? (browseMouse.containsMouse
-                                        ? Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.05)
-                                        : "transparent")
-                                    : (root.isTrackPlaying(modelData.path)
-                                        ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.14)
-                                        : (browseTrackRow.hovered
-                                            ? Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.05)
-                                            : "transparent"))
-
-                                RowLayout {
-                                    anchors.fill: parent
-                                    anchors.leftMargin: 8
-                                    anchors.rightMargin: 8
-                                    spacing: 10
-                                    visible: modelData.type === "dir"
-
-                                    Text {
-                                        text: "󰉋"
-                                        color: Theme.foreground
-                                        opacity: 0.55
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: root.listFont
-                                    }
-
-                                    Item {
-                                        Layout.preferredWidth: Math.min(
-                                            foldName.implicitWidth,
-                                            Math.max(60, browseList.width - 140))
-                                        Layout.maximumWidth: Math.max(60, browseList.width - 140)
-                                        Layout.fillHeight: true
-
-                                        Text {
-                                            id: foldName
-                                            anchors.fill: parent
-                                            text: modelData.name
-                                            color: Theme.foreground
-                                            font.family: Theme.fontFamily
-                                            font.pixelSize: root.listFont
-                                            elide: Text.ElideRight
-                                            opacity: 0.85
-                                            verticalAlignment: Text.AlignVCenter
-                                        }
-
-                                        MouseArea {
-                                            id: browseMouse
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: root.browseEnter(modelData)
-                                        }
-                                    }
-
-                                    Rectangle {
-                                        z: 2
-                                        visible: modelData.count !== undefined && modelData.count !== null
-                                        Layout.alignment: Qt.AlignVCenter
-                                        radius: 8
-                                        color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.07)
-                                        border.color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.14)
-                                        border.width: 1
-                                        implicitWidth: browseCountPill.implicitWidth + 12
-                                        implicitHeight: browseCountPill.implicitHeight + 4
-
-                                        Text {
-                                            id: browseCountPill
-                                            anchors.centerIn: parent
-                                            text: String(modelData.count)
-                                            color: Theme.foreground
-                                            font.family: Theme.fontFamily
-                                            font.pixelSize: root.listFont
-                                            opacity: 0.72
-                                        }
-                                    }
-
-                                    Item {
-                                        Layout.fillWidth: true
-                                        Layout.fillHeight: true
-                                    }
-
-                                    Item {
-                                        z: 2
-                                        Layout.preferredWidth: 22
-                                        Layout.preferredHeight: 22
-                                        Layout.alignment: Qt.AlignVCenter
-
-                                        Text {
-                                            anchors.centerIn: parent
-                                            text: "󰐊"
-                                            color: Theme.accent
-                                            opacity: browseFolderPlayMouse.containsMouse ? 1 : 0.55
-                                            font.family: Theme.fontFamily
-                                            font.pixelSize: root.listFont
-                                        }
-
-                                        MouseArea {
-                                            id: browseFolderPlayMouse
-                                            anchors.fill: parent
-                                            anchors.margins: -6
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: function(mouse) {
-                                                mouse.accepted = true
-                                                root.browseQueueFolder(modelData)
-                                            }
-                                        }
-                                    }
-
-                                    RowIconButton {
-                                        icon: "󰉖"
-                                        onActivated: root.openBrowseFolder(modelData)
-                                    }
-
-                                    Item {
-                                        z: 2
-                                        Layout.preferredWidth: 22
-                                        Layout.preferredHeight: 22
-                                        Layout.alignment: Qt.AlignVCenter
-
-                                        Text {
-                                            id: rebuildDirIcon
-                                            anchors.centerIn: parent
-                                            text: "󰑐"
-                                            color: Theme.foreground
-                                            opacity: root.libraryJobBusy
-                                                ? 0.2
-                                                : (rebuildDirMouse.containsMouse ? 0.9 : 0.42)
-                                            font.family: Theme.fontFamily
-                                            font.pixelSize: Theme.fontSizeM
-                                            transformOrigin: Item.Center
-
-                                            RotationAnimation on rotation {
-                                                running: root.libraryJobBusy
-                                                    && root.libraryJobActiveLabel === ("rebuild " + root.browseDirGenre(modelData.path))
-                                                from: 0
-                                                to: 360
-                                                duration: 900
-                                                loops: Animation.Infinite
-                                            }
-                                        }
-
-                                        MouseArea {
-                                            id: rebuildDirMouse
-                                            anchors.fill: parent
-                                            anchors.margins: -6
-                                            hoverEnabled: true
-                                            enabled: !root.libraryJobBusy
-                                            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                                            onClicked: function(mouse) {
-                                                mouse.accepted = true
-                                                root.rebuildBrowseDir(modelData)
-                                            }
-                                        }
-                                    }
-                                }
-
-                                BrowseTrackRow {
-                                    id: browseTrackRow
-                                    anchors.fill: parent
-                                    visible: modelData.type === "track"
-                                    rowWidth: browseList.width
-                                    track: modelData
-                                    selected: root.isTrackSelected(modelData.path)
-                                    genreLabel: root.browseGenreLabel(modelData)
-                                    onPressed: root.selectBrowseTrack(modelData)
-                                    onPlayRequested: root.playBrowseTrack(modelData)
-                                    onGenreClicked: root.cycleBrowseGenre(modelData)
-                                    onLikeToggled: root.toggleBrowseFavorite(modelData.path)
-                                    onFolderOpenRequested: root.openTrackInThunar(modelData.path)
-                                }
-                            }
-                        }
-                    }
-                }
-                }
-
-                LibrarySidePanel {
-                    visible: root.libraryPanelOpen
-                }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                spacing: pad
-
-                SectionPanel {
-                    label: ""
-                    labelFontSize: root.sectionLabelFont
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    fillHeight: true
-
-                    ListView {
-                        id: playlistLibraryList
-                        anchors.fill: parent
-                        clip: true
-                        spacing: 2
-                        model: root.libraryPlaylists
-
-                        Text {
-                            anchors.centerIn: parent
-                            visible: root.playlistsLoading && root.libraryPlaylists.length === 0
-                            text: "loading…"
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.listFont
-                            opacity: 0.45
-                        }
-
-                        Text {
-                            anchors.centerIn: parent
-                            visible: !root.playlistsLoading && root.libraryPlaylists.length === 0
-                            text: "no playlists"
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.listFont
-                            opacity: 0.45
-                        }
-
-                        delegate: Rectangle {
-                            required property var modelData
-                            required property int index
-                            readonly property bool isCurrentEntry: modelData.name === root.currentPlaylistId
-                            readonly property int pinReserve: isCurrentEntry ? 0 : 30
-                            width: playlistLibraryList.width
-                            height: 40
-                            radius: 4
-                            color: genrePlaylistMouse.containsMouse
-                                ? Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.05)
-                                : "transparent"
-
-                            RowLayout {
-                                anchors.fill: parent
-                                anchors.leftMargin: 10
-                                anchors.rightMargin: 10
-                                spacing: 8
-
-                                Item {
-                                    Layout.preferredWidth: 22
-                                    Layout.preferredHeight: 22
-                                    Layout.alignment: Qt.AlignVCenter
-                                    visible: !parent.parent.isCurrentEntry
-
-                                    Text {
-                                        anchors.centerIn: parent
-                                        text: modelData.starred ? "󰓎" : "󰓄"
-                                        color: modelData.starred ? Theme.accent : Theme.foreground
-                                        opacity: modelData.starred ? 1 : (playlistPinMouse.containsMouse ? 0.65 : 0.42)
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: root.listFont
-                                    }
-                                }
-
-                                Text {
-                                    Layout.fillWidth: true
-                                    text: root.playlistTabLabel(modelData.name || "")
-                                    color: Theme.foreground
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: root.listFont
-                                    elide: Text.ElideRight
-                                }
-
-                                Text {
-                                    text: String(modelData.count || 0)
-                                    color: Theme.foreground
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: root.listFont
-                                    opacity: 0.45
-                                }
-
-                                RowIconButton {
-                                    icon: "󰉖"
-                                    onActivated: root.openPlaylistFolder(modelData.name)
-                                }
-                            }
-
-                            MouseArea {
-                                id: genrePlaylistMouse
-                                anchors.fill: parent
-                                anchors.leftMargin: pinReserve
-                                anchors.rightMargin: 30
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: root.selectGenrePlaylist(modelData.name)
-                            }
-
-                            MouseArea {
-                                id: playlistPinMouse
-                                anchors.left: parent.left
-                                anchors.leftMargin: 10
-                                anchors.verticalCenter: parent.verticalCenter
-                                width: 26
-                                height: 26
-                                visible: !parent.isCurrentEntry
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: function(mouse) {
-                                    mouse.accepted = true
-                                    root.togglePlaylistStar(modelData.name)
-                                }
-                            }
-                        }
-                    }
-                }
-
-                LibrarySidePanel {
-                    visible: root.libraryPanelOpen
-                }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                spacing: pad
-
-                SectionPanel {
-                    label: ""
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    fillHeight: true
-
-                    Item {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-
-                        ListView {
-                            id: playlistTrackList
-                            anchors.fill: parent
-                            clip: true
-                            spacing: 2
-                            model: root.tracks
-
-                            Text {
-                                anchors.centerIn: parent
-                                visible: root.playlistsLoading && root.playlists.length === 0
-                                text: "loading…"
-                                color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: root.listFont
-                                opacity: 0.45
-                            }
-
-                            Text {
-                                anchors.centerIn: parent
-                                visible: root.tracksLoading && root.selectedPlaylist !== ""
-                                text: "loading…"
-                                color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: root.listFont
-                                opacity: 0.45
-                            }
-
-                            Text {
-                                anchors.centerIn: parent
-                                visible: !root.playlistsLoading && root.selectedPlaylist === ""
-                                text: "select a playlist"
-                                color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: root.listFont
-                                opacity: 0.45
-                            }
-
-                            Text {
-                                anchors.centerIn: parent
-                                visible: !root.tracksLoading && root.tracks.length === 0 && root.selectedPlaylist !== ""
-                                text: "no tracks"
-                                color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: root.listFont
-                                opacity: 0.45
-                            }
-
-                            delegate: TrackListRow {
-                                required property var modelData
-                                required property int index
-                                rowWidth: playlistTrackList.width
-                                track: modelData
-                                number: index + 1
-                                selected: root.isTrackSelected(modelData.path)
-                                showLike: true
-                                showFolderOpen: true
-                                onPressed: root.selectPlaylistTrack(index)
-                                onActivated: root.playTrackAt(index)
-                                onLikeToggled: root.toggleTrackFavorite(modelData.path)
-                                onFolderOpenRequested: root.openTrackInThunar(modelData.path)
-                            }
-                        }
-                    }
-                }
-
-                LibrarySidePanel {
-                    visible: root.libraryPanelOpen
-                }
-            }
-        }
-
-        // Bottom control bar — other screens only
-        SectionPanel {
-            label: ""
-            Layout.fillWidth: true
-            visible: root.playerScreen !== "nowPlaying"
-            contentPad: 10
-
-            PlayerTransportBar {
-                Layout.fillWidth: true
-            }
         }
     }
 
@@ -3029,16 +3059,17 @@ Item {
         id: thumbRoot
         property int side: 56
         property bool showPickerOverlay: false
+        property bool fillPane: false
 
-        implicitWidth: side
-        implicitHeight: side
-        width: side
-        height: side
+        implicitWidth: fillPane ? 0 : side
+        implicitHeight: fillPane ? 0 : side
+        width: fillPane ? undefined : side
+        height: fillPane ? undefined : side
 
         Rectangle {
             id: coverFrame
             anchors.fill: parent
-            radius: 3
+            radius: fillPane ? Theme.fieldsetCornerRadius : 3
             clip: true
             color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.08)
 
@@ -3058,7 +3089,7 @@ Item {
                 text: "󰎈"
                 color: Theme.accent
                 font.family: Theme.fontFamily
-                font.pixelSize: Math.round(thumbRoot.side * 0.38)
+                font.pixelSize: Math.round((fillPane ? Math.min(thumbRoot.width, thumbRoot.height) : thumbRoot.side) * 0.38)
                 opacity: 0.5
             }
 
@@ -3675,6 +3706,7 @@ Item {
         id: trackRow
         property var track: ({})
         property int number: 0
+        property bool showNumber: true
         property bool selected: false
         property bool showMeta: false
         property bool showLike: false
@@ -3789,6 +3821,7 @@ Item {
             }
 
             Text {
+                visible: trackRow.showNumber
                 text: String(trackRow.number)
                 color: Theme.accent
                 font.family: Theme.fontFamily
@@ -3797,6 +3830,7 @@ Item {
             }
 
             Text {
+                visible: trackRow.showNumber
                 text: "·"
                 color: Theme.foreground
                 font.family: Theme.fontFamily
@@ -3963,6 +3997,26 @@ Item {
                 Layout.preferredHeight: 18
 
                 Text {
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: (root.player.art || "") !== ""
+                    text: "remove current art"
+                    color: artPickerClearMouse.containsMouse ? Theme.accent : Theme.foreground
+                    opacity: artPickerClearMouse.containsMouse ? 1 : 0.55
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.libraryFont
+
+                    MouseArea {
+                        id: artPickerClearMouse
+                        anchors.fill: parent
+                        anchors.margins: -8
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.clearAlbumArt()
+                    }
+                }
+
+                Text {
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
                     text: "󰅖"
@@ -3979,6 +4033,52 @@ Item {
                         cursorShape: Qt.PointingHandCursor
                         onClicked: root.closeArtPicker()
                     }
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: Math.min(artPickerRoot.width * 0.42, 120)
+                visible: (root.player.art || "") !== "" && !root.artPickerLoading
+                radius: 3
+                clip: true
+                color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.06)
+                border.color: artCurrentMouse.containsMouse
+                    ? Theme.accent
+                    : Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.12)
+                border.width: artCurrentMouse.containsMouse ? 2 : 1
+
+                Image {
+                    anchors.fill: parent
+                    source: root.artUrl(root.player.art || "")
+                    fillMode: Image.PreserveAspectCrop
+                    smooth: true
+                    asynchronous: true
+                }
+
+                Rectangle {
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                    height: 18
+                    color: Qt.rgba(Theme.mantle.r, Theme.mantle.g, Theme.mantle.b, 0.72)
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: "current · click to remove"
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.libraryFont
+                        opacity: 0.8
+                    }
+                }
+
+                MouseArea {
+                    id: artCurrentMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.clearAlbumArt()
                 }
             }
 
@@ -4057,6 +4157,24 @@ Item {
                                 asynchronous: true
                             }
 
+                            Rectangle {
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.bottom: parent.bottom
+                                height: 16
+                                visible: String(modelData.source || "") !== ""
+                                color: Qt.rgba(Theme.mantle.r, Theme.mantle.g, Theme.mantle.b, 0.78)
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: String(modelData.source || "")
+                                    color: Theme.foreground
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: root.libraryFont
+                                    opacity: 0.85
+                                }
+                            }
+
                             MouseArea {
                                 id: artPickMouse
                                 anchors.fill: parent
@@ -4078,9 +4196,34 @@ Item {
         property bool spinning: false
         signal activated()
 
+        function finishSpinUpright() {
+            var r = ((iconTabGlyph.rotation % 360) + 360) % 360
+            if (r === 0) {
+                iconTabGlyph.rotation = 0
+                return
+            }
+            iconTabFinishSpin.from = iconTabGlyph.rotation
+            iconTabFinishSpin.to = iconTabGlyph.rotation + (360 - r)
+            iconTabFinishSpin.duration = Math.max(80, Math.round(900 * (360 - r) / 360))
+            iconTabFinishSpin.start()
+        }
+
         implicitWidth: root.genreTabHeight
         implicitHeight: root.genreTabHeight
         clip: true
+
+        Connections {
+            target: iconTab
+            function onSpinningChanged() {
+                if (iconTab.spinning) {
+                    iconTabFinishSpin.stop()
+                    var r = ((iconTabGlyph.rotation % 360) + 360) % 360
+                    iconTabGlyph.rotation = r
+                } else {
+                    iconTab.finishSpinUpright()
+                }
+            }
+        }
 
         Rectangle {
             anchors.fill: parent
@@ -4102,12 +4245,22 @@ Item {
             opacity: iconTab.active || iconTab.spinning ? 1 : 0.78
             transformOrigin: Item.Center
 
-            RotationAnimation on rotation {
+            RotationAnimation {
+                id: iconTabSpinLoop
+                target: iconTabGlyph
+                property: "rotation"
                 running: iconTab.spinning
                 from: 0
                 to: 360
                 duration: 900
                 loops: Animation.Infinite
+            }
+
+            RotationAnimation {
+                id: iconTabFinishSpin
+                target: iconTabGlyph
+                property: "rotation"
+                onFinished: iconTabGlyph.rotation = 0
             }
         }
 
@@ -4120,170 +4273,581 @@ Item {
         }
     }
 
-    component LibrarySidePanel: SectionPanel {
-        label: "Library"
-        Layout.preferredWidth: root.libraryPanelWidth
-        Layout.minimumWidth: 148
-        Layout.fillHeight: true
+    component PlayerSideBrowsePanel: SectionPanel {
+        label: ""
+        fillHeight: true
+
+        ListView {
+            id: sideBrowseTree
+            anchors.fill: parent
+            clip: true
+            spacing: 2
+            model: root.browseTreeRows
+
+            Component.onCompleted: root.browseTreeListView = sideBrowseTree
+            Component.onDestruction: {
+                if (root.browseTreeListView === sideBrowseTree)
+                    root.browseTreeListView = null
+            }
+
+            onContentYChanged: {
+                if (root.browseTreeRestoreY < 0)
+                    root.browseTreeScrollY = contentY
+            }
+
+            Timer {
+                id: browseTreeScrollRestoreTimer
+                interval: 0
+                repeat: true
+                property int attempts: 0
+                onTriggered: {
+                    if (root.browseTreeRestoreY < 0) {
+                        stop()
+                        attempts = 0
+                        return
+                    }
+                    sideBrowseTree.contentY = root.browseTreeRestoreY
+                    attempts++
+                    if (sideBrowseTree.contentHeight > 0 || attempts > 8) {
+                        root.browseTreeRestoreY = -1
+                        stop()
+                        attempts = 0
+                    }
+                }
+            }
+
+            Connections {
+                target: root
+                function onBrowseTreeRowsChanged() {
+                    if (root.browseTreeRestoreY < 0)
+                        return
+                    browseTreeScrollRestoreTimer.attempts = 0
+                    browseTreeScrollRestoreTimer.restart()
+                }
+            }
+
+            Text {
+                    anchors.centerIn: parent
+                    visible: root.browseTreeLoading && root.browseTreeRows.length === 0
+                    text: "loading…"
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.listFont
+                    opacity: 0.45
+                }
+
+                delegate: Rectangle {
+                    required property var modelData
+                    required property int index
+                    readonly property bool isDir: modelData.type === "dir"
+                    readonly property int indent: 8 + (Number(modelData.depth || 0) * 14)
+                    width: sideBrowseTree.width
+                    height: isDir ? 34 : 36
+                    radius: 4
+                    color: isDir
+                        ? (treeRowMouse.containsMouse
+                            ? Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.05)
+                            : "transparent")
+                        : (root.isTrackPlaying(modelData.path)
+                            ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.14)
+                            : (treeTrackMouse.containsMouse
+                                ? Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.05)
+                                : "transparent"))
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: indent
+                        anchors.rightMargin: 6
+                        spacing: 6
+                        visible: isDir
+
+                        Text {
+                            Layout.preferredWidth: 14
+                            text: modelData.expanded ? "󰅃" : "󰅂"
+                            color: Theme.foreground
+                            opacity: treeChevronMouse.containsMouse ? 0.9 : 0.45
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.libraryFont
+
+                            MouseArea {
+                                id: treeChevronMouse
+                                anchors.fill: parent
+                                anchors.margins: -4
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: function(mouse) {
+                                    mouse.accepted = true
+                                    root.toggleBrowseTreeNode(modelData.path)
+                                }
+                            }
+                        }
+
+                        Text {
+                            text: "󰉋"
+                            color: Theme.foreground
+                            opacity: 0.55
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.listFont
+                        }
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: root.playlistTabLabel(modelData.name || "")
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.listFont
+                            elide: Text.ElideRight
+                        }
+
+                        Text {
+                            visible: modelData.count !== undefined && modelData.count !== null
+                            text: String(modelData.count)
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.libraryFont
+                            opacity: 0.45
+                        }
+
+                        Text {
+                            text: "󰐕"
+                            color: Theme.accent
+                            opacity: treeAppendMouse.containsMouse ? 1 : 0.55
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.listFont
+
+                            MouseArea {
+                                id: treeAppendMouse
+                                anchors.fill: parent
+                                anchors.margins: -6
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: function(mouse) {
+                                    mouse.accepted = true
+                                    root.browseAppendFolder(modelData)
+                                }
+                            }
+                        }
+
+                        Text {
+                            text: "󰐊"
+                            color: Theme.accent
+                            opacity: treePlayMouse.containsMouse ? 1 : 0.55
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.listFont
+
+                            MouseArea {
+                                id: treePlayMouse
+                                anchors.fill: parent
+                                anchors.margins: -6
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: function(mouse) {
+                                    mouse.accepted = true
+                                    root.browseQueueFolder(modelData)
+                                }
+                            }
+                        }
+
+                        Text {
+                            text: "󰉖"
+                            color: Theme.foreground
+                            opacity: treeOpenMouse.containsMouse ? 0.85 : 0.45
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.listFont
+
+                            MouseArea {
+                                id: treeOpenMouse
+                                anchors.fill: parent
+                                anchors.margins: -6
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: function(mouse) {
+                                    mouse.accepted = true
+                                    root.openBrowseFolder(modelData)
+                                }
+                            }
+                        }
+                    }
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: indent + 14
+                        anchors.rightMargin: 6
+                        spacing: 8
+                        visible: !isDir
+
+                        Text {
+                            text: "󰎈"
+                            color: Theme.accent
+                            opacity: 0.45
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.listFont
+                        }
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 0
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: modelData.name || ""
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.listFont
+                                elide: Text.ElideRight
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                visible: (modelData.artist || "") !== ""
+                                text: modelData.artist
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.libraryFont
+                                opacity: 0.5
+                                elide: Text.ElideRight
+                            }
+                        }
+
+                        Text {
+                            text: "󰐊"
+                            color: Theme.accent
+                            opacity: treeTrackPlayMouse.containsMouse ? 1 : 0.55
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.listFont
+
+                            MouseArea {
+                                id: treeTrackPlayMouse
+                                anchors.fill: parent
+                                anchors.margins: -6
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: function(mouse) {
+                                    mouse.accepted = true
+                                    root.playBrowseTreeTrack(modelData.track || modelData)
+                                }
+                            }
+                        }
+                    }
+
+                    MouseArea {
+                        id: treeRowMouse
+                        anchors.fill: parent
+                        anchors.rightMargin: 76
+                        hoverEnabled: true
+                        visible: isDir
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.toggleBrowseTreeNode(modelData.path)
+                    }
+
+                    MouseArea {
+                        id: treeTrackMouse
+                        anchors.fill: parent
+                        anchors.rightMargin: 28
+                        hoverEnabled: true
+                        visible: !isDir
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.playBrowseTreeTrack(modelData.track || modelData)
+                    }
+                }
+            }
+    }
+
+    component PlayerSidePlaylistPanel: SectionPanel {
+        label: root.playlistPanelMode === "library" ? "Playlists" : ""
+        labelFontSize: root.sectionLabelFont
         fillHeight: true
 
         ColumnLayout {
-            Layout.fillWidth: true
-            spacing: 8
+            anchors.fill: parent
+            spacing: 6
 
-            Text {
+            RowLayout {
                 Layout.fillWidth: true
-                text: root.libraryJobBusy
-                    ? root.libraryJobActiveLabel + "…"
-                    : (root.libraryStats.tracks || 0) + " tracks · " + (root.libraryStats.genres || 0) + " genres"
-                color: Theme.foreground
-                font.family: Theme.fontFamily
-                font.pixelSize: root.libraryFont
-                opacity: root.libraryJobBusy ? 0.9 : 0.55
-                wrapMode: Text.Wrap
+                spacing: 6
+
+                RowIconButton {
+                    icon: root.playlistPanelMode === "library" ? "󰎄" : "󰉹"
+                    onActivated: {
+                        if (root.playlistPanelMode === "library") {
+                            root.playlistPanelMode = "tracks"
+                            if (!root.selectedPlaylist)
+                                root.selectPlaylist(root.currentPlaylistId, false)
+                        } else {
+                            root.playlistPanelMode = "library"
+                            if (!root.libraryPlaylists.length)
+                                root.loadPlaylists()
+                        }
+                    }
+                }
             }
 
-            Rectangle {
+            ListView {
+                id: sidePlaylistLibraryList
                 Layout.fillWidth: true
-                Layout.preferredHeight: 30
+                Layout.fillHeight: true
+                clip: true
+                spacing: 2
+                visible: root.playlistPanelMode === "library"
+                model: root.libraryPlaylists
+
+                delegate: Rectangle {
+                    required property var modelData
+                    width: sidePlaylistLibraryList.width
+                    height: 38
+                    radius: 4
+                    color: sideLibPlaylistMouse.containsMouse
+                        ? Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.05)
+                        : "transparent"
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: 10
+                        anchors.rightMargin: 10
+                        spacing: 8
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: root.playlistTabLabel(modelData.name || "")
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.listFont
+                            elide: Text.ElideRight
+                        }
+
+                        Text {
+                            text: String(modelData.count || 0)
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.listFont
+                            opacity: 0.45
+                        }
+                    }
+
+                    MouseArea {
+                        id: sideLibPlaylistMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.selectGenrePlaylist(modelData.name)
+                    }
+                }
+            }
+
+            ListView {
+                id: sidePlaylistTrackList
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
+                spacing: 2
+                visible: root.playlistPanelMode !== "library"
+                model: root.tracks
+
+                Text {
+                    anchors.centerIn: parent
+                    visible: root.tracksLoading
+                    text: "loading…"
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.listFont
+                    opacity: 0.45
+                }
+
+                delegate: TrackListRow {
+                    required property var modelData
+                    required property int index
+                    rowWidth: sidePlaylistTrackList.width
+                    track: modelData
+                    showNumber: false
+                    selected: root.isTrackSelected(modelData.path)
+                    showLike: true
+                    showFolderOpen: true
+                    onPressed: root.selectPlaylistTrack(index)
+                    onActivated: root.playTrackAt(index)
+                    onLikeToggled: root.toggleTrackFavorite(modelData.path)
+                    onFolderOpenRequested: root.openTrackInThunar(modelData.path)
+                }
+            }
+        }
+    }
+
+    component PlayerSideTagsPanel: SectionPanel {
+        label: ""
+        fillHeight: true
+
+        ListView {
+            id: sideTagsGenreList
+            anchors.fill: parent
+            clip: true
+            spacing: 2
+            model: root.genres
+
+            Text {
+                anchors.centerIn: parent
+                visible: root.genres.length === 0
+                text: "no genres"
+                color: Theme.foreground
+                font.family: Theme.fontFamily
+                font.pixelSize: root.listFont
+                opacity: 0.45
+            }
+
+            delegate: Rectangle {
+                required property var modelData
+                required property int index
+                width: sideTagsGenreList.width
+                height: 40
                 radius: 4
-                color: libraryMenuMouse.containsMouse
-                    ? Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.07)
-                    : Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.04)
-                border.color: Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.1)
-                border.width: 1
+                color: sideTagGenreMouse.containsMouse
+                    ? Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.05)
+                    : "transparent"
 
                 RowLayout {
                     anchors.fill: parent
-                    anchors.leftMargin: 8
-                    anchors.rightMargin: 8
-                    spacing: 6
-
-                    Text {
-                        text: "󰍜"
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSizeM
-                        opacity: 0.8
-                    }
+                    anchors.leftMargin: 10
+                    anchors.rightMargin: 10
+                    spacing: 8
 
                     Text {
                         Layout.fillWidth: true
-                        text: "actions"
+                        text: root.playlistTabLabel(modelData.name || "")
                         color: Theme.foreground
                         font.family: Theme.fontFamily
-                        font.pixelSize: root.libraryFont
-                        opacity: libraryMenuMouse.containsMouse ? 1 : 0.78
+                        font.pixelSize: root.listFont
+                        elide: Text.ElideRight
                     }
 
                     Text {
-                        text: root.libraryMenuOpen ? "󰅃" : "󰅀"
+                        text: String(modelData.count || 0)
                         color: Theme.foreground
                         font.family: Theme.fontFamily
-                        font.pixelSize: root.libraryFont
+                        font.pixelSize: root.listFont
                         opacity: 0.45
                     }
                 }
 
                 MouseArea {
-                    id: libraryMenuMouse
+                    id: sideTagGenreMouse
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: root.libraryMenuOpen = !root.libraryMenuOpen
+                    onClicked: root.openGenreTracks(modelData.name)
                 }
             }
-
-            ColumnLayout {
-                Layout.fillWidth: true
-                visible: root.libraryMenuOpen
-                spacing: 2
-
-                Repeater {
-                    model: root.libraryActions
-
-                    LibraryMenuItem {
-                        required property var modelData
-                        icon: modelData.icon
-                        label: modelData.label
-                        dimmed: root.libraryJobBusy
-                        spinning: root.libraryJobBusy && root.libraryJobActiveLabel === modelData.label
-                        onActivated: if (!root.libraryJobBusy) root.runLibraryAction(modelData)
-                    }
-                }
-            }
-
-            Flickable {
-                id: libraryJobLogFlickable
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                Layout.minimumHeight: 72
-                visible: root.libraryJobBusy || root.jobLog !== ""
-                clip: true
-                contentWidth: width
-                contentHeight: libraryJobLogText.height
-                boundsBehavior: Flickable.StopAtBounds
-
-                Text {
-                    id: libraryJobLogText
-                    width: parent.width
-                    text: root.jobLog || (root.libraryJobBusy ? (root.libraryJobActiveLabel + "…") : "")
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.libraryFont
-                    opacity: 0.75
-                    wrapMode: Text.Wrap
-                }
-
-                onContentHeightChanged: contentY = Math.max(0, contentHeight - height)
-            }
-
-            Connections {
-                target: root
-                function onJobLogChanged() {
-                    libraryJobLogFlickable.contentY = Math.max(0, libraryJobLogFlickable.contentHeight - libraryJobLogFlickable.height)
-                }
-            }
-
-            Item { Layout.fillHeight: true }
         }
     }
 
-    component LibraryMenuItem: Item {
-        id: menuItem
+    component PlayerSideFilterPanel: SectionPanel {
+        label: ""
+        fillHeight: true
+
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: 8
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+
+                RowIconButton {
+                    icon: "󰁍"
+                    onActivated: root.openTagsScreen()
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    text: root.filterHeaderTitle()
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.sectionLabelFont
+                    font.bold: Theme.fontBold
+                    elide: Text.ElideRight
+                }
+            }
+
+            Item {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+
+                ListView {
+                    id: sideFilterTrackList
+                    anchors.fill: parent
+                    clip: true
+                    spacing: 2
+                    model: root.filterTracks
+
+                    Text {
+                        anchors.centerIn: parent
+                        visible: root.filterLoading
+                        text: "loading…"
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.listFont
+                        opacity: 0.45
+                    }
+
+                    Text {
+                        anchors.centerIn: parent
+                        visible: !root.filterLoading && root.filterTracks.length === 0
+                        text: "no tracks"
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.listFont
+                        opacity: 0.45
+                    }
+
+                    delegate: TrackListRow {
+                        required property var modelData
+                        required property int index
+                        rowWidth: sideFilterTrackList.width
+                        track: modelData
+                        number: index + 1
+                        selected: root.isTrackSelected(modelData.path)
+                        showLike: true
+                        showFolderOpen: true
+                        onPressed: root.selectedTrackIndex = index
+                        onActivated: root.playFilterTrackAt(index)
+                        onLikeToggled: root.toggleTrackFavorite(modelData.path)
+                        onFolderOpenRequested: root.openTrackInThunar(modelData.path)
+                    }
+                }
+            }
+        }
+    }
+
+    component LibraryBarAction: Rectangle {
+        id: barAction
+        property int barHeight: 34
         property string icon: ""
         property string label: ""
         property bool dimmed: false
         property bool spinning: false
         signal activated()
 
-        Layout.fillWidth: true
-        implicitHeight: 28
-
-        Rectangle {
-            anchors.fill: parent
-            radius: 4
-            color: menuMouse.containsMouse
-                ? Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.06)
-                : "transparent"
-        }
+        height: barHeight
+        width: actionRow.implicitWidth + 16
+        radius: 6
+        color: barMouse.containsMouse
+            ? Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.06)
+            : (dimmed
+                ? "transparent"
+                : Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.03))
 
         Row {
-            anchors.left: parent.left
-            anchors.leftMargin: 6
-            anchors.verticalCenter: parent.verticalCenter
+            id: actionRow
+            anchors.centerIn: parent
             spacing: 6
 
             Text {
-                text: menuItem.icon
+                text: barAction.icon
                 color: Theme.foreground
-                opacity: dimmed && !menuItem.spinning ? 0.35 : 0.9
+                opacity: dimmed && !barAction.spinning ? 0.35 : 0.9
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.fontSizeM
                 transformOrigin: Item.Center
 
                 RotationAnimation on rotation {
-                    running: menuItem.spinning
+                    running: barAction.spinning
                     from: 0
                     to: 360
                     duration: 900
@@ -4292,21 +4856,21 @@ Item {
             }
 
             Text {
-                text: menuItem.label
+                text: barAction.label
                 color: Theme.foreground
-                opacity: dimmed && !menuItem.spinning ? 0.35 : (menuMouse.containsMouse ? 1 : 0.78)
+                opacity: dimmed && !barAction.spinning ? 0.35 : (barMouse.containsMouse ? 1 : 0.78)
                 font.family: Theme.fontFamily
                 font.pixelSize: root.libraryFont
             }
         }
 
         MouseArea {
-            id: menuMouse
+            id: barMouse
             anchors.fill: parent
             enabled: !dimmed
             hoverEnabled: true
             cursorShape: dimmed ? Qt.ArrowCursor : Qt.PointingHandCursor
-            onClicked: menuItem.activated()
+            onClicked: barAction.activated()
         }
     }
 

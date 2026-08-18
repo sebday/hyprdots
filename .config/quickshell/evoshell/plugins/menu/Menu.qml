@@ -129,7 +129,7 @@ Item {
 
     function focusSearchField() {
         if (root.styledMenuMode)
-            menuFilterField.forceActiveFocus()
+            silentFilterField.forceActiveFocus()
         else if (root.framedMode)
             filterField.forceActiveFocus()
         else if (root.previewTileMode)
@@ -141,8 +141,8 @@ Item {
             return
         root.filterText = root.filterText + text
         if (root.styledMenuMode) {
-            menuFilterField.text = root.filterText
-            menuFilterField.forceActiveFocus()
+            silentFilterField.text = root.filterText
+            silentFilterField.forceActiveFocus()
         } else if (root.framedMode) {
             filterField.text = root.filterText
             filterField.forceActiveFocus()
@@ -655,7 +655,23 @@ Item {
             height: root.styledMenuMode
                 ? (root.appsGridMode ? root.styledMenuHostHeight : root.gridHeight + root.powerHeaderHeight + root.powerMenuPadding * 2 + 28)
                 : root.boxTileMode ? root.boxRowHeight : 640
-            focus: root.opened && root.previewTileMode
+            focus: root.opened && (root.previewTileMode || root.styledMenuMode)
+
+            TextInput {
+                id: silentFilterField
+                visible: false
+                width: 1
+                height: 1
+                opacity: 0
+                text: root.filterText
+                onTextEdited: root.filterText = text
+                Keys.onEscapePressed: root.handleEscapeKey()
+                Keys.onLeftPressed: root.handlePreviewLeft()
+                Keys.onRightPressed: root.handlePreviewRight()
+                Keys.onUpPressed: root.handlePreviewUp()
+                Keys.onDownPressed: root.handlePreviewDown()
+                Keys.onReturnPressed: root.handleActivateKey()
+            }
 
             Keys.onEscapePressed: root.handleEscapeKey()
             Keys.onLeftPressed: root.handlePreviewLeft()
@@ -865,56 +881,6 @@ Item {
                                     font.bold: Theme.fontBold
                                     opacity: 0.5
                                 }
-                            }
-                        }
-
-                        Item {
-                            anchors.left: menuHeaderRow.right
-                            anchors.leftMargin: 20
-                            anchors.right: parent.right
-                            anchors.verticalCenter: parent.verticalCenter
-                            height: root.listFilterHeight
-
-                            Rectangle {
-                                anchors.fill: parent
-                                color: Theme.overlaySurface
-                                border.color: Theme.withOpacity(Theme.accent, 0.22)
-                                border.width: 1
-                                radius: Theme.panelCornerRadius
-                            }
-
-                            Text {
-                                visible: menuFilterField.text.length === 0 && !menuFilterField.activeFocus
-                                anchors.left: parent.left
-                                anchors.leftMargin: 12
-                                anchors.verticalCenter: parent.verticalCenter
-                                text: root.placeholderText
-                                color: Theme.foreground
-                                opacity: 0.45
-                                font.family: Theme.fontFamily
-                                font.pixelSize: root.listFilterFontSize
-                                font.bold: Theme.fontBold
-                            }
-
-                            TextInput {
-                                id: menuFilterField
-                                anchors.fill: parent
-                                anchors.leftMargin: 12
-                                anchors.rightMargin: 12
-                                color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: root.listFilterFontSize
-                                font.bold: Theme.fontBold
-                                text: root.filterText
-                                selectByMouse: true
-                                verticalAlignment: TextInput.AlignVCenter
-                                onTextEdited: root.filterText = text
-                                Keys.onEscapePressed: root.handleEscapeKey()
-                                Keys.onLeftPressed: root.handlePreviewLeft()
-                                Keys.onRightPressed: root.handlePreviewRight()
-                                Keys.onUpPressed: root.handlePreviewUp()
-                                Keys.onDownPressed: root.handlePreviewDown()
-                                Keys.onReturnPressed: root.handleActivateKey()
                             }
                         }
                     }

@@ -256,22 +256,6 @@ Item {
                         value: "Steam"
                     }
 
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 6
-                        visible: root.statusPillText !== ""
-
-                        HoverPopupLabelPill {
-                            text: root.statusPillText
-                            fontSize: Theme.fontSizeS
-                            textColor: root.statusPillTextColor
-                            fill: root.statusPillFill
-                            textOpacity: root.errorText || root.runningGames.length > 0 || root.downloadRate > 0 ? 1 : 0.72
-                        }
-
-                        Item { Layout.fillWidth: true }
-                    }
-
                     GridLayout {
                         Layout.fillWidth: true
                         columns: 2
@@ -290,13 +274,29 @@ Item {
                             valueFontSize: Theme.fontSize5xl
                         }
                     }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 6
+                        visible: root.statusPillText !== ""
+
+                        HoverPopupLabelPill {
+                            text: root.statusPillText
+                            fontSize: Theme.fontSizeS
+                            textColor: root.statusPillTextColor
+                            fill: root.statusPillFill
+                            textOpacity: root.errorText || root.runningGames.length > 0 || root.downloadRate > 0 ? 1 : 0.72
+                        }
+
+                        Item { Layout.fillWidth: true }
+                    }
                 }
             }
         }
 
         SectionPanel {
             Layout.fillWidth: true
-            label: "Recent"
+            label: ""
             sectionSpacing: 8
             contentPad: Theme.hoverPopupContentPad
             visible: root.displayedGames.length > 0

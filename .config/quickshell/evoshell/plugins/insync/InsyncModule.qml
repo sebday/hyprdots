@@ -378,6 +378,7 @@ Item {
             sectionSpacing: 8
             contentPad: Theme.hoverPopupContentPad
             visible: root.files.length > 0 || root.filesLoading
+                || (!root.loading && root.errors.length === 0 && !root.errorText)
 
             Item {
                 Layout.fillWidth: true
@@ -458,6 +459,16 @@ Item {
                         }
                     }
                 }
+            }
+
+            Text {
+                Layout.fillWidth: true
+                visible: !root.loading && root.files.length === 0 && !root.filesLoading
+                text: root.ok ? "Nothing syncing" : "Insync unavailable"
+                color: Theme.foreground
+                font.family: Theme.fontFamily
+                font.pixelSize: root.hintFont
+                opacity: 0.65
             }
         }
 
@@ -575,16 +586,6 @@ Item {
             font.family: Theme.fontFamily
             font.pixelSize: root.hintFont
             wrapMode: Text.WordWrap
-        }
-
-        Text {
-            Layout.fillWidth: true
-            visible: !root.loading && root.files.length === 0 && root.errors.length === 0 && !root.errorText && !root.filesLoading
-            text: root.ok ? "Nothing syncing" : "Insync unavailable"
-            color: Theme.foreground
-            font.family: Theme.fontFamily
-            font.pixelSize: root.hintFont
-            opacity: 0.65
         }
     }
 }

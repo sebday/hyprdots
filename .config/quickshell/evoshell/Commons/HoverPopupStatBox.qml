@@ -11,6 +11,7 @@ Item {
     property int labelFontSize: Theme.fontSizeS
     property int contentPad: 10
     property bool clickable: false
+    property bool special: false
 
     signal clicked()
 
@@ -23,6 +24,9 @@ Item {
         anchors.fill: parent
         label: ""
         filled: true
+        fillColor: root.special
+            ? Theme.withOpacity(Theme.accent, 0.14)
+            : Theme.panelMantle
         contentPad: root.contentPad
 
         ColumnLayout {
@@ -33,7 +37,7 @@ Item {
                 Layout.fillWidth: true
                 horizontalAlignment: Text.AlignHCenter
                 text: root.value
-                color: root.valueColor
+                color: root.special ? Theme.accent : root.valueColor
                 font.family: Theme.fontFamily
                 font.pixelSize: root.valueFontSize
                 font.bold: Theme.fontBold
@@ -48,11 +52,21 @@ Item {
                 color: Theme.foreground
                 font.family: Theme.fontFamily
                 font.pixelSize: root.labelFontSize
-                opacity: 0.55
+                font.bold: root.special ? Theme.fontBold : false
+                opacity: root.special ? 0.82 : 0.55
                 elide: Text.ElideRight
                 maximumLineCount: 1
             }
         }
+    }
+
+    Rectangle {
+        anchors.fill: parent
+        visible: root.special
+        radius: Theme.fieldsetCornerRadius
+        color: "transparent"
+        border.color: Theme.withOpacity(Theme.accent, 0.45)
+        border.width: 1
     }
 
     MouseArea {

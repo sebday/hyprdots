@@ -196,8 +196,13 @@ Item {
         spacing: Theme.hoverPopupSectionSpacing
 
         SectionPanel {
-            label: "Now playing"
+            label: ""
             visible: root.hasPlayer
+
+            HoverPopupLabelPill {
+                text: "Now playing"
+                fontSize: Theme.fontSizeS
+            }
 
             Item {
                 Layout.fillWidth: true
@@ -482,7 +487,12 @@ Item {
         }
 
         SectionPanel {
-            label: "TV library"
+            label: ""
+
+            HoverPopupLabelPill {
+                text: "TV library"
+                fontSize: Theme.fontSizeS
+            }
 
             ColumnLayout {
                 Layout.fillWidth: true
@@ -595,54 +605,54 @@ Item {
                         }
                     }
                 }
-
-                Item {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: root.tvLibraryLinkHeight
-                    visible: !root.mediaLoading && root.mediaPreviewItems.length > 0
-
-                    RowLayout {
-                        anchors.right: parent.right
-                        anchors.verticalCenter: parent.verticalCenter
-                        spacing: 6
-
-                        Text {
-                            text: "󰖺"
-                            color: Theme.accent
-                            opacity: openLink.containsMouse ? 1 : 0.85
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.hintFont
-                            font.bold: Theme.fontBold
-                        }
-
-                        Text {
-                            text: "Open"
-                            color: Theme.accent
-                            opacity: openLink.containsMouse ? 1 : 0.85
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.hintFont
-                            font.bold: Theme.fontBold
-                        }
-
-                        Text {
-                            text: "󰁔"
-                            color: Theme.accent
-                            opacity: openLink.containsMouse ? 1 : 0.85
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.hintFont
-                            font.bold: Theme.fontBold
-                        }
-                    }
-
-                    MouseArea {
-                        id: openLink
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.openMediaLibrary()
-                    }
                 }
+        }
+
+        Item {
+            Layout.fillWidth: true
+            Layout.preferredHeight: root.tvLibraryLinkHeight
+            visible: !root.mediaLoading && root.mediaPreviewItems.length > 0
+
+            RowLayout {
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 6
+
+                Text {
+                    text: "󰖺"
+                    color: Theme.accent
+                    opacity: openLink.containsMouse ? 1 : 0.85
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.hintFont
+                    font.bold: Theme.fontBold
                 }
+
+                Text {
+                    text: "Open"
+                    color: Theme.accent
+                    opacity: openLink.containsMouse ? 1 : 0.85
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.hintFont
+                    font.bold: Theme.fontBold
+                }
+
+                Text {
+                    text: "󰁔"
+                    color: Theme.accent
+                    opacity: openLink.containsMouse ? 1 : 0.85
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.hintFont
+                    font.bold: Theme.fontBold
+                }
+            }
+
+            MouseArea {
+                id: openLink
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.openMediaLibrary()
+            }
         }
     }
 

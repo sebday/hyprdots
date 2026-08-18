@@ -1,4 +1,3 @@
--- Use --class="TUI.float" to set a window to float (Thank you to dhh for the inspiration)
 -- Use ALT for the alternative to a program
 -- Use CTRL to control movement or resize
 -- Use SHIFT to move windows
@@ -147,9 +146,10 @@ bindd(
 	hl.dsp.exec_cmd(shell_ipc .. " evo.audio toggleMute"),
 	{ locked = true, repeating = true }
 )
-bindd("XF86AudioPlay", "Play/Pause media", hl.dsp.exec_cmd("playerctl play-pause"), { locked = true })
-bindd("XF86AudioNext", "Next media track", hl.dsp.exec_cmd("playerctl next"), { locked = true })
-bindd("XF86AudioPrev", "Previous media track", hl.dsp.exec_cmd("playerctl previous"), { locked = true })
+bindd("XF86AudioPlay", "Play/Pause media", hl.dsp.exec_cmd(bin .. "/evo-media-keys play-pause"), { locked = true })
+bindd("XF86AudioPause", "Pause media", hl.dsp.exec_cmd(bin .. "/evo-media-keys play-pause"), { locked = true })
+bindd("XF86AudioNext", "Next media track", hl.dsp.exec_cmd(bin .. "/evo-media-keys next"), { locked = true })
+bindd("XF86AudioPrev", "Previous media track", hl.dsp.exec_cmd(bin .. "/evo-media-keys prev"), { locked = true })
 
 -- Screenshot
 bindd("PRINT", "Screenshot Region", hl.dsp.exec_cmd('bash -c "hyprshot -m region -o /tmp/ -f hyprshot.png;"'))

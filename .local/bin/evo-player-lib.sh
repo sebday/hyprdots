@@ -19,6 +19,7 @@ ART_DIR="${MUSIC_STATE}/art"
 TRACKS_CACHE_DIR="${MUSIC_STATE}/tracks"
 PLAYER_STATE="${MUSIC_STATE}/player.json"
 CURRENT_M3U="${PLAYLIST_DIR}/current.m3u"
+CURRENT_TRACKS_JSON="${PLAYLIST_DIR}/current.tracks.json"
 LIKES_FILE="${MUSIC_STATE}/likes.json"
 PLAYLIST_STARS="${MUSIC_STATE}/playlist-stars.json"
 JOB_LOCK="${MUSIC_STATE}/.job.lock"
@@ -38,7 +39,10 @@ fi
 AUDIO_EXTS="mp3 flac ogg m4a opus wav"
 
 ensure_dirs() {
-  mkdir -p "$MUSIC_STATE" "${MUSIC_ROOT}/incoming"
+  if [[ -d "${MUSIC_ROOT}/incoming" && ! -e "${MUSIC_ROOT}/.incoming" ]]; then
+    mv "${MUSIC_ROOT}/incoming" "${MUSIC_ROOT}/.incoming"
+  fi
+  mkdir -p "$MUSIC_STATE" "${MUSIC_ROOT}/.incoming"
   migrate_cache
   mkdir -p "$PLAYLIST_DIR" "$WAVEFORM_DIR" "$ART_DIR" "$TRACKS_CACHE_DIR"
 }
@@ -54,7 +58,7 @@ run_exclusive_job() {
     case "${running##* }" in
       build) run_label="build" ;;
       soundcloud) run_label="sync soundcloud" ;;
-      import) run_label="import incoming" ;;
+      import) run_label="import .incoming" ;;
       *) run_label="${running##* }" ;;
     esac
     echo "evo-player: busy — ${run_label} already running" >&2
@@ -137,7 +141,7 @@ cmd_job_status() {
     case "$cmd" in
       build) label="build" ;;
       soundcloud) label="sync soundcloud" ;;
-      import) label="import incoming" ;;
+      import) label="import .incoming" ;;
       *) label="$cmd" ;;
     esac
     if [[ "$json" == --json ]]; then
@@ -308,7 +312,7 @@ skip_dir() {
     [[ -n "$skip" && "$name" == "$skip" ]] && return 0
   done < <(skip_dirs_list)
   case "$name" in
-    incoming) return 0 ;;
+    .incoming|incoming) return 0 ;;
   esac
   return 1
 }
@@ -500,22 +504,54 @@ track_meta_json() {
 
 track_list_json() {
   local path="$1"
-  local tags title artist genre album art="" liked_json=false
+  local tags title artist genre album year art="" liked_json=false
   tags="$(track_tags_read "$path")"
   title="$(jq -r '.title // ""' <<<"$tags")"
   artist="$(jq -r '.artist // ""' <<<"$tags")"
   genre="$(jq -r '.genre // ""' <<<"$tags")"
   album="$(jq -r '.album // ""' <<<"$tags")"
+  year="$(jq -r '.year // ""' <<<"$tags")"
   art="$(art_path_cached "$path")"
   is_liked "$path" && liked_json=true
-  printf '{"path":"%s","title":"%s","artist":"%s","genre":"%s","album":"%s","art":"%s","liked":%s}' \
+  printf '{"path":"%s","title":"%s","artist":"%s","genre":"%s","album":"%s","year":"%s","art":"%s","liked":%s}' \
     "$(json_escape "$path")" \
     "$(json_escape "$title")" \
     "$(json_escape "$artist")" \
     "$(json_escape "$genre")" \
     "$(json_escape "$album")" \
+    "$(json_escape "$year")" \
     "$(json_escape "$art")" \
     "$liked_json"
+}
+
+track_list_cached_json() {
+  local path="$1"
+  local genre cache row art="" liked_json=false
+  [[ -f "$path" ]] || return 1
+  genre="$(genre_from_path "$path")"
+  if [[ -n "$genre" ]]; then
+    cache="$(tracks_cache_path "$genre")"
+    if [[ -f "$cache" ]]; then
+      row="$(jq -c --arg p "$path" '.[] | select(.path == $p) | .' "$cache" 2>/dev/null | head -1)"
+      if [[ -n "$row" ]]; then
+        art="$(art_path_cached "$path")"
+        is_liked "$path" && liked_json=true
+        jq -c --arg art "$art" --argjson liked "$liked_json" \
+          'if (.year // "") == "" then . else . end | . + {art:$art, liked:$liked}' <<<"$row"
+        return 0
+      fi
+    fi
+  fi
+  track_list_json "$path"
+}
+
+load_evoshell_secrets() {
+  local secrets="${EVOSHELL_SECRETS:-${HOME}/.local/share/evoshell/secrets.env}"
+  [[ -f "$secrets" ]] || return 0
+  set -a
+  # shellcheck disable=SC1090
+  source "$secrets"
+  set +a
 }
 
 genre_from_path() {

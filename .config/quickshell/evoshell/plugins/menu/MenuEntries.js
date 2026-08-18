@@ -25,7 +25,6 @@ function systemEntries(home) {
         { name: "Clipboard", icon: "󰅍", keywords: ["clipboard", "copy", "paste"], command: ipc(home, "toggle evo.clipboard") },
         { name: "Shopify", icon: "󰒚", keywords: ["shopify", "sales", "dashboard", "store", "shop"], command: ipc(home, "toggle evo.shopify") },
         { name: "Bindings", icon: "󰌌", keywords: ["bindings", "shortcuts", "keys", "hotkeys", "hyprland", "keybindings"], submenu: "bindings" },
-        { name: "Reload bar", icon: "󰑐", keywords: ["reload", "config", "bar", "shell"], command: ipc(home, "reloadConfig") },
         { name: "Lock", icon: "󰌾", keywords: ["lock", "screen"], command: bin + "/evo-system lock" },
         { name: "Restart shell", icon: "󰑐", keywords: ["evo", "shell", "bar", "quickshell", "refresh"], command: bin + "/evo-system restart" },
         { name: "Clear cache", icon: "󰃢", keywords: ["cache", "cleanup", "clear"], command: bin + "/evo-system-cleanup" },

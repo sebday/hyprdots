@@ -34,7 +34,9 @@ Item {
     property var topDown: []
     property var topUp: []
     property bool processesLoading: false
-    readonly property int maxProcessRows: 3
+    readonly property int maxProcessRows: 1
+
+    readonly property var topDownloadProcess: root.topDown.length > 0 ? root.topDown[0] : null
 
     implicitHeight: column.implicitHeight
 
@@ -220,18 +222,6 @@ Item {
         if (v > 0 && v < 10) return v.toFixed(1) + " ms"
         return Math.round(v) + " ms"
     }
-
-    function padProcessRows(rows) {
-        var out = []
-        for (var i = 0; i < rows.length && i < maxProcessRows; i++)
-            out.push(rows[i])
-        while (out.length < maxProcessRows)
-            out.push({ name: "—", rate: -1 })
-        return out
-    }
-
-    readonly property var paddedTopDown: padProcessRows(topDown)
-    readonly property var paddedTopUp: padProcessRows(topUp)
 
     function parseProcesses(raw) {
         var down = []
@@ -431,120 +421,70 @@ Item {
         SectionPanel {
             label: ""
 
-            Item {
+            ColumnLayout {
                 Layout.fillWidth: true
-                Layout.preferredHeight: root.throughputChartHeight
-                Layout.minimumHeight: root.throughputChartHeight
+                spacing: 8
 
-                SparklineChart {
-                    anchors.fill: parent
-                    bars: root.downHistory
-                    secondaryBars: root.upHistory
-                    style: "line"
-                    lineColor: "#a6e3a1"
-                    secondaryLineColor: Theme.urgent
-                    chartHeight: height
-                }
-            }
-        }
-
-        SectionPanel {
-            label: ""
-
-            GridLayout {
-                Layout.fillWidth: true
-                columns: 2
-                columnSpacing: 16
-                rowSpacing: 8
-
-                ColumnLayout {
+                RowLayout {
                     Layout.fillWidth: true
-                    spacing: 4
+                    spacing: 6
 
-                    Item {
-                        Layout.fillWidth: true
-                        implicitHeight: downloadPill.implicitHeight
-
-                        HoverPopupLabelPill {
-                            id: downloadPill
-                            text: "Download"
-                            textColor: Theme.accent
-                            textOpacity: 1
-                            fill: Theme.withOpacity(Theme.accent, 0.12)
-                        }
+                    HoverPopupLabelPill {
+                        text: "Download"
+                        textColor: Theme.accent
+                        textOpacity: 1
+                        fill: Theme.withOpacity(Theme.accent, 0.12)
                     }
 
-                    Repeater {
-                        model: root.paddedTopDown
+                    HoverPopupLabelPill {
+                        text: "Upload"
+                    }
 
-                        RowLayout {
-                            required property var modelData
-                            Layout.fillWidth: true
-                            spacing: 8
+                    Item { Layout.fillWidth: true }
+                }
 
-                            Text {
-                                Layout.fillWidth: true
-                                text: modelData.name
-                                color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: root.hintFont
-                                elide: Text.ElideRight
-                                opacity: modelData.rate < 0 ? 0.45 : 0.85
-                            }
+                Item {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: root.throughputChartHeight
+                    Layout.minimumHeight: root.throughputChartHeight
 
-                            Text {
-                                text: modelData.rate < 0 ? "—" : root.formatRate(modelData.rate)
-                                color: Theme.accent
-                                font.family: Theme.fontFamily
-                                font.pixelSize: root.hintFont
-                                font.bold: Theme.fontBold
-                                opacity: modelData.rate < 0 ? 0.45 : 1
-                            }
-                        }
+                    SparklineChart {
+                        anchors.fill: parent
+                        bars: root.downHistory
+                        secondaryBars: root.upHistory
+                        style: "line"
+                        lineColor: "#a6e3a1"
+                        secondaryLineColor: Theme.urgent
+                        chartHeight: height
                     }
                 }
 
-                ColumnLayout {
+                RowLayout {
                     Layout.fillWidth: true
-                    spacing: 4
+                    spacing: 8
+                    visible: root.topDownloadProcess !== null || root.processesLoading
 
-                    Item {
+                    Text {
                         Layout.fillWidth: true
-                        implicitHeight: uploadPill.implicitHeight
-
-                        HoverPopupLabelPill {
-                            id: uploadPill
-                            text: "Upload"
-                        }
+                        text: root.processesLoading
+                            ? "…"
+                            : (root.topDownloadProcess ? root.topDownloadProcess.name : "—")
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.hintFont
+                        elide: Text.ElideRight
+                        opacity: root.topDownloadProcess ? 0.85 : 0.45
                     }
 
-                    Repeater {
-                        model: root.paddedTopUp
-
-                        RowLayout {
-                            required property var modelData
-                            Layout.fillWidth: true
-                            spacing: 8
-
-                            Text {
-                                Layout.fillWidth: true
-                                text: modelData.name
-                                color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: root.hintFont
-                                elide: Text.ElideRight
-                                opacity: modelData.rate < 0 ? 0.45 : 0.85
-                            }
-
-                            Text {
-                                text: modelData.rate < 0 ? "—" : root.formatRate(modelData.rate)
-                                color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: root.hintFont
-                                font.bold: Theme.fontBold
-                                opacity: modelData.rate < 0 ? 0.45 : 0.88
-                            }
-                        }
+                    Text {
+                        text: root.processesLoading || !root.topDownloadProcess
+                            ? "—"
+                            : root.formatRate(root.topDownloadProcess.rate)
+                        color: Theme.accent
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.hintFont
+                        font.bold: Theme.fontBold
+                        opacity: root.topDownloadProcess ? 1 : 0.45
                     }
                 }
             }

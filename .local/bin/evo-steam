@@ -148,6 +148,28 @@ def parse_all_apps(localconfig_path):
     return apps
 
 
+def parse_private_apps(localconfig_path):
+    m = re.search(r"/userdata/(\d+)/", localconfig_path.replace("\\", "/"))
+    if not m:
+        return set()
+    key = f"PrivateApps_{m.group(1)}"
+    try:
+        with open(localconfig_path, "r", encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                if key not in line:
+                    continue
+                mm = re.search(r'"PrivateApps_\d+"\s+"([^"]+)"', line)
+                if not mm:
+                    return set()
+                try:
+                    return {str(appid) for appid in json.loads(mm.group(1))}
+                except (TypeError, ValueError, json.JSONDecodeError):
+                    return set()
+    except OSError:
+        pass
+    return set()
+
+
 def steam_library_paths(steam_dir):
     paths = []
     seen = set()
@@ -179,6 +201,9 @@ running_games = []
 FLAG_RUNNING = 0x20
 seen_installed = set()
 
+localconfig = find_localconfig()
+private_apps = parse_private_apps(localconfig) if localconfig else set()
+
 for lib_steamapps in steam_library_paths(steam_dir):
     for path in sorted(glob.glob(os.path.join(lib_steamapps, "appmanifest_*.acf"))):
         data = read_kv_file(path)
@@ -191,16 +216,16 @@ for lib_steamapps in steam_library_paths(steam_dir):
         installed_count += 1
         names[appid] = data.get("name", f"App {appid}")
         flags = int_field(data, "StateFlags")
-        if flags & FLAG_RUNNING:
+        if flags & FLAG_RUNNING and appid not in private_apps:
             running_games.append({"appid": appid, "name": names[appid]})
 
-localconfig = find_localconfig()
 library_apps = parse_all_apps(localconfig) if localconfig else set()
 library_total = len(library_apps)
 played_apps = parse_played_apps(localconfig) if localconfig else {}
 played_games = []
 for appid, info in played_apps.items():
-    # skip hidden/private games — not in local manifests, name unknown
+    if appid in private_apps:
+        continue
     if appid not in names:
         continue
     last_played = int(info.get("last_played", 0) or 0)

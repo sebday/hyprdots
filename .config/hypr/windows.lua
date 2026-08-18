@@ -34,6 +34,15 @@ hl.window_rule({
     tag = "+floating-window",
 })
 
+hl.window_rule({
+    name = "tag-floating-window-thunar-progress",
+    match = {
+        class = "^Thunar$",
+        title = "^File Operation Progress$",
+    },
+    tag = "+floating-window",
+})
+
 hl.workspace_rule({
     workspace = "10",
     monitor = "HDMI-A-1",

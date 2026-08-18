@@ -297,22 +297,16 @@ Item {
                         font.bold: Theme.fontBold
                         lineHeight: root.todayCountFont
                         lineHeightMode: Text.FixedHeight
-                        topPadding: 2
                     }
 
-                    ColumnLayout {
+                    RowLayout {
                         Layout.fillWidth: true
-                        spacing: 2
+                        spacing: 8
 
-                        Item {
-                            Layout.fillWidth: true
-                            implicitHeight: usernamePill.implicitHeight
-
-                            HoverPopupLabelPill {
-                                id: usernamePill
-                                text: "@" + root.username
-                                fontSize: Theme.fontSizeS
-                            }
+                        HoverPopupLabelPill {
+                            id: usernamePill
+                            text: "@" + root.username
+                            fontSize: Theme.fontSizeS
                         }
 
                         Text {
@@ -320,7 +314,7 @@ Item {
                             text: root.todayLabel
                             color: Theme.foreground
                             font.family: Theme.fontFamily
-                            font.pixelSize: root.statFont
+                            font.pixelSize: root.hintFont
                             font.bold: Theme.fontBold
                             opacity: 0.72
                             elide: Text.ElideRight

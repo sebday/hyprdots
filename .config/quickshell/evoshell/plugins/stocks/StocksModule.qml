@@ -20,8 +20,8 @@ Item {
     readonly property int hintFont: Theme.fontSizeL
     readonly property int labelFont: Theme.fontSizeL
     readonly property int statFont: Theme.fontSizeXl
-    readonly property int heroFont: Theme.fontSizeHero
-    readonly property int headerIconSize: root.heroFont
+    readonly property int heroFont: Theme.fontSize5xl
+    readonly property int headerIconSize: Math.round(root.heroFont * 1.15)
     readonly property int headerBlockHeight: root.headerIconSize
     readonly property int chartBlockHeight: 96
     readonly property int statRowHeight: Theme.fontSizeL
@@ -257,10 +257,11 @@ Item {
                 }
             }
 
+            Item { Layout.fillWidth: true }
+
             RowLayout {
-                Layout.fillWidth: true
-                Layout.alignment: Qt.AlignVCenter
                 spacing: 6
+                Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
                 visible: marketHeader.metaPills.length > 0
 
                 Repeater {
