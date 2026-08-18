@@ -71,15 +71,18 @@ cache_dir_for() {
 
 recolor_svgs() {
     local target_dir="$1"
-    local hex
+    local sed_script hex
 
+    sed_script=$(mktemp)
     for hex in "${TEXT_SOURCE_HEXES[@]}"; do
-        find "$target_dir" -name '*.svg' -type f -exec sed -i "s/#${hex}/#${ICON_TEXT_HEX}/gi" {} +
+        printf 's/#%s/#%s/gi\n' "$hex" "$ICON_TEXT_HEX" >>"$sed_script"
     done
     for hex in "${HIGHLIGHT_SOURCE_HEXES[@]}"; do
-        find "$target_dir" -name '*.svg' -type f -exec sed -i "s/#${hex}/#${ICON_HIGHLIGHT_HEX}/gi" {} +
+        printf 's/#%s/#%s/gi\n' "$hex" "$ICON_HIGHLIGHT_HEX" >>"$sed_script"
     done
-    find "$target_dir" -name '*.svg' -type f -exec sed -i "s/#${BUTTON_BG_SOURCE_HEX}/#${ICON_BUTTON_BG_HEX}/gi" {} +
+    printf 's/#%s/#%s/gi\n' "$BUTTON_BG_SOURCE_HEX" "$ICON_BUTTON_BG_HEX" >>"$sed_script"
+    find "$target_dir" -name '*.svg' -type f -exec sed -i -f "$sed_script" {} +
+    rm -f "$sed_script"
 }
 
 build_theme_icons() {
@@ -97,6 +100,10 @@ build_theme_icons() {
     cache_dir=$(cache_dir_for "$slug")
     stamp="$cache_dir/.stamp"
     expected_stamp=$(stamp_for_theme "$slug")
+
+    mkdir -p "$cache_dir"
+    exec 8>"$cache_dir/.lock"
+    flock 8
 
     if [[ -f "$stamp" && "$(cat "$stamp")" == "$expected_stamp" && -f "$cache_dir/index.theme" ]]; then
         return 0

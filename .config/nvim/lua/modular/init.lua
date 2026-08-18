@@ -44,7 +44,16 @@ function M.reload_from_theme_file()
   if palette then
     M.set_palette(palette)
     pcall(vim.cmd.colorscheme, "modular")
+    M.set_baseline_mtime()
   end
+end
+
+function M.reload_all()
+  M.reload_from_theme_file()
+  package.loaded["theme-icons"] = nil
+  pcall(function()
+    require("theme-icons").setup()
+  end)
 end
 
 function M.reload_if_changed()

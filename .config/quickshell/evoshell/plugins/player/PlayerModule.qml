@@ -3248,33 +3248,30 @@ Item {
         id: spectrum
         property bool active: false
 
-        readonly property int barCount: 18
-        readonly property int vizBarWidth: 7
-        readonly property int vizBarSpacing: 2
+        readonly property int barCount: 20
+        readonly property int vizWidth: 168
         readonly property int vizHeight: 22
+        readonly property real mid: (barCount - 1) / 2
         readonly property PwNode sink: Pipewire.defaultAudioSink
         readonly property bool sinkReady: sink !== null && sink.ready
-        readonly property int contentWidth: barCount * vizBarWidth + (barCount - 1) * vizBarSpacing
+        readonly property bool audioActive: active && sinkReady && linkTracker.linkGroups.length > 0
+
         readonly property real peakGate: 0.09
         readonly property real maxBarLevel: 0.92
         readonly property real transientMargin: 0.02
         readonly property real sustainedCap: 0.28
-        readonly property real mid: (barCount - 1) / 2
-        readonly property bool audioActive: active && sinkReady && linkTracker.linkGroups.length > 0
 
         property real peakBaseline: 0
-        property var barLevels: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        property var barLevels: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
-        implicitWidth: contentWidth
+        implicitWidth: vizWidth
         implicitHeight: vizHeight
-        opacity: audioActive ? 1 : 0.28
+        opacity: audioActive ? 0.38 : 0.16
 
         function resetBars() {
             peakBaseline = 0
-            var levels = []
-            for (var i = 0; i < barCount; i++)
-                levels.push(0)
-            barLevels = levels
+            barLevels = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            vizCanvas.requestPaint()
         }
 
         function decayBars(levels, factor) {
@@ -3331,6 +3328,7 @@ Item {
             }
 
             barLevels = levels
+            vizCanvas.requestPaint()
         }
 
         PwObjectTracker {
@@ -3350,7 +3348,7 @@ Item {
         }
 
         Timer {
-            interval: 40
+            interval: 32
             running: spectrum.audioActive
             repeat: true
             onTriggered: spectrum.applyPeak(peakMonitor.peak)
@@ -3361,29 +3359,26 @@ Item {
                 resetBars()
         }
 
-        Row {
-            anchors.centerIn: parent
-            spacing: spectrum.vizBarSpacing
-            height: spectrum.vizHeight
+        Canvas {
+            id: vizCanvas
+            anchors.fill: parent
+            onWidthChanged: requestPaint()
+            onPaint: {
+                var ctx = getContext("2d")
+                ctx.clearRect(0, 0, width, height)
+                var barW = 5
+                var gap = 2
+                var pitch = barW + gap
+                var accent = Theme.accent
+                var x0 = (width - (barCount * pitch - gap)) / 2
 
-            Repeater {
-                model: spectrum.barCount
-
-                Item {
-                    required property int index
-                    width: spectrum.vizBarWidth
-                    height: parent.height
-
-                    readonly property real level: spectrum.barLevels[index]
-
-                    Rectangle {
-                        width: spectrum.vizBarWidth
-                        height: Math.max(2, parent.height * parent.level)
-                        anchors.bottom: parent.bottom
-                        radius: 1
-                        color: Theme.accent
-                        opacity: 0.35 + parent.level * 0.65
-                    }
+                for (var i = 0; i < barCount; i++) {
+                    var level = spectrum.barLevels[i]
+                    var barH = Math.max(2, height * level)
+                    var x = x0 + i * pitch
+                    var y = height - barH
+                    ctx.fillStyle = Qt.rgba(accent.r, accent.g, accent.b, 0.28 + level * 0.42)
+                    ctx.fillRect(x, y, barW, barH)
                 }
             }
         }

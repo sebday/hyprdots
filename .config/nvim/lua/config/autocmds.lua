@@ -3,26 +3,32 @@
 
 -- Hot-reload colorscheme when evo-theme swaps ~/.themes/current
 local themes_dir = vim.fn.expand("~/.themes")
+local reload_timer = nil
 
 local function apply_colorscheme()
-  vim.schedule(function()
-    pcall(function()
-      require("modular").reload_from_theme_file()
+  if reload_timer then
+    vim.fn.timer_stop(reload_timer)
+  end
+  reload_timer = vim.fn.timer_start(250, function()
+    reload_timer = nil
+    vim.schedule(function()
+      pcall(function()
+        require("modular").reload_all()
+      end)
     end)
   end)
 end
 
 local function start_watcher()
   local w = vim.uv.new_fs_event()
-  if not w then return end
-  w:start(themes_dir, {}, function(err)
+  if not w then
+    return
+  end
+  w:start(themes_dir, { recurse = true }, function(err)
     if err then
-      w:stop()
       return
     end
     apply_colorscheme()
-    w:stop()
-    vim.defer_fn(start_watcher, 100)
   end)
 end
 
@@ -32,7 +38,15 @@ end
 
 vim.api.nvim_create_autocmd("FocusGained", {
   group = vim.api.nvim_create_augroup("theme_reload", { clear = true }),
-  callback = apply_colorscheme,
+  callback = function()
+    pcall(function()
+      require("modular").reload_if_changed()
+      package.loaded["theme-icons"] = nil
+      pcall(function()
+        require("theme-icons").setup()
+      end)
+    end)
+  end,
 })
 
 -- LazyVim enables spell + wrap for filetype "text" (.txt). Package lists are not prose.
