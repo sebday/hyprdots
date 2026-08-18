@@ -9,11 +9,42 @@ Item {
 
     property var host: null
 
-    readonly property string taskPath: Quickshell.env("HOME") + "/.local/state/evoshell/apps/tasks.json"
+    readonly property string tasksScript: Quickshell.env("HOME") + "/.local/bin/evo-tasks"
+    readonly property string fallbackTaskPath: Quickshell.env("HOME") + "/.local/state/evoshell/apps/tasks.json"
+    property string tasksFilePath: root.fallbackTaskPath
+    property string tasksFormat: "json"
     readonly property int taskFontSize: Theme.fontSizeL
     readonly property int taskRowMin: 28
     readonly property int taskBottomPad: 8
     readonly property bool active: host && host.opened === true
+
+    TextMetrics {
+        id: taskLineMetrics
+        font.family: Theme.fontFamily
+        font.pixelSize: root.taskFontSize
+        font.bold: Theme.fontBold
+        text: "Ag"
+    }
+
+    TextMetrics {
+        id: taskCheckMetrics
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.fontSize2xl
+        font.bold: Theme.fontBold
+        text: "󰄱"
+    }
+
+    TextMetrics {
+        id: taskDragMetrics
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.fontSizeL
+        font.bold: Theme.fontBold
+        text: "󰇅"
+    }
+
+    readonly property int taskLineHeight: taskLineMetrics.height
+    readonly property int taskCheckOffset: Math.max(0, Math.round((taskLineHeight - taskCheckMetrics.height) / 2) - 1)
+    readonly property int taskDragOffset: Math.max(0, Math.round((taskLineHeight - taskDragMetrics.height) / 2) - 1)
 
     property bool taskLoading: false
     property bool taskDirty: false
@@ -78,6 +109,31 @@ Item {
             out.push({ text: text, done: row.done === true })
         }
         return out
+    }
+
+    function copyTaskText(index) {
+        if (index < 0 || index >= taskModel.count) return
+        var text = String(taskModel.get(index).text || "").trim()
+        if (!text) return
+        taskCopyProc.payload = JSON.stringify(text)
+        taskCopyProc.running = true
+    }
+
+    function moveTask(from, to) {
+        if (taskLoading || from === to) return
+        if (from < 0 || to < 0) return
+        if (from >= taskModel.count || to >= taskModel.count) return
+
+        var lastIndex = taskModel.count - 1
+        var trailingEmpty = lastIndex >= 0 && String(taskModel.get(lastIndex).text || "") === ""
+        if (trailingEmpty) {
+            if (from === lastIndex) return
+            if (to > lastIndex) to = lastIndex
+        }
+
+        taskModel.move(from, to, 1)
+        taskDirty = true
+        taskSaveTimer.restart()
     }
 
     function setTaskText(index, value) {
@@ -148,33 +204,30 @@ Item {
         focusTaskRow(Math.min(index + 1, taskModel.count - 1))
     }
 
-    function applyLoadedTask(raw) {
+    function applyLoadedTasks(list) {
         taskLoading = true
-        try {
-            var data = JSON.parse(String(raw || "").trim() || "{}")
-            if (Array.isArray(data.tasks)) {
-                setTaskModel(data.tasks)
-            } else if (data.text !== undefined) {
-                setTaskModel([{
-                    text: String(data.text || ""),
-                    done: data.done === true
-                }])
-            } else {
-                setTaskModel([])
-            }
-        } catch (e) {
-            setTaskModel([])
-        }
+        setTaskModel(Array.isArray(list) ? list : [])
         taskDirty = false
         taskLoading = false
         if (pendingNewTaskFocus)
             focusTaskRow(Math.max(0, taskModel.count - 1))
     }
 
+    function loadTask() {
+        if (!loadTaskProc.running)
+            loadTaskProc.running = true
+    }
+
+    function refreshTaskSettings() {
+        if (!loadTaskSettingsProc.running)
+            loadTaskSettingsProc.running = true
+    }
+
     function saveTask() {
         if (taskLoading || !taskDirty) return
         suppressTaskReload = true
-        taskFile.setText(JSON.stringify({ tasks: tasksForSave() }))
+        taskSaveProc.payload = JSON.stringify({ tasks: tasksForSave() })
+        taskSaveProc.running = true
         taskDirty = false
     }
 
@@ -235,22 +288,80 @@ Item {
     }
 
     FileView {
-        id: taskFile
-        path: root.taskPath
+        id: taskFileWatch
+        path: root.tasksFilePath
         watchChanges: true
-        atomicWrites: true
         printErrors: false
-        onLoaded: root.applyLoadedTask(text())
-        onLoadFailed: root.applyLoadedTask("")
         onFileChanged: {
             if (root.suppressTaskReload) {
                 root.suppressTaskReload = false
                 return
             }
-            if (!root.taskDirty && !root.active)
-                reload()
+            if (!root.taskDirty)
+                root.loadTask()
         }
-        onSaved: root.taskDirty = false
+    }
+
+    FileView {
+        id: uiStateWatch
+        path: Theme.uiStatePath
+        watchChanges: true
+        printErrors: false
+        onFileChanged: root.refreshTaskSettings()
+    }
+
+    Process {
+        id: loadTaskSettingsProc
+        command: ["bash", root.tasksScript, "settings", "get"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    var data = JSON.parse(String(text || "{}"))
+                    var nextPath = String(data.tasksFile || root.fallbackTaskPath)
+                    var nextFormat = String(data.format || "json")
+                    var pathChanged = nextPath !== root.tasksFilePath
+                    root.tasksFilePath = nextPath
+                    root.tasksFormat = nextFormat
+                    if (pathChanged)
+                        taskFileWatch.reload()
+                    root.loadTask()
+                } catch (e) {
+                    root.loadTask()
+                }
+            }
+        }
+    }
+
+    Process {
+        id: loadTaskProc
+        command: ["bash", root.tasksScript, "load"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    var data = JSON.parse(String(text || "{}"))
+                    if (data.tasksFile)
+                        root.tasksFilePath = String(data.tasksFile)
+                    if (data.format)
+                        root.tasksFormat = String(data.format)
+                    root.applyLoadedTasks(data.tasks)
+                } catch (e) {
+                    root.applyLoadedTasks([])
+                }
+            }
+        }
+    }
+
+    Process {
+        id: taskSaveProc
+        property string payload: "{}"
+        command: ["bash", root.tasksScript, "save", taskSaveProc.payload]
+        stdout: StdioCollector { }
+    }
+
+    Process {
+        id: taskCopyProc
+        property string payload: '""'
+        command: ["bash", root.tasksScript, "copy", taskCopyProc.payload]
     }
 
     Timer {
@@ -267,6 +378,7 @@ Item {
         FramedPanel {
             id: tasksPanel
             label: "Tasks"
+            labelFontSize: Theme.fontSizeL
             labelBackground: Theme.background
             contentFill: true
             Layout.fillWidth: true
@@ -278,7 +390,10 @@ Item {
                 clip: true
                 spacing: Theme.spacing2
                 boundsBehavior: Flickable.StopAtBounds
+                interactive: dragIndex < 0
                 model: taskModel
+                property int dragIndex: -1
+                property int dropIndex: -1
                 footer: Item {
                     width: taskList.width
                     height: root.taskBottomPad
@@ -290,25 +405,45 @@ Item {
                     required property string text
                     required property bool done
 
+                    readonly property bool isTrailingRow: index === taskModel.count - 1 && taskInput.text.length === 0
+                    readonly property bool draggable: !root.taskLoading && !isTrailingRow
+                    readonly property int rowBodyHeight: Math.max(
+                        root.taskLineHeight,
+                        taskInput.contentHeight,
+                        taskInput.implicitHeight
+                    )
+
                     width: taskList.width
-                    height: Math.max(root.taskRowMin, inner.implicitHeight + 6)
+                    height: Math.max(root.taskRowMin, rowBodyHeight + 6)
+                    opacity: taskList.dragIndex === index ? 0.55 : 1
                     property alias taskField: taskInput
 
-                    RowLayout {
+                    Rectangle {
+                        anchors.top: parent.top
+                        width: parent.width
+                        height: 2
+                        color: Theme.accent
+                        visible: taskList.dragIndex >= 0
+                            && taskList.dropIndex === index
+                            && taskList.dropIndex !== taskList.dragIndex
+                    }
+
+                    Row {
                         id: inner
                         anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.top: parent.top
+                        anchors.topMargin: 3
+                        width: parent.width
                         spacing: Theme.spacingM
 
                         Item {
-                            Layout.preferredWidth: 20
-                            Layout.preferredHeight: 20
-                            Layout.alignment: Qt.AlignVCenter
+                            width: 20
+                            height: rowBodyHeight
 
                             Text {
-                                anchors.centerIn: parent
-                                anchors.verticalCenterOffset: -1
+                                anchors.top: parent.top
+                                anchors.topMargin: root.taskCheckOffset
+                                anchors.horizontalCenter: parent.horizontalCenter
                                 text: taskRow.done ? "󰄲" : "󰄱"
                                 color: taskRow.done ? Theme.accent : Theme.foreground
                                 font.family: Theme.fontFamily
@@ -327,13 +462,13 @@ Item {
                         }
 
                         Item {
-                            Layout.fillWidth: true
-                            Layout.alignment: Qt.AlignVCenter
-                            Layout.preferredHeight: Math.max(root.taskFontSize + 6, taskInput.implicitHeight)
+                            width: Math.max(0, inner.width - 20 - 20 - Theme.spacingM * 2)
+                            height: rowBodyHeight
+                            clip: true
 
                             TextInput {
                                 id: taskInput
-                                anchors.verticalCenter: parent.verticalCenter
+                                anchors.top: parent.top
                                 width: parent.width
                                 color: Theme.foreground
                                 font.family: Theme.fontFamily
@@ -341,11 +476,20 @@ Item {
                                 font.bold: Theme.fontBold
                                 font.strikeout: taskRow.done
                                 opacity: taskRow.done ? 0.55 : 1
-                                selectByMouse: true
+                                selectByMouse: taskList.dragIndex < 0
                                 wrapMode: TextInput.Wrap
                                 clip: true
 
                                 Component.onCompleted: text = taskRow.text
+                                Connections {
+                                    target: taskRow
+                                    function onTextChanged() {
+                                        if (!taskInput.activeFocus
+                                                && taskList.dragIndex < 0
+                                                && taskInput.text !== taskRow.text)
+                                            taskInput.text = taskRow.text
+                                    }
+                                }
                                 onTextEdited: root.setTaskText(index, text)
                                 Keys.onReturnPressed: root.onTaskReturn(index)
                                 Keys.onEscapePressed: {
@@ -355,7 +499,7 @@ Item {
                             }
 
                             Text {
-                                anchors.verticalCenter: parent.verticalCenter
+                                anchors.top: parent.top
                                 anchors.left: parent.left
                                 visible: taskInput.text.length === 0 && !taskInput.activeFocus
                                 text: index === taskModel.count - 1 ? "Add a task…" : "Task"
@@ -363,6 +507,90 @@ Item {
                                 font.family: Theme.fontFamily
                                 font.pixelSize: root.taskFontSize
                                 opacity: Theme.opacityDisabled
+                            }
+                        }
+
+                        Item {
+                            id: dragHandle
+                            width: 20
+                            height: rowBodyHeight
+                            enabled: taskRow.draggable
+                            z: 2
+
+                            Text {
+                                anchors.top: parent.top
+                                anchors.topMargin: root.taskDragOffset
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: "󰇅"
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSizeL
+                                opacity: dragMouse.drag.active || dragMouse.pressed
+                                    ? 0.95
+                                    : (dragMouse.containsMouse ? 0.72 : 0.28)
+                            }
+
+                            MouseArea {
+                                id: dragMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.SizeAllCursor
+                                preventStealing: true
+                                propagateComposedEvents: false
+                                acceptedButtons: Qt.LeftButton
+
+                                drag.target: dragLift
+                                drag.axis: Drag.YAxis
+                                drag.threshold: 6
+
+                                Item {
+                                    id: dragLift
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    width: 1
+                                    height: parent.height
+                                }
+
+                                onPressed: function(mouse) {
+                                    taskList.dragIndex = taskRow.index
+                                    taskList.dropIndex = taskRow.index
+                                    taskInput.deselect()
+                                    if (taskInput.activeFocus)
+                                        taskInput.focus = false
+                                    mouse.accepted = true
+                                }
+
+                                onPositionChanged: function(mouse) {
+                                    if (!drag.active || taskList.dragIndex < 0)
+                                        return
+                                    var pos = mapToItem(taskList.contentItem, width / 2, mouse.y)
+                                    var target = taskList.indexAt(pos.x, pos.y)
+                                    if (target < 0)
+                                        return
+
+                                    var lastIdx = taskModel.count - 1
+                                    if (lastIdx >= 0 && String(taskModel.get(lastIdx).text || "") === "" && target >= lastIdx)
+                                        target = Math.max(0, lastIdx - 1)
+
+                                    taskList.dropIndex = target
+                                }
+
+                                onReleased: {
+                                    if (taskList.dragIndex >= 0
+                                            && taskList.dropIndex >= 0
+                                            && taskList.dropIndex !== taskList.dragIndex)
+                                        root.moveTask(taskList.dragIndex, taskList.dropIndex)
+                                    dragLift.y = 0
+                                    taskList.dragIndex = -1
+                                    taskList.dropIndex = -1
+                                }
+
+                                onCanceled: {
+                                    dragLift.y = 0
+                                    taskList.dragIndex = -1
+                                    taskList.dropIndex = -1
+                                }
+
+                                onClicked: root.copyTaskText(taskRow.index)
                             }
                         }
                     }
@@ -397,6 +625,6 @@ Item {
         }
     }
 
-    Component.onCompleted: setTaskModel([])
+    Component.onCompleted: refreshTaskSettings()
     Component.onDestruction: root.saveTask()
 }

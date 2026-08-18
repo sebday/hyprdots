@@ -14,6 +14,8 @@ Item {
     readonly property string barScript: Quickshell.env("HOME") + "/.local/bin/evo-layout"
     readonly property string fontScript: Quickshell.env("HOME") + "/.local/bin/evo-font"
     readonly property string mediaScript: Quickshell.env("HOME") + "/.local/bin/evo-media"
+    readonly property string playerScript: Quickshell.env("HOME") + "/.local/bin/evo-player"
+    readonly property string tasksScript: Quickshell.env("HOME") + "/.local/bin/evo-tasks"
     readonly property string fontStatePath: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/evoshell/font.json"
     readonly property string themeNamePath: Quickshell.env("HOME") + "/.themes/current/.theme-name"
 
@@ -35,11 +37,19 @@ Item {
     property bool notificationsReady: false
     property bool uiReady: false
     property bool fontReady: false
-    property bool mediaReady: false
+    property string scUser: ""
+    property string scCookiesFrom: ""
+    property bool playerReady: false
+    property string obsidianVault: ""
+    property string detectedObsidianVault: ""
+    property string tasksFile: ""
+    property bool tasksReady: false
     readonly property bool ready: hyprReady && barReady && fontReady
     readonly property bool fontBusy: fontSetProc.running
     readonly property bool mediaBusy: mediaSetProc.running
-    readonly property bool settingsBusy: fontBusy || mediaBusy || hyprToggleProc.running || hyprSetProc.running
+    readonly property bool playerBusy: playerSetProc.running
+    readonly property bool tasksBusy: taskVaultSetProc.running || taskVaultPickProc.running
+    readonly property bool settingsBusy: fontBusy || mediaBusy || playerBusy || tasksBusy || hyprToggleProc.running || hyprSetProc.running
         || barToggleProc.running || notificationsToggleProc.running || uiToggleProc.running
     readonly property bool active: host && host.opened && host.activeModule === "settings"
 
@@ -54,6 +64,8 @@ Item {
         if (!loadNotificationsProc.running) loadNotificationsProc.running = true
         if (!loadUiProc.running) loadUiProc.running = true
         if (!loadMediaProc.running) loadMediaProc.running = true
+        if (!loadPlayerProc.running) loadPlayerProc.running = true
+        if (!loadTasksProc.running) loadTasksProc.running = true
     }
 
     function toggleHypr(key) {
@@ -202,6 +214,54 @@ Item {
         }
     }
 
+    function parsePlayerConfig(raw) {
+        try {
+            var data = JSON.parse(String(raw || "{}"))
+            var sc = data.soundcloud || {}
+            root.scUser = String(sc.user || "")
+            root.scCookiesFrom = String(sc.cookies_from || "")
+            root.playerReady = true
+        } catch (e) {
+            root.playerReady = false
+        }
+    }
+
+    function setPlayerConfig(key, value) {
+        if (!playerReady || settingsBusy)
+            return
+        playerSetProc.key = key
+        playerSetProc.value = String(value || "")
+        playerSetProc.running = true
+    }
+
+    function parseTasksSettings(raw) {
+        try {
+            var data = JSON.parse(String(raw || "{}"))
+            root.obsidianVault = String(data.obsidianVault || "")
+            root.detectedObsidianVault = String(data.detectedVault || "")
+            root.tasksFile = String(data.tasksFile || "")
+            root.tasksReady = data.ok === true
+        } catch (e) {
+            root.obsidianVault = ""
+            root.detectedObsidianVault = ""
+            root.tasksFile = ""
+            root.tasksReady = false
+        }
+    }
+
+    function setObsidianVault(path) {
+        if (!tasksReady || settingsBusy)
+            return
+        taskVaultSetProc.path = String(path || "")
+        taskVaultSetProc.running = true
+    }
+
+    function pickObsidianVault() {
+        if (!tasksReady || settingsBusy)
+            return
+        taskVaultPickProc.running = true
+    }
+
     Process {
         id: loadHyprProc
         command: ["bash", root.hyprScript, "get"]
@@ -339,6 +399,55 @@ Item {
         command: ["bash", root.mediaScript, "settings", "set", mediaSetProc.payload]
         stdout: StdioCollector {
             onStreamFinished: root.parseMediaSettings(text)
+        }
+    }
+
+    Process {
+        id: loadPlayerProc
+        command: ["bash", root.playerScript, "config", "get", "--json"]
+        stdout: StdioCollector {
+            onStreamFinished: root.parsePlayerConfig(text)
+        }
+    }
+
+    Process {
+        id: playerSetProc
+        property string key: ""
+        property string value: ""
+        command: ["bash", root.playerScript, "config", "set", playerSetProc.key, playerSetProc.value, "--json"]
+        stdout: StdioCollector {
+            onStreamFinished: root.parsePlayerConfig(text)
+        }
+    }
+
+    Process {
+        id: loadTasksProc
+        command: ["bash", root.tasksScript, "settings", "get"]
+        stdout: StdioCollector {
+            onStreamFinished: root.parseTasksSettings(text)
+        }
+    }
+
+    Process {
+        id: taskVaultSetProc
+        property string path: ""
+        command: ["bash", root.tasksScript, "settings", "set", "vault", taskVaultSetProc.path]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (String(text || "").trim())
+                    root.parseTasksSettings(text)
+            }
+        }
+    }
+
+    Process {
+        id: taskVaultPickProc
+        command: ["bash", root.tasksScript, "settings", "pick"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (String(text || "").trim())
+                    root.parseTasksSettings(text)
+            }
         }
     }
 
@@ -480,6 +589,86 @@ Item {
                     onToggled: root.toggleFieldsetRounding()
                 }
 
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 4
+
+                    Text {
+                        text: "Obsidian vault"
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeS
+                        opacity: Theme.opacityMuted
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingS
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            implicitHeight: 34
+                            radius: 6
+                            color: Theme.foregroundWash
+                            border.color: Theme.foregroundDivider
+                            border.width: 1
+
+                            TextInput {
+                                id: obsidianVaultInput
+                                anchors.fill: parent
+                                anchors.leftMargin: 8
+                                anchors.rightMargin: 8
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSizeS
+                                selectionColor: Theme.accent
+                                selectedTextColor: Theme.mantle
+                                verticalAlignment: TextInput.AlignVCenter
+                                clip: true
+                                text: root.obsidianVault
+                                enabled: root.tasksReady && !settingsBusy
+                                onEditingFinished: root.setObsidianVault(text)
+                            }
+                        }
+
+                        Item {
+                            Layout.preferredWidth: 34
+                            Layout.preferredHeight: 34
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: "󰉖"
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSizeXl
+                                opacity: obsidianVaultPickMouse.enabled
+                                    ? (obsidianVaultPickMouse.containsMouse ? 1 : 0.72)
+                                    : 0.35
+                            }
+
+                            MouseArea {
+                                id: obsidianVaultPickMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                enabled: root.tasksReady && !settingsBusy
+                                onClicked: root.pickObsidianVault()
+                            }
+                        }
+                    }
+
+                    Text {
+                        visible: root.tasksFile !== ""
+                        text: root.tasksFile !== "" ? ("tasks: " + root.tasksFile) : ""
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeXs
+                        opacity: Theme.opacityMuted
+                        elide: Text.ElideMiddle
+                        Layout.fillWidth: true
+                    }
+                }
+
                 MultiSelectPicker {
                     Layout.fillWidth: true
                     label: "Media popup TV shows"
@@ -489,6 +678,94 @@ Item {
                     enabled: root.mediaReady && !settingsBusy && root.mediaShowNames.length > 0
                     onSelectionChanged: function(next) {
                         root.setMediaShows(next)
+                    }
+                }
+            }
+
+            SectionPanel {
+                contentPad: Theme.panelContentPad
+                legendBackground: Theme.background
+                label: ""
+                sectionSpacing: 12
+
+                HoverPopupLabelPill {
+                    text: "Evoplayer"
+                    fontSize: Theme.fontSizeS
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 4
+
+                    Text {
+                        text: "SoundCloud user"
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeS
+                        opacity: Theme.opacityMuted
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        implicitHeight: 34
+                        radius: 6
+                        color: Theme.foregroundWash
+                        border.color: Theme.foregroundDivider
+                        border.width: 1
+
+                        TextInput {
+                            anchors.fill: parent
+                            anchors.leftMargin: 8
+                            anchors.rightMargin: 8
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeS
+                            selectionColor: Theme.accent
+                            selectedTextColor: Theme.mantle
+                            verticalAlignment: TextInput.AlignVCenter
+                            clip: true
+                            text: root.scUser
+                            enabled: root.playerReady && !settingsBusy
+                            onEditingFinished: root.setPlayerConfig("soundcloud.user", text)
+                        }
+                    }
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 4
+
+                    Text {
+                        text: "Cookies browser"
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeS
+                        opacity: Theme.opacityMuted
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        implicitHeight: 34
+                        radius: 6
+                        color: Theme.foregroundWash
+                        border.color: Theme.foregroundDivider
+                        border.width: 1
+
+                        TextInput {
+                            anchors.fill: parent
+                            anchors.leftMargin: 8
+                            anchors.rightMargin: 8
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeS
+                            selectionColor: Theme.accent
+                            selectedTextColor: Theme.mantle
+                            verticalAlignment: TextInput.AlignVCenter
+                            clip: true
+                            text: root.scCookiesFrom
+                            enabled: root.playerReady && !settingsBusy
+                            onEditingFinished: root.setPlayerConfig("soundcloud.cookies_from", text)
+                        }
                     }
                 }
             }

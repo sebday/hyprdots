@@ -301,11 +301,21 @@ def write(path, data):
 
 data = load(path)
 data.setdefault(section, {})[key] = value
+sc = data.get("soundcloud")
+if isinstance(sc, dict):
+    sc.pop("likes_url", None)
 write(path, data)
 PY
 }
 
+soundcloud_likes_url() {
+  local user
+  user="$(config_toml_get soundcloud user seb-day)"
+  printf 'https://soundcloud.com/%s/likes' "$user"
+}
+
 config_toml_json() {
+  config_toml_prune_derived
   python3 - "$MUSIC_CONFIG" <<'PY'
 import json, os, sys
 try:
@@ -321,14 +331,59 @@ except FileNotFoundError:
     data = {}
 sc = data.get("soundcloud", {})
 user = sc.get("user") or "seb-day"
-likes = sc.get("likes_url") or f"https://soundcloud.com/{user}/likes"
 print(json.dumps({
     "soundcloud": {
         "user": user,
         "cookies_from": sc.get("cookies_from") or "brave",
-        "likes_url": likes,
     }
 }, ensure_ascii=False))
+PY
+}
+
+config_toml_prune_derived() {
+  python3 - "$MUSIC_CONFIG" <<'PY'
+import os, sys
+try:
+    import tomllib
+except ImportError:
+    import tomli as tomllib
+
+path = sys.argv[1]
+if not os.path.isfile(path):
+    sys.exit(0)
+
+def load(path):
+    with open(path, "rb") as fh:
+        return tomllib.load(fh)
+
+def esc(s):
+    return s.replace("\\", "\\\\").replace('"', '\\"')
+
+def write(path, data):
+    lines = []
+    for sec, vals in data.items():
+        lines.append(f"[{sec}]")
+        for k, v in vals.items():
+            if isinstance(v, str):
+                lines.append(f'{k} = "{esc(v)}"')
+            elif isinstance(v, bool):
+                lines.append(f'{k} = {"true" if v else "false"}')
+            elif isinstance(v, list):
+                items = ", ".join(f'"{esc(str(x))}"' for x in v)
+                lines.append(f"{k} = [{items}]")
+            else:
+                lines.append(f"{k} = {v}")
+        lines.append("")
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write("\n".join(lines).rstrip() + "\n")
+
+data = load(path)
+sc = data.get("soundcloud")
+if not isinstance(sc, dict) or "likes_url" not in sc:
+    sys.exit(0)
+del sc["likes_url"]
+write(path, data)
 PY
 }
 

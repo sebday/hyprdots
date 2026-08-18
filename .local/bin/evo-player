@@ -995,7 +995,7 @@ cmd_sync_impl() {
   local cookies user url
   cookies="$(config_toml_get soundcloud cookies_from brave)"
   user="$(config_toml_get soundcloud user seb-day)"
-  url="$(config_toml_get soundcloud likes_url "https://soundcloud.com/${user}/likes")"
+  url="$(soundcloud_likes_url)"
   yt-dlp \
     --cookies-from-browser "$cookies" \
     --download-archive "$SYNC_ARCHIVE" \
@@ -1117,7 +1117,7 @@ cmd_config_get() {
   if [[ "$json" -eq 1 ]]; then
     config_toml_json
   else
-    config_toml_json | jq -r '.soundcloud | "user: \(.user)\ncookies_from: \(.cookies_from)\nlikes_url: \(.likes_url)"'
+    config_toml_json | jq -r '.soundcloud | "user: \(.user)\ncookies_from: \(.cookies_from)"'
   fi
 }
 
