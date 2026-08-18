@@ -73,30 +73,97 @@ Scope {
         scheduleDismiss(Math.max(500, parseInt(durationMs, 10) || root.durationMs))
     }
 
+    readonly property string logPath: (Quickshell.env("XDG_STATE_HOME")
+        || ((Quickshell.env("HOME") || "") + "/.local/state")) + "/evoshell/notification-log.jsonl"
+
+    function logEvent(event, detail) {
+        var payload = {
+            at: new Date().toISOString(),
+            event: String(event || ""),
+            detail: detail || {}
+        }
+        var line = JSON.stringify(payload)
+        logProc.command = [
+            "bash", "-lc",
+            "mkdir -p $(dirname " + Util.shellQuote(logPath) + ") && printf '%s\\n' "
+                + Util.shellQuote(line) + " >> " + Util.shellQuote(logPath)
+        ]
+        logProc.running = true
+    }
+
+    function mediaArtPath(path) {
+        return notifyIconPath(path)
+    }
+
     function showMedia(opts) {
         var o = opts || {}
         var titleStr = String(o.title || "Unknown")
         var artistStr = String(o.artist || "")
-        var iconPath = notifyIconPath(o.art || "")
+        var artPath = mediaArtPath(o.art || "")
         var timeout = Math.max(1000, parseInt(o.durationMs, 10) || root.durationMs)
         var appStr = String(o.app || "evo.player")
+        var trackPath = String(o.path || "")
 
-        if (publishProc.running)
-            return false
+        for (var j = 0; j < activePopups.length; j++) {
+            var existing = activePopups[j]
+            if (!existing || !existing.localMedia || String(existing.app || "") !== appStr)
+                continue
+            if (String(existing.path || "") === trackPath
+                    && String(existing.title || "") === titleStr
+                    && String(existing.body || "") === artistStr
+                    && String(existing.art || "") === artPath)
+                return false
+        }
 
-        var cmd = ["notify-send", "-a", appStr, "-t", String(timeout)]
-        if (iconPath)
-            cmd.push("-i", iconPath)
-        cmd.push(titleStr)
-        if (artistStr)
-            cmd.push(artistStr)
-        publishProc.command = cmd
-        publishProc.running = true
+        var next = []
+        var updated = false
+        for (var i = 0; i < activePopups.length; i++) {
+            var item = activePopups[i]
+            if (item.localMedia && String(item.app || "") === appStr) {
+                updated = true
+                next.push({
+                    key: item.key,
+                    localMedia: true,
+                    app: appStr,
+                    title: titleStr,
+                    body: artistStr,
+                    art: artPath,
+                    artRev: Date.now(),
+                    path: trackPath
+                })
+                continue
+            }
+            next.push(item)
+        }
+        if (!updated) {
+            next.push({
+                key: appStr + ":" + Date.now(),
+                localMedia: true,
+                app: appStr,
+                title: titleStr,
+                body: artistStr,
+                art: artPath,
+                artRev: Date.now(),
+                path: trackPath
+            })
+        }
+        activePopups = next
+        scheduleDismiss(timeout)
+        logEvent("showMedia", {
+            app: appStr,
+            title: titleStr,
+            artist: artistStr,
+            art: artPath.indexOf("data:image/") === 0 ? ("data-url:" + artPath.length) : artPath,
+            path: trackPath,
+            updated: updated
+        })
         return true
     }
 
     function notifyIconPath(art) {
         var s = String(art || "")
+        if (s.indexOf("data:image/") === 0)
+            return s
         if (s.indexOf("file://") === 0) {
             try {
                 s = decodeURIComponent(s.slice(7))
@@ -133,7 +200,9 @@ Scope {
     }
 
     function dismissOldest() {
-        dismissAll()
+        if (activePopups.length === 0)
+            return
+        dismissEntry(activePopups[0].key)
     }
 
     function popupTitle(entry) {
@@ -185,16 +254,12 @@ Scope {
     }
 
     function imageSource(path) {
-        var s = String(path || "")
-        if (!s) return ""
-        if (s.indexOf("://") !== -1) return s
-        if (s.charAt(0) === "/") return "file://" + s
-        return s
+        return Util.fileUrl(path)
     }
 
     function popupImage(entry) {
         if (entry && entry.localMedia && entry.art)
-            return imageSource(entry.art)
+            return entry.art
         var n = entry && entry.notification
         if (!n) return ""
         if (n.image) return imageSource(n.image)
@@ -373,33 +438,46 @@ Scope {
     }
 
     Process {
-        id: publishProc
+        id: logProc
     }
 
     component NotificationArtworkCard: Item {
         id: artworkRoot
 
-        property string art: ""
+        property string coverArt: ""
+        property int artRev: 0
         property string fallbackIcon: "󰎆"
         property var fields: ({})
         property int artSize: Theme.notificationArtSize
         property bool blurredBackground: true
 
+        readonly property string artSource: {
+            if (!artworkRoot.coverArt)
+                return ""
+            if (artworkRoot.coverArt.indexOf("data:image/") === 0)
+                return artworkRoot.coverArt
+            var base = Util.fileUrl(artworkRoot.coverArt)
+            if (!artworkRoot.artRev)
+                return base
+            var sep = base.indexOf("?") >= 0 ? "&" : "?"
+            return base + sep + "rev=" + artworkRoot.artRev
+        }
+
         width: Theme.notificationWidth
         implicitHeight: innerRow.height + Theme.notificationMediaPad * 2
 
         Image {
-            visible: artworkRoot.blurredBackground && artworkRoot.art !== ""
+            visible: artworkRoot.blurredBackground && artworkRoot.artSource !== ""
             anchors.fill: parent
-            source: artworkRoot.art
+            source: artworkRoot.artSource
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
-            cache: true
+            cache: false
             opacity: 0.18
         }
 
         Rectangle {
-            visible: artworkRoot.blurredBackground && artworkRoot.art !== ""
+            visible: artworkRoot.blurredBackground && artworkRoot.artSource !== ""
             anchors.fill: parent
             color: Qt.rgba(Theme.mantle.r, Theme.mantle.g, Theme.mantle.b, 0.55)
         }
@@ -426,7 +504,7 @@ Scope {
 
                 Text {
                     anchors.centerIn: parent
-                    visible: artworkRoot.art === "" || artImage.status !== Image.Ready
+                    visible: artworkRoot.artSource === "" || artImage.status !== Image.Ready
                     text: artworkRoot.fallbackIcon
                     color: Theme.accent
                     font.family: Theme.fontFamily
@@ -437,11 +515,20 @@ Scope {
                 Image {
                     id: artImage
                     anchors.fill: parent
-                    visible: artworkRoot.art !== ""
-                    source: artworkRoot.art
+                    visible: artworkRoot.artSource !== "" && status === Image.Ready
+                    source: artworkRoot.artSource
                     fillMode: Image.PreserveAspectCrop
                     asynchronous: true
-                    cache: true
+                    cache: false
+                    smooth: true
+                    mipmap: true
+                    sourceSize: Qt.size(artworkRoot.artSize, artworkRoot.artSize)
+                    onStatusChanged: {
+                        if (status === Image.Error)
+                            root.logEvent("artError", { source: artworkRoot.artSource })
+                        else if (status === Image.Ready)
+                            root.logEvent("artReady", { source: artworkRoot.artSource })
+                    }
                 }
             }
 
@@ -515,7 +602,19 @@ Scope {
 
             readonly property string kind: root.entryKind(modelData)
             readonly property var media: kind === "media" ? root.mediaFields(modelData) : ({})
-            readonly property string art: kind === "media" ? root.popupImage(modelData) : ""
+            readonly property string art: kind === "media" ? String(modelData.art || "") : ""
+
+            Component.onCompleted: {
+                if (modelData)
+                    root.setPopupHeight(modelData.key, card.height)
+                if (kind === "media") {
+                    root.logEvent("popupOpen", {
+                        art: art.indexOf("data:image/") === 0 ? ("data-url:" + art.length) : art,
+                        artRev: modelData.artRev || 0,
+                        title: media.title || ""
+                    })
+                }
+            }
 
             screen: root.popupScreen
             color: "transparent"
@@ -538,7 +637,6 @@ Scope {
             margins.left: root.popupMarginLeft(screen)
 
             onImplicitHeightChanged: if (modelData) root.setPopupHeight(modelData.key, implicitHeight)
-            Component.onCompleted: if (modelData) root.setPopupHeight(modelData.key, card.height)
 
             WlrLayershell.namespace: "evo-notifications"
             WlrLayershell.layer: WlrLayer.Overlay
@@ -570,7 +668,8 @@ Scope {
                 NotificationArtworkCard {
                     id: artworkCard
                     visible: kind === "media"
-                    art: art
+                    coverArt: art
+                    artRev: modelData.artRev || 0
                     fields: media
                 }
 

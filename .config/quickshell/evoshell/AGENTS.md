@@ -1,6 +1,6 @@
 # Agent guide
 
-House rules for evoshell. Architecture, plugins, and IPC: `skills/evoshell/SKILL.md`.
+Quickshell desktop shell for Hyprland — bar, panel, launcher, hover popups, overlays, services. One instance: `quickshell -c evoshell`, controlled via `evo-ipc`.
 
 ## Paths
 
@@ -12,120 +12,69 @@ EVOSHELL_CACHE="${EVOSHELL_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/evoshell}"
 EVOSHELL_DATA="${EVOSHELL_DATA:-${XDG_DATA_HOME:-$HOME/.local/share}/evoshell}"
 ```
 
+Hyprland: `~/.config/hypr/{autostart,bindings,evoshell,windows}.lua`. Secrets: `$EVOSHELL_DATA/secrets.env` (never commit).
+
+## Layout
+
+- `shell.json` — bar widgets, intervals, `onHover` plugin ids
+- `shell.qml` — `pluginTable`, services, summon/toggle IPC
+- `theme.json` → `Theme.qml` (live colours)
+- Bar widgets run `evo-bar-*` scripts → one JSON line stdout → `CommandWidget.lastPayload` → hover `*Module.qml`
+- Hover popups: `Commons/BarHoverPopup.qml`; bar `onHover: "evo.weather"` etc.
+
+Plugin ids: `evo.<feature>`. Directory: `plugins/<feature>/` with `<Feature>.qml`, `<Feature>Module.qml`, or `Service.qml`. Hypr layer: id with `.` → `-`, `_` → `-` (`evo.shopify_diy` → `evo-shopify-diy`); register in `evoshell.lua`. Tray exceptions: `bar-volume`, `bar-media`.
+
+Kinds: **service** (`Service.qml`), **bar** (`evo.bar` + `shell.json`), **hover popup** (`BarHoverPopup` + module), **overlay** (`evo.library`, `evo.theme`), **panel/menu**, **dashboard** (`FloatingWindow` title = plugin id, e.g. `evo.player`).
+
+Feature CLIs: `evo-player` → `evo.player`, `evo-film` → `evo.library`, `evo-network` → `evo.network`. `evo-bar-player` toggles the player dashboard (not the music CLI). No `evo-media` (use `evo-film` for film/TV).
+
 ## Scripts
 
-- `evo-*` only; 2-space indent, `#!/bin/bash`, `[[ ]]` for strings, `(( ))` for numbers
-- `evo-bar-*` — bar poll wrappers (one JSON line stdout)
-- `evo-dash-*` — dashboard / Hypr window control
-- `evo-theme-*` — theme generation and apply
-- Plugin ids: `evo.<feature>`; layer namespaces: `evo-<kebab>`
-- Use `evo-ipc`, `evo-bar-common`, `evo-theme-lib` — not raw equivalents
-- Secrets: `$EVOSHELL_DATA/secrets.env` (never commit)
+- `evo-*` only; 2-space indent, `#!/bin/bash`, `[[ ]]` / `(( ))`
+- `evo-bar-*` — bar pollers (one JSON line) and Hypr helpers (`evo-bar-hypr`, `evo-bar-player`, `evo-bar-btop`)
+- `evo-theme-*`, `evo-system-*`, `evo-menu-*` — theme, maintenance, launcher
+- Prefer `evo-ipc`, `evo-bar-common`, `evo-theme-lib` over raw equivalents
+- New bar widget: thin `evo-bar-*` → feature CLI `bar` subcommand when one exists (`evo-network bar`)
 
 ## QML
 
-- 4-space indent; new bar widgets → `widgets/qmldir` + `BarWidgetCatalog.qml`
-- `BarWidgetCatalog` root must be `Item`; bar scripts print one JSON line
+- 4-space indent; new bar widgets → `widgets/qmldir` + `BarWidgetCatalog.qml` (`Item` root)
 - Panel module ids: `calc`, `clipboard`, `settings` (legacy `"tools"` → `calc` only)
 
-## Config reload
+## IPC & reload
+
+```bash
+evo-ipc shell ping|reloadConfig|summon|hide|toggle <pluginId>
+evo-ipc evo.audio stepUp          # service calls
+evo-bar-hypr pin-all|restore-dashboards
+evo-system-restart
+journalctl -t evoshell -f
+```
 
 | Change | Action |
 |--------|--------|
 | `shell.json` | `evo-ipc shell reloadConfig` |
-| `theme.json` | live — `Theme.qml` watches the file |
-| `Theme.qml` tokens | full restart (`evo-system-restart`) |
-| `shell.qml` plugin table, new widget type | full restart |
-| `evoshell.lua` layer rules | Hypr reload; often needs shell restart too |
+| `theme.json`, `hypr-looks.json`, `ui.json` | live |
+| `Theme.qml`, new plugin in `shell.qml`, new widget type | `evo-system-restart` |
+| `evoshell.lua` | Hypr reload; often shell restart too |
 
-## Design tokens (`Commons/Theme.qml`)
+## Design tokens
 
-All visual constants go through `Theme.*` — no hardcoded colours, font sizes, spacing, opacity, or radius in QML.
-
-Add a new token when a value appears 3+ times or has clear semantic meaning. Layout-derived ratios (`iconSize * 0.72`) are OK; never derive font sizes. No surface-specific aliases (`panelTitle`, `hoverBody`).
-
-### Sources
-
-| Source | Keys | Reload |
-|--------|------|--------|
-| `theme.json` | `foreground`, `background`, `accent`, `mantle`, `urgent`, `iconTheme`, `fontFamily`, `fontPixelSize` | live |
-| `hypr-looks.json` | `activeOpacity`, `inactiveOpacity`, `roundingOn`, `gapsOn` | live |
-| `ui.json` | `fieldsetRounding` | live |
-| `Theme.qml` | spacing, opacity, radius, layout, derived colours | restart |
-
-Optional `theme.json` overrides: `inactiveBorder`, `surfaceOpacity`, `surfaceOpacityInactive`, `panelMantleLift`.
-
-### Opacity scale
-
-| Token | Value | Use |
-|-------|-------|-----|
-| `opacityDisabled` | 0.45 | disabled controls |
-| `opacityMuted` | 0.55 | de-emphasised labels |
-| `opacityHover` | 0.65 | hover states |
-| `opacitySecondary` | 0.72 | secondary text |
-| `opacityEmphasis` | 0.9 | near-primary text/icons |
-
-### Foreground alpha colours
-
-| Token | Alpha | Use |
-|-------|-------|-----|
-| `foregroundGhost` | 0.05 | idle row wash |
-| `foregroundWash` | 0.06 | chip/list backgrounds |
-| `foregroundFaint` | 0.08 | hover row wash |
-| `foregroundHoverWash` | 0.1 | chip hover |
-| `foregroundRaised` | 0.12 | pressed rows |
-| `foregroundDivider` | 0.14 | chip/row borders |
-| `foregroundSubtle` | 0.16 | toggle track off |
-| `foregroundTrack` | 0.18 | slider track |
-| `foregroundPickerBorder` | 0.22 | combobox border |
-| `foregroundBorder` | 0.32 | fieldset borders |
-
-Use `Theme.withOpacity(Theme.foreground, n)` for one-off alphas (canvas, charts).
-
-### Spacing scale
-
-| Token | Value | Matches |
-|-------|-------|---------|
-| `spacing2` | 2 | tight stacks |
-| `spacingS` | 6 | form rows (`sparklineGap`) |
-| `spacingM` | 8 | row gaps (`barGap`) |
-| `spacingL` | 10 | sections (`hoverPopupSectionSpacing`) |
-
-Surface padding: `panelContentPad` (10), `panelDockPad` (12), `hoverPopupContentPad` (16), `hoverPopupMargin` / `overlayMargin` (16).
-
-### Radius scale
-
-| Token | Value | Use |
-|-------|-------|-----|
-| `radiusS` | 2 | tracks, sparkline cells |
-| `radiusM` | 3 | list item highlight |
-| `radiusL` | 4 | inputs (`fieldsetCornerRadius`) |
-| `radiusToggleTrack` | 12 | toggle pill |
-| `radiusToggleThumb` | 9 | toggle knob |
-| `panelCornerRadius` | 0/4 | panels (from `roundingOn`) |
-
-### Layout tokens
-
-| Group | Tokens |
-|-------|--------|
-| Overlays | `overlayWidthDefault` (440), `overlayMargin` (16), `screenEdgeInset` (20), `hoverPopupWidthWide` (580) |
-| Bar | `barHeight`, `barPaddingX`, `barGap`, `barSectionGap`, `barHoverTopPad` |
-| Panel | `panelContentPad`, `panelDockPad`, `panelSectionSpacing`, `panelLabelPadH` |
-| Sparkline / notifications | `sparkline*`, `notification*` — see `Theme.qml` |
-
-### Typography
-
-- `fontPixelSize` in `theme.json` is the base (default 13); `fontBold` is fixed `true`
-- Use `Theme.fontSize*` only — see `Theme.qml` for the full scale (`fontSizeXxs` … `fontSizeHeroLg`)
+All colours, fonts, spacing, opacity, radius via `Theme.*` — no hardcoded values in QML. Add a token when a value repeats 3+ times or is semantic; layout ratios OK, not font sizes. Token scales and sources: `Commons/Theme.qml` (`theme.json`, `hypr-looks.json`, `ui.json`).
 
 ## Testing
 
 ```bash
 evo-ipc shell ping
-evo-ipc shell reloadConfig    # after shell.json edits
-evo-system-restart            # after Theme.qml edits
-.local/bin/evo-bar-weather    # bar script → valid JSON
-journalctl -t evoshell -f
+.local/bin/evo-bar-weather    # → valid JSON line
 ```
 
-Visual/QML changes need manual check: bar popups, panel, player dashboard, overlays, notifications.
+Manual check after visual/QML changes: bar popups, panel, player dashboard, overlays, notifications.
+
+### Player now-playing notifications
+
+`plugins/player/Service.qml` polls `evo-player status --json`, runs `evo-player art notify-cache <path>` (copies art to `~/.cache/evoshell/notification-art-<md5>.jpg`), then `evo.notifications.showMedia()` as `localMedia`. Notifies once per track; dedupes path+art; resets dismiss timer on each show.
+
+Debug log: `~/.local/state/evoshell/notification-log.jsonl` (`showMedia`, `popupOpen`, `artReady`, `artError`). Tail during playback to confirm one `showMedia` per track change.
+
+`NotificationArtworkCard` uses `coverArt` (not `art`) — a property named `art` inside a QML `component` shadows the delegate binding.

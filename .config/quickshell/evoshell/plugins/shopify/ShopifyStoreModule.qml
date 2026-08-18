@@ -20,7 +20,7 @@ Item {
     readonly property string storeCacheKey: "shopify-" + storeKey + "-30"
 
     readonly property string home: Quickshell.env("HOME")
-    readonly property string avatarDir: home + "/onedrive/pictures/Avatars"
+    readonly property string demoLogoPath: home + "/googledrive/daymarketing/branding/favicon.svg"
     readonly property string demoJsonPath: (shell && shell.shellDir)
         ? shell.shellDir + "/plugins/shopify/demo.json"
         : home + "/.config/quickshell/evoshell/plugins/shopify/demo.json"
@@ -35,12 +35,8 @@ Item {
         : Theme.mantle
 
     readonly property string storeIconUrl: {
-        if (demoMode) {
-            if (storeKey === "DIY")
-                return "file://" + avatarDir + "/pdog.jpg"
-            if (storeKey === "TGS")
-                return "file://" + avatarDir + "/robot-seb.jpg"
-        }
+        if (demoMode)
+            return "file://" + demoLogoPath
         if (barSource && barSource.storeIconUrl)
             return String(barSource.storeIconUrl)
         if (storeKey === "DIY")

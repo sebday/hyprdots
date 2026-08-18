@@ -62,8 +62,21 @@ Item {
     readonly property int activeTileWidth: previewTileMode ? previewTileWidth : (styledMenuMode ? powerTileWidth : tileWidth)
     readonly property int activeTileHeight: previewTileMode ? previewTileHeight : (styledMenuMode ? powerTileHeight : tileHeight)
 
+    readonly property int sizingEntryCount: {
+        var q = filterText.trim()
+        if (q === "")
+            return visibleEntries.length
+        if (submenu)
+            return dynamicEntries.length
+        if (mode === "apps")
+            return appEntries().length
+        if (mode === "power")
+            return commandEntries.length
+        return visibleEntries.length
+    }
+
     readonly property int gridColumnCount: {
-        var n = visibleEntries.length
+        var n = sizingEntryCount
         if (styledMenuMode) return Math.max(1, Math.min(n, powerGridColumns))
         if (n <= 0) return 1
         if (previewTileMode)
@@ -74,7 +87,7 @@ Item {
     }
 
     readonly property int gridRowCount: {
-        var n = visibleEntries.length
+        var n = sizingEntryCount
         if (n <= 0) return 1
         return Math.ceil(n / gridColumnCount)
     }
@@ -103,13 +116,13 @@ Item {
     readonly property int previewGridHeight: gridHeight
 
     readonly property int tileRowWidth: {
-        var n = visibleEntries.length
+        var n = sizingEntryCount
         if (n <= 0) return tileWidth
         return n * tileWidth + (n - 1) * tileSpacing
     }
 
     readonly property int previewRowWidth: {
-        var n = visibleEntries.length
+        var n = sizingEntryCount
         if (n <= 0) return previewTileWidth
         return n * previewTileWidth + (n - 1) * tileSpacing
     }

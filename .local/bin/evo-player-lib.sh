@@ -1118,6 +1118,22 @@ art_install_image() {
   printf '%s' "$folder"
 }
 
+art_notify_cache() {
+  local path="$1" art dest hash
+  [[ -f "$path" ]] || return 1
+  art="$(art_path_cached "$path")"
+  if [[ -z "$art" ]]; then
+    art_ensure_now "$path"
+    art="$(art_path_cached "$path")"
+  fi
+  [[ -n "$art" && -f "$art" ]] || return 1
+  hash="$(printf '%s' "$path" | md5sum | awk '{print $1}')"
+  dest="${XDG_CACHE_HOME:-$HOME/.cache}/evoshell/notification-art-${hash}.jpg"
+  mkdir -p "$(dirname "$dest")"
+  cp -f "$art" "$dest"
+  printf '%s' "$dest"
+}
+
 art_embed_audio() {
   local audio="$1"
   local art="$2"

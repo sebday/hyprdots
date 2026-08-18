@@ -39,6 +39,7 @@ usage:
   evo-player art apply <track-path> <url> [--json]
   evo-player art clear <track-path> [--json]
   evo-player art embed [--json]
+  evo-player art notify-cache <track-path>
   evo-player find [--artist|--genre|--year] <value> [--json]
   evo-player find <query> [--json]
   evo-player scrobble auth|token <token>|nowplaying|submit [--json]
@@ -2387,6 +2388,15 @@ cmd_art_embed() {
   run_exclusive_job art-embed "embed art" cmd_art_embed_impl
 }
 
+cmd_art_notify_cache() {
+  local path="${1:-}"
+  [[ -f "$path" ]] || {
+    echo "evo-player: not a file: ${path:-<missing>}" >&2
+    return 1
+  }
+  art_notify_cache "$path"
+}
+
 cmd_art() {
   local sub="${1:-}"
   shift || true
@@ -2396,6 +2406,7 @@ cmd_art() {
     apply) cmd_art_apply "$@" ;;
     clear) cmd_art_clear "$@" ;;
     embed) cmd_art_embed "$@" ;;
+    notify-cache) cmd_art_notify_cache "$@" ;;
     *) usage ;;
   esac
 }

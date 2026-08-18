@@ -9,33 +9,62 @@ Item {
     property var shell: null
     property var player: ({})
     property string lastNotifiedPath: ""
+    property bool lastNotifiedHadArt: false
+    property string lastNotifiedArt: ""
     property string scrobblePath: ""
     property bool scrobbleSubmitted: false
 
     readonly property string playerScript: (Quickshell.env("HOME") || "") + "/.local/bin/evo-player"
 
-    function notifyNowPlaying() {
+    function pushMediaNotification(artPath) {
         if (!shell)
             return
         var path = String(player.path || "")
-        if (!path || path === lastNotifiedPath)
+        if (!path)
+            return
+        var art = String(artPath || "")
+        if (path === lastNotifiedPath && art === lastNotifiedArt)
             return
         var notif = shell.serviceFor("evo.notifications")
         if (!notif || typeof notif.showMedia !== "function")
             return
-        var ok = notif.showMedia({
+        var pathChanged = path !== lastNotifiedPath
+        notif.showMedia({
             app: "evo.player",
             title: String(player.title || "Unknown"),
             artist: String(player.artist || ""),
-            art: String(player.art || ""),
+            art: art,
             path: path
         })
-        if (!ok)
-            return
+        if (pathChanged) {
+            runScrobble(["nowplaying"])
+            scrobblePath = path
+            scrobbleSubmitted = false
+        }
         lastNotifiedPath = path
-        runScrobble(["nowplaying"])
-        scrobblePath = path
-        scrobbleSubmitted = false
+        lastNotifiedHadArt = art !== ""
+        lastNotifiedArt = art
+    }
+
+    function notifyNowPlaying() {
+        if (!shell)
+            return
+        var path = String(player.path || "")
+        if (!path)
+            return
+        var hasArt = String(player.art || "") !== ""
+        var pathChanged = path !== lastNotifiedPath
+        var needsArtUpdate = path === lastNotifiedPath && hasArt && !lastNotifiedHadArt
+        if (!pathChanged && !needsArtUpdate)
+            return
+        if (hasArt) {
+            if (!notifyArtProc.running) {
+                notifyArtProc.command = [playerScript, "art", "notify-cache", path]
+                notifyArtProc.running = true
+            }
+            return
+        }
+        pushMediaNotification("")
     }
 
     function maybeSubmitScrobble() {
@@ -73,8 +102,11 @@ Item {
         var state = String(player.state || "")
         if (path && state === "playing")
             notifyNowPlaying()
-        else if (!path || state === "stopped")
+        else if (!path || state === "stopped") {
             lastNotifiedPath = ""
+            lastNotifiedHadArt = false
+            lastNotifiedArt = ""
+        }
         maybeSubmitScrobble()
     }
 
@@ -97,6 +129,16 @@ Item {
         id: statusProc
         stdout: StdioCollector {
             onStreamFinished: root.applyStatus(text)
+        }
+    }
+
+    Process {
+        id: notifyArtProc
+        stdout: StdioCollector {
+            onStreamFinished: {
+                var cached = String(text || "").trim()
+                root.pushMediaNotification(cached)
+            }
         }
     }
 
