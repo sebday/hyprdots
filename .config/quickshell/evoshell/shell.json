@@ -53,8 +53,8 @@
           "audio": {
             "onHover": "evo.volume",
             "mediaOnHover": "evo.media",
-            "onClick": "ghostty --class=TUI.main -e wiremix",
-            "onClickRight": "ghostty --class=TUI.main -e alsamixer"
+            "onClick": "ghostty --class=TUI.main -e alsamixer",
+            "onClickRight": "ghostty --class=TUI.main -e wiremix"
           },
           "network": {
             "interval": 2,

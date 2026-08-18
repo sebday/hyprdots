@@ -15,6 +15,7 @@ usage:
   evo-player current load [--json]
   evo-player current clear
   evo-player queue append <path> [<path>...]
+  evo-player queue append-browse <path> [--json]
   evo-player queue play <start-path> <path> [<path>...]
   evo-player queue extend [--json]
   evo-player prioritize <path> [<path>...]
@@ -315,16 +316,93 @@ cmd_player_prioritize() {
   art_prioritize_paths "$@"
 }
 
-cmd_player_queue_append() {
-  [[ $# -gt 0 ]] || usage
-  cmd_player_start
-  local path
-  for path in "$@"; do
+cmd_player_queue_append_paths() {
+  local -a incoming=("$@")
+  local -a existing=() merged=() new_paths=()
+  local line path
+  declare -A seen=()
+
+  if [[ -f "$CURRENT_M3U" ]]; then
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      line="${line//$'\r'/}"
+      [[ -z "$line" || "$line" == \#* ]] && continue
+      [[ -f "$line" ]] || continue
+      existing+=("$line")
+      seen["$line"]=1
+    done <"$CURRENT_M3U"
+  fi
+
+  merged=("${existing[@]}")
+  for path in "${incoming[@]}"; do
     [[ -f "$path" ]] || continue
+    is_audio "$path" || continue
+    if [[ -z "${seen[$path]:-}" ]]; then
+      seen["$path"]=1
+      merged+=("$path")
+      new_paths+=("$path")
+    fi
+  done
+
+  ((${#new_paths[@]})) || return 1
+
+  for path in "${new_paths[@]}"; do
     mpv_load_file "$path" append
     waveform_ensure_async "$path"
   done
-  art_prioritize_paths "$@"
+  art_prioritize_paths "${new_paths[@]}"
+  queue_save "${merged[@]}"
+  printf '%s\n' "${#new_paths[@]}"
+}
+
+cmd_player_queue_append() {
+  [[ $# -gt 0 ]] || usage
+  cmd_player_start
+  cmd_player_queue_append_paths "$@" >/dev/null
+}
+
+cmd_player_queue_append_browse() {
+  local rel="" json=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --json) json=1 ;;
+      *) rel="$1" ;;
+    esac
+    shift
+  done
+  [[ -n "$rel" ]] || usage
+  cmd_player_start
+  local -a folder_paths=() path added=0 track_line
+  while IFS= read -r track_line; do
+    [[ -n "$track_line" ]] || continue
+    path="$(jq -r '.path // ""' <<<"$track_line")"
+    [[ -n "$path" && -f "$path" ]] || continue
+    folder_paths+=("$path")
+  done < <(browse_collect_queue_tracks "$rel")
+  ((${#folder_paths[@]})) || {
+    [[ "$json" -eq 1 ]] && printf '{"added":0,"total":0,"folder":"%s"}\n' "$(json_escape "$rel")"
+    return 1
+  }
+  added="$(cmd_player_queue_append_paths "${folder_paths[@]}")" || added=0
+  if [[ "$json" -eq 1 ]]; then
+    local total=0 line
+    if [[ -f "$CURRENT_M3U" ]]; then
+      while IFS= read -r line || [[ -n "$line" ]]; do
+        line="${line//$'\r'/}"
+        [[ -z "$line" || "$line" == \#* ]] && continue
+        [[ -f "$line" ]] && total=$((total + 1))
+      done <"$CURRENT_M3U"
+    fi
+    jq -n \
+      --arg folder "$rel" \
+      --argjson added "$added" \
+      --argjson total "$total" \
+      '{folder:$folder,added:$added,total:$total}'
+  elif [[ "$added" -gt 0 ]]; then
+    printf 'appended %s track(s) from %s\n' "$added" "$rel"
+  else
+    printf 'no new tracks to append from %s\n' "$rel"
+    return 1
+  fi
 }
 
 cmd_player_queue_play() {
@@ -393,6 +471,7 @@ cmd_player_queue() {
   shift || true
   case "$sub" in
     append) cmd_player_queue_append "$@" ;;
+    append-browse) cmd_player_queue_append_browse "$@" ;;
     play) cmd_player_queue_play "$@" ;;
     extend) cmd_player_queue_extend "$@" ;;
     -h|--help|help|"") usage ;;

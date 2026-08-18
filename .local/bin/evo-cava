@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PRESET_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/cava/presets"
+PRESET_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/cava/cava.v"
+
+preset_names() {
+    local names=()
+    local f base
+    shopt -s nullglob
+    for f in "$PRESET_DIR"/*.conf; do
+        base=$(basename "$f" .conf)
+        names+=("$base")
+    done
+    shopt -u nullglob
+  if ((${#names[@]} == 0)); then
+        echo "no cava presets in $PRESET_DIR" >&2
+        return 1
+    fi
+    printf '%s\n' "${names[@]}"
+}
+
+current_preset() {
+    if [[ -f "$PRESET_FILE" ]]; then
+        tr -d '[:space:]' <"$PRESET_FILE" | head -c 64
+        return
+    fi
+    preset_names | head -n1
+}
+
+set_preset() {
+    local name=$1
+    [[ -f "$PRESET_DIR/$name.conf" ]] || {
+        echo "unknown preset: $name" >&2
+        return 1
+    }
+    mkdir -p "$(dirname "$PRESET_FILE")"
+    printf '%s\n' "$name" >"$PRESET_FILE"
+}
+
+cmd_config() {
+    local name
+    name=$(current_preset)
+    [[ -n "$name" ]] || return 1
+    printf '%s/%s.conf\n' "$PRESET_DIR" "$name"
+}
+
+cmd_list() {
+    local active name
+    active=$(current_preset)
+    while IFS= read -r name; do
+        if [[ "$name" == "$active" ]]; then
+            printf '* %s\n' "$name"
+        else
+            printf '  %s\n' "$name"
+        fi
+    done < <(preset_names)
+}
+
+cmd_next() {
+    local active names=() i next
+    mapfile -t names < <(preset_names)
+    active=$(current_preset)
+    next="${names[0]}"
+    for i in "${!names[@]}"; do
+        if [[ "${names[$i]}" == "$active" ]]; then
+            next="${names[$(( (i + 1) % ${#names[@]} ))]}"
+            break
+        fi
+    done
+    set_preset "$next"
+    printf '%s\n' "$next"
+}
+
+cmd_set() {
+    [[ $# -eq 1 ]] || {
+        echo "usage: evo-cava set <preset>" >&2
+        return 1
+    }
+    set_preset "$1"
+    printf '%s\n' "$1"
+}
+
+usage() {
+    cat <<EOF
+usage: evo-cava <command>
+
+commands:
+  config    print active preset config path
+  list      list presets (* = active)
+  next      cycle to the next preset
+  set NAME  activate a preset
+EOF
+}
+
+main() {
+    local cmd=${1:-}
+    case "$cmd" in
+        config) cmd_config ;;
+        list) cmd_list ;;
+        next) cmd_next ;;
+        set) shift; cmd_set "$@" ;;
+        -h|--help|help|"") usage ;;
+        *)
+            echo "unknown command: $cmd" >&2
+            usage >&2
+            return 1
+            ;;
+    esac
+}
+
+main "$@"

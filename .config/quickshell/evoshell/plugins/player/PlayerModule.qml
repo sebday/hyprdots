@@ -1,6 +1,5 @@
 import Quickshell
 import Quickshell.Io
-import Quickshell.Services.Pipewire
 import QtQuick
 import QtQuick.Layouts
 import "../../Commons"
@@ -74,6 +73,7 @@ Item {
     property bool browseTreeLoading: false
     property real browseTreeScrollY: 0
     property real browseTreeRestoreY: -1
+    property var browseTreeScrollByKey: ({})
     property var browseTreeListView: null
     property var browseTreeFolderMeta: ({})
     property bool browseTreeLoadingMore: false
@@ -89,6 +89,7 @@ Item {
     property int playlistTrackOffset: 0
     property bool playlistTracksLoadingMore: false
     property var playlistTrackList: null
+    property int tracksRevision: 0
     readonly property int playlistPageSize: 50
     property string resumePlaylist: ""
     property string playerScreen: "nowPlaying"
@@ -250,6 +251,7 @@ Item {
 
     function toggleBrowsePanel() {
         if (browsePanelOpen) {
+            saveBrowseTreeScroll()
             browsePanelOpen = false
             return
         }
@@ -259,6 +261,8 @@ Item {
         playerScreen = "nowPlaying"
         if (!browsePath && !browseTreeRows.length)
             loadBrowseTreeRoot()
+        else
+            restoreBrowseTreeScroll()
     }
 
     function togglePlaylistPanel() {
@@ -883,6 +887,41 @@ Item {
         return { type: "dir", path: String(path || ""), name: String(name || "") }
     }
 
+    function expansionStateKey(expanded) {
+        var exp = expanded !== undefined ? expanded : browseTreeExpanded
+        var paths = []
+        for (var p in exp) {
+            if (exp[p])
+                paths.push(String(p))
+        }
+        paths.sort()
+        return paths.join("\n")
+    }
+
+    function saveBrowseTreeScroll(key) {
+        if (!browseTreeListView)
+            return
+        var map = Object.assign({}, browseTreeScrollByKey)
+        map[key !== undefined ? String(key) : expansionStateKey()] = browseTreeListView.contentY
+        browseTreeScrollByKey = map
+    }
+
+    function restoreBrowseTreeScroll(key) {
+        var k = key !== undefined ? String(key) : expansionStateKey()
+        var y = browseTreeScrollByKey[k]
+        browseTreeRestoreY = (y !== undefined && y !== null && y >= 0) ? Number(y) : -1
+    }
+
+    function pruneBrowseTreeExpansion(path) {
+        var nextExp = Object.assign({}, browseTreeExpanded)
+        var prefix = String(path || "")
+        for (var p in nextExp) {
+            if (p === prefix || (prefix && p.indexOf(prefix + "/") === 0))
+                delete nextExp[p]
+        }
+        return nextExp
+    }
+
     function rebuildBrowseTreeRows(preserveScroll) {
         var rows = []
         function appendChildren(parentPath, depth) {
@@ -923,8 +962,6 @@ Item {
             browseTreeRestoreY = browseTreeListView.contentY
         else if (preserveScroll)
             browseTreeRestoreY = browseTreeScrollY
-        else
-            browseTreeRestoreY = -1
         browseTreeRows = rows
     }
 
@@ -1032,16 +1069,20 @@ Item {
         fetchBrowseTreeEntries("", 0, false, function(entries) {
             browseTreeLoading = false
             applyBrowseTreeEntries("", entries, {}, false)
+            restoreBrowseTreeScroll("")
         })
     }
 
     function toggleBrowseTreeNode(path) {
         path = String(path || "")
+        saveBrowseTreeScroll()
+        var anchorY = browseTreeListView ? browseTreeListView.contentY : -1
         var nextExp = Object.assign({}, browseTreeExpanded)
         if (nextExp[path]) {
-            delete nextExp[path]
+            nextExp = pruneBrowseTreeExpansion(path)
             browseTreeExpanded = nextExp
-            rebuildBrowseTreeRows(true)
+            rebuildBrowseTreeRows(false)
+            restoreBrowseTreeScroll(expansionStateKey(nextExp))
             return
         }
         nextExp[path] = true
@@ -1052,6 +1093,7 @@ Item {
         }
         fetchBrowseTreeEntries(path, 0, false, function(entries, meta) {
             applyBrowseTreeEntries(path, entries, meta, false)
+            browseTreeRestoreY = anchorY >= 0 ? anchorY : -1
         })
     }
 
@@ -1062,10 +1104,12 @@ Item {
     }
 
     function browseTreeHome() {
+        saveBrowseTreeScroll()
         browseTreeExpanded = {}
         browseTreeChildren = {}
         browseTreeFolderMeta = {}
         browseTreeRows = []
+        browseTreeScrollByKey = {}
         loadBrowseTreeRoot()
     }
 
@@ -1192,31 +1236,36 @@ Item {
     function browseAppendFolder(entry) {
         if (!entry || entry.type !== "dir" || !entry.path)
             return
+        if (appendBrowseProc.running) {
+            Qt.callLater(function() { browseAppendFolder(entry) })
+            return
+        }
         browseQueueBusy = true
         var folderPath = String(entry.path)
-        runBrowseQuery(["browse", folderPath, "--json", "--queue"], function(text) {
+        appendBrowseProc.command = ["bash", playerScript, "queue", "append-browse", folderPath, "--json"]
+        appendBrowseProc._onDone = function(text) {
             browseQueueBusy = false
             try {
-                var data = JSON.parse(String(text || "{}"))
-                var folderTracks = data.tracks || []
-                if (!folderTracks.length) {
-                    root.notify("no tracks in folder", 2500)
+                var result = JSON.parse(String(text || "{}"))
+                var added = Number(result.added || 0)
+                if (added <= 0) {
+                    root.notify("no new tracks to add", 2500)
                     return
                 }
-                root.appendTracksToCurrent(folderTracks)
+                root.currentPlaylistActive = true
+                root.currentPlaylistPath = folderPath
                 root.selectedPlaylist = root.currentPlaylistId
-                var paths = root.pathsFromTracks(folderTracks)
-                if (!paths.length)
-                    return
-                var args = ["queue", "append"].concat(paths)
-                runMusic(args, function() {
-                    root.refreshStatus()
+                root.loadCurrentPlaylist(function() {
                     root.commitCurrentPlaylist()
-                }, queuePlayProc)
+                    root.refreshStatus()
+                    var label = String(result.folder || folderPath).split("/").pop() || "folder"
+                    root.notify("+" + added + " to current from " + label, 2500)
+                })
             } catch (e) {
                 root.notify("could not append folder", 2500)
             }
-        })
+        }
+        appendBrowseProc.running = true
     }
 
     function openFilter(kind, value, label) {
@@ -2002,17 +2051,9 @@ Item {
     }
 
     function toggleFavorite() {
-        if (!player.path) return
-        runMusic(["favorite", "toggle", player.path, "--json"], function(text) {
-            try {
-                var result = JSON.parse(String(text || "{}"))
-                var next = Object.assign({}, player)
-                next.liked = !!result.liked
-                player = next
-            } catch (e) {
-            }
-            refreshStatus()
-        }, cmdProc)
+        if (!player.path)
+            return
+        toggleTrackFavorite(player.path)
     }
 
     function runFavoriteQuery(args, onDone) {
@@ -2046,13 +2087,27 @@ Item {
             try {
                 var result = JSON.parse(String(text || "{}"))
                 var liked = !!result.liked
-                var i, entry, nextTracks = [], nextBrowse = []
+                var i, entry, nextTracks = [], nextBrowse = [], nextCurrent = [], nextFilter = []
                 for (i = 0; i < tracks.length; i++) {
                     entry = tracks[i]
                     if (entry.path === trackPath)
                         nextTracks.push(Object.assign({}, entry, { liked: liked }))
                     else
                         nextTracks.push(entry)
+                }
+                for (i = 0; i < currentPlaylistTracks.length; i++) {
+                    entry = currentPlaylistTracks[i]
+                    if (entry.path === trackPath)
+                        nextCurrent.push(Object.assign({}, entry, { liked: liked }))
+                    else
+                        nextCurrent.push(entry)
+                }
+                for (i = 0; i < filterTracks.length; i++) {
+                    entry = filterTracks[i]
+                    if (entry.path === trackPath)
+                        nextFilter.push(Object.assign({}, entry, { liked: liked }))
+                    else
+                        nextFilter.push(entry)
                 }
                 for (i = 0; i < browseEntries.length; i++) {
                     entry = browseEntries[i]
@@ -2064,7 +2119,10 @@ Item {
                 var playlistY = playlistTrackList ? playlistTrackList.contentY : -1
                 var browseY = browseList ? browseList.contentY : -1
                 tracks = nextTracks
+                currentPlaylistTracks = nextCurrent
+                filterTracks = nextFilter
                 browseEntries = nextBrowse
+                tracksRevision++
                 restoreListViewport(playlistTrackList, playlistY)
                 restoreListViewport(browseList, browseY)
                 if (player.path === trackPath) {
@@ -2078,22 +2136,44 @@ Item {
             }
         }
         var optimisticLiked = true
-        var j, t
+        var j, t, found = false
         for (j = 0; j < tracks.length; j++) {
             if (tracks[j].path === trackPath) {
                 optimisticLiked = !tracks[j].liked
+                found = true
                 break
             }
         }
-        if (j >= tracks.length) {
-            for (j = 0; j < browseEntries.length; j++) {
-                t = browseEntries[j]
-                if (t.type === "track" && t.path === trackPath) {
-                    optimisticLiked = !t.liked
+        if (!found) {
+            for (j = 0; j < currentPlaylistTracks.length; j++) {
+                if (currentPlaylistTracks[j].path === trackPath) {
+                    optimisticLiked = !currentPlaylistTracks[j].liked
+                    found = true
                     break
                 }
             }
         }
+        if (!found) {
+            for (j = 0; j < filterTracks.length; j++) {
+                if (filterTracks[j].path === trackPath) {
+                    optimisticLiked = !filterTracks[j].liked
+                    found = true
+                    break
+                }
+            }
+        }
+        if (!found) {
+            for (j = 0; j < browseEntries.length; j++) {
+                t = browseEntries[j]
+                if (t.type === "track" && t.path === trackPath) {
+                    optimisticLiked = !t.liked
+                    found = true
+                    break
+                }
+            }
+        }
+        if (!found && String(player.path || "") === trackPath)
+            optimisticLiked = !player.liked
         applyFavorite(JSON.stringify({ liked: optimisticLiked }))
         runFavoriteQuery(["favorite", "toggle", trackPath, "--json"], applyFavorite)
     }
@@ -2299,6 +2379,19 @@ Item {
                     queuePlayProc._onDone(text)
             }
         }
+    }
+
+    Process {
+        id: appendBrowseProc
+        property var _onDone: null
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (appendBrowseProc._onDone)
+                    appendBrowseProc._onDone(text)
+                appendBrowseProc._onDone = null
+            }
+        }
+        onExited: appendBrowseProc._onDone = null
     }
 
     Process {
@@ -2566,7 +2659,7 @@ Item {
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
-                                onClicked: root.selectPlaylist(name, false)
+                                onClicked: root.selectPlaylist(name)
                             }
                         }
                     }
@@ -2974,7 +3067,7 @@ Item {
                                         opacity: Theme.opacityHover
                                     }
 
-                                    PlayerSpectrumBars {
+                                    PlayerCavaBars {
                                         anchors.centerIn: parent
                                         active: root.active && root.playerPlaying
                                     }
@@ -3244,119 +3337,162 @@ Item {
         }
     }
 
-    component PlayerSpectrumBars: Item {
-        id: spectrum
+    component PlayerCavaBars: Item {
+        id: cavaBars
         property bool active: false
 
         readonly property int barCount: 20
         readonly property int vizWidth: 168
         readonly property int vizHeight: 22
-        readonly property real mid: (barCount - 1) / 2
-        readonly property PwNode sink: Pipewire.defaultAudioSink
-        readonly property bool sinkReady: sink !== null && sink.ready
-        readonly property bool audioActive: active && sinkReady && linkTracker.linkGroups.length > 0
+        readonly property int asciiMax: 1000
+        readonly property string cavaScript: (Quickshell.env("HOME") || "") + "/.local/bin/evo-cava"
+        readonly property string cavaPresetFile: (Quickshell.env("HOME") || "") + "/.config/cava/cava.v"
 
-        readonly property real peakGate: 0.09
-        readonly property real maxBarLevel: 0.92
-        readonly property real transientMargin: 0.02
-        readonly property real sustainedCap: 0.28
-
-        property real peakBaseline: 0
         property var barLevels: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        property int streamPos: 0
+        property string presetName: ""
 
         implicitWidth: vizWidth
         implicitHeight: vizHeight
-        opacity: audioActive ? 0.38 : 0.16
+        opacity: active && cavaProc.running ? 0.38 : 0.16
 
         function resetBars() {
-            peakBaseline = 0
+            streamPos = 0
             barLevels = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
             vizCanvas.requestPaint()
         }
 
-        function decayBars(levels, factor) {
+        function stopCava() {
+            cavaProc.running = false
+            resetBars()
+        }
+
+        function applyCavaLine(line) {
+            if (!line)
+                return
+            var parts = String(line).split(";")
+            var levels = []
+            var max = asciiMax
             for (var i = 0; i < barCount; i++) {
-                var ef = edgeFactor(i)
-                levels[i] *= factor - ef * 0.1
+                var v = i < parts.length ? parseInt(parts[i], 10) : 0
+                if (isNaN(v) || v < 0)
+                    v = 0
+                levels.push(Math.min(1, v / max))
             }
-        }
-
-        function barWeight(index) {
-            var dist = Math.abs(index - mid) / mid
-            return 1 - dist * dist * 0.68
-        }
-
-        function edgeFactor(index) {
-            return Math.abs(index - mid) / mid
-        }
-
-        function applyPeak(peak) {
-            var levels = barLevels.slice()
-
-            if (peak < peakBaseline)
-                peakBaseline = peakBaseline * 0.96 + peak * 0.04
-            else
-                peakBaseline = peakBaseline * 0.99 + peak * 0.01
-
-            if (peak < peakGate) {
-                decayBars(levels, 0.48)
-            } else {
-                var excursion = Math.max(0, peak - peakBaseline - transientMargin)
-                var transient = Math.min(1, excursion / 0.14)
-                transient = Math.pow(transient, 1.25)
-
-                var sustained = Math.max(0, peak - peakGate - 0.01)
-                sustained = Math.pow(Math.min(1, sustained / 0.28), 1.35) * sustainedCap
-
-                var baseTarget = Math.min(maxBarLevel, transient * 1.44 + sustained)
-
-                decayBars(levels, 0.96)
-
-                if (baseTarget > 0.01) {
-                    for (var j = 0; j < barCount; j++) {
-                        var target = baseTarget * barWeight(j)
-                        var edge = edgeFactor(j)
-                        if (target >= levels[j]) {
-                            var attack = 0.28 + edge * 0.34
-                            levels[j] = levels[j] * (1 - attack) + target * attack
-                        } else {
-                            var retain = 0.38 - edge * 0.1
-                            levels[j] = levels[j] * retain + target * (1 - retain)
-                        }
-                    }
-                }
-            }
-
             barLevels = levels
             vizCanvas.requestPaint()
         }
 
-        PwObjectTracker {
-            objects: spectrum.sink ? [spectrum.sink] : []
+        function parseCavaOutput() {
+            var text = cavaOut.text || ""
+            if (text.length < streamPos)
+                streamPos = 0
+            if (text.length <= streamPos)
+                return
+
+            var chunk = text.substring(streamPos)
+            var lines = chunk.split("\n")
+            streamPos = text.length - lines[lines.length - 1].length
+
+            for (var i = 0; i < lines.length - 1; i++)
+                applyCavaLine(lines[i])
         }
 
-        PwNodeLinkTracker {
-            id: linkTracker
-            node: spectrum.sink
+        function startCava() {
+            if (cavaConfigProc.running)
+                return
+            cavaConfigProc._onDone = function(path) {
+                path = String(path || "").trim()
+                if (!path)
+                    return
+                stopCava()
+                cavaProc.command = ["cava", "-p", path]
+                cavaProc.running = true
+            }
+            cavaConfigProc.command = ["bash", cavaScript, "config"]
+            cavaConfigProc.running = true
         }
 
-        PwNodePeakMonitor {
-            id: peakMonitor
-            node: spectrum.sink
-            enabled: spectrum.audioActive
-            onPeakChanged: spectrum.applyPeak(peakMonitor.peak)
+        function cyclePreset() {
+            if (cavaCycleProc.running)
+                return
+            cavaCycleProc._onDone = function(name) {
+                presetName = String(name || "").trim()
+                if (active)
+                    startCava()
+            }
+            cavaCycleProc.command = ["bash", cavaScript, "next"]
+            cavaCycleProc.running = true
+        }
+
+        onActiveChanged: {
+            if (active)
+                startCava()
+            else
+                stopCava()
+        }
+
+        Process {
+            id: cavaConfigProc
+            property var _onDone: null
+            stdout: StdioCollector {
+                onStreamFinished: {
+                    if (cavaConfigProc._onDone)
+                        cavaConfigProc._onDone(text)
+                    cavaConfigProc._onDone = null
+                }
+            }
+            onExited: cavaConfigProc._onDone = null
+        }
+
+        Process {
+            id: cavaCycleProc
+            property var _onDone: null
+            stdout: StdioCollector {
+                onStreamFinished: {
+                    if (cavaCycleProc._onDone)
+                        cavaCycleProc._onDone(text)
+                    cavaCycleProc._onDone = null
+                }
+            }
+            onExited: cavaCycleProc._onDone = null
+        }
+
+        Process {
+            id: cavaProc
+            stdout: StdioCollector {
+                id: cavaOut
+                waitForEnd: false
+            }
+            onExited: cavaBars.resetBars()
         }
 
         Timer {
-            interval: 32
-            running: spectrum.audioActive
+            interval: 33
+            running: cavaBars.active && cavaProc.running
             repeat: true
-            onTriggered: spectrum.applyPeak(peakMonitor.peak)
+            onTriggered: cavaBars.parseCavaOutput()
         }
 
-        onAudioActiveChanged: {
-            if (!audioActive)
-                resetBars()
+        FileView {
+            path: cavaBars.active ? cavaBars.cavaPresetFile : ""
+            watchChanges: true
+            onLoaded: {
+                var name = String(text() || "").trim()
+                if (!name || name === cavaBars.presetName)
+                    return
+                cavaBars.presetName = name
+                if (cavaBars.active)
+                    cavaBars.startCava()
+            }
+            onLoadFailed: cavaBars.presetName = ""
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: cavaBars.cyclePreset()
         }
 
         Canvas {
@@ -3373,7 +3509,7 @@ Item {
                 var x0 = (width - (barCount * pitch - gap)) / 2
 
                 for (var i = 0; i < barCount; i++) {
-                    var level = spectrum.barLevels[i]
+                    var level = cavaBars.barLevels[i]
                     var barH = Math.max(2, height * level)
                     var x = x0 + i * pitch
                     var y = height - barH
@@ -3705,6 +3841,8 @@ Item {
     component BrowseTrackRow: Rectangle {
         id: browseRow
         property var track: ({})
+        property bool liked: false
+        property int trackRevision: 0
         property bool selected: false
         property int rowWidth: 0
         property string genreLabel: ""
@@ -3713,9 +3851,13 @@ Item {
         signal pressed()
         signal playRequested()
         signal likeToggled()
+        signal revealRequested()
         signal folderOpenRequested()
 
-        readonly property bool trackLiked: !!track.liked
+        readonly property bool trackLiked: {
+            var _rev = browseRow.trackRevision
+            return browseRow.liked
+        }
         readonly property int genreReserve: browseRow.showGenre && browseRow.genreLabel !== "" ? 108 : 0
         readonly property int likeReserve: 30
         readonly property int folderReserve: browseRow.showFolder ? 30 : 0
@@ -3732,6 +3874,13 @@ Item {
             : (browseRowMouse.containsMouse
                 ? Theme.foregroundGhost
                 : "transparent")
+
+        MouseArea {
+            anchors.fill: parent
+            z: 4
+            acceptedButtons: Qt.RightButton
+            onClicked: browseRow.revealRequested()
+        }
 
         RowLayout {
             z: 0
@@ -3875,6 +4024,7 @@ Item {
                     id: browseLikeMouse
                     anchors.fill: parent
                     anchors.margins: -4
+                    acceptedButtons: Qt.LeftButton
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     onClicked: function(mouse) {
@@ -3891,6 +4041,7 @@ Item {
             anchors.fill: parent
             anchors.leftMargin: 44
             anchors.rightMargin: browseRow.genreReserve + browseRow.likeReserve + browseRow.folderReserve
+            acceptedButtons: Qt.LeftButton
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
             onClicked: {
@@ -3906,7 +4057,7 @@ Item {
         id: trackRow
         property var track: ({})
         property int number: 0
-        property bool showNumber: true
+        property bool showNumber: false
         property bool selected: false
         property bool showMeta: false
         property bool showLike: false
@@ -4492,7 +4643,7 @@ Item {
 
             onContentYChanged: {
                 if (root.browseTreeRestoreY < 0)
-                    root.browseTreeScrollY = contentY
+                    root.saveBrowseTreeScroll()
             }
 
             onMovementEnded: {
@@ -4622,6 +4773,26 @@ Item {
                             }
 
                             Text {
+                                text: "󰉖"
+                                color: Theme.foreground
+                                opacity: treeOpenMouse.containsMouse ? 0.85 : 0.45
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.listFont
+
+                                MouseArea {
+                                    id: treeOpenMouse
+                                    anchors.fill: parent
+                                    anchors.margins: -6
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: function(mouse) {
+                                        mouse.accepted = true
+                                        root.openBrowseFolder(modelData)
+                                    }
+                                }
+                            }
+
+                            Text {
                                 text: "󰐕"
                                 color: Theme.accent
                                 opacity: treeAppendMouse.containsMouse ? 1 : 0.55
@@ -4660,26 +4831,6 @@ Item {
                                     }
                                 }
                             }
-
-                            Text {
-                                text: "󰉖"
-                                color: Theme.foreground
-                                opacity: treeOpenMouse.containsMouse ? 0.85 : 0.45
-                                font.family: Theme.fontFamily
-                                font.pixelSize: root.listFont
-
-                                MouseArea {
-                                    id: treeOpenMouse
-                                    anchors.fill: parent
-                                    anchors.margins: -6
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: function(mouse) {
-                                        mouse.accepted = true
-                                        root.openBrowseFolder(modelData)
-                                    }
-                                }
-                            }
                         }
 
                         MouseArea {
@@ -4698,6 +4849,8 @@ Item {
                         width: parent.width - x - 6
                         height: 40
                         track: modelData.track || modelData
+                        liked: !!((modelData.track || modelData).liked)
+                        trackRevision: root.tracksRevision
                         selected: root.isTrackPlaying(modelData.path)
                         showGenre: false
                         showFolder: false
@@ -4849,12 +5002,15 @@ Item {
                     required property int index
                     rowWidth: sidePlaylistTrackList.width
                     track: modelData
+                    liked: !!(modelData && modelData.liked)
+                    trackRevision: root.tracksRevision
                     selected: root.isTrackSelected(modelData.path)
                     showGenre: false
                     showFolder: false
                     onPressed: root.selectPlaylistTrack(index)
                     onPlayRequested: root.playTrackAt(index)
                     onLikeToggled: root.toggleTrackFavorite(modelData.path)
+                    onRevealRequested: root.openTrackInThunar(modelData.path)
                 }
             }
         }
@@ -4924,7 +5080,6 @@ Item {
                         required property int index
                         rowWidth: sideFilterTrackList.width
                         track: modelData
-                        number: index + 1
                         selected: root.isTrackSelected(modelData.path)
                         showLike: true
                         onPressed: root.selectedTrackIndex = index

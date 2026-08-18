@@ -93,7 +93,8 @@ Item {
         if (module && typeof module.bootstrapFromCache === "function")
             module.bootstrapFromCache()
         opened = true
-        if (shell && typeof shell.popupHoverEnter === "function")
+        if (shell && typeof shell.popupHoverEnter === "function"
+                && shell.peekHoverId !== effectivePluginId)
             shell.popupHoverEnter()
         if (module && typeof module.onActivated === "function")
             module.onActivated()

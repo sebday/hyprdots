@@ -41,6 +41,7 @@ fastfetch
 # File Management ###########
 thunar
 thunar-archive-plugin
+thunar-media-tags-plugin
 tumbler
 poppler
 webp-pixbuf-loader
@@ -59,7 +60,6 @@ wine-mono
 pipewire
 alsa-utils
 playerctl
-wiremix
 imv
 mpv
 imagemagick

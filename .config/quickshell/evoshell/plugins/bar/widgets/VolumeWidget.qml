@@ -33,7 +33,7 @@ Item {
 
     property int _trackedSystemPercent: -1
     property bool volumeHovered: false
-    readonly property int volumePeekMs: 2800
+    readonly property int volumePeekMs: 3000
 
     readonly property int barCount: 10
     readonly property int vizBarWidth: 6
@@ -137,31 +137,31 @@ Item {
     }
 
     function openMixer() {
-        if (settings.onClick)
-            Quickshell.execDetached(["bash", "-lc", String(settings.onClick)])
+        if (settings.onClickRight)
+            Quickshell.execDetached(["bash", "-lc", String(settings.onClickRight)])
         else
             Quickshell.execDetached(["ghostty", "--class=TUI.main", "-e", "wiremix"])
     }
 
     function openAlsamixer() {
-        if (settings.onClickRight)
-            Quickshell.execDetached(["bash", "-lc", String(settings.onClickRight)])
+        if (settings.onClick)
+            Quickshell.execDetached(["bash", "-lc", String(settings.onClick)])
         else
             Quickshell.execDetached(["ghostty", "--class=TUI.main", "-e", "alsamixer"])
     }
 
     function handleCavaClick(mouse) {
         if (mouse.button === Qt.RightButton)
-            openAlsamixer()
-        else
             openMixer()
+        else
+            openAlsamixer()
     }
 
     function handleVolumeClick(mouse) {
         if (mouse.button === Qt.RightButton)
-            openAlsamixer()
-        else
             openMixer()
+        else
+            openAlsamixer()
     }
 
     function setMediaHoverPopup(active) {

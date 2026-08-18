@@ -74,12 +74,8 @@ Item {
             return
         if (String(player.state || "") !== "playing")
             return
-        var dur = Number(player.duration) || 0
         var pos = Number(player.position) || 0
-        if (dur <= 0)
-            return
-        var threshold = Math.min(dur * 0.1, 30)
-        if (pos < threshold)
+        if (pos < 60)
             return
         scrobbleSubmitted = true
         runScrobble(["submit"])
