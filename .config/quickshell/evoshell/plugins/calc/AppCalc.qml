@@ -273,9 +273,15 @@ Item {
         spacing: Theme.spacingL
 
         SectionPanel {
+            id: calculatorPanel
             contentPad: Theme.panelContentPad
             legendBackground: Theme.background
-            label: "Calculator"
+            label: ""
+
+            HoverPopupLabelPill {
+                text: "Calculator"
+                fontSize: Theme.fontSizeS
+            }
 
             TextInput {
                 id: inputField
@@ -303,12 +309,6 @@ Item {
                 Keys.onUpPressed: root.recallHistory(-1)
                 Keys.onDownPressed: root.recallHistory(1)
             }
-        }
-
-        SectionPanel {
-            contentPad: Theme.panelContentPad
-            legendBackground: Theme.background
-            label: ""
 
             GridLayout {
                 Layout.fillWidth: true
@@ -346,9 +346,12 @@ Item {
         SectionPanel {
             contentPad: Theme.panelContentPad
             legendBackground: Theme.background
-            label: "History"
-            Layout.topMargin: 4
-            Layout.fillHeight: false
+            label: ""
+
+            HoverPopupLabelPill {
+                text: "History"
+                fontSize: Theme.fontSizeS
+            }
 
             Item {
                 Layout.fillWidth: true

@@ -25,6 +25,7 @@ function systemEntries(home) {
         { name: "Clipboard", icon: "󰅍", keywords: ["clipboard", "copy", "paste"], command: ipc(home, "toggle evo.clipboard") },
         { name: "Shopify", icon: "󰒚", keywords: ["shopify", "sales", "dashboard", "store", "shop"], command: ipc(home, "toggle evo.shopify") },
         { name: "Bindings", icon: "󰌌", keywords: ["bindings", "shortcuts", "keys", "hotkeys", "hyprland", "keybindings"], submenu: "bindings" },
+        { name: "Shell commands", icon: "󰆍", keywords: ["shell", "ipc", "commands", "evo-ipc", "quickshell"], submenu: "shell" },
         { name: "Lock", icon: "󰌾", keywords: ["lock", "screen"], command: bin + "/evo-system lock" },
         { name: "Restart shell", icon: "󰑐", keywords: ["evo", "shell", "bar", "quickshell", "refresh"], command: bin + "/evo-system restart" },
         { name: "Clear cache", icon: "󰃢", keywords: ["cache", "cleanup", "clear"], command: bin + "/evo-system-cleanup" },
@@ -34,14 +35,21 @@ function systemEntries(home) {
     ]
 }
 
+function startsWithQuery(text, query) {
+    if (!query) return true
+    if (!text) return false
+    return String(text).toLowerCase().startsWith(String(query).toLowerCase())
+}
+
 function matchesQuery(entry, query) {
     if (!query) return true
-    var q = query.toLowerCase()
-    if (entry.name && entry.name.toLowerCase().indexOf(q) === 0) return true
-    if (entry.keys && String(entry.keys).toLowerCase().indexOf(q) === 0) return true
+    var q = String(query).toLowerCase()
+    if (startsWithQuery(entry.name, q)) return true
+    if (startsWithQuery(entry.keys, q)) return true
+    if (startsWithQuery(entry.command, q)) return true
     if (entry.keywords) {
         for (var i = 0; i < entry.keywords.length; i++) {
-            if (String(entry.keywords[i]).toLowerCase().indexOf(q) === 0) return true
+            if (startsWithQuery(entry.keywords[i], q)) return true
         }
     }
     return false

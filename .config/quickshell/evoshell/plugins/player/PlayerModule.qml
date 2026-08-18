@@ -332,6 +332,13 @@ Item {
         }, queuePlayProc)
     }
 
+    function formatVizPresetLabel(name) {
+        var preset = String(name || "").trim()
+        if (!preset)
+            return "visualiser"
+        return preset.charAt(0).toUpperCase() + preset.slice(1)
+    }
+
     function notify(body, durationMs) {
         if (!shell) return
         var notif = shell.serviceFor("evo.notifications")
@@ -2567,12 +2574,6 @@ Item {
                 Layout.preferredHeight: root.genreTabHeight
                 spacing: Theme.spacingM
 
-                RowLayout {
-                    id: standardTabBar
-                    visible: !root.libraryPanelOpen
-                    Layout.fillWidth: true
-                    spacing: Theme.spacingM
-
                 IconTab {
                     icon: "󰎆"
                     active: root.nowPlayingTabActive
@@ -2589,8 +2590,76 @@ Item {
                     active: root.playlistPanelOpen
                     onActivated: root.togglePlaylistPanel()
                 }
+                IconTab {
+                    icon: "󰠮"
+                    active: root.libraryPanelOpen
+                    spinning: root.libraryJobBusy
+                    onActivated: root.toggleLibraryPanel()
+                }
+
+                RowLayout {
+                    id: libraryExpandMenu
+                    visible: root.libraryPanelOpen
+                    spacing: Theme.spacingM
+                    Layout.fillWidth: true
+
+                    ListView {
+                        id: libraryActionBar
+                        Layout.fillWidth: false
+                        Layout.fillHeight: true
+                        implicitWidth: contentWidth
+                        orientation: ListView.Horizontal
+                        spacing: Theme.spacingS
+                        clip: true
+                        boundsBehavior: Flickable.StopAtBounds
+                        model: root.libraryActions
+
+                        delegate: LibraryBarAction {
+                            required property var modelData
+                            barHeight: root.genreTabHeight
+                            icon: modelData.icon
+                            label: modelData.label
+                            dimmed: root.libraryJobBusy
+                            spinning: root.libraryJobBusy && root.libraryJobActiveLabel === modelData.label
+                            onActivated: if (!root.libraryJobBusy) root.runLibraryAction(modelData)
+                        }
+                    }
+
+                    Item {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                    }
+
+                    Rectangle {
+                        Layout.preferredWidth: Math.max(180, tabBarHost.width * 0.28)
+                        Layout.maximumWidth: 520
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: root.genreTabHeight
+                        radius: 6
+                        color: Theme.foregroundWash
+                        border.color: Theme.foregroundDivider
+                        border.width: 1
+                        clip: true
+
+                        Text {
+                            anchors.fill: parent
+                            anchors.leftMargin: 8
+                            anchors.rightMargin: 8
+                            verticalAlignment: Text.AlignVCenter
+                            text: root.libraryStatusLine
+                                || ((root.libraryStats.tracks || 0) + " tracks · " + (root.libraryStats.genres || 0) + " genres")
+                            color: root.libraryJobBusy || root.externalJobBusy ? Theme.accent : Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.libraryFont
+                            font.bold: root.libraryJobBusy || root.externalJobBusy
+                            elide: Text.ElideRight
+                            opacity: root.libraryJobBusy || root.externalJobBusy ? 1 : 0.72
+                        }
+                    }
+                }
 
                 Rectangle {
+                    visible: !root.libraryPanelOpen
                     Layout.preferredWidth: 1
                     Layout.preferredHeight: Math.max(12, root.genreTabHeight - 16)
                     Layout.alignment: Qt.AlignVCenter
@@ -2599,6 +2668,7 @@ Item {
 
                 Item {
                     id: playlistTabBarHost
+                    visible: !root.libraryPanelOpen
                     Layout.fillWidth: true
                     Layout.fillHeight: true
 
@@ -2665,66 +2735,15 @@ Item {
                         }
                     }
                 }
-                }
-
-                RowLayout {
-                    visible: root.libraryPanelOpen
-                    Layout.fillWidth: true
-                    spacing: Theme.spacingM
-
-                    Text {
-                        visible: root.libraryJobBusy
-                        text: root.libraryJobActiveLabel + "…"
-                        color: Theme.accent
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.libraryFont
-                        font.bold: Theme.fontBold
-                        elide: Text.ElideRight
-                        Layout.maximumWidth: 140
-                    }
-
-                    Text {
-                        visible: !root.libraryJobBusy
-                        text: (root.libraryStats.tracks || 0) + " tracks · " + (root.libraryStats.genres || 0) + " genres"
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.libraryFont
-                        opacity: 0.5
-                        elide: Text.ElideRight
-                        Layout.maximumWidth: 160
-                    }
-
-                    ListView {
-                        id: libraryActionBar
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        orientation: ListView.Horizontal
-                        spacing: Theme.spacingS
-                        clip: true
-                        boundsBehavior: Flickable.StopAtBounds
-                        model: root.libraryActions
-
-                        delegate: LibraryBarAction {
-                            required property var modelData
-                            barHeight: root.genreTabHeight
-                            icon: modelData.icon
-                            label: modelData.label
-                            dimmed: root.libraryJobBusy
-                            spinning: root.libraryJobBusy && root.libraryJobActiveLabel === modelData.label
-                            onActivated: if (!root.libraryJobBusy) root.runLibraryAction(modelData)
-                        }
-                    }
-                }
 
                 Item {
-                    Layout.fillWidth: root.libraryPanelOpen
-                    Layout.preferredWidth: root.libraryPanelOpen ? 0 : root.tabSearchBarWidth
+                    visible: !root.libraryPanelOpen
+                    Layout.preferredWidth: root.tabSearchBarWidth
                     Layout.preferredHeight: root.genreTabHeight
                     Layout.alignment: Qt.AlignVCenter
 
                     Rectangle {
                         anchors.fill: parent
-                        visible: !root.libraryPanelOpen
                         radius: 6
                         color: Theme.foregroundWash
                         border.color: tabSearchInput.activeFocus
@@ -2771,37 +2790,6 @@ Item {
                             opacity: 0.4
                         }
                     }
-
-                    Rectangle {
-                        anchors.fill: parent
-                        visible: root.libraryPanelOpen
-                        radius: 6
-                        color: Theme.foregroundWash
-                        border.color: Theme.foregroundDivider
-                        border.width: 1
-                        clip: true
-
-                        Text {
-                            anchors.fill: parent
-                            anchors.leftMargin: 8
-                            anchors.rightMargin: 8
-                            verticalAlignment: Text.AlignVCenter
-                            text: root.libraryStatusLine
-                            color: root.libraryJobBusy || root.externalJobBusy ? Theme.accent : Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.libraryFont
-                            font.bold: root.libraryJobBusy || root.externalJobBusy
-                            elide: Text.ElideRight
-                            opacity: root.libraryJobBusy || root.externalJobBusy ? 1 : 0.72
-                        }
-                    }
-                }
-
-                IconTab {
-                    icon: "󰠮"
-                    active: root.libraryPanelOpen
-                    spinning: root.libraryJobBusy
-                    onActivated: root.toggleLibraryPanel()
                 }
             }
         }
@@ -2935,6 +2923,20 @@ Item {
                                     Layout.fillWidth: true
                                     Layout.fillHeight: true
                                     Layout.minimumHeight: 96
+
+                                    property string presetHint: ""
+
+                                    function showPresetHint(name) {
+                                        presetHint = root.formatVizPresetLabel(name)
+                                        presetHintTimer.restart()
+                                    }
+
+                                    Timer {
+                                        id: presetHintTimer
+                                        interval: 1800
+                                        repeat: false
+                                        onTriggered: waveformViz.presetHint = ""
+                                    }
 
                                     readonly property int vizBarCount: 100
                                     property var vizEnvelopes: []
@@ -3127,6 +3129,20 @@ Item {
                                         vizBarW: waveformViz.vizBarW
                                         vizPitch: waveformViz.vizPitch
                                         active: root.active && root.playerPlaying
+
+                                        onPresetCycled: function(name) {
+                                            waveformViz.showPresetHint(name)
+                                        }
+                                    }
+
+                                    HoverPopupLabelPill {
+                                        z: 3
+                                        anchors.horizontalCenter: parent.horizontalCenter
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: waveformViz.presetHint
+                                        textColor: Theme.accent
+                                        textOpacity: 1
+                                        fill: Qt.rgba(Theme.mantle.r, Theme.mantle.g, Theme.mantle.b, 0.92)
                                     }
 
                                     MouseArea {
@@ -3251,6 +3267,30 @@ Item {
         property int side: 56
         property bool showPickerOverlay: false
         property bool fillPane: false
+        property bool wheelPopupActive: false
+        readonly property int volumeLevel: Math.round(root.player.volume !== undefined ? root.player.volume : 100)
+
+        function nudgeVolume(delta) {
+            if (!delta)
+                return
+            wheelPopupActive = true
+            volumePopupHideTimer.restart()
+            root.adjustVolume(delta)
+        }
+
+        function handleWheel(wheel) {
+            if (!wheel.angleDelta.y)
+                return
+            nudgeVolume(wheel.angleDelta.y > 0 ? 5 : -5)
+            wheel.accepted = true
+        }
+
+        Timer {
+            id: volumePopupHideTimer
+            interval: 1600
+            repeat: false
+            onTriggered: thumbRoot.wheelPopupActive = false
+        }
 
         implicitWidth: fillPane ? 0 : side
         implicitHeight: fillPane ? 0 : side
@@ -3346,12 +3386,7 @@ Item {
                     mouse.accepted = true
                     root.openArtPicker()
                 }
-                onWheel: function(wheel) {
-                    if (!wheel.angleDelta.y)
-                        return
-                    root.adjustVolume(wheel.angleDelta.y > 0 ? 5 : -5)
-                    wheel.accepted = true
-                }
+                onWheel: function(wheel) { thumbRoot.handleWheel(wheel) }
             }
 
             ArtPickerOverlay {
@@ -3359,6 +3394,26 @@ Item {
                 anchors.fill: parent
                 visible: thumbRoot.showPickerOverlay && root.artPickerOpen
             }
+        }
+
+        VolumeSliderPopup {
+            id: artVolPopup
+            visible: thumbRoot.wheelPopupActive || artVolPopup.sliderPressed
+            z: 10
+            level: thumbRoot.volumeLevel
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottom: parent.top
+            anchors.bottomMargin: 8
+            onVolumeSet: function(v) {
+                thumbRoot.wheelPopupActive = true
+                volumePopupHideTimer.restart()
+                root.setVolume(v)
+            }
+            onInteracted: {
+                thumbRoot.wheelPopupActive = true
+                volumePopupHideTimer.restart()
+            }
+            onWheelNudge: function(delta) { thumbRoot.nudgeVolume(delta) }
         }
     }
 
@@ -3525,10 +3580,13 @@ Item {
                 presetName = String(name || "").trim()
                 if (active)
                     startCava()
+                presetCycled(presetName)
             }
             cavaCycleProc.command = ["bash", cavaScript, "next"]
             cavaCycleProc.running = true
         }
+
+        signal presetCycled(string name)
 
         onActiveChanged: {
             if (active)
@@ -3748,11 +3806,117 @@ Item {
         }
     }
 
+    component VolumeSliderPopup: Item {
+        id: volPopup
+        property int level: 100
+        property alias sliderPressed: sliderArea.pressed
+
+        signal volumeSet(int percent)
+        signal interacted()
+        signal wheelNudge(int delta)
+
+        width: 44
+        height: 152
+
+        Rectangle {
+            anchors.fill: parent
+            radius: 6
+            color: Theme.mantle
+            border.color: Theme.foregroundTrack
+            border.width: 1
+        }
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 10
+            spacing: Theme.spacingM
+
+            Text {
+                Layout.alignment: Qt.AlignHCenter
+                Layout.fillWidth: true
+                horizontalAlignment: Text.AlignHCenter
+                text: volPopup.level + "%"
+                color: Theme.accent
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSizeM
+                font.bold: Theme.fontBold
+            }
+
+            Item {
+                id: sliderHost
+                Layout.fillWidth: true
+                Layout.preferredHeight: 96
+
+                Rectangle {
+                    id: volTrack
+                    anchors.centerIn: parent
+                    width: 4
+                    height: parent.height
+                    radius: Theme.radiusS
+                    color: Theme.foregroundDivider
+                }
+
+                Rectangle {
+                    anchors.horizontalCenter: volTrack.horizontalCenter
+                    anchors.bottom: volTrack.bottom
+                    width: volTrack.width
+                    height: volTrack.height * (volPopup.level / 100)
+                    radius: Theme.radiusS
+                    color: Theme.accent
+                }
+
+                Rectangle {
+                    id: volThumb
+                    anchors.horizontalCenter: volTrack.horizontalCenter
+                    anchors.bottom: volTrack.bottom
+                    anchors.bottomMargin: (volTrack.height - height) * (volPopup.level / 100)
+                    width: 12
+                    height: 12
+                    radius: 6
+                    color: Theme.accent
+                    border.color: Theme.panelBackground
+                    border.width: 2
+                }
+
+                MouseArea {
+                    id: sliderArea
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.SizeVerCursor
+
+                    function volumeAt(mouseY) {
+                        var ratio = 1 - Math.max(0, Math.min(1, mouseY / height))
+                        return Math.round(ratio * 100)
+                    }
+
+                    onPressed: function(mouse) {
+                        volPopup.interacted()
+                        volPopup.volumeSet(volumeAt(mouse.y))
+                    }
+
+                    onPositionChanged: function(mouse) {
+                        if (pressed) {
+                            volPopup.interacted()
+                            volPopup.volumeSet(volumeAt(mouse.y))
+                        }
+                    }
+
+                    onWheel: function(wheel) {
+                        if (!wheel.angleDelta.y)
+                            return
+                        volPopup.wheelNudge(wheel.angleDelta.y > 0 ? 5 : -5)
+                        wheel.accepted = true
+                    }
+                }
+            }
+        }
+    }
+
     component VolumeTransportBtn: Item {
         id: volBtn
         readonly property int level: Math.round(root.player.volume !== undefined ? root.player.volume : 100)
         property bool wheelPopupActive: false
-        readonly property bool popupVisible: volHover.containsMouse || sliderArea.pressed || wheelPopupActive
+        readonly property bool popupVisible: volHover.containsMouse || volSliderPopup.sliderPressed || wheelPopupActive
 
         implicitWidth: root.transportBtnSize
         implicitHeight: root.transportBtnSize
@@ -3802,104 +3966,24 @@ Item {
             onWheel: function(wheel) { volBtn.handleWheel(wheel) }
         }
 
-        Item {
+        VolumeSliderPopup {
+            id: volSliderPopup
             visible: popupVisible
             z: 10
+            level: volBtn.level
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.top
             anchors.bottomMargin: 8
-            width: 44
-            height: 152
-
-            Rectangle {
-                anchors.fill: parent
-                radius: 6
-                color: Theme.mantle
-                border.color: Theme.foregroundTrack
-                border.width: 1
+            onVolumeSet: function(v) {
+                volBtn.wheelPopupActive = true
+                popupHideTimer.restart()
+                root.setVolume(v)
             }
-
-            ColumnLayout {
-                anchors.fill: parent
-                anchors.margins: 10
-                spacing: Theme.spacingM
-
-                Text {
-                    Layout.alignment: Qt.AlignHCenter
-                    Layout.fillWidth: true
-                    horizontalAlignment: Text.AlignHCenter
-                    text: volBtn.level + "%"
-                    color: Theme.accent
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeM
-                    font.bold: Theme.fontBold
-                }
-
-                Item {
-                    id: sliderHost
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 96
-
-                    Rectangle {
-                        id: volTrack
-                        anchors.centerIn: parent
-                        width: 4
-                        height: parent.height
-                        radius: Theme.radiusS
-                        color: Theme.foregroundDivider
-                    }
-
-                    Rectangle {
-                        anchors.horizontalCenter: volTrack.horizontalCenter
-                        anchors.bottom: volTrack.bottom
-                        width: volTrack.width
-                        height: volTrack.height * (volBtn.level / 100)
-                        radius: Theme.radiusS
-                        color: Theme.accent
-                    }
-
-                    Rectangle {
-                        id: volThumb
-                        anchors.horizontalCenter: volTrack.horizontalCenter
-                        anchors.bottom: volTrack.bottom
-                        anchors.bottomMargin: (volTrack.height - height) * (volBtn.level / 100)
-                        width: 12
-                        height: 12
-                        radius: 6
-                        color: Theme.accent
-                        border.color: Theme.panelBackground
-                        border.width: 2
-                    }
-
-                    MouseArea {
-                        id: sliderArea
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.SizeVerCursor
-
-                        function volumeAt(mouseY) {
-                            var ratio = 1 - Math.max(0, Math.min(1, mouseY / height))
-                            return Math.round(ratio * 100)
-                        }
-
-                        onPressed: function(mouse) {
-                            volBtn.wheelPopupActive = true
-                            popupHideTimer.restart()
-                            root.setVolume(volumeAt(mouse.y))
-                        }
-
-                        onPositionChanged: function(mouse) {
-                            if (pressed) {
-                                volBtn.wheelPopupActive = true
-                                popupHideTimer.restart()
-                                root.setVolume(volumeAt(mouse.y))
-                            }
-                        }
-
-                        onWheel: function(wheel) { volBtn.handleWheel(wheel) }
-                    }
-                }
+            onInteracted: {
+                volBtn.wheelPopupActive = true
+                popupHideTimer.restart()
             }
+            onWheelNudge: function(delta) { volBtn.nudgeVolume(delta) }
         }
     }
 
@@ -4552,14 +4636,12 @@ Item {
                     font.family: Theme.fontFamily
                     font.pixelSize: Math.round(artPickerRoot.width * 0.12)
                     opacity: Theme.opacityEmphasis
-                    transformOrigin: Item.Center
 
-                    RotationAnimation on rotation {
+                    SequentialAnimation on opacity {
                         running: root.artPickerLoading
-                        from: 0
-                        to: 360
-                        duration: 900
                         loops: Animation.Infinite
+                        NumberAnimation { from: 0.28; to: 1.0; duration: 650; easing.type: Easing.InOutSine }
+                        NumberAnimation { from: 1.0; to: 0.28; duration: 650; easing.type: Easing.InOutSine }
                     }
                 }
             }
@@ -4653,16 +4735,8 @@ Item {
         property bool spinning: false
         signal activated()
 
-        function finishSpinUpright() {
-            var r = ((iconTabGlyph.rotation % 360) + 360) % 360
-            if (r === 0) {
-                iconTabGlyph.rotation = 0
-                return
-            }
-            iconTabFinishSpin.from = iconTabGlyph.rotation
-            iconTabFinishSpin.to = iconTabGlyph.rotation + (360 - r)
-            iconTabFinishSpin.duration = Math.max(80, Math.round(900 * (360 - r) / 360))
-            iconTabFinishSpin.start()
+        function restingOpacity() {
+            return iconTab.active ? 1 : 0.78
         }
 
         implicitWidth: root.genreTabHeight
@@ -4672,13 +4746,12 @@ Item {
         Connections {
             target: iconTab
             function onSpinningChanged() {
-                if (iconTab.spinning) {
-                    iconTabFinishSpin.stop()
-                    var r = ((iconTabGlyph.rotation % 360) + 360) % 360
-                    iconTabGlyph.rotation = r
-                } else {
-                    iconTab.finishSpinUpright()
-                }
+                if (!iconTab.spinning)
+                    iconTabGlyph.opacity = iconTab.restingOpacity()
+            }
+            function onActiveChanged() {
+                if (!iconTab.spinning)
+                    iconTabGlyph.opacity = iconTab.restingOpacity()
             }
         }
 
@@ -4692,6 +4765,21 @@ Item {
                     : "transparent")
         }
 
+        Rectangle {
+            anchors.fill: parent
+            radius: 6
+            visible: iconTab.spinning
+            color: Theme.accent
+            opacity: 0.1
+
+            SequentialAnimation on opacity {
+                running: iconTab.spinning
+                loops: Animation.Infinite
+                NumberAnimation { from: 0.05; to: 0.22; duration: 650; easing.type: Easing.InOutSine }
+                NumberAnimation { from: 0.22; to: 0.05; duration: 650; easing.type: Easing.InOutSine }
+            }
+        }
+
         Text {
             id: iconTabGlyph
             anchors.centerIn: parent
@@ -4699,25 +4787,23 @@ Item {
             color: iconTab.active || iconTab.spinning ? Theme.accent : Theme.foreground
             font.family: Theme.fontFamily
             font.pixelSize: Theme.fontSize7xl
-            opacity: iconTab.active || iconTab.spinning ? 1 : 0.78
-            transformOrigin: Item.Center
+            opacity: iconTab.restingOpacity()
 
-            RotationAnimation {
-                id: iconTabSpinLoop
-                target: iconTabGlyph
-                property: "rotation"
+            SequentialAnimation on opacity {
                 running: iconTab.spinning
-                from: 0
-                to: 360
-                duration: 900
                 loops: Animation.Infinite
-            }
-
-            RotationAnimation {
-                id: iconTabFinishSpin
-                target: iconTabGlyph
-                property: "rotation"
-                onFinished: iconTabGlyph.rotation = 0
+                NumberAnimation {
+                    from: iconTab.active ? 0.55 : 0.35
+                    to: 1.0
+                    duration: 600
+                    easing.type: Easing.InOutSine
+                }
+                NumberAnimation {
+                    from: 1.0
+                    to: iconTab.active ? 0.55 : 0.35
+                    duration: 600
+                    easing.type: Easing.InOutSine
+                }
             }
         }
 
@@ -5252,11 +5338,13 @@ Item {
         height: barHeight
         width: actionRow.implicitWidth + 16
         radius: 6
-        color: barMouse.containsMouse
-            ? Theme.foregroundWash
-            : (dimmed
-                ? "transparent"
-                : Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.03))
+        color: barAction.spinning
+            ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.12)
+            : (barMouse.containsMouse
+                ? Theme.foregroundWash
+                : (dimmed
+                    ? "transparent"
+                    : Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.03)))
 
         Row {
             id: actionRow
@@ -5264,26 +5352,27 @@ Item {
             spacing: Theme.spacingS
 
             Text {
+                id: actionIcon
                 text: barAction.icon
-                color: Theme.foreground
-                opacity: dimmed && !barAction.spinning ? 0.35 : 0.9
+                color: barAction.spinning ? Theme.accent : Theme.foreground
+                opacity: barAction.dimmed && !barAction.spinning ? 0.35 : 0.9
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.fontSizeM
-                transformOrigin: Item.Center
 
-                RotationAnimation on rotation {
+                SequentialAnimation on opacity {
                     running: barAction.spinning
-                    from: 0
-                    to: 360
-                    duration: 900
                     loops: Animation.Infinite
+                    NumberAnimation { from: 0.35; to: 1.0; duration: 600; easing.type: Easing.InOutSine }
+                    NumberAnimation { from: 1.0; to: 0.35; duration: 600; easing.type: Easing.InOutSine }
                 }
             }
 
             Text {
                 text: barAction.label
-                color: Theme.foreground
-                opacity: dimmed && !barAction.spinning ? 0.35 : (barMouse.containsMouse ? 1 : 0.78)
+                color: barAction.spinning ? Theme.accent : Theme.foreground
+                opacity: barAction.dimmed && !barAction.spinning
+                    ? 0.35
+                    : (barAction.spinning ? 0.85 : (barMouse.containsMouse ? 1 : 0.78))
                 font.family: Theme.fontFamily
                 font.pixelSize: root.libraryFont
             }

@@ -77,6 +77,130 @@ for keys, desc in pattern.findall(text):
     print(f"{desc}\t{keys}")
 PY
     ;;
+shell)
+    python3 - "$home" "$script_dir" <<'PY'
+import glob
+import os
+import sys
+
+home, script_dir = sys.argv[1], sys.argv[2]
+ipc = "evo-ipc"
+
+plugins = [
+    "evo.menu",
+    "evo.panel",
+    "evo.calendar",
+    "evo.shopify_diy",
+    "evo.shopify_tgs",
+    "evo.cursor",
+    "evo.weather",
+    "evo.network",
+    "evo.volume",
+    "evo.media",
+    "evo.github",
+    "evo.system",
+    "evo.stocks",
+    "evo.cloudflare",
+    "evo.transmission",
+    "evo.transmission.add",
+    "evo.insync",
+    "evo.steam",
+    "evo.library",
+    "evo.theme",
+    "evo.wallpaper",
+    "evo.clipboard",
+]
+dashboards = ["evo.shopify", "evo.player"]
+
+
+def read_text(path: str) -> str:
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return fh.read()
+    except OSError:
+        return ""
+
+
+def build_corpus() -> str:
+    chunks = [
+        read_text(os.path.join(home, ".config/hypr/bindings.lua")),
+        read_text(os.path.join(home, ".config/quickshell/evoshell/plugins/menu/MenuEntries.js")),
+    ]
+    for path in sorted(glob.glob(os.path.join(home, ".config/quickshell/evoshell/plugins/bar/widgets/*.qml"))):
+        chunks.append(read_text(path))
+    for path in sorted(glob.glob(os.path.join(script_dir, "evo-*"))):
+        if os.path.basename(path) in {"evo-menu-list", "evo-ipc"}:
+            continue
+        chunks.append(read_text(path))
+
+    shell_qml = read_text(os.path.join(home, ".config/quickshell/evoshell/shell.qml"))
+    for marker in (
+        "toggleSystemMenu",
+        "toggleAppLauncher",
+        'openDashboardOnly("evo.shopify"',
+        'openDashboardOnly("evo.player"',
+    ):
+        if marker in shell_qml:
+            chunks.append(marker)
+
+    return "\n".join(chunks)
+
+
+corpus = build_corpus()
+
+
+def used(*needles: str) -> bool:
+    return any(needle in corpus for needle in needles)
+
+
+def plugin_used(plugin: str) -> bool:
+    if plugin == "evo.menu":
+        return used("toggleSystemMenu", 'toggle("evo.menu"', "toggle evo.menu")
+    return used(
+        f"shell toggle {plugin}",
+        f"toggle {plugin}",
+        f'toggle("{plugin}"',
+        f"toggle('{plugin}'",
+        f"summon {plugin}",
+        f"hide {plugin}",
+    )
+
+
+def dashboard_used(plugin: str) -> bool:
+    return used(f"openDashboard {plugin}", f'openDashboardOnly("{plugin}"')
+
+
+def emit(name: str, command: str, internal: bool) -> None:
+    print(f"{name}\t{command}\t{1 if internal else 0}")
+
+
+emit("Ping shell", f"{ipc} shell ping", used("shell ping"))
+emit("Reload shell config", f"{ipc} shell reloadConfig", used("shell reloadConfig"))
+emit("List plugins", f"{ipc} shell listPlugins", used("shell listPlugins"))
+emit("Toggle system menu", f"{ipc} shell toggleSystemMenu", used("toggleSystemMenu"))
+emit("Toggle app launcher", f"{ipc} shell toggleAppLauncher", used("toggleAppLauncher"))
+emit("Summon overlay", f"{ipc} shell summon <plugin> [json]", False)
+emit("Toggle overlay", f"{ipc} shell toggle <plugin> [json]", False)
+emit("Hide overlay", f"{ipc} shell hide <plugin>", False)
+emit("Open dashboard", f"{ipc} shell openDashboard <plugin>", False)
+emit("Call plugin method", f"{ipc} shell call <plugin> <method> [arg]", False)
+emit("Volume up", f"{ipc} evo.audio stepUp", used("evo.audio stepUp", ".stepUp()"))
+emit("Volume down", f"{ipc} evo.audio stepDown", used("evo.audio stepDown", ".stepDown()"))
+emit("Toggle mute", f"{ipc} evo.audio toggleMute", used("evo.audio toggleMute", ".toggleMute()"))
+emit("Lock screen", f"{ipc} evo.lock lock", used("evo.lock lock", "evo-system lock"))
+emit("Lock status", f"{ipc} evo.lock isLocked", used("evo.lock isLocked"))
+emit("Idle status", f"{ipc} evo.idle status", used("evo.idle status"))
+emit("Next wallpaper", f"{ipc} evo.wallpaper next", used("evo.wallpaper next", 'evo.wallpaper "$cmd"'))
+emit("Previous wallpaper", f"{ipc} evo.wallpaper prev", used("evo.wallpaper prev", 'evo.wallpaper "$cmd"'))
+emit("Refresh wallpaper", f"{ipc} evo.wallpaper refresh", used("evo.wallpaper refresh"))
+
+for plugin in plugins:
+    emit(f"Toggle {plugin}", f"{ipc} shell toggle {plugin}", plugin_used(plugin))
+
+for plugin in dashboards:
+    emit(f"Open {plugin} dashboard", f"{ipc} shell openDashboard {plugin}", dashboard_used(plugin))
+PY
+    ;;
 icons)
     # shellcheck source=/dev/null
     source "$script_dir/evo-theme-lib"
@@ -169,7 +293,7 @@ for app_dir in app_dirs:
 PY
     ;;
 *)
-    echo "usage: $0 themes|wallpapers|bindings|icons" >&2
+    echo "usage: $0 themes|wallpapers|bindings|shell|icons" >&2
     exit 1
     ;;
 esac

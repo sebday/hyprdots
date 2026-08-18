@@ -15,11 +15,13 @@ Item {
     property string submenu: ""
     property var commandEntries: []
     property var dynamicEntries: []
+    property string dynamicEntryKind: ""
     property var visibleEntries: []
     property var cachedApps: []
     property var appIconMap: ({})
     property int appIconEpoch: 0
     property bool dynamicLoading: false
+    property bool shellUnusedOnly: false
     property int selectedIndex: 0
     property real previewAreaMaxWidth: 1600
     property real previewAreaMaxHeight: 900
@@ -135,10 +137,16 @@ Item {
 
     readonly property string home: Quickshell.env("HOME")
     readonly property string placeholderText: {
+        if (submenu === "bindings") return "Search bindings…"
+        if (submenu === "shell") return "Search shell commands…"
         if (mode === "power") return "Search system…"
         if (mode === "apps") return "Applications…"
         return "Search…"
     }
+
+    readonly property bool infoListMode: submenu === "bindings" || submenu === "shell"
+    readonly property int framedMenuWidth: infoListMode ? 960 : 720
+    readonly property int infoKeysWidth: Math.min(380, Math.floor(framedMenuWidth * 0.42))
 
     function focusSearchField() {
         if (root.styledMenuMode)
@@ -201,6 +209,8 @@ Item {
         filterText = ""
         submenu = ""
         dynamicEntries = []
+        dynamicEntryKind = ""
+        shellUnusedOnly = false
         selectedIndex = 0
     }
 
@@ -309,6 +319,8 @@ Item {
         if (submenu) {
             submenu = ""
             dynamicEntries = []
+            dynamicEntryKind = ""
+            shellUnusedOnly = false
             filterText = ""
             selectedIndex = 0
         } else if (styledMenuMode && filterText.trim() !== "") {
@@ -337,6 +349,10 @@ Item {
     }
     onCommandEntriesChanged: refreshVisibleEntries()
     onDynamicEntriesChanged: refreshVisibleEntries()
+    onShellUnusedOnlyChanged: {
+        selectedIndex = 0
+        refreshVisibleEntries()
+    }
 
     function refreshCommandEntries() {
         if (mode === "power") {
@@ -452,13 +468,19 @@ Item {
         var q = filterText.trim()
         if (submenu) {
             if (dynamicEntries.length === 0) return []
-            return MenuEntries.filterEntries(dynamicEntries, q).map(function(e) {
-                if (root.submenu === "bindings") {
+            var shellEntries = MenuEntries.filterEntries(dynamicEntries, q)
+            if (submenu === "shell" && shellUnusedOnly) {
+                shellEntries = shellEntries.filter(function(e) {
+                    return !e.internal
+                })
+            }
+            return shellEntries.map(function(e) {
+                if (root.infoListMode) {
                     return {
                         kind: "info",
                         name: e.name,
                         keys: e.keys || e.command || "",
-                        icon: "󰌌"
+                        icon: root.submenu === "bindings" ? "󰌌" : "󰆍"
                     }
                 }
                 return {
@@ -479,7 +501,9 @@ Item {
             var needle = q.toLowerCase()
             for (var i = 0; i < apps.length; i++) {
                 var app = apps[i]
-                if (app.name.toLowerCase().indexOf(needle) !== -1 || app.id.toLowerCase().indexOf(needle) !== -1)
+                var name = String(app.name || "").toLowerCase()
+                var id = String(app.id || "").toLowerCase()
+                if (name.startsWith(needle) || id.startsWith(needle))
                     out.push(app)
             }
             return out
@@ -560,9 +584,11 @@ Item {
     function loadDynamicEntries(kind) {
         dynamicLoading = true
         dynamicEntries = []
+        dynamicEntryKind = kind
         var listScript = home + "/.local/bin/evo-menu-list"
-        if (kind !== "themes" && kind !== "wallpaper" && kind !== "bindings") {
+        if (kind !== "themes" && kind !== "wallpaper" && kind !== "bindings" && kind !== "shell") {
             dynamicLoading = false
+            dynamicEntryKind = ""
             return
         }
         dynamicProc.command = ["bash", "-lc",
@@ -575,6 +601,7 @@ Item {
     function parseDynamicLines(raw) {
         var lines = String(raw || "").split("\n")
         var out = []
+        var infoMode = root.dynamicEntryKind === "bindings" || root.dynamicEntryKind === "shell"
         for (var i = 0; i < lines.length; i++) {
             var line = lines[i].trim()
             if (!line) continue
@@ -583,7 +610,13 @@ Item {
                 out.push({ name: line, command: line, preview: "" })
             } else {
                 var parts = line.split("\t")
-                if (parts.length === 2 && parts[1].indexOf("/") < 0 && parts[1].indexOf("evo-") !== 0) {
+                if (infoMode && parts.length >= 2) {
+                    out.push({
+                        name: parts[0] || "",
+                        keys: parts[1] || "",
+                        internal: root.dynamicEntryKind === "shell" && parts.length >= 3 && parts[2] === "1"
+                    })
+                } else if (parts.length === 2 && parts[1].indexOf("/") < 0 && parts[1].indexOf("evo-") !== 0) {
                     out.push({ name: parts[0] || "", keys: parts[1] || "" })
                 } else {
                     out.push({
@@ -664,7 +697,7 @@ Item {
                 ? root.gridWidth + root.powerMenuPadding * 2
                 : root.boxTileMode
                     ? root.boxRowWidth
-                    : 720
+                    : root.framedMenuWidth
             height: root.styledMenuMode
                 ? (root.appsGridMode ? root.styledMenuHostHeight : root.gridHeight + root.powerHeaderHeight + root.powerMenuPadding * 2 + 28)
                 : root.boxTileMode ? root.boxRowHeight : 640
@@ -728,19 +761,22 @@ Item {
 
                 Item {
                     width: parent.width
-                    height: root.listFilterHeight
+                    height: root.submenu === "shell" ? root.listFilterHeight + 34 : root.listFilterHeight
                     visible: root.framedMode
 
                     Rectangle {
-                        anchors.fill: parent
+                        id: filterBg
+                        anchors.top: parent.top
+                        width: parent.width
+                        height: root.listFilterHeight
                         color: Theme.overlaySurface
                     }
 
                     Text {
                         visible: filterField.text.length === 0 && !filterField.activeFocus
-                        anchors.left: parent.left
+                        anchors.left: filterBg.left
                         anchors.leftMargin: 12
-                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.verticalCenter: filterBg.verticalCenter
                         text: root.placeholderText
                         color: Theme.foreground
                         opacity: Theme.opacityDisabled
@@ -751,9 +787,13 @@ Item {
 
                     TextInput {
                         id: filterField
-                        anchors.fill: parent
+                        anchors.top: filterBg.top
+                        width: filterBg.width
+                        height: filterBg.height
                         anchors.leftMargin: 12
                         anchors.rightMargin: 12
+                        leftPadding: 12
+                        rightPadding: 12
                         color: Theme.foreground
                         font.family: Theme.fontFamily
                         font.pixelSize: root.listFilterFontSize
@@ -768,6 +808,41 @@ Item {
                         Keys.onUpPressed: root.handlePreviewUp()
                         Keys.onDownPressed: root.handlePreviewDown()
                         Keys.onReturnPressed: root.handleActivateKey()
+                    }
+
+                    Row {
+                        visible: root.submenu === "shell"
+                        anchors.top: filterBg.bottom
+                        anchors.topMargin: 8
+                        anchors.left: parent.left
+                        anchors.leftMargin: 8
+                        spacing: 8
+
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: root.shellUnusedOnly ? "󰄲" : "󰄱"
+                            color: root.shellUnusedOnly ? Theme.accent : Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.listFilterFontSize
+                            font.bold: Theme.fontBold
+                        }
+
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "Unused only"
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.listFilterFontSize
+                            font.bold: Theme.fontBold
+                            opacity: root.shellUnusedOnly ? 1 : Theme.opacityMuted
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            anchors.margins: -6
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.shellUnusedOnly = !root.shellUnusedOnly
+                        }
                     }
                 }
 
@@ -1139,6 +1214,7 @@ Item {
                         required property int index
                         width: entryList.width
                         height: root.listRowHeight
+                        clip: true
                         color: index === entryList.currentIndex || mouseArea.containsMouse ? Theme.panelMantle : "transparent"
 
                         readonly property string appIconSource: {
@@ -1148,18 +1224,18 @@ Item {
                         readonly property string glyphIcon: root.entryGlyphIcon(modelData)
                         readonly property bool infoRow: modelData.kind === "info"
                         readonly property string keysLabel: String(modelData.keys || "")
+                        readonly property int keysColumnWidth: root.infoKeysWidth
 
                         Row {
-                            anchors.left: parent.left
+                            anchors.fill: parent
                             anchors.leftMargin: 8
-                            anchors.verticalCenter: parent.verticalCenter
-                            anchors.right: entryRow.infoRow ? keysLabel.left : parent.right
-                            anchors.rightMargin: entryRow.infoRow ? 12 : 8
-                            spacing: 20
+                            anchors.rightMargin: 8
+                            spacing: 12
 
                             Item {
                                 width: root.listIconSize
                                 height: root.listIconSize
+                                anchors.verticalCenter: parent.verticalCenter
 
                                 Image {
                                     anchors.fill: parent
@@ -1184,7 +1260,10 @@ Item {
                             }
 
                             Text {
-                                width: parent.width - root.listIconSize - 20
+                                width: entryRow.infoRow
+                                    ? Math.max(120, entryList.width - 16 - root.listIconSize - 12 - entryRow.keysColumnWidth)
+                                    : entryList.width - 16 - root.listIconSize - 12
+                                anchors.verticalCenter: parent.verticalCenter
                                 text: modelData.name
                                 color: Theme.foreground
                                 font.family: Theme.fontFamily
@@ -1192,20 +1271,21 @@ Item {
                                 font.bold: Theme.fontBold
                                 elide: Text.ElideRight
                             }
-                        }
 
-                        Text {
-                            id: keysLabel
-                            visible: entryRow.infoRow && entryRow.keysLabel !== ""
-                            anchors.right: parent.right
-                            anchors.rightMargin: 12
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: entryRow.keysLabel
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.listFilterFontSize
-                            font.bold: Theme.fontBold
-                            opacity: Theme.opacityMuted
+                            Text {
+                                visible: entryRow.infoRow && entryRow.keysLabel !== ""
+                                width: entryRow.keysColumnWidth
+                                anchors.verticalCenter: parent.verticalCenter
+                                horizontalAlignment: Text.AlignRight
+                                text: entryRow.keysLabel
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.listFilterFontSize
+                                font.bold: Theme.fontBold
+                                opacity: Theme.opacityMuted
+                                elide: Text.ElideLeft
+                                clip: true
+                            }
                         }
 
                         MouseArea {

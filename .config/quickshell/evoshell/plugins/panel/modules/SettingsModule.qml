@@ -520,13 +520,14 @@ Item {
         anchors.fill: parent
         clip: true
         contentWidth: width
-        contentHeight: settingsColumn.implicitHeight
+        contentHeight: settingsColumn.implicitHeight + Theme.spacing2
         boundsBehavior: Flickable.StopAtBounds
         flickableDirection: Flickable.VerticalFlick
 
         ColumnLayout {
             id: settingsColumn
             width: parent.width
+            y: Theme.spacing2
             spacing: 16
 
             SectionPanel {

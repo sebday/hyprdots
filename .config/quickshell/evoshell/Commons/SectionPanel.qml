@@ -21,10 +21,24 @@ Item {
 
     Layout.fillWidth: true
     Layout.fillHeight: fillHeight
+    clip: false
     implicitWidth: panel.implicitWidth
     implicitHeight: panel.implicitHeight
 
     default property alias sectionContent: innerCol.data
+
+    function adoptFieldsetLegend() {
+        for (var i = 0; i < innerCol.children.length; i++) {
+            var child = innerCol.children[i]
+            if (!child || child.fieldsetLegend !== true)
+                continue
+            child.fieldsetFill = root.legendBackground
+            panel.legendOverlay = child
+            panel.labelBackground = root.legendBackground
+            return
+        }
+        panel.legendOverlay = null
+    }
 
     FramedPanel {
         id: panel
@@ -48,6 +62,10 @@ Item {
             width: parent.width
             height: root.fillHeight ? parent.height : undefined
             spacing: root.sectionSpacing
+
+            onChildrenChanged: Qt.callLater(root.adoptFieldsetLegend)
         }
     }
+
+    Component.onCompleted: adoptFieldsetLegend()
 }

@@ -9,8 +9,12 @@ Item {
     property color fill: Theme.withOpacity(Theme.foreground, 0.08)
     property real textOpacity: 0.72
     property bool alignCenter: false
+    property bool fieldsetLegend: true
+    property color fieldsetFill: Theme.mantle
 
     visible: root.text !== ""
+    width: implicitWidth
+    height: implicitHeight
     implicitWidth: root.alignCenter && parent && parent.width > 0
         ? parent.width
         : pill.implicitWidth
@@ -21,9 +25,11 @@ Item {
         anchors.left: root.alignCenter ? undefined : parent.left
         anchors.horizontalCenter: root.alignCenter ? parent.horizontalCenter : undefined
         radius: height / 2
-        color: root.fill
+        color: root.fieldsetLegend ? root.fieldsetFill : root.fill
         implicitWidth: labelText.implicitWidth + 12
         implicitHeight: labelText.implicitHeight + 6
+        width: implicitWidth
+        height: implicitHeight
 
         Text {
             id: labelText

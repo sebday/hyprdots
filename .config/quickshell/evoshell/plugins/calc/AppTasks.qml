@@ -53,7 +53,7 @@ Item {
     property int taskUiTick: 0
 
     readonly property int listHeight: Math.max(root.taskRowMin, taskList.contentHeight)
-    implicitHeight: tasksPanel.verticalChrome + listHeight + 10 + 22
+    implicitHeight: tasksSection.panel.verticalChrome + listHeight + root.taskBottomPad + 28 + Theme.spacingL
 
     readonly property bool completedTasksPresent: {
         var tick = taskUiTick
@@ -375,18 +375,24 @@ Item {
         anchors.fill: parent
         spacing: Theme.spacingL
 
-        FramedPanel {
-            id: tasksPanel
-            label: "Tasks"
-            labelFontSize: Theme.fontSizeL
-            labelBackground: Theme.background
-            contentFill: true
+        SectionPanel {
+            id: tasksSection
+            contentPad: Theme.panelContentPad
+            legendBackground: Theme.background
+            label: ""
+            fillHeight: true
             Layout.fillWidth: true
             Layout.fillHeight: true
 
+            HoverPopupLabelPill {
+                text: "Tasks"
+                fontSize: Theme.fontSizeS
+            }
+
             ListView {
                 id: taskList
-                anchors.fill: parent
+                Layout.fillWidth: true
+                Layout.fillHeight: true
                 clip: true
                 spacing: Theme.spacing2
                 boundsBehavior: Flickable.StopAtBounds
