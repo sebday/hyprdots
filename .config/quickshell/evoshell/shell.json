@@ -17,7 +17,8 @@
         {
           "id": "evo.system",
           "interval": 5,
-          "onHover": "evo.system"
+          "onHover": "evo.system",
+          "onClick": "ghostty --class=TUI.main -e btop"
         }
       ],
       "center": [

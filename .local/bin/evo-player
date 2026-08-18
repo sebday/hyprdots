@@ -26,7 +26,7 @@ usage:
   evo-player build [--json]
   evo-player warm [<track-path>]
   evo-player sort <folder> [--json]
-  evo-player config get [--json]|config set <section.key> <value> [--json]
+  evo-player config get [--json]|config set <section.key> <value> [--json]|config pick
   evo-player cache [--force] [--prune-art] [--json] [genre]
   evo-player job status [--json]
   evo-player genres [--json]
@@ -1146,7 +1146,18 @@ cmd_config_set() {
     echo "evo-player: usage: evo-player config set section.key value" >&2
     return 1
   }
-  config_toml_set "$section" "$field" "$value"
+  if [[ "$section" == "paths" && "$field" == "root" ]]; then
+    value="${value%/}"
+    [[ -d "$value" ]] || {
+      echo "evo-player: music library not found: $value" >&2
+      return 1
+    }
+    music_paths_apply "$value"
+    mkdir -p "$MUSIC_CACHE"
+    config_toml_set "$section" "$field" "$MUSIC_ROOT"
+  else
+    config_toml_set "$section" "$field" "$value"
+  fi
   if [[ "$json" -eq 1 ]]; then
     config_toml_json
   else
@@ -1160,6 +1171,14 @@ cmd_config() {
   case "$sub" in
     get) cmd_config_get "$@" ;;
     set) cmd_config_set "$@" ;;
+    pick)
+      local start_dir selected
+      start_dir="$MUSIC_ROOT"
+      [[ -d "$start_dir" ]] || start_dir="$HOME"
+      selected="$(zenity --file-selection --directory --title="Select music library" --filename="${start_dir}/" 2>/dev/null || true)"
+      [[ -n "$selected" ]] || return 0
+      cmd_config_set "paths.root" "$selected" --json
+      ;;
     -h|--help|help|"") usage ;;
     *) usage ;;
   esac

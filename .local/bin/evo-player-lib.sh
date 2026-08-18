@@ -8,24 +8,25 @@ EVOSHELL_BIN="${EVOSHELL_BIN:-$HOME/.local/bin}"
 EVOSHELL_CONFIG="${EVOSHELL_CONFIG:-$HOME/.config/evoshell}"
 EVOSHELL_STATE="${EVOSHELL_STATE:-${XDG_STATE_HOME:-$HOME/.local/state}/evoshell}"
 
-MUSIC_ROOT="${EVO_MUSIC_ROOT:-/mnt/external/music}"
-MUSIC_CACHE="${EVO_MUSIC_CACHE:-${MUSIC_ROOT}/.cache}"
-MUSIC_STATE="${EVO_MUSIC_STATE:-${MUSIC_CACHE}}"
-MUSIC_CONFIG="${EVO_MUSIC_CONFIG:-${MUSIC_CACHE}/music.toml}"
+MUSIC_ROOT_DEFAULT="/mnt/external/music"
+MUSIC_ROOT=""
+MUSIC_CACHE=""
+MUSIC_STATE=""
+MUSIC_CONFIG=""
 LEGACY_MUSIC_CONFIG="${EVOSHELL_CONFIG}/music.toml"
-SYNC_ARCHIVE="${MUSIC_STATE}/sync-archive.txt"
-PLAYLIST_DIR="${MUSIC_STATE}/playlists"
-WAVEFORM_DIR="${MUSIC_STATE}/waveforms"
-ART_DIR="${MUSIC_STATE}/art"
-TRACKS_CACHE_DIR="${MUSIC_STATE}/tracks"
-PLAYER_STATE="${MUSIC_STATE}/player.json"
-CURRENT_M3U="${PLAYLIST_DIR}/current.m3u"
-CURRENT_TRACKS_JSON="${PLAYLIST_DIR}/current.tracks.json"
-LIKES_FILE="${MUSIC_STATE}/likes.json"
-PLAYLIST_STARS="${MUSIC_STATE}/playlist-stars.json"
-JOB_LOCK="${MUSIC_STATE}/.job.lock"
-JOB_STATE="${MUSIC_STATE}/job.json"
-SCROBBLE_LOG="${MUSIC_STATE}/scrobble.jsonl"
+SYNC_ARCHIVE=""
+PLAYLIST_DIR=""
+WAVEFORM_DIR=""
+ART_DIR=""
+TRACKS_CACHE_DIR=""
+PLAYER_STATE=""
+CURRENT_M3U=""
+CURRENT_TRACKS_JSON=""
+LIKES_FILE=""
+PLAYLIST_STARS=""
+JOB_LOCK=""
+JOB_STATE=""
+SCROBBLE_LOG=""
 LEGACY_STATE="${EVOSHELL_STATE}/music"
 PLAYER_SOCKET_DEFAULT="${XDG_RUNTIME_DIR:-/tmp}/evo-player.sock"
 LEGACY_MPV_SOCKET="${XDG_RUNTIME_DIR:-/tmp}/evo-music.sock"
@@ -39,6 +40,64 @@ else
   MPV_SOCKET="$PLAYER_SOCKET_DEFAULT"
 fi
 AUDIO_EXTS="mp3 flac ogg m4a opus wav"
+
+music_config_read_root() {
+  local cfg root
+  for cfg in "$@"; do
+    [[ -f "$cfg" ]] || continue
+    root="$(python3 - "$cfg" <<'PY'
+import sys
+try:
+    import tomllib
+except ImportError:
+    import tomli as tomllib
+path = sys.argv[1]
+with open(path, "rb") as fh:
+    data = tomllib.load(fh)
+root = data.get("paths", {}).get("root")
+if root:
+    print(root, end="")
+PY
+)"
+    if [[ -n "$root" ]]; then
+      printf '%s' "$root"
+      return 0
+    fi
+  done
+  return 1
+}
+
+music_paths_apply() {
+  local root="${1:-}"
+  if [[ -z "$root" ]]; then
+    if [[ -n "${EVO_MUSIC_ROOT:-}" ]]; then
+      root="$EVO_MUSIC_ROOT"
+    else
+      root="$(music_config_read_root "${MUSIC_ROOT_DEFAULT}/.cache/music.toml" "$LEGACY_MUSIC_CONFIG" || true)"
+      [[ -z "$root" ]] && root="$MUSIC_ROOT_DEFAULT"
+    fi
+  fi
+  root="${root%/}"
+  MUSIC_ROOT="$root"
+  MUSIC_CACHE="${EVO_MUSIC_CACHE:-${MUSIC_ROOT}/.cache}"
+  MUSIC_STATE="${EVO_MUSIC_STATE:-${MUSIC_CACHE}}"
+  MUSIC_CONFIG="${EVO_MUSIC_CONFIG:-${MUSIC_CACHE}/music.toml}"
+  SYNC_ARCHIVE="${MUSIC_STATE}/sync-archive.txt"
+  PLAYLIST_DIR="${MUSIC_STATE}/playlists"
+  WAVEFORM_DIR="${MUSIC_STATE}/waveforms"
+  ART_DIR="${MUSIC_STATE}/art"
+  TRACKS_CACHE_DIR="${MUSIC_STATE}/tracks"
+  PLAYER_STATE="${MUSIC_STATE}/player.json"
+  CURRENT_M3U="${PLAYLIST_DIR}/current.m3u"
+  CURRENT_TRACKS_JSON="${PLAYLIST_DIR}/current.tracks.json"
+  LIKES_FILE="${MUSIC_STATE}/likes.json"
+  PLAYLIST_STARS="${MUSIC_STATE}/playlist-stars.json"
+  JOB_LOCK="${MUSIC_STATE}/.job.lock"
+  JOB_STATE="${MUSIC_STATE}/job.json"
+  SCROBBLE_LOG="${MUSIC_STATE}/scrobble.jsonl"
+}
+
+music_paths_apply ""
 
 ensure_dirs() {
   if [[ -d "${MUSIC_ROOT}/incoming" && ! -e "${MUSIC_ROOT}/.incoming" ]]; then
@@ -316,14 +375,14 @@ soundcloud_likes_url() {
 
 config_toml_json() {
   config_toml_prune_derived
-  python3 - "$MUSIC_CONFIG" <<'PY'
+  python3 - "$MUSIC_CONFIG" "$MUSIC_ROOT" <<'PY'
 import json, os, sys
 try:
     import tomllib
 except ImportError:
     import tomli as tomllib
 
-path = sys.argv[1]
+path, music_root = sys.argv[1:3]
 try:
     with open(path, "rb") as fh:
         data = tomllib.load(fh)
@@ -331,11 +390,16 @@ except FileNotFoundError:
     data = {}
 sc = data.get("soundcloud", {})
 user = sc.get("user") or "seb-day"
+paths = data.get("paths", {})
+root = paths.get("root") or music_root or "/mnt/external/music"
 print(json.dumps({
     "soundcloud": {
         "user": user,
         "cookies_from": sc.get("cookies_from") or "brave",
-    }
+    },
+    "paths": {
+        "root": root,
+    },
 }, ensure_ascii=False))
 PY
 }

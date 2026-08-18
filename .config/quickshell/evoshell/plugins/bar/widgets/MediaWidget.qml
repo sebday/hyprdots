@@ -13,7 +13,6 @@ Item {
     readonly property string mediaHoverPopupId: settings.mediaOnHover
         ? String(settings.mediaOnHover)
         : "evo.media"
-    readonly property string playerScript: (Quickshell.env("HOME") || "") + "/.local/bin/evo-bar-player"
     readonly property bool trayMode: settings.trayMode === true
     readonly property int trayIconSize: {
         var n = parseInt(settings.trayIconSize, 10)
@@ -37,8 +36,12 @@ Item {
             shell.hoverLeave(mediaHoverPopupId)
     }
 
-    function togglePlayerWindow() {
-        Quickshell.execDetached(["bash", playerScript, "toggle"])
+    function openMediaLibrary() {
+        if (shell) {
+            shell.toggle("evo.library", "")
+            return
+        }
+        Quickshell.execDetached(["bash", (Quickshell.env("HOME") || "") + "/.local/bin/evo-ipc", "shell", "toggle", "evo.library"])
     }
 
     Text {
@@ -57,6 +60,6 @@ Item {
         acceptedButtons: Qt.LeftButton
         cursorShape: Qt.PointingHandCursor
         onContainsMouseChanged: root.setMediaHoverPopup(containsMouse)
-        onClicked: root.togglePlayerWindow()
+        onClicked: root.openMediaLibrary()
     }
 }

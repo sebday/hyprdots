@@ -7,8 +7,8 @@ STATE_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/evoshell"
 DB_PATH="${STATE_DIR}/media.db"
 POSTER_DIR="${STATE_DIR}/media-posters"
 MEDIA_SETTINGS_FILE="${STATE_DIR}/media.json"
-FILMS_ROOT="${EVO_MEDIA_FILMS:-/mnt/external/films}"
-TV_ROOT="${EVO_MEDIA_TV:-/mnt/external/tv}"
+FILMS_ROOT_DEFAULT="/mnt/external/films"
+TV_ROOT_DEFAULT="/mnt/external/tv"
 VIDEO_EXTS='mkv mp4 m4v avi'
 
 usage() {
@@ -24,8 +24,9 @@ usage:
   evo-media play film <id>
   evo-media play episode <id>
   evo-media settings get
-  evo-media settings set <json-array>
-  evo-media settings toggle <show>
+  evo-media settings set tv <dir>
+  evo-media settings set films <dir>
+  evo-media settings pick tv|films
 EOF
     exit 1
 }
@@ -216,7 +217,59 @@ show_name_from_dir() {
     printf '%s\n' "$name"
 }
 
+media_settings_json() {
+    if [[ -f "$MEDIA_SETTINGS_FILE" ]]; then
+        jq -c '.' "$MEDIA_SETTINGS_FILE" 2>/dev/null || echo '{}'
+    else
+        echo '{}'
+    fi
+}
+
+merge_media_field() {
+    local expr="$1"
+    shift
+    mkdir -p "$STATE_DIR"
+    local current merged
+    current="$(media_settings_json)"
+    merged="$(jq -c "$expr" "$@" <<<"$current")"
+    printf '%s\n' "$merged" >"$MEDIA_SETTINGS_FILE"
+}
+
+tv_root() {
+    if [[ -n "${EVO_MEDIA_TV:-}" ]]; then
+        printf '%s' "$EVO_MEDIA_TV"
+        return 0
+    fi
+    local root
+    root="$(jq -r '.tvRoot // empty' <<<"$(media_settings_json)")"
+    if [[ -n "$root" ]]; then
+        printf '%s' "$root"
+    else
+        printf '%s' "$TV_ROOT_DEFAULT"
+    fi
+}
+
+films_root() {
+    if [[ -n "${EVO_MEDIA_FILMS:-}" ]]; then
+        printf '%s' "$EVO_MEDIA_FILMS"
+        return 0
+    fi
+    local root
+    root="$(jq -r '.filmsRoot // empty' <<<"$(media_settings_json)")"
+    if [[ -n "$root" ]]; then
+        printf '%s' "$root"
+    else
+        printf '%s' "$FILMS_ROOT_DEFAULT"
+    fi
+}
+
+media_roots() {
+    TV_ROOT="$(tv_root)"
+    FILMS_ROOT="$(films_root)"
+}
+
 list_tv_show_names() {
+    media_roots
     [[ -d "$TV_ROOT" ]] || return 0
     local show_dir
     for show_dir in "$TV_ROOT"/*; do
@@ -261,28 +314,61 @@ clear_media_show_settings() {
 }
 
 cmd_settings_get() {
-    local enabled_json="null"
-    if uses_show_whitelist; then
-        enabled_json="$(jq -c '.enabledShows // []' "$MEDIA_SETTINGS_FILE")"
-    fi
-
+    media_roots
     jq -n \
         --arg tvRoot "$TV_ROOT" \
-        --argjson names "$(list_tv_show_names | jq -R . | jq -s 'sort')" \
-        --argjson enabled "$enabled_json" \
-        '
-        def is_enabled($n):
-          if $enabled == null then true
-          else ($enabled | index($n)) != null end;
-        {
-          ok: true,
-          tvRoot: $tvRoot,
-          available: ($names | map({name: ., enabled: is_enabled(.)}))
-        }
-        '
+        --arg filmsRoot "$FILMS_ROOT" \
+        '{ok: true, tvRoot: $tvRoot, filmsRoot: $filmsRoot}'
 }
 
-cmd_settings_set() {
+cmd_settings_set_path() {
+    local kind="${1:-}" path="${2:-}"
+    path="${path%/}"
+    local field
+    case "$kind" in
+    tv) field="tvRoot" ;;
+    films) field="filmsRoot" ;;
+    *)
+        echo '{"ok":false,"error":"invalid kind"}' >&2
+        return 1
+        ;;
+    esac
+    if [[ -z "$path" ]]; then
+        merge_media_field "del(.${field})"
+        cmd_settings_get
+        return 0
+    fi
+    [[ -d "$path" ]] || {
+        echo '{"ok":false,"error":"directory not found"}' >&2
+        return 1
+    }
+    merge_media_field ".${field} = \$path" --arg path "$path"
+    cmd_settings_get
+}
+
+cmd_settings_pick() {
+    local kind="${1:-tv}"
+    local start_dir selected
+    case "$kind" in
+    tv) start_dir="$(tv_root)" ;;
+    films) start_dir="$(films_root)" ;;
+    *)
+        echo '{"ok":false,"error":"invalid kind"}' >&2
+        return 1
+        ;;
+    esac
+    if [[ -z "$start_dir" || ! -d "$start_dir" ]]; then
+        start_dir="$HOME"
+    fi
+    selected="$(zenity --file-selection --directory --title="Select media folder" --filename="${start_dir}/" 2>/dev/null || true)"
+    [[ -n "$selected" ]] || {
+        cmd_settings_get
+        return 0
+    }
+    cmd_settings_set_path "$kind" "$selected"
+}
+
+cmd_settings_set_shows() {
     local json="${1:-}"
     [[ -n "$json" ]] || json="$(cat)"
     jq -e 'type == "array"' <<<"$json" >/dev/null 2>&1 || usage
@@ -294,9 +380,9 @@ cmd_settings_set() {
     selected_json="$(jq -c 'sort' <<<"$json")"
 
     if [[ "$all_json" == "$selected_json" ]]; then
-        clear_media_show_settings
+        merge_media_field 'del(.enabledShows)'
     else
-        jq -n --argjson enabled "$selected_json" '{enabledShows: $enabled}' >"$MEDIA_SETTINGS_FILE"
+        merge_media_field '.enabledShows = $enabled' --argjson enabled "$selected_json"
     fi
 
     cmd_settings_get
@@ -331,9 +417,9 @@ cmd_settings_toggle() {
     next_json="$(printf '%s\n' "${next[@]}" | jq -R -s 'split("\n") | map(select(length > 0)) | sort')"
 
     if [[ "$all_json" == "$next_json" ]]; then
-        clear_media_show_settings
+        merge_media_field 'del(.enabledShows)'
     else
-        write_enabled_show_names "${next[@]}"
+        merge_media_field '.enabledShows = $enabled' --argjson enabled "$next_json"
     fi
 
     cmd_settings_get
@@ -357,6 +443,7 @@ find_video_files() {
 
 cmd_scan() {
     init_db
+    media_roots
     sqlite3 "$DB_PATH" "DELETE FROM episodes; DELETE FROM shows; DELETE FROM films;"
 
     local film_count=0 show_count=0 episode_count=0 path show_dir show_name show_id resolved
@@ -449,6 +536,7 @@ cmd_list_catalog() {
 
 cmd_popup_shows() {
     init_db
+    media_roots
     local db_shows enabled_json
     db_shows="$(sqlite3 -json "$DB_PATH" \
         "SELECT id, name, poster_path FROM shows ORDER BY name COLLATE NOCASE")"
@@ -595,9 +683,23 @@ settings)
         cmd_settings_get
         ;;
     set)
-        json="${3:-}"
-        [[ -n "$json" ]] || json="$(cat)"
-        cmd_settings_set "$json"
+        kind="${3:-}"
+        path="${4:-}"
+        case "$kind" in
+        tv|films)
+            [[ -n "$path" ]] || path="$(cat)"
+            cmd_settings_set_path "$kind" "$path"
+            ;;
+        *)
+            json="${3:-}"
+            [[ -n "$json" ]] || json="$(cat)"
+            cmd_settings_set_shows "$json"
+            ;;
+        esac
+        ;;
+    pick)
+        kind="${3:-tv}"
+        cmd_settings_pick "$kind"
         ;;
     toggle)
         show="${3:-}"

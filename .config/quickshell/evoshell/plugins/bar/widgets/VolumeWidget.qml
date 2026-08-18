@@ -150,6 +150,14 @@ Item {
             Quickshell.execDetached(["ghostty", "--class=TUI.main", "-e", "alsamixer"])
     }
 
+    function openMediaLibrary() {
+        if (shell) {
+            shell.toggle("evo.library", "")
+            return
+        }
+        Quickshell.execDetached(["bash", (Quickshell.env("HOME") || "") + "/.local/bin/evo-ipc", "shell", "toggle", "evo.library"])
+    }
+
     function handleCavaClick(mouse) {
         if (mouse.button === Qt.RightButton)
             openMixer()
@@ -258,6 +266,7 @@ Item {
                 acceptedButtons: Qt.LeftButton
                 cursorShape: Qt.PointingHandCursor
                 onContainsMouseChanged: root.setMediaHoverPopup(containsMouse)
+                onClicked: root.openMediaLibrary()
             }
         }
 

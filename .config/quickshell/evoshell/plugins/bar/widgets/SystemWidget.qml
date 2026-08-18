@@ -25,7 +25,6 @@ Item {
 
     readonly property string home: Quickshell.env("HOME") || ""
     readonly property string script: home + "/.local/bin/evo-bar-system"
-    readonly property string btopScript: home + "/.local/bin/evo-bar-btop"
     readonly property string hoverPopupId: settings.onHover ? String(settings.onHover) : "evo.system"
     readonly property string cpuIcon: "󰍛"
     readonly property color cpuColor: Format.loadPercentColor(cpuPercent)
@@ -110,8 +109,11 @@ Item {
         intervalTimer.start()
     }
 
-    function swapShopifyBtop() {
-        Quickshell.execDetached(["bash", btopScript, "swap"])
+    function openBtop() {
+        if (settings.onClick)
+            Quickshell.execDetached(["bash", "-lc", String(settings.onClick)])
+        else
+            Quickshell.execDetached(["ghostty", "--class=TUI.main", "-e", "btop"])
     }
 
     RowLayout {
@@ -150,7 +152,7 @@ Item {
     MouseArea {
         anchors.fill: parent
         cursorShape: Qt.PointingHandCursor
-        onClicked: root.swapShopifyBtop()
+        onClicked: root.openBtop()
     }
 
     HoverHandler {

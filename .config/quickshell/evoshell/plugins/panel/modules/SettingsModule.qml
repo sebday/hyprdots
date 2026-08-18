@@ -30,8 +30,9 @@ Item {
     property bool fieldsetRoundingOn: true
     property string fontFamily: "CaskaydiaMono Nerd Font"
     property var fontFamilies: []
-    property var mediaShows: []
     property string mediaTvRoot: ""
+    property string mediaFilmsRoot: ""
+    property bool mediaReady: false
     property bool hyprReady: false
     property bool barReady: false
     property bool notificationsReady: false
@@ -39,6 +40,7 @@ Item {
     property bool fontReady: false
     property string scUser: ""
     property string scCookiesFrom: ""
+    property string musicLibrary: ""
     property bool playerReady: false
     property string obsidianVault: ""
     property string detectedObsidianVault: ""
@@ -46,8 +48,9 @@ Item {
     property bool tasksReady: false
     readonly property bool ready: hyprReady && barReady && fontReady
     readonly property bool fontBusy: fontSetProc.running
-    readonly property bool mediaBusy: mediaSetProc.running
-    readonly property bool playerBusy: playerSetProc.running
+    readonly property bool mediaBusy: mediaTvSetProc.running || mediaFilmsSetProc.running
+        || mediaTvPickProc.running || mediaFilmsPickProc.running
+    readonly property bool playerBusy: playerSetProc.running || playerLibraryPickProc.running
     readonly property bool tasksBusy: taskVaultSetProc.running || taskVaultPickProc.running
     readonly property bool settingsBusy: fontBusy || mediaBusy || playerBusy || tasksBusy || hyprToggleProc.running || hyprSetProc.running
         || barToggleProc.running || notificationsToggleProc.running || uiToggleProc.running
@@ -103,26 +106,44 @@ Item {
         fontSetProc.running = true
     }
 
-    function setMediaShows(names) {
-        if (!mediaReady || settingsBusy) return
-        mediaSetProc.payload = JSON.stringify(names || [])
-        mediaSetProc.running = true
+    function setMediaTvRoot(path) {
+        if (!mediaReady || settingsBusy)
+            return
+        mediaTvSetProc.path = String(path || "")
+        mediaTvSetProc.running = true
     }
 
-    readonly property var mediaShowNames: {
-        var out = []
-        for (var i = 0; i < mediaShows.length; i++)
-            out.push(mediaShows[i].name)
-        return out
+    function setMediaFilmsRoot(path) {
+        if (!mediaReady || settingsBusy)
+            return
+        mediaFilmsSetProc.path = String(path || "")
+        mediaFilmsSetProc.running = true
     }
 
-    readonly property var mediaSelectedShows: {
-        var out = []
-        for (var i = 0; i < mediaShows.length; i++) {
-            if (mediaShows[i].enabled)
-                out.push(mediaShows[i].name)
-        }
-        return out
+    function pickMediaTv() {
+        if (!mediaReady || settingsBusy)
+            return
+        mediaTvPickProc.running = true
+    }
+
+    function pickMediaFilms() {
+        if (!mediaReady || settingsBusy)
+            return
+        mediaFilmsPickProc.running = true
+    }
+
+    function setMusicLibrary(path) {
+        if (!playerReady || settingsBusy)
+            return
+        playerSetProc.key = "paths.root"
+        playerSetProc.value = String(path || "")
+        playerSetProc.running = true
+    }
+
+    function pickMusicLibrary() {
+        if (!playerReady || settingsBusy)
+            return
+        playerLibraryPickProc.running = true
     }
 
     function onActivated() {
@@ -204,12 +225,12 @@ Item {
     function parseMediaSettings(raw) {
         try {
             var data = JSON.parse(String(raw || "{}"))
-            root.mediaShows = Array.isArray(data.available) ? data.available : []
             root.mediaTvRoot = data.tvRoot ? String(data.tvRoot) : ""
+            root.mediaFilmsRoot = data.filmsRoot ? String(data.filmsRoot) : ""
             root.mediaReady = data.ok === true
         } catch (e) {
-            root.mediaShows = []
             root.mediaTvRoot = ""
+            root.mediaFilmsRoot = ""
             root.mediaReady = false
         }
     }
@@ -218,8 +239,10 @@ Item {
         try {
             var data = JSON.parse(String(raw || "{}"))
             var sc = data.soundcloud || {}
+            var paths = data.paths || {}
             root.scUser = String(sc.user || "")
             root.scCookiesFrom = String(sc.cookies_from || "")
+            root.musicLibrary = String(paths.root || "")
             root.playerReady = true
         } catch (e) {
             root.playerReady = false
@@ -394,11 +417,42 @@ Item {
     }
 
     Process {
-        id: mediaSetProc
-        property string payload: "[]"
-        command: ["bash", root.mediaScript, "settings", "set", mediaSetProc.payload]
+        id: mediaTvSetProc
+        property string path: ""
+        command: ["bash", root.mediaScript, "settings", "set", "tv", mediaTvSetProc.path]
         stdout: StdioCollector {
             onStreamFinished: root.parseMediaSettings(text)
+        }
+    }
+
+    Process {
+        id: mediaFilmsSetProc
+        property string path: ""
+        command: ["bash", root.mediaScript, "settings", "set", "films", mediaFilmsSetProc.path]
+        stdout: StdioCollector {
+            onStreamFinished: root.parseMediaSettings(text)
+        }
+    }
+
+    Process {
+        id: mediaTvPickProc
+        command: ["bash", root.mediaScript, "settings", "pick", "tv"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (String(text || "").trim())
+                    root.parseMediaSettings(text)
+            }
+        }
+    }
+
+    Process {
+        id: mediaFilmsPickProc
+        command: ["bash", root.mediaScript, "settings", "pick", "films"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (String(text || "").trim())
+                    root.parseMediaSettings(text)
+            }
         }
     }
 
@@ -417,6 +471,17 @@ Item {
         command: ["bash", root.playerScript, "config", "set", playerSetProc.key, playerSetProc.value, "--json"]
         stdout: StdioCollector {
             onStreamFinished: root.parsePlayerConfig(text)
+        }
+    }
+
+    Process {
+        id: playerLibraryPickProc
+        command: ["bash", root.playerScript, "config", "pick"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (String(text || "").trim())
+                    root.parsePlayerConfig(text)
+            }
         }
     }
 
@@ -478,7 +543,7 @@ Item {
                 ToggleRow {
                     Layout.fillWidth: true
                     label: "Border radius"
-                    detail: "7px"
+                    detail: root.roundingOn ? "Rounded" : "Square"
                     checked: root.roundingOn
                     enabled: root.hyprReady && !settingsBusy
                     onToggled: root.toggleHypr("rounding")
@@ -487,7 +552,7 @@ Item {
                 ToggleRow {
                     Layout.fillWidth: true
                     label: "Window gaps"
-                    detail: "10px in 20px out"
+                    detail: "10 in 20 out"
                     checked: root.gapsOn
                     enabled: root.hyprReady && !settingsBusy
                     onToggled: root.toggleHypr("gaps")
@@ -583,7 +648,7 @@ Item {
                 ToggleRow {
                     Layout.fillWidth: true
                     label: "Fieldset radius"
-                    detail: root.fieldsetRoundingOn ? "4px" : "Square"
+                    detail: root.fieldsetRoundingOn ? "Rounded" : "Square"
                     checked: root.fieldsetRoundingOn
                     enabled: root.uiReady && !settingsBusy
                     onToggled: root.toggleFieldsetRounding()
@@ -669,15 +734,152 @@ Item {
                     }
                 }
 
-                MultiSelectPicker {
+            }
+
+            SectionPanel {
+                contentPad: Theme.panelContentPad
+                legendBackground: Theme.background
+                label: ""
+                sectionSpacing: 12
+
+                HoverPopupLabelPill {
+                    text: "Media library"
+                    fontSize: Theme.fontSizeS
+                }
+
+                ColumnLayout {
                     Layout.fillWidth: true
-                    label: "Media popup TV shows"
-                    placeholder: root.mediaTvRoot ? "No folders found" : "TV folder not found"
-                    options: root.mediaShowNames
-                    selected: root.mediaSelectedShows
-                    enabled: root.mediaReady && !settingsBusy && root.mediaShowNames.length > 0
-                    onSelectionChanged: function(next) {
-                        root.setMediaShows(next)
+                    spacing: 4
+
+                    Text {
+                        text: "TV folder"
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeS
+                        opacity: Theme.opacityMuted
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingS
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            implicitHeight: 34
+                            radius: 6
+                            color: Theme.foregroundWash
+                            border.color: Theme.foregroundDivider
+                            border.width: 1
+
+                            TextInput {
+                                anchors.fill: parent
+                                anchors.leftMargin: 8
+                                anchors.rightMargin: 8
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSizeS
+                                selectionColor: Theme.accent
+                                selectedTextColor: Theme.mantle
+                                verticalAlignment: TextInput.AlignVCenter
+                                clip: true
+                                text: root.mediaTvRoot
+                                enabled: root.mediaReady && !settingsBusy
+                                onEditingFinished: root.setMediaTvRoot(text)
+                            }
+                        }
+
+                        Item {
+                            Layout.preferredWidth: 34
+                            Layout.preferredHeight: 34
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: "󰉖"
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSizeXl
+                                opacity: mediaTvPickMouse.enabled
+                                    ? (mediaTvPickMouse.containsMouse ? 1 : 0.72)
+                                    : 0.35
+                            }
+
+                            MouseArea {
+                                id: mediaTvPickMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                enabled: root.mediaReady && !settingsBusy
+                                onClicked: root.pickMediaTv()
+                            }
+                        }
+                    }
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 4
+
+                    Text {
+                        text: "Films folder"
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeS
+                        opacity: Theme.opacityMuted
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingS
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            implicitHeight: 34
+                            radius: 6
+                            color: Theme.foregroundWash
+                            border.color: Theme.foregroundDivider
+                            border.width: 1
+
+                            TextInput {
+                                anchors.fill: parent
+                                anchors.leftMargin: 8
+                                anchors.rightMargin: 8
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSizeS
+                                selectionColor: Theme.accent
+                                selectedTextColor: Theme.mantle
+                                verticalAlignment: TextInput.AlignVCenter
+                                clip: true
+                                text: root.mediaFilmsRoot
+                                enabled: root.mediaReady && !settingsBusy
+                                onEditingFinished: root.setMediaFilmsRoot(text)
+                            }
+                        }
+
+                        Item {
+                            Layout.preferredWidth: 34
+                            Layout.preferredHeight: 34
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: "󰉖"
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSizeXl
+                                opacity: mediaFilmsPickMouse.enabled
+                                    ? (mediaFilmsPickMouse.containsMouse ? 1 : 0.72)
+                                    : 0.35
+                            }
+
+                            MouseArea {
+                                id: mediaFilmsPickMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                enabled: root.mediaReady && !settingsBusy
+                                onClicked: root.pickMediaFilms()
+                            }
+                        }
                     }
                 }
             }
@@ -691,6 +893,74 @@ Item {
                 HoverPopupLabelPill {
                     text: "Evoplayer"
                     fontSize: Theme.fontSizeS
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 4
+
+                    Text {
+                        text: "Music library"
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeS
+                        opacity: Theme.opacityMuted
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingS
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            implicitHeight: 34
+                            radius: 6
+                            color: Theme.foregroundWash
+                            border.color: Theme.foregroundDivider
+                            border.width: 1
+
+                            TextInput {
+                                anchors.fill: parent
+                                anchors.leftMargin: 8
+                                anchors.rightMargin: 8
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSizeS
+                                selectionColor: Theme.accent
+                                selectedTextColor: Theme.mantle
+                                verticalAlignment: TextInput.AlignVCenter
+                                clip: true
+                                text: root.musicLibrary
+                                enabled: root.playerReady && !settingsBusy
+                                onEditingFinished: root.setMusicLibrary(text)
+                            }
+                        }
+
+                        Item {
+                            Layout.preferredWidth: 34
+                            Layout.preferredHeight: 34
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: "󰉖"
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSizeXl
+                                opacity: musicLibraryPickMouse.enabled
+                                    ? (musicLibraryPickMouse.containsMouse ? 1 : 0.72)
+                                    : 0.35
+                            }
+
+                            MouseArea {
+                                id: musicLibraryPickMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                enabled: root.playerReady && !settingsBusy
+                                onClicked: root.pickMusicLibrary()
+                            }
+                        }
+                    }
                 }
 
                 ColumnLayout {

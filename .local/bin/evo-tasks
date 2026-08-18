@@ -1,0 +1,344 @@
+#!/usr/bin/env bash
+# Tasks storage for evoshell — JSON fallback or Obsidian vault tasks.md.
+
+set -euo pipefail
+
+STATE_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/evoshell"
+UI_STATE="${STATE_DIR}/ui.json"
+TASKS_JSON="${STATE_DIR}/apps/tasks.json"
+OBSIDIAN_CONFIG="${HOME}/.config/obsidian/obsidian.json"
+
+usage() {
+    cat >&2 <<'EOF'
+usage:
+  evo-tasks settings get
+  evo-tasks settings set vault <dir>
+  evo-tasks settings pick
+  evo-tasks load
+  evo-tasks save <json>
+  evo-tasks copy <json-text>
+EOF
+    exit 1
+}
+
+ensure_state_dir() {
+    mkdir -p "${STATE_DIR}/apps"
+}
+
+read_ui_json() {
+    ensure_state_dir
+    if [[ -f "$UI_STATE" ]] && jq -e 'type == "object"' "$UI_STATE" >/dev/null 2>&1; then
+        cat "$UI_STATE"
+    else
+        echo '{}'
+    fi
+}
+
+write_ui_json() {
+    local json="$1"
+    ensure_state_dir
+    local tmp
+    tmp="$(mktemp)"
+    printf '%s' "$json" >"$tmp"
+    mv "$tmp" "$UI_STATE"
+}
+
+merge_ui_field() {
+    local jq_filter="$1"
+    shift
+    local current
+    current="$(read_ui_json)"
+    write_ui_json "$(jq -c "$jq_filter" "$@" <<<"$current")"
+}
+
+read_vault() {
+    jq -r '.obsidianVault // ""' <<<"$(read_ui_json)"
+}
+
+detect_obsidian_vault() {
+    [[ -f "$OBSIDIAN_CONFIG" ]] || return 0
+    jq -r '
+        [.vaults[]? | select((.path // "") != "") | .path]
+        | sort_by(.)
+        | .[0] // ""
+    ' "$OBSIDIAN_CONFIG" 2>/dev/null || true
+}
+
+tasks_file() {
+    local vault
+    vault="$(read_vault)"
+    if [[ -n "$vault" && -d "$vault" ]]; then
+        printf '%s/tasks.md' "${vault%/}"
+    else
+        printf '%s' "$TASKS_JSON"
+    fi
+}
+
+tasks_format() {
+    local file
+    file="$(tasks_file)"
+    if [[ "$file" == *.md ]]; then
+        printf 'markdown'
+    else
+        printf 'json'
+    fi
+}
+
+is_task_line() {
+    local line="$1"
+    [[ "$line" =~ ^-[[:space:]]*\[[[:space:]]*[xX]?[[:space:]]*\][[:space:]] ]]
+}
+
+parse_task_line() {
+    local line="$1"
+    local text done=false
+    if [[ "$line" =~ ^-[[:space:]]*\[[[:space:]]*([xX])[[:space:]]*\][[:space:]]*(.*)$ ]]; then
+        done=true
+        text="${BASH_REMATCH[2]}"
+    elif [[ "$line" =~ ^-[[:space:]]*\[[[:space:]]*\][[:space:]]*(.*)$ ]]; then
+        text="${BASH_REMATCH[1]}"
+    else
+        return 1
+    fi
+    jq -n --arg text "$text" --argjson done "$done" '{text: $text, done: $done}'
+}
+
+load_json_tasks() {
+    local file="$1"
+    [[ -f "$file" ]] || {
+        echo '[]'
+        return 0
+    }
+    jq -c '
+        if type == "object" and (.tasks | type) == "array" then .tasks
+        elif type == "array" then .
+        else [] end
+        | map(select(type == "object"))
+        | map({text: (.text // ""), done: (.done == true)})
+    ' "$file" 2>/dev/null || echo '[]'
+}
+
+load_markdown_tasks() {
+    local file="$1"
+    local -a tasks=()
+    local line task_json
+    [[ -f "$file" ]] || {
+        echo '[]'
+        return 0
+    }
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        if is_task_line "$line"; then
+            task_json="$(parse_task_line "$line")"
+            tasks+=("$task_json")
+        fi
+    done <"$file"
+    if ((${#tasks[@]} == 0)); then
+        echo '[]'
+        return 0
+    fi
+    printf '%s\n' "${tasks[@]}" | jq -s '.'
+}
+
+count_markdown_tasks() {
+    local file="$1" count=0 line
+    [[ -f "$file" ]] || {
+        echo 0
+        return 0
+    }
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        if is_task_line "$line"; then
+            count=$((count + 1))
+        fi
+    done <"$file"
+    echo "$count"
+}
+
+save_json_tasks() {
+    local file="$1" tasks_json="$2"
+    local tmp
+    tmp="$(mktemp)"
+    jq -n --argjson tasks "$tasks_json" '{tasks: $tasks}' >"$tmp"
+    mv "$tmp" "$file"
+}
+
+save_markdown_tasks() {
+    local file="$1" tasks_json="$2"
+    local tmp preamble_tmp
+    tmp="$(mktemp)"
+    preamble_tmp="$(mktemp)"
+
+    if [[ -f "$file" ]]; then
+        while IFS= read -r line || [[ -n "$line" ]]; do
+            if is_task_line "$line"; then
+                break
+            fi
+            printf '%s\n' "$line"
+        done <"$file" >"$preamble_tmp"
+    fi
+
+    if [[ ! -s "$preamble_tmp" ]]; then
+        printf '# Tasks\n\n' >"$preamble_tmp"
+    else
+        sed -i -E '${/^[[:space:]]*$/d;}' "$preamble_tmp" 2>/dev/null || true
+        printf '\n' >>"$preamble_tmp"
+    fi
+
+    cat "$preamble_tmp" >"$tmp"
+    jq -r '.[] | if .done then "- [x] " + (.text // "") else "- [ ] " + (.text // "") end' <<<"$tasks_json" >>"$tmp"
+    mv "$tmp" "$file"
+    rm -f "$preamble_tmp"
+}
+
+migrate_json_to_markdown() {
+    local vault_file="$1"
+    local json_tasks count
+    json_tasks="$(load_json_tasks "$TASKS_JSON")"
+    count="$(jq 'length' <<<"$json_tasks")"
+    [[ "$count" -gt 0 ]] || return 0
+    if [[ -f "$vault_file" ]] && [[ "$(count_markdown_tasks "$vault_file")" -gt 0 ]]; then
+        return 0
+    fi
+    save_markdown_tasks "$vault_file" "$json_tasks"
+}
+
+cmd_settings_get() {
+    local vault detected file
+    vault="$(read_vault)"
+    detected="$(detect_obsidian_vault)"
+    file="$(tasks_file)"
+    jq -n \
+        --arg obsidianVault "$vault" \
+        --arg detectedVault "$detected" \
+        --arg tasksFile "$file" \
+        --arg format "$(tasks_format)" \
+        '{
+            ok: true,
+            obsidianVault: $obsidianVault,
+            detectedVault: $detectedVault,
+            tasksFile: $tasksFile,
+            format: $format
+        }'
+}
+
+cmd_settings_set_vault() {
+    local path="${1:-}"
+    path="${path%/}"
+    if [[ -z "$path" ]]; then
+        merge_ui_field 'del(.obsidianVault)'
+        cmd_settings_get
+        return 0
+    fi
+    [[ -d "$path" ]] || {
+        echo '{"ok":false,"error":"vault directory not found"}' >&2
+        exit 1
+    }
+    merge_ui_field '.obsidianVault = $vault' --arg vault "$path"
+    migrate_json_to_markdown "$path/tasks.md"
+    cmd_settings_get
+}
+
+cmd_settings_pick() {
+    local current detected start_dir selected
+    current="$(read_vault)"
+    detected="$(detect_obsidian_vault)"
+    start_dir="$current"
+    if [[ -z "$start_dir" ]]; then
+        start_dir="$detected"
+    fi
+    if [[ -z "$start_dir" || ! -d "$start_dir" ]]; then
+        start_dir="$HOME"
+    fi
+    selected="$(zenity --file-selection --directory --title="Select Obsidian vault" --filename="${start_dir}/" 2>/dev/null || true)"
+    [[ -n "$selected" ]] || exit 0
+    cmd_settings_set_vault "$selected"
+}
+
+cmd_load() {
+    local file format tasks
+    file="$(tasks_file)"
+    format="$(tasks_format)"
+    if [[ "$format" == "markdown" ]]; then
+        tasks="$(load_markdown_tasks "$file")"
+    else
+        tasks="$(load_json_tasks "$file")"
+    fi
+    jq -n \
+        --arg tasksFile "$file" \
+        --arg format "$format" \
+        --argjson tasks "$tasks" \
+        '{tasksFile: $tasksFile, format: $format, tasks: $tasks}'
+}
+
+cmd_save() {
+    local payload="${1:-}"
+    [[ -n "$payload" ]] || payload="$(cat)"
+    jq -e '.tasks | type == "array"' <<<"$payload" >/dev/null 2>&1 || usage
+    local file format tasks
+    file="$(tasks_file)"
+    format="$(tasks_format)"
+    tasks="$(jq -c '.tasks' <<<"$payload")"
+    ensure_state_dir
+    if [[ "$format" == "markdown" ]]; then
+        save_markdown_tasks "$file" "$tasks"
+    else
+        save_json_tasks "$file" "$tasks"
+    fi
+    jq -n --arg tasksFile "$file" --arg format "$format" '{ok: true, tasksFile: $tasksFile, format: $format}'
+}
+
+cmd_copy() {
+    local json="${1:-}"
+    [[ -n "$json" ]] || return 0
+    local text
+    text="$(jq -r . <<<"$json")"
+    [[ -n "$text" && "$text" != "null" ]] || return 0
+    printf '%s' "$text" | wl-copy
+}
+
+target="${1:-}"
+action="${2:-}"
+
+case "$target" in
+settings)
+    case "$action" in
+    get)
+        cmd_settings_get
+        ;;
+    set)
+        key="${3:-}"
+        case "$key" in
+        vault)
+            path="${4:-}"
+            [[ -n "$path" ]] || usage
+            cmd_settings_set_vault "$path"
+            ;;
+        *)
+            usage
+            ;;
+        esac
+        ;;
+    pick)
+        cmd_settings_pick
+        ;;
+    *)
+        usage
+        ;;
+    esac
+    ;;
+load)
+    cmd_load
+    ;;
+save)
+    json="${2:-}"
+    [[ -n "$json" ]] || json="$(cat)"
+    cmd_save "$json"
+    ;;
+copy)
+    json="${2:-}"
+    [[ -n "$json" ]] || json="$(cat)"
+    cmd_copy "$json"
+    ;;
+*)
+    usage
+    ;;
+esac

@@ -1711,7 +1711,9 @@ Item {
         } catch (e) {
             waveformSamples = []
         }
-        if (waveCanvas)
+        if (waveformViz)
+            waveformViz.recomputeVizEnvelopes()
+        else if (waveCanvas)
             waveCanvas.requestPaint()
     }
 
@@ -1744,7 +1746,9 @@ Item {
         next.position = sec
         next.position_label = formatPlaybackTime(sec)
         player = next
-        if (waveCanvas)
+        if (waveformViz)
+            waveformViz.recomputeVizEnvelopes()
+        else if (waveCanvas)
             waveCanvas.requestPaint()
     }
 
@@ -2927,53 +2931,59 @@ Item {
                                 spacing: Theme.spacingS
 
                                 Item {
+                                    id: waveformViz
                                     Layout.fillWidth: true
                                     Layout.fillHeight: true
                                     Layout.minimumHeight: 96
 
-                                    Canvas {
-                                        id: waveCanvas
-                                        anchors.fill: parent
-                                    property real playProgress: root.progress
-                                    property var wfData: root.waveformSamples
+                                    readonly property int vizBarCount: 100
+                                    property var vizEnvelopes: []
+                                    property real vizMid: 0
+                                    property real vizVPad: 0
+                                    property real vizDrawH: 0
+                                    property real vizBarW: 4
+                                    property real vizPitch: 5
 
-                                    onPlayProgressChanged: requestPaint()
-                                    onWfDataChanged: requestPaint()
-                                    onWidthChanged: requestPaint()
-
-                                    onPaint: {
-                                        var ctx = getContext("2d")
-                                        ctx.clearRect(0, 0, width, height)
-                                        var vPad = Math.max(12, height * 0.12)
-                                        var drawH = Math.max(8, height - vPad * 2)
+                                    function recomputeVizEnvelopes() {
+                                        var w = width
+                                        var h = height
+                                        if (w <= 0 || h <= 0) {
+                                            vizEnvelopes = []
+                                            return
+                                        }
+                                        var vPad = Math.max(12, h * 0.12)
+                                        var drawH = Math.max(8, h - vPad * 2)
                                         var mid = vPad + drawH / 2
                                         var halfH = drawH * 0.5
                                         var maxAmp = halfH * 0.93
-                                        var prog = playProgress
+                                        var pitch = w / vizBarCount
+                                        var barW = Math.max(2, pitch * 0.75)
                                         var samples = root.waveformSamples
                                         var n = samples.length
+                                        var barCount = vizBarCount
+                                        var envelopes = []
+
+                                        vizMid = mid
+                                        vizVPad = vPad
+                                        vizDrawH = drawH
+                                        vizBarW = barW
+                                        vizPitch = pitch
 
                                         if (n === 0) {
-                                            var trackH = 3
-                                            var trackY = mid - trackH / 2
-                                            ctx.fillStyle = Theme.foregroundHoverWash
-                                            ctx.fillRect(0, trackY, width, trackH)
-                                            if (prog > 0) {
-                                                ctx.fillStyle = Theme.accent
-                                                ctx.fillRect(0, trackY, width * prog, trackH)
-                                            }
+                                            for (var e = 0; e < barCount; e++)
+                                                envelopes.push(maxAmp * 0.35)
+                                            vizEnvelopes = envelopes
+                                            waveCanvas.requestPaint()
+                                            cavaOverlay.requestPaint()
                                             return
                                         }
 
-                                        var barW = 4
-                                        var gap = 1
-                                        var pitch = barW + gap
-                                        var barCount = Math.max(64, Math.floor(width / pitch))
                                         var peaks = []
                                         if (n <= barCount) {
-                                            barCount = n
                                             for (var bi = 0; bi < n; bi++)
                                                 peaks.push(Number(samples[bi]) || 0)
+                                            while (peaks.length < barCount)
+                                                peaks.push(0)
                                         } else {
                                             var step = n / barCount
                                             for (var b = 0; b < barCount; b++) {
@@ -2993,16 +3003,12 @@ Item {
                                             }
                                         }
 
-                                        var playX = width * prog
                                         var sorted = peaks.slice(0, barCount)
                                         sorted.sort(function(a, b) { return a - b })
                                         var floorVal = sorted[Math.max(0, Math.floor(barCount * 0.04))]
                                         var ceilVal = sorted[Math.min(barCount - 1, Math.floor(barCount * 0.994))]
                                         var span = Math.max(1, ceilVal - floorVal)
                                         var refPeak = Math.max(1, sorted[barCount - 1])
-
-                                        var fg = Theme.foreground
-                                        var accent = Theme.accent
                                         var win = 5
                                         var halfWin = Math.floor(win / 2)
 
@@ -3024,56 +3030,126 @@ Item {
                                             var blended = 0.38 * Math.pow(local, 0.9) + 0.62 * Math.pow(global, 0.8)
                                             var signal = 0.34 + 0.66 * blended
                                             var amp = Math.pow(signal, 1.38) * maxAmp * envelope
-                                            amp = Math.max(1.2, amp)
-                                            var x = i * pitch
-                                            var w = barW
-                                            var played = (x + w * 0.5) <= playX
+                                            envelopes.push(Math.max(1.2, amp))
+                                        }
+                                        vizEnvelopes = envelopes
+                                        waveCanvas.requestPaint()
+                                        cavaOverlay.requestPaint()
+                                    }
 
-                                            if (played) {
-                                                ctx.fillStyle = accent
-                                                ctx.globalAlpha = 0.98
-                                                ctx.fillRect(x, mid - amp, w, amp)
-                                                ctx.globalAlpha = 0.38
-                                                ctx.fillRect(x, mid, w, amp)
-                                            } else {
-                                                ctx.fillStyle = Qt.rgba(fg.r, fg.g, fg.b, 1)
-                                                ctx.globalAlpha = 0.58
-                                                ctx.fillRect(x, mid - amp, w, amp)
-                                                ctx.globalAlpha = 0.24
-                                                ctx.fillRect(x, mid, w, amp)
+                                    onWidthChanged: recomputeVizEnvelopes()
+                                    onHeightChanged: recomputeVizEnvelopes()
+
+                                    Connections {
+                                        target: root
+                                        function onWaveformSamplesChanged() {
+                                            waveformViz.recomputeVizEnvelopes()
+                                        }
+                                    }
+
+                                    Canvas {
+                                        id: waveCanvas
+                                        anchors.fill: parent
+                                        property real playProgress: root.progress
+
+                                        onPlayProgressChanged: requestPaint()
+                                        onPaint: {
+                                            var ctx = getContext("2d")
+                                            ctx.clearRect(0, 0, width, height)
+                                            var vPad = waveformViz.vizVPad
+                                            var drawH = waveformViz.vizDrawH
+                                            var mid = waveformViz.vizMid
+                                            var prog = playProgress
+                                            var samples = root.waveformSamples
+                                            var n = samples.length
+                                            var barCount = waveformViz.vizBarCount
+                                            var pitch = waveformViz.vizPitch
+                                            var barW = waveformViz.vizBarW
+                                            var envelopes = waveformViz.vizEnvelopes
+
+                                            if (n === 0) {
+                                                var trackH = 3
+                                                var trackY = mid - trackH / 2
+                                                ctx.fillStyle = Theme.foregroundHoverWash
+                                                ctx.fillRect(0, trackY, width, trackH)
+                                                if (prog > 0) {
+                                                    ctx.fillStyle = Theme.accent
+                                                    ctx.fillRect(0, trackY, width * prog, trackH)
+                                                }
+                                                return
+                                            }
+
+                                            var playX = width * prog
+                                            var fg = Theme.foreground
+                                            var accent = Theme.accent
+
+                                            for (var i = 0; i < barCount; i++) {
+                                                var amp = i < envelopes.length ? envelopes[i] : 1.2
+                                                var x = i * pitch + (pitch - barW) / 2
+                                                var played = (x + barW * 0.5) <= playX
+
+                                                if (played) {
+                                                    ctx.fillStyle = accent
+                                                    ctx.globalAlpha = 0.98
+                                                    ctx.fillRect(x, mid - amp, barW, amp)
+                                                    ctx.globalAlpha = 0.38
+                                                    ctx.fillRect(x, mid, barW, amp)
+                                                } else {
+                                                    ctx.fillStyle = Qt.rgba(fg.r, fg.g, fg.b, 1)
+                                                    ctx.globalAlpha = 0.58
+                                                    ctx.fillRect(x, mid - amp, barW, amp)
+                                                    ctx.globalAlpha = 0.24
+                                                    ctx.fillRect(x, mid, barW, amp)
+                                                }
+                                            }
+                                            ctx.globalAlpha = 1
+
+                                            ctx.strokeStyle = accent
+                                            ctx.lineWidth = 1
+                                            ctx.beginPath()
+                                            ctx.moveTo(0, mid + 0.5)
+                                            ctx.lineTo(width, mid + 0.5)
+                                            ctx.stroke()
+
+                                            if (prog > 0) {
+                                                ctx.fillStyle = Qt.rgba(accent.r, accent.g, accent.b, 0.95)
+                                                ctx.fillRect(Math.max(0, playX - 1), vPad, 2, drawH)
                                             }
                                         }
-                                        ctx.globalAlpha = 1
+                                    }
 
-                                        ctx.strokeStyle = accent
-                                        ctx.lineWidth = 1
-                                        ctx.beginPath()
-                                        ctx.moveTo(0, mid + 0.5)
-                                        ctx.lineTo(width, mid + 0.5)
-                                        ctx.stroke()
+                                    PlayerCavaBars {
+                                        id: cavaOverlay
+                                        z: 1
+                                        anchors.fill: parent
+                                        envelopes: waveformViz.vizEnvelopes
+                                        vizMid: waveformViz.vizMid
+                                        vizBarW: waveformViz.vizBarW
+                                        vizPitch: waveformViz.vizPitch
+                                        active: root.active && root.playerPlaying
+                                    }
 
-                                        if (prog > 0) {
-                                            ctx.fillStyle = Qt.rgba(accent.r, accent.g, accent.b, 0.95)
-                                            ctx.fillRect(Math.max(0, playX - 1), vPad, 2, drawH)
+                                    MouseArea {
+                                        z: 2
+                                        anchors.fill: parent
+                                        acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                        cursorShape: Qt.PointingHandCursor
+                                        onPressed: function(mouse) {
+                                            if (mouse.button === Qt.RightButton) {
+                                                cavaOverlay.cyclePreset()
+                                                return
+                                            }
+                                            root.previewSeekFromX(mouse.x, width)
+                                        }
+                                        onPositionChanged: function(mouse) {
+                                            if (pressed && mouse.buttons & Qt.LeftButton)
+                                                root.previewSeekFromX(mouse.x, width)
+                                        }
+                                        onReleased: function(mouse) {
+                                            if (mouse.button === Qt.LeftButton)
+                                                root.commitSeekFromX(mouse.x, width)
                                         }
                                     }
-                                }
-
-                                MouseArea {
-                                    z: 1
-                                    anchors.fill: parent
-                                    cursorShape: Qt.PointingHandCursor
-                                    onPressed: function(mouse) {
-                                        root.previewSeekFromX(mouse.x, width)
-                                    }
-                                    onPositionChanged: function(mouse) {
-                                        if (pressed)
-                                            root.previewSeekFromX(mouse.x, width)
-                                    }
-                                    onReleased: function(mouse) {
-                                        root.commitSeekFromX(mouse.x, width)
-                                    }
-                                }
                                 }
 
                                 Item {
@@ -3088,11 +3164,6 @@ Item {
                                         font.family: Theme.fontFamily
                                         font.pixelSize: root.listFont
                                         opacity: Theme.opacityHover
-                                    }
-
-                                    PlayerCavaBars {
-                                        anchors.centerIn: parent
-                                        active: root.active && root.playerPlaying
                                     }
 
                                     Text {
@@ -3363,25 +3434,36 @@ Item {
     component PlayerCavaBars: Item {
         id: cavaBars
         property bool active: false
+        property var envelopes: []
+        property real vizMid: 0
+        property real vizBarW: 4
+        property real vizPitch: 5
 
-        readonly property int barCount: 20
-        readonly property int vizWidth: 168
-        readonly property int vizHeight: 22
+        readonly property int barCount: 100
         readonly property int asciiMax: 1000
         readonly property string cavaScript: (Quickshell.env("HOME") || "") + "/.local/bin/evo-cava"
         readonly property string cavaPresetFile: (Quickshell.env("HOME") || "") + "/.config/cava/cava.v"
 
-        property var barLevels: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        function zeroBarLevels() {
+            var levels = []
+            for (var i = 0; i < barCount; i++)
+                levels.push(0)
+            return levels
+        }
+
+        property var barLevels: zeroBarLevels()
         property int streamPos: 0
         property string presetName: ""
 
-        implicitWidth: vizWidth
-        implicitHeight: vizHeight
-        opacity: active && cavaProc.running ? 0.38 : 0.16
+        opacity: active && cavaProc.running ? 1 : 0
+
+        function requestPaint() {
+            vizCanvas.requestPaint()
+        }
 
         function resetBars() {
             streamPos = 0
-            barLevels = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            barLevels = zeroBarLevels()
             vizCanvas.requestPaint()
         }
 
@@ -3511,12 +3593,7 @@ Item {
             onLoadFailed: cavaBars.presetName = ""
         }
 
-        MouseArea {
-            anchors.fill: parent
-            hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
-            onClicked: cavaBars.cyclePreset()
-        }
+        onEnvelopesChanged: vizCanvas.requestPaint()
 
         Canvas {
             id: vizCanvas
@@ -3525,19 +3602,25 @@ Item {
             onPaint: {
                 var ctx = getContext("2d")
                 ctx.clearRect(0, 0, width, height)
-                var barW = 5
-                var gap = 2
-                var pitch = barW + gap
-                var accent = Theme.accent
-                var x0 = (width - (barCount * pitch - gap)) / 2
+                if (!cavaBars.active)
+                    return
+
+                var barCount = cavaBars.barCount
+                var pitch = cavaBars.vizPitch > 0 ? cavaBars.vizPitch : width / barCount
+                var barW = cavaBars.vizBarW > 0 ? cavaBars.vizBarW : Math.max(2, pitch * 0.75)
+                var mid = cavaBars.vizMid > 0 ? cavaBars.vizMid : height / 2
+                var envs = cavaBars.envelopes || []
+                var barColor = Theme.mixColors(Theme.accent, Theme.foreground, 0.38)
+                var fallbackAmp = Math.max(8, height * 0.16)
 
                 for (var i = 0; i < barCount; i++) {
+                    var frameH = i < envs.length ? envs[i] : fallbackAmp
                     var level = cavaBars.barLevels[i]
-                    var barH = Math.max(2, height * level)
-                    var x = x0 + i * pitch
-                    var y = height - barH
-                    ctx.fillStyle = Qt.rgba(accent.r, accent.g, accent.b, 0.28 + level * 0.42)
-                    ctx.fillRect(x, y, barW, barH)
+                    var liveH = Math.max(1, frameH * level)
+                    var x = i * pitch + (pitch - barW) / 2
+                    ctx.fillStyle = Qt.rgba(barColor.r, barColor.g, barColor.b, 0.42 + level * 0.5)
+                    ctx.fillRect(x, mid - liveH, barW, liveH)
+                    ctx.fillRect(x, mid, barW, liveH)
                 }
             }
         }
