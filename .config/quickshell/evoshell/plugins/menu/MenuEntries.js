@@ -16,8 +16,8 @@ function systemEntries(home) {
     return [
         { name: "Apps", icon: "󰀻", keywords: ["apps", "applications", "launcher", "programs"], mode: "apps" },
         { name: "Settings", icon: "󰒓", keywords: ["settings", "panel", "hypr", "bar"], command: panelToggle(home, "settings") },
-        { name: "Themes", icon: "󰸌", keywords: ["theme", "colours", "gtk"], submenu: "themes" },
-        { name: "Wallpaper", icon: "󰏘", keywords: ["wallpaper", "background"], submenu: "wallpaper" },
+        { name: "Themes", icon: "󰸌", keywords: ["theme", "colours", "gtk"], command: ipc(home, "toggle evo.theme") },
+        { name: "Wallpaper", icon: "󰏘", keywords: ["wallpaper", "background"], command: ipc(home, "toggle evo.wallpaper") },
         { name: "Music", icon: "󰎈", keywords: ["music", "player", "mpv"], command: ipc(home, "toggle evo.player") },
         { name: "Library", icon: "󰿯", keywords: ["library", "film", "tv", "movies"], command: ipc(home, "toggle evo.library") },
         { name: "Calculator", icon: "󰪚", keywords: ["calc", "calculator", "math"], command: panelToggle(home, "calc") },

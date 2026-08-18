@@ -88,6 +88,7 @@ Item {
     property bool browseQueueBusy: false
     property bool browsePanelOpen: false
     property bool playlistPanelOpen: false
+    property string playlistPanelMode: "library"
     readonly property bool sidePanelOpen: browsePanelOpen || playlistPanelOpen
     readonly property bool splitSidePanelMode: browsePanelOpen || playlistPanelOpen
         || playerScreen === "filter"
@@ -260,13 +261,14 @@ Item {
         browsePanelOpen = false
         libraryPanelOpen = false
         playlistPanelOpen = true
+        playlistPanelMode = "library"
         playerScreen = "nowPlaying"
         if (!libraryPlaylists.length && !playlistsLoading)
             loadPlaylists()
-        if (!selectedPlaylist) {
-            selectedPlaylist = currentPlaylistId
-            loadPlaylistTracks(selectedPlaylist)
-        }
+    }
+
+    function showPlaylistLibrary() {
+        playlistPanelMode = "library"
     }
 
     function checkAutoExtendQueue() {
@@ -821,6 +823,7 @@ Item {
         playerScreen = "nowPlaying"
         browsePanelOpen = false
         playlistPanelOpen = true
+        playlistPanelMode = "library"
         if (!libraryPlaylists.length && !playlistsLoading)
             loadPlaylists()
     }
@@ -828,7 +831,10 @@ Item {
     function selectGenrePlaylist(name) {
         if (!name)
             return
-        selectPlaylist(String(name), true)
+        selectedPlaylist = normalizePlaylistName(name)
+        playlistPanelMode = "tracks"
+        syncPlaylistTabPosition()
+        loadPlaylistTracks(selectedPlaylist)
     }
 
     function togglePlaylistStar(name) {
@@ -1240,6 +1246,7 @@ Item {
             playerScreen = "nowPlaying"
             browsePanelOpen = false
             playlistPanelOpen = true
+            playlistPanelMode = "tracks"
         }
         loadPlaylistTracks(selectedPlaylist)
     }
@@ -4400,13 +4407,32 @@ Item {
             anchors.fill: parent
             spacing: Theme.spacingS
 
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: Theme.spacingM
+                visible: root.playlistPanelMode === "tracks"
+
+                RowIconButton {
+                    icon: "󰁍"
+                    onActivated: root.showPlaylistLibrary()
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    text: root.playlistTabLabel(root.selectedPlaylist)
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.sectionLabelFont
+                    font.bold: Theme.fontBold
+                    elide: Text.ElideRight
+                }
+            }
+
             ListView {
                 id: sidePlaylistLibraryList
                 Layout.fillWidth: true
-                Layout.preferredHeight: Math.min(
-                    Math.max(38, contentHeight + 2),
-                    Math.floor(playlistPanelColumn.height * 0.42)
-                )
+                Layout.fillHeight: true
+                visible: root.playlistPanelMode === "library"
                 clip: true
                 spacing: Theme.spacing2
                 model: root.libraryPlaylists
@@ -4474,6 +4500,7 @@ Item {
                 id: sidePlaylistTrackList
                 Layout.fillWidth: true
                 Layout.fillHeight: true
+                visible: root.playlistPanelMode === "tracks"
                 clip: true
                 spacing: Theme.spacing2
                 model: root.tracks

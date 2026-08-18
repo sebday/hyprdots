@@ -117,7 +117,7 @@ Item {
     onBodyHeightChanged: if (opened && !revealed) Qt.callLater(tryReveal)
 
     onRevealedChanged: {
-        if (revealed && opened)
+        if (revealed && opened && hoverOverlay.pointerInside)
             Qt.callLater(function() { keySurface.forceActiveFocus() })
     }
 
@@ -149,7 +149,7 @@ Item {
         shell: root.shell
         opened: root.opened
         revealed: root.revealed
-        keyboardFocusEnabled: root.opened && root.revealed
+        keyboardFocusEnabled: root.opened && root.revealed && hoverOverlay.pointerInside
         layerNamespace: root.layerNamespace
         contentMargin: root.contentMargin
         contentTopMargin: root.contentTopPad
@@ -158,7 +158,7 @@ Item {
             + Theme.hoverPopupBorderWidth * 2
 
         onRevealedHoverEntered: {
-            if (root.opened && root.revealed)
+            if (root.opened && root.revealed && hoverOverlay.pointerInside)
                 keySurface.forceActiveFocus()
         }
 
@@ -171,12 +171,28 @@ Item {
 
         onPinPressed: root.togglePin()
 
+        Connections {
+            target: hoverOverlay
+            function onPointerInsideChanged() {
+                if (!hoverOverlay.pointerInside)
+                    keySurface.focus = false
+                else if (root.opened && root.revealed)
+                    keySurface.forceActiveFocus()
+            }
+        }
+
         Item {
             id: keySurface
             anchors.fill: parent
-            focus: root.opened && root.revealed
+            focus: root.opened && root.revealed && hoverOverlay.pointerInside
 
             Keys.onPressed: function(event) {
+                if (event.key === Qt.Key_Space && (event.modifiers & Qt.MetaModifier)) {
+                    if (root.shell && typeof root.shell.toggleSystemMenu === "function")
+                        root.shell.toggleSystemMenu()
+                    event.accepted = true
+                    return
+                }
                 if (event.key === Qt.Key_Escape) {
                     if (root.shell && root.effectivePluginId)
                         root.shell.hide(root.effectivePluginId)

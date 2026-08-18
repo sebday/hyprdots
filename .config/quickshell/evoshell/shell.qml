@@ -3,6 +3,7 @@
 import QtQuick
 import QtQml.Models
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Io
 import "./Commons"
 
@@ -53,6 +54,7 @@ ShellRoot {
         "evo.stocks": { kinds: ["menu"], path: "plugins/stocks/Stocks.qml", keepLoaded: true },
         "evo.cloudflare": { kinds: ["menu", "service"], path: "plugins/cloudflare/Cloudflare.qml", servicePath: "plugins/cloudflare/CloudflareService.qml", keepLoaded: true },
         "evo.library": { kinds: ["menu"], path: "plugins/library/Library.qml", keepLoaded: true },
+        "evo.theme": { kinds: ["menu"], path: "plugins/theme/Theme.qml", keepLoaded: true },
         "evo.clipboard": { kinds: ["menu", "service"], path: "plugins/clipboard/Clipboard.qml", servicePath: "plugins/clipboard/Service.qml", keepLoaded: true },
         "evo.panel": { kinds: ["panel"], path: "plugins/panel/Panel.qml", keepLoaded: true },
         "evo.bar": { kinds: ["bar"], path: "plugins/bar/Bar.qml" },
@@ -537,7 +539,7 @@ ShellRoot {
         }
     }
 
-    readonly property var panelPluginIds: ["evo.menu", "evo.panel", "evo.calendar", "evo.shopify_diy", "evo.shopify_tgs", "evo.cursor", "evo.weather", "evo.network", "evo.volume", "evo.media", "evo.github", "evo.system", "evo.stocks", "evo.cloudflare", "evo.transmission", "evo.transmission.add", "evo.insync", "evo.steam", "evo.library", "evo.wallpaper", "evo.clipboard"]
+    readonly property var panelPluginIds: ["evo.menu", "evo.panel", "evo.calendar", "evo.shopify_diy", "evo.shopify_tgs", "evo.cursor", "evo.weather", "evo.network", "evo.volume", "evo.media", "evo.github", "evo.system", "evo.stocks", "evo.cloudflare", "evo.transmission", "evo.transmission.add", "evo.insync", "evo.steam", "evo.library", "evo.theme", "evo.wallpaper", "evo.clipboard"]
 
     Instantiator {
         model: shell.panelPluginIds
@@ -548,8 +550,8 @@ ShellRoot {
             source: shell.pluginUrl(shell.pluginTable[modelData].path)
             onLoaded: {
                 if (item && "shell" in item) item.shell = shell
-                if (item) item.pluginId = modelData
                 shell.registerPanelLoader(modelData, this)
+                if (item && "pluginId" in item) item.pluginId = modelData
             }
             onActiveChanged: if (!active) shell.registerPanelLoader(modelData, this)
         }
@@ -571,6 +573,28 @@ ShellRoot {
         })
     }
 
+    function toggleSystemMenu() {
+        return toggle("evo.menu", '{"mode":"power"}')
+    }
+
+    function toggleAppLauncher() {
+        return toggle("evo.menu", '{"mode":"apps"}')
+    }
+
+    GlobalShortcut {
+        appid: "evoshell"
+        name: "systemMenu"
+        description: "System menu"
+        onPressed: shell.toggleSystemMenu()
+    }
+
+    GlobalShortcut {
+        appid: "evoshell"
+        name: "appLauncher"
+        description: "App launcher"
+        onPressed: shell.toggleAppLauncher()
+    }
+
     IpcHandler {
         target: "shell"
 
@@ -587,6 +611,16 @@ ShellRoot {
 
         function toggle(id: string, payloadJson: string): string {
             shell.toggle(id, payloadJson || "")
+            return "ok"
+        }
+
+        function toggleSystemMenu(): string {
+            shell.toggleSystemMenu()
+            return "ok"
+        }
+
+        function toggleAppLauncher(): string {
+            shell.toggleAppLauncher()
             return "ok"
         }
 

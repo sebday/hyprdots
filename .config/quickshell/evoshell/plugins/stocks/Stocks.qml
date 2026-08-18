@@ -4,7 +4,7 @@ import "."
 
 BarHoverPopup {
     layerNamespace: "evo-stocks"
-    contentWidth: Theme.hoverPopupWidthWide
+    contentWidth: Theme.hoverPopupWidthStandard
 
     StocksModule {
         id: stocksModule

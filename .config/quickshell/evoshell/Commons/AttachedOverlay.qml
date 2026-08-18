@@ -7,6 +7,7 @@ Item {
 
     property bool opened: false
     property bool revealed: true
+    property bool pointerInside: false
     property bool keyboardFocusEnabled: false
     property int contentWidth: Theme.overlayWidthDefault
     property int contentHeight: 320
@@ -149,6 +150,7 @@ Item {
         HoverHandler {
             enabled: root.opened
             onHoveredChanged: {
+                root.pointerInside = hovered
                 if (!root.revealed)
                     return
                 if (hovered) {
@@ -156,6 +158,16 @@ Item {
                     root.revealedHoverEntered()
                 } else
                     root.hoverLeft()
+            }
+        }
+
+        Shortcut {
+            sequence: "Meta+Space"
+            enabled: root.opened && root.revealed && root.keyboardFocusEnabled
+            context: Qt.WindowShortcut
+            onActivated: {
+                if (root.shell && typeof root.shell.toggleSystemMenu === "function")
+                    root.shell.toggleSystemMenu()
             }
         }
 
