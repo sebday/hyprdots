@@ -133,7 +133,7 @@ Item {
 
         taskModel.move(from, to, 1)
         taskDirty = true
-        taskSaveTimer.restart()
+        saveTask()
     }
 
     function setTaskText(index, value) {
@@ -143,7 +143,6 @@ Item {
         taskModel.setProperty(index, "text", String(value || ""))
         taskDirty = true
         taskUiTick++
-        taskSaveTimer.restart()
     }
 
     function toggleTaskDone(index) {
@@ -181,7 +180,7 @@ Item {
         setTaskModel(completed.concat(incomplete))
         taskDirty = true
         taskUiTick++
-        taskSaveTimer.restart()
+        saveTask()
     }
 
     function ensureTrailingModelRow() {
@@ -201,6 +200,7 @@ Item {
         if (!text)
             return
         ensureTrailingModelRow()
+        saveTask()
         focusTaskRow(Math.min(index + 1, taskModel.count - 1))
     }
 
@@ -362,13 +362,6 @@ Item {
         id: taskCopyProc
         property string payload: '""'
         command: ["bash", root.tasksScript, "copy", taskCopyProc.payload]
-    }
-
-    Timer {
-        id: taskSaveTimer
-        interval: 600
-        repeat: false
-        onTriggered: root.saveTask()
     }
 
     ColumnLayout {
