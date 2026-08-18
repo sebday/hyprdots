@@ -7,6 +7,7 @@ Item {
 
     property bool opened: false
     property bool revealed: true
+    property bool keyboardFocusEnabled: false
     property int contentWidth: Theme.overlayWidthDefault
     property int contentHeight: 320
     property int contentMargin: Theme.overlayMargin
@@ -20,6 +21,9 @@ Item {
     property string layerNamespace: "evo-overlay"
     signal hoverEntered()
     signal hoverLeft()
+    signal revealedHoverEntered()
+    signal escapePressed()
+    signal pinPressed()
 
     default property alias content: contentHost.data
 
@@ -95,7 +99,9 @@ Item {
         margins.left: root.boxX
         WlrLayershell.namespace: root.layerNamespace
         WlrLayershell.layer: WlrLayer.Overlay
-        WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+        WlrLayershell.keyboardFocus: root.keyboardFocusEnabled
+            ? WlrKeyboardFocus.OnDemand
+            : WlrKeyboardFocus.None
         exclusionMode: ExclusionMode.Ignore
 
         Item {
@@ -145,11 +151,26 @@ Item {
             onHoveredChanged: {
                 if (!root.revealed)
                     return
-                if (hovered)
+                if (hovered) {
                     root.hoverEntered()
-                else
+                    root.revealedHoverEntered()
+                } else
                     root.hoverLeft()
             }
+        }
+
+        Shortcut {
+            sequence: "Escape"
+            enabled: root.opened && root.revealed && root.keyboardFocusEnabled
+            context: Qt.WindowShortcut
+            onActivated: root.escapePressed()
+        }
+
+        Shortcut {
+            sequence: "P"
+            enabled: root.opened && root.revealed && root.keyboardFocusEnabled
+            context: Qt.WindowShortcut
+            onActivated: root.pinPressed()
         }
     }
 }

@@ -90,10 +90,9 @@ Item {
     property bool playlistPanelOpen: false
     readonly property bool sidePanelOpen: browsePanelOpen || playlistPanelOpen
     readonly property bool splitSidePanelMode: browsePanelOpen || playlistPanelOpen
-        || playerScreen === "tags" || playerScreen === "filter"
+        || playerScreen === "filter"
     readonly property bool nowPlayingTabActive: !browsePanelOpen && !playlistPanelOpen
         && !libraryPanelOpen && playerScreen === "nowPlaying"
-    property string playlistPanelMode: "tracks"
     property bool queueExtendBusy: false
     property string filterKind: ""
     property string filterLabel: ""
@@ -142,11 +141,6 @@ Item {
             return ""
         return album
     }
-    readonly property var genreLabelOverrides: ({
-        "drum&bass": "Drum & Bass",
-        "dubstep": "Dubstep",
-        "hiphop": "Hip-Hop"
-    })
 
     function artUrl(path) {
         if (!path) return ""
@@ -267,61 +261,12 @@ Item {
         libraryPanelOpen = false
         playlistPanelOpen = true
         playerScreen = "nowPlaying"
+        if (!libraryPlaylists.length && !playlistsLoading)
+            loadPlaylists()
         if (!selectedPlaylist) {
             selectedPlaylist = currentPlaylistId
             loadPlaylistTracks(selectedPlaylist)
         }
-    }
-
-    function toggleTagsPanel() {
-        if (playerScreen === "tags") {
-            playerScreen = "nowPlaying"
-            return
-        }
-        browsePanelOpen = false
-        playlistPanelOpen = false
-        libraryPanelOpen = false
-        playerScreen = "tags"
-        loadGenres()
-    }
-
-    function isCurrentGenreFolder(folderName) {
-        var folder = String(folderName || "")
-        if (!folder)
-            return false
-        var tag = String(player.genre || "").trim().toLowerCase()
-        if (folder.toLowerCase() === tag)
-            return true
-        if (root.genreFolderLabel(folder).toLowerCase() === tag)
-            return true
-        var path = String(player.path || "").toLowerCase()
-        return path.indexOf("/" + folder.toLowerCase() + "/") >= 0
-    }
-
-    function retagCurrentTrack(genreFolder) {
-        var trackPath = String(player.path || "").trim()
-        if (!trackPath) {
-            root.notify("nothing playing", 2500)
-            return
-        }
-        if (!genreFolder)
-            return
-        runMusic(["retag", trackPath, genreFolder, "--json"], function(text) {
-            try {
-                var result = JSON.parse(String(text || "{}"))
-                var newPath = String(result.path || "")
-                var p = Object.assign({}, player)
-                if (newPath)
-                    p.path = newPath
-                p.genre = String(result.genre || genreFolder)
-                player = p
-                root.refreshStatus()
-                root.loadGenres()
-                root.notify("genre updated", 2000)
-            } catch (e) {
-                root.notify("could not retag", 2500)
-            }
-        })
     }
 
     function checkAutoExtendQueue() {
@@ -427,7 +372,7 @@ Item {
         jobLog = label + "…\n"
         if (!(options && options.stayOnScreen)) {
             libraryPanelOpen = true
-            if (playerScreen !== "tags" && playerScreen !== "filter")
+            if (playerScreen !== "filter")
                 playerScreen = "nowPlaying"
         }
         jobProc.command = ["bash", playerScript].concat(args || [])
@@ -876,7 +821,6 @@ Item {
         playerScreen = "nowPlaying"
         browsePanelOpen = false
         playlistPanelOpen = true
-        playlistPanelMode = "library"
         if (!libraryPlaylists.length && !playlistsLoading)
             loadPlaylists()
     }
@@ -1073,87 +1017,6 @@ Item {
         return slash < 0 ? p : p.substring(0, slash)
     }
 
-    function retaggableGenres() {
-        var names = []
-        for (var i = 0; i < genres.length; i++) {
-            var name = String(genres[i].name || "").trim()
-            if (name !== "")
-                names.push(name)
-        }
-        names.sort(function(a, b) { return a.localeCompare(b) })
-        return names
-    }
-
-    function genreFolderLabel(folder) {
-        var key = String(folder || "")
-        if (genreLabelOverrides[key])
-            return genreLabelOverrides[key]
-        return key
-    }
-
-    function browseGenreLabel(entry) {
-        if (!entry)
-            return ""
-        var tag = String(entry.genre || "").trim()
-        if (tag !== "")
-            return tag
-        var folder = root.browseDirGenre(String(entry.path || ""))
-        return root.genreFolderLabel(folder)
-    }
-
-    function browseGenreIndex(entry) {
-        if (!entry)
-            return -1
-        var folders = root.retaggableGenres()
-        if (!folders.length)
-            return -1
-        var tag = String(entry.genre || "").trim().toLowerCase()
-        var folder = root.browseDirGenre(String(entry.path || ""))
-        for (var i = 0; i < folders.length; i++) {
-            if (folders[i] === folder)
-                return i
-            if (root.genreFolderLabel(folders[i]).toLowerCase() === tag)
-                return i
-            if (folders[i].toLowerCase() === tag)
-                return i
-        }
-        return -1
-    }
-
-    function cycleBrowseGenre(entry) {
-        if (!entry || !entry.path)
-            return
-        var folders = root.retaggableGenres()
-        if (!folders.length) {
-            root.notify("no genres available", 2500)
-            return
-        }
-        var idx = root.browseGenreIndex(entry)
-        var next = folders[(idx + 1) % folders.length]
-        root.retagBrowseTrack(entry, next)
-    }
-
-    function retagBrowseTrack(entry, genreFolder) {
-        if (!entry || !entry.path || !genreFolder)
-            return
-        var trackPath = String(entry.path)
-        var folder = String(browsePath || "")
-        runMusic(["retag", trackPath, genreFolder, "--json"], function(text) {
-            try {
-                var result = JSON.parse(String(text || "{}"))
-                var newPath = String(result.path || "")
-                if (player.path === trackPath) {
-                    var p = Object.assign({}, player)
-                    p.path = newPath
-                    p.genre = String(result.genre || genreFolder)
-                    player = p
-                }
-            } catch (e) {
-            }
-            root.loadBrowse(folder)
-        }, cmdProc)
-    }
-
     function rebuildBrowseDir(entry) {
         var genre = browseDirGenre(entry.path)
         if (!genre)
@@ -1257,10 +1120,6 @@ Item {
                 root.notify("could not append folder", 2500)
             }
         })
-    }
-
-    function openTagsScreen() {
-        toggleTagsPanel()
     }
 
     function openFilter(kind, value, label) {
@@ -1381,7 +1240,6 @@ Item {
             playerScreen = "nowPlaying"
             browsePanelOpen = false
             playlistPanelOpen = true
-            playlistPanelMode = "tracks"
         }
         loadPlaylistTracks(selectedPlaylist)
     }
@@ -2471,11 +2329,6 @@ Item {
                     onActivated: root.toggleBrowsePanel()
                 }
                 IconTab {
-                    icon: "󰓹"
-                    active: root.playerScreen === "tags"
-                    onActivated: root.toggleTagsPanel()
-                }
-                IconTab {
                     icon: "󰲸"
                     active: root.playlistPanelOpen
                     onActivated: root.togglePlaylistPanel()
@@ -2979,12 +2832,6 @@ Item {
 
                         PlayerSidePlaylistPanel {
                             visible: root.playlistPanelOpen
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
-                        }
-
-                        PlayerSideTagsPanel {
-                            visible: root.playerScreen === "tags"
                             Layout.fillWidth: true
                             Layout.fillHeight: true
                         }
@@ -3504,7 +3351,6 @@ Item {
         property string genreLabel: ""
         signal pressed()
         signal playRequested()
-        signal genreClicked()
         signal likeToggled()
         signal folderOpenRequested()
 
@@ -3639,10 +3485,9 @@ Item {
                 visible: browseRow.genreLabel !== ""
                 label: browseRow.genreLabel
                 accent: true
-                clickable: true
+                clickable: false
                 maxLabelWidth: 96
                 Layout.alignment: Qt.AlignVCenter
-                onActivated: browseRow.genreClicked()
             }
 
             RowIconButton {
@@ -4547,51 +4392,46 @@ Item {
     }
 
     component PlayerSidePlaylistPanel: SectionPanel {
-        label: root.playlistPanelMode === "library" ? "Playlists" : ""
-        labelFontSize: root.sectionLabelFont
+        label: ""
         fillHeight: true
 
         ColumnLayout {
+            id: playlistPanelColumn
             anchors.fill: parent
             spacing: Theme.spacingS
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: Theme.spacingS
-
-                RowIconButton {
-                    icon: root.playlistPanelMode === "library" ? "󰎄" : "󰉹"
-                    onActivated: {
-                        if (root.playlistPanelMode === "library") {
-                            root.playlistPanelMode = "tracks"
-                            if (!root.selectedPlaylist)
-                                root.selectPlaylist(root.currentPlaylistId, false)
-                        } else {
-                            root.playlistPanelMode = "library"
-                            if (!root.libraryPlaylists.length)
-                                root.loadPlaylists()
-                        }
-                    }
-                }
-            }
 
             ListView {
                 id: sidePlaylistLibraryList
                 Layout.fillWidth: true
-                Layout.fillHeight: true
+                Layout.preferredHeight: Math.min(
+                    Math.max(38, contentHeight + 2),
+                    Math.floor(playlistPanelColumn.height * 0.42)
+                )
                 clip: true
                 spacing: Theme.spacing2
-                visible: root.playlistPanelMode === "library"
                 model: root.libraryPlaylists
+                boundsBehavior: Flickable.StopAtBounds
+
+                Text {
+                    anchors.centerIn: parent
+                    visible: root.playlistsLoading && root.libraryPlaylists.length === 0
+                    text: "loading…"
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.listFont
+                    opacity: Theme.opacityDisabled
+                }
 
                 delegate: Rectangle {
                     required property var modelData
                     width: sidePlaylistLibraryList.width
                     height: 38
                     radius: Theme.radiusL
-                    color: sideLibPlaylistMouse.containsMouse
-                        ? Theme.foregroundGhost
-                        : "transparent"
+                    color: root.selectedPlaylist === (modelData.name || "")
+                        ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.14)
+                        : (sideLibPlaylistMouse.containsMouse
+                            ? Theme.foregroundGhost
+                            : "transparent")
 
                     RowLayout {
                         anchors.fill: parent
@@ -4602,9 +4442,12 @@ Item {
                         Text {
                             Layout.fillWidth: true
                             text: root.playlistTabLabel(modelData.name || "")
-                            color: Theme.foreground
+                            color: root.selectedPlaylist === (modelData.name || "")
+                                ? Theme.accent
+                                : Theme.foreground
                             font.family: Theme.fontFamily
                             font.pixelSize: root.listFont
+                            font.bold: root.selectedPlaylist === (modelData.name || "") && Theme.fontBold
                             elide: Text.ElideRight
                         }
 
@@ -4633,7 +4476,6 @@ Item {
                 Layout.fillHeight: true
                 clip: true
                 spacing: Theme.spacing2
-                visible: root.playlistPanelMode !== "library"
                 model: root.tracks
 
                 Text {
@@ -4662,63 +4504,6 @@ Item {
         }
     }
 
-    component PlayerSideTagsPanel: SectionPanel {
-        label: ""
-        fillHeight: true
-
-        Flickable {
-            anchors.fill: parent
-            clip: true
-            contentWidth: width
-            contentHeight: tagsPanelColumn.implicitHeight
-            boundsBehavior: Flickable.StopAtBounds
-
-            Column {
-                id: tagsPanelColumn
-                width: parent.width
-                spacing: Theme.spacingM
-
-                Text {
-                    width: parent.width
-                    visible: !String(root.player.path || "").trim()
-                    text: "play a track to change tags"
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.listFont
-                    opacity: Theme.opacityDisabled
-                }
-
-                Text {
-                    width: parent.width
-                    visible: root.genres.length === 0
-                    text: "no tags"
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.listFont
-                    opacity: Theme.opacityDisabled
-                }
-
-                Flow {
-                    id: tagsFlow
-                    width: parent.width
-                    spacing: Theme.spacingS
-
-                    Repeater {
-                        model: root.genres
-
-                        MetaChip {
-                            required property var modelData
-                            label: root.playlistTabLabel(modelData.name || "")
-                            accent: root.isCurrentGenreFolder(modelData.name || "")
-                            clickable: true
-                            onActivated: root.retagCurrentTrack(modelData.name)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     component PlayerSideFilterPanel: SectionPanel {
         label: ""
         fillHeight: true
@@ -4733,7 +4518,7 @@ Item {
 
                 RowIconButton {
                     icon: "󰁍"
-                    onActivated: root.openTagsScreen()
+                    onActivated: root.showNowPlaying()
                 }
 
                 Text {

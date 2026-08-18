@@ -1,11 +1,21 @@
 import QtQuick
+import "."
 
 Item {
     id: root
 
     property var shell: null
+    property string pluginId: ""
+    readonly property string effectivePluginId: {
+        if (pluginId)
+            return pluginId
+        if (layerNamespace)
+            return layerNamespace.replace("-", ".")
+        return ""
+    }
     property bool opened: false
     property bool revealed: false
+    property bool pinned: false
     property string layerNamespace: "evo-hover"
     property int contentWidth: Theme.overlayWidthDefault
     property int contentMargin: Theme.hoverPopupMargin
@@ -48,7 +58,36 @@ Item {
         }
     }
 
+    function togglePin() {
+        if (pinned)
+            unpin()
+        else
+            pin()
+    }
+
+    function pin() {
+        if (pinned)
+            return
+        pinned = true
+        revealed = true
+        if (shell && effectivePluginId)
+            shell.pinHoverPopup(effectivePluginId)
+    }
+
+    function unpin() {
+        if (!pinned)
+            return
+        pinned = false
+        if (shell && effectivePluginId)
+            shell.unpinHoverPopup(effectivePluginId)
+        close()
+    }
+
     function open(payloadJson) {
+        if (pinned && opened) {
+            revealed = true
+            return
+        }
         revealMaxTimer.stop()
         revealed = false
         if (module && typeof module.bootstrapFromCache === "function")
@@ -63,6 +102,11 @@ Item {
     }
 
     function close() {
+        if (pinned) {
+            pinned = false
+            if (shell && effectivePluginId)
+                shell.unpinHoverPopup(effectivePluginId)
+        }
         revealMaxTimer.stop()
         revealed = false
         opened = false
@@ -71,6 +115,11 @@ Item {
     }
 
     onBodyHeightChanged: if (opened && !revealed) Qt.callLater(tryReveal)
+
+    onRevealedChanged: {
+        if (revealed && opened)
+            Qt.callLater(function() { keySurface.forceActiveFocus() })
+    }
 
     Connections {
         target: root.module
@@ -96,9 +145,11 @@ Item {
     }
 
     BarHoverOverlay {
+        id: hoverOverlay
         shell: root.shell
         opened: root.opened
         revealed: root.revealed
+        keyboardFocusEnabled: root.opened && root.revealed
         layerNamespace: root.layerNamespace
         contentMargin: root.contentMargin
         contentTopMargin: root.contentTopPad
@@ -106,8 +157,39 @@ Item {
         contentHeight: root.bodyHeight + root.contentTopPad + root.contentBottomPad
             + Theme.hoverPopupBorderWidth * 2
 
+        onRevealedHoverEntered: {
+            if (root.opened && root.revealed)
+                keySurface.forceActiveFocus()
+        }
+
+        onEscapePressed: {
+            if (root.shell && root.effectivePluginId)
+                root.shell.hide(root.effectivePluginId)
+            else
+                root.close()
+        }
+
+        onPinPressed: root.togglePin()
+
         Item {
+            id: keySurface
             anchors.fill: parent
+            focus: root.opened && root.revealed
+
+            Keys.onPressed: function(event) {
+                if (event.key === Qt.Key_Escape) {
+                    if (root.shell && root.effectivePluginId)
+                        root.shell.hide(root.effectivePluginId)
+                    else
+                        root.close()
+                    event.accepted = true
+                    return
+                }
+                if (event.key === Qt.Key_P && event.modifiers === Qt.NoModifier) {
+                    root.togglePin()
+                    event.accepted = true
+                }
+            }
 
             Item {
                 id: moduleSlot
@@ -116,6 +198,7 @@ Item {
 
             MouseArea {
                 anchors.fill: parent
+                z: 1
                 hoverEnabled: true
                 acceptedButtons: Qt.NoButton
                 enabled: root.revealed && root.opened && root.module

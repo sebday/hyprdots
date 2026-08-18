@@ -9,7 +9,11 @@ Item {
     property var shell: null
     property int hoverPopupWidth: 0
 
-    readonly property string cacheKey: shell ? String(shell.hoverPopupId || "") : ""
+    readonly property string cacheKey: {
+        if (host && host.effectivePluginId)
+            return host.effectivePluginId
+        return shell ? String(shell.hoverPopupId || "") : ""
+    }
 
     readonly property bool active: host && host.opened === true
     readonly property var barSource: host && host.shell ? host.shell.popupAnchorItem : null

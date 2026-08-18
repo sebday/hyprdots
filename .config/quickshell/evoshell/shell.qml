@@ -77,6 +77,35 @@ ShellRoot {
     property var pendingHoverWindow: null
     property var hoverPopupData: ({})
     property string peekHoverId: ""
+    property var pinnedHoverPopupIds: ({})
+
+    function isHoverPopupPinned(id) {
+        var pluginId = canonicalPluginId(id)
+        return pinnedHoverPopupIds[pluginId] === true
+    }
+
+    function pinHoverPopup(id) {
+        var pluginId = canonicalPluginId(id)
+        var next = ({})
+        for (var k in pinnedHoverPopupIds)
+            next[k] = pinnedHoverPopupIds[k]
+        next[pluginId] = true
+        pinnedHoverPopupIds = next
+        hoverHideTimer.stop()
+        peekHideTimer.stop()
+    }
+
+    function unpinHoverPopup(id) {
+        var pluginId = canonicalPluginId(id)
+        if (!pinnedHoverPopupIds[pluginId])
+            return
+        var next = ({})
+        for (var k in pinnedHoverPopupIds) {
+            if (k !== pluginId)
+                next[k] = pinnedHoverPopupIds[k]
+        }
+        pinnedHoverPopupIds = next
+    }
 
     function setHoverPopupData(key, json) {
         var id = String(key || "")
@@ -219,6 +248,7 @@ ShellRoot {
 
     function hide(id) {
         var pluginId = canonicalPluginId(id)
+        unpinHoverPopup(pluginId)
         var dash = dashboardLoaderFor(pluginId)
         if (dash && dash.item && typeof dash.item.close === "function") {
             dash.item.close()
@@ -245,7 +275,7 @@ ShellRoot {
         pendingHoverItem = null
         pendingHoverWindow = null
         var previous = hoverPopupId
-        if (previous && previous !== pluginId)
+        if (previous && previous !== pluginId && !isHoverPopupPinned(previous))
             hide(previous)
         hoverPopupId = pluginId
         peekHoverId = pluginId
@@ -295,7 +325,7 @@ ShellRoot {
             pendingHoverItem = null
             pendingHoverWindow = null
         }
-        if (pluginId === hoverPopupId)
+        if (pluginId === hoverPopupId && !isHoverPopupPinned(pluginId))
             hoverHideTimer.restart()
     }
 
@@ -307,7 +337,7 @@ ShellRoot {
     }
 
     function popupHoverLeave() {
-        if (hoverPopupId)
+        if (hoverPopupId && !isHoverPopupPinned(hoverPopupId))
             hoverHideTimer.restart()
     }
 
@@ -321,7 +351,7 @@ ShellRoot {
         pendingHoverId = ""
         pendingHoverItem = null
         pendingHoverWindow = null
-        if (previous && previous !== pluginId)
+        if (previous && previous !== pluginId && !isHoverPopupPinned(previous))
             hide(previous)
         hoverPopupId = pluginId
         popupAnchorItem = item
@@ -334,7 +364,7 @@ ShellRoot {
         hoverHideTimer.stop()
         peekHideTimer.stop()
         peekHoverId = ""
-        if (hoverPopupId)
+        if (hoverPopupId && !isHoverPopupPinned(hoverPopupId))
             hide(hoverPopupId)
         hoverPopupId = ""
         pendingHoverId = ""
@@ -518,6 +548,7 @@ ShellRoot {
             source: shell.pluginUrl(shell.pluginTable[modelData].path)
             onLoaded: {
                 if (item && "shell" in item) item.shell = shell
+                if (item) item.pluginId = modelData
                 shell.registerPanelLoader(modelData, this)
             }
             onActiveChanged: if (!active) shell.registerPanelLoader(modelData, this)
