@@ -52,27 +52,26 @@ Item {
         spcxPoll.runPoll()
     }
 
-    function marketMetaPills(market) {
-        var out = []
-        var change = market.quote ? market.quote.changePct : undefined
-        if (change !== undefined && change !== null && !isNaN(parseFloat(change))) {
-            var changeColor = signedColor(change)
-            out.push({
-                text: fmtSignedPct(change) + " 24h",
-                color: changeColor,
-                fill: Theme.withOpacity(changeColor, 0.14)
-            })
-        }
-        var upnl = market.position ? market.position.upnlPct : undefined
-        if (upnl !== undefined && upnl !== null && !isNaN(parseFloat(upnl))) {
-            var upnlColor = signedColor(upnl)
-            out.push({
-                text: fmtSignedPct(upnl) + " P/L",
-                color: upnlColor,
-                fill: Theme.withOpacity(upnlColor, 0.14)
-            })
-        }
-        return out
+    function marketStatBoxes(market) {
+        var position = market.position || {}
+        var quantityValue = market.name === "BTC"
+            ? root.fmtBtc(position.balance)
+            : root.fmtQty(position.quantity)
+        var quantityLabel = market.name === "BTC" ? "BTC" : "Shares"
+        var upnl = position.upnlPct
+        var upnlColor = signedColor(upnl)
+        return [
+            { label: "Value", value: root.fmtUsd(position.valueUsd) },
+            { label: quantityLabel, value: quantityValue },
+            { label: "Avg cost", value: root.fmtUsd(position.averagePrice) },
+            {
+                label: "P/L",
+                value: root.fmtSignedPct(upnl),
+                valueColor: upnlColor,
+                customFill: true,
+                customFillColor: Theme.withOpacity(upnlColor, 0.14)
+            }
+        ]
     }
 
     function signedColor(val) {
@@ -141,20 +140,6 @@ Item {
         return bars.slice(bars.length - chartHistoryDays)
     }
 
-    function marketStatBoxes(market) {
-        var position = market.position || {}
-        var quantityValue = market.name === "BTC"
-            ? root.fmtBtc(position.balance)
-            : root.fmtQty(position.quantity)
-        var quantityLabel = market.name === "BTC" ? "BTC" : "Shares"
-        return [
-            { label: "Value", value: root.fmtUsd(position.valueUsd) },
-            { label: quantityLabel, value: quantityValue },
-            { label: "Avg cost", value: root.fmtUsd(position.averagePrice) },
-            { label: "P/L", value: root.fmtSignedPct(position.upnlPct) }
-        ]
-    }
-
     function chartDays(data) {
         var period = data.period || {}
         if (period.days)
@@ -216,19 +201,12 @@ Item {
                 : "—"
         }
 
-        readonly property var metaPills: root.marketMetaPills(marketHeader.market)
-
         RowLayout {
             id: headerRow
             anchors.left: parent.left
-            anchors.right: parent.right
-            spacing: 14
+            spacing: 12
 
-            RowLayout {
-                spacing: 12
-                Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
-
-                Item {
+            Item {
                     Layout.preferredWidth: root.headerIconSize
                     Layout.preferredHeight: root.headerIconSize
                     Layout.alignment: Qt.AlignVCenter
@@ -255,28 +233,6 @@ Item {
                     lineHeight: root.heroFont
                     lineHeightMode: Text.FixedHeight
                 }
-            }
-
-            Item { Layout.fillWidth: true }
-
-            RowLayout {
-                spacing: Theme.spacingS
-                Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
-                visible: marketHeader.metaPills.length > 0
-
-                Repeater {
-                    model: marketHeader.metaPills
-
-                    HoverPopupLabelPill {
-                        required property var modelData
-                        text: modelData.text
-                        fontSize: Theme.fontSizeS
-                        textColor: modelData.color
-                        fill: modelData.fill
-                        textOpacity: 1
-                    }
-                }
-            }
         }
 
         MouseArea {
@@ -316,6 +272,11 @@ Item {
                         value: String(modelData.value)
                         label: modelData.label
                         valueFontSize: root.statFont
+                        valueColor: modelData.valueColor !== undefined ? modelData.valueColor : Theme.accent
+                        customFill: modelData.customFill === true
+                        customFillColor: modelData.customFillColor !== undefined
+                            ? modelData.customFillColor
+                            : Theme.panelMantle
                     }
                 }
             }

@@ -326,8 +326,7 @@ ShellRoot {
         hoverPopupId = pluginId
         popupAnchorItem = item
         popupAnchorWindow = win
-        if (!isPluginOpen(pluginId))
-            summon(pluginId, "")
+        summon(pluginId, "")
     }
 
     function clearHoverPopup() {

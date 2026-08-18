@@ -7,6 +7,8 @@ Item {
     property string value: ""
     property string label: ""
     property color valueColor: Theme.accent
+    property bool customFill: false
+    property color customFillColor: Theme.panelMantle
     property int valueFontSize: Theme.fontSize5xl
     property int labelFontSize: Theme.fontSizeS
     property int contentPad: Theme.panelContentPad
@@ -24,9 +26,11 @@ Item {
         anchors.fill: parent
         label: ""
         filled: true
-        fillColor: root.special
-            ? Theme.withOpacity(Theme.accent, 0.14)
-            : Theme.panelMantle
+        fillColor: root.customFill
+            ? root.customFillColor
+            : (root.special
+                ? Theme.withOpacity(Theme.accent, 0.14)
+                : Theme.panelMantle)
         contentPad: root.contentPad
 
         ColumnLayout {

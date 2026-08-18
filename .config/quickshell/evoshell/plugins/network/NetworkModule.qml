@@ -25,6 +25,7 @@ Item {
 
     property var info: ({})
     property bool loading: true
+    readonly property bool contentReady: !loading
     property bool hasTransferStats: false
     property bool hasPingStats: false
     property real networkDownloadRate: 0
@@ -96,9 +97,9 @@ Item {
     }
 
     function onActivated() {
+        syncFromBar()
         if (!info || !info.iface)
             loading = true
-        syncFromBar()
         refreshVerbose()
         refreshProcesses()
         pollTimer.start()

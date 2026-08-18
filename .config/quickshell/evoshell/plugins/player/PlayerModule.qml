@@ -39,6 +39,7 @@ Item {
     readonly property int libraryFont: Theme.fontSizeS
     readonly property int sectionLabelFont: Theme.fontSizeL
     readonly property int genreTabHeight: 34
+    readonly property int tabSearchBarWidth: 168
     readonly property bool playerPlaying: String(player.state || "") === "playing"
     readonly property real progress: player.duration > 0
         ? Math.max(0, Math.min(1, player.position / player.duration))
@@ -83,7 +84,6 @@ Item {
     property bool playlistsLoading: false
     property string resumePlaylist: ""
     property string playerScreen: "nowPlaying"
-    property bool tabSearchMode: false
     property string tabSearchText: ""
     property bool browseQueueBusy: false
     property bool browsePanelOpen: false
@@ -92,7 +92,7 @@ Item {
     readonly property bool splitSidePanelMode: browsePanelOpen || playlistPanelOpen
         || playerScreen === "tags" || playerScreen === "filter"
     readonly property bool nowPlayingTabActive: !browsePanelOpen && !playlistPanelOpen
-        && !libraryPanelOpen && playerScreen === "nowPlaying" && !tabSearchMode
+        && !libraryPanelOpen && playerScreen === "nowPlaying"
     property string playlistPanelMode: "tracks"
     property bool queueExtendBusy: false
     property string filterKind: ""
@@ -239,7 +239,6 @@ Item {
     }
 
     function showNowPlaying() {
-        tabSearchMode = false
         browsePanelOpen = false
         playlistPanelOpen = false
         libraryPanelOpen = false
@@ -279,12 +278,50 @@ Item {
             playerScreen = "nowPlaying"
             return
         }
-        tabSearchMode = false
         browsePanelOpen = false
         playlistPanelOpen = false
         libraryPanelOpen = false
         playerScreen = "tags"
         loadGenres()
+    }
+
+    function isCurrentGenreFolder(folderName) {
+        var folder = String(folderName || "")
+        if (!folder)
+            return false
+        var tag = String(player.genre || "").trim().toLowerCase()
+        if (folder.toLowerCase() === tag)
+            return true
+        if (root.genreFolderLabel(folder).toLowerCase() === tag)
+            return true
+        var path = String(player.path || "").toLowerCase()
+        return path.indexOf("/" + folder.toLowerCase() + "/") >= 0
+    }
+
+    function retagCurrentTrack(genreFolder) {
+        var trackPath = String(player.path || "").trim()
+        if (!trackPath) {
+            root.notify("nothing playing", 2500)
+            return
+        }
+        if (!genreFolder)
+            return
+        runMusic(["retag", trackPath, genreFolder, "--json"], function(text) {
+            try {
+                var result = JSON.parse(String(text || "{}"))
+                var newPath = String(result.path || "")
+                var p = Object.assign({}, player)
+                if (newPath)
+                    p.path = newPath
+                p.genre = String(result.genre || genreFolder)
+                player = p
+                root.refreshStatus()
+                root.loadGenres()
+                root.notify("genre updated", 2000)
+            } catch (e) {
+                root.notify("could not retag", 2500)
+            }
+        })
     }
 
     function checkAutoExtendQueue() {
@@ -370,7 +407,6 @@ Item {
             libraryPanelOpen = false
             return
         }
-        tabSearchMode = false
         playerScreen = "nowPlaying"
         libraryPanelOpen = true
     }
@@ -391,7 +427,6 @@ Item {
         jobLog = label + "…\n"
         if (!(options && options.stayOnScreen)) {
             libraryPanelOpen = true
-            tabSearchMode = false
             if (playerScreen !== "tags" && playerScreen !== "filter")
                 playerScreen = "nowPlaying"
         }
@@ -1229,7 +1264,6 @@ Item {
     }
 
     function openFilter(kind, value, label) {
-        tabSearchMode = false
         browsePanelOpen = false
         playlistPanelOpen = false
         filterKind = String(kind || "")
@@ -1259,11 +1293,8 @@ Item {
 
     function runTabSearch() {
         var q = String(tabSearchText || "").trim()
-        if (!q) {
-            tabSearchMode = false
+        if (!q)
             return
-        }
-        tabSearchMode = false
         openFilter("search", q, q)
     }
 
@@ -1293,7 +1324,6 @@ Item {
     }
 
     function openGenreTracks(genreName) {
-        tabSearchMode = false
         browsePanelOpen = false
         playlistPanelOpen = false
         filterKind = "genre"
@@ -2328,8 +2358,6 @@ Item {
         interval: 650
         repeat: false
         onTriggered: {
-            if (!root.tabSearchMode)
-                return
             var q = String(root.tabSearchText || "").trim()
             if (!q)
                 return
@@ -2443,18 +2471,17 @@ Item {
                     onActivated: root.toggleBrowsePanel()
                 }
                 IconTab {
-                    icon: "󰎶"
+                    icon: "󰓹"
+                    active: root.playerScreen === "tags"
+                    onActivated: root.toggleTagsPanel()
+                }
+                IconTab {
+                    icon: "󰲸"
                     active: root.playlistPanelOpen
                     onActivated: root.togglePlaylistPanel()
                 }
-                IconTab {
-                    icon: "󰓹"
-                    active: root.playerScreen === "tags" || root.playerScreen === "filter"
-                    onActivated: root.toggleTagsPanel()
-                }
 
                 Rectangle {
-                    visible: !root.tabSearchMode
                     Layout.preferredWidth: 1
                     Layout.preferredHeight: Math.max(12, root.genreTabHeight - 16)
                     Layout.alignment: Qt.AlignVCenter
@@ -2465,7 +2492,6 @@ Item {
                     id: playlistTabBarHost
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    visible: !root.tabSearchMode
 
                     ListView {
                         id: playlistTabBar
@@ -2530,94 +2556,6 @@ Item {
                         }
                     }
                 }
-
-                Item {
-                    visible: root.tabSearchMode
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: root.genreTabHeight
-
-                    Rectangle {
-                        anchors.fill: parent
-                        radius: 6
-                        color: Theme.foregroundWash
-                        border.color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.35)
-                        border.width: 1
-
-                        TextInput {
-                            id: tabSearchInput
-                            anchors.fill: parent
-                            anchors.leftMargin: 10
-                            anchors.rightMargin: 10
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.listFont
-                            selectionColor: Theme.accent
-                            selectedTextColor: Theme.mantle
-                            verticalAlignment: TextInput.AlignVCenter
-                            clip: true
-                            onTextChanged: {
-                                root.tabSearchText = text
-                                tabSearchDebounce.restart()
-                            }
-                            onAccepted: {
-                                tabSearchDebounce.stop()
-                                root.runTabSearch()
-                            }
-                            Keys.onEscapePressed: {
-                                tabSearchDebounce.stop()
-                                root.tabSearchMode = false
-                                root.tabSearchText = ""
-                                text = ""
-                            }
-                            onActiveFocusChanged: {
-                                if (!activeFocus && String(text || "").trim() === "") {
-                                    tabSearchDebounce.stop()
-                                    root.tabSearchMode = false
-                                }
-                            }
-                            Component.onCompleted: forceActiveFocus()
-                        }
-
-                        Connections {
-                            target: root
-                            function onTabSearchModeChanged() {
-                                if (root.tabSearchMode) {
-                                    tabSearchInput.text = ""
-                                    root.tabSearchText = ""
-                                    tabSearchDebounce.stop()
-                                }
-                            }
-                        }
-
-                        Text {
-                            anchors.verticalCenter: parent.verticalCenter
-                            anchors.left: parent.left
-                            anchors.leftMargin: 10
-                            visible: !tabSearchInput.text && !tabSearchInput.activeFocus
-                            text: "search library…"
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.listFont
-                            opacity: 0.4
-                        }
-                    }
-                }
-
-                IconTab {
-                    icon: "󰍉"
-                    active: root.tabSearchMode
-                    visible: !root.libraryPanelOpen
-                    onActivated: {
-                        if (root.tabSearchMode) {
-                            tabSearchDebounce.stop()
-                            root.runTabSearch()
-                        } else {
-                            root.libraryPanelOpen = false
-                            root.tabSearchMode = true
-                            root.tabSearchText = ""
-                        }
-                    }
-                }
                 }
 
                 RowLayout {
@@ -2665,6 +2603,61 @@ Item {
                             dimmed: root.libraryJobBusy
                             spinning: root.libraryJobBusy && root.libraryJobActiveLabel === modelData.label
                             onActivated: if (!root.libraryJobBusy) root.runLibraryAction(modelData)
+                        }
+                    }
+                }
+
+                Item {
+                    Layout.preferredWidth: root.tabSearchBarWidth
+                    Layout.preferredHeight: root.genreTabHeight
+                    Layout.alignment: Qt.AlignVCenter
+
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: 6
+                        color: Theme.foregroundWash
+                        border.color: tabSearchInput.activeFocus
+                            ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.35)
+                            : Theme.foregroundDivider
+                        border.width: 1
+
+                        TextInput {
+                            id: tabSearchInput
+                            anchors.fill: parent
+                            anchors.leftMargin: 8
+                            anchors.rightMargin: 8
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.libraryFont
+                            selectionColor: Theme.accent
+                            selectedTextColor: Theme.mantle
+                            verticalAlignment: TextInput.AlignVCenter
+                            clip: true
+                            onTextChanged: {
+                                root.tabSearchText = text
+                                tabSearchDebounce.restart()
+                            }
+                            onAccepted: {
+                                tabSearchDebounce.stop()
+                                root.runTabSearch()
+                            }
+                            Keys.onEscapePressed: {
+                                tabSearchDebounce.stop()
+                                root.tabSearchText = ""
+                                text = ""
+                            }
+                        }
+
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            anchors.left: parent.left
+                            anchors.leftMargin: 8
+                            visible: !tabSearchInput.text && !tabSearchInput.activeFocus
+                            text: "search…"
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.libraryFont
+                            opacity: 0.4
                         }
                     }
                 }
@@ -3148,6 +3141,12 @@ Item {
                         return
                     mouse.accepted = true
                     root.openArtPicker()
+                }
+                onWheel: function(wheel) {
+                    if (!wheel.angleDelta.y)
+                        return
+                    root.adjustVolume(wheel.angleDelta.y > 0 ? 5 : -5)
+                    wheel.accepted = true
                 }
             }
 
@@ -4655,11 +4654,9 @@ Item {
                     showNumber: false
                     selected: root.isTrackSelected(modelData.path)
                     showLike: true
-                    showFolderOpen: true
                     onPressed: root.selectPlaylistTrack(index)
                     onActivated: root.playTrackAt(index)
                     onLikeToggled: root.toggleTrackFavorite(modelData.path)
-                    onFolderOpenRequested: root.openTrackInThunar(modelData.path)
                 }
             }
         }
@@ -4669,63 +4666,54 @@ Item {
         label: ""
         fillHeight: true
 
-        ListView {
-            id: sideTagsGenreList
+        Flickable {
             anchors.fill: parent
             clip: true
-            spacing: Theme.spacing2
-            model: root.genres
+            contentWidth: width
+            contentHeight: tagsPanelColumn.implicitHeight
+            boundsBehavior: Flickable.StopAtBounds
 
-            Text {
-                anchors.centerIn: parent
-                visible: root.genres.length === 0
-                text: "no genres"
-                color: Theme.foreground
-                font.family: Theme.fontFamily
-                font.pixelSize: root.listFont
-                opacity: Theme.opacityDisabled
-            }
+            Column {
+                id: tagsPanelColumn
+                width: parent.width
+                spacing: Theme.spacingM
 
-            delegate: Rectangle {
-                required property var modelData
-                required property int index
-                width: sideTagsGenreList.width
-                height: 40
-                radius: Theme.radiusL
-                color: sideTagGenreMouse.containsMouse
-                    ? Theme.foregroundGhost
-                    : "transparent"
-
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: 10
-                    anchors.rightMargin: 10
-                    spacing: Theme.spacingM
-
-                    Text {
-                        Layout.fillWidth: true
-                        text: root.playlistTabLabel(modelData.name || "")
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.listFont
-                        elide: Text.ElideRight
-                    }
-
-                    Text {
-                        text: String(modelData.count || 0)
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.listFont
-                        opacity: Theme.opacityDisabled
-                    }
+                Text {
+                    width: parent.width
+                    visible: !String(root.player.path || "").trim()
+                    text: "play a track to change tags"
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.listFont
+                    opacity: Theme.opacityDisabled
                 }
 
-                MouseArea {
-                    id: sideTagGenreMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.openGenreTracks(modelData.name)
+                Text {
+                    width: parent.width
+                    visible: root.genres.length === 0
+                    text: "no tags"
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.listFont
+                    opacity: Theme.opacityDisabled
+                }
+
+                Flow {
+                    id: tagsFlow
+                    width: parent.width
+                    spacing: Theme.spacingS
+
+                    Repeater {
+                        model: root.genres
+
+                        MetaChip {
+                            required property var modelData
+                            label: root.playlistTabLabel(modelData.name || "")
+                            accent: root.isCurrentGenreFolder(modelData.name || "")
+                            clickable: true
+                            onActivated: root.retagCurrentTrack(modelData.name)
+                        }
+                    }
                 }
             }
         }
@@ -4798,11 +4786,9 @@ Item {
                         number: index + 1
                         selected: root.isTrackSelected(modelData.path)
                         showLike: true
-                        showFolderOpen: true
                         onPressed: root.selectedTrackIndex = index
                         onActivated: root.playFilterTrackAt(index)
                         onLikeToggled: root.toggleTrackFavorite(modelData.path)
-                        onFolderOpenRequested: root.openTrackInThunar(modelData.path)
                     }
                 }
             }

@@ -108,6 +108,20 @@ Item {
         height: Theme.barHeight
 
         Item {
+            width: root.showAudio ? root.trayCellWidth : 0
+            height: Theme.barHeight
+            visible: root.showAudio
+
+            Loader {
+                id: volumeLoader
+                anchors.fill: parent
+                active: root.showAudio
+                sourceComponent: volumeComp
+                onLoaded: root.wireBarWidget(item, root.settings.audio, "evo.volume")
+            }
+        }
+
+        Item {
             width: root.showWeather ? root.trayCellWidth : 0
             height: Theme.barHeight
             visible: root.showWeather
@@ -132,20 +146,6 @@ Item {
                 active: root.showGithub
                 sourceComponent: githubComp
                 onLoaded: root.wireBarWidget(item, root.settings.github, "evo.github")
-            }
-        }
-
-        Item {
-            width: root.showAudio ? root.trayCellWidth : 0
-            height: Theme.barHeight
-            visible: root.showAudio
-
-            Loader {
-                id: volumeLoader
-                anchors.fill: parent
-                active: root.showAudio
-                sourceComponent: volumeComp
-                onLoaded: root.wireBarWidget(item, root.settings.audio, "evo.volume")
             }
         }
 

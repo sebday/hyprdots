@@ -6,6 +6,7 @@ Item {
     id: root
 
     property bool opened: false
+    property bool revealed: true
     property int contentWidth: Theme.overlayWidthDefault
     property int contentHeight: 320
     property int contentMargin: Theme.overlayMargin
@@ -97,38 +98,58 @@ Item {
         WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
         exclusionMode: ExclusionMode.Ignore
 
-        Rectangle {
-            id: box
+        Item {
+            id: revealHost
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: root.barOnBottom ? parent.top : undefined
             anchors.bottom: root.barOnBottom ? undefined : parent.bottom
             height: root.contentHeight
-            color: Theme.mantle
-            border.color: Theme.accent
-            border.width: root.opened ? root.borderWidth : 0
-            radius: Theme.panelCornerRadius
+            opacity: root.revealed ? 1 : 0
+
+            Behavior on opacity {
+                NumberAnimation {
+                    duration: Theme.hoverPopupRevealDuration
+                    easing.type: Easing.OutCubic
+                }
+            }
+
+            transform: Translate {
+                y: root.revealed ? 0 : (root.barOnBottom ? Theme.hoverPopupRevealOffset : -Theme.hoverPopupRevealOffset)
+            }
+
+            Rectangle {
+                id: box
+                anchors.fill: parent
+                color: Theme.mantle
+                border.color: Theme.accent
+                border.width: root.opened ? root.borderWidth : 0
+                radius: Theme.panelCornerRadius
+            }
+
+            Item {
+                id: contentHost
+                anchors.left: box.left
+                anchors.right: box.right
+                anchors.top: box.top
+                anchors.bottom: box.bottom
+                anchors.leftMargin: root.contentMargin + (root.opened ? root.borderWidth : 0)
+                anchors.rightMargin: root.contentMargin + (root.opened ? root.borderWidth : 0)
+                anchors.topMargin: root.contentTopMargin + (root.opened ? root.borderWidth : 0)
+                anchors.bottomMargin: root.contentMargin + (root.opened ? root.borderWidth : 0)
+            }
         }
 
         HoverHandler {
+            enabled: root.opened
             onHoveredChanged: {
+                if (!root.revealed)
+                    return
                 if (hovered)
                     root.hoverEntered()
                 else
                     root.hoverLeft()
             }
-        }
-
-        Item {
-            id: contentHost
-            anchors.left: box.left
-            anchors.right: box.right
-            anchors.top: box.top
-            anchors.bottom: box.bottom
-            anchors.leftMargin: root.contentMargin + (root.opened ? root.borderWidth : 0)
-            anchors.rightMargin: root.contentMargin + (root.opened ? root.borderWidth : 0)
-            anchors.topMargin: root.contentTopMargin + (root.opened ? root.borderWidth : 0)
-            anchors.bottomMargin: root.contentMargin + (root.opened ? root.borderWidth : 0)
         }
     }
 }

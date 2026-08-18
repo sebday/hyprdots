@@ -8,10 +8,11 @@ EVOSHELL_BIN="${EVOSHELL_BIN:-$HOME/.local/bin}"
 EVOSHELL_CONFIG="${EVOSHELL_CONFIG:-$HOME/.config/evoshell}"
 EVOSHELL_STATE="${EVOSHELL_STATE:-${XDG_STATE_HOME:-$HOME/.local/state}/evoshell}"
 
-MUSIC_CONFIG="${EVOSHELL_CONFIG}/music.toml"
 MUSIC_ROOT="${EVO_MUSIC_ROOT:-/mnt/external/music}"
 MUSIC_CACHE="${EVO_MUSIC_CACHE:-${MUSIC_ROOT}/.cache}"
 MUSIC_STATE="${EVO_MUSIC_STATE:-${MUSIC_CACHE}}"
+MUSIC_CONFIG="${EVO_MUSIC_CONFIG:-${MUSIC_CACHE}/music.toml}"
+LEGACY_MUSIC_CONFIG="${EVOSHELL_CONFIG}/music.toml"
 SYNC_ARCHIVE="${MUSIC_STATE}/sync-archive.txt"
 PLAYLIST_DIR="${MUSIC_STATE}/playlists"
 WAVEFORM_DIR="${MUSIC_STATE}/waveforms"
@@ -176,6 +177,7 @@ is_liked() {
 
 migrate_cache() {
   local old="$LEGACY_STATE"
+  [[ -f "$MUSIC_CONFIG" ]] || [[ ! -f "$LEGACY_MUSIC_CONFIG" ]] || cp "$LEGACY_MUSIC_CONFIG" "$MUSIC_CONFIG"
   [[ -d "$old" ]] || return 0
   local name
   for name in sync-archive.txt player.json; do

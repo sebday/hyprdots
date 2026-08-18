@@ -354,7 +354,7 @@ Scope {
     function mediaFields(entry) {
         if (entry && entry.localMedia) {
             return {
-                kicker: String(entry.app || "evo.player"),
+                kicker: "",
                 title: String(entry.title || ""),
                 subtitle: String(entry.body || ""),
                 footer: ""

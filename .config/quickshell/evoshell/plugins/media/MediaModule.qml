@@ -17,9 +17,11 @@ Item {
     readonly property int hintFont: Theme.fontSizeL
     readonly property int iconFont: Theme.fontSize4xl
     readonly property string mediaScript: (Quickshell.env("HOME") || "") + "/.local/bin/evo-media"
+    readonly property string cacheKey: "evo.media"
 
     property var mediaShows: []
     property bool mediaLoading: false
+    readonly property bool contentReady: !mediaLoading
 
     readonly property var mediaPreviewItems: mediaShows
 
@@ -96,6 +98,22 @@ Item {
 
     function onDeactivated() {}
 
+    function bootstrapFromCache() {
+        if (!shell)
+            return
+        var cached = Util.hoverPopupCacheRead(shell, cacheKey)
+        if (!cached || typeof cached !== "object")
+            return
+        if (Array.isArray(cached.shows) && cached.shows.length > 0)
+            mediaShows = cached.shows.slice()
+    }
+
+    function publishCache() {
+        if (!shell)
+            return
+        Util.hoverPopupCacheWrite(shell, cacheKey, { shows: mediaShows })
+    }
+
     function openMediaLibrary(showName) {
         if (!shell) return
         if (host && typeof host.close === "function")
@@ -114,7 +132,7 @@ Item {
     function loadMediaShows() {
         if (mediaPopupProc.running)
             return
-        mediaLoading = true
+        mediaLoading = mediaShows.length === 0
         mediaPopupProc.running = true
     }
 
@@ -507,7 +525,7 @@ Item {
                     Text {
                         anchors.centerIn: parent
                         width: parent.width
-                        visible: root.mediaLoading
+                        visible: root.mediaLoading && root.mediaPreviewItems.length === 0
                         text: "Loading…"
                         color: Theme.foreground
                         font.family: Theme.fontFamily
@@ -529,7 +547,7 @@ Item {
                     GridLayout {
                         id: showGrid
                         width: parent.width
-                        visible: !root.mediaLoading && root.mediaPreviewItems.length > 0
+                        visible: root.mediaPreviewItems.length > 0
                         columns: root.tvLibraryGridCols
                         columnSpacing: root.tvLibraryTileSpacing
                         rowSpacing: root.tvLibraryTileSpacing
@@ -668,7 +686,10 @@ Item {
                 } catch (e) {
                     root.mediaShows = []
                 }
+                root.publishCache()
             }
         }
     }
+
+    Component.onCompleted: bootstrapFromCache()
 }
