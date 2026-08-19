@@ -234,6 +234,7 @@ Singleton {
     readonly property int barHoverContentTopPad: barHoverTopPad - 10
     readonly property int overlayWidthDefault: hoverPopupWidthStandard
     readonly property int overlayMargin: hoverPopupMargin
+    readonly property int overlayContentInset: hoverPopupMargin + hoverPopupBorderWidth
     readonly property int screenEdgeInset: barHoverTopPad
     readonly property int hoverPopupWidthStandard: 440
     readonly property int hoverPopupWidthWide: 580

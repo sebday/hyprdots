@@ -18,14 +18,14 @@ Item {
     property int contentSpacing: Theme.spacingL
     property int contentMargin: Theme.panelDockPad
     property bool hovered: false
+    property color surfaceColor: ""
 
     readonly property bool onRight: side === "right"
     readonly property int edgeGap: Theme.gapsOut
     readonly property bool surfaceActive: dock.hovered
-    readonly property color surfaceFill: Theme.withOpacity(
-        Theme.background,
-        surfaceActive ? Theme.surfaceOpacity : Theme.surfaceOpacityInactive
-    )
+    readonly property color surfaceFill: surfaceColor !== ""
+        ? surfaceColor
+        : Theme.background
     readonly property bool scrimActive: shown && opened && !pinned
     readonly property color panelBorderIdle: Theme.inactiveBorder
     readonly property color panelBorderActive: Theme.accent

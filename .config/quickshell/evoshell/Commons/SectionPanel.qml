@@ -10,7 +10,7 @@ Item {
     property int labelFontSize: Theme.fontSizeL
     property int contentPad: Theme.hoverPopupContentPad
     property int legendPad: -1
-    property color legendBackground: Theme.mantle
+    property color legendBackground: Theme.background
     property bool filled: false
     property color fillColor: Theme.panelMantle
     property real labelOpacity: 0.72
@@ -28,9 +28,15 @@ Item {
 
     default property alias sectionContent: innerCol.data
 
+    function syncLegendFill(child) {
+        if (!child || child.fieldsetFill === undefined)
+            return
+        child.fieldsetFill = Qt.binding(function() { return root.legendBackground })
+    }
+
     function adoptFieldsetLegend() {
         if (panel.legendOverlay && panel.legendOverlay.fieldsetLegend === true) {
-            panel.legendOverlay.fieldsetFill = root.legendBackground
+            syncLegendFill(panel.legendOverlay)
             panel.labelBackground = root.legendBackground
             Qt.callLater(panel.syncLegendOverlay)
             return
@@ -39,7 +45,7 @@ Item {
             var child = innerCol.children[i]
             if (!child || child.fieldsetLegend !== true)
                 continue
-            child.fieldsetFill = root.legendBackground
+            syncLegendFill(child)
             panel.legendOverlay = child
             panel.labelBackground = root.legendBackground
             Qt.callLater(panel.syncLegendOverlay)
@@ -48,12 +54,14 @@ Item {
         panel.legendOverlay = null
     }
 
+    onLegendBackgroundChanged: adoptFieldsetLegend()
     onVisibleChanged: if (visible) Qt.callLater(adoptFieldsetLegend)
 
     FramedPanel {
         id: panel
         anchors.fill: root.fillHeight ? parent : undefined
         width: root.fillHeight ? undefined : root.width
+        legendOverlayParent: root
         label: root.label
         labelAlign: root.labelAlign
         labelFontSize: root.labelFontSize

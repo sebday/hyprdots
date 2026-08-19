@@ -632,6 +632,8 @@ Item {
                         Layout.maximumWidth: root.posterCellWidth
                         implicitHeight: posterCol.implicitHeight
 
+                        readonly property bool hovered: posterMouse.containsMouse
+
                         ColumnLayout {
                             id: posterCol
                             width: root.posterCellWidth
@@ -670,13 +672,28 @@ Item {
                                     font.pixelSize: root.hintFont
                                     opacity: 0.75
                                 }
+
+                                Rectangle {
+                                    anchors.fill: parent
+                                    radius: Theme.fieldsetCornerRadius
+                                    color: Theme.accent
+                                    opacity: hovered ? 0.12 : 0
+                                }
+
+                                Rectangle {
+                                    anchors.fill: parent
+                                    radius: Theme.fieldsetCornerRadius
+                                    color: "transparent"
+                                    border.width: hovered ? 2 : 1
+                                    border.color: hovered ? Theme.accent : Theme.foregroundDivider
+                                }
                             }
 
                             Text {
                                 Layout.fillWidth: true
                                 visible: posterGrid.showLabels
                                 text: root.itemLabel(modelData)
-                                color: Theme.foreground
+                                color: hovered ? Theme.accent : Theme.foreground
                                 font.family: Theme.fontFamily
                                 font.pixelSize: root.hintFont
                                 font.bold: Theme.fontBold
@@ -686,7 +703,9 @@ Item {
                         }
 
                         MouseArea {
+                            id: posterMouse
                             anchors.fill: parent
+                            hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
                                 if (posterGrid.itemActivated)

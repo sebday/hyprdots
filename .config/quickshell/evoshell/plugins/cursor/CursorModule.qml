@@ -398,15 +398,28 @@ Item {
                 }
             }
 
-            Text {
+            RowLayout {
                 Layout.fillWidth: true
                 visible: root.detail.onDemand === true
-                text: "On-demand usage enabled"
-                    + (root.detail.onDemandUsed ? (" · " + Number(root.detail.onDemandUsed).toLocaleString() + " used") : "")
-                color: Theme.foreground
-                font.family: Theme.fontFamily
-                font.pixelSize: root.breakdownFont
-                opacity: 0.6
+                spacing: Theme.spacingS
+
+                Text {
+                    text: "On-demand usage enabled"
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.breakdownFont
+                    opacity: 0.6
+                }
+
+                HoverPopupLabelPill {
+                    visible: root.detail.onDemandUsed > 0
+                    text: Number(root.detail.onDemandUsed).toLocaleString() + " used"
+                    fieldsetLegend: false
+                    fontSize: Theme.fontSizeXs
+                    textColor: Theme.accent
+                    fill: Theme.withOpacity(Theme.accent, 0.14)
+                    textOpacity: 1
+                }
             }
         }
     }

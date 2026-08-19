@@ -14,7 +14,7 @@ Item {
     property real textOpacity: 0.72
     property bool alignCenter: false
     property bool fieldsetLegend: true
-    property color fieldsetFill: Theme.mantle
+    property color fieldsetFill: Theme.background
     property bool clickable: false
 
     signal clicked()

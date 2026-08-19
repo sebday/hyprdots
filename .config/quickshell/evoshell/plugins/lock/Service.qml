@@ -135,7 +135,7 @@ Item {
                 Rectangle {
                     width: 280
                     height: 36
-                    color: Theme.mantle
+                    color: Theme.background
                     border.color: Theme.accent
                     radius: Theme.radiusL
 

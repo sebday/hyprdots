@@ -1,6 +1,7 @@
 require("input")
 require("looks")
 require("theme")
+require("layouts/dashboard")
 require("monitors")
 require("windows")
 require("layout")

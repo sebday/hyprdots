@@ -541,11 +541,10 @@ Item {
             label: ""
             sectionSpacing: 8
             contentPad: Theme.hoverPopupContentPad
-            legendBackground: Theme.mantle
+            legendBackground: Theme.background
 
             HoverPopupLabelPill {
                 text: root.accountLegendLabel
-                iconUrl: root.accountLegendLogo
                 icon: "󰠞"
                 fontSize: Theme.fontSizeS
             }
@@ -611,7 +610,7 @@ Item {
             label: root.sectionLabel(root.attentionSection.title)
             sectionSpacing: 8
             contentPad: Theme.hoverPopupContentPad
-            legendBackground: Theme.mantle
+            legendBackground: Theme.background
 
             ColumnLayout {
                 Layout.fillWidth: true
@@ -634,7 +633,7 @@ Item {
             visible: root.recentGroupedSection.rows.length > 0
             sectionSpacing: 8
             contentPad: Theme.hoverPopupContentPad
-            legendBackground: Theme.mantle
+            legendBackground: Theme.background
 
             HoverPopupLabelPill {
                 text: "Recent"

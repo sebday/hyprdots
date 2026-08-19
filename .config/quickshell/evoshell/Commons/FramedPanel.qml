@@ -11,7 +11,7 @@ Item {
     property color frameBorder: Theme.foregroundBorder
     property bool contentFill: false
     property int labelFontSize: Theme.fontSizeS
-    property color labelBackground: Theme.mantle
+    property color labelBackground: Theme.background
     property bool filled: false
     property color fillColor: Theme.panelMantle
     property int labelPadH: Theme.panelLabelPadH
@@ -20,6 +20,7 @@ Item {
     property bool labelClickable: false
     property int labelGap: Theme.spacingM
     property Item legendOverlay: null
+    property Item legendOverlayParent: null
 
     signal labelClicked()
 
@@ -140,6 +141,8 @@ Item {
         syncLegendOverlay()
     }
 
+    onLegendOverlayParentChanged: Qt.callLater(syncLegendOverlay)
+
     onLegendOverlayHeightChanged: syncLegendOverlay()
 
     onLegendOverlayWidthChanged: Qt.callLater(syncLegendOverlay)
@@ -161,9 +164,11 @@ Item {
     function syncLegendOverlay() {
         if (!root.hasLegendOverlay)
             return
-        legendOverlay.parent = root
-        legendOverlay.x = legendAnchor.x
-        legendOverlay.y = legendAnchor.y - legendOverlay.implicitHeight + root.legendLineOverlap
+        var overlayParent = root.legendOverlayParent || root
+        legendOverlay.parent = overlayParent
+        var anchorPos = legendAnchor.mapToItem(overlayParent, 0, 0)
+        legendOverlay.x = anchorPos.x
+        legendOverlay.y = anchorPos.y - legendOverlay.implicitHeight + root.legendLineOverlap
         legendOverlay.z = 10
         legendBorderMask.x = legendAnchor.x - frameBox.x
         legendBorderMask.width = legendOverlay.implicitWidth

@@ -103,61 +103,11 @@ Item {
             sectionSpacing: 10
             contentPad: Theme.hoverPopupContentPad
 
-            Item {
-                id: calendarLegend
-                property bool fieldsetLegend: true
-                property color fieldsetFill: Theme.mantle
-
-                implicitWidth: legendBg.implicitWidth
-                implicitHeight: legendBg.implicitHeight
-
-                Rectangle {
-                    id: legendBg
-                    color: calendarLegend.fieldsetFill
-                    implicitWidth: legendRow.implicitWidth + 10
-                    implicitHeight: legendRow.implicitHeight
-
-                    RowLayout {
-                        id: legendRow
-                        anchors.centerIn: parent
-                        spacing: 5
-
-                        Item {
-                            Layout.preferredWidth: 14
-                            Layout.preferredHeight: 14
-
-                            Image {
-                                id: calendarLegendLogoImage
-                                anchors.fill: parent
-                                source: root.calendarLegendLogo
-                                fillMode: Image.PreserveAspectFit
-                                smooth: true
-                                asynchronous: true
-                                visible: source !== "" && status === Image.Ready
-                            }
-
-                            Text {
-                                anchors.centerIn: parent
-                                visible: !calendarLegendLogoImage.visible
-                                text: root.calendarLegendIcon
-                                color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.fontSizeS
-                                font.bold: Theme.fontBold
-                                opacity: 0.85
-                            }
-                        }
-
-                        Text {
-                            text: root.calendarLegendLabel
-                            color: Theme.foreground
-                            opacity: 0.72
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontSizeS
-                            font.bold: Theme.fontBold
-                        }
-                    }
-                }
+            HoverPopupLabelPill {
+                text: root.calendarLegendLabel
+                icon: root.calendarLegendIcon
+                iconUrl: root.calendarLegendLogo
+                fontSize: Theme.fontSizeS
             }
 
             Text {

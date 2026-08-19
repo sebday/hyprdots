@@ -38,7 +38,6 @@ Item {
     readonly property int powerTileWidth: 136
     readonly property int powerTileHeight: 124
     readonly property int powerGridColumns: 5
-    readonly property int powerMenuPadding: 28
     readonly property int powerHeaderHeight: 104
     readonly property int powerLogoFont: Theme.fontSize8xl * 2
     readonly property int powerTileIconSize: 52
@@ -106,8 +105,14 @@ Item {
         return rows * activeTileHeight + (rows - 1) * tileSpacing
     }
 
+    readonly property int menuOuterInset: Theme.overlayContentInset
+    readonly property int menuFieldsetPad: Theme.hoverPopupContentPad
+    readonly property int menuLegendChrome: 20
+    readonly property int menuChromeHeight: menuOuterInset * 2 + menuFieldsetPad * 2 + menuLegendChrome
+    readonly property int menuChromeWidth: menuOuterInset * 2 + menuFieldsetPad * 2
+
     readonly property int styledMenuViewportHeight: {
-        var chrome = powerHeaderHeight + powerMenuPadding * 2 + 28
+        var chrome = menuChromeHeight
         var available = Math.max(powerTileHeight + tileSpacing,
             panel.previewAreaMaxHeight - chrome)
         return Math.min(gridHeight, available)
@@ -132,8 +137,8 @@ Item {
     readonly property int boxRowWidth: previewTileMode ? gridWidth : (tileMode ? gridWidth : tileRowWidth)
     readonly property int boxRowHeight: previewTileMode
         ? gridHeight
-        : (tileMode ? gridHeight + powerHeaderHeight + 12 : tileHeight)
-    readonly property int styledMenuHostHeight: styledMenuViewportHeight + powerHeaderHeight + powerMenuPadding * 2 + 28
+        : (tileMode ? gridHeight + 12 : tileHeight)
+    readonly property int styledMenuHostHeight: styledMenuViewportHeight + menuChromeHeight
 
     readonly property string home: Quickshell.env("HOME")
     readonly property string placeholderText: {
@@ -143,15 +148,21 @@ Item {
         if (mode === "apps") return "Applications…"
         return "Search…"
     }
+    readonly property string framedLegendTitle: {
+        if (submenu === "bindings") return "Bindings"
+        if (submenu === "shell") return "Shell commands"
+        return "Menu"
+    }
+    readonly property string styledLegendTitle: appsGridMode ? "Apps" : "Evo shell"
+    readonly property int sectionLegendChrome: menuLegendChrome
 
     readonly property bool infoListMode: submenu === "bindings" || submenu === "shell"
     readonly property int framedMenuWidth: infoListMode ? 1040 : 720
     readonly property int infoListFontSize: Theme.fontSizeM
     readonly property int infoListRowHeight: 48
     readonly property int framedMenuHeight: 640
-    readonly property int framedPadding: 16
     readonly property int framedFilterChromeHeight: listFilterHeight
-    readonly property int framedColumnSpacing: 12
+    readonly property int framedColumnSpacing: Theme.hoverPopupSectionSpacing
     readonly property int infoDetailHeight: 96
     readonly property var selectedFiles: {
         var list = visibleEntries
@@ -172,11 +183,12 @@ Item {
     }
     readonly property bool infoDetailVisible: infoListMode
         && (selectedDetail.length > 0 || selectedFiles.length > 0)
-    readonly property int framedChromeHeight: framedFilterChromeHeight + framedColumnSpacing
+    readonly property int framedChromeHeight: menuFieldsetPad * 2 + menuLegendChrome
+        + framedFilterChromeHeight + framedColumnSpacing
         + (infoDetailVisible ? infoDetailHeight + framedColumnSpacing : 0)
     readonly property int framedListHeight: Math.max(
         120,
-        framedMenuHeight - framedPadding * 2 - framedChromeHeight)
+        framedMenuHeight - menuOuterInset * 2 - framedChromeHeight)
 
     function shortenMenuPath(path) {
         var p = String(path || "")
@@ -238,6 +250,21 @@ Item {
     function dismiss() {
         if (shell) shell.hide("evo.menu")
         else close()
+    }
+
+    function reopen(payloadJson) {
+        if (!opened)
+            return false
+        var parsed = { mode: mode, submenu: submenu }
+        try {
+            parsed = JSON.parse(payloadJson || "{}")
+        } catch (e) {}
+        var nextMode = String(parsed.mode || mode)
+        var nextSubmenu = String(parsed.submenu || "")
+        if (nextMode === mode && nextSubmenu === submenu)
+            return false
+        open(payloadJson)
+        return true
     }
 
     function close() {
@@ -379,6 +406,7 @@ Item {
         refreshVisibleEntries()
     }
     onModeChanged: {
+        refreshCommandEntries()
         selectedIndex = 0
         refreshVisibleEntries()
     }
@@ -725,12 +753,12 @@ Item {
             z: 1
             anchors.centerIn: parent
             width: root.styledMenuMode
-                ? root.gridWidth + root.powerMenuPadding * 2
+                ? root.gridWidth + root.menuChromeWidth
                 : root.boxTileMode
                     ? root.boxRowWidth
                     : root.framedMenuWidth
             height: root.styledMenuMode
-                ? (root.appsGridMode ? root.styledMenuHostHeight : root.gridHeight + root.powerHeaderHeight + root.powerMenuPadding * 2 + 28)
+                ? (root.appsGridMode ? root.styledMenuHostHeight : root.gridHeight + root.menuChromeHeight)
                 : root.boxTileMode ? root.boxRowHeight : root.framedMenuHeight
             focus: root.opened && (root.previewTileMode || root.styledMenuMode)
 
@@ -770,83 +798,262 @@ Item {
 
             Rectangle {
                 anchors.fill: parent
-                visible: root.framedMode
-                color: Theme.overlaySurface
+                visible: root.framedMode || root.styledMenuMode
+                color: Theme.background
                 border.color: Theme.accent
-                border.width: 1
+                border.width: Theme.hoverPopupBorderWidth
+                radius: root.styledMenuMode ? Theme.panelCornerRadius : 0
             }
 
-            Rectangle {
-                anchors.fill: parent
-                visible: root.styledMenuMode
-                color: Theme.withOpacity(Theme.background, 0.94)
-                border.color: Theme.withOpacity(Theme.accent, 0.5)
-                border.width: 1
-                radius: Theme.panelCornerRadius
-            }
-
-            Column {
+            ColumnLayout {
                 id: framedColumn
                 anchors.fill: parent
-                anchors.margins: root.styledMenuMode ? root.powerMenuPadding : (root.boxTileMode ? 0 : root.framedPadding)
-                spacing: root.styledMenuMode ? 14 : root.framedColumnSpacing
+                anchors.margins: (root.styledMenuMode || root.framedMode) ? root.menuOuterInset : 0
+                spacing: root.framedColumnSpacing
                 clip: false
 
-                Item {
-                    id: filterChrome
-                    width: parent.width
-                    height: root.framedFilterChromeHeight
+                SectionPanel {
                     visible: root.framedMode
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    fillHeight: true
+                    legendBackground: Theme.background
+                    label: ""
+                    sectionSpacing: root.framedColumnSpacing
 
-                    Rectangle {
-                        id: filterBg
-                        anchors.fill: parent
-                        color: Theme.overlaySurface
+                    HoverPopupLabelPill {
+                        text: root.framedLegendTitle
+                        icon: root.submenu === "bindings" ? "󰌌" : "󰆍"
+                        fontSize: Theme.fontSizeS
+                    }
+
+                    Item {
+                        id: filterChrome
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: root.framedFilterChromeHeight
+
+                        Rectangle {
+                            id: filterBg
+                            anchors.fill: parent
+                            color: Theme.panelMantle
+                            radius: Theme.fieldsetCornerRadius
+                        }
+
+                        Text {
+                            visible: filterField.text.length === 0 && !filterField.activeFocus
+                            anchors.left: parent.left
+                            anchors.leftMargin: 12
+                            anchors.verticalCenter: parent.verticalCenter
+                            anchors.right: parent.right
+                            anchors.rightMargin: 12
+                            text: root.placeholderText
+                            color: Theme.foreground
+                            opacity: Theme.opacityDisabled
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.listFilterFontSize
+                            font.bold: Theme.fontBold
+                            elide: Text.ElideRight
+                        }
+
+                        TextInput {
+                            id: filterField
+                            anchors.top: parent.top
+                            anchors.bottom: parent.bottom
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.leftMargin: 12
+                            anchors.rightMargin: 12
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.listFilterFontSize
+                            font.bold: Theme.fontBold
+                            text: root.filterText
+                            selectByMouse: true
+                            verticalAlignment: TextInput.AlignVCenter
+                            onTextEdited: root.filterText = text
+                            Keys.onEscapePressed: root.handleEscapeKey()
+                            Keys.onLeftPressed: root.handlePreviewLeft()
+                            Keys.onRightPressed: root.handlePreviewRight()
+                            Keys.onUpPressed: root.handlePreviewUp()
+                            Keys.onDownPressed: root.handlePreviewDown()
+                            Keys.onReturnPressed: root.handleActivateKey()
+                        }
                     }
 
                     Text {
-                        visible: filterField.text.length === 0 && !filterField.activeFocus
-                        anchors.left: parent.left
-                        anchors.leftMargin: 12
-                        anchors.verticalCenter: parent.verticalCenter
-                        anchors.right: parent.right
-                        anchors.rightMargin: 12
-                        text: root.placeholderText
+                        visible: root.dynamicLoading
+                        text: "Loading…"
                         color: Theme.foreground
-                        opacity: Theme.opacityDisabled
                         font.family: Theme.fontFamily
-                        font.pixelSize: root.listFilterFontSize
+                        font.pixelSize: root.listFontSize
                         font.bold: Theme.fontBold
-                        elide: Text.ElideRight
                     }
 
-                    TextInput {
-                        id: filterField
-                        anchors.top: parent.top
-                        anchors.bottom: parent.bottom
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.leftMargin: 12
-                        anchors.rightMargin: 12
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.listFilterFontSize
-                        font.bold: Theme.fontBold
-                        text: root.filterText
-                        selectByMouse: true
-                        verticalAlignment: TextInput.AlignVCenter
-                        onTextEdited: root.filterText = text
-                        Keys.onEscapePressed: root.handleEscapeKey()
-                        Keys.onLeftPressed: root.handlePreviewLeft()
-                        Keys.onRightPressed: root.handlePreviewRight()
-                        Keys.onUpPressed: root.handlePreviewUp()
-                        Keys.onDownPressed: root.handlePreviewDown()
-                        Keys.onReturnPressed: root.handleActivateKey()
+                    ListView {
+                        id: entryList
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: root.framedListHeight
+                        clip: true
+                        model: root.visibleEntries
+                        currentIndex: root.selectedIndex
+
+                        onCountChanged: if (root.selectedIndex >= count) root.selectedIndex = Math.max(0, count - 1)
+
+                        delegate: Rectangle {
+                            id: entryRow
+                            required property var modelData
+                            required property int index
+                            width: entryList.width
+                            height: entryRow.infoRow ? root.infoListRowHeight : root.listRowHeight
+                            clip: false
+                            radius: Theme.fieldsetCornerRadius
+                            color: index === entryList.currentIndex || mouseArea.containsMouse ? Theme.panelMantle : "transparent"
+
+                            readonly property string appIconSource: {
+                                var _epoch = root.appIconEpoch
+                                return root.entryIconSource(modelData)
+                            }
+                            readonly property string glyphIcon: root.entryGlyphIcon(modelData)
+                            readonly property bool infoRow: modelData.kind === "info"
+                            readonly property string keysLabel: String(modelData.keys || "")
+                            readonly property int rowFontSize: entryRow.infoRow
+                                ? root.infoListFontSize
+                                : root.listFontSize
+
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: 12
+                                anchors.rightMargin: 12
+                                spacing: entryRow.infoRow ? 16 : 12
+
+                                Item {
+                                    visible: !entryRow.infoRow
+                                    Layout.preferredWidth: root.listIconSize
+                                    Layout.preferredHeight: root.listIconSize
+                                    Layout.alignment: Qt.AlignVCenter
+
+                                    Image {
+                                        anchors.fill: parent
+                                        visible: entryRow.appIconSource.length > 0
+                                        source: Util.normalizeIconSource(entryRow.appIconSource)
+                                        fillMode: Image.PreserveAspectFit
+                                        smooth: true
+                                        asynchronous: true
+                                        cache: true
+                                        sourceSize: Qt.size(root.listIconSize * 2, root.listIconSize * 2)
+                                    }
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        visible: entryRow.appIconSource.length === 0
+                                        text: entryRow.glyphIcon
+                                        color: Theme.accent
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: root.listIconSize
+                                        font.bold: Theme.fontBold
+                                    }
+                                }
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    Layout.preferredWidth: entryRow.infoRow ? 1 : 0
+                                    Layout.alignment: Qt.AlignVCenter
+                                    text: modelData.name
+                                    color: Theme.foreground
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: entryRow.rowFontSize
+                                    font.bold: Theme.fontBold
+                                    elide: Text.ElideRight
+                                    maximumLineCount: 1
+                                }
+
+                                Text {
+                                    visible: entryRow.infoRow && entryRow.keysLabel !== ""
+                                    Layout.fillWidth: true
+                                    Layout.preferredWidth: 1
+                                    Layout.alignment: Qt.AlignVCenter
+                                    horizontalAlignment: Text.AlignRight
+                                    text: entryRow.keysLabel
+                                    color: Theme.foreground
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: entryRow.rowFontSize
+                                    font.bold: Theme.fontBold
+                                    opacity: Theme.opacitySecondary
+                                    elide: Text.ElideMiddle
+                                    maximumLineCount: 1
+                                }
+                            }
+
+                            MouseArea {
+                                id: mouseArea
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                onEntered: root.selectedIndex = index
+                                onClicked: {
+                                    root.selectedIndex = index
+                                    root.activateEntry(modelData)
+                                }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        id: infoDetailPanel
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: root.infoDetailVisible ? root.infoDetailHeight : 0
+                        visible: root.infoDetailVisible
+                        color: Theme.panelMantle
+                        radius: Theme.fieldsetCornerRadius
+                        clip: false
+
+                        Flickable {
+                            anchors.fill: parent
+                            anchors.margins: 12
+                            contentHeight: infoDetailColumn.height
+                            clip: true
+                            boundsBehavior: Flickable.StopAtBounds
+
+                            Column {
+                                id: infoDetailColumn
+                                width: parent.width
+                                spacing: 8
+
+                                Text {
+                                    width: parent.width
+                                    visible: root.selectedDetail.length > 0
+                                    text: root.selectedDetail
+                                    color: Theme.foreground
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.fontSizeS
+                                    font.bold: Theme.fontBold
+                                    wrapMode: Text.WordWrap
+                                    opacity: Theme.opacityMuted
+                                }
+
+                                Text {
+                                    width: parent.width
+                                    visible: root.selectedFiles.length > 0
+                                    text: {
+                                        var lines = ["Related:"]
+                                        for (var i = 0; i < root.selectedFiles.length; i++)
+                                            lines.push("󰉋 " + root.shortenMenuPath(root.selectedFiles[i]))
+                                        return lines.join("\n")
+                                    }
+                                    color: Theme.foreground
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.fontSizeXs
+                                    font.bold: Theme.fontBold
+                                    wrapMode: Text.WordWrap
+                                    opacity: Theme.opacitySecondary
+                                    lineHeight: 1.35
+                                }
+                            }
+                        }
                     }
                 }
 
                 Text {
-                    visible: root.dynamicLoading
+                    visible: root.dynamicLoading && !root.framedMode
                     text: "Loading…"
                     color: Theme.foreground
                     font.family: Theme.fontFamily
@@ -857,8 +1064,9 @@ Item {
                 Flow {
                     id: previewFlow
                     visible: root.previewTileMode
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    width: root.previewGridWidth
+                    Layout.alignment: Qt.AlignHCenter
+                    Layout.preferredWidth: root.previewGridWidth
+                    Layout.preferredHeight: root.previewGridHeight
                     spacing: root.tileSpacing
                     flow: Flow.LeftToRight
 
@@ -924,57 +1132,24 @@ Item {
                     }
                 }
 
-                Column {
+                SectionPanel {
                     visible: root.styledMenuMode
-                    width: parent.width
-                    spacing: 14
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    fillHeight: true
+                    legendBackground: Theme.background
+                    label: ""
+                    sectionSpacing: Theme.hoverPopupSectionSpacing
 
-                    Item {
-                        width: parent.width
-                        height: root.powerHeaderHeight
-
-                        Row {
-                            id: menuHeaderRow
-                            anchors.left: parent.left
-                            anchors.verticalCenter: parent.verticalCenter
-                            spacing: 12
-
-                            Text {
-                                anchors.verticalCenter: parent.verticalCenter
-                                text: root.menuHeaderIcon
-                                color: Theme.accent
-                                font.family: Theme.fontFamily
-                                font.pixelSize: root.powerLogoFont
-                                font.bold: Theme.fontBold
-                            }
-
-                            Column {
-                                anchors.verticalCenter: parent.verticalCenter
-                                spacing: Theme.spacing2
-
-                                Text {
-                                    text: root.menuHeaderTitle
-                                    color: Theme.foreground
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.fontSize6xl
-                                    font.bold: Theme.fontBold
-                                }
-
-                                Text {
-                                    text: root.menuHeaderSubtitle
-                                    color: Theme.foreground
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.fontSizeS
-                                    font.bold: Theme.fontBold
-                                    opacity: 0.5
-                                }
-                            }
-                        }
+                    HoverPopupLabelPill {
+                        text: root.styledLegendTitle
+                        icon: root.appsGridMode ? "󰀻" : "󰣇"
+                        fontSize: Theme.fontSizeS
                     }
 
                     Text {
                         visible: root.appsGridMode && !root.dynamicLoading && root.visibleEntries.length === 0
-                        anchors.horizontalCenter: parent.horizontalCenter
+                        Layout.alignment: Qt.AlignHCenter
                         text: root.filterText.trim() === "" ? "No applications" : "No matches"
                         color: Theme.foreground
                         font.family: Theme.fontFamily
@@ -983,22 +1158,36 @@ Item {
                         opacity: Theme.opacityMuted
                     }
 
-                    Flickable {
-                        id: appFlickable
-                        visible: root.appsGridMode && root.visibleEntries.length > 0
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        width: root.gridWidth
-                        height: root.styledMenuViewportHeight
-                        clip: true
-                        boundsBehavior: Flickable.StopAtBounds
-                        contentWidth: width
-                        contentHeight: appFlow.height
+                    Text {
+                        visible: root.tileMode && !root.dynamicLoading && root.visibleEntries.length === 0
+                        Layout.alignment: Qt.AlignHCenter
+                        text: root.filterText.trim() === "" ? "No system entries" : "No matches"
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeS
+                        font.bold: Theme.fontBold
+                        opacity: Theme.opacityMuted
+                    }
 
-                        Flow {
-                            id: appFlow
-                            width: parent.width
-                            spacing: root.tileSpacing
-                            flow: Flow.LeftToRight
+                    Item {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: root.appsGridMode && root.visibleEntries.length > 0
+                            ? root.styledMenuViewportHeight : 0
+                        visible: root.appsGridMode && root.visibleEntries.length > 0
+
+                        Flickable {
+                            id: appFlickable
+                            anchors.fill: parent
+                            clip: true
+                            boundsBehavior: Flickable.StopAtBounds
+                            contentWidth: width
+                            contentHeight: appFlow.height
+
+                            Flow {
+                                id: appFlow
+                                width: parent.width
+                                spacing: root.tileSpacing
+                                flow: Flow.LeftToRight
 
                             Repeater {
                                 model: root.visibleEntries
@@ -1036,7 +1225,7 @@ Item {
                                     Rectangle {
                                         id: tileBg
                                         anchors.fill: parent
-                                        radius: Theme.panelCornerRadius
+                                        radius: Theme.fieldsetCornerRadius
                                         color: appTile.appSelected
                                             ? Theme.withOpacity(Theme.accent, 0.14)
                                             : Theme.withOpacity(Theme.panelMantle, appMouse.containsMouse ? 0.95 : 0.72)
@@ -1113,14 +1302,13 @@ Item {
                     }
 
                     Item {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: root.tileMode ? root.gridHeight : 0
                         visible: root.tileMode
-                        width: parent.width
-                        implicitHeight: powerFlow.implicitHeight
 
                         Flow {
                             id: powerFlow
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            width: root.gridWidth
+                            anchors.fill: parent
                             spacing: root.tileSpacing
                             flow: Flow.LeftToRight
 
@@ -1132,7 +1320,7 @@ Item {
                                     required property int index
                                     width: root.powerTileWidth
                                     height: root.powerTileHeight
-                                    radius: Theme.panelCornerRadius
+                                    radius: Theme.fieldsetCornerRadius
                                     color: index === root.selectedIndex
                                         ? Theme.withOpacity(Theme.accent, 0.14)
                                         : Theme.withOpacity(Theme.panelMantle, powerMouse.containsMouse ? 0.95 : 0.72)
@@ -1195,171 +1383,9 @@ Item {
                         }
                     }
                 }
-
-                ListView {
-                    id: entryList
-                    width: parent.width
-                    height: root.framedMode ? root.framedListHeight : parent.height - y
-                    clip: true
-                    visible: root.framedMode
-                    model: root.visibleEntries
-                    currentIndex: root.selectedIndex
-
-                    onCountChanged: if (root.selectedIndex >= count) root.selectedIndex = Math.max(0, count - 1)
-
-                    delegate: Rectangle {
-                        id: entryRow
-                        required property var modelData
-                        required property int index
-                        width: entryList.width
-                        height: entryRow.infoRow ? root.infoListRowHeight : root.listRowHeight
-                        clip: false
-                        color: index === entryList.currentIndex || mouseArea.containsMouse ? Theme.panelMantle : "transparent"
-
-                        readonly property string appIconSource: {
-                            var _epoch = root.appIconEpoch
-                            return root.entryIconSource(modelData)
-                        }
-                        readonly property string glyphIcon: root.entryGlyphIcon(modelData)
-                        readonly property bool infoRow: modelData.kind === "info"
-                        readonly property string keysLabel: String(modelData.keys || "")
-                        readonly property int rowFontSize: entryRow.infoRow
-                            ? root.infoListFontSize
-                            : root.listFontSize
-
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.leftMargin: 12
-                            anchors.rightMargin: 12
-                            spacing: entryRow.infoRow ? 16 : 12
-
-                            Item {
-                                visible: !entryRow.infoRow
-                                Layout.preferredWidth: root.listIconSize
-                                Layout.preferredHeight: root.listIconSize
-                                Layout.alignment: Qt.AlignVCenter
-
-                                Image {
-                                    anchors.fill: parent
-                                    visible: entryRow.appIconSource.length > 0
-                                    source: Util.normalizeIconSource(entryRow.appIconSource)
-                                    fillMode: Image.PreserveAspectFit
-                                    smooth: true
-                                    asynchronous: true
-                                    cache: true
-                                    sourceSize: Qt.size(root.listIconSize * 2, root.listIconSize * 2)
-                                }
-
-                                Text {
-                                    anchors.centerIn: parent
-                                    visible: entryRow.appIconSource.length === 0
-                                    text: entryRow.glyphIcon
-                                    color: Theme.accent
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: root.listIconSize
-                                    font.bold: Theme.fontBold
-                                }
-                            }
-
-                            Text {
-                                Layout.fillWidth: true
-                                Layout.preferredWidth: entryRow.infoRow ? 1 : 0
-                                Layout.alignment: Qt.AlignVCenter
-                                text: modelData.name
-                                color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: entryRow.rowFontSize
-                                font.bold: Theme.fontBold
-                                elide: Text.ElideRight
-                                maximumLineCount: 1
-                            }
-
-                            Text {
-                                visible: entryRow.infoRow && entryRow.keysLabel !== ""
-                                Layout.fillWidth: true
-                                Layout.preferredWidth: 1
-                                Layout.alignment: Qt.AlignVCenter
-                                horizontalAlignment: Text.AlignRight
-                                text: entryRow.keysLabel
-                                color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: entryRow.rowFontSize
-                                font.bold: Theme.fontBold
-                                opacity: Theme.opacitySecondary
-                                elide: Text.ElideMiddle
-                                maximumLineCount: 1
-                            }
-                        }
-
-                        MouseArea {
-                            id: mouseArea
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            onEntered: root.selectedIndex = index
-                            onClicked: {
-                                root.selectedIndex = index
-                                root.activateEntry(modelData)
-                            }
-                        }
-                    }
-                }
-
-                Rectangle {
-                    id: infoDetailPanel
-                    width: parent.width
-                    height: root.infoDetailVisible ? root.infoDetailHeight : 0
-                    visible: root.infoDetailVisible
-                    color: Theme.overlaySurface
-                    border.color: Theme.withOpacity(Theme.accent, 0.25)
-                    border.width: 1
-                    clip: false
-
-                    Flickable {
-                        anchors.fill: parent
-                        anchors.margins: 12
-                        contentHeight: infoDetailColumn.height
-                        clip: true
-                        boundsBehavior: Flickable.StopAtBounds
-
-                        Column {
-                            id: infoDetailColumn
-                            width: parent.width
-                            spacing: 8
-
-                            Text {
-                                width: parent.width
-                                visible: root.selectedDetail.length > 0
-                                text: root.selectedDetail
-                                color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.fontSizeS
-                                font.bold: Theme.fontBold
-                                wrapMode: Text.WordWrap
-                                opacity: Theme.opacityMuted
-                            }
-
-                            Text {
-                                width: parent.width
-                                visible: root.selectedFiles.length > 0
-                                text: {
-                                    var lines = ["Related:"]
-                                    for (var i = 0; i < root.selectedFiles.length; i++)
-                                        lines.push("󰉋 " + root.shortenMenuPath(root.selectedFiles[i]))
-                                    return lines.join("\n")
-                                }
-                                color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.fontSizeXs
-                                font.bold: Theme.fontBold
-                                wrapMode: Text.WordWrap
-                                opacity: Theme.opacitySecondary
-                                lineHeight: 1.35
-                            }
-                        }
-                    }
-                }
             }
         }
+    }
     }
 
     Component.onCompleted: {

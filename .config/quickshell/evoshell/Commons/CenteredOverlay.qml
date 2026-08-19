@@ -20,13 +20,16 @@ Item {
 
     default property alias content: contentHost.data
 
+    readonly property int resolvedContentInset: contentMargin + (framed ? borderWidth : 0)
+
     readonly property int resolvedContentHeight: {
         if (!fitContentHeight)
             return contentHeight
+        var inset = resolvedContentInset
         var target = keysTarget
         if (target && target.implicitHeight > 0)
-            return target.implicitHeight + contentMargin * 2
-        return Math.max(contentHost.childrenRect.height + contentMargin * 2, 1)
+            return target.implicitHeight + inset * 2
+        return Math.max(contentHost.childrenRect.height + inset * 2, 1)
     }
 
     PanelWindow {
@@ -66,16 +69,17 @@ Item {
                 z: 0
                 visible: root.framed
                 anchors.fill: parent
-                color: Theme.overlaySurface
+                color: Theme.background
                 border.color: Theme.accent
                 border.width: root.borderWidth
+                radius: Theme.panelCornerRadius
             }
 
             Item {
                 id: contentHost
                 z: 1
                 anchors.fill: parent
-                anchors.margins: root.contentMargin
+                anchors.margins: root.resolvedContentInset
             }
         }
     }

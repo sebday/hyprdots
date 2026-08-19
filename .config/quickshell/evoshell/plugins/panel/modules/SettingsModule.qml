@@ -706,20 +706,18 @@ Item {
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
-        spacing: 16
+        spacing: Theme.hoverPopupSectionSpacing
 
         RowLayout {
             Layout.fillWidth: true
-            spacing: 12
+            spacing: Theme.hoverPopupSectionSpacing
 
             SectionPanel {
                 Layout.preferredWidth: 500
                 Layout.fillHeight: true
                 fillHeight: true
-                contentPad: Theme.panelContentPad
                     legendBackground: Theme.background
                     label: ""
-                    sectionSpacing: 12
 
                     HoverPopupLabelPill {
                         text: "Evoshell"
@@ -826,14 +824,12 @@ Item {
                 ColumnLayout {
                     Layout.preferredWidth: 200
                     Layout.alignment: Qt.AlignTop
-                    spacing: 12
+                    spacing: Theme.hoverPopupSectionSpacing
 
                     SectionPanel {
                         Layout.fillWidth: true
-                        contentPad: Theme.panelContentPad
                         legendBackground: Theme.background
                         label: ""
-                        sectionSpacing: 12
 
                         HoverPopupLabelPill {
                             text: "Theme"
@@ -969,10 +965,8 @@ Item {
 
                     SectionPanel {
                         Layout.fillWidth: true
-                        contentPad: Theme.panelContentPad
                         legendBackground: Theme.background
                         label: ""
-                        sectionSpacing: 12
 
                         HoverPopupLabelPill {
                             text: "Locations"

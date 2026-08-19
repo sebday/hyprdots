@@ -320,6 +320,18 @@ Item {
         return path ? Util.fileUrl(path) : ""
     }
 
+    function playMpv(path, floating) {
+        if (!path)
+            return
+        var args = ["mpv", "--force-window=immediate", "--really-quiet"]
+        if (floating)
+            args.push("--wayland-app-id=floating-window")
+        else
+            args.push("--fullscreen")
+        args.push(String(path))
+        Quickshell.execDetached(args)
+    }
+
     function playItem(item) {
         if (!item)
             return
@@ -327,16 +339,14 @@ Item {
             var kind = root.screen === "episodes" ? "episode" : "film"
             Quickshell.execDetached(["bash", root.script, "play", kind, String(item.id)])
         } else if (item.path) {
-            Quickshell.execDetached(["mpv", "--fullscreen", "--force-window=immediate", "--really-quiet", String(item.path)])
+            playMpv(item.path, root.screen !== "episodes")
         }
         if (host)
             host.dismiss()
     }
 
     function playPath(path) {
-        if (!path)
-            return
-        Quickshell.execDetached(["mpv", "--fullscreen", "--force-window=immediate", "--really-quiet", String(path)])
+        playMpv(path, root.screen !== "episodes")
         if (host)
             host.dismiss()
     }

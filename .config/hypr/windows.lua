@@ -23,7 +23,9 @@ hl.window_rule({
 
 hl.window_rule({
 	name = "tag-floating-window-class",
-	match = { class = "(insync|brave-calendar.*|brave-mail.*|brave-weather|brave-cursor|brave-github|steam|TUI.float)" },
+	match = {
+		class = "(insync|brave-calendar.*|brave-mail.*|brave-weather|brave-cursor|brave-github|steam|TUI.float|floating-window)",
+	},
 	tag = "+floating-window",
 })
 
@@ -109,44 +111,13 @@ hl.window_rule({
 	opacity = "1 override 1 override",
 })
 
-hl.window_rule({
-	name = "shopify-dashboard",
-	match = {
-		class = "^(org%.quickshell)$",
-		title = "^evo%.shopify",
-	},
-	workspace = "10",
-	monitor = "HDMI-A-1",
-})
-
-hl.window_rule({
-	name = "evo-player-dashboard",
-	match = {
-		class = "^(org%.quickshell)$",
-		title = "^evo%.player$",
-	},
-	workspace = "10",
-	monitor = "HDMI-A-1",
-})
-
-local function is_dashboard_window(win)
-	if not win or win.class ~= "org.quickshell" then
-		return false
+local function dashboard_to_ws10(win)
+	local title = win and win.title or ""
+	if win and win.class == "org.quickshell"
+		and (title:match("^evo%.shopify") or title == "evo.player") then
+		hl.dispatch(hl.dsp.window.move({ workspace = "10", window = win }))
 	end
-	local title = win.title or ""
-	return title:match("^evo%.shopify") ~= nil or title == "evo.player"
 end
 
-local function place_dashboard_window(win)
-	if not is_dashboard_window(win) then
-		return
-	end
-	hl.dispatch(hl.dsp.window.move({
-		monitor = "HDMI-A-1",
-		workspace = "10",
-		window = win,
-	}))
-end
-
-hl.on("window.open", place_dashboard_window)
-hl.on("window.title", place_dashboard_window)
+hl.on("window.open", dashboard_to_ws10)
+hl.on("window.title", dashboard_to_ws10)

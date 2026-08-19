@@ -6,7 +6,7 @@ Item {
     id: root
 
     property color lineColor: Theme.fieldsetBorderColor
-    property color legendBackground: Theme.mantle
+    property color legendBackground: Theme.background
     property int legendInset: Theme.fieldsetLegendInset
 
     default property alias legend: legendHost.data

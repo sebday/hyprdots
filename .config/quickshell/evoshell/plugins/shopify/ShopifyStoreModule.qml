@@ -20,16 +20,13 @@ Item {
     readonly property string storeCacheKey: "shopify-" + storeKey + "-30"
 
     readonly property string home: Quickshell.env("HOME")
-    readonly property string demoLogoPath: home + "/googledrive/daymarketing/branding/favicon.svg"
     readonly property string demoJsonPath: (shell && shell.shellDir)
         ? shell.shellDir + "/plugins/shopify/demo.json"
         : home + "/.config/quickshell/evoshell/plugins/shopify/demo.json"
     readonly property bool active: host && host.opened === true
     readonly property var barSource: host && host.shell ? host.shell.popupAnchorItem : null
     readonly property int hintFont: Theme.fontSizeL
-    readonly property color sectionLegendBackground: root.chartFillHeight
-        ? Theme.background
-        : Theme.mantle
+    readonly property color sectionLegendBackground: Theme.background
 
     readonly property string legendStoreKey: {
         if (!demoMode)
@@ -51,16 +48,6 @@ Item {
         return title
     }
 
-    readonly property string legendIconUrl: {
-        if (demoMode)
-            return "file://" + demoLogoPath
-        if (legendStoreKey === "DIY")
-            return "https://diybuildingsupplies.co.uk/cdn/shop/files/diy-square-logo-trans.png?crop=center&height=48&v=1770480698&width=48"
-        if (legendStoreKey === "TGS")
-            return "https://thegoodsheet.co.uk/cdn/shop/files/logo_osb.png?crop=center&height=48&v=1752889811&width=48"
-        return ""
-    }
-
     readonly property string storeAdminSlug: {
         if (storeKey === "DIY")
             return "diy-buildingsupplies"
@@ -74,20 +61,6 @@ Item {
         : adminUrl
 
     readonly property bool hasLiveAnalyticsLink: liveAnalyticsUrl !== ""
-
-    readonly property string legendIconFallback: {
-        if (demoMode) {
-            if (legendStoreKey === "DIY")
-                return "P"
-            if (legendStoreKey === "TGS")
-                return "R"
-        }
-        if (legendStoreKey === "DIY")
-            return "D"
-        if (legendStoreKey === "TGS")
-            return "T"
-        return legendStoreKey ? legendStoreKey.charAt(0) : ""
-    }
 
     property var storeData: ({})
 
@@ -313,8 +286,7 @@ Item {
 
             HoverPopupLabelPill {
                 text: root.legendTitle
-                iconUrl: root.legendIconUrl
-                icon: root.legendIconFallback
+                icon: "󰒚"
                 fontSize: Theme.fontSizeS
             }
 

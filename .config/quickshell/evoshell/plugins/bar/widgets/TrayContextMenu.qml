@@ -164,7 +164,7 @@ Item {
 
                     Rectangle {
                         anchors.fill: parent
-                        color: rowMouse.containsMouse ? Theme.mantle : "transparent"
+                        color: rowMouse.containsMouse ? Theme.foregroundWash : "transparent"
                         visible: !modelData.isSeparator
 
                         Row {

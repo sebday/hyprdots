@@ -100,6 +100,7 @@ music_paths_apply() {
   JOB_LOCK="${MUSIC_STATE}/.job.lock"
   JOB_STATE="${MUSIC_STATE}/job.json"
   SCROBBLE_LOG="${MUSIC_STATE}/scrobble.jsonl"
+  PLACEMENT_LOG="${MUSIC_STATE}/placement.jsonl"
 }
 
 music_paths_apply ""
@@ -943,9 +944,24 @@ canonical_track_dest() {
   printf '%s/%s' "$dest_dir" "$basename"
 }
 
+placement_log_append() {
+  local op="$1" from="$2" to="$3"
+  ensure_dirs
+  local id at
+  at="$(date -Iseconds)"
+  id="${at}-$$-${RANDOM}"
+  jq -nc \
+    --arg id "$id" \
+    --arg at "$at" \
+    --arg op "$op" \
+    --arg from "$from" \
+    --arg to "$to" \
+    '{id:$id,at:$at,op:$op,from:$from,to:$to}' >>"$PLACEMENT_LOG"
+}
+
 place_track() {
   local src="$1"
-  local dest src_genre dest_genre
+  local dest src_genre dest_genre op="${PLACE_TRACK_OP:-place}"
   [[ -f "$src" ]] || return 1
   is_audio "$src" || return 1
   dest="$(canonical_track_dest "$src")" || return 1
@@ -963,6 +979,7 @@ place_track() {
   dest_genre="$(genre_from_path "$dest")"
   [[ -n "$src_genre" ]] && tracks_cache_invalidate_genre "$src_genre"
   [[ -n "$dest_genre" ]] && tracks_cache_invalidate_genre "$dest_genre"
+  placement_log_append "$op" "$src" "$dest"
   printf '%s' "$dest"
 }
 

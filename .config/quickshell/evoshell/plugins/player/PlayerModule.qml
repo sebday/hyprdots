@@ -3907,7 +3907,6 @@ Item {
         SectionPanel {
             label: ""
             visible: !root.menuBarHidden
-            contentPad: Theme.panelContentPad
             Layout.fillWidth: true
             fillHeight: false
 
@@ -4127,7 +4126,6 @@ Item {
                             ? -1
                             : Math.max(1, nowPlayingPanel.width - root.nowPlayingArtWidth - pad)
                         spacing: pad
-                        clip: !root.settingsPanelOpen
 
                         SectionPanel {
                             label: ""
@@ -4629,7 +4627,6 @@ Item {
                             label: ""
                             visible: !root.compactLayout
                             Layout.fillWidth: true
-                            contentPad: Theme.panelContentPad
 
                             PlayerTransportBar {
                                 Layout.fillWidth: true
@@ -4644,7 +4641,6 @@ Item {
                         label: ""
                         visible: !root.nowPlayingCompact
                         legendBackground: root.fieldsetLegendBackground
-                        contentPad: Theme.panelContentPad
                         Layout.fillHeight: true
                         Layout.preferredWidth: root.nowPlayingArtWidth
                         Layout.maximumWidth: root.nowPlayingArtWidth
@@ -5427,7 +5423,7 @@ Item {
         Rectangle {
             anchors.fill: parent
             radius: 6
-            color: Theme.mantle
+            color: Theme.background
             border.color: Theme.foregroundTrack
             border.width: 1
         }
@@ -6332,83 +6328,18 @@ Item {
         legendBackground: root.fieldsetLegendBackground
         fillHeight: true
 
-        Item {
-            id: browseLegend
-            property bool fieldsetLegend: true
-            property color fieldsetFill: Theme.mantle
-
-            implicitWidth: browseLegendBg.implicitWidth
-            implicitHeight: browseLegendBg.implicitHeight
-
-            Rectangle {
-                id: browseLegendBg
-                color: browseLegend.fieldsetFill
-                implicitWidth: browseLegendRow.implicitWidth + 10
-                implicitHeight: browseLegendRow.implicitHeight
-
-                RowLayout {
-                    id: browseLegendRow
-                    anchors.centerIn: parent
-                    spacing: 5
-
-                    Item {
-                        implicitWidth: browseRootRow.implicitWidth
-                        implicitHeight: browseRootRow.implicitHeight
-
-                        RowLayout {
-                            id: browseRootRow
-                            spacing: 5
-
-                            Text {
-                                text: "󰉋"
-                                color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.fontSizeS
-                                font.bold: Theme.fontBold
-                                opacity: browseRootMouse.containsMouse ? 1 : 0.72
-                            }
-
-                            Text {
-                                text: root.browseTreeLoading ? "Library…" : "Library"
-                                color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.fontSizeS
-                                font.bold: Theme.fontBold
-                                opacity: browseRootMouse.containsMouse ? 1 : 0.72
-                            }
-                        }
-
-                        MouseArea {
-                            id: browseRootMouse
-                            anchors.fill: parent
-                            enabled: !root.browseTreeLoading
-                            hoverEnabled: enabled
-                            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                            onClicked: root.browseTreeHome()
-                        }
-                    }
-
-                    Text {
-                        visible: String(root.selectedBrowseFolderPath || "") !== ""
-                        text: "/"
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSizeS
-                        font.bold: Theme.fontBold
-                        opacity: 0.4
-                    }
-
-                    Text {
-                        visible: String(root.selectedBrowseFolderPath || "") !== ""
-                        text: root.playlistTabLabel(String(root.selectedBrowseFolderPath || "").split("/").pop())
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSizeS
-                        font.bold: Theme.fontBold
-                        opacity: 0.72
-                    }
-                }
+        HoverPopupLabelPill {
+            text: {
+                var base = root.browseTreeLoading ? "Library…" : "Library"
+                var path = String(root.selectedBrowseFolderPath || "")
+                if (!path)
+                    return base
+                return base + " / " + root.playlistTabLabel(path.split("/").pop())
             }
+            icon: "󰉋"
+            fontSize: Theme.fontSizeS
+            clickable: !root.browseTreeLoading
+            onClicked: root.browseTreeHome()
         }
 
         ListView {
@@ -6632,83 +6563,16 @@ Item {
         legendBackground: root.fieldsetLegendBackground
         fillHeight: true
 
-        Item {
-            id: playlistLegend
-            property bool fieldsetLegend: true
-            property color fieldsetFill: Theme.mantle
-
-            implicitWidth: playlistLegendBg.implicitWidth
-            implicitHeight: playlistLegendBg.implicitHeight
-
-            Rectangle {
-                id: playlistLegendBg
-                color: playlistLegend.fieldsetFill
-                implicitWidth: playlistLegendRow.implicitWidth + 10
-                implicitHeight: playlistLegendRow.implicitHeight
-
-                RowLayout {
-                    id: playlistLegendRow
-                    anchors.centerIn: parent
-                    spacing: 5
-
-                    Item {
-                        implicitWidth: playlistRootRow.implicitWidth
-                        implicitHeight: playlistRootRow.implicitHeight
-
-                        RowLayout {
-                            id: playlistRootRow
-                            spacing: 5
-
-                            Text {
-                                text: "󰲸"
-                                color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.fontSizeS
-                                font.bold: Theme.fontBold
-                                opacity: playlistRootMouse.containsMouse ? 1 : 0.72
-                            }
-
-                            Text {
-                                text: "Playlists"
-                                color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.fontSizeS
-                                font.bold: Theme.fontBold
-                                opacity: playlistRootMouse.containsMouse ? 1 : 0.72
-                            }
-                        }
-
-                        MouseArea {
-                            id: playlistRootMouse
-                            anchors.fill: parent
-                            enabled: root.playlistPanelMode === "tracks"
-                            hoverEnabled: enabled
-                            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                            onClicked: root.showPlaylistLibrary()
-                        }
-                    }
-
-                    Text {
-                        visible: root.playlistPanelMode === "tracks"
-                        text: "/"
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSizeS
-                        font.bold: Theme.fontBold
-                        opacity: 0.4
-                    }
-
-                    Text {
-                        visible: root.playlistPanelMode === "tracks"
-                        text: root.playlistTabLabel(root.selectedPlaylist)
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSizeS
-                        font.bold: Theme.fontBold
-                        opacity: 0.72
-                    }
-                }
+        HoverPopupLabelPill {
+            text: {
+                if (root.playlistPanelMode !== "tracks")
+                    return "Playlists"
+                return "Playlists / " + root.playlistTabLabel(root.selectedPlaylist)
             }
+            icon: "󰲸"
+            fontSize: Theme.fontSizeS
+            clickable: root.playlistPanelMode === "tracks"
+            onClicked: root.showPlaylistLibrary()
         }
 
         ColumnLayout {
@@ -7232,82 +7096,16 @@ Item {
         legendBackground: root.fieldsetLegendBackground
         fillHeight: true
 
-        Item {
-            id: filterLegend
-            property bool fieldsetLegend: true
-            property color fieldsetFill: Theme.mantle
-
-            implicitWidth: filterLegendBg.implicitWidth
-            implicitHeight: filterLegendBg.implicitHeight
-
-            Rectangle {
-                id: filterLegendBg
-                color: filterLegend.fieldsetFill
-                implicitWidth: filterLegendRow.implicitWidth + 10
-                implicitHeight: filterLegendRow.implicitHeight
-
-                RowLayout {
-                    id: filterLegendRow
-                    anchors.centerIn: parent
-                    spacing: 5
-
-                    Item {
-                        implicitWidth: filterRootRow.implicitWidth
-                        implicitHeight: filterRootRow.implicitHeight
-
-                        RowLayout {
-                            id: filterRootRow
-                            spacing: 5
-
-                            Text {
-                                text: root.filterKindIcon()
-                                color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.fontSizeS
-                                font.bold: Theme.fontBold
-                                opacity: filterRootMouse.containsMouse ? 1 : 0.72
-                            }
-
-                            Text {
-                                text: root.filterKindTitle()
-                                color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.fontSizeS
-                                font.bold: Theme.fontBold
-                                opacity: filterRootMouse.containsMouse ? 1 : 0.72
-                            }
-                        }
-
-                        MouseArea {
-                            id: filterRootMouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: root.showNowPlaying()
-                        }
-                    }
-
-                    Text {
-                        visible: String(root.filterLabel || "") !== ""
-                        text: "/"
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSizeS
-                        font.bold: Theme.fontBold
-                        opacity: 0.4
-                    }
-
-                    Text {
-                        visible: String(root.filterLabel || "") !== ""
-                        text: root.filterLabel
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSizeS
-                        font.bold: Theme.fontBold
-                        opacity: 0.72
-                    }
-                }
+        HoverPopupLabelPill {
+            text: {
+                var base = root.filterKindTitle()
+                var label = String(root.filterLabel || "")
+                return label ? base + " / " + label : base
             }
+            icon: root.filterKindIcon()
+            fontSize: Theme.fontSizeS
+            clickable: true
+            onClicked: root.showNowPlaying()
         }
 
         ListView {

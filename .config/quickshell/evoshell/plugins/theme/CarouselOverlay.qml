@@ -78,7 +78,7 @@ Item {
     readonly property int sliceHeight: 432
     readonly property int sliceSpacing: -30
     readonly property int skewOffset: 28
-    readonly property int bottomChromeHeight: 44
+    readonly property int bottomChromeHeight: 72
     readonly property color dimColor: Theme.background
     readonly property color selectedBorder: Theme.accent
     readonly property color unselectedBorder: Theme.inactiveBorder
@@ -616,37 +616,58 @@ Item {
                 }
             }
 
-            Row {
+            Column {
                 anchors.top: carousel.bottom
-                anchors.topMargin: 18
+                anchors.topMargin: 16
                 anchors.horizontalCenter: parent.horizontalCenter
-                spacing: Theme.spacingM
-                visible: root.entries.length > 0 && root.entries.length <= 21
+                spacing: Theme.spacingS
+                width: Math.min(parent.width - 32, root.expandedWidth)
 
-                Repeater {
-                    model: root.entries.length
-                    delegate: Rectangle {
-                        required property int index
-                        width: index === root.selectedIndex ? 18 : 6
-                        height: 6
-                        radius: Theme.radiusM
-                        color: index === root.selectedIndex ? Theme.accent : Theme.withOpacity(Theme.foreground, 0.35)
-                        Behavior on width { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+                Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    width: parent.width
+                    visible: !root.isWallpaper && root.entries.length > 0
+                    text: {
+                        var entry = root.currentEntry()
+                        return entry ? String(entry.name || "") : ""
+                    }
+                    horizontalAlignment: Text.AlignHCenter
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.fontSizeM
+                    font.bold: Theme.fontBold
+                    elide: Text.ElideMiddle
+                    maximumLineCount: 1
+                }
+
+                Row {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    spacing: Theme.spacingM
+                    visible: root.entries.length > 0 && root.entries.length <= 21
+
+                    Repeater {
+                        model: root.entries.length
+                        delegate: Rectangle {
+                            required property int index
+                            width: index === root.selectedIndex ? 18 : 6
+                            height: 6
+                            radius: Theme.radiusM
+                            color: index === root.selectedIndex ? Theme.accent : Theme.withOpacity(Theme.foreground, 0.35)
+                            Behavior on width { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+                        }
                     }
                 }
-            }
 
-            Text {
-                anchors.top: carousel.bottom
-                anchors.topMargin: 18
-                anchors.horizontalCenter: parent.horizontalCenter
-                visible: root.entries.length > 21
-                text: (root.selectedIndex + 1) + " / " + root.entries.length
-                color: Theme.foreground
-                font.family: Theme.fontFamily
-                font.pixelSize: Theme.fontSizeS
-                font.bold: Theme.fontBold
-                opacity: 0.8
+                Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    visible: root.entries.length > 21
+                    text: (root.selectedIndex + 1) + " / " + root.entries.length
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.fontSizeS
+                    font.bold: Theme.fontBold
+                    opacity: 0.8
+                }
             }
         }
     }

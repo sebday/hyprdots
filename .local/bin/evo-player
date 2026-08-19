@@ -25,6 +25,8 @@ usage:
   evo-player soundcloud [--json]
   evo-player sync [--json]
   evo-player import [--json]
+  evo-player placement log [--json] [--limit N] [--undoable]
+  evo-player placement undo [--last N] [--dry-run] [--json]
   evo-player playlists [--force]
   evo-player build [--json]
   evo-player warm [<track-path>]
@@ -996,6 +998,7 @@ cmd_import_impl() {
   local incoming="${MUSIC_ROOT}/.incoming"
   [[ -d "$incoming" ]] || mkdir -p "$incoming"
   local moved=0 failed=0 f dest
+  PLACE_TRACK_OP=import
   while IFS= read -r -d '' f; do
     incoming_skip_file "$f" && continue
     is_audio "$f" || continue
@@ -1013,6 +1016,7 @@ cmd_import_impl() {
     return 0
   fi
   echo "evo-player: imported ${moved} file(s) from .incoming/" >&2
+  [[ "$moved" -gt 0 ]] && echo "evo-player: placement log: $PLACEMENT_LOG" >&2
   cmd_playlists
   [[ "$failed" -eq 0 ]]
 }
@@ -1031,6 +1035,7 @@ cmd_sort_impl() {
     echo "evo-player: not a folder: ${rel:-/}" >&2
     return 1
   }
+  PLACE_TRACK_OP="sort"
   while IFS= read -r -d '' f; do
     is_audio "$f" || continue
     canon="$(canonical_track_dest "$f")" || {
@@ -2851,6 +2856,165 @@ cmd_art() {
   esac
 }
 
+cmd_placement_log() {
+  local json=0 limit=50 undoable=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --json) json=1 ;;
+      --undoable) undoable=1 ;;
+      --limit)
+        limit="$2"
+        shift
+        ;;
+      -h|--help|help) usage ;;
+      *) usage ;;
+    esac
+    shift
+  done
+  ensure_dirs
+  if [[ ! -f "$PLACEMENT_LOG" ]]; then
+    [[ "$json" -eq 1 ]] && printf '[]\n'
+    return 0
+  fi
+  python3 - "$PLACEMENT_LOG" "$limit" "$undoable" "$json" <<'PY'
+import json, sys
+
+log_path, limit, undoable, json_mode = sys.argv[1], int(sys.argv[2]), sys.argv[3] == "1", sys.argv[4] == "1"
+rows = []
+with open(log_path, encoding="utf-8") as fh:
+    for line in fh:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            rows.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+
+undone = {row.get("ref") for row in rows if row.get("event") == "undo" and row.get("ref")}
+placements = [row for row in rows if row.get("event") != "undo" and row.get("from") and row.get("to")]
+if undoable:
+    placements = [row for row in placements if row.get("id") not in undone]
+
+placements = placements[-limit:]
+placements.reverse()
+
+if json_mode:
+    print(json.dumps(placements, ensure_ascii=False))
+else:
+    for row in placements:
+        print(f"{row.get('at', '')}\t{row.get('op', '')}\t{row.get('from', '')}\t->\t{row.get('to', '')}")
+PY
+}
+
+cmd_placement_undo() {
+  local json=0 dry_run=0 last=1
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --json) json=1 ;;
+      --dry-run) dry_run=1 ;;
+      --last)
+        last="$2"
+        shift
+        ;;
+      -h|--help|help) usage ;;
+      *) usage ;;
+    esac
+    shift
+  done
+  ensure_dirs
+  [[ -f "$PLACEMENT_LOG" ]] || {
+    echo "evo-player: no placement log" >&2
+    return 1
+  }
+  local plan restored=0 failed=0
+  plan="$(
+    python3 - "$PLACEMENT_LOG" "$last" <<'PY'
+import json, sys
+
+log_path, count = sys.argv[1], int(sys.argv[2])
+rows = []
+with open(log_path, encoding="utf-8") as fh:
+    for line in fh:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            rows.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+
+undone = {row.get("ref") for row in rows if row.get("event") == "undo" and row.get("ref")}
+placements = [row for row in rows if row.get("event") != "undo" and row.get("from") and row.get("to")]
+placements = [row for row in placements if row.get("id") not in undone]
+selected = list(reversed(placements[-count:]))
+print(json.dumps(selected, ensure_ascii=False))
+PY
+  )"
+  [[ -n "$plan" && "$plan" != "[]" ]] || {
+    echo "evo-player: nothing to undo" >&2
+    return 1
+  }
+  local row id from to rc
+  while IFS= read -r row; do
+    [[ -n "$row" ]] || continue
+    id="$(jq -r '.id // ""' <<<"$row")"
+    from="$(jq -r '.from // ""' <<<"$row")"
+    to="$(jq -r '.to // ""' <<<"$row")"
+    [[ -n "$id" && -n "$from" && -n "$to" ]] || continue
+    if [[ "$dry_run" -eq 1 ]]; then
+      if [[ "$json" -eq 1 ]]; then
+        jq -nc --arg id "$id" --arg from "$from" --arg to "$to" \
+          '{id:$id,from:$to,to:$from,dry_run:true}'
+      else
+        printf 'would restore %s -> %s\n' "$to" "$from"
+      fi
+      restored=$((restored + 1))
+      continue
+    fi
+    if [[ ! -f "$to" ]]; then
+      echo "evo-player: undo skip, missing file: $to" >&2
+      failed=$((failed + 1))
+      continue
+    fi
+    if [[ -e "$from" ]]; then
+      echo "evo-player: undo skip, already exists: $from" >&2
+      failed=$((failed + 1))
+      continue
+    fi
+    mkdir -p "$(dirname "$from")"
+    if track_relocate_path "$to" "$from"; then
+      jq -nc --arg ref "$id" --arg at "$(date -Iseconds)" --arg from "$to" --arg to "$from" \
+        '{event:"undo",ref:$ref,at:$at,from:$from,to:$to}' >>"$PLACEMENT_LOG"
+      if [[ "$json" -eq 1 ]]; then
+        jq -nc --arg id "$id" --arg from "$from" --arg to "$to" --argjson ok true \
+          '{id:$id,from:$to,to:$from,ok:$ok}'
+      else
+        printf 'restored %s -> %s\n' "$to" "$from"
+      fi
+      restored=$((restored + 1))
+    else
+      echo "evo-player: undo failed: $to" >&2
+      failed=$((failed + 1))
+    fi
+  done < <(jq -c '.[]' <<<"$plan")
+  if [[ "$dry_run" -eq 0 && "$restored" -gt 0 ]]; then
+    cmd_playlists >/dev/null 2>&1 || true
+  fi
+  [[ "$failed" -eq 0 ]]
+}
+
+cmd_placement() {
+  local sub="${1:-}"
+  shift || true
+  case "$sub" in
+    log) cmd_placement_log "$@" ;;
+    undo) cmd_placement_undo "$@" ;;
+    -h|--help|help|"") usage ;;
+    *) echo "evo-player: unknown placement command: $sub" >&2; usage ;;
+  esac
+}
+
 cmd_status() {
   local json="${1:-}"
   ensure_dirs
@@ -2994,6 +3158,7 @@ main() {
     soundcloud) cmd_soundcloud ;;
     sync) cmd_sync ;;
     import) cmd_import ;;
+    placement) cmd_placement "$@" ;;
     playlists) cmd_playlists "$@" ;;
     build) cmd_build "$@" ;;
     warm) cmd_warm "$@" ;;

@@ -254,44 +254,10 @@ Item {
             label: ""
             contentPad: Theme.hoverPopupContentPad
 
-            Item {
-                id: steamLegend
-                property bool fieldsetLegend: true
-                property color fieldsetFill: Theme.mantle
-
-                implicitWidth: legendBg.implicitWidth
-                implicitHeight: legendBg.implicitHeight
-
-                Rectangle {
-                    id: legendBg
-                    color: steamLegend.fieldsetFill
-                    implicitWidth: legendRow.implicitWidth + 10
-                    implicitHeight: legendRow.implicitHeight
-
-                    RowLayout {
-                        id: legendRow
-                        anchors.centerIn: parent
-                        spacing: 5
-
-                        Text {
-                            text: "󰓓"
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontSizeS
-                            font.bold: Theme.fontBold
-                            opacity: 0.85
-                        }
-
-                        Text {
-                            text: "Steam"
-                            color: Theme.foreground
-                            opacity: 0.72
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontSizeS
-                            font.bold: Theme.fontBold
-                        }
-                    }
-                }
+            HoverPopupLabelPill {
+                text: "Steam"
+                icon: "󰓓"
+                fontSize: Theme.fontSizeS
             }
 
             GridLayout {

@@ -128,7 +128,7 @@ Item {
             Rectangle {
                 id: box
                 anchors.fill: parent
-                color: Theme.mantle
+                color: Theme.background
                 border.color: Theme.accent
                 border.width: root.opened ? root.borderWidth : 0
                 radius: Theme.panelCornerRadius

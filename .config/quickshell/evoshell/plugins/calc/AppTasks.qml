@@ -17,6 +17,9 @@ Item {
     readonly property int taskRowMin: 28
     readonly property int taskBottomPad: 8
     readonly property bool active: host && host.opened === true
+    readonly property color legendBackground: host && host.fieldsetLegendBackground !== undefined
+        ? host.fieldsetLegendBackground
+        : Theme.background
 
     TextMetrics {
         id: taskLineMetrics
@@ -370,8 +373,7 @@ Item {
 
         SectionPanel {
             id: tasksSection
-            contentPad: Theme.panelContentPad
-            legendBackground: Theme.background
+            legendBackground: root.legendBackground
             label: ""
             fillHeight: true
             Layout.fillWidth: true
@@ -379,6 +381,7 @@ Item {
 
             HoverPopupLabelPill {
                 text: "Tasks"
+                icon: "󰄴"
                 fontSize: Theme.fontSizeS
             }
 

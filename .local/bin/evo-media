@@ -788,7 +788,16 @@ cmd_list_episodes() {
 
 play_mpv() {
     local path="$1"
-    nohup mpv --fullscreen --force-window=immediate --really-quiet -- "$path" >/dev/null 2>&1 &
+    local mode="${2:-fullscreen}"
+    local -a args=(--force-window=immediate --really-quiet)
+
+    if [[ "$mode" == "floating" ]]; then
+        args+=(--wayland-app-id=floating-window)
+    else
+        args+=(--fullscreen)
+    fi
+
+    nohup mpv "${args[@]}" -- "$path" >/dev/null 2>&1 &
     disown
 }
 
@@ -825,7 +834,11 @@ cmd_play() {
 
     record_play "$kind" "$path"
 
-    play_mpv "$path"
+    if [[ "$kind" == "film" ]]; then
+        play_mpv "$path" floating
+    else
+        play_mpv "$path"
+    fi
     jq -n --arg path "$path" '{ok: true, path: $path}'
 }
 

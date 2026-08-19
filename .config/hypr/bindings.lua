@@ -17,6 +17,7 @@ end
 bindd("SUPER + Return", "Terminal", hl.dsp.exec_cmd(terminal))
 bindd("SUPER + Space", "System menu", hl.dsp.global("evoshell:systemMenu"))
 bindd("SUPER + Home", "Wallpaper switcher", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.wallpaper"))
+bindd("SUPER + ALT + Home", "Theme picker", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.theme"))
 bindd("SUPER + W", "Close Active Window", hl.dsp.window.close())
 bindd("SUPER + E", "Editor", hl.dsp.exec_cmd(editor))
 bindd("SUPER + T", "GUI File Manager", hl.dsp.exec_cmd("thunar"))

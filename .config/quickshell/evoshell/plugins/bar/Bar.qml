@@ -64,7 +64,7 @@ Scope {
 
             Rectangle {
                 anchors.fill: parent
-                color: Theme.mantle
+                color: Theme.background
                 opacity: root.shell && root.shell.hoverPopupId ? 1.0 : Theme.surfaceOpacityInactive
             }
 

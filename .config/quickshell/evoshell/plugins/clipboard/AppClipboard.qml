@@ -152,6 +152,12 @@ Item {
         deleteProc.running = true
     }
 
+    function clearHistory() {
+        if (clearProc.running || entries.length === 0)
+            return
+        clearProc.running = true
+    }
+
     function onActivated() {
         selectedIndex = 0
         entryFilter = "all"
@@ -161,6 +167,15 @@ Item {
             if (root.active)
                 focusSink.forceActiveFocus()
         })
+    }
+
+    Process {
+        id: clearProc
+        command: ["bash", root.script, "clear"]
+        onExited: {
+            root.previewTick++
+            root.refresh()
+        }
     }
 
     Process {
@@ -223,19 +238,28 @@ Item {
 
         ColumnLayout {
             anchors.fill: parent
-            anchors.topMargin: 10
-            spacing: Theme.spacingL
+            spacing: Theme.hoverPopupSectionSpacing
 
-            FramedPanel {
-                label: "History"
-                labelBackground: Theme.background
-                contentFill: true
+            SectionPanel {
+                fillHeight: true
+                legendBackground: Theme.background
+                label: ""
+                sectionSpacing: 0
                 Layout.fillWidth: true
                 Layout.fillHeight: true
 
-                ListView {
-                    id: listView
-                    anchors.fill: parent
+                HoverPopupLabelPill {
+                    text: "History"
+                    fontSize: Theme.fontSizeS
+                }
+
+                Item {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+
+                    ListView {
+                        id: listView
+                        anchors.fill: parent
                     clip: true
                     model: root.visibleEntries
                     currentIndex: root.selectedIndex
@@ -326,81 +350,91 @@ Item {
                             }
                         }
                     }
-                }
+                    }
 
-                Text {
-                    anchors.centerIn: parent
-                    visible: listView.count === 0
-                    text: root.entryFilter === "images"
-                        ? "No images in clipboard history"
-                        : (root.entryFilter === "text"
-                            ? "No text in clipboard history"
-                            : "No clipboard history")
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.historyFontSize
-                    opacity: 0.5
+                    Text {
+                        anchors.centerIn: parent
+                        visible: listView.count === 0
+                        text: root.entryFilter === "images"
+                            ? "No images in clipboard history"
+                            : (root.entryFilter === "text"
+                                ? "No text in clipboard history"
+                                : "No clipboard history")
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.historyFontSize
+                        opacity: 0.5
+                    }
                 }
             }
 
-            FramedPanel {
-                label: "Preview"
-                labelBackground: Theme.background
-                contentFill: true
+            SectionPanel {
+                legendBackground: Theme.background
+                label: ""
+                sectionSpacing: 0
                 Layout.fillWidth: true
-                Layout.preferredHeight: 150
-                Layout.topMargin: 4
+                Layout.preferredHeight: 166
 
-                Image {
-                    id: previewImage
-                    anchors.centerIn: parent
-                    width: parent.width
-                    height: parent.height
-                    fillMode: Image.PreserveAspectFit
-                    asynchronous: true
-                    cache: false
-                    visible: root.selectedEntry && root.selectedEntry.image && status === Image.Ready
-                    source: root.previewUrlFor(root.selectedEntry)
-                    sourceSize: Qt.size(parent.width * 2, parent.height * 2)
+                HoverPopupLabelPill {
+                    text: "Preview"
+                    fontSize: Theme.fontSizeS
                 }
 
-                Text {
-                    anchors.fill: parent
-                    visible: root.selectedEntry && !root.selectedEntry.image
-                    text: root.selectedEntry ? root.selectedEntry.text : ""
-                    wrapMode: Text.WordWrap
-                    clip: true
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeS
-                    verticalAlignment: Text.AlignTop
-                }
+                Item {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 120
 
-                Text {
-                    anchors.centerIn: parent
-                    visible: !root.selectedEntry
-                    text: "Select an entry"
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeS
-                    opacity: 0.5
-                }
-
-                Text {
-                    anchors.bottom: parent.bottom
-                    anchors.right: parent.right
-                    visible: {
-                        var e = root.selectedEntry
-                        return previewImage.visible && e && e.image
+                        Image {
+                        id: previewImage
+                        anchors.centerIn: parent
+                        width: parent.width
+                        height: parent.height
+                        fillMode: Image.PreserveAspectFit
+                        asynchronous: true
+                        cache: false
+                        visible: root.selectedEntry && root.selectedEntry.image && status === Image.Ready
+                        source: root.previewUrlFor(root.selectedEntry)
+                        sourceSize: Qt.size(parent.width * 2, parent.height * 2)
                     }
-                    text: {
-                        var e = root.selectedEntry
-                        return (e && e.image) ? (e.image.width + "×" + e.image.height) : ""
+
+                    Text {
+                        anchors.fill: parent
+                        visible: root.selectedEntry && !root.selectedEntry.image
+                        text: root.selectedEntry ? root.selectedEntry.text : ""
+                        wrapMode: Text.WordWrap
+                        clip: true
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeS
+                        verticalAlignment: Text.AlignTop
                     }
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeXxs
-                    opacity: Theme.opacityHover
+
+                    Text {
+                        anchors.centerIn: parent
+                        visible: !root.selectedEntry
+                        text: "Select an entry"
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeS
+                        opacity: 0.5
+                    }
+
+                    Text {
+                        anchors.bottom: parent.bottom
+                        anchors.right: parent.right
+                        visible: {
+                            var e = root.selectedEntry
+                            return previewImage.visible && e && e.image
+                        }
+                        text: {
+                            var e = root.selectedEntry
+                            return (e && e.image) ? (e.image.width + "×" + e.image.height) : ""
+                        }
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeXxs
+                        opacity: Theme.opacityHover
+                    }
                 }
             }
 
@@ -408,65 +442,56 @@ Item {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 28
                 Layout.topMargin: 2
-                spacing: Theme.spacingM
+                spacing: Theme.spacingS
 
-                Item {
-                    Layout.preferredWidth: 28
-                    Layout.preferredHeight: 28
-                    opacity: root.entries.length === 0 ? 0.35 : 1
-
-                    Text {
-                        anchors.centerIn: parent
-                        text: "󰋩"
-                        color: root.entryFilter === "images" ? Theme.accent : Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSize2xl
-                        font.bold: Theme.fontBold
-                        opacity: imagesMouse.containsMouse || root.entryFilter === "images" ? 1 : 0.72
-                    }
-
-                    MouseArea {
-                        id: imagesMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        enabled: root.entries.length > 0
-                        onClicked: {
-                            root.entryFilter = root.entryFilter === "images" ? "all" : "images"
-                            root.clampSelectedIndex()
-                        }
+                HoverPopupLabelPill {
+                    clickable: root.entries.length > 0
+                    text: "Images"
+                    icon: "󰋩"
+                    fontSize: Theme.fontSizeXs
+                    textColor: root.entryFilter === "images" ? Theme.accent : Theme.foreground
+                    fill: root.entryFilter === "images"
+                        ? Theme.withOpacity(Theme.accent, 0.14)
+                        : Theme.withOpacity(Theme.foreground, 0.08)
+                    textOpacity: root.entries.length === 0
+                        ? 0.35
+                        : (root.entryFilter === "images" ? 1 : 0.72)
+                    onClicked: {
+                        root.entryFilter = root.entryFilter === "images" ? "all" : "images"
+                        root.clampSelectedIndex()
                     }
                 }
 
-                Item {
-                    Layout.preferredWidth: 28
-                    Layout.preferredHeight: 28
-                    opacity: root.entries.length === 0 ? 0.35 : 1
-
-                    Text {
-                        anchors.centerIn: parent
-                        text: "󰈙"
-                        color: root.entryFilter === "text" ? Theme.accent : Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSize2xl
-                        font.bold: Theme.fontBold
-                        opacity: textMouse.containsMouse || root.entryFilter === "text" ? 1 : 0.72
-                    }
-
-                    MouseArea {
-                        id: textMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        enabled: root.entries.length > 0
-                        onClicked: {
-                            root.entryFilter = root.entryFilter === "text" ? "all" : "text"
-                            root.clampSelectedIndex()
-                        }
+                HoverPopupLabelPill {
+                    clickable: root.entries.length > 0
+                    text: "Text"
+                    icon: "󰈙"
+                    fontSize: Theme.fontSizeXs
+                    textColor: root.entryFilter === "text" ? Theme.accent : Theme.foreground
+                    fill: root.entryFilter === "text"
+                        ? Theme.withOpacity(Theme.accent, 0.14)
+                        : Theme.withOpacity(Theme.foreground, 0.08)
+                    textOpacity: root.entries.length === 0
+                        ? 0.35
+                        : (root.entryFilter === "text" ? 1 : 0.72)
+                    onClicked: {
+                        root.entryFilter = root.entryFilter === "text" ? "all" : "text"
+                        root.clampSelectedIndex()
                     }
                 }
 
                 Item { Layout.fillWidth: true }
+
+                HoverPopupLabelPill {
+                    clickable: root.entries.length > 0
+                    text: "Clear"
+                    icon: "󰩺"
+                    fontSize: Theme.fontSizeXs
+                    textColor: Theme.foreground
+                    fill: Theme.withOpacity(Theme.foreground, 0.08)
+                    textOpacity: root.entries.length === 0 ? 0.35 : 0.72
+                    onClicked: root.clearHistory()
+                }
             }
         }
     }

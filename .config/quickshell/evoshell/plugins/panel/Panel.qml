@@ -14,6 +14,8 @@ Item {
     property string pendingFocus: ""
     property string focusTarget: ""
 
+    readonly property color fieldsetLegendBackground: Theme.background
+
     readonly property string layoutScript: Quickshell.env("HOME") + "/.local/bin/evo-layout"
 
     Component { id: calcComp; Calc.AppCalc {} }
@@ -144,6 +146,7 @@ Item {
         side: root.panelSideLive
         pinned: true
         showSideButton: true
+        surfaceColor: Theme.background
         onCloseRequested: root.dismiss()
         onSideRequested: root.toggleSide()
 

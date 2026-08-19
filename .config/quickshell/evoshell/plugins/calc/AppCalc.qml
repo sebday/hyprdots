@@ -17,6 +17,10 @@ Item {
     property int historyRecallIndex: -1
     property var exprHistory: []
 
+    readonly property color legendBackground: host && host.fieldsetLegendBackground !== undefined
+        ? host.fieldsetLegendBackground
+        : Theme.background
+
     readonly property string script: Quickshell.env("HOME") + "/.local/bin/evo-calculator"
     readonly property int inputFontSize: Theme.fontSize6xl
     readonly property int historyFontSize: Theme.fontSizeL
@@ -273,12 +277,12 @@ Item {
 
         SectionPanel {
             id: calculatorPanel
-            contentPad: Theme.panelContentPad
-            legendBackground: Theme.background
+            legendBackground: root.legendBackground
             label: ""
 
             HoverPopupLabelPill {
                 text: "Calculator"
+                icon: "󰪚"
                 fontSize: Theme.fontSizeS
             }
 
@@ -343,12 +347,12 @@ Item {
         }
 
         SectionPanel {
-            contentPad: Theme.panelContentPad
-            legendBackground: Theme.background
+            legendBackground: root.legendBackground
             label: ""
 
             HoverPopupLabelPill {
                 text: "History"
+                icon: "󰋚"
                 fontSize: Theme.fontSizeS
             }
 

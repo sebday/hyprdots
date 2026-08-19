@@ -32,10 +32,11 @@ Item {
     CenteredOverlay {
         opened: root.opened
         layerNamespace: "evo-library"
-        framed: false
-        fillScreen: true
-        backgroundColor: Theme.mantle
-        contentMargin: 24
+        framed: true
+        fillScreen: false
+        contentWidth: 1600
+        contentHeight: 900
+        borderWidth: 2
         keysTarget: libraryContent
         onDismissed: root.dismiss()
 
