@@ -22,7 +22,10 @@ usage:
   evo-player toggle|next|prev|seek <sec>|shuffle [toggle|on|off]
   evo-player volume set <0-100>|volume <delta>
   evo-player save|open|restore|resume|close|stop|status [--json]
-  evo-player sync|import|playlists [--force]|soundcloud
+  evo-player soundcloud [--json]
+  evo-player sync [--json]
+  evo-player import [--json]
+  evo-player playlists [--force]
   evo-player build [--json]
   evo-player warm [<track-path>]
   evo-player sort <folder> [--json]
@@ -821,26 +824,26 @@ player_saved_status_json() {
     genre="$(jq -r '.genre // ""' "$PLAYER_STATE" 2>/dev/null || true)"
     playlist="$(jq -r '.playlist // ""' "$PLAYER_STATE" 2>/dev/null || true)"
   fi
-  local title="" artist="" album="" tag_genre="" year="" label="" dur="0" art="" wf="" liked="false"
+  local title="" artist="" album="" tag_genre="" year="" label="" dur="0" art="" wf="" liked="false" row=""
   if [[ -n "$path" && -f "$path" ]]; then
-    title="$(ffprobe_meta "$path" title)"
-    artist="$(ffprobe_meta "$path" artist)"
-    tag_genre="$(ffprobe_meta "$path" genre)"
-    album="$(ffprobe_meta "$path" album)"
-    year="$(ffprobe_year "$path")"
-    label="$(ffprobe_meta "$path" publisher)"
-    [[ -z "$label" ]] && label="$(ffprobe_meta "$path" label)"
+    row="$(track_list_cached_json "$path")"
+    title="$(jq -r '.title // ""' <<<"$row")"
+    artist="$(jq -r '.artist // ""' <<<"$row")"
+    tag_genre="$(jq -r '.genre // ""' <<<"$row")"
+    album="$(jq -r '.album // ""' <<<"$row")"
+    year="$(jq -r '.year // ""' <<<"$row")"
+    label="$(jq -r '.label // ""' <<<"$row")"
     [[ -z "$title" ]] && title="$(basename "$path")"
     title="${title%.*}"
-    dur="$(ffprobe_duration "$path")"
-    art="$(art_path_cached "$path")"
-    if [[ -z "$art" ]]; then
-      art_ensure_now "$path"
-      art="$(art_path_cached "$path")"
-    fi
-    wf="$(waveform_cache_path "$path")"
+    dur="$(jq -r '.duration // 0' <<<"$row")"
+    [[ "$dur" =~ ^[0-9]+$ ]] || dur="0"
+    art="$(jq -r '.art // ""' <<<"$row")"
+    [[ -z "$art" ]] && art="$(art_path_cached "$path")"
+    wf="$(jq -r '.waveform // ""' <<<"$row")"
+    [[ -z "$wf" ]] && wf="$(waveform_cache_path "$path")"
     waveform_ensure_async "$path"
-    is_liked "$path" && liked="true"
+    liked="$(jq -r '.liked // false' <<<"$row")"
+    [[ "$liked" == "true" ]] || { is_liked "$path" && liked="true"; }
   else
     path=""
     pos="0"
@@ -879,7 +882,7 @@ cmd_player_status() {
     fi
     return 0
   fi
-  local path paused pos dur vol title artist genre album year label art wf playlist shuffle state liked
+  local path paused pos dur vol title artist genre album year label art wf playlist shuffle state liked row muted
   path="$(mpv_prop path)" || path=""
   paused="$(mpv_prop pause)" || paused="true"
   pos="$(mpv_prop time-pos)" || pos="0"
@@ -896,24 +899,24 @@ cmd_player_status() {
     state="playing"
   fi
   title="" artist="" genre="" album="" year="" label="" liked="false"
+  row=""
   if [[ -n "$path" && -f "$path" ]]; then
-    title="$(ffprobe_meta "$path" title)"
-    artist="$(ffprobe_meta "$path" artist)"
-    genre="$(ffprobe_meta "$path" genre)"
-    album="$(ffprobe_meta "$path" album)"
-    year="$(ffprobe_year "$path")"
-    label="$(ffprobe_meta "$path" publisher)"
-    [[ -z "$label" ]] && label="$(ffprobe_meta "$path" label)"
+    row="$(track_list_cached_json "$path")"
+    title="$(jq -r '.title // ""' <<<"$row")"
+    artist="$(jq -r '.artist // ""' <<<"$row")"
+    genre="$(jq -r '.genre // ""' <<<"$row")"
+    album="$(jq -r '.album // ""' <<<"$row")"
+    year="$(jq -r '.year // ""' <<<"$row")"
+    label="$(jq -r '.label // ""' <<<"$row")"
     [[ -z "$title" ]] && title="$(basename "$path")"
     title="${title%.*}"
-    art="$(art_path_cached "$path")"
-    if [[ -z "$art" ]]; then
-      art_ensure_now "$path"
-      art="$(art_path_cached "$path")"
-    fi
-    wf="$(waveform_cache_path "$path")"
+    art="$(jq -r '.art // ""' <<<"$row")"
+    [[ -z "$art" ]] && art="$(art_path_cached "$path")"
+    wf="$(jq -r '.waveform // ""' <<<"$row")"
+    [[ -z "$wf" ]] && wf="$(waveform_cache_path "$path")"
     waveform_ensure_async "$path"
-    is_liked "$path" && liked="true"
+    liked="$(jq -r '.liked // false' <<<"$row")"
+    [[ "$liked" == "true" ]] || { is_liked "$path" && liked="true"; }
   else
     art="" wf=""
   fi
@@ -965,6 +968,15 @@ cmd_sync() {
   run_exclusive_job sync "download soundcloud" cmd_sync_impl
 }
 
+cmd_soundcloud_impl() {
+  cmd_sync_impl
+  cmd_import_impl
+}
+
+cmd_soundcloud() {
+  run_exclusive_job soundcloud "soundcloud" cmd_soundcloud_impl
+}
+
 incoming_skip_file() {
   local path="$1"
   local base ext
@@ -1003,6 +1015,10 @@ cmd_import_impl() {
   echo "evo-player: imported ${moved} file(s) from .incoming/" >&2
   cmd_playlists
   [[ "$failed" -eq 0 ]]
+}
+
+cmd_import() {
+  run_exclusive_job import "import incoming" cmd_import_impl
 }
 
 cmd_sort_impl() {
@@ -1054,7 +1070,8 @@ run_sort_job() {
       local run_label="$running_cmd"
       case "$running_cmd" in
         build) run_label="build" ;;
-        soundcloud|sync) run_label="download soundcloud" ;;
+        soundcloud) run_label="soundcloud" ;;
+        sync) run_label="download soundcloud" ;;
         import) run_label="import incoming" ;;
         sort) run_label="sort" ;;
       esac
@@ -1160,10 +1177,6 @@ cmd_config() {
     -h|--help|help|"") usage ;;
     *) usage ;;
   esac
-}
-
-cmd_import() {
-  run_exclusive_job import "import incoming" cmd_import_impl
 }
 
 write_likes_m3u() {
@@ -1457,14 +1470,6 @@ cmd_build() {
   run_exclusive_job build "build" cmd_build_impl
 }
 
-cmd_soundcloud_impl() {
-  cmd_sync_impl
-}
-
-cmd_soundcloud() {
-  run_exclusive_job soundcloud "download soundcloud" cmd_soundcloud_impl
-}
-
 cmd_cache() {
   local force=0 json=0 prune_art=0 genre=""
   while [[ $# -gt 0 ]]; do
@@ -1584,7 +1589,7 @@ browse_track_enrich_json() {
 
 browse_track_json() {
   local path="$1"
-  browse_track_enrich_json "$(track_list_json "$path")" | jq -c '. + {type:"track"}'
+  browse_track_enrich_json "$(track_list_cached_json "$path")" | jq -c '. + {type:"track"}'
 }
 
 browse_track_art_json() {
@@ -2986,6 +2991,7 @@ main() {
     restore) cmd_player_restore "${1:---json}" ;;
     resume) cmd_player_resume "${1:---json}" ;;
     status) cmd_player_status "${1:---json}" ;;
+    soundcloud) cmd_soundcloud ;;
     sync) cmd_sync ;;
     import) cmd_import ;;
     playlists) cmd_playlists "$@" ;;
@@ -2994,7 +3000,6 @@ main() {
     sort) cmd_sort "$@" ;;
     config) cmd_config "$@" ;;
     cache) cmd_cache "$@" ;;
-    soundcloud) cmd_soundcloud ;;
     job)
       local sub="${1:-}"
       shift || true

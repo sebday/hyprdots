@@ -18,7 +18,7 @@ Item {
     readonly property int hintFont: Theme.fontSizeL
     readonly property int listFont: hintFont
     readonly property int titleFont: Theme.fontSize7xl
-    readonly property int nowPlayingMinBioWidth: 200
+    readonly property int nowPlayingMinBioWidth: 300
     readonly property int nowPlayingInlineArtSize: 112
     readonly property int nowPlayingArtWidth: {
         if (root.compactMode)
@@ -97,6 +97,7 @@ Item {
     property var browseTreeFolderMeta: ({})
     property bool browseTreeLoadingMore: false
     property string selectedTrackPath: ""
+    property string selectedBrowseFolderPath: ""
     property var selectedTrackCache: ({})
     property var playlists: []
     property var libraryPlaylists: []
@@ -214,17 +215,17 @@ Item {
             args: ["build"]
         },
         {
-            key: "sync",
+            key: "soundcloud",
             icon: "󰕧",
             label: "download soundcloud",
-            hint: "soundcloud",
+            hint: "download soundcloud",
             args: ["sync"]
         },
         {
             key: "import",
-            icon: "󰋋",
+            icon: "󰉍",
             label: "import incoming",
-            hint: "import incoming folder",
+            hint: "import incoming",
             args: ["import"]
         },
         {
@@ -520,8 +521,6 @@ Item {
                 var data = JSON.parse(String(text || "{}"))
                 root.artPickerQuery = String(data.query || query)
                 root.artPickerResults = data.results || []
-                if (!String(root.artPickerSearchText || "").trim())
-                    root.artPickerSearchText = root.artPickerQuery
             } catch (e) {
                 root.artPickerResults = []
             }
@@ -1983,6 +1982,15 @@ Item {
         }
     }
 
+    function selectBrowseFolder(path) {
+        path = String(path || "")
+        if (!path)
+            return
+        selectedBrowseFolderPath = path
+        if (selectedTrackPath && selectedTrackPath !== String(player.path || ""))
+            selectedTrackPath = ""
+    }
+
     function isTrackPlaying(path) {
         return String(player.path || "") === String(path || "")
     }
@@ -2003,6 +2011,7 @@ Item {
             closeArtPicker()
         selectedTrackPath = String(entry.path)
         cacheSelectedTrack(entry)
+        selectedBrowseFolderPath = ""
     }
 
     function openTrackFolder(entry) {
@@ -2507,20 +2516,35 @@ Item {
         startNeighborWaveformJob()
     }
 
+    function waveformCachePath(trackPath) {
+        var p = String(trackPath || "")
+        var root = String(musicRoot || "").replace(/\/+$/, "")
+        if (!p)
+            return ""
+        var rel = p
+        if (root && (p === root || p.indexOf(root + "/") === 0))
+            rel = p.slice(root.length).replace(/^\/+/, "")
+        var slug = rel.replace(/[^a-zA-Z0-9&_-]/g, "_")
+        return (root || "") + "/.cache/waveforms/" + slug + ".json"
+    }
+
     function primePlayerForPath(path) {
         var p = String(path || "")
         if (!p)
             return
         var t = trackMetaForPath(p)
+        var wf = (t && t.waveform) || waveformPathByTrack[p] || waveformCachePath(p)
         var next = Object.assign({}, player, playerFieldsFromTrack(t), {
             path: p,
             state: "playing",
             position: 0,
             position_label: formatPlaybackTime(0),
             art: (t && t.art) || "",
-            waveform: (t && t.waveform) || waveformPathByTrack[p] || ""
+            waveform: wf
         })
         player = next
+        if (wf)
+            rememberWaveformPath(p, wf)
         applyCachedWaveform(p)
         prefetchNeighbors(p)
     }
@@ -3886,7 +3910,12 @@ Item {
                     ColumnLayout {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
+                        Layout.minimumWidth: root.nowPlayingMinBioWidth
+                        Layout.maximumWidth: root.nowPlayingCompact
+                            ? -1
+                            : Math.max(1, nowPlayingPanel.width - root.nowPlayingArtWidth - pad)
                         spacing: pad
+                        clip: true
 
                         SectionPanel {
                             label: ""
@@ -3900,6 +3929,7 @@ Item {
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
                                 spacing: pad
+                                clip: true
 
                                 RowLayout {
                                     id: titleRow
@@ -3921,6 +3951,7 @@ Item {
                                         Item {
                                             Layout.fillWidth: true
                                             Layout.preferredHeight: titleLabel.implicitHeight
+                                            clip: true
 
                                             Text {
                                                 id: titleLabel
@@ -3932,6 +3963,7 @@ Item {
                                                 font.bold: Theme.fontBold
                                                 wrapMode: Text.Wrap
                                                 maximumLineCount: 2
+                                                elide: Text.ElideRight
                                                 opacity: titleMouse.containsMouse && (root.player.title || "") !== ""
                                                     ? 0.82
                                                     : 1
@@ -3948,16 +3980,22 @@ Item {
                                         }
 
                                         Flow {
+                                            id: bylineFlow
                                             Layout.fillWidth: true
                                             spacing: 0
                                             visible: root.nowPlayingBylineVisible
+                                            clip: true
 
                                             Text {
                                                 visible: root.nowPlayingArtist !== ""
+                                                width: bylineFlow.width > 0
+                                                    ? Math.min(implicitWidth, bylineFlow.width)
+                                                    : implicitWidth
                                                 text: root.nowPlayingArtist
                                                 color: Theme.foreground
                                                 font.family: Theme.fontFamily
                                                 font.pixelSize: Theme.fontSizeXl
+                                                wrapMode: Text.Wrap
                                                 opacity: artistMouse.containsMouse ? 1 : 0.62
 
                                                 MouseArea {
@@ -3986,10 +4024,14 @@ Item {
 
                                             Text {
                                                 visible: root.nowPlayingAlbum !== ""
+                                                width: bylineFlow.width > 0
+                                                    ? Math.min(implicitWidth, bylineFlow.width)
+                                                    : implicitWidth
                                                 text: root.nowPlayingAlbum
                                                 color: Theme.foreground
                                                 font.family: Theme.fontFamily
                                                 font.pixelSize: Theme.fontSizeXl
+                                                wrapMode: Text.Wrap
                                                 opacity: albumMouse.containsMouse ? 1 : 0.62
 
                                                 MouseArea {
@@ -4279,7 +4321,8 @@ Item {
                                         compact: true
                                         visible: waveformViz.vizMid > 0
                                         label: root.player.position_label || "0:00"
-                                        x: -implicitWidth / 2
+                                        anchors.left: parent.left
+                                        anchors.leftMargin: 5 - Theme.hoverPopupContentPad
                                         y: waveformViz.vizMid - implicitHeight / 2
                                     }
 
@@ -4289,9 +4332,8 @@ Item {
                                         compact: true
                                         visible: waveformViz.vizMid > 0
                                         label: root.player.duration_label || "0:00"
-                                        x: waveformViz.width > 0
-                                            ? waveformViz.width - implicitWidth / 2
-                                            : 0
+                                        anchors.right: parent.right
+                                        anchors.rightMargin: 5 - Theme.hoverPopupContentPad
                                         y: waveformViz.vizMid - implicitHeight / 2
                                     }
 
@@ -4886,10 +4928,10 @@ Item {
         id: transportProgress
         property int minBarWidth: 72
         property int preferredBarWidth: 140
-        Layout.preferredWidth: preferredBarWidth
-        Layout.minimumWidth: minBarWidth
-        Layout.maximumWidth: root.compactMode ? -1 : 240
-        Layout.fillWidth: true
+        Layout.preferredWidth: visible ? preferredBarWidth : 0
+        Layout.minimumWidth: visible ? minBarWidth : 0
+        Layout.maximumWidth: visible ? (root.compactMode ? -1 : 240) : 0
+        Layout.fillWidth: visible
         Layout.alignment: Qt.AlignVCenter
         implicitHeight: 20
 
@@ -4936,46 +4978,65 @@ Item {
         implicitHeight: root.nowPlayingControlsHeight
 
         readonly property int fitBtnCount: 6
-        readonly property int fitGapCount: 6
         readonly property int fitMaxGap: root.compactMode ? Theme.spacingL : 24
         readonly property int fitMinGap: 2
         readonly property int fitMinBtn: 18
         readonly property int fitMinProgress: 36
         readonly property int fitMaxProgress: 72
-
-        readonly property int fitGap: {
+        readonly property int fitFullWidth: fitBtnCount * root.transportBtnSize
+            + 5 * fitMaxGap
+            + fitMinProgress
+        readonly property bool fitShowProgress: {
             var w = controlsRow.width
-            var maxBtn = root.transportBtnSize
-            var maxGap = fitMaxGap
             if (w <= 1)
-                return maxGap
-            var need = fitBtnCount * maxBtn + fitGapCount * maxGap + fitMaxProgress
-            if (need <= w)
-                return maxGap
-            return Math.max(fitMinGap, maxGap - Math.ceil((need - w) / fitGapCount))
+                return true
+            return w >= fitFullWidth
         }
+        readonly property int fitActiveGaps: fitShowProgress ? 6 : 5
+
         readonly property int fitBtnSize: {
             var w = controlsRow.width
             var maxBtn = root.transportBtnSize
             if (w <= 1)
                 return maxBtn
-            var remain = w - fitGapCount * fitGap - fitMinProgress
+            if (!fitShowProgress) {
+                var scale = Math.max(0.5, Math.min(1, w / Math.max(1, fitFullWidth)))
+                return Math.max(fitMinBtn, Math.round(maxBtn * scale))
+            }
+            var remain = w - fitActiveGaps * fitGap - fitMinProgress
             return Math.max(fitMinBtn, Math.min(maxBtn, Math.floor(remain / fitBtnCount)))
         }
+        readonly property int fitGap: {
+            var w = controlsRow.width
+            var maxGap = fitMaxGap
+            var gaps = Math.max(1, fitActiveGaps)
+            if (w <= 1)
+                return maxGap
+            if (!fitShowProgress)
+                return Math.max(fitMinGap, Math.min(maxGap, 8))
+            var need = fitBtnCount * root.transportBtnSize + gaps * maxGap + fitMaxProgress
+            if (need <= w)
+                return maxGap
+            return Math.max(fitMinGap, maxGap - Math.ceil((need - w) / gaps))
+        }
         readonly property int fitProgressMin: {
+            if (!fitShowProgress)
+                return 0
             var w = controlsRow.width
             if (w <= 1)
                 return fitMaxProgress
-            var remain = w - fitBtnCount * fitBtnSize - fitGapCount * fitGap
+            var remain = w - fitBtnCount * fitBtnSize - fitActiveGaps * fitGap
             return Math.max(fitMinProgress, Math.min(fitMaxProgress, remain))
         }
         readonly property bool fitShowSpacers: {
+            if (!fitShowProgress)
+                return true
             if (root.compactMode)
                 return false
             var w = controlsRow.width
             if (w <= 1)
                 return true
-            return fitBtnCount * root.transportBtnSize + (fitGapCount + 2) * fitMaxGap + fitMaxProgress <= w
+            return fitBtnCount * root.transportBtnSize + (fitActiveGaps + 2) * fitMaxGap + fitMaxProgress <= w
         }
         readonly property real fitIconScale: fitBtnSize / root.transportBtnSize
 
@@ -5029,6 +5090,7 @@ Item {
                 }
 
                 TransportProgressBar {
+                    visible: transportBar.fitShowProgress
                     minBarWidth: transportBar.fitProgressMin
                     preferredBarWidth: Math.max(transportBar.fitProgressMin, 140)
                 }
@@ -5756,8 +5818,8 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     anchors.left: parent.left
                     anchors.leftMargin: 8
-                    visible: !artSearchInput.text && !artSearchInput.activeFocus
-                    text: "search discogs…"
+                    visible: !artSearchInput.text
+                    text: root.artPickerQuery !== "" ? root.artPickerQuery : "search discogs…"
                     color: Theme.foreground
                     font.family: Theme.fontFamily
                     font.pixelSize: root.libraryFont
@@ -5999,9 +6061,21 @@ Item {
             anchors.fill: parent
             spacing: Theme.spacingS
 
-            RowLayout {
+            Rectangle {
                 Layout.fillWidth: true
-                spacing: Theme.spacingS
+                implicitHeight: browseCrumbRow.implicitHeight + 8
+                Layout.preferredHeight: Math.max(30, implicitHeight)
+                radius: Theme.radiusM
+                color: Theme.foregroundWash
+
+                RowLayout {
+                    id: browseCrumbRow
+                    anchors.fill: parent
+                    anchors.leftMargin: 6
+                    anchors.rightMargin: 6
+                    anchors.topMargin: 4
+                    anchors.bottomMargin: 4
+                    spacing: Theme.spacingS
 
                 RowIconButton {
                     icon: "󰋜"
@@ -6045,6 +6119,7 @@ Item {
                     opacityIdle: 0.5
                     opacityHover: 0.9
                     iconColor: Theme.urgent
+                    flashing: true
                     enabled: !root.browseTreeLoading
                     onActivated: root.stopLibraryJob()
                 }
@@ -6074,6 +6149,7 @@ Item {
                     font.pixelSize: root.libraryFont
                     opacity: Theme.opacityDisabled
                 }
+            }
             }
 
             ListView {
@@ -6168,6 +6244,8 @@ Item {
                     required property var modelData
                     required property int index
                     readonly property bool isDir: modelData.type === "dir"
+                    readonly property bool folderSelected: isDir
+                        && String(root.selectedBrowseFolderPath) === String(modelData.path || "")
                     readonly property int indent: 8 + (Number(modelData.depth || 0) * 14)
                     width: sideBrowseTree.width
                     height: isDir ? 34 : 40
@@ -6176,9 +6254,11 @@ Item {
                         anchors.fill: parent
                         visible: isDir
                         radius: Theme.radiusL
-                        color: treeRowMouse.containsMouse
-                            ? Theme.foregroundGhost
-                            : "transparent"
+                        color: folderSelected
+                            ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.22)
+                            : (treeRowMouse.containsMouse
+                                ? Theme.foregroundGhost
+                                : "transparent")
 
                         RowLayout {
                             anchors.fill: parent
@@ -6222,12 +6302,14 @@ Item {
                             }
 
                             BrowseTreeIcon {
+                                visible: folderSelected
                                 icon: "󰉖"
                                 hint: "open folder in file manager"
                                 onActivated: root.openBrowseFolder(modelData)
                             }
 
                             BrowseTreeIcon {
+                                visible: folderSelected
                                 icon: "󰉚"
                                 hint: "sort files into album folders"
                                 onActivated: root.browseSortFolder(modelData)
@@ -6255,10 +6337,13 @@ Item {
                         MouseArea {
                             id: treeRowMouse
                             anchors.fill: parent
-                            anchors.rightMargin: 98
+                            anchors.rightMargin: folderSelected ? 108 : 56
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
-                            onClicked: root.toggleBrowseTreeNode(modelData.path)
+                            onClicked: {
+                                root.selectBrowseFolder(modelData.path)
+                                root.toggleBrowseTreeNode(modelData.path)
+                            }
                         }
                     }
 
@@ -6293,24 +6378,37 @@ Item {
             anchors.fill: parent
             spacing: Theme.spacingS
 
-            RowLayout {
+            Rectangle {
                 Layout.fillWidth: true
-                spacing: Theme.spacingM
+                implicitHeight: playlistCrumbRow.implicitHeight + 8
+                Layout.preferredHeight: Math.max(30, implicitHeight)
+                radius: Theme.radiusM
+                color: Theme.foregroundWash
                 visible: root.playlistPanelMode === "tracks"
 
-                RowIconButton {
-                    icon: "󰁍"
-                    onActivated: root.showPlaylistLibrary()
-                }
+                RowLayout {
+                    id: playlistCrumbRow
+                    anchors.fill: parent
+                    anchors.leftMargin: 6
+                    anchors.rightMargin: 6
+                    anchors.topMargin: 4
+                    anchors.bottomMargin: 4
+                    spacing: Theme.spacingM
 
-                Text {
-                    Layout.fillWidth: true
-                    text: root.playlistTabLabel(root.selectedPlaylist)
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.sectionLabelFont
-                    font.bold: Theme.fontBold
-                    elide: Text.ElideRight
+                    RowIconButton {
+                        icon: "󰁍"
+                        onActivated: root.showPlaylistLibrary()
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: root.playlistTabLabel(root.selectedPlaylist)
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.sectionLabelFont
+                        font.bold: Theme.fontBold
+                        elide: Text.ElideRight
+                    }
                 }
             }
 
@@ -6398,6 +6496,7 @@ Item {
                     MouseArea {
                         id: sideLibPlaylistMouse
                         anchors.fill: parent
+                        anchors.rightMargin: root.playlistCanStar(modelData.name || "") ? 36 : 0
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
                         onClicked: root.selectGenrePlaylist(modelData.name)
@@ -6605,18 +6704,37 @@ Item {
     }
 
     component BriefTooltip: Item {
+        id: tip
         property bool show: false
         property string text: ""
+        property bool placeBelow: false
 
         z: 200
         width: 1
         height: 1
 
+        function computePlaceBelow() {
+            var item = parent
+            while (item) {
+                if (item.clip === true) {
+                    var p = mapToItem(item, 0, 0)
+                    return p.y < 28
+                }
+                item = item.parent
+            }
+            var g = mapToItem(root, 0, 0)
+            return g.y < 28
+        }
+
+        onShowChanged: {
+            if (show)
+                placeBelow = computePlaceBelow()
+        }
+
         HoverPopupLabelPill {
             visible: show && text !== ""
-            anchors.bottom: parent.top
-            anchors.bottomMargin: 5
             anchors.horizontalCenter: parent.horizontalCenter
+            y: tip.placeBelow ? (parent.parent ? parent.parent.height : 22) + 6 : -(height + 5)
             text: parent.text
             fontSize: Theme.fontSizeXs
             textOpacity: 0.9

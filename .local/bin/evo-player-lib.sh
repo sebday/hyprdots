@@ -123,8 +123,7 @@ run_exclusive_job() {
   if [[ -n "$running" ]]; then
     case "${running##* }" in
       build) run_label="build" ;;
-      soundcloud|sync) run_label="download soundcloud" ;;
-      import) run_label="import incoming" ;;
+      soundcloud) run_label="soundcloud" ;;
       *) run_label="${running##* }" ;;
     esac
     echo "evo-player: busy — ${run_label} already running" >&2
@@ -161,7 +160,7 @@ library_job_running() {
         return ""
       if ($5 == "art" && ($6 == "maintain" || $6 == "embed"))
         return $6
-      if ($5 == "build" || $5 == "sort" || $5 == "soundcloud" || $5 == "import" || $5 == "sync")
+      if ($5 == "build" || $5 == "sort" || $5 == "soundcloud")
         return $5
       return ""
     }
@@ -252,8 +251,7 @@ cmd_job_status() {
     cmd="${running##* }"
     case "$cmd" in
       build) label="build" ;;
-      soundcloud|sync) label="download soundcloud" ;;
-      import) label="import incoming" ;;
+      soundcloud) label="soundcloud" ;;
       sort) label="sort" ;;
       *) label="$cmd" ;;
     esac
@@ -574,12 +572,6 @@ cache_asset_find() {
   }
   legacy="$(track_cache_slug "${path#${MUSIC_ROOT}/}")"
   candidate="${dir}/${legacy}.${ext}"
-  [[ -f "$candidate" ]] && {
-    printf '%s' "$candidate"
-    return 0
-  }
-  hash="$(file_hash "$path")"
-  candidate="${dir}/${hash}.${ext}"
   [[ -f "$candidate" ]] && {
     printf '%s' "$candidate"
     return 0
@@ -1154,7 +1146,7 @@ track_meta_json() {
 
 track_list_json() {
   local path="$1"
-  local tags title artist genre album year label art="" liked_json=false
+  local tags title artist genre album year label art="" wf="" liked_json=false
   tags="$(track_tags_read "$path")"
   title="$(jq -r '.title // ""' <<<"$tags")"
   artist="$(jq -r '.artist // ""' <<<"$tags")"
@@ -1163,8 +1155,9 @@ track_list_json() {
   year="$(jq -r '.year // ""' <<<"$tags")"
   label="$(jq -r '.label // ""' <<<"$tags")"
   art="$(art_path_cached "$path")"
+  wf="$(waveform_cache_path "$path")"
   is_liked "$path" && liked_json=true
-  printf '{"path":"%s","title":"%s","artist":"%s","genre":"%s","album":"%s","year":"%s","label":"%s","art":"%s","liked":%s}' \
+  printf '{"path":"%s","title":"%s","artist":"%s","genre":"%s","album":"%s","year":"%s","label":"%s","art":"%s","waveform":"%s","liked":%s}' \
     "$(json_escape "$path")" \
     "$(json_escape "$title")" \
     "$(json_escape "$artist")" \
@@ -1173,12 +1166,13 @@ track_list_json() {
     "$(json_escape "$year")" \
     "$(json_escape "$label")" \
     "$(json_escape "$art")" \
+    "$(json_escape "$wf")" \
     "$liked_json"
 }
 
 track_list_cached_json() {
   local path="$1"
-  local genre cache row art="" liked_json=false
+  local genre cache row art="" wf="" liked_json=false
   [[ -f "$path" ]] || return 1
   genre="$(genre_from_path "$path")"
   if [[ -n "$genre" ]]; then
@@ -1187,9 +1181,10 @@ track_list_cached_json() {
       row="$(jq -c --arg p "$path" '.[] | select(.path == $p) | .' "$cache" 2>/dev/null | head -1)"
       if [[ -n "$row" ]]; then
         art="$(art_path_cached "$path")"
+        wf="$(waveform_cache_path "$path")"
         is_liked "$path" && liked_json=true
-        jq -c --arg art "$art" --argjson liked "$liked_json" \
-          '. + {art:$art, liked:$liked}' <<<"$row"
+        jq -c --arg art "$art" --arg waveform "$wf" --argjson liked "$liked_json" \
+          '. + {art:$art, waveform:$waveform, liked:$liked}' <<<"$row"
         return 0
       fi
     fi

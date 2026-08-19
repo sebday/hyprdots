@@ -237,6 +237,17 @@ search_discogs_query() {
   jq -n -c --argjson artists "$artists" --argjson releases "$releases" '$artists[:2] + $releases'
 }
 
+discogs_join_query() {
+  local out="" part
+  for part in "$@"; do
+    part="$(printf '%s' "$part" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+    [[ -n "$part" ]] || continue
+    [[ -n "$out" ]] && out+=" - "
+    out+="$part"
+  done
+  printf '%s' "$out"
+}
+
 search_discogs_catalog() {
   local catno="$1"
   local year="${2:-}"
@@ -358,54 +369,31 @@ main() {
     echo "evo-player: not a file" >&2
     return 1
   }
-  local sp_token=""
-  sp_token="$(spotify_token || true)"
 
-  local meta artist album title catno year
+  local meta artist album title catno
   meta="$(track_meta "$path")"
   artist="$(jq -r '.artist // empty' <<<"$meta")"
   album="$(jq -r '.album // empty' <<<"$meta")"
   title="$(jq -r '.title // empty' <<<"$meta")"
   catno="$(jq -r '.catno // empty' <<<"$meta")"
-  year="$(jq -r '.year // empty' <<<"$meta")"
   if [[ -z "$catno" ]] && looks_like_catno "$album"; then
     catno="$album"
   fi
 
-  local queries=() q
-  for q in "$catno" "${artist} ${album}" "${artist} ${title}" "$album" "$title"; do
-    q="$(printf '%s' "$q" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
-    [[ -n "$q" ]] || continue
-    local seen=0 existing
-    for existing in "${queries[@]+"${queries[@]}"}"; do
-      [[ "$existing" == "$q" ]] && { seen=1; break; }
-    done
-    if (( seen == 0 )); then
-      queries+=("$q")
-    fi
-  done
-
-  local primary="${catno:-}"
-  ((${#queries[@]} > 0)) && [[ -z "$primary" ]] && primary="${queries[0]}"
-  [[ -n "$primary" ]] || primary="$(basename "$path")"
-
-  local merged="[]" results="[]"
-  if [[ -n "$catno" ]]; then
-    merged="$(jq -s 'add' <(printf '%s' "$merged") <(search_discogs_catalog "$catno" "$year"))"
-    results="$(dedupe <<<"$merged")"
-  fi
-  if (( $(jq 'length' <<<"$results") == 0 )); then
-    for q in "${queries[@]+"${queries[@]}"}"; do
-      merged="$(jq -s 'add' <(printf '%s' "$merged") <(search_query "$q" "$sp_token"))"
-      results="$(dedupe <<<"$merged")"
-      if (( $(jq 'length' <<<"$results") >= 4 )); then
-        break
-      fi
-    done
+  local primary used results="[]"
+  primary="$(discogs_join_query "$catno" "$title" "$artist")"
+  [[ -n "$primary" ]] || primary="$(basename "${path%.*}")"
+  used="$primary"
+  results="$(search_discogs_query "$primary" | dedupe)"
+  [[ -n "$results" ]] || results="[]"
+  if (( $(jq 'length' <<<"$results") == 0 )) && [[ -n "$artist" && "$artist" != "$primary" ]]; then
+    used="$artist"
+    results="$(search_discogs_query "$artist" | dedupe)"
+    [[ -n "$results" ]] || results="[]"
   fi
 
   if (( json_mode == 1 )); then
-    jq -n --arg query "$primary" --argjson results "$results" '{query:$query, results:$results}'
+    jq -n --arg query "$used" --argjson results "$results" '{query:$query, results:$results}'
   else
     jq -r '.[] | "\(.label // "")\t\(.url // "")"' <<<"$results"
   fi
