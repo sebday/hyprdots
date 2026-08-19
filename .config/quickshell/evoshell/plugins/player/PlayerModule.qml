@@ -80,6 +80,7 @@ Item {
     property var browseTreeListView: null
     property var browseTreeFolderMeta: ({})
     property bool browseTreeLoadingMore: false
+    property string selectedTrackPath: ""
     property var playlists: []
     property var libraryPlaylists: []
     property string selectedPlaylist: ""
@@ -1016,6 +1017,46 @@ Item {
             browseTreeListView.contentY = browseTreeHoldY
     }
 
+    function patchTrackLikedInBrowseTree(trackPath, liked) {
+        trackPath = String(trackPath || "")
+        if (!trackPath)
+            return false
+        var nextChildren = {}
+        var changed = false
+        for (var key in browseTreeChildren) {
+            var kids = browseTreeChildren[key]
+            var nextKids = []
+            for (var i = 0; i < kids.length; i++) {
+                var kid = kids[i]
+                if (kid.type === "track" && String(kid.path) === trackPath) {
+                    nextKids.push(Object.assign({}, kid, { liked: liked }))
+                    changed = true
+                } else {
+                    nextKids.push(kid)
+                }
+            }
+            nextChildren[key] = nextKids
+        }
+        if (!changed)
+            return false
+        browseTreeChildren = nextChildren
+        rebuildBrowseTreeRows(false)
+        return true
+    }
+
+    function findTrackLikedInBrowseTree(trackPath) {
+        trackPath = String(trackPath || "")
+        for (var key in browseTreeChildren) {
+            var kids = browseTreeChildren[key]
+            for (var i = 0; i < kids.length; i++) {
+                var kid = kids[i]
+                if (kid.type === "track" && String(kid.path) === trackPath)
+                    return !!kid.liked
+            }
+        }
+        return undefined
+    }
+
     function applyBrowseTreeEntries(relPath, entries, meta, append) {
         relPath = String(relPath || "")
         var next = Object.assign({}, browseTreeChildren)
@@ -1150,6 +1191,7 @@ Item {
                 browseTreeChildren = nextChildren
                 browseTreeFolderMeta = nextMeta
                 browseTreeLoading = false
+                beginBrowseTreeReflowHold(anchorY)
                 rebuildBrowseTreeRows(false)
                 restoreBrowseTreeViewport(anchorY, -1)
                 return
@@ -1213,6 +1255,13 @@ Item {
         })
     }
 
+    function beginBrowseTreeReflowHold(contentY) {
+        if (contentY < 0)
+            return
+        browseTreeHoldY = contentY
+        browseTreeReflowHidden = true
+    }
+
     function toggleBrowseTreeNode(path) {
         path = String(path || "")
         saveBrowseTreeScroll()
@@ -1223,6 +1272,7 @@ Item {
         if (nextExp[path]) {
             nextExp = pruneBrowseTreeExpansion(path)
             browseTreeExpanded = nextExp
+            beginBrowseTreeReflowHold(anchorY)
             rebuildBrowseTreeRows(false)
             restoreBrowseTreeViewport(anchorY, anchorIndex)
             return
@@ -1230,11 +1280,13 @@ Item {
         nextExp[path] = true
         browseTreeExpanded = nextExp
         if (browseTreeChildren[path]) {
+            beginBrowseTreeReflowHold(anchorY)
             rebuildBrowseTreeRows(false)
             restoreBrowseTreeViewport(anchorY, anchorIndex)
             return
         }
         fetchBrowseTreeEntries(path, 0, false, function(entries, meta) {
+            beginBrowseTreeReflowHold(anchorY)
             applyBrowseTreeEntries(path, entries, meta, false)
             restoreBrowseTreeViewport(anchorY, anchorIndex)
         })
@@ -1243,11 +1295,13 @@ Item {
     function playBrowseTreeTrack(entry) {
         if (!entry || !entry.path)
             return
+        selectedTrackPath = String(entry.path)
         playPath(entry.path, false)
     }
 
     function browseTreeHome() {
         saveBrowseTreeScroll()
+        selectedTrackPath = ""
         browseTreeExpanded = {}
         browseTreeChildren = {}
         browseTreeFolderMeta = {}
@@ -1324,6 +1378,7 @@ Item {
     function selectBrowseTrack(entry) {
         if (!entry || !entry.path)
             return
+        selectedTrackPath = String(entry.path)
         for (var i = 0; i < tracks.length; i++) {
             if (tracks[i].path === entry.path) {
                 selectedTrackIndex = i
@@ -1515,9 +1570,16 @@ Item {
         setCurrentPlaylistFromTracks(label, folderTracks)
         selectedPlaylist = currentPlaylistId
         selectedTrackIndex = index
+        selectedTrackPath = String(filterTracks[index].path || "")
         var paths = pathsFromTracks(folderTracks)
         playQueueAt(paths[index], paths)
         commitCurrentPlaylist()
+    }
+
+    function selectFilterTrack(index) {
+        if (index < 0 || index >= filterTracks.length)
+            return
+        selectedTrackPath = String(filterTracks[index].path || "")
     }
 
     function openGenreTracks(genreName) {
@@ -1564,11 +1626,92 @@ Item {
     }
 
     function isTrackSelected(path) {
+        path = String(path || "")
+        if (!path)
+            return false
         if (isTrackPlaying(path))
             return true
-        if (selectedTrackIndex < 0 || selectedTrackIndex >= tracks.length)
-            return false
-        return tracks[selectedTrackIndex].path === path
+        return String(selectedTrackPath) === path
+    }
+
+    function selectTrackEntry(entry) {
+        if (!entry || !entry.path)
+            return
+        selectedTrackPath = String(entry.path)
+    }
+
+    function openTrackFolder(entry) {
+        if (!entry)
+            return
+        var folderPath = String(entry.folderPath || "").trim()
+        if (folderPath) {
+            openBrowseFolder({ path: folderPath })
+            return
+        }
+        var path = String(entry.path || "").trim()
+        if (!path)
+            return
+        var slash = path.lastIndexOf("/")
+        if (slash > 0)
+            openBrowseFolder({ path: path.substring(0, slash) })
+        else
+            openTrackInThunar(path)
+    }
+
+    function trashTrack(trackPath) {
+        var path = String(trackPath || "").trim()
+        if (!path || trashTrackProc.running)
+            return
+        trashTrackProc._path = path
+        trashTrackProc.command = ["gio", "trash", path]
+        trashTrackProc.running = true
+    }
+
+    function removeTrackFromViews(path) {
+        path = String(path || "")
+        var i
+        var nextTracks = []
+        for (i = 0; i < tracks.length; i++) {
+            if (tracks[i].path !== path)
+                nextTracks.push(tracks[i])
+        }
+        if (nextTracks.length !== tracks.length)
+            tracks = nextTracks
+        var nextFilter = []
+        for (i = 0; i < filterTracks.length; i++) {
+            if (filterTracks[i].path !== path)
+                nextFilter.push(filterTracks[i])
+        }
+        if (nextFilter.length !== filterTracks.length)
+            filterTracks = nextFilter
+        if (currentPlaylistActive) {
+            var nextCurrent = []
+            for (i = 0; i < currentPlaylistTracks.length; i++) {
+                if (currentPlaylistTracks[i].path !== path)
+                    nextCurrent.push(currentPlaylistTracks[i])
+            }
+            if (nextCurrent.length !== currentPlaylistTracks.length)
+                currentPlaylistTracks = nextCurrent
+        }
+    }
+
+    function onTrackTrashed(exitCode) {
+        var path = trashTrackProc._path || ""
+        trashTrackProc._path = ""
+        if (exitCode !== 0) {
+            notify("could not trash file", 3000)
+            return
+        }
+        if (String(selectedTrackPath) === path)
+            selectedTrackPath = ""
+        if (selectedTrackIndex >= 0 && selectedTrackIndex < tracks.length
+                && tracks[selectedTrackIndex].path === path)
+            selectedTrackIndex = -1
+        if (isTrackPlaying(path))
+            runPlayer(["stop"], root.refreshStatus, cmdProc)
+        removeTrackFromViews(path)
+        reloadBrowseTreeView()
+        notify("moved to trash", 2500)
     }
 
     function selectPlaylist(name, switchScreen) {
@@ -1688,10 +1831,10 @@ Item {
         if (playingIdx < 0)
             return
         // keep a manual row selection until the user plays or picks another track
-        if (selectedTrackIndex >= 0 && selectedTrackIndex < tracks.length
-                && tracks[selectedTrackIndex].path !== path)
+        if (selectedTrackPath && selectedTrackPath !== path)
             return
         selectedTrackIndex = playingIdx
+        selectedTrackPath = path
         if (playerScreen !== "playlists")
             return
         var idx = playingIdx
@@ -2059,6 +2202,7 @@ Item {
     function playPath(path, useFolder) {
         if (!path)
             return
+        selectedTrackPath = String(path)
         primePlayerForPath(path)
         var trackPath = String(path)
         var folderQueue = !!useFolder
@@ -2100,6 +2244,7 @@ Item {
     function playQueueAt(startPath, pathList) {
         if (!startPath || !pathList || !pathList.length)
             return
+        selectedTrackPath = String(startPath)
         primePlayerForPath(startPath)
         var args = ["queue", "play", startPath]
         for (var i = 0; i < pathList.length; i++)
@@ -2234,6 +2379,7 @@ Item {
             return
         if (!tracks[index].path)
             return
+        selectedTrackPath = String(tracks[index].path || "")
         if (selectedPlaylist === currentPlaylistId)
             jumpCurrentAt(index)
         else
@@ -2244,6 +2390,7 @@ Item {
         if (index < 0 || index >= tracks.length)
             return
         selectedTrackIndex = index
+        selectedTrackPath = String(tracks[index].path || "")
     }
 
     function toggleFavorite() {
@@ -2289,7 +2436,7 @@ Item {
             }
             Qt.callLater(step)
         }
-        Qt.callLater(step)
+        step()
     }
 
     function toggleTrackFavorite(path) {
@@ -2335,6 +2482,7 @@ Item {
                 currentPlaylistTracks = nextCurrent
                 filterTracks = nextFilter
                 browseEntries = nextBrowse
+                patchTrackLikedInBrowseTree(trackPath, liked)
                 tracksRevision++
                 restoreListViewport(playlistTrackList, playlistY)
                 restoreListViewport(browseList, browseY)
@@ -2383,6 +2531,13 @@ Item {
                     found = true
                     break
                 }
+            }
+        }
+        if (!found) {
+            var treeLiked = findTrackLikedInBrowseTree(trackPath)
+            if (treeLiked !== undefined) {
+                optimisticLiked = !treeLiked
+                found = true
             }
         }
         if (!found && String(player.path || "") === trackPath)
@@ -2543,6 +2698,14 @@ Item {
 
     Process {
         id: openDirProc
+    }
+
+    Process {
+        id: trashTrackProc
+        property string _path: ""
+        onExited: function(exitCode) {
+            root.onTrackTrashed(exitCode)
+        }
     }
 
     Process {
@@ -4214,28 +4377,31 @@ Item {
     component BrowseTrackRow: Rectangle {
         id: browseRow
         property var track: ({})
-        property bool liked: false
         property int trackRevision: 0
         property bool selected: false
         property int rowWidth: 0
         property string genreLabel: ""
         property bool showGenre: true
-        property bool showFolder: true
+        property bool showFolder: false
+        property bool showActionButtons: true
         signal pressed()
         signal playRequested()
         signal likeToggled()
         signal revealRequested()
         signal folderOpenRequested()
+        signal trashRequested()
 
         readonly property bool trackLiked: {
             var _rev = browseRow.trackRevision
-            return browseRow.liked
+            return !!(browseRow.track && browseRow.track.liked)
         }
         readonly property int genreReserve: browseRow.showGenre && browseRow.genreLabel !== "" ? 108 : 0
         readonly property int likeReserve: 30
         readonly property int folderReserve: browseRow.showFolder ? 30 : 0
+        readonly property int actionButtonReserve: browseRow.showActionButtons && browseRow.selected
+            ? (22 * 3 + Theme.spacingM * 2)
+            : 0
         readonly property bool hovered: browseRowMouse.containsMouse
-            || browsePlayMouse.containsMouse
             || browseLikeMouse.containsMouse
             || (!browseRow.selected && browseArtSelectMouse.containsMouse)
 
@@ -4296,36 +4462,6 @@ Item {
                     layer.smooth: true
                 }
 
-                Rectangle {
-                    anchors.fill: parent
-                    radius: Theme.radiusL
-                    visible: browseRow.selected
-                    color: Qt.rgba(Theme.background.r, Theme.background.g, Theme.background.b, 0.48)
-                }
-
-                Text {
-                    anchors.centerIn: parent
-                    visible: browseRow.selected
-                    text: "󰐊"
-                    color: Theme.accent
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSize3xl
-                    opacity: browsePlayMouse.containsMouse ? 1 : 0.92
-                }
-
-                MouseArea {
-                    id: browsePlayMouse
-                    z: 3
-                    anchors.fill: parent
-                    visible: browseRow.selected
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: function(mouse) {
-                        mouse.accepted = true
-                        browseRow.playRequested()
-                    }
-                }
-
                 MouseArea {
                     id: browseArtSelectMouse
                     z: 2
@@ -4379,6 +4515,30 @@ Item {
                 onActivated: browseRow.folderOpenRequested()
             }
 
+            RowIconButton {
+                visible: browseRow.showActionButtons && browseRow.selected
+                icon: "󰐊"
+                iconColor: Theme.accent
+                tooltip: "play"
+                opacityIdle: 0.55
+                opacityHover: 1
+                onActivated: browseRow.playRequested()
+            }
+
+            RowIconButton {
+                visible: browseRow.showActionButtons && browseRow.selected
+                icon: "󰆴"
+                tooltip: "trash"
+                onActivated: browseRow.trashRequested()
+            }
+
+            RowIconButton {
+                visible: browseRow.showActionButtons && browseRow.selected
+                icon: "󰉖"
+                tooltip: "open folder"
+                onActivated: browseRow.folderOpenRequested()
+            }
+
             Item {
                 Layout.preferredWidth: 22
                 Layout.preferredHeight: 22
@@ -4413,7 +4573,8 @@ Item {
             z: 1
             anchors.fill: parent
             anchors.leftMargin: 44
-            anchors.rightMargin: browseRow.genreReserve + browseRow.likeReserve + browseRow.folderReserve
+            anchors.rightMargin: browseRow.genreReserve + browseRow.folderReserve
+                + browseRow.actionButtonReserve + browseRow.likeReserve
             acceptedButtons: Qt.LeftButton
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
@@ -4422,239 +4583,6 @@ Item {
                     browseRow.playRequested()
                 else
                     browseRow.pressed()
-            }
-        }
-    }
-
-    component TrackListRow: Rectangle {
-        id: trackRow
-        property var track: ({})
-        property int number: 0
-        property bool showNumber: false
-        property bool selected: false
-        property bool showMeta: false
-        property bool showLike: false
-        property bool showFolderOpen: false
-        property bool capturePress: true
-        property int rowWidth: 0
-        signal pressed()
-        signal activated()
-        signal likeToggled()
-        signal folderOpenRequested()
-
-        readonly property string trackGenre: String(track.genre || "").trim()
-        readonly property bool trackLiked: !!track.liked
-        readonly property bool likeEnabled: showMeta || showLike
-        readonly property int folderReserve: showFolderOpen ? 30 : 0
-        readonly property int likeReserve: (showMeta ? 136 : (showLike ? 36 : 0)) + folderReserve
-        readonly property int artReserve: likeEnabled || showFolderOpen ? 44 : 0
-        readonly property bool hovered: trackRowMouse.containsMouse
-            || trackPlayMouse.containsMouse
-            || trackLikeMouse.containsMouse
-            || (!trackRow.selected && trackArtSelectMouse.containsMouse)
-
-        width: rowWidth
-        height: 40
-        radius: Theme.radiusL
-        color: selected
-            ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.14)
-            : (trackRow.hovered
-                ? Theme.foregroundGhost
-                : "transparent")
-
-        RowLayout {
-            z: 0
-            anchors.fill: parent
-            anchors.leftMargin: 8
-            anchors.rightMargin: 8
-            spacing: Theme.spacingL
-
-            Item {
-                Layout.preferredWidth: 36
-                Layout.preferredHeight: 36
-
-                Rectangle {
-                    anchors.fill: parent
-                    radius: Theme.radiusL
-                    clip: true
-                    color: Theme.foregroundFaint
-                    visible: !trackArt.visible
-                }
-
-                Text {
-                    anchors.centerIn: parent
-                    visible: !trackArt.visible
-                    text: "󰎈"
-                    color: Theme.accent
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeL
-                    opacity: trackArtSelectMouse.containsMouse ? 0.55 : 0.35
-                }
-
-                Image {
-                    id: trackArt
-                    anchors.fill: parent
-                    visible: status === Image.Ready
-                    source: (trackRow.track.art || "") !== "" ? root.artUrl(trackRow.track.art) : ""
-                    fillMode: Image.PreserveAspectCrop
-                    smooth: true
-                    asynchronous: true
-                    layer.enabled: true
-                    layer.smooth: true
-                }
-
-                Rectangle {
-                    anchors.fill: parent
-                    radius: Theme.radiusL
-                    visible: trackRow.selected
-                    color: Qt.rgba(Theme.background.r, Theme.background.g, Theme.background.b, 0.48)
-                }
-
-                Text {
-                    anchors.centerIn: parent
-                    visible: trackRow.selected
-                    text: "󰐊"
-                    color: Theme.accent
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSize3xl
-                    opacity: trackPlayMouse.containsMouse ? 1 : 0.92
-                }
-
-                MouseArea {
-                    id: trackPlayMouse
-                    z: 3
-                    anchors.fill: parent
-                    visible: trackRow.selected
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: function(mouse) {
-                        mouse.accepted = true
-                        trackRow.activated()
-                    }
-                }
-
-                MouseArea {
-                    id: trackArtSelectMouse
-                    z: 2
-                    anchors.fill: parent
-                    visible: !trackRow.selected
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: trackRow.pressed()
-                }
-            }
-
-            Text {
-                visible: trackRow.showNumber
-                text: String(trackRow.number)
-                color: Theme.accent
-                font.family: Theme.fontFamily
-                font.pixelSize: root.listFont
-                font.bold: Theme.fontBold
-            }
-
-            Text {
-                visible: trackRow.showNumber
-                text: "·"
-                color: Theme.foreground
-                font.family: Theme.fontFamily
-                font.pixelSize: root.listFont
-                opacity: 0.35
-            }
-
-            Text {
-                Layout.maximumWidth: Math.min(180, trackRow.rowWidth * 0.28)
-                text: trackRow.track.artist || "—"
-                color: Theme.foreground
-                font.family: Theme.fontFamily
-                font.pixelSize: root.listFont
-                opacity: Theme.opacityHover
-                elide: Text.ElideRight
-            }
-
-            Text {
-                text: "·"
-                color: Theme.foreground
-                font.family: Theme.fontFamily
-                font.pixelSize: root.listFont
-                opacity: 0.35
-            }
-
-            Text {
-                Layout.fillWidth: true
-                Layout.minimumWidth: 48
-                text: trackRow.track.title || ""
-                color: Theme.accent
-                font.family: Theme.fontFamily
-                font.pixelSize: root.listFont
-                elide: Text.ElideRight
-                opacity: trackRow.selected ? 1 : 0.9
-            }
-
-            MetaChip {
-                visible: trackRow.showMeta && trackRow.trackGenre !== ""
-                label: trackRow.trackGenre
-                accent: true
-                maxLabelWidth: Math.min(108, trackRow.rowWidth * 0.18)
-                Layout.alignment: Qt.AlignVCenter
-            }
-
-            RowIconButton {
-                visible: trackRow.showFolderOpen
-                icon: "󰉖"
-                onActivated: trackRow.folderOpenRequested()
-            }
-
-            Item {
-                visible: trackRow.likeEnabled
-                Layout.preferredWidth: 22
-                Layout.preferredHeight: 22
-                Layout.alignment: Qt.AlignVCenter
-
-                Text {
-                    anchors.centerIn: parent
-                    text: "󰋑"
-                    color: trackRow.trackLiked ? Theme.urgent : Theme.foreground
-                    opacity: trackRow.trackLiked ? 1 : (trackLikeMouse.containsMouse ? 0.55 : 0.28)
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.bodyFont
-                }
-            }
-        }
-
-        MouseArea {
-            id: trackRowMouse
-            z: 1
-            visible: trackRow.capturePress
-            anchors.fill: parent
-            anchors.leftMargin: trackRow.artReserve
-            anchors.rightMargin: trackRow.likeReserve
-            hoverEnabled: true
-            preventStealing: true
-            cursorShape: Qt.PointingHandCursor
-            onClicked: {
-                if (trackRow.selected)
-                    trackRow.activated()
-                else
-                    trackRow.pressed()
-            }
-        }
-
-        MouseArea {
-            id: trackLikeMouse
-            z: 2
-            visible: trackRow.likeEnabled
-            anchors.right: parent.right
-            anchors.rightMargin: 8
-            anchors.verticalCenter: parent.verticalCenter
-            width: 30
-            height: 30
-            hoverEnabled: true
-            preventStealing: true
-            cursorShape: Qt.PointingHandCursor
-            onClicked: function(mouse) {
-                mouse.accepted = true
-                trackRow.likeToggled()
             }
         }
     }
@@ -5244,14 +5172,15 @@ Item {
                         width: parent.width - x - 6
                         height: 40
                         track: modelData.track || modelData
-                        liked: !!((modelData.track || modelData).liked)
                         trackRevision: root.tracksRevision
-                        selected: root.isTrackPlaying(modelData.path)
+                        selected: root.isTrackSelected(modelData.path)
                         showGenre: false
-                        showFolder: false
-                        onPressed: root.playBrowseTreeTrack(modelData.track || modelData)
+                        onPressed: root.selectTrackEntry(modelData.track || modelData)
                         onPlayRequested: root.playBrowseTreeTrack(modelData.track || modelData)
                         onLikeToggled: root.toggleTrackFavorite(modelData.path)
+                        onRevealRequested: root.openTrackInThunar(modelData.path)
+                        onFolderOpenRequested: root.openTrackFolder(modelData)
+                        onTrashRequested: root.trashTrack(modelData.path)
                     }
                 }
             }
@@ -5421,15 +5350,15 @@ Item {
                     required property int index
                     rowWidth: sidePlaylistTrackList.width
                     track: modelData
-                    liked: !!(modelData && modelData.liked)
                     trackRevision: root.tracksRevision
                     selected: root.isTrackSelected(modelData.path)
                     showGenre: false
-                    showFolder: false
                     onPressed: root.selectPlaylistTrack(index)
                     onPlayRequested: root.playTrackAt(index)
                     onLikeToggled: root.toggleTrackFavorite(modelData.path)
                     onRevealRequested: root.openTrackInThunar(modelData.path)
+                    onFolderOpenRequested: root.openTrackFolder(modelData)
+                    onTrashRequested: root.trashTrack(modelData.path)
                 }
             }
         }
@@ -5494,16 +5423,20 @@ Item {
                         opacity: Theme.opacityDisabled
                     }
 
-                    delegate: TrackListRow {
+                    delegate: BrowseTrackRow {
                         required property var modelData
                         required property int index
                         rowWidth: sideFilterTrackList.width
                         track: modelData
+                        trackRevision: root.tracksRevision
                         selected: root.isTrackSelected(modelData.path)
-                        showLike: true
-                        onPressed: root.selectedTrackIndex = index
-                        onActivated: root.playFilterTrackAt(index)
+                        showGenre: false
+                        onPressed: root.selectFilterTrack(index)
+                        onPlayRequested: root.playFilterTrackAt(index)
                         onLikeToggled: root.toggleTrackFavorite(modelData.path)
+                        onRevealRequested: root.openTrackInThunar(modelData.path)
+                        onFolderOpenRequested: root.openTrackFolder(modelData)
+                        onTrashRequested: root.trashTrack(modelData.path)
                     }
                 }
             }
