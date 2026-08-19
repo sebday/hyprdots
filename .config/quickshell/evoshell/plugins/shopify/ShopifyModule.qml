@@ -12,16 +12,20 @@ Item {
     readonly property int compactBreakpoint: 1000
     readonly property int compactPanelHeight: 635
     readonly property int columnPad: Theme.hoverPopupMargin
+    readonly property int columnTopPad: Theme.hoverPopupTopPad
     readonly property bool layoutCompact: root.width > 0 && root.width < compactBreakpoint
     readonly property bool layoutShort: root.height > 0
-        && root.height < root.compactPanelHeight + root.columnPad * 2
+        && root.height < root.compactPanelHeight + root.columnTopPad + root.columnPad
     readonly property bool stackStores: root.layoutCompact
     readonly property bool scrollStores: root.layoutCompact || root.layoutShort
 
     Flickable {
         id: storeScroller
         anchors.fill: parent
-        anchors.margins: columnPad
+        anchors.topMargin: columnTopPad
+        anchors.leftMargin: columnPad
+        anchors.rightMargin: columnPad
+        anchors.bottomMargin: columnPad
         contentWidth: width
         contentHeight: root.scrollStores ? storeGrid.implicitHeight : height
         clip: true

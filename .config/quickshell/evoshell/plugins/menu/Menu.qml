@@ -105,10 +105,11 @@ Item {
         return rows * activeTileHeight + (rows - 1) * tileSpacing
     }
 
-    readonly property int menuOuterInset: Theme.overlayContentInset
+    readonly property int menuOuterTopInset: Theme.overlayTopInset
+    readonly property int menuOuterInset: Theme.overlaySideInset
     readonly property int menuFieldsetPad: Theme.hoverPopupContentPad
     readonly property int menuLegendChrome: 20
-    readonly property int menuChromeHeight: menuOuterInset * 2 + menuFieldsetPad * 2 + menuLegendChrome
+    readonly property int menuChromeHeight: menuOuterTopInset + menuOuterInset + menuFieldsetPad * 2 + menuLegendChrome
     readonly property int menuChromeWidth: menuOuterInset * 2 + menuFieldsetPad * 2
 
     readonly property int styledMenuViewportHeight: {
@@ -188,7 +189,7 @@ Item {
         + (infoDetailVisible ? infoDetailHeight + framedColumnSpacing : 0)
     readonly property int framedListHeight: Math.max(
         120,
-        framedMenuHeight - menuOuterInset * 2 - framedChromeHeight)
+        framedMenuHeight - menuOuterTopInset - menuOuterInset - framedChromeHeight)
 
     function shortenMenuPath(path) {
         var p = String(path || "")
@@ -808,7 +809,10 @@ Item {
             ColumnLayout {
                 id: framedColumn
                 anchors.fill: parent
-                anchors.margins: (root.styledMenuMode || root.framedMode) ? root.menuOuterInset : 0
+                anchors.topMargin: (root.styledMenuMode || root.framedMode) ? root.menuOuterTopInset : 0
+                anchors.leftMargin: (root.styledMenuMode || root.framedMode) ? root.menuOuterInset : 0
+                anchors.rightMargin: (root.styledMenuMode || root.framedMode) ? root.menuOuterInset : 0
+                anchors.bottomMargin: (root.styledMenuMode || root.framedMode) ? root.menuOuterInset : 0
                 spacing: root.framedColumnSpacing
                 clip: false
 

@@ -10,6 +10,7 @@ Item {
     property int contentHeight: 520
     property bool fitContentHeight: false
     property int contentMargin: Theme.overlayMargin
+    property int contentTopMargin: Theme.overlayTopInset
     property bool framed: true
     property int borderWidth: 1
     property bool fillScreen: false
@@ -21,15 +22,17 @@ Item {
     default property alias content: contentHost.data
 
     readonly property int resolvedContentInset: contentMargin + (framed ? borderWidth : 0)
+    readonly property int resolvedTopInset: contentTopMargin
+    readonly property int resolvedSideInset: resolvedContentInset
 
     readonly property int resolvedContentHeight: {
         if (!fitContentHeight)
             return contentHeight
-        var inset = resolvedContentInset
+        var verticalInset = resolvedTopInset + resolvedSideInset
         var target = keysTarget
         if (target && target.implicitHeight > 0)
-            return target.implicitHeight + inset * 2
-        return Math.max(contentHost.childrenRect.height + inset * 2, 1)
+            return target.implicitHeight + verticalInset
+        return Math.max(contentHost.childrenRect.height + verticalInset, 1)
     }
 
     PanelWindow {
@@ -79,7 +82,10 @@ Item {
                 id: contentHost
                 z: 1
                 anchors.fill: parent
-                anchors.margins: root.resolvedContentInset
+                anchors.topMargin: root.resolvedTopInset
+                anchors.leftMargin: root.resolvedSideInset
+                anchors.rightMargin: root.resolvedSideInset
+                anchors.bottomMargin: root.resolvedSideInset
             }
         }
     }

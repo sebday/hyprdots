@@ -62,11 +62,6 @@ hl.window_rule({
 	move = { "cursor_x-192", "cursor_y-75" },
 })
 
-hl.workspace_rule({
-	workspace = "10",
-	monitor = "HDMI-A-1",
-})
-
 hl.window_rule({
 	name = "tag-main-window",
 	match = { class = "^(TUI.main)$" },
