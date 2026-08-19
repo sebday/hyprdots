@@ -18,22 +18,21 @@ Item {
     readonly property int hintFont: Theme.fontSizeL
     readonly property int listFont: hintFont
     readonly property int titleFont: Theme.fontSize7xl
-    readonly property bool nowPlayingCompact: {
+    readonly property int nowPlayingMinBioWidth: 200
+    readonly property int nowPlayingInlineArtSize: 112
+    readonly property int nowPlayingArtWidth: {
         if (root.compactMode)
-            return true
+            return 0
         var w = nowPlayingPanel.width
         var h = nowPlayingPanel.height
         if (w <= 0 || h <= 0)
-            return false
-        var half = Math.floor((w - pad) / 2)
-        return h > half
-    }
-    readonly property int nowPlayingInlineArtSize: 112
-    readonly property int nowPlayingArtWidth: {
-        if (nowPlayingCompact || nowPlayingPanel.height <= 0)
             return 0
-        return nowPlayingPanel.height
+        var maxSide = Math.min(h, w - pad - nowPlayingMinBioWidth)
+        if (maxSide < nowPlayingInlineArtSize)
+            return 0
+        return maxSide
     }
+    readonly property bool nowPlayingCompact: root.compactMode || nowPlayingArtWidth <= 0
     readonly property int nowPlayingControlsHeight: 52
     readonly property int nowPlayingWaveformMinHeight: 56
     readonly property int nowPlayingTitleFont: nowPlayingCompact
@@ -153,13 +152,11 @@ Item {
     property bool sortStopRequested: false
     property bool menuBarHidden: false
     property bool compactMode: false
-    property bool titleEditing: false
-    property bool titleSaveBusy: false
     property string trashConfirmPath: ""
     property string trashConfirmTitle: ""
     readonly property bool trashConfirmOpen: trashConfirmPath !== ""
-    readonly property bool keyShortcutsBlocked: tabSearchInput.activeFocus || titleEditing
-        || trashConfirmOpen
+    readonly property bool keyShortcutsBlocked: tabSearchInput.activeFocus
+        || trashConfirmOpen || artPickerSearchFocused
     property var volumeTransportBtn: null
     readonly property var libraryActions: [
         {
@@ -196,6 +193,8 @@ Item {
     property bool artPickerLoading: false
     property string artPickerQuery: ""
     property var artPickerResults: []
+    property string artPickerSearchText: ""
+    property bool artPickerSearchFocused: false
     property string artApplyScope: "track"
     property string artPendingDropPath: ""
     readonly property bool artApplyAlbumAvailable: {
@@ -414,36 +413,48 @@ Item {
         if (keyShortcutsBlocked)
             return
         compactMode = !compactMode
+        menuBarHidden = compactMode
     }
 
-    function commitTitleEdit(newTitle) {
-        var path = String(player.path || "")
-        var trimmed = String(newTitle || "").trim()
-        titleEditing = false
-        if (!path || titleSaveBusy)
+    function copyTitleToClipboard() {
+        var title = String(player.title || "").trim()
+        if (!title)
             return
-        if (!trimmed || trimmed === String(player.title || "").trim())
+        Quickshell.execDetached(["wl-copy", "--", title])
+        notify("copied title", 1500)
+    }
+
+    function searchArtPicker(query) {
+        artSearchDebounce.stop()
+        query = String(query || "").trim()
+        var track = String(player.path || "")
+        artPendingDropPath = ""
+        artPickerLoading = true
+        var args
+        if (query)
+            args = ["art", "search", "--query", query, "--json"]
+        else if (track)
+            args = ["art", "search", track, "--json"]
+        else {
+            artPickerLoading = false
             return
-        titleSaveBusy = true
-        runMusic(["tag", "set", "title", path, trimmed, "--json"], function(text) {
-            titleSaveBusy = false
+        }
+        if (runQuery(args, function(text) {
+            root.artPickerLoading = false
             try {
                 var data = JSON.parse(String(text || "{}"))
-                if (!data.ok)
-                    throw new Error("tag failed")
-                player = Object.assign({}, player, {
-                    path: String(data.path || path),
-                    title: String(data.title || trimmed)
-                })
-                tracksRevision++
-                refreshStatus()
-                mergePlayerFromTrackList()
-                if (browsePanelOpen)
-                    refreshBrowseTree()
+                root.artPickerQuery = String(data.query || query)
+                root.artPickerResults = data.results || []
+                if (!String(root.artPickerSearchText || "").trim())
+                    root.artPickerSearchText = root.artPickerQuery
             } catch (e) {
-                notify("could not update title", 3000)
-                refreshStatus()
+                root.artPickerResults = []
             }
+        }))
+            return
+        Qt.callLater(function() {
+            if (root.artPickerOpen)
+                root.searchArtPicker(query)
         })
     }
 
@@ -457,21 +468,23 @@ Item {
         artPickerLoading = true
         artPickerResults = []
         artPickerQuery = ""
-        runQuery(["art", "search", track, "--json"], function(text) {
-            root.artPickerLoading = false
-            try {
-                var data = JSON.parse(String(text || "{}"))
-                root.artPickerQuery = String(data.query || "")
-                root.artPickerResults = data.results || []
-            } catch (e) {
-                root.artPickerResults = []
-            }
-        })
+        artPickerSearchText = ""
+        searchArtPicker("")
     }
 
     function closeArtPicker() {
         artPendingDropPath = ""
         artPickerOpen = false
+        artPickerSearchFocused = false
+        artSearchDebounce.stop()
+    }
+
+    function queueArtSearch(text) {
+        artPickerSearchText = String(text || "")
+        if (String(text || "").trim() !== "")
+            artSearchDebounce.restart()
+        else
+            artSearchDebounce.stop()
     }
 
     function showNowPlaying() {
@@ -3450,6 +3463,18 @@ Item {
     }
 
     Timer {
+        id: artSearchDebounce
+        interval: 500
+        repeat: false
+        onTriggered: {
+            var q = String(root.artPickerSearchText || "").trim()
+            if (!q || !root.artPickerOpen)
+                return
+            root.searchArtPicker(q)
+        }
+    }
+
+    Timer {
         id: statusTimer
         interval: 500
         repeat: true
@@ -3755,14 +3780,11 @@ Item {
 
                                         Item {
                                             Layout.fillWidth: true
-                                            Layout.preferredHeight: titleInput.visible
-                                                ? titleInput.implicitHeight
-                                                : titleLabel.implicitHeight
+                                            Layout.preferredHeight: titleLabel.implicitHeight
 
                                             Text {
                                                 id: titleLabel
                                                 width: parent.width
-                                                visible: !root.titleEditing
                                                 text: root.player.title || "No track"
                                                 color: Theme.foreground
                                                 font.family: Theme.fontFamily
@@ -3770,7 +3792,7 @@ Item {
                                                 font.bold: Theme.fontBold
                                                 wrapMode: Text.Wrap
                                                 maximumLineCount: 2
-                                                opacity: titleMouse.containsMouse && (root.player.path || "") !== ""
+                                                opacity: titleMouse.containsMouse && (root.player.title || "") !== ""
                                                     ? 0.82
                                                     : 1
                                             }
@@ -3778,39 +3800,10 @@ Item {
                                             MouseArea {
                                                 id: titleMouse
                                                 anchors.fill: titleLabel
-                                                enabled: (root.player.path || "") !== "" && !root.titleSaveBusy
+                                                enabled: String(root.player.title || "").trim() !== ""
                                                 hoverEnabled: true
                                                 cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                                                onClicked: {
-                                                    titleInput.text = String(root.player.title || "")
-                                                    root.titleEditing = true
-                                                    titleInput.forceActiveFocus()
-                                                    titleInput.selectAll()
-                                                }
-                                            }
-
-                                            TextInput {
-                                                id: titleInput
-                                                width: parent.width
-                                                visible: root.titleEditing
-                                                text: root.player.title || ""
-                                                color: Theme.foreground
-                                                font.family: Theme.fontFamily
-                                                font.pixelSize: root.nowPlayingTitleFont
-                                                font.bold: Theme.fontBold
-                                                wrapMode: TextInput.Wrap
-                                                selectionColor: Theme.accent
-                                                selectedTextColor: Theme.mantle
-                                                focus: root.titleEditing
-                                                onAccepted: root.commitTitleEdit(text)
-                                                onEditingFinished: {
-                                                    if (root.titleEditing && !activeFocus)
-                                                        root.commitTitleEdit(text)
-                                                }
-                                                Keys.onEscapePressed: {
-                                                    text = String(root.player.title || "")
-                                                    root.titleEditing = false
-                                                }
+                                                onClicked: root.copyTitleToClipboard()
                                             }
                                         }
 
@@ -3885,6 +3878,7 @@ Item {
 
                                                 delegate: MetaChip {
                                                     required property var modelData
+                                                    fontSize: root.libraryFont
                                                     label: modelData.label
                                                     accent: false
                                                     tintColor: modelData.tint || Theme.foreground
@@ -4477,6 +4471,7 @@ Item {
         property color tintColor: Theme.accent
         property bool clickable: false
         property int maxLabelWidth: 0
+        property int fontSize: root.listFont
         signal activated()
 
         readonly property color chipTint: tinted ? tintColor : (accent ? Theme.accent : Theme.foreground)
@@ -4500,7 +4495,7 @@ Item {
             text: parent.label
             color: parent.chipTinted ? parent.chipTint : Theme.foreground
             font.family: Theme.fontFamily
-            font.pixelSize: root.listFont
+            font.pixelSize: parent.fontSize
             font.bold: parent.chipTinted && Theme.fontBold
             opacity: parent.chipTinted ? 0.95 : 0.68
             elide: parent.maxLabelWidth > 0 ? Text.ElideRight : Text.ElideNone
@@ -4748,8 +4743,10 @@ Item {
 
     component TransportProgressBar: Item {
         id: transportProgress
-        Layout.preferredWidth: 140
-        Layout.minimumWidth: 72
+        property int minBarWidth: 72
+        property int preferredBarWidth: 140
+        Layout.preferredWidth: preferredBarWidth
+        Layout.minimumWidth: minBarWidth
         Layout.maximumWidth: root.compactMode ? -1 : 240
         Layout.fillWidth: true
         Layout.alignment: Qt.AlignVCenter
@@ -4793,8 +4790,53 @@ Item {
     }
 
     component PlayerTransportBar: Item {
+        id: transportBar
         property bool showTimestamps: true
         implicitHeight: root.nowPlayingControlsHeight
+
+        readonly property int fitBtnCount: 6
+        readonly property int fitGapCount: 6
+        readonly property int fitMaxGap: root.compactMode ? Theme.spacingL : 24
+        readonly property int fitMinGap: 2
+        readonly property int fitMinBtn: 18
+        readonly property int fitMinProgress: 36
+        readonly property int fitMaxProgress: 72
+
+        readonly property int fitGap: {
+            var w = controlsRow.width
+            var maxBtn = root.transportBtnSize
+            var maxGap = fitMaxGap
+            if (w <= 1)
+                return maxGap
+            var need = fitBtnCount * maxBtn + fitGapCount * maxGap + fitMaxProgress
+            if (need <= w)
+                return maxGap
+            return Math.max(fitMinGap, maxGap - Math.ceil((need - w) / fitGapCount))
+        }
+        readonly property int fitBtnSize: {
+            var w = controlsRow.width
+            var maxBtn = root.transportBtnSize
+            if (w <= 1)
+                return maxBtn
+            var remain = w - fitGapCount * fitGap - fitMinProgress
+            return Math.max(fitMinBtn, Math.min(maxBtn, Math.floor(remain / fitBtnCount)))
+        }
+        readonly property int fitProgressMin: {
+            var w = controlsRow.width
+            if (w <= 1)
+                return fitMaxProgress
+            var remain = w - fitBtnCount * fitBtnSize - fitGapCount * fitGap
+            return Math.max(fitMinProgress, Math.min(fitMaxProgress, remain))
+        }
+        readonly property bool fitShowSpacers: {
+            if (root.compactMode)
+                return false
+            var w = controlsRow.width
+            if (w <= 1)
+                return true
+            return fitBtnCount * root.transportBtnSize + (fitGapCount + 2) * fitMaxGap + fitMaxProgress <= w
+        }
+        readonly property real fitIconScale: fitBtnSize / root.transportBtnSize
 
         RowLayout {
             id: transportRow
@@ -4815,32 +4857,44 @@ Item {
             }
 
             RowLayout {
+                id: controlsRow
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                spacing: root.compactMode ? Theme.spacingL : 24
+                spacing: transportBar.fitGap
 
                 Item {
-                    visible: !root.compactMode
+                    visible: transportBar.fitShowSpacers
                     Layout.fillWidth: true
                 }
 
                 TransportBtn {
+                    btnSize: transportBar.fitBtnSize
+                    iconScale: transportBar.fitIconScale
                     icon: "󰒮"
                     onActivated: root.skipTrack(false)
                 }
                 TransportBtn {
+                    btnSize: transportBar.fitBtnSize
+                    iconScale: transportBar.fitIconScale
                     icon: root.playerPlaying ? "󰏤" : "󰐊"
                     accent: true
                     onActivated: root.togglePlayback()
                 }
                 TransportBtn {
+                    btnSize: transportBar.fitBtnSize
+                    iconScale: transportBar.fitIconScale
                     icon: "󰒭"
                     onActivated: root.skipTrack(true)
                 }
 
-                TransportProgressBar {}
+                TransportProgressBar {
+                    minBarWidth: transportBar.fitProgressMin
+                    preferredBarWidth: Math.max(transportBar.fitProgressMin, 140)
+                }
 
                 TransportBtn {
+                    btnSize: transportBar.fitBtnSize
+                    iconScale: transportBar.fitIconScale
                     icon: "󰒟"
                     smallGlyph: true
                     dimmed: !root.player.shuffle
@@ -4848,6 +4902,8 @@ Item {
                 }
 
                 TransportBtn {
+                    btnSize: transportBar.fitBtnSize
+                    iconScale: transportBar.fitIconScale
                     icon: "󰋑"
                     smallGlyph: true
                     liked: root.favoriteApplyPending && root.favoriteApplyPath === String(root.player.path || "")
@@ -4855,10 +4911,13 @@ Item {
                         : !!root.player.liked
                     onActivated: root.toggleFavorite()
                 }
-                VolumeTransportBtn {}
+                VolumeTransportBtn {
+                    btnSize: transportBar.fitBtnSize
+                    iconScale: transportBar.fitIconScale
+                }
 
                 Item {
-                    visible: !root.compactMode
+                    visible: transportBar.fitShowSpacers
                     Layout.fillWidth: true
                 }
             }
@@ -4984,6 +5043,8 @@ Item {
 
     component VolumeTransportBtn: Item {
         id: volBtn
+        property int btnSize: root.transportBtnSize
+        property real iconScale: 1
         readonly property int level: Math.round(root.player.volume !== undefined ? root.player.volume : 100)
         property bool wheelPopupActive: false
         readonly property bool popupVisible: volHover.containsMouse || volSliderPopup.sliderPressed || wheelPopupActive
@@ -5000,10 +5061,10 @@ Item {
                 root.volumeTransportBtn = null
         }
 
-        implicitWidth: root.transportBtnSize
-        implicitHeight: root.transportBtnSize
-        Layout.preferredWidth: root.transportBtnSize
-        Layout.preferredHeight: root.transportBtnSize
+        implicitWidth: btnSize
+        implicitHeight: btnSize
+        Layout.preferredWidth: btnSize
+        Layout.preferredHeight: btnSize
         Layout.alignment: Qt.AlignVCenter
 
         function nudgeVolume(delta) {
@@ -5035,7 +5096,7 @@ Item {
             color: volBtn.level <= 0 ? Theme.foreground : Theme.accent
             opacity: volBtn.level <= 0 ? 0.45 : 0.9
             font.family: Theme.fontFamily
-            font.pixelSize: root.transportSecondaryIconFont
+            font.pixelSize: Math.max(9, Math.round(root.transportSecondaryIconFont * volBtn.iconScale))
         }
 
         MouseArea {
@@ -5436,54 +5497,124 @@ Item {
             anchors.margins: gridPad
             spacing: Theme.spacingS
 
-            RowLayout {
+            Item {
                 Layout.fillWidth: true
-                spacing: Theme.spacingS
+                implicitHeight: Math.max(artPillControls.height, 22)
 
-                Text {
-                    visible: root.artApplyAlbumAvailable || root.artPendingDropPath !== ""
-                    text: "apply to"
+                RowLayout {
+                    id: artPillControls
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: Theme.spacingS
+
+                    Text {
+                        text: "Apply to"
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.libraryFont
+                        opacity: Theme.opacityDisabled
+                    }
+
+                    MetaChip {
+                        label: "Image Set"
+                        accent: root.artApplyScope === "album"
+                        clickable: true
+                        onActivated: root.selectArtApplyScope("album")
+                    }
+
+                    MetaChip {
+                        label: "This Track Only"
+                        accent: root.artApplyScope === "track"
+                        clickable: true
+                        onActivated: root.selectArtApplyScope("track")
+                    }
+
+                    MetaChip {
+                        visible: (root.player.art || "") !== ""
+                        label: "Remove"
+                        accent: false
+                        clickable: true
+                        onActivated: root.clearAlbumArt()
+                    }
+                }
+
+                Item {
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 22
+                    height: 22
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: "󰅖"
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.bodyFont
+                        opacity: artCloseMouse.containsMouse ? 0.95 : 0.45
+                    }
+
+                    MouseArea {
+                        id: artCloseMouse
+                        anchors.fill: parent
+                        anchors.margins: -4
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.closeArtPicker()
+                    }
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 28
+                radius: 6
+                color: Theme.foregroundWash
+                border.color: artSearchInput.activeFocus
+                    ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.35)
+                    : Theme.foregroundDivider
+                border.width: 1
+
+                TextInput {
+                    id: artSearchInput
+                    anchors.fill: parent
+                    anchors.leftMargin: 8
+                    anchors.rightMargin: 8
                     color: Theme.foreground
                     font.family: Theme.fontFamily
                     font.pixelSize: root.libraryFont
-                    opacity: Theme.opacityDisabled
+                    selectionColor: Theme.accent
+                    selectedTextColor: Theme.mantle
+                    verticalAlignment: TextInput.AlignVCenter
+                    clip: true
+                    text: root.artPickerSearchText
+                    onActiveFocusChanged: root.artPickerSearchFocused = activeFocus
+                    onTextChanged: {
+                        if (text === root.artPickerSearchText)
+                            return
+                        root.queueArtSearch(text)
+                    }
+                    onAccepted: root.searchArtPicker(text)
+                    Keys.onEscapePressed: {
+                        if (text !== "") {
+                            root.queueArtSearch("")
+                            text = ""
+                        } else {
+                            root.closeArtPicker()
+                        }
+                    }
                 }
 
-                MetaChip {
-                    visible: root.artApplyAlbumAvailable
-                    label: root.nowPlayingAlbum !== ""
-                        ? root.nowPlayingAlbum
-                        : String(root.player.album || "album")
-                    accent: root.artApplyScope === "album"
-                    clickable: true
-                    maxLabelWidth: Math.min(180, artPickerRoot.width * 0.42)
-                    onActivated: root.selectArtApplyScope("album")
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.left: parent.left
+                    anchors.leftMargin: 8
+                    visible: !artSearchInput.text && !artSearchInput.activeFocus
+                    text: "search discogs…"
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.libraryFont
+                    opacity: 0.4
                 }
-
-                MetaChip {
-                    visible: root.artApplyAlbumAvailable || root.artPendingDropPath !== ""
-                    label: "this track"
-                    accent: root.artApplyScope === "track"
-                    clickable: true
-                    onActivated: root.selectArtApplyScope("track")
-                }
-
-                MetaChip {
-                    visible: (root.player.art || "") !== ""
-                    label: "remove"
-                    accent: false
-                    clickable: true
-                    onActivated: root.clearAlbumArt()
-                }
-
-                MetaChip {
-                    label: "close"
-                    accent: false
-                    clickable: true
-                    onActivated: root.closeArtPicker()
-                }
-
-                Item { Layout.fillWidth: true }
             }
 
             Item {
@@ -6393,12 +6524,14 @@ Item {
         property bool dimmed: false
         property bool liked: false
         property bool smallGlyph: false
+        property int btnSize: root.transportBtnSize
+        property real iconScale: 1
         signal activated()
 
-        implicitWidth: root.transportBtnSize
-        implicitHeight: root.transportBtnSize
-        Layout.preferredWidth: root.transportBtnSize
-        Layout.preferredHeight: root.transportBtnSize
+        implicitWidth: btnSize
+        implicitHeight: btnSize
+        Layout.preferredWidth: btnSize
+        Layout.preferredHeight: btnSize
         Layout.alignment: Qt.AlignVCenter
 
         Text {
@@ -6407,9 +6540,9 @@ Item {
             color: liked ? Theme.urgent : (accent ? Theme.accent : Theme.foreground)
             opacity: dimmed ? 0.35 : (liked ? 1 : 0.9)
             font.family: Theme.fontFamily
-            font.pixelSize: accent
-                ? Math.round(root.transportIconFont * 1.2)
-                : (smallGlyph ? root.transportSecondaryIconFont : root.transportIconFont)
+            font.pixelSize: Math.max(10, Math.round((accent
+                ? root.transportIconFont * 1.2
+                : (smallGlyph ? root.transportSecondaryIconFont : root.transportIconFont)) * btn.iconScale))
         }
 
         MouseArea {

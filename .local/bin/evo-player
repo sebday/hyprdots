@@ -38,7 +38,7 @@ usage:
   evo-player favorite toggle <path> [--json]
   evo-player tag set title <path> <value> [--json]
   evo-player mixes migrate [--dry-run] [--json]
-  evo-player art search <track-path> [--json]
+  evo-player art search [<track-path>] [--query <text>] [--json]
   evo-player art set <track-path> <image-path> [--album|--track] [--json]
   evo-player art apply <track-path> <url> [--album|--track] [--json]
   evo-player art clear <track-path> [--json]
@@ -2260,16 +2260,27 @@ cmd_favorite_toggle() {
 }
 
 cmd_art_search() {
-  local path="" json=0
+  local path="" json=0 query=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --json) json=1 ;;
+      --query)
+        shift
+        query="${1:-}"
+        ;;
       -h|--help|help) usage ;;
       -*) usage ;;
       *) path="$1" ;;
     esac
     shift
   done
+  load_evoshell_secrets
+  if [[ -n "$query" ]]; then
+    local args=(--query "$query")
+    [[ "$json" -eq 1 ]] && args+=(--json)
+    "${EVOSHELL_BIN}/evo-player-art-search" "${args[@]}"
+    return 0
+  fi
   [[ -n "$path" && -f "$path" ]] || {
     echo "evo-player: not a file: ${path:-<missing>}" >&2
     return 1
@@ -2278,7 +2289,6 @@ cmd_art_search() {
     echo "evo-player: not an audio file: $path" >&2
     return 1
   }
-  load_evoshell_secrets
   local args=("$path")
   [[ "$json" -eq 1 ]] && args+=(--json)
   "${EVOSHELL_BIN}/evo-player-art-search" "${args[@]}"

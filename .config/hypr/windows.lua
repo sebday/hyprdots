@@ -50,6 +50,16 @@ hl.window_rule({
 	tag = "+floating-window",
 })
 
+hl.window_rule({
+	name = "rename-window-size",
+	match = {
+		tag = "floating-window",
+		title = "^Rename.*",
+	},
+	size = { 385, 150 },
+	move = { "cursor_x-192", "cursor_y-75" },
+})
+
 hl.workspace_rule({
 	workspace = "10",
 	monitor = "HDMI-A-1",
