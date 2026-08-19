@@ -3,6 +3,7 @@ import Quickshell.Io
 import QtQuick
 import QtQuick.Layouts
 import "../../Commons"
+import "."
 
 Item {
     id: root
@@ -26,9 +27,21 @@ Item {
     property int activeCount: 0
     property int downloadingCount: 0
     property var torrents: []
+    property bool addUrlEnabled: false
+    property bool addUrlExpanded: false
 
     implicitWidth: column.implicitWidth
     implicitHeight: column.implicitHeight
+
+    function openAddUrl() {
+        if (!addUrlEnabled)
+            return
+        addUrlExpanded = true
+        Qt.callLater(function() {
+            if (root.addUrlExpanded && addUrlForm)
+                addUrlForm.focusField()
+        })
+    }
 
     function hasDisplayData() {
         return torrents.length > 0 || activeCount > 0 || downloadRate > 0 || uploadRate > 0
@@ -373,6 +386,14 @@ Item {
             font.pixelSize: root.hintFont
             opacity: Theme.opacityHover
             horizontalAlignment: Text.AlignLeft
+        }
+
+        TransmissionAddForm {
+            id: addUrlForm
+            Layout.fillWidth: true
+            visible: root.addUrlEnabled && root.addUrlExpanded
+            bodyFont: root.hintFont
+            onSubmitted: root.refresh()
         }
     }
 }

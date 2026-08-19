@@ -156,7 +156,10 @@ Item {
         onContainsMouseChanged: root.setHoverPopup(containsMouse)
         onClicked: function(mouse) {
             if (mouse.button === Qt.LeftButton && root.shell) {
-                root.shell.toggle("evo.transmission.add", "")
+                root.shell.popupAnchorItem = root
+                root.shell.popupAnchorWindow = root.barPanel
+                root.shell.summon("evo.network", '{"transmissionAdd":true}')
+                root.shell.pinHoverPopup("evo.network")
                 return
             }
             if (mouse.button === Qt.RightButton) {

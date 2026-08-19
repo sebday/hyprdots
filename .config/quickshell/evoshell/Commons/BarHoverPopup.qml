@@ -92,12 +92,24 @@ Item {
     }
 
     function open(payloadJson) {
+        var payload = null
+        if (payloadJson) {
+            try {
+                payload = JSON.parse(payloadJson)
+            } catch (e) {
+                payload = null
+            }
+        }
         if (pinned && opened) {
             revealed = true
+            if (payload && module && typeof module.applyOpenPayload === "function")
+                module.applyOpenPayload(payload)
             return
         }
         revealMaxTimer.stop()
         revealed = false
+        if (payload && module && typeof module.applyOpenPayload === "function")
+            module.applyOpenPayload(payload)
         if (module && typeof module.bootstrapFromCache === "function")
             module.bootstrapFromCache()
         opened = true

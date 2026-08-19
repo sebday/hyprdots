@@ -9,7 +9,7 @@ Massive thanks to [Vaxry](https://blog.vaxry.net/) for reigniting my long-time l
 Thank you to [DHH](https://world.hey.com/dhh) for Omarchy with loads of cool ideas to copy.
  
 Thank you to [Bjarne](https://github.com/bjarneo) for some gorgeous themes.
-
+  
 ## Features
   
 - Master `colors.toml`

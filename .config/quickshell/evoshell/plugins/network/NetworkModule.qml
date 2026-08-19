@@ -107,6 +107,15 @@ Item {
         processTimer.start()
     }
 
+    function openTransmissionAdd() {
+        transmissionPanel.openAddUrl()
+    }
+
+    function applyOpenPayload(payload) {
+        if (payload && payload.transmissionAdd === true)
+            Qt.callLater(root.openTransmissionAdd)
+    }
+
     function applyThroughputCache(data) {
         if (!data || typeof data !== "object")
             return
@@ -497,10 +506,50 @@ Item {
             label: ""
             Layout.fillWidth: true
 
-            HoverPopupLabelPill {
-                text: "Transmission"
-                icon: "󰇚"
-                fontSize: Theme.fontSizeS
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+
+                HoverPopupLabelPill {
+                    text: "Transmission"
+                    icon: "󰇚"
+                    fontSize: Theme.fontSizeS
+                }
+
+                Item {
+                    Layout.fillWidth: true
+                }
+
+                Item {
+                    Layout.preferredWidth: 22
+                    Layout.preferredHeight: 22
+                    Layout.alignment: Qt.AlignVCenter
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: "󰌷"
+                        color: addUrlLink.containsMouse || transmissionPanel.addUrlExpanded
+                            ? Theme.accent : Theme.foreground
+                        opacity: addUrlLink.containsMouse || transmissionPanel.addUrlExpanded
+                            ? 1 : 0.55
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeS
+                        font.bold: Theme.fontBold
+                    }
+
+                    MouseArea {
+                        id: addUrlLink
+                        anchors.fill: parent
+                        anchors.margins: -4
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            transmissionPanel.addUrlExpanded = !transmissionPanel.addUrlExpanded
+                            if (transmissionPanel.addUrlExpanded)
+                                transmissionPanel.openAddUrl()
+                        }
+                    }
+                }
             }
 
             TransmissionPanel {
@@ -509,6 +558,7 @@ Item {
                 active: root.active
                 shell: root.shell
                 barSource: root.barSource
+                addUrlEnabled: true
             }
         }
     }
