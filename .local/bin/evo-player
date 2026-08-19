@@ -44,7 +44,7 @@ usage:
   evo-player art clear <track-path> [--json]
   evo-player art embed|maintain [--json]
   evo-player art notify-cache <track-path>
-  evo-player find [--artist|--genre|--year] <value> [--json]
+  evo-player find [--artist|--genre|--year|--album] <value> [--json]
   evo-player find <query> [--json]
   evo-player scrobble auth|token <token>|nowplaying|submit|recent|touch [--json]
   evo-player stats [--json]
@@ -2316,6 +2316,7 @@ cmd_find() {
       --artist) mode="artist"; shift; query="$1"; continue ;;
       --genre) mode="genre"; shift; query="$1"; continue ;;
       --year) mode="year"; shift; query="$1"; continue ;;
+      --album) mode="album"; shift; query="$1"; continue ;;
       -h|--help|help) usage ;;
       -*) usage ;;
       *) query="$1" ;;
@@ -2337,6 +2338,8 @@ seen = set()
 def match(item):
     if mode == "artist":
         return needle in str(item.get("artist") or "").casefold()
+    if mode == "album":
+        return needle in str(item.get("album") or "").casefold()
     if mode == "genre":
         return needle in str(item.get("genre") or "").casefold()
     if mode == "year":

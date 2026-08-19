@@ -1606,6 +1606,8 @@ Item {
         var args = ["find"]
         if (kind === "artist")
             args = args.concat(["--artist", String(value || "")])
+        else if (kind === "album")
+            args = args.concat(["--album", String(value || "")])
         else if (kind === "genre")
             args = args.concat(["--genre", String(value || "")])
         else if (kind === "year")
@@ -1633,6 +1635,8 @@ Item {
     function filterHeaderTitle() {
         if (filterKind === "artist")
             return "Artist · " + filterLabel
+        if (filterKind === "album")
+            return "Album · " + filterLabel
         if (filterKind === "genre")
             return "Genre · " + filterLabel
         if (filterKind === "year")
@@ -2392,6 +2396,26 @@ Item {
         return paths
     }
 
+    function appendTrackToCurrent(track) {
+        var path = ""
+        if (typeof track === "string")
+            path = String(track || "").trim()
+        else if (track)
+            path = String(track.path || "").trim()
+        if (!path)
+            return
+        var entry = (track && typeof track === "object") ? track : { path: path }
+        var before = currentPlaylistTracks.length
+        appendTracksToCurrent([entry])
+        if (currentPlaylistTracks.length === before) {
+            notify("already in current", 2000)
+            return
+        }
+        selectedPlaylist = currentPlaylistId
+        commitCurrentPlaylist()
+        notify("added to current", 2000)
+    }
+
     function appendTracksToCurrent(slice) {
         var seen = {}
         var i
@@ -2726,11 +2750,15 @@ Item {
     }
 
     function browseAbsPath(relPath) {
-        var rel = String(relPath || "").replace(/^\/+/, "")
+        var rel = String(relPath || "").trim()
         var rootPath = String(musicRoot || "").replace(/\/+$/, "")
-        if (!rootPath)
+        if (!rel)
+            return rootPath
+        if (rel.charAt(0) === "/")
             return rel
-        return rel ? rootPath + "/" + rel : rootPath
+        if (rootPath && (rel === rootPath || rel.indexOf(rootPath + "/") === 0))
+            return rel
+        return rootPath ? rootPath + "/" + rel.replace(/^\/+/, "") : rel
     }
 
     function openInThunar(targetPath) {
@@ -3373,9 +3401,23 @@ Item {
                                             color: Theme.foreground
                                             font.family: Theme.fontFamily
                                             font.pixelSize: Theme.fontSizeXl
-                                            opacity: 0.62
+                                            opacity: albumMouse.containsMouse ? 1 : 0.62
                                             wrapMode: Text.Wrap
                                             maximumLineCount: 2
+
+                                            MouseArea {
+                                                id: albumMouse
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: function(mouse) {
+                                                    var album = String(root.nowPlayingAlbum || "").trim()
+                                                    if (!album)
+                                                        return
+                                                    mouse.accepted = true
+                                                    root.openFilter("album", album, album)
+                                                }
+                                            }
                                         }
 
                                         Flow {
@@ -4647,7 +4689,7 @@ Item {
         signal likeToggled()
         signal revealRequested()
         signal folderOpenRequested()
-        signal trashRequested()
+        signal addRequested()
 
         readonly property bool trackLiked: {
             var _rev = browseRow.trackRevision
@@ -4770,9 +4812,23 @@ Item {
             }
 
             RowIconButton {
-                visible: browseRow.showFolder
+                visible: browseRow.showFolder && !(browseRow.showActionButtons && browseRow.selected)
                 icon: "󰉖"
                 onActivated: browseRow.folderOpenRequested()
+            }
+
+            RowIconButton {
+                visible: browseRow.showActionButtons && browseRow.selected
+                icon: "󰉖"
+                tooltip: "open folder"
+                onActivated: browseRow.folderOpenRequested()
+            }
+
+            RowIconButton {
+                visible: browseRow.showActionButtons && browseRow.selected
+                icon: "󰐕"
+                tooltip: "add to current"
+                onActivated: browseRow.addRequested()
             }
 
             RowIconButton {
@@ -4783,20 +4839,6 @@ Item {
                 opacityIdle: 0.55
                 opacityHover: 1
                 onActivated: browseRow.playRequested()
-            }
-
-            RowIconButton {
-                visible: browseRow.showActionButtons && browseRow.selected
-                icon: "󰆴"
-                tooltip: "trash"
-                onActivated: browseRow.trashRequested()
-            }
-
-            RowIconButton {
-                visible: browseRow.showActionButtons && browseRow.selected
-                icon: "󰉖"
-                tooltip: "open folder"
-                onActivated: browseRow.folderOpenRequested()
             }
 
             Item {
@@ -5191,19 +5233,19 @@ Item {
                 spacing: Theme.spacingS
 
                 RowIconButton {
-                    icon: "󰑐"
-                    tooltip: "refresh"
-                    opacityIdle: 0.5
-                    enabled: !root.browseTreeLoading
-                    onActivated: root.refreshBrowseTree()
-                }
-
-                RowIconButton {
                     icon: "󰋜"
                     tooltip: "home"
                     opacityIdle: 0.5
                     enabled: !root.browseTreeLoading
                     onActivated: root.browseTreeHome()
+                }
+
+                RowIconButton {
+                    icon: "󰑐"
+                    tooltip: "refresh"
+                    opacityIdle: 0.5
+                    enabled: !root.browseTreeLoading
+                    onActivated: root.refreshBrowseTree()
                 }
 
                 Repeater {
@@ -5463,7 +5505,7 @@ Item {
                         onLikeToggled: root.toggleTrackFavorite(modelData.path)
                         onRevealRequested: root.openTrackInThunar(modelData.path)
                         onFolderOpenRequested: root.openTrackFolder(modelData)
-                        onTrashRequested: root.requestTrashTrack(modelData.track || modelData)
+                        onAddRequested: root.appendTrackToCurrent(modelData.track || modelData)
                     }
                 }
             }
@@ -5704,7 +5746,7 @@ Item {
                     onLikeToggled: root.toggleTrackFavorite(modelData.path)
                     onRevealRequested: root.openTrackInThunar(modelData.path)
                     onFolderOpenRequested: root.openTrackFolder(modelData)
-                    onTrashRequested: root.requestTrashTrack(modelData)
+                    onAddRequested: root.appendTrackToCurrent(modelData)
                 }
             }
         }
@@ -5783,7 +5825,7 @@ Item {
                         onLikeToggled: root.toggleTrackFavorite(modelData.path)
                         onRevealRequested: root.openTrackInThunar(modelData.path)
                         onFolderOpenRequested: root.openTrackFolder(modelData)
-                        onTrashRequested: root.requestTrashTrack(modelData)
+                        onAddRequested: root.appendTrackToCurrent(modelData)
                     }
                 }
             }

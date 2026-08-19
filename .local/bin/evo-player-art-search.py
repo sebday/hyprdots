@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Album art search for evo-player: iTunes, MusicBrainz/CAA, Discogs, Spotify."""
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 import os
 import re
@@ -10,28 +11,41 @@ import urllib.parse
 import urllib.request
 
 
-def ffprobe_meta(path: str, field: str) -> str:
+HTTP_TIMEOUT = 8
+MAX_RESULTS = 8
+PER_SOURCE = 4
+USER_AGENT = "evo-player/1.0 (local music player)"
+
+
+def ffprobe_tags(path: str) -> dict[str, str]:
     try:
         proc = subprocess.run(
             [
                 "ffprobe", "-v", "quiet",
-                "-show_entries", f"format_tags={field}",
-                "-of", "default=nw=1:nk=1",
+                "-show_entries", "format_tags=artist,album_artist,album,title",
+                "-of", "json",
                 path,
             ],
             capture_output=True,
             text=True,
             check=False,
+            timeout=8,
         )
-        return (proc.stdout or "").strip()
+        data = json.loads(proc.stdout or "{}")
+        tags = ((data.get("format") or {}).get("tags") or {})
+        out = {}
+        for key, value in tags.items():
+            out[str(key).lower()] = str(value or "").strip()
+        return out
     except Exception:
-        return ""
+        return {}
 
 
 def track_queries(path: str) -> list[str]:
-    artist = ffprobe_meta(path, "artist") or ffprobe_meta(path, "album_artist")
-    album = ffprobe_meta(path, "album")
-    title = ffprobe_meta(path, "title") or os.path.splitext(os.path.basename(path))[0]
+    tags = ffprobe_tags(path)
+    artist = tags.get("artist") or tags.get("album_artist") or ""
+    album = tags.get("album") or ""
+    title = tags.get("title") or os.path.splitext(os.path.basename(path))[0]
     out = []
     for q in (f"{artist} {album}".strip(), f"{artist} {title}".strip(), album.strip(), title.strip()):
         if q and q not in out:
@@ -40,12 +54,15 @@ def track_queries(path: str) -> list[str]:
 
 
 def fetch_json(url: str, headers: dict | None = None) -> dict:
-    req = urllib.request.Request(url, headers=headers or {"User-Agent": "evo-player/1.0"})
-    with urllib.request.urlopen(req, timeout=20) as resp:
+    hdrs = {"User-Agent": USER_AGENT}
+    if headers:
+        hdrs.update(headers)
+    req = urllib.request.Request(url, headers=hdrs)
+    with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT) as resp:
         return json.load(resp)
 
 
-def search_itunes(query: str, limit: int = 6) -> list[dict]:
+def search_itunes(query: str, limit: int = PER_SOURCE) -> list[dict]:
     term = urllib.parse.quote(query)
     url = f"https://itunes.apple.com/search?term={term}&entity=album&limit={limit}"
     try:
@@ -63,50 +80,46 @@ def search_itunes(query: str, limit: int = 6) -> list[dict]:
     return out
 
 
-def search_caa(query: str, limit: int = 6) -> list[dict]:
-  try:
-      term = urllib.parse.quote(query)
-      url = f"https://musicbrainz.org/ws/2/release/?query={term}&fmt=json&limit={limit}"
-      data = fetch_json(url, {"User-Agent": "evo-player/1.0 (local music player)"})
-  except Exception:
-      return []
-  out = []
-  for rel in data.get("releases", []):
-      mbid = rel.get("id")
-      if not mbid:
-          continue
-      title = rel.get("title") or ""
-      artist = ""
-      ac = rel.get("artist-credit") or []
-      if ac:
-          artist = (ac[0].get("name") or "").strip()
-      label = f"{artist} — {title}".strip(" —") if artist else title
-      try:
-          caa = fetch_json(
-              f"https://coverartarchive.org/release/{mbid}",
-              {"User-Agent": "evo-player/1.0"},
-          )
-      except Exception:
-          continue
-      images = caa.get("images") or []
-      front = next((img for img in images if img.get("front")), images[0] if images else None)
-      if not front:
-          continue
-      art = front.get("image") or front.get("thumbnails", {}).get("large") or ""
-      if not art:
-          continue
-      out.append({"url": art, "thumb": art, "label": label, "source": "caa"})
-  return out
+def search_caa(query: str, limit: int = PER_SOURCE) -> list[dict]:
+    try:
+        term = urllib.parse.quote(query)
+        url = (
+            f"https://musicbrainz.org/ws/2/release/?query={term}"
+            f"&fmt=json&limit={limit}"
+        )
+        data = fetch_json(url)
+    except Exception:
+        return []
+    out = []
+    for rel in data.get("releases", []):
+        mbid = rel.get("id")
+        if not mbid:
+            continue
+        caa = rel.get("cover-art-archive") or {}
+        if caa and not caa.get("front") and not caa.get("artwork"):
+            continue
+        title = rel.get("title") or ""
+        artist = ""
+        ac = rel.get("artist-credit") or []
+        if ac:
+            artist = (ac[0].get("name") or "").strip()
+        label = f"{artist} — {title}".strip(" —") if artist else title
+        thumb = f"https://coverartarchive.org/release/{mbid}/front-250"
+        art = f"https://coverartarchive.org/release/{mbid}/front-500"
+        out.append({"url": art, "thumb": thumb, "label": label, "source": "caa"})
+        if len(out) >= limit:
+            break
+    return out
 
 
-def search_discogs(query: str, token: str, limit: int = 6) -> list[dict]:
+def search_discogs(query: str, token: str, limit: int = PER_SOURCE) -> list[dict]:
     if not token:
         return []
     try:
         term = urllib.parse.quote(query)
         url = f"https://api.discogs.com/database/search?q={term}&type=release&per_page={limit}"
         data = fetch_json(url, {
-            "User-Agent": "evo-player/1.0",
+            "User-Agent": USER_AGENT,
             "Authorization": f"Discogs token={token}",
         })
     except Exception:
@@ -135,17 +148,14 @@ def spotify_token(client_id: str, client_secret: str) -> str:
         },
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=20) as resp:
+    with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT) as resp:
         return json.load(resp).get("access_token") or ""
 
 
-def search_spotify(query: str, client_id: str, client_secret: str, limit: int = 6) -> list[dict]:
-    if not client_id or not client_secret:
+def search_spotify(query: str, token: str, limit: int = PER_SOURCE) -> list[dict]:
+    if not token:
         return []
     try:
-        token = spotify_token(client_id, client_secret)
-        if not token:
-            return []
         term = urllib.parse.quote(query)
         url = f"https://api.spotify.com/v1/search?q={term}&type=album&limit={limit}"
         data = fetch_json(url, {"Authorization": f"Bearer {token}"})
@@ -166,7 +176,7 @@ def search_spotify(query: str, client_id: str, client_secret: str, limit: int = 
     return out
 
 
-def dedupe(results: list[dict], max_items: int = 16) -> list[dict]:
+def dedupe(results: list[dict], max_items: int = MAX_RESULTS) -> list[dict]:
     seen = set()
     out = []
     for row in results:
@@ -180,15 +190,24 @@ def dedupe(results: list[dict], max_items: int = 16) -> list[dict]:
     return out
 
 
-def main() -> int:
-    if len(sys.argv) < 2:
-        return 1
-    path = sys.argv[1]
-    json_mode = "--json" in sys.argv[2:]
-    if not os.path.isfile(path):
-        print("evo-player: not a file", file=sys.stderr)
-        return 1
+def search_query(query: str, discogs_token: str, sp_token: str) -> list[dict]:
+    merged: list[dict] = []
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        futs = [
+            pool.submit(search_itunes, query),
+            pool.submit(search_caa, query),
+            pool.submit(search_discogs, query, discogs_token),
+            pool.submit(search_spotify, query, sp_token),
+        ]
+        for fut in as_completed(futs):
+            try:
+                merged.extend(fut.result())
+            except Exception:
+                continue
+    return merged
 
+
+def load_secrets() -> tuple[str, str, str]:
     secrets_path = os.environ.get(
         "EVOSHELL_SECRETS",
         os.path.expanduser("~/.local/share/evoshell/secrets.env"),
@@ -210,16 +229,37 @@ def main() -> int:
                 spotify_id = v
             elif k == "SPOTIFY_CLIENT_SECRET" and not spotify_secret:
                 spotify_secret = v
+    return discogs_token, spotify_id, spotify_secret
+
+
+def main() -> int:
+    if len(sys.argv) < 2:
+        return 1
+    path = sys.argv[1]
+    json_mode = "--json" in sys.argv[2:]
+    if not os.path.isfile(path):
+        print("evo-player: not a file", file=sys.stderr)
+        return 1
+
+    discogs_token, spotify_id, spotify_secret = load_secrets()
+    sp_token = ""
+    if spotify_id and spotify_secret:
+        try:
+            sp_token = spotify_token(spotify_id, spotify_secret)
+        except Exception:
+            sp_token = ""
 
     queries = track_queries(path)
     primary = queries[0] if queries else os.path.basename(path)
-    merged: list[dict] = []
-    for q in queries[:3]:
-        merged.extend(search_itunes(q))
-        merged.extend(search_caa(q))
-        merged.extend(search_discogs(q, discogs_token))
-        merged.extend(search_spotify(q, spotify_id, spotify_secret))
+    merged = search_query(primary, discogs_token, sp_token)
     results = dedupe(merged)
+    if len(results) < 4:
+        for q in queries[1:3]:
+            merged.extend(search_query(q, discogs_token, sp_token))
+            results = dedupe(merged)
+            if len(results) >= 4:
+                break
+
     payload = {"query": primary, "results": results}
     if json_mode:
         print(json.dumps(payload, ensure_ascii=False))
