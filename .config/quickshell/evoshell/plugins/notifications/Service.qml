@@ -415,7 +415,7 @@ Scope {
                 kicker: "screenshot",
                 title: popupTitle(entry),
                 subtitle: lines[0] || shotName,
-                footer: "click to edit"
+                footer: ""
             }
         }
         return {

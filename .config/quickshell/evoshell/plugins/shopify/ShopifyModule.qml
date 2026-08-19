@@ -10,33 +10,37 @@ Item {
     property bool demoMode: false
 
     readonly property int compactBreakpoint: 1000
-    readonly property bool layoutCompact: root.width > 0 && root.width < compactBreakpoint
     readonly property int compactPanelHeight: 635
     readonly property int columnPad: Theme.hoverPopupMargin
+    readonly property bool layoutCompact: root.width > 0 && root.width < compactBreakpoint
+    readonly property bool layoutShort: root.height > 0
+        && root.height < root.compactPanelHeight + root.columnPad * 2
+    readonly property bool stackStores: root.layoutCompact
+    readonly property bool scrollStores: root.layoutCompact || root.layoutShort
 
     Flickable {
         id: storeScroller
         anchors.fill: parent
         anchors.margins: columnPad
         contentWidth: width
-        contentHeight: root.layoutCompact ? storeGrid.implicitHeight : height
+        contentHeight: root.scrollStores ? storeGrid.implicitHeight : height
         clip: true
         boundsBehavior: Flickable.StopAtBounds
-        interactive: root.layoutCompact && contentHeight > height
+        interactive: root.scrollStores && contentHeight > height
 
         GridLayout {
             id: storeGrid
             width: storeScroller.width
-            height: root.layoutCompact ? implicitHeight : storeScroller.height
+            height: root.scrollStores ? implicitHeight : storeScroller.height
             columnSpacing: columnPad
             rowSpacing: columnPad
-            columns: root.layoutCompact ? 1 : 2
+            columns: root.stackStores ? 1 : 2
 
             StoreColumn {
                 Layout.fillWidth: true
-                Layout.fillHeight: !root.layoutCompact
-                Layout.preferredHeight: root.layoutCompact ? root.compactPanelHeight : -1
-                Layout.minimumHeight: root.layoutCompact ? root.compactPanelHeight : 0
+                Layout.fillHeight: !root.scrollStores
+                Layout.preferredHeight: root.scrollStores ? root.compactPanelHeight : -1
+                Layout.minimumHeight: root.compactPanelHeight
                 shell: root.shell
                 demoMode: root.demoMode
                 storeKey: "DIY"
@@ -46,9 +50,9 @@ Item {
 
             StoreColumn {
                 Layout.fillWidth: true
-                Layout.fillHeight: !root.layoutCompact
-                Layout.preferredHeight: root.layoutCompact ? root.compactPanelHeight : -1
-                Layout.minimumHeight: root.layoutCompact ? root.compactPanelHeight : 0
+                Layout.fillHeight: !root.scrollStores
+                Layout.preferredHeight: root.scrollStores ? root.compactPanelHeight : -1
+                Layout.minimumHeight: root.compactPanelHeight
                 shell: root.shell
                 demoMode: root.demoMode
                 storeKey: "TGS"

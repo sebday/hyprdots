@@ -18,20 +18,36 @@ Item {
     readonly property int hintFont: Theme.fontSizeL
     readonly property int listFont: hintFont
     readonly property int titleFont: Theme.fontSize7xl
-    readonly property int nowPlayingCompactBreakpoint: 1000
-    readonly property bool nowPlayingCompact: root.width > 0 && root.width < nowPlayingCompactBreakpoint
+    readonly property bool nowPlayingCompact: {
+        if (root.compactMode)
+            return true
+        var w = nowPlayingPanel.width
+        var h = nowPlayingPanel.height
+        if (w <= 0 || h <= 0)
+            return false
+        var half = Math.floor((w - pad) / 2)
+        return h > half
+    }
     readonly property int nowPlayingInlineArtSize: 112
-    readonly property int nowPlayingArtMaxWidth: !nowPlayingCompact && nowPlayingPanel.width > 0
-        ? Math.floor(nowPlayingPanel.width * 0.5)
-        : 0
-    readonly property int nowPlayingArtWidth: !nowPlayingCompact && nowPlayingPanel.height > 0 && nowPlayingArtMaxWidth > 0
-        ? Math.max(160, Math.min(nowPlayingPanel.height, nowPlayingArtMaxWidth))
-        : Math.max(160, nowPlayingArtMaxWidth)
+    readonly property int nowPlayingArtWidth: {
+        if (nowPlayingCompact || nowPlayingPanel.height <= 0)
+            return 0
+        return nowPlayingPanel.height
+    }
     readonly property int nowPlayingControlsHeight: 52
-    readonly property int transportBtnSize: 36
+    readonly property int nowPlayingWaveformMinHeight: 56
     readonly property int nowPlayingTitleFont: nowPlayingCompact
         ? Theme.fontSize6xl
         : Theme.fontSize9xl
+    readonly property int nowPlayingFieldsetMinHeight: nowPlayingTitleFont * 2
+        + Theme.fontSizeXl
+        + Theme.fontSizeS
+        + Theme.spacingM * 2
+        + nowPlayingWaveformMinHeight
+        + pad
+        + Theme.hoverPopupContentPad * 2
+    readonly property int nowPlayingMinBodyHeight: 200
+    readonly property int transportBtnSize: 36
     property var waveformSamples: []
     readonly property int iconFont: Theme.fontSize4xl
     readonly property int transportIconFont: iconFont * 2
@@ -120,6 +136,15 @@ Item {
     property bool transportApplyPending: false
     property var transportApplyTarget: null
     property string transportPreviewPath: ""
+    property bool favoriteApplyPending: false
+    property string favoriteApplyPath: ""
+    property bool favoriteApplyLiked: false
+    property var likedByPath: ({})
+    property var waveformCache: ({})
+    property var waveformPathByTrack: ({})
+    property var prefetchArtSources: []
+    property var neighborWaveformJobs: []
+    property int neighborWaveformJobIndex: 0
     property real seekApplyTarget: 0
     property bool seekApplyPending: false
     property bool playbackStatePending: false
@@ -127,6 +152,7 @@ Item {
     property bool jobStopRequested: false
     property bool sortStopRequested: false
     property bool menuBarHidden: false
+    property bool compactMode: false
     property bool titleEditing: false
     property bool titleSaveBusy: false
     property string trashConfirmPath: ""
@@ -251,6 +277,79 @@ Item {
         return artApplyScope === "album" ? ["--album"] : ["--track"]
     }
 
+    function patchTrackArtInLists(trackPath, art) {
+        trackPath = String(trackPath || "")
+        art = String(art || "")
+        if (!trackPath)
+            return
+        function patch(arr) {
+            var next = []
+            var i, entry
+            for (i = 0; i < arr.length; i++) {
+                entry = arr[i]
+                if (entry && String(entry.path) === trackPath) {
+                    entry.art = art
+                    next.push(Object.assign({}, entry, { art: art }))
+                } else {
+                    next.push(entry)
+                }
+            }
+            return next
+        }
+        tracks = patch(tracks)
+        currentPlaylistTracks = patch(currentPlaylistTracks)
+        filterTracks = patch(filterTracks)
+        tracksRevision++
+    }
+
+    function patchAlbumArtInLists(trackPath, art) {
+        trackPath = String(trackPath || "")
+        art = String(art || "")
+        var slash = trackPath.lastIndexOf("/")
+        var dir = slash >= 0 ? trackPath.substring(0, slash + 1) : ""
+        if (!dir)
+            return patchTrackArtInLists(trackPath, art)
+        function sameAlbum(path) {
+            path = String(path || "")
+            if (path.indexOf(dir) !== 0)
+                return false
+            return path.indexOf("/", dir.length) < 0
+        }
+        function patch(arr) {
+            var next = []
+            var i, entry
+            for (i = 0; i < arr.length; i++) {
+                entry = arr[i]
+                if (entry && sameAlbum(entry.path)) {
+                    entry.art = art
+                    next.push(Object.assign({}, entry, { art: art }))
+                } else {
+                    next.push(entry)
+                }
+            }
+            return next
+        }
+        tracks = patch(tracks)
+        currentPlaylistTracks = patch(currentPlaylistTracks)
+        filterTracks = patch(filterTracks)
+        tracksRevision++
+    }
+
+    function applyArtCommandResult(text, scope) {
+        var data = JSON.parse(String(text || "{}"))
+        if (!data || (data.art === undefined && data.ok !== true))
+            throw new Error("art failed")
+        var trackPath = String(player.path || "")
+        if (data.art) {
+            player = Object.assign({}, player, { art: String(data.art) })
+            if (scope === "album")
+                patchAlbumArtInLists(trackPath, String(data.art))
+            else
+                patchTrackArtInLists(trackPath, String(data.art))
+        }
+        onAlbumArtUpdated(scope)
+    }
+
     function setAlbumArtFromFile(imagePath) {
         var track = String(player.path || "")
         if (!track || !imagePath)
@@ -258,8 +357,7 @@ Item {
         var scope = artApplyScope
         runMusic(["art", "set", track, imagePath].concat(artScopeArgs()).concat(["--json"]), function(text) {
             try {
-                JSON.parse(String(text || "{}"))
-                root.onAlbumArtUpdated(scope)
+                root.applyArtCommandResult(text, scope)
             } catch (e) {
                 root.notify("could not update art", 3000)
             }
@@ -298,9 +396,8 @@ Item {
         runMusic(["art", "apply", track, url].concat(artScopeArgs()).concat(["--json"]), function(text) {
             artPickerLoading = false
             try {
-                JSON.parse(String(text || "{}"))
+                root.applyArtCommandResult(text, scope)
                 artPickerOpen = false
-                root.onAlbumArtUpdated(scope)
             } catch (e) {
                 root.notify("could not update art", 3000)
             }
@@ -311,6 +408,12 @@ Item {
         if (keyShortcutsBlocked)
             return
         menuBarHidden = !menuBarHidden
+    }
+
+    function toggleCompactMode() {
+        if (keyShortcutsBlocked)
+            return
+        compactMode = !compactMode
     }
 
     function commitTitleEdit(newTitle) {
@@ -474,9 +577,13 @@ Item {
         var track = String(player.path || "")
         if (!track)
             return
-        runMusic(["art", "clear", track, "--json"], function() {
-            root.onAlbumArtUpdated()
-            root.artPickerOpen = false
+        runMusic(["art", "clear", track, "--json"], function(text) {
+            try {
+                root.applyArtCommandResult(text)
+                root.artPickerOpen = false
+            } catch (e) {
+                root.notify("could not update art", 3000)
+            }
         })
     }
 
@@ -486,8 +593,24 @@ Item {
         return String(text).replace(/\r\n/g, "\n").replace(/\r/g, "\n")
     }
 
+    function jobLogBriefNote(text) {
+        var lines = formatJobLog(text).split("\n")
+        for (var i = lines.length - 1; i >= 0; i--) {
+            var line = String(lines[i] || "").trim()
+            if (!line)
+                continue
+            line = line.replace(/^evo-player:\s*/i, "")
+            line = line.replace(/\s+at\s+\d{4}-\d{2}-\d{2}T[0-9:+.-]+/g, "")
+            line = line.replace(/\d{4}-\d{2}-\d{2}T[0-9:+.-]+/g, "")
+            line = line.replace(/\s+/g, " ").trim()
+            if (line)
+                return line
+        }
+        return ""
+    }
+
     function jobLogInline() {
-        var text = formatJobLog(jobLog).replace(/\n/g, " ").trim()
+        var text = jobLogBriefNote(jobLog)
         if (text)
             return text
         if (libraryJobBusy)
@@ -1111,7 +1234,10 @@ Item {
             for (var i = 0; i < kids.length; i++) {
                 var kid = kids[i]
                 if (kid.type === "track" && String(kid.path) === trackPath) {
-                    nextKids.push(Object.assign({}, kid, { liked: liked }))
+                    var patched = Object.assign({}, kid, { liked: liked })
+                    if (kid.track)
+                        patched.track = Object.assign({}, kid.track, { liked: liked })
+                    nextKids.push(patched)
                     changed = true
                 } else {
                     nextKids.push(kid)
@@ -2077,17 +2203,177 @@ Item {
         return null
     }
 
-    function primePlayerForPath(path) {
-        var t = trackMetaForPath(path)
+    function playerFieldsFromTrack(t) {
         if (!t)
+            return ({})
+        var next = {}
+        if (t.title)
+            next.title = t.title
+        if (t.artist)
+            next.artist = t.artist
+        if (t.genre)
+            next.genre = t.genre
+        if (t.album)
+            next.album = t.album
+        if (t.year)
+            next.year = t.year
+        if (t.label)
+            next.label = t.label
+        if (t.art)
+            next.art = t.art
+        if (t.liked !== undefined)
+            next.liked = !!t.liked
+        if (t.waveform)
+            next.waveform = t.waveform
+        var dur = Number(t.duration)
+        if (isFinite(dur) && dur > 0) {
+            next.duration = dur
+            next.duration_label = formatPlaybackTime(dur)
+        }
+        return next
+    }
+
+    function rememberWaveformPath(path, wf) {
+        var p = String(path || "")
+        var file = String(wf || "")
+        if (!p || !file)
             return
-        player = Object.assign({}, player, {
-            path: String(path),
-            title: t.title || "",
-            artist: t.artist || "",
-            genre: t.genre || "",
-            state: "playing"
+        if (waveformPathByTrack[p] === file)
+            return
+        var next = Object.assign({}, waveformPathByTrack)
+        next[p] = file
+        waveformPathByTrack = next
+    }
+
+    function rememberWaveformSamples(path, samples) {
+        var p = String(path || "")
+        if (!p)
+            return
+        var next = Object.assign({}, waveformCache)
+        next[p] = samples || []
+        var keys = Object.keys(next)
+        while (keys.length > 24) {
+            delete next[keys[0]]
+            keys = Object.keys(next)
+        }
+        waveformCache = next
+    }
+
+    function parseWaveformText(text) {
+        try {
+            var wf = JSON.parse(String(text || "{}"))
+            var raw = wf.data || []
+            var ch = wf.channels || 1
+            var out = []
+            if (ch >= 2) {
+                for (var i = 0; i < raw.length; i += 2)
+                    out.push(Math.max(Number(raw[i]) || 0, Number(raw[i + 1]) || 0))
+            } else {
+                for (var j = 0; j < raw.length; j++)
+                    out.push(Number(raw[j]) || 0)
+            }
+            return out
+        } catch (e) {
+            return []
+        }
+    }
+
+    function cacheWaveformText(path, text) {
+        rememberWaveformSamples(path, parseWaveformText(text))
+    }
+
+    function applyCachedWaveform(path) {
+        var p = String(path || "")
+        if (p && waveformCache[p]) {
+            waveformSamples = waveformCache[p]
+            if (waveformViz)
+                waveformViz.recomputeVizEnvelopes()
+            return true
+        }
+        waveformSamples = []
+        return false
+    }
+
+    function indexInCurrentPlaylist(path) {
+        var p = String(path || "")
+        if (!p)
+            return -1
+        for (var i = 0; i < currentPlaylistTracks.length; i++) {
+            if (currentPlaylistTracks[i] && currentPlaylistTracks[i].path === p)
+                return i
+        }
+        return -1
+    }
+
+    function prefetchNeighbors(path) {
+        var idx = indexInCurrentPlaylist(path)
+        var n = currentPlaylistTracks.length
+        if (idx < 0 || n < 2) {
+            prefetchArtSources = []
+            neighborWaveformJobs = []
+            return
+        }
+        var neighbors = [
+            currentPlaylistTracks[(idx - 1 + n) % n],
+            currentPlaylistTracks[(idx + 1) % n]
+        ]
+        var arts = []
+        var jobs = []
+        for (var i = 0; i < neighbors.length; i++) {
+            var t = neighbors[i]
+            if (!t || !t.path)
+                continue
+            if (t.art)
+                arts.push(artUrl(t.art))
+            var wf = t.waveform || waveformPathByTrack[t.path] || ""
+            if (wf && !waveformCache[t.path])
+                jobs.push({ path: t.path, file: wf })
+        }
+        prefetchArtSources = arts
+        neighborWaveformJobs = jobs
+        neighborWaveformJobIndex = 0
+        startNeighborWaveformJob()
+    }
+
+    function startNeighborWaveformJob() {
+        if (neighborWaveformJobIndex >= neighborWaveformJobs.length) {
+            neighborWaveformFile.trackPath = ""
+            neighborWaveformFile.path = ""
+            return
+        }
+        var job = neighborWaveformJobs[neighborWaveformJobIndex]
+        if (!job || !job.file) {
+            neighborWaveformJobIndex++
+            startNeighborWaveformJob()
+            return
+        }
+        neighborWaveformFile.trackPath = job.path
+        neighborWaveformFile.path = job.file
+    }
+
+    function advanceNeighborWaveform() {
+        if (neighborWaveformJobIndex >= neighborWaveformJobs.length)
+            return
+        neighborWaveformJobIndex++
+        startNeighborWaveformJob()
+    }
+
+    function primePlayerForPath(path) {
+        var p = String(path || "")
+        if (!p)
+            return
+        var t = trackMetaForPath(p)
+        var next = Object.assign({}, player, playerFieldsFromTrack(t), {
+            path: p,
+            state: "playing",
+            position: 0,
+            position_label: formatPlaybackTime(0),
+            art: (t && t.art) || "",
+            waveform: (t && t.waveform) || waveformPathByTrack[p] || ""
         })
+        player = next
+        applyCachedWaveform(p)
+        prefetchNeighbors(p)
     }
 
     function togglePlayback() {
@@ -2125,23 +2411,18 @@ Item {
     }
 
     function mergePlayerFromTrackList() {
-        if (!player.path || !tracks.length)
+        if (!player.path)
             return
-        var path = String(player.path)
-        for (var i = 0; i < tracks.length; i++) {
-            if (tracks[i].path !== path)
-                continue
-            var t = tracks[i]
-            var next = Object.assign({}, player)
-            if (t.title)
-                next.title = t.title
-            if (t.artist)
-                next.artist = t.artist
-            if (t.genre)
-                next.genre = t.genre
-            player = next
+        var t = trackMetaForPath(player.path)
+        if (!t)
             return
-        }
+        var fields = playerFieldsFromTrack(t)
+        delete fields.liked
+        delete fields.art
+        var next = Object.assign({}, player, fields)
+        if (favoriteApplyPending && favoriteApplyPath === String(player.path || ""))
+            next.liked = favoriteApplyLiked
+        player = next
     }
 
     function applyStatus(text) {
@@ -2185,49 +2466,50 @@ Item {
                 parsed = Object.assign({}, parsed, { state: playbackStateTarget })
             }
         }
+        if (favoriteApplyPending && favoriteApplyPath) {
+            var likedPath = String(parsed.path || player.path || "")
+            if (likedPath === favoriteApplyPath) {
+                if (parsed.liked !== undefined && !!parsed.liked === !!favoriteApplyLiked) {
+                    favoriteApplyPending = false
+                    favoriteApplyPath = ""
+                    favoriteSettleTimer.stop()
+                    tracksRevision++
+                } else {
+                    parsed = Object.assign({}, parsed, { liked: favoriteApplyLiked })
+                }
+            }
+        }
         if (transportApplyPending && transportPreviewPath) {
             var reportedTrack = String(parsed.path || "")
             if (reportedTrack !== transportPreviewPath) {
                 var previewMeta = trackMetaForPath(transportPreviewPath)
-                var held = {
+                var held = Object.assign({}, player, playerFieldsFromTrack(previewMeta), {
                     path: transportPreviewPath,
                     state: "playing"
-                }
-                if (previewMeta) {
-                    if (previewMeta.title)
-                        held.title = previewMeta.title
-                    if (previewMeta.artist)
-                        held.artist = previewMeta.artist
-                    if (previewMeta.genre)
-                        held.genre = previewMeta.genre
-                }
+                })
                 parsed = Object.assign({}, parsed, held)
             }
         }
+        if (parsed.waveform)
+            rememberWaveformPath(parsed.path || player.path, parsed.waveform)
         player = Object.assign({}, player, parsed)
-        if (String(player.path || "") !== prevPath)
-            waveformSamples = []
+        var newPath = String(player.path || "")
+        if (newPath !== prevPath) {
+            if (!applyCachedWaveform(newPath))
+                waveformSamples = []
+            prefetchNeighbors(newPath)
+        }
         checkAutoExtendQueue()
         mergePlayerFromTrackList()
     }
 
     function applyWaveform(text) {
-        try {
-            var wf = JSON.parse(String(text || "{}"))
-            var raw = wf.data || []
-            var ch = wf.channels || 1
-            var out = []
-            if (ch >= 2) {
-                for (var i = 0; i < raw.length; i += 2)
-                    out.push(Math.max(Number(raw[i]) || 0, Number(raw[i + 1]) || 0))
-            } else {
-                for (var j = 0; j < raw.length; j++)
-                    out.push(Number(raw[j]) || 0)
-            }
-            waveformSamples = out
-        } catch (e) {
-            waveformSamples = []
-        }
+        var samples = parseWaveformText(text)
+        if (samples.length === 0 && player.path && waveformCache[player.path] && waveformCache[player.path].length)
+            samples = waveformCache[player.path]
+        waveformSamples = samples
+        if (player.path && samples.length)
+            rememberWaveformSamples(player.path, samples)
         if (waveformViz)
             waveformViz.recomputeVizEnvelopes()
         else if (waveCanvas)
@@ -2452,13 +2734,9 @@ Item {
     }
 
     function jumpCurrentAtNow(index) {
-        if (index < 0)
+        if (index < 0 || index >= currentPlaylistTracks.length)
             return
-        var startPath = ""
-        if (index < tracks.length && tracks[index] && tracks[index].path)
-            startPath = tracks[index].path
-        else if (index < currentPlaylistTracks.length && currentPlaylistTracks[index])
-            startPath = currentPlaylistTracks[index].path
+        var startPath = currentPlaylistTracks[index] ? currentPlaylistTracks[index].path : ""
         if (!startPath)
             return
         var paths = pathsFromTracks(currentPlaylistTracks)
@@ -2551,7 +2829,7 @@ Item {
     }
 
     function jumpCurrentAt(index) {
-        previewTrackIndex(index)
+        previewCurrentIndex(index)
         queueTransportAction({ kind: "jump", index: index })
     }
 
@@ -2585,6 +2863,26 @@ Item {
         selectedTrackPath = String(tracks[index].path || "")
     }
 
+    function rememberLiked(path, liked) {
+        path = String(path || "")
+        if (!path)
+            return
+        var next = Object.assign({}, likedByPath)
+        next[path] = !!liked
+        likedByPath = next
+        tracksRevision++
+    }
+
+    function trackIsLiked(path, fallback) {
+        path = String(path || "")
+        var overlay = likedByPath[path]
+        if (overlay === true || overlay === false)
+            return overlay
+        if (path && path === String(player.path || ""))
+            return !!player.liked
+        return !!fallback
+    }
+
     function toggleFavorite() {
         if (!player.path)
             return
@@ -2593,7 +2891,8 @@ Item {
 
     function runFavoriteQuery(args, onDone) {
         if (favoriteProc.running) {
-            Qt.callLater(function() { runFavoriteQuery(args, onDone) })
+            favoriteProc._queuedArgs = args || []
+            favoriteProc._queuedOnDone = onDone || null
             return
         }
         favoriteProc.command = ["bash", playerScript].concat(args || [])
@@ -2631,42 +2930,58 @@ Item {
         step()
     }
 
-    function toggleTrackFavorite(path) {
-        var trackPath = String(path || "")
+    function toggleTrackFavorite(path, trackObj) {
+        var trackPath = String(path || (trackObj && trackObj.path) || "")
         if (!trackPath)
             return
         var applyFavorite = function(text) {
             try {
                 var result = JSON.parse(String(text || "{}"))
+                if (result.liked === undefined)
+                    return
                 var liked = !!result.liked
+                rememberLiked(trackPath, liked)
+                if (String(player.path || "") === trackPath) {
+                    var p = Object.assign({}, player)
+                    p.liked = liked
+                    player = p
+                }
                 var i, entry, nextTracks = [], nextBrowse = [], nextCurrent = [], nextFilter = []
                 for (i = 0; i < tracks.length; i++) {
                     entry = tracks[i]
-                    if (entry.path === trackPath)
+                    if (entry && String(entry.path) === trackPath) {
+                        entry.liked = liked
                         nextTracks.push(Object.assign({}, entry, { liked: liked }))
-                    else
+                    } else {
                         nextTracks.push(entry)
+                    }
                 }
                 for (i = 0; i < currentPlaylistTracks.length; i++) {
                     entry = currentPlaylistTracks[i]
-                    if (entry.path === trackPath)
+                    if (entry && String(entry.path) === trackPath) {
+                        entry.liked = liked
                         nextCurrent.push(Object.assign({}, entry, { liked: liked }))
-                    else
+                    } else {
                         nextCurrent.push(entry)
+                    }
                 }
                 for (i = 0; i < filterTracks.length; i++) {
                     entry = filterTracks[i]
-                    if (entry.path === trackPath)
+                    if (entry && String(entry.path) === trackPath) {
+                        entry.liked = liked
                         nextFilter.push(Object.assign({}, entry, { liked: liked }))
-                    else
+                    } else {
                         nextFilter.push(entry)
+                    }
                 }
                 for (i = 0; i < browseEntries.length; i++) {
                     entry = browseEntries[i]
-                    if (entry.type === "track" && entry.path === trackPath)
+                    if (entry && entry.type === "track" && String(entry.path) === trackPath) {
+                        entry.liked = liked
                         nextBrowse.push(Object.assign({}, entry, { liked: liked }))
-                    else
+                    } else {
                         nextBrowse.push(entry)
+                    }
                 }
                 var playlistY = playlistTrackList ? playlistTrackList.contentY : -1
                 var browseY = browseList ? browseList.contentY : -1
@@ -2678,13 +2993,6 @@ Item {
                 tracksRevision++
                 restoreListViewport(playlistTrackList, playlistY)
                 restoreListViewport(browseList, browseY)
-                if (player.path === trackPath) {
-                    var p = Object.assign({}, player)
-                    p.liked = liked
-                    player = p
-                }
-                if (!liked && root.selectedPlaylist !== "all" && root.selectedPlaylist !== root.currentPlaylistId)
-                    root.loadPlaylistTracks(root.selectedPlaylist, true)
             } catch (e) {
             }
         }
@@ -2732,21 +3040,59 @@ Item {
                 found = true
             }
         }
-        if (!found && String(player.path || "") === trackPath)
+        if (String(player.path || "") === trackPath)
             optimisticLiked = !player.liked
+        else if (trackObj)
+            optimisticLiked = !trackObj.liked
+        else if (!found)
+            optimisticLiked = true
+        favoriteApplyPending = true
+        favoriteApplyPath = trackPath
+        favoriteApplyLiked = optimisticLiked
+        favoriteSettleTimer.restart()
         applyFavorite(JSON.stringify({ liked: optimisticLiked }))
-        runFavoriteQuery(["favorite", "toggle", trackPath, "--json"], applyFavorite)
+        if (trackObj) {
+            try {
+                trackObj.liked = optimisticLiked
+            } catch (e) {
+            }
+        }
+        runFavoriteQuery(["favorite", "toggle", trackPath, "--json"], function(text) {
+            var confirmed = null
+            try {
+                confirmed = JSON.parse(String(text || "{}"))
+            } catch (e) {
+                confirmed = null
+            }
+            if (!confirmed || confirmed.liked === undefined)
+                return
+            if (favoriteApplyPath === trackPath && !!confirmed.liked !== !!favoriteApplyLiked)
+                return
+            applyFavorite(text)
+        })
+    }
+
+    function previewCurrentIndex(index) {
+        if (index < 0 || index >= currentPlaylistTracks.length)
+            return false
+        var path = currentPlaylistTracks[index] ? currentPlaylistTracks[index].path : ""
+        if (!path)
+            return false
+        selectedTrackIndex = index
+        selectedTrackPath = String(path)
+        transportPreviewPath = path
+        primePlayerForPath(path)
+        return true
     }
 
     function skipTrack(forward) {
-        if (currentPlaylistTracks.length > 1 && selectedPlaylist === currentPlaylistId) {
-            var idx = resolveCurrentTrackIndex()
-            var nextIdx = forward ? idx + 1 : idx - 1
-            if (nextIdx >= 0 && nextIdx < currentPlaylistTracks.length) {
-                previewTrackIndex(nextIdx)
-                queueTransportAction({ kind: "jump", index: nextIdx })
-                return
-            }
+        var idx = indexInCurrentPlaylist(player.path)
+        if (currentPlaylistTracks.length > 1 && idx >= 0) {
+            var n = currentPlaylistTracks.length
+            var nextIdx = forward ? (idx + 1) % n : (idx - 1 + n) % n
+            previewCurrentIndex(nextIdx)
+            queueTransportAction({ kind: "jump", index: nextIdx })
+            return
         }
         queueTransportAction({ kind: "mpv", forward: forward })
     }
@@ -2946,10 +3292,21 @@ Item {
     Process {
         id: favoriteProc
         property var _onDone: null
+        property var _queuedArgs: null
+        property var _queuedOnDone: null
         stdout: StdioCollector {
             onStreamFinished: {
-                if (favoriteProc._onDone)
-                    favoriteProc._onDone(text)
+                var cb = favoriteProc._onDone
+                favoriteProc._onDone = null
+                if (cb)
+                    cb(text)
+                if (favoriteProc._queuedArgs) {
+                    var args = favoriteProc._queuedArgs
+                    var done = favoriteProc._queuedOnDone
+                    favoriteProc._queuedArgs = null
+                    favoriteProc._queuedOnDone = null
+                    root.runFavoriteQuery(args, done)
+                }
             }
         }
     }
@@ -3050,6 +3407,36 @@ Item {
         onLoadFailed: root.applyWaveform("")
     }
 
+    FileView {
+        id: neighborWaveformFile
+        property string trackPath: ""
+        path: ""
+        printErrors: false
+        onLoaded: {
+            if (!trackPath || !path)
+                return
+            root.cacheWaveformText(trackPath, text())
+            root.advanceNeighborWaveform()
+        }
+        onLoadFailed: {
+            if (path)
+                root.advanceNeighborWaveform()
+        }
+    }
+
+    Repeater {
+        model: root.prefetchArtSources
+        Image {
+            required property string modelData
+            source: modelData
+            asynchronous: true
+            cache: true
+            visible: false
+            width: 1
+            height: 1
+        }
+    }
+
     Timer {
         id: tabSearchDebounce
         interval: 650
@@ -3067,6 +3454,16 @@ Item {
         interval: 500
         repeat: true
         onTriggered: root.refreshStatus()
+    }
+
+    Timer {
+        id: favoriteSettleTimer
+        interval: 4000
+        repeat: false
+        onTriggered: {
+            root.favoriteApplyPending = false
+            root.favoriteApplyPath = ""
+        }
     }
 
     Timer {
@@ -3132,11 +3529,21 @@ Item {
         onTriggered: root.finishPlaybackSettle()
     }
 
-    ColumnLayout {
-        id: rootLayout
+    Flickable {
+        id: playerScroller
         anchors.fill: parent
         anchors.margins: pad
-        spacing: pad
+        clip: true
+        contentWidth: width
+        contentHeight: Math.max(height, rootLayout.implicitHeight)
+        boundsBehavior: Flickable.StopAtBounds
+        interactive: contentHeight > height
+
+        ColumnLayout {
+            id: rootLayout
+            width: playerScroller.width
+            height: Math.max(playerScroller.height, implicitHeight)
+            spacing: pad
 
         // Tabs
         SectionPanel {
@@ -3154,13 +3561,11 @@ Item {
                 IconTab {
                     icon: "󰎆"
                     active: root.nowPlayingTabActive
-                    spinning: queuePlayProc.running || loadProc.running || root.browseQueueBusy
                     onActivated: root.showNowPlaying()
                 }
                 IconTab {
                     icon: "󰉋"
                     active: root.browsePanelOpen
-                    spinning: root.libraryActivityBusy
                     onActivated: root.toggleBrowsePanel()
                 }
                 IconTab {
@@ -3307,7 +3712,7 @@ Item {
             id: nowPlayingPanel
             Layout.fillWidth: true
             Layout.fillHeight: true
-            Layout.minimumHeight: 0
+            Layout.minimumHeight: root.nowPlayingMinBodyHeight
 
             RowLayout {
                     anchors.fill: parent
@@ -3323,6 +3728,7 @@ Item {
                             visible: !root.splitSidePanelMode
                             Layout.fillWidth: true
                             Layout.fillHeight: true
+                            Layout.minimumHeight: root.nowPlayingFieldsetMinHeight
                             fillHeight: true
 
                             ColumnLayout {
@@ -3334,6 +3740,14 @@ Item {
                                     id: titleRow
                                     Layout.fillWidth: true
                                     spacing: Theme.spacingL
+
+                                    AlbumArtThumbnail {
+                                        visible: root.nowPlayingCompact
+                                        side: root.nowPlayingInlineArtSize
+                                        showPickerOverlay: false
+                                        Layout.alignment: Qt.AlignTop | Qt.AlignLeft
+                                        Layout.rightMargin: Theme.hoverPopupContentPad
+                                    }
 
                                     ColumnLayout {
                                         Layout.fillWidth: true
@@ -3491,13 +3905,6 @@ Item {
                                         }
 
                                     }
-
-                                    AlbumArtThumbnail {
-                                        visible: root.nowPlayingCompact
-                                        side: root.nowPlayingInlineArtSize
-                                        showPickerOverlay: false
-                                        Layout.alignment: Qt.AlignTop | Qt.AlignRight
-                                    }
                                 }
 
                             ColumnLayout {
@@ -3509,7 +3916,7 @@ Item {
                                     id: waveformViz
                                     Layout.fillWidth: true
                                     Layout.fillHeight: true
-                                    Layout.minimumHeight: 96
+                                    Layout.minimumHeight: root.nowPlayingWaveformMinHeight
 
                                     property string presetHint: ""
 
@@ -3777,6 +4184,14 @@ Item {
                                     }
                                 }
                             }
+
+                            PlayerTransportBar {
+                                visible: root.compactMode
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: root.nowPlayingControlsHeight
+                                Layout.minimumHeight: root.nowPlayingControlsHeight
+                                showTimestamps: false
+                            }
                         }
                         }
 
@@ -3800,6 +4215,7 @@ Item {
 
                         SectionPanel {
                             label: ""
+                            visible: !root.compactMode
                             Layout.fillWidth: true
                             contentPad: Theme.panelContentPad
 
@@ -3817,8 +4233,8 @@ Item {
                         visible: !root.nowPlayingCompact
                         Layout.fillHeight: true
                         Layout.preferredWidth: root.nowPlayingArtWidth
-                        Layout.maximumWidth: root.nowPlayingArtMaxWidth
-                        Layout.minimumWidth: 120
+                        Layout.maximumWidth: root.nowPlayingArtWidth
+                        Layout.minimumWidth: root.nowPlayingArtWidth
                         fillHeight: true
 
                         Item {
@@ -3826,7 +4242,7 @@ Item {
                             Layout.fillHeight: true
 
                             AlbumArtThumbnail {
-                                readonly property int fitSide: Math.min(parent.width, parent.height, root.nowPlayingArtWidth)
+                                readonly property int fitSide: Math.min(parent.width, parent.height)
                                 side: fitSide
                                 showPickerOverlay: true
                                 anchors.right: parent.right
@@ -3842,6 +4258,7 @@ Item {
                     z: 100
                 }
             }
+        }
         }
     }
 
@@ -4333,7 +4750,7 @@ Item {
         id: transportProgress
         Layout.preferredWidth: 140
         Layout.minimumWidth: 72
-        Layout.maximumWidth: 240
+        Layout.maximumWidth: root.compactMode ? -1 : 240
         Layout.fillWidth: true
         Layout.alignment: Qt.AlignVCenter
         implicitHeight: 20
@@ -4382,9 +4799,9 @@ Item {
         RowLayout {
             id: transportRow
             anchors.fill: parent
-            anchors.leftMargin: 6
-            anchors.rightMargin: 6
-            spacing: 12
+            anchors.leftMargin: root.compactMode ? 0 : 6
+            anchors.rightMargin: root.compactMode ? 0 : 6
+            spacing: root.compactMode ? Theme.spacingL : 12
 
             TransportTimePill {
                 visible: showTimestamps
@@ -4400,9 +4817,12 @@ Item {
             RowLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                spacing: 24
+                spacing: root.compactMode ? Theme.spacingL : 24
 
-                Item { Layout.fillWidth: true }
+                Item {
+                    visible: !root.compactMode
+                    Layout.fillWidth: true
+                }
 
                 TransportBtn {
                     icon: "󰒮"
@@ -4430,12 +4850,17 @@ Item {
                 TransportBtn {
                     icon: "󰋑"
                     smallGlyph: true
-                    liked: !!root.player.liked
+                    liked: root.favoriteApplyPending && root.favoriteApplyPath === String(root.player.path || "")
+                        ? root.favoriteApplyLiked
+                        : !!root.player.liked
                     onActivated: root.toggleFavorite()
                 }
                 VolumeTransportBtn {}
 
-                Item { Layout.fillWidth: true }
+                Item {
+                    visible: !root.compactMode
+                    Layout.fillWidth: true
+                }
             }
 
             Item {
@@ -4563,9 +4988,15 @@ Item {
         property bool wheelPopupActive: false
         readonly property bool popupVisible: volHover.containsMouse || volSliderPopup.sliderPressed || wheelPopupActive
 
-        Component.onCompleted: root.volumeTransportBtn = volBtn
+        Component.onCompleted: if (visible) root.volumeTransportBtn = volBtn
         Component.onDestruction: {
             if (root.volumeTransportBtn === volBtn)
+                root.volumeTransportBtn = null
+        }
+        onVisibleChanged: {
+            if (visible)
+                root.volumeTransportBtn = volBtn
+            else if (root.volumeTransportBtn === volBtn)
                 root.volumeTransportBtn = null
         }
 
@@ -4741,7 +5172,10 @@ Item {
 
         readonly property bool trackLiked: {
             var _rev = browseRow.trackRevision
-            return !!(browseRow.track && browseRow.track.liked)
+            var _likes = root.likedByPath
+            var _playerLiked = root.player && root.player.liked
+            var path = String((browseRow.track && browseRow.track.path) || "")
+            return root.trackIsLiked(path, browseRow.track && browseRow.track.liked)
         }
         readonly property string artistAlbumLine: {
             var artist = String(browseRow.track.artist || "").trim()
@@ -4760,7 +5194,6 @@ Item {
             ? (22 * 3 + Theme.spacingM * 2)
             : 0
         readonly property bool hovered: browseRowMouse.containsMouse
-            || browseLikeMouse.containsMouse
             || (!browseRow.selected && browseArtSelectMouse.containsMouse)
 
         width: rowWidth
@@ -4776,8 +5209,10 @@ Item {
 
         MouseArea {
             anchors.fill: parent
+            anchors.rightMargin: browseRow.likeReserve
             z: 4
             acceptedButtons: Qt.RightButton
+            propagateComposedEvents: true
             onClicked: browseRow.revealRequested()
         }
 
@@ -4899,32 +5334,14 @@ Item {
                 onActivated: browseRow.playRequested()
             }
 
-            Item {
-                Layout.preferredWidth: 22
-                Layout.preferredHeight: 22
-                Layout.alignment: Qt.AlignVCenter
-
-                Text {
-                    anchors.centerIn: parent
-                    text: "󰋑"
-                    color: browseRow.trackLiked ? Theme.urgent : Theme.foreground
-                    opacity: browseRow.trackLiked ? 1 : (browseLikeMouse.containsMouse ? 0.55 : 0.28)
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.bodyFont
-                }
-
-                MouseArea {
-                    id: browseLikeMouse
-                    anchors.fill: parent
-                    anchors.margins: -4
-                    acceptedButtons: Qt.LeftButton
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: function(mouse) {
-                        mouse.accepted = true
-                        browseRow.likeToggled()
-                    }
-                }
+            RowIconButton {
+                z: 6
+                icon: "󰋑"
+                tooltip: browseRow.trackLiked ? "unlike" : "like"
+                iconColor: browseRow.trackLiked ? Theme.urgent : Theme.foreground
+                opacityIdle: browseRow.trackLiked ? 1 : 0.28
+                opacityHover: browseRow.trackLiked ? 1 : 0.55
+                onActivated: browseRow.likeToggled()
             }
         }
 
@@ -5123,7 +5540,7 @@ Item {
                 readonly property int xOffset: Math.max(0, Math.floor((width - gridWidth) / 2))
                 readonly property int yOffset: Math.max(0, Math.floor((height - gridHeight) / 2))
 
-                Rectangle {
+                    Rectangle {
                     visible: root.artPendingDropPath !== ""
                     x: artPickerGridHost.xOffset
                     y: artPickerGridHost.yOffset
@@ -5132,8 +5549,10 @@ Item {
                     radius: Theme.radiusM
                     clip: true
                     color: Theme.foregroundWash
-                    border.color: Theme.foregroundRaised
-                    border.width: 1
+                    border.color: dropPreviewMouse.containsMouse
+                        ? Theme.accent
+                        : Theme.foregroundRaised
+                    border.width: dropPreviewMouse.containsMouse ? 2 : 1
 
                     Image {
                         anchors.fill: parent
@@ -5143,6 +5562,21 @@ Item {
                         fillMode: Image.PreserveAspectCrop
                         smooth: true
                         asynchronous: true
+                    }
+
+                    MouseArea {
+                        id: dropPreviewMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            var imagePath = root.artPendingDropPath
+                            if (!imagePath)
+                                return
+                            root.artPendingDropPath = ""
+                            root.setAlbumArtFromFile(imagePath)
+                            root.artPickerOpen = false
+                        }
                     }
                 }
 
@@ -5315,10 +5749,11 @@ Item {
                         tooltip: modelData.hint || modelData.label
                         opacityIdle: root.libraryJobBusy ? 0.2 : 0.5
                         opacityHover: root.libraryJobBusy ? 0.35 : 0.9
-                        iconColor: root.libraryJobBusy && root.activeLibraryJobKey === modelData.key
+                        iconColor: (root.libraryActivityBusy && modelData.key === "build")
+                            || (root.libraryJobBusy && root.activeLibraryJobKey === modelData.key)
                             ? Theme.accent
                             : Theme.foreground
-                        flashing: root.libraryJobBusy && root.activeLibraryJobKey === modelData.key
+                        flashing: modelData.key === "build" && root.libraryActivityBusy
                         enabled: !root.browseTreeLoading && !root.libraryJobBusy
                         onActivated: root.runLibraryAction(modelData)
                     }
@@ -5330,7 +5765,7 @@ Item {
                     tooltip: "stop"
                     opacityIdle: 0.5
                     opacityHover: 0.9
-                    iconColor: Theme.accent
+                    iconColor: Theme.urgent
                     enabled: !root.browseTreeLoading
                     onActivated: root.stopLibraryJob()
                 }
@@ -5344,7 +5779,7 @@ Item {
                     font.family: Theme.fontFamily
                     font.pixelSize: root.libraryFont
                     opacity: Theme.opacityDisabled
-                    elide: Text.ElideLeft
+                    elide: Text.ElideRight
                 }
 
                 Item {
@@ -5560,7 +5995,7 @@ Item {
                         showGenre: false
                         onPressed: root.selectTrackEntry(modelData.track || modelData)
                         onPlayRequested: root.playBrowseTreeTrack(modelData.track || modelData)
-                        onLikeToggled: root.toggleTrackFavorite(modelData.path)
+                        onLikeToggled: root.toggleTrackFavorite(modelData.path || (modelData.track && modelData.track.path) || "", modelData.track || modelData)
                         onRevealRequested: root.openTrackInThunar(modelData.path)
                         onFolderOpenRequested: root.openTrackFolder(modelData)
                         onAddRequested: root.appendTrackToCurrent(modelData.track || modelData)
@@ -5801,7 +6236,7 @@ Item {
                     showGenre: false
                     onPressed: root.selectPlaylistTrack(index)
                     onPlayRequested: root.playTrackAt(index)
-                    onLikeToggled: root.toggleTrackFavorite(modelData.path)
+                    onLikeToggled: root.toggleTrackFavorite(modelData.path || "", modelData)
                     onRevealRequested: root.openTrackInThunar(modelData.path)
                     onFolderOpenRequested: root.openTrackFolder(modelData)
                     onAddRequested: root.appendTrackToCurrent(modelData)
@@ -5880,7 +6315,7 @@ Item {
                         showGenre: false
                         onPressed: root.selectFilterTrack(index)
                         onPlayRequested: root.playFilterTrackAt(index)
-                        onLikeToggled: root.toggleTrackFavorite(modelData.path)
+                        onLikeToggled: root.toggleTrackFavorite(modelData.path || (modelData.track && modelData.track.path) || "", modelData.track || modelData)
                         onRevealRequested: root.openTrackInThunar(modelData.path)
                         onFolderOpenRequested: root.openTrackFolder(modelData)
                         onAddRequested: root.appendTrackToCurrent(modelData)

@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """Lookup, fix, and standardize audio tags for evo-player import."""
 
-import importlib.util
+import sys
+sys.dont_write_bytecode = True
 import json
 import os
 import re
 import sys
 from pathlib import Path
 
-EVOSHELL_BIN = Path(os.environ.get("EVOSHELL_BIN", Path.home() / ".local" / "bin"))
 MUSIC_ROOT = Path(os.environ.get("MUSIC_ROOT", "/mnt/external/music"))
 MIN_YEAR = 1985
 MAX_YEAR = 2026
@@ -54,15 +54,62 @@ STEM_GENRE = [
 ]
 
 
-def load_path_year_module():
-    script = EVOSHELL_BIN / "evo-player-path-year.py"
-    spec = importlib.util.spec_from_file_location("evo_player_path_year", script)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
+def year_from_filename(stem: str) -> int | None:
+    m = re.search(r"(?:^|[-_])(\d{4})(\d{2})(\d{2})$", stem)
+    if m:
+        y, mo, d = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        if valid_year(y) and 1 <= mo <= 12 and 1 <= d <= 31:
+            return y
+    m = re.search(r"(\d{2})[.-](\d{2})[.-](20\d{2})", stem)
+    if m:
+        y, mo, d = int(m.group(3)), int(m.group(2)), int(m.group(1))
+        if valid_year(y) and 1 <= mo <= 12 and 1 <= d <= 31:
+            return y
+    m = re.search(r"(\d{2})\.(\d{2})\.(\d{2})$", stem)
+    if m:
+        d, mo, yy = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        if 1 <= mo <= 12 and 0 <= d <= 31:
+            y = 2000 + yy if yy < 70 else 1900 + yy
+            if valid_year(y):
+                return y
+    m = re.search(r"(?:^|[-_])(\d{2})[.-](\d{2})[.-](\d{2})(?:\D|$)", stem)
+    if m:
+        yy, mo, d = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        if 1 <= mo <= 12 and 0 <= d <= 31:
+            y = 2000 + yy if yy < 70 else 1900 + yy
+            if valid_year(y):
+                return y
+    m = re.search(r"(\d{2})(\d{2})(\d{4})$", stem)
+    if m:
+        d, mo, y = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        if valid_year(y) and 1 <= mo <= 12 and 1 <= d <= 31:
+            return y
+    return None
 
 
-_path_year = load_path_year_module()
+def resolve_path_year(path: Path) -> int | None:
+    try:
+        rel = path.resolve().relative_to(MUSIC_ROOT.resolve())
+        rel_s = str(rel)
+    except ValueError:
+        rel_s = path.name
+    y = year_from_filename(Path(rel_s).stem)
+    if y:
+        return y
+    parts = Path(rel_s).parts
+    for i, part in enumerate(parts):
+        if part == "mixes" and i + 1 < len(parts) and parts[i + 1].isdigit():
+            year = int(parts[i + 1])
+            if valid_year(year):
+                return year
+    for part in parts:
+        m = re.match(r"^(19\d{2}|20\d{2})_", part)
+        if m and valid_year(int(m.group(1))):
+            return int(m.group(1))
+        m = re.search(r"(?:^|[-_])(19\d{2}|20\d{2})(?:\D|$)", part)
+        if m and valid_year(int(m.group(1))):
+            return int(m.group(1))
+    return None
 
 
 AUDIO_EXTS = {".mp3", ".mp2", ".m4a"}
@@ -224,7 +271,7 @@ def resolve_year(path: Path, tags: dict) -> int | None:
     if stem in KNOWN_YEARS:
         return KNOWN_YEARS[stem]
 
-    y = _path_year.resolve_path_year(str(path), str(MUSIC_ROOT))
+    y = resolve_path_year(path)
     if y and valid_year(y):
         return y
 

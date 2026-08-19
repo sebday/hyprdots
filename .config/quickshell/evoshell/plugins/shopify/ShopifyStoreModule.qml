@@ -309,6 +309,7 @@ Item {
             label: ""
             legendBackground: root.sectionLegendBackground
             Layout.fillWidth: true
+            Layout.minimumHeight: implicitHeight
 
             HoverPopupLabelPill {
                 text: root.legendTitle
@@ -386,6 +387,7 @@ Item {
             label: ""
             legendBackground: root.sectionLegendBackground
             visible: (root.storeData.bars || []).length > 0
+            Layout.minimumHeight: root.chartFillHeight ? 120 : implicitHeight
 
             HoverPopupLabelPill {
                 text: root.chartDays + " day revenue"
@@ -434,6 +436,7 @@ Item {
             label: ""
             legendBackground: root.sectionLegendBackground
             visible: root.channelTotal > 0
+            Layout.minimumHeight: implicitHeight
 
             HoverPopupLabelPill {
                 text: "Channels " + root.chartDays + " days"

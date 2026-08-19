@@ -2235,12 +2235,11 @@ cmd_favorite_toggle() {
   [[ -f "$path" ]] || { echo "evo-player: not a file: $path" >&2; return 1; }
   ensure_dirs
   likes_init
-  local title artist now liked genre
-  title="$(ffprobe_meta "$path" title)"
-  artist="$(ffprobe_meta "$path" artist)"
-  [[ -z "$title" ]] && title="$(basename "${path%.*}")"
+  local title artist now liked
   now="$(date -Iseconds)"
-  genre="$(genre_from_path "$path")"
+  title="$(jq -r --arg p "$path" '.[$p].title // empty' "$LIKES_FILE" 2>/dev/null || true)"
+  artist="$(jq -r --arg p "$path" '.[$p].artist // empty' "$LIKES_FILE" 2>/dev/null || true)"
+  [[ -z "$title" ]] && title="$(basename "${path%.*}")"
   if is_liked "$path"; then
     liked=false
     jq --arg p "$path" 'del(.[$p])' "$LIKES_FILE" >"${LIKES_FILE}.tmp" && mv "${LIKES_FILE}.tmp" "$LIKES_FILE"
@@ -2250,11 +2249,8 @@ cmd_favorite_toggle() {
       '.[$p] = {title:$title, artist:$artist, liked_at:$at}' \
       "$LIKES_FILE" >"${LIKES_FILE}.tmp" && mv "${LIKES_FILE}.tmp" "$LIKES_FILE"
   fi
-  write_likes_m3u "${PLAYLIST_DIR}/all.m3u"
-  rm -f "${PLAYLIST_DIR}/favorites.m3u"
-  [[ -n "$genre" ]] && write_playlist "$genre"
   if [[ "$json" == --json ]]; then
-    jq -n --arg path "$path" --argjson liked "$([[ $liked == true ]] && echo true || echo false)" \
+    jq -nc --arg path "$path" --argjson liked "$([[ $liked == true ]] && echo true || echo false)" \
       '{path:$path,liked:$liked}'
   elif [[ "$liked" == true ]]; then
     printf 'liked\n'
@@ -2285,7 +2281,7 @@ cmd_art_search() {
   load_evoshell_secrets
   local args=("$path")
   [[ "$json" -eq 1 ]] && args+=(--json)
-  python3 "${EVOSHELL_BIN}/evo-player-art-search.py" "${args[@]}"
+  "${EVOSHELL_BIN}/evo-player-art-search" "${args[@]}"
 }
 
 cmd_art_clear() {
@@ -2303,10 +2299,14 @@ cmd_art_clear() {
     echo "evo-player: not a file: ${path:-<missing>}" >&2
     return 1
   }
-  local track_art folder content
+  local track_art folder
   track_art="$(art_path_legacy "$path")"
   folder="$(art_path_folder "$path")"
-  [[ -f "$track_art" ]] && rm -f "$track_art"
+  if [[ -n "$track_art" && -f "$track_art" && "$track_art" != "$folder" ]]; then
+    rm -f "$track_art"
+  elif [[ -n "$folder" && -f "$folder" ]]; then
+    rm -f "$folder"
+  fi
   if [[ "$json" -eq 1 ]]; then
     jq -n --arg path "$path" '{ok:true,path:$path}'
   else
@@ -2718,7 +2718,7 @@ cmd_art_embed_impl() {
   echo "evo-player: embed art started at $(date -Iseconds)" >&2
   ensure_dirs
   local -A seen=()
-  local path dir art embedded=0 failed=0 folders=0 emb fail
+  local path dir art embedded=0 failed=0 skipped=0 folders=0 emb fail skip
   while IFS= read -r -d '' path; do
     is_audio "$path" || continue
     dir="$(dirname "$path")"
@@ -2726,15 +2726,16 @@ cmd_art_embed_impl() {
     seen["$dir"]=1
     art="$(art_path_folder "$path")"
     [[ -f "$art" ]] || continue
-    read -r emb fail < <(art_embed_folder "$dir")
+    read -r emb fail skip < <(art_embed_folder "$dir")
     embedded=$((embedded + emb))
     failed=$((failed + fail))
+    skipped=$((skipped + skip))
     folders=$((folders + 1))
     if (( folders % 25 == 0 )); then
-      echo "evo-player: embedded art in ${folders} folders (${embedded} tracks, ${failed} failed)" >&2
+      echo "evo-player: art ${folders} folders (${embedded} embedded, ${skipped} unchanged, ${failed} failed)" >&2
     fi
   done < <(find "$MUSIC_ROOT" -type f -print0 2>/dev/null)
-  echo "evo-player: embed art complete — ${folders} folders, ${embedded} tracks embedded, ${failed} failed" >&2
+  echo "evo-player: embed art complete — ${folders} folders, ${embedded} embedded, ${skipped} unchanged, ${failed} failed" >&2
   printf '%d %d %d' "$folders" "$embedded" "$failed"
 }
 

@@ -56,7 +56,7 @@ Item {
         title: root.demoMode ? "evo.shopify (demo)" : "evo.shopify"
         screen: root.dashScreen
         color: Theme.background
-        minimumSize: Qt.size(720, 520)
+        minimumSize: Qt.size(720, 680)
 
         Item {
             id: keySurface

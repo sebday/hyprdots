@@ -57,7 +57,7 @@ Item {
         title: "evo.player"
         screen: root.dashScreen
         color: Theme.background
-        minimumSize: Qt.size(720, 480)
+        minimumSize: Qt.size(480, 300)
 
         Item {
             id: keySurface
@@ -77,8 +77,12 @@ Item {
                     }
                     return
                 }
-                if (event.key === Qt.Key_H && event.modifiers === Qt.NoModifier) {
+                if (event.key === Qt.Key_B && event.modifiers === Qt.NoModifier) {
                     playerContent.toggleMenuBar()
+                    event.accepted = true
+                }
+                if (event.key === Qt.Key_C && event.modifiers === Qt.NoModifier) {
+                    playerContent.toggleCompactMode()
                     event.accepted = true
                 }
             }

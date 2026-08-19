@@ -2,6 +2,8 @@
 [[ -n "${EVO_PLAYER_LIB_LOADED:-}" ]] && return 0
 EVO_PLAYER_LIB_LOADED=1
 
+export PYTHONDONTWRITEBYTECODE=1
+
 PATH="${HOME}/.local/bin:${PATH}"
 
 EVOSHELL_BIN="${EVOSHELL_BIN:-$HOME/.local/bin}"
@@ -152,41 +154,23 @@ run_exclusive_job() {
 library_job_running() {
   local exclude="${1:-}"
   ps -eo pid=,ppid=,args= | awk -v exclude="$exclude" '
-    /\/evo-player build( |$)/ {
-      pid=$1
-      gsub(/^[[:space:]]+/, "", pid)
-      ppid=$2
-      gsub(/^[[:space:]]+/, "", ppid)
-      rows[pid]=ppid "|build"
-      order[++n]=pid
-      next
+    function job_cmd() {
+      if ($4 !~ /\/evo-player$/)
+        return ""
+      if ($5 == "art" && ($6 == "maintain" || $6 == "embed"))
+        return $6
+      if ($5 == "build" || $5 == "sort" || $5 == "soundcloud" || $5 == "import" || $5 == "sync")
+        return $5
+      return ""
     }
-    /\/evo-player art (maintain|embed)/ {
+    {
       pid=$1
       gsub(/^[[:space:]]+/, "", pid)
       ppid=$2
       gsub(/^[[:space:]]+/, "", ppid)
-      cmd=$NF
-      rows[pid]=ppid "|" cmd
-      order[++n]=pid
-      next
-    }
-    /\/evo-player sort( |$)/ {
-      pid=$1
-      gsub(/^[[:space:]]+/, "", pid)
-      ppid=$2
-      gsub(/^[[:space:]]+/, "", ppid)
-      rows[pid]=ppid "|sort"
-      order[++n]=pid
-      next
-    }
-    /\/evo-player (soundcloud|import|sync)$/ {
-      pid=$1
-      gsub(/^[[:space:]]+/, "", pid)
-      ppid=$2
-      gsub(/^[[:space:]]+/, "", ppid)
-      cmd=$NF
-      sub(/.*\//, "", cmd)
+      cmd=job_cmd()
+      if (cmd == "")
+        next
       rows[pid]=ppid "|" cmd
       order[++n]=pid
     }
@@ -781,9 +765,89 @@ year_is_valid() {
 
 path_year_resolve() {
   local path="$1"
-  local script="${EVOSHELL_BIN:-$HOME/.local/bin}/evo-player-path-year.py"
-  [[ -f "$script" ]] || return 1
-  MUSIC_ROOT="${MUSIC_ROOT:-/mnt/external/music}" python3 "$script" --resolve "$path" "$MUSIC_ROOT"
+  local root="${MUSIC_ROOT:-/mnt/external/music}"
+  local rel stem part next i yy y mo d
+  root="${root%/}"
+  if [[ "$path" == "$root"/* ]]; then
+    rel="${path#"$root"/}"
+  else
+    rel="$(basename "$path")"
+  fi
+  stem="${rel##*/}"
+  stem="${stem%.*}"
+
+  if [[ "$stem" =~ (^|[-_])([0-9]{4})([0-9]{2})([0-9]{2})$ ]]; then
+    y="${BASH_REMATCH[2]}"; mo="${BASH_REMATCH[3]}"; d="${BASH_REMATCH[4]}"
+    if year_is_valid "$y" && (( 10#$mo >= 1 && 10#$mo <= 12 && 10#$d >= 1 && 10#$d <= 31 )); then
+      printf '%s' "$y"
+      return 0
+    fi
+  fi
+  if [[ "$stem" =~ ([0-9]{2})[.-]([0-9]{2})[.-](20[0-9]{2}) ]]; then
+    d="${BASH_REMATCH[1]}"; mo="${BASH_REMATCH[2]}"; y="${BASH_REMATCH[3]}"
+    if year_is_valid "$y" && (( 10#$mo >= 1 && 10#$mo <= 12 && 10#$d >= 1 && 10#$d <= 31 )); then
+      printf '%s' "$y"
+      return 0
+    fi
+  fi
+  if [[ "$stem" =~ ([0-9]{2})\.([0-9]{2})\.([0-9]{2})$ ]]; then
+    d="${BASH_REMATCH[1]}"; mo="${BASH_REMATCH[2]}"; yy="${BASH_REMATCH[3]}"
+    if (( 10#$mo >= 1 && 10#$mo <= 12 && 10#$d >= 0 && 10#$d <= 31 )); then
+      if (( 10#$yy < 70 )); then y=$((2000 + 10#$yy)); else y=$((1900 + 10#$yy)); fi
+      if year_is_valid "$y"; then
+        printf '%s' "$y"
+        return 0
+      fi
+    fi
+  fi
+  if [[ "$stem" =~ (^|[-_])([0-9]{2})[.-]([0-9]{2})[.-]([0-9]{2})([^0-9]|$) ]]; then
+    yy="${BASH_REMATCH[2]}"; mo="${BASH_REMATCH[3]}"; d="${BASH_REMATCH[4]}"
+    if (( 10#$mo >= 1 && 10#$mo <= 12 && 10#$d >= 0 && 10#$d <= 31 )); then
+      if (( 10#$yy < 70 )); then y=$((2000 + 10#$yy)); else y=$((1900 + 10#$yy)); fi
+      if year_is_valid "$y"; then
+        printf '%s' "$y"
+        return 0
+      fi
+    fi
+  fi
+  if [[ "$stem" =~ ([0-9]{2})([0-9]{2})([0-9]{4})$ ]]; then
+    d="${BASH_REMATCH[1]}"; mo="${BASH_REMATCH[2]}"; y="${BASH_REMATCH[3]}"
+    if year_is_valid "$y" && (( 10#$mo >= 1 && 10#$mo <= 12 && 10#$d >= 1 && 10#$d <= 31 )); then
+      printf '%s' "$y"
+      return 0
+    fi
+  fi
+
+  local IFS='/'
+  local -a parts
+  read -ra parts <<<"$rel"
+  for i in "${!parts[@]}"; do
+    part="${parts[$i]}"
+    if [[ "$part" == "mixes" ]]; then
+      next="${parts[$((i + 1))]:-}"
+      if year_is_valid "$next"; then
+        printf '%s' "$next"
+        return 0
+      fi
+    fi
+  done
+  for part in "${parts[@]}"; do
+    if [[ "$part" =~ ^(19[0-9]{2}|20[0-9]{2})_ ]]; then
+      y="${BASH_REMATCH[1]}"
+      if year_is_valid "$y"; then
+        printf '%s' "$y"
+        return 0
+      fi
+    fi
+    if [[ "$part" =~ (^|[-_])(19[0-9]{2}|20[0-9]{2})([^0-9]|$) ]]; then
+      y="${BASH_REMATCH[2]}"
+      if year_is_valid "$y"; then
+        printf '%s' "$y"
+        return 0
+      fi
+    fi
+  done
+  return 1
 }
 
 resolve_year() {
@@ -833,7 +897,7 @@ standardize_track_tags() {
   local path="$1"
   local script="${EVOSHELL_BIN:-$HOME/.local/bin}/evo-player-standardize-tags.py"
   [[ -f "$script" ]] || return 0
-  MUSIC_ROOT="$MUSIC_ROOT" EVOSHELL_BIN="${EVOSHELL_BIN:-$HOME/.local/bin}" python3 "$script" "$path"
+  MUSIC_ROOT="$MUSIC_ROOT" EVOSHELL_BIN="${EVOSHELL_BIN:-$HOME/.local/bin}" python3 -B "$script" "$path"
 }
 
 track_is_mix() {
@@ -1821,6 +1885,20 @@ art_normalize_jpg() {
   [[ -s "$dest" ]]
 }
 
+art_strip_track_overrides_in_dir() {
+  local track_path="$1"
+  local dir folder legacy f
+  dir="$(dirname "$track_path")"
+  folder="$(art_path_folder "$track_path")"
+  [[ -d "$dir" ]] || return 0
+  while IFS= read -r -d '' f; do
+    is_audio "$f" || continue
+    legacy="$(art_path_legacy "$f")"
+    [[ "$legacy" == "$folder" ]] && continue
+    [[ -f "$legacy" ]] && rm -f "$legacy"
+  done < <(find "$dir" -maxdepth 1 -type f -print0 2>/dev/null)
+}
+
 art_install_image() {
   local track_path="$1"
   local image_path="$2"
@@ -1852,6 +1930,9 @@ art_install_image() {
     rm -f "$tmp"
   fi
   art_link_folder_alias "$dest_art" "$content" || return 1
+  if [[ "$scope" == "album" ]]; then
+    art_strip_track_overrides_in_dir "$track_path"
+  fi
   printf '%s' "$dest_art"
 }
 
@@ -2009,12 +2090,48 @@ PY
   printf '[%s]\n' "$joined"
 }
 
+art_embed_stamp() {
+  local audio="$1"
+  local stamp="" pic="0"
+  stamp="$(ffprobe -v quiet -show_entries format_tags=EVO_ART_HASH -of default=noprint_wrappers=1:nokey=1 "$audio" 2>/dev/null | head -1)"
+  stamp="${stamp//$'\r'/}"
+  if ffprobe -v quiet -select_streams v:0 -show_entries stream=codec_type -of csv=p=0 "$audio" 2>/dev/null | grep -qx video; then
+    pic="1"
+  fi
+  printf '%s\t%s' "$stamp" "$pic"
+}
+
+art_embed_write_stamp() {
+  local audio="$1"
+  local hash="$2"
+  local have
+  [[ -f "$audio" && -n "$hash" ]] || return 0
+  have="$(ffprobe -v quiet -show_entries format_tags=EVO_ART_HASH -of default=noprint_wrappers=1:nokey=1 "$audio" 2>/dev/null | head -1)"
+  have="${have//$'\r'/}"
+  [[ "$have" == "$hash" ]] && return 0
+  local ext tmp
+  ext="${audio##*.}"
+  ext="${ext,,}"
+  tmp="$(mktemp "${audio}.XXXXXX.${ext}")"
+  ffmpeg -y -loglevel error -i "$audio" -c copy -map 0 -metadata EVO_ART_HASH="$hash" "$tmp" 2>/dev/null || {
+    rm -f "$tmp"
+    return 0
+  }
+  mv "$tmp" "$audio"
+}
+
 art_embed_audio() {
   local audio="$1"
   local art="$2"
-  local ext tmp
+  local ext tmp want have pic
   [[ -f "$audio" && -f "$art" ]] || return 1
   is_audio "$audio" || return 1
+  want="$(art_image_hash "$art")"
+  [[ -n "$want" ]] || return 1
+  IFS=$'\t' read -r have pic < <(art_embed_stamp "$audio")
+  if [[ "$have" == "$want" && "$pic" == "1" ]]; then
+    return 2
+  fi
   ext="${audio##*.}"
   ext="${ext,,}"
   tmp="$(mktemp "${audio}.XXXXXX.${ext}")"
@@ -2025,6 +2142,7 @@ art_embed_audio() {
         -id3v2_version 3 \
         -metadata:s:v title="Album cover" \
         -metadata:s:v comment="Cover (front)" \
+        -metadata EVO_ART_HASH="$want" \
         "$tmp" 2>/dev/null || {
         rm -f "$tmp"
         return 1
@@ -2033,6 +2151,7 @@ art_embed_audio() {
     flac|ogg|opus|m4a)
       ffmpeg -y -loglevel error -i "$audio" -i "$art" \
         -map 0 -map 1 -c copy -disposition:v:0 attached_pic \
+        -metadata EVO_ART_HASH="$want" \
         "$tmp" 2>/dev/null || {
         rm -f "$tmp"
         return 1
@@ -2044,28 +2163,40 @@ art_embed_audio() {
       ;;
   esac
   mv "$tmp" "$audio"
+  art_embed_write_stamp "$audio" "$want" || true
+  return 0
 }
 
 art_embed_folder() {
   local dir_path="$1"
-  local track="" art="" entry embedded=0 failed=0
+  local track="" art="" entry embedded=0 failed=0 skipped=0 status
   [[ -d "$dir_path" ]] || return 1
   while IFS= read -r -d '' entry; do
     is_audio "$entry" || continue
     track="$entry"
     break
   done < <(find "$dir_path" -maxdepth 1 -type f -print0 2>/dev/null)
-  [[ -n "$track" ]] || return 0
+  [[ -n "$track" ]] || {
+    printf '%d %d %d' 0 0 0
+    return 0
+  }
   art="$(art_path_folder "$track")"
-  [[ -f "$art" ]] || return 0
+  [[ -f "$art" ]] || {
+    printf '%d %d %d' 0 0 0
+    return 0
+  }
   while IFS= read -r -d '' entry; do
     is_audio "$entry" || continue
-    if art_embed_audio "$entry" "$art"; then
+    status=0
+    art_embed_audio "$entry" "$art" || status=$?
+    if [[ "$status" -eq 0 ]]; then
       embedded=$((embedded + 1))
+    elif [[ "$status" -eq 2 ]]; then
+      skipped=$((skipped + 1))
     else
       failed=$((failed + 1))
     fi
   done < <(find "$dir_path" -maxdepth 1 -type f -print0 2>/dev/null)
-  printf '%d %d' "$embedded" "$failed"
+  printf '%d %d %d' "$embedded" "$failed" "$skipped"
 }
 
