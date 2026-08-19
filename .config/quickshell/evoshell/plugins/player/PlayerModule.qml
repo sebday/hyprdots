@@ -94,6 +94,8 @@ Item {
     property int playlistTrackOffset: 0
     property bool playlistTracksLoadingMore: false
     property var playlistTrackList: null
+    property var playlistViewByKey: ({})
+    property real playlistRestoreY: -1
     property int tracksRevision: 0
     readonly property int playlistPageSize: 50
     property string resumePlaylist: ""
@@ -127,7 +129,11 @@ Item {
     property bool menuBarHidden: false
     property bool titleEditing: false
     property bool titleSaveBusy: false
+    property string trashConfirmPath: ""
+    property string trashConfirmTitle: ""
+    readonly property bool trashConfirmOpen: trashConfirmPath !== ""
     readonly property bool keyShortcutsBlocked: tabSearchInput.activeFocus || titleEditing
+        || trashConfirmOpen
     property var volumeTransportBtn: null
     readonly property var libraryActions: [
         {
@@ -364,6 +370,7 @@ Item {
     }
 
     function showNowPlaying() {
+        savePlaylistView(selectedPlaylist)
         browsePanelOpen = false
         playlistPanelOpen = false
         playerScreen = "nowPlaying"
@@ -375,6 +382,7 @@ Item {
             browsePanelOpen = false
             return
         }
+        savePlaylistView(selectedPlaylist)
         playlistPanelOpen = false
         browsePanelOpen = true
         playerScreen = "nowPlaying"
@@ -386,6 +394,7 @@ Item {
 
     function togglePlaylistPanel() {
         if (playlistPanelOpen) {
+            savePlaylistView(selectedPlaylist)
             playlistPanelOpen = false
             return
         }
@@ -398,6 +407,7 @@ Item {
     }
 
     function showPlaylistLibrary() {
+        savePlaylistView(selectedPlaylist)
         playlistPanelMode = "library"
     }
 
@@ -593,7 +603,7 @@ Item {
             if (browsePanelOpen || browseTreeRows.length > 0)
                 reloadBrowseTreeView()
             if (playlistPanelOpen && selectedPlaylist)
-                loadPlaylistTracks(selectedPlaylist)
+                loadPlaylistTracks(selectedPlaylist, true)
             jobLog = jobLog + "\n\n" + label + " complete"
         } else if (exitCode === 2) {
             var busy = jobErr.text ? String(jobErr.text).trim().split("\n").pop() : ""
@@ -718,7 +728,10 @@ Item {
         if (!currentPlaylistActive)
             return
         if (playlistPanelOpen && selectedPlaylist === currentPlaylistId) {
+            restorePlaylistScroll(currentPlaylistId)
             tracks = currentPlaylistTracks.slice()
+            playlistTrackTotal = tracks.length
+            playlistTrackOffset = tracks.length
             syncSelectedTrackIndex()
         }
     }
@@ -855,6 +868,7 @@ Item {
     }
 
     function onDeactivated() {
+        cancelTrashTrack()
         statusTimer.stop()
         saveStateTimer.stop()
         jobStatusTimer.stop()
@@ -962,7 +976,10 @@ Item {
     function selectGenrePlaylist(name) {
         if (!name)
             return
-        selectedPlaylist = normalizePlaylistName(name)
+        var next = normalizePlaylistName(name)
+        if (playlistPanelMode === "tracks" && selectedPlaylist && selectedPlaylist !== next)
+            savePlaylistView(selectedPlaylist)
+        selectedPlaylist = next
         playlistPanelMode = "tracks"
         syncPlaylistTabPosition()
         loadPlaylistTracks(selectedPlaylist)
@@ -1721,6 +1738,36 @@ Item {
             openTrackInThunar(path)
     }
 
+    function requestTrashTrack(trackOrPath) {
+        var path = ""
+        var title = ""
+        if (typeof trackOrPath === "string") {
+            path = String(trackOrPath || "").trim()
+        } else if (trackOrPath) {
+            path = String(trackOrPath.path || "").trim()
+            title = String(trackOrPath.title || "").trim()
+        }
+        if (!path || trashTrackProc.running)
+            return
+        if (!title) {
+            var slash = path.lastIndexOf("/")
+            title = slash >= 0 ? path.substring(slash + 1) : path
+        }
+        trashConfirmPath = path
+        trashConfirmTitle = title
+    }
+
+    function cancelTrashTrack() {
+        trashConfirmPath = ""
+        trashConfirmTitle = ""
+    }
+
+    function confirmTrashTrack() {
+        var path = String(trashConfirmPath || "").trim()
+        cancelTrashTrack()
+        trashTrack(path)
+    }
+
     function trashTrack(trackPath) {
         var path = String(trackPath || "").trim()
         if (!path || trashTrackProc.running)
@@ -1773,12 +1820,16 @@ Item {
         if (isTrackPlaying(path))
             runPlayer(["stop"], root.refreshStatus, cmdProc)
         removeTrackFromViews(path)
+        savePlaylistView(selectedPlaylist)
         reloadBrowseTreeView()
         notify("moved to trash", 2500)
     }
 
     function selectPlaylist(name, switchScreen) {
-        selectedPlaylist = normalizePlaylistName(name)
+        var next = normalizePlaylistName(name)
+        if (playlistPanelMode === "tracks" && selectedPlaylist && selectedPlaylist !== next)
+            savePlaylistView(selectedPlaylist)
+        selectedPlaylist = next
         syncPlaylistTabPosition()
         if (switchScreen !== false) {
             playerScreen = "nowPlaying"
@@ -1789,7 +1840,58 @@ Item {
         loadPlaylistTracks(selectedPlaylist)
     }
 
-    function loadPlaylistTracks(name) {
+    function savePlaylistView(name) {
+        var key = String(name || "")
+        if (!key)
+            return
+        if (!tracks.length)
+            return
+        var list = playlistTrackList
+        var y = -1
+        if (playlistRestoreY >= 0)
+            y = playlistRestoreY
+        else if (list && playlistPanelMode === "tracks" && list.visible && list.height > 0)
+            y = list.contentY
+        else if (playlistViewByKey[key] && playlistViewByKey[key].contentY >= 0)
+            y = Number(playlistViewByKey[key].contentY)
+        if (y < 0)
+            y = 0
+        var map = Object.assign({}, playlistViewByKey)
+        map[key] = {
+            contentY: y,
+            tracks: tracks.slice(),
+            offset: playlistTrackOffset,
+            total: playlistTrackTotal
+        }
+        playlistViewByKey = map
+    }
+
+    function restorePlaylistScroll(name) {
+        var key = String(name || selectedPlaylist || "")
+        var saved = playlistViewByKey[key]
+        var y = saved && saved.contentY !== undefined && saved.contentY !== null
+            ? Number(saved.contentY)
+            : -1
+        playlistRestoreY = y >= 0 ? y : -1
+    }
+
+    function applyCachedPlaylistView(name) {
+        var key = String(name || "")
+        var saved = playlistViewByKey[key]
+        if (!key || !saved || !saved.tracks || !saved.tracks.length)
+            return false
+        tracksLoading = false
+        playlistTracksLoadingMore = false
+        restorePlaylistScroll(key)
+        tracks = saved.tracks.slice()
+        playlistTrackOffset = Number(saved.offset) || tracks.length
+        playlistTrackTotal = Number(saved.total) || tracks.length
+        syncSelectedTrackIndex()
+        mergePlayerFromTrackList()
+        return true
+    }
+
+    function loadPlaylistTracks(name, force) {
         if (!name) {
             tracks = []
             tracksLoading = false
@@ -1800,6 +1902,7 @@ Item {
         var requested = String(name)
         if (requested === currentPlaylistId) {
             tracksLoading = false
+            restorePlaylistScroll(requested)
             tracks = currentPlaylistTracks.slice()
             playlistTrackTotal = tracks.length
             playlistTrackOffset = tracks.length
@@ -1807,6 +1910,8 @@ Item {
             mergePlayerFromTrackList()
             return
         }
+        if (!force && applyCachedPlaylistView(requested))
+            return
         tracksLoading = true
         playlistTracksLoadingMore = false
         playlistTrackOffset = 0
@@ -1819,6 +1924,7 @@ Item {
             if (selectedPlaylist !== requested)
                 return
             tracksLoading = false
+            restorePlaylistScroll(requested)
             applyPlaylistTracksPage(text, false)
             syncSelectedTrackIndex()
             mergePlayerFromTrackList()
@@ -2340,17 +2446,10 @@ Item {
             return
         var slice = tracks.slice(index)
         appendTracksToCurrent(slice)
-        selectedPlaylist = currentPlaylistId
-        var startIdx = -1
-        for (var k = 0; k < currentPlaylistTracks.length; k++) {
-            if (currentPlaylistTracks[k].path === startPath) {
-                startIdx = k
-                break
-            }
-        }
         var paths = pathsFromTracks(currentPlaylistTracks)
         playQueueAt(startPath, paths)
-        selectedTrackIndex = startIdx >= 0 ? startIdx : index
+        selectedTrackIndex = index
+        selectedTrackPath = String(startPath)
         commitCurrentPlaylist()
     }
 
@@ -2555,7 +2654,7 @@ Item {
                     player = p
                 }
                 if (!liked && root.selectedPlaylist !== "all" && root.selectedPlaylist !== root.currentPlaylistId)
-                    root.loadPlaylistTracks(root.selectedPlaylist)
+                    root.loadPlaylistTracks(root.selectedPlaylist, true)
             } catch (e) {
             }
         }
@@ -3661,6 +3760,87 @@ Item {
         }
     }
 
+    Rectangle {
+        id: trashConfirmScrim
+        anchors.fill: parent
+        visible: root.trashConfirmOpen
+        z: 400
+        color: Qt.rgba(Theme.mantle.r, Theme.mantle.g, Theme.mantle.b, 0.72)
+
+        MouseArea {
+            anchors.fill: parent
+            onClicked: root.cancelTrashTrack()
+        }
+
+        MouseArea {
+            anchors.centerIn: parent
+            width: trashConfirmCard.width
+            height: trashConfirmCard.height
+            onClicked: function(mouse) { mouse.accepted = true }
+
+            Rectangle {
+                id: trashConfirmCard
+                width: Math.min(420, trashConfirmScrim.width - root.pad * 4)
+                height: trashConfirmCol.implicitHeight + Theme.hoverPopupContentPad * 2
+                radius: Theme.radiusL
+                color: Theme.overlaySurface
+                border.color: Theme.accent
+                border.width: 1
+
+                ColumnLayout {
+                    id: trashConfirmCol
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.margins: Theme.hoverPopupContentPad
+                    spacing: Theme.spacingL
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: "trash this track?"
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.sectionLabelFont
+                        font.bold: Theme.fontBold
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        visible: root.trashConfirmTitle !== ""
+                        text: root.trashConfirmTitle
+                        color: Theme.accent
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.listFont
+                        wrapMode: Text.Wrap
+                        maximumLineCount: 3
+                        elide: Text.ElideRight
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Layout.topMargin: Theme.spacingS
+                        spacing: Theme.spacingM
+
+                        Item { Layout.fillWidth: true }
+
+                        MetaChip {
+                            label: "cancel"
+                            clickable: true
+                            onActivated: root.cancelTrashTrack()
+                        }
+
+                        MetaChip {
+                            label: "trash"
+                            accent: true
+                            clickable: true
+                            onActivated: root.confirmTrashTrack()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     component AlbumArtThumbnail: Item {
         id: thumbRoot
         property int side: 56
@@ -4456,6 +4636,7 @@ Item {
         property var track: ({})
         property int trackRevision: 0
         property bool selected: false
+        property bool playing: false
         property int rowWidth: 0
         property string genreLabel: ""
         property bool showGenre: true
@@ -4485,11 +4666,13 @@ Item {
         width: rowWidth
         height: 40
         radius: Theme.radiusL
-        color: selected
-            ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.14)
-            : (browseRowMouse.containsMouse
-                ? Theme.foregroundGhost
-                : "transparent")
+        color: playing
+            ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.08)
+            : (selected
+                ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.22)
+                : (browseRowMouse.containsMouse
+                    ? Theme.foregroundGhost
+                    : "transparent"))
 
         MouseArea {
             anchors.fill: parent
@@ -4562,7 +4745,7 @@ Item {
                     font.family: Theme.fontFamily
                     font.pixelSize: root.listFont
                     elide: Text.ElideRight
-                    opacity: browseRow.selected ? 1 : 0.9
+                    opacity: browseRow.selected || browseRow.playing ? 1 : 0.9
                 }
 
                 Text {
@@ -5273,13 +5456,14 @@ Item {
                         track: modelData.track || modelData
                         trackRevision: root.tracksRevision
                         selected: root.isTrackSelected(modelData.path)
+                        playing: root.isTrackPlaying(modelData.path)
                         showGenre: false
                         onPressed: root.selectTrackEntry(modelData.track || modelData)
                         onPlayRequested: root.playBrowseTreeTrack(modelData.track || modelData)
                         onLikeToggled: root.toggleTrackFavorite(modelData.path)
                         onRevealRequested: root.openTrackInThunar(modelData.path)
                         onFolderOpenRequested: root.openTrackFolder(modelData)
-                        onTrashRequested: root.trashTrack(modelData.path)
+                        onTrashRequested: root.requestTrashTrack(modelData.track || modelData)
                     }
                 }
             }
@@ -5417,10 +5601,72 @@ Item {
                 model: root.tracks
 
                 Component.onCompleted: root.playlistTrackList = sidePlaylistTrackList
+                Component.onDestruction: {
+                    if (root.playlistTrackList === sidePlaylistTrackList)
+                        root.playlistTrackList = null
+                }
+
+                onContentYChanged: {
+                    if (root.playlistRestoreY < 0)
+                        root.savePlaylistView(root.selectedPlaylist)
+                }
+
+                onHeightChanged: {
+                    if (visible && root.playlistRestoreY >= 0)
+                        playlistScrollRestoreTimer.restart()
+                }
+
+                onContentHeightChanged: {
+                    if (root.playlistRestoreY < 0)
+                        return
+                    var maxY = Math.max(0, contentHeight - height)
+                    contentY = Math.min(root.playlistRestoreY, maxY)
+                }
+
+                onVisibleChanged: {
+                    if (visible && root.playlistRestoreY >= 0)
+                        playlistScrollRestoreTimer.restart()
+                }
 
                 onMovementEnded: {
                     if (atYEnd)
                         root.loadMorePlaylistTracks()
+                }
+
+                Timer {
+                    id: playlistScrollRestoreTimer
+                    interval: 0
+                    repeat: true
+                    property int attempts: 0
+                    onTriggered: {
+                        if (root.playlistRestoreY < 0
+                                || !root.playlistPanelOpen
+                                || root.playlistPanelMode !== "tracks") {
+                            stop()
+                            attempts = 0
+                            return
+                        }
+                        if (!sidePlaylistTrackList.visible || sidePlaylistTrackList.height <= 0)
+                            return
+                        var maxY = Math.max(0, sidePlaylistTrackList.contentHeight - sidePlaylistTrackList.height)
+                        sidePlaylistTrackList.contentY = Math.min(root.playlistRestoreY, maxY)
+                        attempts++
+                        if (sidePlaylistTrackList.contentHeight > 0 || attempts > 8) {
+                            root.playlistRestoreY = -1
+                            stop()
+                            attempts = 0
+                        }
+                    }
+                }
+
+                Connections {
+                    target: root
+                    function onTracksChanged() {
+                        if (root.playlistRestoreY < 0)
+                            return
+                        playlistScrollRestoreTimer.attempts = 0
+                        playlistScrollRestoreTimer.restart()
+                    }
                 }
 
                 Text {
@@ -5451,13 +5697,14 @@ Item {
                     track: modelData
                     trackRevision: root.tracksRevision
                     selected: root.isTrackSelected(modelData.path)
+                    playing: root.isTrackPlaying(modelData.path)
                     showGenre: false
                     onPressed: root.selectPlaylistTrack(index)
                     onPlayRequested: root.playTrackAt(index)
                     onLikeToggled: root.toggleTrackFavorite(modelData.path)
                     onRevealRequested: root.openTrackInThunar(modelData.path)
                     onFolderOpenRequested: root.openTrackFolder(modelData)
-                    onTrashRequested: root.trashTrack(modelData.path)
+                    onTrashRequested: root.requestTrashTrack(modelData)
                 }
             }
         }
@@ -5529,13 +5776,14 @@ Item {
                         track: modelData
                         trackRevision: root.tracksRevision
                         selected: root.isTrackSelected(modelData.path)
+                        playing: root.isTrackPlaying(modelData.path)
                         showGenre: false
                         onPressed: root.selectFilterTrack(index)
                         onPlayRequested: root.playFilterTrackAt(index)
                         onLikeToggled: root.toggleTrackFavorite(modelData.path)
                         onRevealRequested: root.openTrackInThunar(modelData.path)
                         onFolderOpenRequested: root.openTrackFolder(modelData)
-                        onTrashRequested: root.trashTrack(modelData.path)
+                        onTrashRequested: root.requestTrashTrack(modelData)
                     }
                 }
             }

@@ -65,6 +65,18 @@ Item {
             focus: root.opened
 
             Keys.onPressed: function(event) {
+                if (playerContent.trashConfirmOpen) {
+                    if (event.key === Qt.Key_Escape) {
+                        playerContent.cancelTrashTrack()
+                        event.accepted = true
+                    } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+                        playerContent.confirmTrashTrack()
+                        event.accepted = true
+                    } else {
+                        event.accepted = true
+                    }
+                    return
+                }
                 if (event.key === Qt.Key_H && event.modifiers === Qt.NoModifier) {
                     playerContent.toggleMenuBar()
                     event.accepted = true

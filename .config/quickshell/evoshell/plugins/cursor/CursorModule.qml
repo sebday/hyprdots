@@ -71,9 +71,6 @@ Item {
         }
     }
 
-    readonly property real cycleProgress: detail && detail.cycleProgress !== undefined
-        ? Number(detail.cycleProgress) || 0 : 0
-    readonly property int cyclePercent: Math.round(Math.max(0, Math.min(1, root.cycleProgress)) * 100)
     readonly property color cycleColor: Theme.heatmap3
     readonly property bool showTokens: !isError && !!(detail.tokensTotal || detail.tokensToday)
 
@@ -103,18 +100,27 @@ Item {
     readonly property int usageContentWidth: Math.max(Theme.hoverPopupWidthStandard, root.hoverPopupWidth)
         - Theme.hoverPopupContentPad * 2
         - root.usageChartPadH * 2
-    readonly property int gaugeSize: Math.max(96, Math.floor((root.usageContentWidth - root.gaugeSpacing * 2) / 3))
+    readonly property int gaugeSize: Math.max(96, Math.floor((root.usageContentWidth - root.gaugeSpacing) / 2))
     readonly property int gaugeLabelFont: Math.max(Theme.fontSizeL, Math.round(root.gaugeSize * 0.22))
-    readonly property int usageBlockWidth: root.gaugeSize * 3 + root.gaugeSpacing * 2
+    readonly property int usageBlockWidth: root.gaugeSize * 2 + root.gaugeSpacing
 
-    readonly property string cyclePillText: {
+    readonly property int cycleDaysLeft: {
+        var used = parseInt(root.detail.cycleDaysUsed, 10) || 0
+        var total = parseInt(root.detail.cycleDaysTotal, 10) || 0
+        return Math.max(0, total - used)
+    }
+    readonly property string cycleDaysLeftText: {
         if (root.loading)
             return "…"
+        var left = root.cycleDaysLeft
+        return left === 1 ? "1 day" : left + " days"
+    }
+    readonly property real cycleElapsed: {
         var used = parseInt(root.detail.cycleDaysUsed, 10) || 0
         var total = parseInt(root.detail.cycleDaysTotal, 10) || 0
         if (total <= 0)
-            return "cycle"
-        return used + "/" + total + "d"
+            return 0
+        return Math.max(0, Math.min(1, used / total))
     }
 
     function applyPayload(json) {
@@ -224,12 +230,13 @@ Item {
                                 gaugeSize: root.gaugeSize
                             }
 
-                            HoverPopupLabelPill {
+                            Text {
                                 Layout.alignment: Qt.AlignHCenter
                                 text: "Cursor"
-                                fieldsetLegend: false
-                                fontSize: Theme.fontSizeXs
-                                textColor: root.cursorColor
+                                color: root.cursorColor
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSizeXs
+                                font.bold: Theme.fontBold
                             }
                         }
 
@@ -245,34 +252,46 @@ Item {
                                 gaugeSize: root.gaugeSize
                             }
 
-                            HoverPopupLabelPill {
+                            Text {
                                 Layout.alignment: Qt.AlignHCenter
                                 text: "Other"
-                                fieldsetLegend: false
-                                fontSize: Theme.fontSizeXs
-                                textColor: root.otherColor
+                                color: root.otherColor
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSizeXs
+                                font.bold: Theme.fontBold
                             }
                         }
+                    }
 
-                        ColumnLayout {
-                            Layout.preferredWidth: root.gaugeSize
-                            spacing: Theme.spacingS
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingS
 
-                            UsageGauge {
-                                Layout.alignment: Qt.AlignHCenter
-                                percent: root.cyclePercent
-                                gaugeColor: root.cycleColor
-                                loading: root.loading
-                                gaugeSize: root.gaugeSize
-                            }
+                        HoverPopupLabelPill {
+                            text: root.cycleDaysLeftText
+                            fieldsetLegend: false
+                            fontSize: Theme.fontSizeXs
+                            textColor: root.cycleColor
+                            fill: Theme.withOpacity(root.cycleColor, 0.14)
+                            textOpacity: 1
+                        }
 
-                            HoverPopupLabelPill {
-                                Layout.alignment: Qt.AlignHCenter
-                                text: root.cyclePillText
-                                fieldsetLegend: false
-                                fontSize: Theme.fontSizeXs
-                                textColor: root.cycleColor
-                            }
+                        Text {
+                            text: "left"
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeXs
+                            font.bold: Theme.fontBold
+                            opacity: 0.72
+                        }
+
+                        CycleProgressBar {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 4
+                            Layout.alignment: Qt.AlignVCenter
+                            progress: root.cycleElapsed
+                            color: root.cycleColor
+                            barHeight: 4
                         }
                     }
                 }

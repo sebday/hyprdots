@@ -7,6 +7,7 @@ Item {
     property real progress: 0
     property int barWidth: 36
     property int barHeight: 4
+    property color color: Theme.accent
 
     implicitWidth: barWidth
     implicitHeight: barHeight
@@ -21,7 +22,7 @@ Item {
         height: parent.height
         width: parent.width * Math.max(0, Math.min(1, root.progress))
         radius: Theme.radiusS
-        color: Theme.accent
+        color: root.color
         opacity: Theme.opacityEmphasis
     }
 }
