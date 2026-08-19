@@ -19,6 +19,47 @@ Item {
     readonly property string weatherScript: Quickshell.env("HOME") + "/.local/bin/evo-weather"
     readonly property string fontStatePath: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/evoshell/font.json"
     readonly property string themeNamePath: Quickshell.env("HOME") + "/.themes/current/.theme-name"
+    readonly property string themeListScript: Quickshell.env("HOME") + "/.local/bin/evo-menu-list"
+    readonly property string home: Quickshell.env("HOME")
+    readonly property string wallpaperStatePath: (Quickshell.env("XDG_STATE_HOME") || (home + "/.local/state")) + "/evoshell/wallpaper"
+
+    property var themeEntries: []
+    property string currentThemePreview: ""
+    property var wallpaperEntries: []
+    property string currentWallpaperPath: ""
+    property string currentWallpaperPreview: ""
+
+    readonly property string themePreviewSource: {
+        if (currentThemePreview !== "")
+            return currentThemePreview
+        var name = String(currentThemeName || "").trim()
+        if (!name)
+            return ""
+        return home + "/.themes/" + name + "/preview.png"
+    }
+
+    readonly property string themeDisplayName: {
+        var name = String(currentThemeName || "").trim()
+        return name !== "" ? name : "Theme"
+    }
+
+    readonly property string wallpaperPreviewSource: {
+        if (currentWallpaperPreview !== "")
+            return currentWallpaperPreview
+        return String(currentWallpaperPath || "").trim()
+    }
+
+    readonly property string wallpaperDisplayName: {
+        var path = String(currentWallpaperPath || "").trim()
+        if (!path)
+            return "Wallpaper"
+        for (var i = 0; i < wallpaperEntries.length; i++) {
+            if (String(wallpaperEntries[i].command || "").indexOf(path) >= 0)
+                return String(wallpaperEntries[i].name || "")
+        }
+        var parts = path.split("/")
+        return parts.length ? parts[parts.length - 1] : "Wallpaper"
+    }
 
     property bool roundingOn: false
     property string currentThemeName: ""
@@ -57,6 +98,33 @@ Item {
     readonly property bool playerBusy: playerSetProc.running || playerLibraryPickProc.running
     readonly property bool tasksBusy: taskVaultSetProc.running || taskVaultPickProc.running
     readonly property bool weatherBusy: weatherSetProc.running
+    readonly property var cookieBrowsers: [
+        "brave", "chrome", "chromium", "edge", "firefox", "opera", "safari", "vivaldi", "whale"
+    ]
+    readonly property string cookieBrowserValue: {
+        var value = String(scCookiesFrom || "").trim()
+        return value !== "" ? value : "brave"
+    }
+    readonly property var weatherLocationPresets: [
+        "Derby", "London", "Manchester", "Birmingham", "Leeds", "Bristol",
+        "Nottingham", "Sheffield", "Liverpool", "Glasgow", "Edinburgh", "Cardiff", "Belfast"
+    ]
+    readonly property var weatherLocationOptions: {
+        var options = weatherLocationPresets.slice()
+        var current = String(weatherLocation || "").trim()
+        if (!current)
+            return options
+        for (var i = 0; i < options.length; i++) {
+            if (String(options[i]) === current)
+                return options
+        }
+        options.unshift(current)
+        return options
+    }
+    readonly property string weatherLocationValue: {
+        var value = String(weatherLocation || "").trim()
+        return value !== "" ? value : "Derby"
+    }
     readonly property bool settingsBusy: fontBusy || mediaBusy || playerBusy || tasksBusy || weatherBusy || hyprToggleProc.running || hyprSetProc.running
         || barToggleProc.running || notificationsToggleProc.running || uiToggleProc.running
     readonly property bool active: host && host.opened && host.activeModule === "settings"
@@ -160,12 +228,93 @@ Item {
         playerLibraryPickProc.running = true
     }
 
+    function openThemePicker() {
+        if (!shell)
+            return
+        shell.toggle("evo.theme")
+    }
+
+    function openWallpaperPicker() {
+        if (!shell)
+            return
+        shell.toggle("evo.wallpaper")
+    }
+
+    function parseThemeList(raw) {
+        var lines = String(raw || "").split("\n")
+        var out = []
+        for (var i = 0; i < lines.length; i++) {
+            var line = lines[i].trim()
+            if (!line)
+                continue
+            var parts = line.split("\t")
+            out.push({
+                name: parts[0] || "",
+                command: parts[1] || "",
+                preview: parts[2] || ""
+            })
+        }
+        themeEntries = out
+        syncThemePreview()
+    }
+
+    function syncThemePreview() {
+        currentThemePreview = ""
+        var name = String(currentThemeName || "").trim()
+        if (!name)
+            return
+        for (var i = 0; i < themeEntries.length; i++) {
+            if (String(themeEntries[i].name) === name) {
+                currentThemePreview = String(themeEntries[i].preview || "")
+                return
+            }
+        }
+    }
+
+    function parseWallpaperList(raw) {
+        var lines = String(raw || "").split("\n")
+        var out = []
+        for (var i = 0; i < lines.length; i++) {
+            var line = lines[i].trim()
+            if (!line)
+                continue
+            var parts = line.split("\t")
+            out.push({
+                name: parts[0] || "",
+                command: parts[1] || "",
+                preview: parts[2] || ""
+            })
+        }
+        wallpaperEntries = out
+        syncWallpaperPreview()
+    }
+
+    function syncWallpaperPreview() {
+        currentWallpaperPreview = ""
+        var path = String(currentWallpaperPath || "").trim()
+        if (!path)
+            return
+        for (var i = 0; i < wallpaperEntries.length; i++) {
+            if (String(wallpaperEntries[i].command || "").indexOf(path) >= 0) {
+                currentWallpaperPreview = String(wallpaperEntries[i].preview || "")
+                return
+            }
+        }
+    }
+
     function onActivated() {
         themeNameFile.reload()
-        themePicker.reload()
+        wallpaperStateFile.reload()
+        if (!loadThemeListProc.running)
+            loadThemeListProc.running = true
+        if (!loadWallpaperListProc.running)
+            loadWallpaperListProc.running = true
         refresh()
         Qt.callLater(function() { root.forceActiveFocus() })
     }
+
+    onCurrentThemeNameChanged: syncThemePreview()
+    onCurrentWallpaperPathChanged: syncWallpaperPreview()
 
     onActiveChanged: {
         if (active)
@@ -375,8 +524,39 @@ Item {
         path: root.themeNamePath
         watchChanges: true
         printErrors: false
-        onLoaded: root.currentThemeName = String(themeNameFile.text() || "").trim()
+        onLoaded: {
+            root.currentThemeName = String(themeNameFile.text() || "").trim()
+            root.syncThemePreview()
+        }
         onFileChanged: reload()
+    }
+
+    FileView {
+        id: wallpaperStateFile
+        path: root.wallpaperStatePath
+        watchChanges: true
+        printErrors: false
+        onLoaded: {
+            root.currentWallpaperPath = String(wallpaperStateFile.text() || "").trim()
+            root.syncWallpaperPreview()
+        }
+        onFileChanged: reload()
+    }
+
+    Process {
+        id: loadThemeListProc
+        command: [root.themeListScript, "themes"]
+        stdout: StdioCollector {
+            onStreamFinished: root.parseThemeList(text)
+        }
+    }
+
+    Process {
+        id: loadWallpaperListProc
+        command: [root.themeListScript, "wallpapers"]
+        stdout: StdioCollector {
+            onStreamFinished: root.parseWallpaperList(text)
+        }
     }
 
     Process {
@@ -598,14 +778,49 @@ Item {
                 sectionSpacing: 12
 
                 HoverPopupLabelPill {
-                    text: "Hyprland"
+                    text: "Evoshell"
                     fontSize: Theme.fontSizeS
+                }
+
+                FontFamilyPicker {
+                    Layout.fillWidth: true
+                    label: "Font family"
+                    value: root.fontFamily
+                    model: root.fontFamilies
+                    enabled: root.fontReady && !settingsBusy
+                    onActivated: function(family) {
+                        root.fontFamily = family
+                        root.setFont("family", family)
+                    }
+                }
+
+                ToggleRow {
+                    Layout.fillWidth: true
+                    label: "Bar position"
+                    checked: root.barOnDp1Top
+                    enabled: root.barReady && !settingsBusy
+                    onToggled: root.toggleBar()
+                }
+
+                ToggleRow {
+                    Layout.fillWidth: true
+                    label: "Notification position"
+                    checked: !root.notificationsOnHdmiBottom
+                    enabled: root.notificationsReady && !settingsBusy
+                    onToggled: root.toggleNotifications()
+                }
+
+                ToggleRow {
+                    Layout.fillWidth: true
+                    label: "Fieldset radius"
+                    checked: root.fieldsetRoundingOn
+                    enabled: root.uiReady && !settingsBusy
+                    onToggled: root.toggleFieldsetRounding()
                 }
 
                 ToggleRow {
                     Layout.fillWidth: true
                     label: "Border radius"
-                    detail: root.roundingOn ? "Rounded" : "Square"
                     checked: root.roundingOn
                     enabled: root.hyprReady && !settingsBusy
                     onToggled: root.toggleHypr("rounding")
@@ -614,7 +829,6 @@ Item {
                 ToggleRow {
                     Layout.fillWidth: true
                     label: "Window gaps"
-                    detail: "10 in 20 out"
                     checked: root.gapsOn
                     enabled: root.hyprReady && !settingsBusy
                     onToggled: root.toggleHypr("gaps")
@@ -623,7 +837,6 @@ Item {
                 ToggleRow {
                     Layout.fillWidth: true
                     label: "Animations"
-                    detail: "Bezier sliding"
                     checked: root.animationsOn
                     enabled: root.hyprReady && !settingsBusy
                     onToggled: root.toggleHypr("animations")
@@ -664,6 +877,7 @@ Item {
                         root.setHyprOpacity("inactive", v)
                     }
                 }
+
             }
 
             SectionPanel {
@@ -673,98 +887,20 @@ Item {
                 sectionSpacing: 12
 
                 HoverPopupLabelPill {
-                    text: "Weather"
-                    fontSize: Theme.fontSizeS
-                }
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 4
-
-                    Text {
-                        text: "Location"
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSizeS
-                        opacity: Theme.opacityMuted
-                    }
-
-                    Rectangle {
-                        Layout.fillWidth: true
-                        implicitHeight: 34
-                        radius: 6
-                        color: Theme.foregroundWash
-                        border.color: Theme.foregroundDivider
-                        border.width: 1
-
-                        TextInput {
-                            id: weatherLocationInput
-                            anchors.fill: parent
-                            anchors.leftMargin: 8
-                            anchors.rightMargin: 8
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontSizeS
-                            selectionColor: Theme.accent
-                            selectedTextColor: Theme.mantle
-                            verticalAlignment: TextInput.AlignVCenter
-                            clip: true
-                            text: root.weatherLocation
-                            enabled: root.weatherReady && !settingsBusy
-                            onEditingFinished: root.setWeatherLocation(text)
-                        }
-                    }
-                }
-            }
-
-            SectionPanel {
-                contentPad: Theme.panelContentPad
-                legendBackground: Theme.background
-                label: ""
-                sectionSpacing: 12
-
-                HoverPopupLabelPill {
-                    text: "Evoshell"
+                    text: "Locations"
                     fontSize: Theme.fontSizeS
                 }
 
                 FontFamilyPicker {
                     Layout.fillWidth: true
-                    label: "Font family"
-                    value: root.fontFamily
-                    model: root.fontFamilies
-                    enabled: root.fontReady && !settingsBusy
-                    onActivated: function(family) {
-                        root.fontFamily = family
-                        root.setFont("family", family)
+                    label: "Weather"
+                    previewFont: false
+                    value: root.weatherLocationValue
+                    model: root.weatherLocationOptions
+                    enabled: root.weatherReady && !settingsBusy
+                    onActivated: function(location) {
+                        root.setWeatherLocation(location)
                     }
-                }
-
-                ToggleRow {
-                    Layout.fillWidth: true
-                    label: "Bar position"
-                    detail: root.barOnDp1Top ? "Bottom screen" : "Top screen"
-                    checked: root.barOnDp1Top
-                    enabled: root.barReady && !settingsBusy
-                    onToggled: root.toggleBar()
-                }
-
-                ToggleRow {
-                    Layout.fillWidth: true
-                    label: "Notification position"
-                    detail: root.notificationsOnHdmiBottom ? "Top screen" : "Bottom screen"
-                    checked: !root.notificationsOnHdmiBottom
-                    enabled: root.notificationsReady && !settingsBusy
-                    onToggled: root.toggleNotifications()
-                }
-
-                ToggleRow {
-                    Layout.fillWidth: true
-                    label: "Fieldset radius"
-                    detail: root.fieldsetRoundingOn ? "Rounded" : "Square"
-                    checked: root.fieldsetRoundingOn
-                    enabled: root.uiReady && !settingsBusy
-                    onToggled: root.toggleFieldsetRounding()
                 }
 
                 ColumnLayout {
@@ -834,30 +970,6 @@ Item {
                             }
                         }
                     }
-
-                    Text {
-                        visible: root.tasksFile !== ""
-                        text: root.tasksFile !== "" ? ("tasks: " + root.tasksFile) : ""
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSizeXs
-                        opacity: Theme.opacityMuted
-                        elide: Text.ElideMiddle
-                        Layout.fillWidth: true
-                    }
-                }
-
-            }
-
-            SectionPanel {
-                contentPad: Theme.panelContentPad
-                legendBackground: Theme.background
-                label: ""
-                sectionSpacing: 12
-
-                HoverPopupLabelPill {
-                    text: "Media library"
-                    fontSize: Theme.fontSizeS
                 }
 
                 ColumnLayout {
@@ -1001,18 +1113,6 @@ Item {
                         }
                     }
                 }
-            }
-
-            SectionPanel {
-                contentPad: Theme.panelContentPad
-                legendBackground: Theme.background
-                label: ""
-                sectionSpacing: 12
-
-                HoverPopupLabelPill {
-                    text: "Evoplayer"
-                    fontSize: Theme.fontSizeS
-                }
 
                 ColumnLayout {
                     Layout.fillWidth: true
@@ -1082,6 +1182,19 @@ Item {
                     }
                 }
 
+            }
+
+            SectionPanel {
+                contentPad: Theme.panelContentPad
+                legendBackground: Theme.background
+                label: ""
+                sectionSpacing: 12
+
+                HoverPopupLabelPill {
+                    text: "Evoplayer"
+                    fontSize: Theme.fontSizeS
+                }
+
                 ColumnLayout {
                     Layout.fillWidth: true
                     spacing: 4
@@ -1120,41 +1233,17 @@ Item {
                     }
                 }
 
-                ColumnLayout {
+                FontFamilyPicker {
                     Layout.fillWidth: true
-                    spacing: 4
-
-                    Text {
-                        text: "Cookies browser"
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSizeS
-                        opacity: Theme.opacityMuted
-                    }
-
-                    Rectangle {
-                        Layout.fillWidth: true
-                        implicitHeight: 34
-                        radius: 6
-                        color: Theme.foregroundWash
-                        border.color: Theme.foregroundDivider
-                        border.width: 1
-
-                        TextInput {
-                            anchors.fill: parent
-                            anchors.leftMargin: 8
-                            anchors.rightMargin: 8
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontSizeS
-                            selectionColor: Theme.accent
-                            selectedTextColor: Theme.mantle
-                            verticalAlignment: TextInput.AlignVCenter
-                            clip: true
-                            text: root.scCookiesFrom
-                            enabled: root.playerReady && !settingsBusy
-                            onEditingFinished: root.setPlayerConfig("soundcloud.cookies_from", text)
-                        }
+                    label: "Cookies browser"
+                    previewFont: false
+                    labelBold: false
+                    value: root.cookieBrowserValue
+                    model: root.cookieBrowsers
+                    enabled: root.playerReady && !settingsBusy
+                    onActivated: function(browser) {
+                        root.scCookiesFrom = browser
+                        root.setPlayerConfig("soundcloud.cookies_from", browser)
                     }
                 }
             }
@@ -1169,21 +1258,129 @@ Item {
                     fontSize: Theme.fontSizeS
                 }
 
-                Item {
+                Rectangle {
                     Layout.fillWidth: true
-                    implicitHeight: themePicker.implicitHeight
+                    implicitHeight: themeCard.implicitHeight + 16
+                    radius: 6
+                    color: themePickMouse.containsMouse ? Theme.foregroundHoverWash : Theme.foregroundWash
+                    border.color: Theme.foregroundDivider
+                    border.width: 1
 
-                    PreviewPickerGrid {
-                        id: themePicker
-                        width: parent.width
-                        kind: "themes"
-                        columns: 3
-                        tileWidth: Math.floor((parent.width - spacing * 2) / 3)
-                        tileHeight: 58
-                        spacing: Theme.spacingM
-                        previewDpr: 1.5
-                        selectedKey: root.currentThemeName
-                        keyboardFocus: false
+                    ColumnLayout {
+                        id: themeCard
+                        anchors.fill: parent
+                        anchors.margins: 8
+                        spacing: Theme.spacingS
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 120
+                            radius: 4
+                            color: Theme.overlaySurface
+                            clip: true
+
+                            Image {
+                                id: themePreviewImage
+                                anchors.fill: parent
+                                source: root.themePreviewSource ? Util.fileUrl(root.themePreviewSource) : ""
+                                fillMode: Image.PreserveAspectCrop
+                                smooth: true
+                                asynchronous: true
+                                cache: true
+                                visible: root.themePreviewSource !== "" && status !== Image.Error
+                            }
+
+                            Text {
+                                anchors.centerIn: parent
+                                visible: root.themePreviewSource === "" || themePreviewImage.status === Image.Error
+                                text: "󰸌"
+                                color: Theme.accent
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSize6xl
+                            }
+                        }
+
+                        Text {
+                            Layout.fillWidth: true
+                            horizontalAlignment: Text.AlignHCenter
+                            text: root.themeDisplayName
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeM
+                            font.bold: Theme.fontBold
+                            elide: Text.ElideRight
+                        }
+                    }
+
+                    MouseArea {
+                        id: themePickMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.openThemePicker()
+                    }
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    implicitHeight: wallpaperCard.implicitHeight + 16
+                    radius: 6
+                    color: wallpaperPickMouse.containsMouse ? Theme.foregroundHoverWash : Theme.foregroundWash
+                    border.color: Theme.foregroundDivider
+                    border.width: 1
+
+                    ColumnLayout {
+                        id: wallpaperCard
+                        anchors.fill: parent
+                        anchors.margins: 8
+                        spacing: Theme.spacingS
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 120
+                            radius: 4
+                            color: Theme.overlaySurface
+                            clip: true
+
+                            Image {
+                                id: wallpaperPreviewImage
+                                anchors.fill: parent
+                                source: root.wallpaperPreviewSource ? Util.fileUrl(root.wallpaperPreviewSource) : ""
+                                fillMode: Image.PreserveAspectCrop
+                                smooth: true
+                                asynchronous: true
+                                cache: true
+                                visible: root.wallpaperPreviewSource !== "" && status !== Image.Error
+                            }
+
+                            Text {
+                                anchors.centerIn: parent
+                                visible: root.wallpaperPreviewSource === "" || wallpaperPreviewImage.status === Image.Error
+                                text: "󰏘"
+                                color: Theme.accent
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSize6xl
+                            }
+                        }
+
+                        Text {
+                            Layout.fillWidth: true
+                            horizontalAlignment: Text.AlignHCenter
+                            text: root.wallpaperDisplayName
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeM
+                            font.bold: Theme.fontBold
+                            elide: Text.ElideRight
+                        }
+                    }
+
+                    MouseArea {
+                        id: wallpaperPickMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.openWallpaperPicker()
                     }
                 }
             }

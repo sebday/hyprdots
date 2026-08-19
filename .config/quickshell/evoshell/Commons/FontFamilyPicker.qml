@@ -9,6 +9,8 @@ Item {
     property var model: []
     property bool enabled: true
     property bool open: false
+    property bool previewFont: true
+    property bool labelBold: true
     property int popupMaxHeight: 160
 
     signal activated(string value)
@@ -54,7 +56,7 @@ Item {
             color: Theme.foreground
             font.family: Theme.fontFamily
             font.pixelSize: Theme.fontSizeM
-            font.bold: Theme.fontBold
+            font.bold: root.labelBold ? Theme.fontBold : false
             Layout.fillWidth: true
         }
 
@@ -78,9 +80,9 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.leftMargin: Theme.panelContentPad
                 anchors.rightMargin: Theme.spacingM
-                text: root.value || "Select font"
+                text: root.value || (root.previewFont ? "Select font" : "Select…")
                 color: Theme.foreground
-                font.family: Theme.fontFamily
+                font.family: root.previewFont && root.value ? String(root.value) : Theme.fontFamily
                 font.pixelSize: Theme.fontSizeS
                 font.bold: Theme.fontBold
                 elide: Text.ElideRight
@@ -161,7 +163,7 @@ Item {
                     verticalAlignment: Text.AlignVCenter
                     text: modelData
                     color: selected ? Theme.accent : Theme.foreground
-                    font.family: String(modelData)
+                    font.family: root.previewFont ? String(modelData) : Theme.fontFamily
                     font.pixelSize: Theme.fontSizeS
                     elide: Text.ElideRight
                 }
