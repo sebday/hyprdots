@@ -39,6 +39,7 @@ elif [[ -S "$LEGACY_MPV_SOCKET" ]] && [[ ! -S "$PLAYER_SOCKET_DEFAULT" ]]; then
 else
   MPV_SOCKET="$PLAYER_SOCKET_DEFAULT"
 fi
+EVO_PLAYER_MPV_CLIENT_NAME="${EVO_PLAYER_MPV_CLIENT_NAME:-evo.player}"
 AUDIO_EXTS="mp3 flac ogg m4a opus wav"
 
 music_config_read_root() {
@@ -514,8 +515,6 @@ write(path, data)
 PY
 }
 
-PLACE_MIX_SECONDS=1200
-
 is_audio() {
   local path="$1"
   [[ -f "$path" ]] || return 1
@@ -529,6 +528,39 @@ is_audio() {
   done
   return 1
 }
+
+incoming_normalize_mp3() {
+  local incoming="${MUSIC_ROOT}/.incoming"
+  [[ -d "$incoming" ]] || return 0
+  local f base mp3 ext
+  for f in "$incoming"/*; do
+    [[ -f "$f" ]] || continue
+    base="${f%.*}"
+    ext="${f##*.}"
+    ext="${ext,,}"
+    case "$ext" in
+      mp3) continue ;;
+      part|ytdl|temp|jpg|jpeg|png|webp|gif)
+        mp3="${base}.mp3"
+        [[ -f "$mp3" ]] && rm -f "$f"
+        continue ;;
+    esac
+    is_audio "$f" || continue
+    mp3="${base}.mp3"
+    if [[ -f "$mp3" ]]; then
+      rm -f "$f"
+      continue
+    fi
+    if ffmpeg -y -hide_banner -loglevel error -i "$f" -codec:a libmp3lame -q:a 0 "$mp3"; then
+      rm -f "$f"
+      echo "evo-player: converted to mp3: $(basename "$mp3")" >&2
+    else
+      echo "evo-player: warn: mp3 convert failed: $f" >&2
+    fi
+  done
+}
+
+PLACE_MIX_SECONDS=1200
 
 file_hash() {
   local path="$1"
@@ -741,42 +773,35 @@ ffprobe_duration() {
     | awk '{d=$1+0; if (d>0) printf "%d", int(d); else print 0}'
 }
 
-year_from_path_string() {
-  local p="$1"
-  python3 - "$p" <<'PY'
-import re, sys
-p = sys.argv[1]
-m = re.search(r"(?:19|20)\d{2}", p)
-if m:
-    print(m.group(0), end="")
-    raise SystemExit
-m = re.search(r"(\d{2})[.-](\d{2})[.-](20\d{2})", p)
-if m:
-    print(m.group(3), end="")
-    raise SystemExit
-m = re.search(r"(?:^|[-_.])(\d{2})[.-](\d{2})[.-](\d{2})(?:\D|$)", p)
-if m:
-    yy = int(m.group(3))
-    print(2000 + yy if yy < 70 else 1900 + yy, end="")
-PY
+year_is_valid() {
+  local y="$1"
+  [[ "$y" =~ ^[0-9]{4}$ ]] || return 1
+  (( y >= 1985 && y <= 2026 ))
+}
+
+path_year_resolve() {
+  local path="$1"
+  local script="${EVOSHELL_BIN:-$HOME/.local/bin}/evo-player-path-year.py"
+  [[ -f "$script" ]] || return 1
+  MUSIC_ROOT="${MUSIC_ROOT:-/mnt/external/music}" python3 "$script" --resolve "$path" "$MUSIC_ROOT"
 }
 
 resolve_year() {
   local path="$1"
   local year tags
+  year="$(path_year_resolve "$path")"
+  if year_is_valid "$year"; then
+    printf '%s' "$year"
+    return 0
+  fi
   tags="$(track_tags_read "$path")"
   year="$(jq -r '.year // ""' <<<"$tags")"
-  if [[ "$year" =~ ^[0-9]{4}$ ]]; then
+  if year_is_valid "$year"; then
     printf '%s' "$year"
     return 0
   fi
   year="$(ffprobe_year "$path")"
-  if [[ -n "$year" ]]; then
-    printf '%s' "$year"
-    return 0
-  fi
-  year="$(year_from_path_string "$path")"
-  if [[ -n "$year" ]]; then
+  if year_is_valid "$year"; then
     printf '%s' "$year"
     return 0
   fi
@@ -802,6 +827,13 @@ resolve_genre_from_tags() {
     return 0
   fi
   return 1
+}
+
+standardize_track_tags() {
+  local path="$1"
+  local script="${EVOSHELL_BIN:-$HOME/.local/bin}/evo-player-standardize-tags.py"
+  [[ -f "$script" ]] || return 0
+  MUSIC_ROOT="$MUSIC_ROOT" EVOSHELL_BIN="${EVOSHELL_BIN:-$HOME/.local/bin}" python3 "$script" "$path"
 }
 
 track_is_mix() {
@@ -881,7 +913,7 @@ track_tags_read() {
   python3 - "$path" <<'PY'
 import json, os, subprocess, sys
 path = sys.argv[1]
-title = artist = genre = album = year = ""
+title = artist = genre = album = album_artist = year = ""
 try:
     proc = subprocess.run(
         ["ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", path],

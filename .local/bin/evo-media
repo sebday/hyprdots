@@ -20,7 +20,7 @@ usage:
   evo-media list shows
   evo-media list catalog
   evo-media list episodes <show>
-  evo-media popup shows
+  evo-media popup preview
   evo-media play film <id>
   evo-media play episode <id>
   evo-media settings get
@@ -74,6 +74,13 @@ CREATE TABLE IF NOT EXISTS episodes (
     FOREIGN KEY (show_id) REFERENCES shows(id)
 );
 CREATE INDEX IF NOT EXISTS idx_episodes_show ON episodes(show_id);
+CREATE TABLE IF NOT EXISTS play_counts (
+    kind TEXT NOT NULL,
+    item_id INTEGER NOT NULL,
+    play_count INTEGER NOT NULL DEFAULT 0,
+    last_played_at INTEGER,
+    PRIMARY KEY (kind, item_id)
+);
 SQL
     sqlite3 "$DB_PATH" "PRAGMA journal_mode=WAL;" >/dev/null
     sqlite3 "$DB_PATH" "ALTER TABLE episodes ADD COLUMN poster_path TEXT" 2>/dev/null || true
@@ -313,23 +320,25 @@ clear_media_show_settings() {
     rm -f "$MEDIA_SETTINGS_FILE"
 }
 
+POPUP_ROW_LIMIT=4
+
+record_play() {
+    local kind="$1"
+    local item_id="$2"
+    sqlite3 "$DB_PATH" \
+        "INSERT INTO play_counts (kind, item_id, play_count, last_played_at)
+         VALUES ('$(sql_escape "$kind")', $item_id, 1, cast(strftime('%s','now') as integer))
+         ON CONFLICT(kind, item_id) DO UPDATE SET
+             play_count = play_count + 1,
+             last_played_at = excluded.last_played_at;"
+}
+
 cmd_settings_get() {
     media_roots
-    local available enabled uses_whitelist=false
-    available="$(list_tv_show_names | jq -R . | jq -s 'sort')"
-    if uses_show_whitelist; then
-        uses_whitelist=true
-        enabled="$(jq -c '.enabledShows // []' "$MEDIA_SETTINGS_FILE")"
-    else
-        enabled="$available"
-    fi
     jq -n \
         --arg tvRoot "$TV_ROOT" \
         --arg filmsRoot "$FILMS_ROOT" \
-        --argjson availableShows "$available" \
-        --argjson enabledShows "$enabled" \
-        --argjson usesShowWhitelist "$uses_whitelist" \
-        '{ok: true, tvRoot: $tvRoot, filmsRoot: $filmsRoot, availableShows: $availableShows, enabledShows: $enabledShows, usesShowWhitelist: $usesShowWhitelist}'
+        '{ok: true, tvRoot: $tvRoot, filmsRoot: $filmsRoot}'
 }
 
 cmd_settings_set_path() {
@@ -360,10 +369,16 @@ cmd_settings_set_path() {
 
 cmd_settings_pick() {
     local kind="${1:-tv}"
-    local start_dir selected
+    local start_dir selected title
     case "$kind" in
-    tv) start_dir="$(tv_root)" ;;
-    films) start_dir="$(films_root)" ;;
+    tv)
+        start_dir="$(tv_root)"
+        title="Select TV folder"
+        ;;
+    films)
+        start_dir="$(films_root)"
+        title="Select films folder"
+        ;;
     *)
         echo '{"ok":false,"error":"invalid kind"}' >&2
         return 1
@@ -372,7 +387,9 @@ cmd_settings_pick() {
     if [[ -z "$start_dir" || ! -d "$start_dir" ]]; then
         start_dir="$HOME"
     fi
-    selected="$(zenity --file-selection --directory --title="Select media folder" --filename="${start_dir}/" 2>/dev/null || true)"
+    selected="$(
+        zenity --file-selection --directory --title="$title" --filename="${start_dir}/" 2>/dev/null || true
+    )"
     [[ -n "$selected" ]] || {
         cmd_settings_get
         return 0
@@ -546,28 +563,44 @@ cmd_list_catalog() {
     jq -nc --argjson films "$films" --argjson shows "$shows" '{films: $films, shows: $shows}'
 }
 
-cmd_popup_shows() {
+cmd_popup_preview() {
     init_db
-    media_roots
-    local db_shows enabled_json
-    db_shows="$(sqlite3 -json "$DB_PATH" \
-        "SELECT id, name, poster_path FROM shows ORDER BY name COLLATE NOCASE")"
-    if uses_show_whitelist; then
-        enabled_json="$(jq -c '.enabledShows // []' "$MEDIA_SETTINGS_FILE")"
-    else
-        enabled_json="$(list_tv_show_names | jq -R . | jq -s 'sort')"
+    local limit="$POPUP_ROW_LIMIT"
+    local films shows
+    films="$(sqlite3 -json "$DB_PATH" \
+        "SELECT f.id, f.title AS name, f.poster_path, pc.play_count
+         FROM play_counts pc
+         JOIN films f ON f.id = pc.item_id
+         WHERE pc.kind = 'film' AND pc.play_count > 0
+         ORDER BY pc.play_count DESC, pc.last_played_at DESC, f.sort_title COLLATE NOCASE
+         LIMIT $limit")"
+    if [[ "$(json_or_empty "$films")" == "[]" ]]; then
+        films="$(sqlite3 -json "$DB_PATH" \
+            "SELECT id, title AS name, poster_path, 0 AS play_count
+             FROM films
+             ORDER BY sort_title COLLATE NOCASE
+             LIMIT $limit")"
+    fi
+    shows="$(sqlite3 -json "$DB_PATH" "
+        SELECT s.id, s.name, s.poster_path, SUM(pc.play_count) AS play_count
+        FROM play_counts pc
+        JOIN episodes e ON e.id = pc.item_id AND pc.kind = 'episode'
+        JOIN shows s ON s.id = e.show_id
+        GROUP BY s.id
+        HAVING play_count > 0
+        ORDER BY play_count DESC, MAX(pc.last_played_at) DESC, s.name COLLATE NOCASE
+        LIMIT $limit")"
+    if [[ "$(json_or_empty "$shows")" == "[]" ]]; then
+        shows="$(sqlite3 -json "$DB_PATH" \
+            "SELECT id, name, poster_path, 0 AS play_count
+             FROM shows
+             ORDER BY name COLLATE NOCASE
+             LIMIT $limit")"
     fi
     jq -nc \
-        --argjson db "$(json_or_empty "$db_shows")" \
-        --argjson enabled "$enabled_json" \
-        '
-        ($db // []) as $shows |
-        ($enabled // []) as $names |
-        $names | map(. as $n |
-            (([$shows[] | select(.name == $n)] | .[0]) // {name: $n}) |
-            {name: .name, poster_path: (.poster_path // "")}
-        )
-        '
+        --argjson films "$(json_or_empty "$films")" \
+        --argjson shows "$(json_or_empty "$shows")" \
+        '{films: $films, shows: $shows}'
 }
 
 cmd_list_episodes() {
@@ -604,6 +637,12 @@ cmd_list_episodes() {
     ' <<<"$(json_or_empty "$raw")"
 }
 
+play_mpv() {
+    local path="$1"
+    nohup mpv --fullscreen --force-window=immediate --really-quiet -- "$path" >/dev/null 2>&1 &
+    disown
+}
+
 cmd_play() {
     local kind="$1"
     local entry_id="$2"
@@ -635,8 +674,9 @@ cmd_play() {
         return 0
     fi
 
-    nohup mpv --fs --really-quiet "$path" >/dev/null 2>&1 &
-    disown
+    record_play "$kind" "$entry_id"
+
+    play_mpv "$path"
     jq -n --arg path "$path" '{ok: true, path: $path}'
 }
 
@@ -673,8 +713,8 @@ list)
 popup)
     sub="${2:-}"
     case "$sub" in
-    shows)
-        cmd_popup_shows
+    preview)
+        cmd_popup_preview
         ;;
     *)
         usage
@@ -703,20 +743,13 @@ settings)
             cmd_settings_set_path "$kind" "$path"
             ;;
         *)
-            json="${3:-}"
-            [[ -n "$json" ]] || json="$(cat)"
-            cmd_settings_set_shows "$json"
+            usage
             ;;
         esac
         ;;
     pick)
         kind="${3:-tv}"
         cmd_settings_pick "$kind"
-        ;;
-    toggle)
-        show="${3:-}"
-        [[ -n "$show" ]] || usage
-        cmd_settings_toggle "$show"
         ;;
     *)
         usage

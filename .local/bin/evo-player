@@ -104,6 +104,7 @@ cmd_player_start() {
     mpris_script="--script=/usr/share/mpv-mpris/mpris.so"
   fi
   nohup mpv --no-video --idle=yes --keep-open=yes \
+    --audio-client-name="$EVO_PLAYER_MPV_CLIENT_NAME" \
     --input-ipc-server="$MPV_SOCKET" \
     $mpris_script \
     >/dev/null 2>&1 &
@@ -944,9 +945,13 @@ cmd_sync_impl() {
   yt-dlp \
     --cookies-from-browser "$cookies" \
     --download-archive "$SYNC_ARCHIVE" \
-    -x --audio-format mp3 --embed-metadata --embed-thumbnail \
+    -f "ba/b" \
+    -x --audio-format mp3 --audio-quality 0 \
+    --embed-metadata --embed-thumbnail \
+    --convert-thumbnails jpg \
     -o "${MUSIC_ROOT}/.incoming/%(uploader)s - %(title)s.%(ext)s" \
     "$url"
+  incoming_normalize_mp3
 }
 
 cmd_sync() {
@@ -975,6 +980,9 @@ cmd_import_impl() {
   while IFS= read -r -d '' f; do
     incoming_skip_file "$f" && continue
     is_audio "$f" || continue
+    standardize_track_tags "$f" >/dev/null || {
+      echo "evo-player: warn: tag standardize failed: $f" >&2
+    }
     dest="$(place_track "$f")" || {
       failed=$((failed + 1))
       continue

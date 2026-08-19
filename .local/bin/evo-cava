@@ -3,6 +3,9 @@ set -euo pipefail
 
 PRESET_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/cava/presets"
 PRESET_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/cava/cava.v"
+RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp}"
+# PipeWire application.name for evo-player's mpv (--audio-client-name).
+EVO_PLAYER_CAVA_SOURCE="${EVO_PLAYER_CAVA_SOURCE:-${EVO_PLAYER_MPV_CLIENT_NAME:-evo.player}}"
 
 preset_names() {
     local names=()
@@ -13,7 +16,7 @@ preset_names() {
         names+=("$base")
     done
     shopt -u nullglob
-  if ((${#names[@]} == 0)); then
+    if ((${#names[@]} == 0)); then
         echo "no cava presets in $PRESET_DIR" >&2
         return 1
     fi
@@ -38,11 +41,35 @@ set_preset() {
     printf '%s\n' "$name" >"$PRESET_FILE"
 }
 
+write_player_config() {
+    local name=$1
+    local preset_path=$2
+    local out=$3
+    local src=$4
+    awk -v src="$src" '
+        BEGIN { in_input = 0; replaced = 0 }
+        /^\[input\]/ { in_input = 1 }
+        /^\[/ && $0 !~ /^\[input\]/ { in_input = 0 }
+        in_input && /^[[:space:]]*source[[:space:]]*=/ {
+            print "source = " src
+            replaced = 1
+            next
+        }
+        { print }
+        END { if (!replaced) exit 1 }
+    ' "$preset_path" >"$out"
+}
+
 cmd_config() {
-    local name
+    local name preset_path out
     name=$(current_preset)
     [[ -n "$name" ]] || return 1
-    printf '%s/%s.conf\n' "$PRESET_DIR" "$name"
+    preset_path="$PRESET_DIR/$name.conf"
+    [[ -f "$preset_path" ]] || return 1
+    mkdir -p "$RUNTIME_DIR"
+    out="$RUNTIME_DIR/evo-cava-${name}.conf"
+    write_player_config "$name" "$preset_path" "$out" "$EVO_PLAYER_CAVA_SOURCE"
+    printf '%s\n' "$out"
 }
 
 cmd_list() {
@@ -86,7 +113,7 @@ usage() {
 usage: evo-cava <command>
 
 commands:
-  config    print active preset config path
+  config    print active preset config path (targets evo-player mpv only)
   list      list presets (* = active)
   next      cycle to the next preset
   set NAME  activate a preset
