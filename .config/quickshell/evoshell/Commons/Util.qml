@@ -83,6 +83,28 @@ Singleton {
         return ""
     }
 
+    function iconLookupNames(iconName) {
+        var name = String(iconName || "").trim()
+        if (name.slice(-8).toLowerCase() === ".desktop")
+            name = name.slice(0, -8)
+        if (!name)
+            return []
+        var lower = name.toLowerCase()
+        if (lower === "cursor" || lower === "co.anysphere.cursor")
+            return ["co.anysphere.cursor", "cursor", "Cursor"]
+        var names = [name]
+        if (name !== lower)
+            names.push(lower)
+        return names
+    }
+
+    function papirusAppIconSource(iconName) {
+        var name = String(iconName || "").trim()
+        if (!name || name.indexOf("/") !== -1 || name.indexOf(" ") !== -1)
+            return ""
+        return fileUrl("/usr/share/icons/Papirus-Dark/64x64/apps/" + name + ".svg")
+    }
+
     function normalizeIconSource(path) {
         var value = String(path || "").trim()
         if (!value)
@@ -109,21 +131,28 @@ Singleton {
         if (name.indexOf("/") !== -1)
             return name.indexOf("file://") === 0 ? name : fileUrl(name)
 
-        var themed = steamThemedIconName(name)
-        if (themed) {
-            var themedSrc = themedDesktopIconSource(name)
-            if (themedSrc)
-                return themedSrc
+        var names = iconLookupNames(name)
+        var i
+        for (i = 0; i < names.length; i++) {
+            var candidate = names[i]
+            var themed = steamThemedIconName(candidate)
+            if (themed) {
+                var themedSrc = themedDesktopIconSource(candidate)
+                if (themedSrc)
+                    return themedSrc
+            }
+            var path = Quickshell.iconPath(candidate, true)
+            if (path)
+                return normalizeIconSource(path)
         }
 
-        var path = Quickshell.iconPath(name, true)
-        if (path)
-            return normalizeIconSource(path)
+        for (i = 0; i < names.length; i++) {
+            var papirus = papirusAppIconSource(names[i])
+            if (papirus)
+                return papirus
+        }
 
-        path = Quickshell.iconPath(name, "application-x-executable")
-        if (path)
-            return normalizeIconSource(path)
-
-        return ""
+        var fallback = Quickshell.iconPath(name, "application-x-executable")
+        return fallback ? normalizeIconSource(fallback) : ""
     }
 }

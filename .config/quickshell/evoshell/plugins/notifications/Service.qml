@@ -69,7 +69,8 @@ Scope {
             key: Date.now() + Math.random(),
             local: true,
             title: titleStr,
-            body: String(body || "")
+            body: String(body || ""),
+            art: resolveNamedIcon(titleStr)
         })
         activePopups = next
         scheduleDismiss(Math.max(500, parseInt(durationMs, 10) || root.durationMs))
@@ -259,6 +260,38 @@ Scope {
         return Util.fileUrl(path)
     }
 
+    function resolveNamedIcon(name) {
+        return Util.iconSourceForName(name)
+    }
+
+    function resolveNotificationIcon(entry) {
+        if (!entry)
+            return ""
+        if (entry.art)
+            return notifyIconPath(entry.art) || resolveNamedIcon(entry.art)
+        var names = []
+        var n = entry.notification
+        if (n) {
+            if (n.appIcon)
+                names.push(n.appIcon)
+            if (n.desktopEntry)
+                names.push(n.desktopEntry)
+            if (n.appName)
+                names.push(n.appName)
+        }
+        if (entry.app)
+            names.push(entry.app)
+        var title = popupTitle(entry)
+        if (title)
+            names.push(title)
+        for (var i = 0; i < names.length; i++) {
+            var src = resolveNamedIcon(names[i])
+            if (src)
+                return src
+        }
+        return ""
+    }
+
     function popupArt(entry) {
         if (entry && entry.localMedia && entry.art)
             return entry.art
@@ -267,30 +300,24 @@ Scope {
             return screenshotPath(entry)
 
         var n = entry && entry.notification
-        if (!n) return ""
-
-        if (n.image) {
+        if (n && n.image) {
             var imagePath = notifyIconPath(n.image)
             if (imagePath) return imagePath
             if (looksLikeImage(n.image)) return String(n.image)
         }
 
-        if (n.appIcon) {
-            if (looksLikeImage(n.appIcon)) {
-                var iconPath = notifyIconPath(n.appIcon)
-                if (iconPath) return iconPath
-                return imageSource(n.appIcon)
-            }
-            var themedIcon = Util.iconSourceForName(n.appIcon)
-            if (themedIcon) return themedIcon
+        if (n && n.appIcon && looksLikeImage(n.appIcon)) {
+            var iconPath = notifyIconPath(n.appIcon)
+            if (iconPath) return iconPath
+            return imageSource(n.appIcon)
         }
 
-        if (n.desktopEntry) {
-            var desktopIcon = Util.iconSourceForName(n.desktopEntry)
-            if (desktopIcon) return desktopIcon
+        if (entry && entry.local && entry.art) {
+            var localArt = notifyIconPath(entry.art)
+            if (localArt) return localArt
         }
 
-        return ""
+        return resolveNotificationIcon(entry)
     }
 
     function popupImage(entry) {
@@ -302,8 +329,12 @@ Scope {
         var body = popupBody(entry).trim().toLowerCase()
         if (title.indexOf("error") !== -1 || body.indexOf("error") !== -1)
             return "󰅙"
-        if (isMedia(entry))
+        if (entry && entry.localMedia)
             return "󰎆"
+        if (isPlayerNotification(entry) || isScrobbler(entry))
+            return "󰎆"
+        if (isHyprshot(entry))
+            return "󰹑"
         return "󰂚"
     }
 
@@ -383,7 +414,7 @@ Scope {
     }
 
     function mediaFields(entry) {
-        if (entry && entry.localMedia) {
+        if (entry && (entry.localMedia || entry.local)) {
             return {
                 kicker: "",
                 title: String(entry.title || ""),
@@ -418,24 +449,32 @@ Scope {
                 footer: ""
             }
         }
+        var appName = String(entry && entry.notification && entry.notification.appName || "")
+        var title = popupTitle(entry)
         return {
-            kicker: mediaKicker(entry) || String(entry && entry.notification && entry.notification.appName || ""),
-            title: popupTitle(entry),
+            kicker: (appName && appName !== title) ? appName : "",
+            title: title,
             subtitle: lines[0] || "",
             footer: lines.slice(1).join(" · ")
         }
     }
 
     function entryKind(entry) {
-        if (isMedia(entry)) return "media"
-        return "default"
+        return "media"
+    }
+
+    function popupArtFillMode(entry) {
+        if (isHyprshot(entry))
+            return Image.PreserveAspectFit
+        if (entry && entry.localMedia)
+            return Image.PreserveAspectCrop
+        if (isPlayerNotification(entry) || isScrobbler(entry))
+            return Image.PreserveAspectCrop
+        return Image.PreserveAspectFit
     }
 
     function estimatedHeight(entry) {
-        var kind = entryKind(entry)
-        if (kind === "media")
-            return Theme.notificationArtSize + Theme.notificationMediaPad * 2
-        return Theme.notificationPadding * 2 + Theme.fontSize2xl + 6 + Theme.fontSizeL
+        return Theme.notificationArtSize + Theme.notificationMediaPad * 2
     }
 
     function measuredHeight(entry) {
@@ -642,20 +681,21 @@ Scope {
             required property var modelData
             required property int index
 
-            readonly property string kind: root.entryKind(modelData)
-            readonly property var media: kind === "media" ? root.mediaFields(modelData) : ({})
-            readonly property string art: kind === "media" ? root.popupArt(modelData) : ""
+            readonly property var media: root.mediaFields(modelData)
+            readonly property string art: root.popupArt(modelData)
 
             Component.onCompleted: {
                 if (modelData)
                     root.setPopupHeight(modelData.key, card.height)
-                if (kind === "media") {
-                    root.logEvent("popupOpen", {
-                        art: art.indexOf("data:image/") === 0 ? ("data-url:" + art.length) : art,
-                        artRev: modelData.artRev || 0,
-                        title: media.title || ""
-                    })
-                }
+                var n = modelData && modelData.notification
+                root.logEvent("popupOpen", {
+                    art: art.indexOf("data:image/") === 0 ? ("data-url:" + art.length) : art,
+                    artRev: modelData.artRev || 0,
+                    title: media.title || "",
+                    appName: n ? String(n.appName || "") : String(modelData.app || modelData.title || ""),
+                    appIcon: n ? String(n.appIcon || "") : "",
+                    desktopEntry: n ? String(n.desktopEntry || "") : ""
+                })
             }
 
             screen: root.popupScreen
@@ -688,9 +728,7 @@ Scope {
             Item {
                 id: card
                 width: Theme.notificationWidth
-                height: kind === "media"
-                    ? artworkCard.implicitHeight
-                    : innerDefault.height + Theme.notificationPadding * 2
+                height: artworkCard.implicitHeight
                 clip: true
 
                 Rectangle {
@@ -709,69 +747,11 @@ Scope {
 
                 NotificationArtworkCard {
                     id: artworkCard
-                    visible: kind === "media"
                     coverArt: art
                     artRev: modelData.artRev || 0
+                    fallbackIcon: root.popupIcon(modelData)
                     fields: media
-                    imageFillMode: root.isHyprshot(modelData)
-                        ? Image.PreserveAspectFit
-                        : Image.PreserveAspectCrop
-                }
-
-                // Default
-                Rectangle {
-                    visible: kind === "default"
-                    width: 5
-                    height: parent.height
-                    color: Theme.accent
-                }
-
-                Row {
-                    id: innerDefault
-                    visible: kind === "default"
-                    x: Theme.notificationPadding + 8
-                    y: Theme.notificationPadding
-                    width: parent.width - Theme.notificationPadding * 2 - 8
-                    spacing: 16
-
-                    Text {
-                        id: iconLine
-                        text: root.popupIcon(modelData)
-                        color: Theme.accent
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSize4xl
-                        font.bold: Theme.fontBold
-                    }
-
-                    Column {
-                        spacing: Theme.spacingS
-                        width: parent.width - iconLine.width - parent.spacing
-
-                        Text {
-                            text: root.popupTitle(modelData)
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontSize2xl
-                            font.bold: Theme.fontBold
-                            width: parent.width
-                            elide: Text.ElideRight
-                            maximumLineCount: 1
-                        }
-
-                        Text {
-                            text: root.stripMarkup(root.popupBody(modelData))
-                            color: Theme.foreground
-                            opacity: 0.88
-                            visible: text.length > 0
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontSizeL
-                            font.bold: Theme.fontBold
-                            width: parent.width
-                            wrapMode: Text.Wrap
-                            maximumLineCount: 3
-                            elide: Text.ElideRight
-                        }
-                    }
+                    imageFillMode: root.popupArtFillMode(modelData)
                 }
             }
 

@@ -4,7 +4,9 @@
 set -euo pipefail
 
 STATE_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/evoshell"
-DB_PATH="${STATE_DIR}/media.db"
+INDEX_PATH="${STATE_DIR}/media-library.json"
+PLAYS_PATH="${STATE_DIR}/media-plays.json"
+LEGACY_DB="${STATE_DIR}/media.db"
 POSTER_DIR="${STATE_DIR}/media-posters"
 MEDIA_SETTINGS_FILE="${STATE_DIR}/media.json"
 FILMS_ROOT_DEFAULT="/mnt/external/films"
@@ -31,72 +33,131 @@ EOF
     exit 1
 }
 
-sql_escape() {
-    local s="$1"
-    s="${s//\'/\'\'}"
-    printf '%s' "$s"
+index_empty() {
+    printf '%s\n' '{"films":[],"shows":[]}'
 }
 
-sql_null_int() {
-    if [[ -z "${1:-}" ]]; then
-        printf 'NULL'
+plays_empty() {
+    printf '%s\n' '{"film":{},"episode":{}}'
+}
+
+index_read() {
+    if [[ -f "$INDEX_PATH" ]]; then
+        jq -c '.' "$INDEX_PATH" 2>/dev/null || index_empty
     else
-        printf '%s' "$1"
+        index_empty
     fi
 }
 
-init_db() {
-    mkdir -p "$STATE_DIR"
-    sqlite3 "$DB_PATH" <<'SQL'
-CREATE TABLE IF NOT EXISTS films (
-    id INTEGER PRIMARY KEY,
-    path TEXT NOT NULL UNIQUE,
-    title TEXT NOT NULL,
-    year INTEGER,
-    sort_title TEXT NOT NULL,
-    poster_path TEXT
-);
-CREATE TABLE IF NOT EXISTS shows (
-    id INTEGER PRIMARY KEY,
-    name TEXT NOT NULL UNIQUE,
-    folder_path TEXT NOT NULL UNIQUE,
-    poster_path TEXT
-);
-CREATE TABLE IF NOT EXISTS episodes (
-    id INTEGER PRIMARY KEY,
-    show_id INTEGER NOT NULL,
-    path TEXT NOT NULL UNIQUE,
-    season INTEGER,
-    episode INTEGER,
-    title TEXT NOT NULL,
-    sort_key TEXT NOT NULL,
-    poster_path TEXT,
-    FOREIGN KEY (show_id) REFERENCES shows(id)
-);
-CREATE INDEX IF NOT EXISTS idx_episodes_show ON episodes(show_id);
-CREATE TABLE IF NOT EXISTS play_counts (
-    kind TEXT NOT NULL,
-    item_id INTEGER NOT NULL,
-    play_count INTEGER NOT NULL DEFAULT 0,
-    last_played_at INTEGER,
-    PRIMARY KEY (kind, item_id)
-);
-SQL
-    sqlite3 "$DB_PATH" "PRAGMA journal_mode=WAL;" >/dev/null
-    sqlite3 "$DB_PATH" "ALTER TABLE episodes ADD COLUMN poster_path TEXT" 2>/dev/null || true
-    migrate_poster_paths
+plays_read() {
+    if [[ -f "$PLAYS_PATH" ]]; then
+        jq -c '.' "$PLAYS_PATH" 2>/dev/null || plays_empty
+    else
+        plays_empty
+    fi
 }
 
-migrate_poster_paths() {
-    [[ -f "$DB_PATH" ]] || return 0
-    sqlite3 "$DB_PATH" <<'SQL'
-UPDATE films SET poster_path = REPLACE(poster_path, '/.local/state/evo-shell/', '/.local/state/evoshell/')
-    WHERE poster_path LIKE '%/.local/state/evo-shell/%';
-UPDATE shows SET poster_path = REPLACE(poster_path, '/.local/state/evo-shell/', '/.local/state/evoshell/')
-    WHERE poster_path LIKE '%/.local/state/evo-shell/%';
-UPDATE episodes SET poster_path = REPLACE(poster_path, '/.local/state/evo-shell/', '/.local/state/evoshell/')
-    WHERE poster_path LIKE '%/.local/state/evo-shell/%';
-SQL
+json_write_atomic() {
+    local dest="$1"
+    local body="$2"
+    local tmp
+    mkdir -p "$(dirname "$dest")"
+    tmp="$(mktemp "${dest}.XXXXXX")"
+    printf '%s\n' "$body" >"$tmp"
+    mv "$tmp" "$dest"
+}
+
+index_write() {
+    json_write_atomic "$INDEX_PATH" "$1"
+}
+
+plays_write() {
+    json_write_atomic "$PLAYS_PATH" "$1"
+}
+
+migrate_sqlite_if_needed() {
+    [[ -f "$INDEX_PATH" ]] && return 0
+    [[ -f "$LEGACY_DB" ]] || return 0
+    python3 - "$LEGACY_DB" "$INDEX_PATH" "$PLAYS_PATH" <<'PY'
+import json, os, sqlite3, sys
+
+db, index_path, plays_path = sys.argv[1:4]
+
+def fix(path):
+    if not path:
+        return None
+    return path.replace("/.local/state/evo-shell/", "/.local/state/evoshell/")
+
+con = sqlite3.connect(db)
+con.row_factory = sqlite3.Row
+films = [dict(row) for row in con.execute(
+    "SELECT id, path, title, year, sort_title, poster_path FROM films"
+)]
+show_rows = [dict(row) for row in con.execute(
+    "SELECT id, name, folder_path, poster_path FROM shows"
+)]
+episodes = [dict(row) for row in con.execute(
+    "SELECT id, show_id, path, season, episode, title, sort_key, poster_path FROM episodes"
+)]
+try:
+    plays = [dict(row) for row in con.execute(
+        "SELECT kind, item_id, play_count, last_played_at FROM play_counts"
+    )]
+except sqlite3.OperationalError:
+    plays = []
+con.close()
+
+for film in films:
+    film["poster_path"] = fix(film.get("poster_path"))
+
+eps_by_show = {}
+for episode in episodes:
+    episode["poster_path"] = fix(episode.get("poster_path"))
+    show_id = episode.pop("show_id")
+    eps_by_show.setdefault(show_id, []).append(episode)
+
+shows = []
+for show in show_rows:
+    show["poster_path"] = fix(show.get("poster_path"))
+    show["episodes"] = sorted(
+        eps_by_show.get(show["id"], []),
+        key=lambda item: str(item.get("sort_key") or ""),
+    )
+    shows.append(show)
+
+film_by_id = {film["id"]: film["path"] for film in films}
+episode_by_id = {}
+for episode in episodes:
+    episode_by_id[episode["id"]] = episode["path"]
+for show in shows:
+    for episode in show.get("episodes") or []:
+        episode_by_id[episode["id"]] = episode["path"]
+
+out_plays = {"film": {}, "episode": {}}
+for row in plays:
+    kind = row.get("kind")
+    if kind not in out_plays:
+        continue
+    path = film_by_id.get(row["item_id"]) if kind == "film" else episode_by_id.get(row["item_id"])
+    if not path:
+        continue
+    out_plays[kind][path] = {
+        "play_count": int(row.get("play_count") or 0),
+        "last_played_at": row.get("last_played_at"),
+    }
+
+os.makedirs(os.path.dirname(index_path), exist_ok=True)
+with open(index_path, "w", encoding="utf-8") as fh:
+    json.dump({"films": films, "shows": shows}, fh, ensure_ascii=False)
+with open(plays_path, "w", encoding="utf-8") as fh:
+    json.dump(out_plays, fh, ensure_ascii=False)
+PY
+    rm -f "$LEGACY_DB" "${LEGACY_DB}-wal" "${LEGACY_DB}-shm"
+}
+
+init_index() {
+    mkdir -p "$STATE_DIR" "$POSTER_DIR"
+    migrate_sqlite_if_needed
 }
 
 is_video() {
@@ -324,13 +385,21 @@ POPUP_ROW_LIMIT=4
 
 record_play() {
     local kind="$1"
-    local item_id="$2"
-    sqlite3 "$DB_PATH" \
-        "INSERT INTO play_counts (kind, item_id, play_count, last_played_at)
-         VALUES ('$(sql_escape "$kind")', $item_id, 1, cast(strftime('%s','now') as integer))
-         ON CONFLICT(kind, item_id) DO UPDATE SET
-             play_count = play_count + 1,
-             last_played_at = excluded.last_played_at;"
+    local path="$2"
+    local now plays
+    [[ "$kind" == "film" || "$kind" == "episode" ]] || return 0
+    [[ -n "$path" ]] || return 0
+    now="$(date +%s)"
+    plays="$(plays_read)"
+    plays="$(
+        jq -c --arg kind "$kind" --arg path "$path" --argjson now "$now" '
+            .[$kind][$path] = {
+                play_count: ((.[$kind][$path].play_count // 0) + 1),
+                last_played_at: $now
+            }
+        ' <<<"$plays"
+    )"
+    plays_write "$plays"
 }
 
 cmd_settings_get() {
@@ -471,19 +540,38 @@ find_video_files() {
 }
 
 cmd_scan() {
-    init_db
+    init_index
     media_roots
-    sqlite3 "$DB_PATH" "DELETE FROM episodes; DELETE FROM shows; DELETE FROM films;"
+    local tmpdir films_jsonl shows_jsonl path show_dir show_name resolved
+    local film_count=0 show_count=0 episode_count=0 film_id=0 show_id=0 episode_id=0
+    local eps_jsonl show_obj films shows index
 
-    local film_count=0 show_count=0 episode_count=0 path show_dir show_name show_id resolved
+    tmpdir="$(mktemp -d "${TMPDIR:-/tmp}/evo-media-scan.XXXXXX")"
+    films_jsonl="${tmpdir}/films.jsonl"
+    shows_jsonl="${tmpdir}/shows.jsonl"
+    : >"$films_jsonl"
+    : >"$shows_jsonl"
 
     if [[ -d "$FILMS_ROOT" ]]; then
         while IFS= read -r path; do
             [[ -n "$path" ]] || continue
             parse_film "$path"
             resolved="$(realpath "$path")"
-            sqlite3 "$DB_PATH" \
-                "INSERT INTO films(path, title, year, sort_title, poster_path) VALUES ('$(sql_escape "$resolved")', '$(sql_escape "$FILM_TITLE")', $(sql_null_int "$FILM_YEAR"), '$(sql_escape "$FILM_SORT_TITLE")', NULL);"
+            film_id=$((film_id + 1))
+            jq -nc \
+                --argjson id "$film_id" \
+                --arg path "$resolved" \
+                --arg title "$FILM_TITLE" \
+                --arg year "$FILM_YEAR" \
+                --arg sort_title "$FILM_SORT_TITLE" \
+                '{
+                    id: $id,
+                    path: $path,
+                    title: $title,
+                    year: (if $year == "" then null else ($year | tonumber) end),
+                    sort_title: $sort_title,
+                    poster_path: null
+                }' >>"$films_jsonl"
             film_count=$((film_count + 1))
         done < <(
             for path in "$FILMS_ROOT"/*; do
@@ -498,24 +586,83 @@ cmd_scan() {
             show_name="$(clean_name "$(basename "$show_dir")")"
             [[ -z "$show_name" ]] && show_name="$(basename "$show_dir")"
             resolved="$(realpath "$show_dir")"
-            show_id="$(sqlite3 "$DB_PATH" \
-                "INSERT INTO shows(name, folder_path, poster_path) VALUES ('$(sql_escape "$show_name")', '$(sql_escape "$resolved")', NULL); SELECT last_insert_rowid();")"
-            show_count=$((show_count + 1))
-
+            show_id=$((show_id + 1))
+            eps_jsonl="${tmpdir}/eps.${show_id}.jsonl"
+            : >"$eps_jsonl"
             while IFS= read -r path; do
                 [[ -n "$path" ]] || continue
                 parse_episode "$(basename "$path")" "$show_name"
-                resolved="$(realpath "$path")"
-                sqlite3 "$DB_PATH" \
-                    "INSERT INTO episodes(show_id, path, season, episode, title, sort_key, poster_path) VALUES ($show_id, '$(sql_escape "$resolved")', $(sql_null_int "$EP_SEASON"), $(sql_null_int "$EP_EPISODE"), '$(sql_escape "$EP_TITLE")', '$(sql_escape "$EP_SORT_KEY")', NULL);"
+                episode_id=$((episode_id + 1))
+                jq -nc \
+                    --argjson id "$episode_id" \
+                    --arg path "$(realpath "$path")" \
+                    --arg season "$EP_SEASON" \
+                    --arg episode "$EP_EPISODE" \
+                    --arg title "$EP_TITLE" \
+                    --arg sort_key "$EP_SORT_KEY" \
+                    '{
+                        id: $id,
+                        path: $path,
+                        season: (if $season == "" then null else ($season | tonumber) end),
+                        episode: (if $episode == "" then null else ($episode | tonumber) end),
+                        title: $title,
+                        sort_key: $sort_key,
+                        poster_path: null
+                    }' >>"$eps_jsonl"
                 episode_count=$((episode_count + 1))
             done < <(find_video_files "$show_dir")
+            if [[ -s "$eps_jsonl" ]]; then
+                show_obj="$(
+                    jq -nc \
+                        --argjson id "$show_id" \
+                        --arg name "$show_name" \
+                        --arg folder_path "$resolved" \
+                        --slurpfile episodes "$eps_jsonl" \
+                        '{
+                            id: $id,
+                            name: $name,
+                            folder_path: $folder_path,
+                            poster_path: null,
+                            episodes: $episodes
+                        }'
+                )"
+            else
+                show_obj="$(
+                    jq -nc \
+                        --argjson id "$show_id" \
+                        --arg name "$show_name" \
+                        --arg folder_path "$resolved" \
+                        '{
+                            id: $id,
+                            name: $name,
+                            folder_path: $folder_path,
+                            poster_path: null,
+                            episodes: []
+                        }'
+                )"
+            fi
+            printf '%s\n' "$show_obj" >>"$shows_jsonl"
+            show_count=$((show_count + 1))
         done < <(
             for show_dir in "$TV_ROOT"/*; do
                 [[ -d "$show_dir" ]] && printf '%s\n' "$show_dir"
             done | LC_ALL=C sort
         )
     fi
+
+    if [[ -s "$films_jsonl" ]]; then
+        films="$(jq -s '.' "$films_jsonl")"
+    else
+        films='[]'
+    fi
+    if [[ -s "$shows_jsonl" ]]; then
+        shows="$(jq -s '.' "$shows_jsonl")"
+    else
+        shows='[]'
+    fi
+    index="$(jq -nc --argjson films "$films" --argjson shows "$shows" '{films:$films, shows:$shows}')"
+    index_write "$index"
+    rm -rf "$tmpdir"
 
     jq -n \
         --argjson films "$film_count" \
@@ -525,116 +672,118 @@ cmd_scan() {
 }
 
 cmd_status() {
-    if [[ ! -f "$DB_PATH" ]]; then
+    init_index
+    if [[ ! -f "$INDEX_PATH" ]]; then
         jq -n '{ok: true, exists: false, films: 0, shows: 0, episodes: 0}'
         return 0
     fi
-    init_db
-    local films shows episodes
-    films="$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM films")"
-    shows="$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM shows")"
-    episodes="$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM episodes")"
-    jq -n \
-        --argjson films "$films" \
-        --argjson shows "$shows" \
-        --argjson episodes "$episodes" \
-        '{ok: true, exists: true, films: $films, shows: $shows, episodes: $episodes}'
+    jq -c '
+        {
+            ok: true,
+            exists: true,
+            films: ((.films // []) | length),
+            shows: ((.shows // []) | length),
+            episodes: (([.shows[]? | (.episodes // [])[]] ) | length)
+        }
+    ' <<<"$(index_read)"
 }
 
 cmd_list_films() {
-    init_db
-    json_or_empty "$(sqlite3 -json "$DB_PATH" \
-        "SELECT id, title, year, poster_path, path FROM films ORDER BY sort_title COLLATE NOCASE")"
+    init_index
+    jq -c '
+        [.films[]? | {id, title, year, poster_path, path, sort_title}]
+        | sort_by(.sort_title // "" | ascii_downcase)
+        | map(del(.sort_title))
+    ' <<<"$(index_read)"
 }
 
 cmd_list_shows() {
-    init_db
-    json_or_empty "$(sqlite3 -json "$DB_PATH" \
-        "SELECT id, name, poster_path FROM shows ORDER BY name COLLATE NOCASE")"
+    init_index
+    jq -c '
+        [.shows[]? | {id, name, poster_path}]
+        | sort_by(.name // "" | ascii_downcase)
+    ' <<<"$(index_read)"
 }
 
 cmd_list_catalog() {
-    init_db
+    init_index
     local films shows
-    films="$(json_or_empty "$(sqlite3 -json "$DB_PATH" \
-        "SELECT id, title, year, poster_path, path FROM films ORDER BY sort_title COLLATE NOCASE")")"
-    shows="$(json_or_empty "$(sqlite3 -json "$DB_PATH" \
-        "SELECT id, name, poster_path FROM shows ORDER BY name COLLATE NOCASE")")"
+    films="$(cmd_list_films)"
+    shows="$(cmd_list_shows)"
     jq -nc --argjson films "$films" --argjson shows "$shows" '{films: $films, shows: $shows}'
 }
 
 cmd_popup_preview() {
-    init_db
+    init_index
     local limit="$POPUP_ROW_LIMIT"
-    local films shows
-    films="$(sqlite3 -json "$DB_PATH" \
-        "SELECT f.id, f.title AS name, f.poster_path, pc.play_count
-         FROM play_counts pc
-         JOIN films f ON f.id = pc.item_id
-         WHERE pc.kind = 'film' AND pc.play_count > 0
-         ORDER BY pc.play_count DESC, pc.last_played_at DESC, f.sort_title COLLATE NOCASE
-         LIMIT $limit")"
-    if [[ "$(json_or_empty "$films")" == "[]" ]]; then
-        films="$(sqlite3 -json "$DB_PATH" \
-            "SELECT id, title AS name, poster_path, 0 AS play_count
-             FROM films
-             ORDER BY sort_title COLLATE NOCASE
-             LIMIT $limit")"
-    fi
-    shows="$(sqlite3 -json "$DB_PATH" "
-        SELECT s.id, s.name, s.poster_path, SUM(pc.play_count) AS play_count
-        FROM play_counts pc
-        JOIN episodes e ON e.id = pc.item_id AND pc.kind = 'episode'
-        JOIN shows s ON s.id = e.show_id
-        GROUP BY s.id
-        HAVING play_count > 0
-        ORDER BY play_count DESC, MAX(pc.last_played_at) DESC, s.name COLLATE NOCASE
-        LIMIT $limit")"
-    if [[ "$(json_or_empty "$shows")" == "[]" ]]; then
-        shows="$(sqlite3 -json "$DB_PATH" \
-            "SELECT id, name, poster_path, 0 AS play_count
-             FROM shows
-             ORDER BY name COLLATE NOCASE
-             LIMIT $limit")"
-    fi
-    jq -nc \
-        --argjson films "$(json_or_empty "$films")" \
-        --argjson shows "$(json_or_empty "$shows")" \
-        '{films: $films, shows: $shows}'
+    [[ -f "$INDEX_PATH" ]] || index_write "$(index_empty)"
+    [[ -f "$PLAYS_PATH" ]] || plays_write "$(plays_empty)"
+    jq -nc --argjson limit "$limit" --slurpfile lib "$INDEX_PATH" --slurpfile plays "$PLAYS_PATH" '
+        def library: $lib[0] // {films:[], shows:[]};
+        def counts: $plays[0] // {film:{}, episode:{}};
+        def film_rows:
+            [(library.films // [])[] | {
+                id, poster_path,
+                name: .title,
+                play_count: ((counts.film[.path].play_count) // 0),
+                last_played_at: ((counts.film[.path].last_played_at) // 0),
+                sort_title: (.sort_title // .title // "")
+            }];
+        def show_rows:
+            [(library.shows // [])[] | . as $s | {
+                id: $s.id,
+                name: $s.name,
+                poster_path: $s.poster_path,
+                play_count: ([($s.episodes // [])[] | ((counts.episode[.path].play_count) // 0)] | add // 0),
+                last_played_at: (
+                    [($s.episodes // [])[] | ((counts.episode[.path].last_played_at) // 0)]
+                    | if length == 0 then 0 else max end
+                )
+            }];
+        def pick($rows; $played):
+            if ($played | length) > 0 then
+                $played | sort_by([-.play_count, -.last_played_at, (.name // "" | ascii_downcase)]) | .[:$limit]
+            else
+                $rows | sort_by((.sort_title // .name // "") | ascii_downcase) | .[:$limit]
+                | map({id, name, poster_path, play_count: 0})
+            end;
+        (film_rows) as $films
+        | (show_rows) as $shows
+        | {
+            films: pick($films; [$films[] | select(.play_count > 0)]),
+            shows: pick($shows; [$shows[] | select(.play_count > 0)])
+          }
+        | .films |= map({id, name, poster_path, play_count})
+        | .shows |= map({id, name, poster_path, play_count})
+    '
 }
 
 cmd_list_episodes() {
     local show_query="$1"
-    local escaped show_data show_id show_name raw
-
-    init_db
-    escaped="$(sql_escape "$show_query")"
-    show_data="$(sqlite3 "$DB_PATH" \
-        "SELECT id, name FROM shows WHERE name = '$escaped' COLLATE NOCASE LIMIT 1")"
-
-    if [[ -z "$show_data" ]]; then
-        jq -n --arg show "$show_query" '{ok: false, error: "show not found", show: $show, episodes: []}'
-        return 0
-    fi
-
-    show_id="${show_data%%|*}"
-    show_name="${show_data#*|}"
-    raw="$(sqlite3 -json "$DB_PATH" \
-        "SELECT id, season, episode, title, path, poster_path FROM episodes WHERE show_id = $show_id ORDER BY sort_key COLLATE NOCASE")"
-
-    jq -c --arg show "$show_name" --argjson showId "$show_id" '
+    init_index
+    jq -c --arg q "$show_query" '
         def pad2: tostring | if length < 2 then "0" + . else . end;
         def ep_label:
             if (.season != null and .episode != null) then
                 "S" + (.season | pad2) + "E" + (.episode | pad2) + " · " + (.title // "")
             else (.title // "") end;
-        {
-            ok: true,
-            show: $show,
-            showId: $showId,
-            episodes: ((. // []) | map(. + {label: ep_label, poster_path: (.poster_path // "")}))
-        }
-    ' <<<"$(json_or_empty "$raw")"
+        (.shows // []) as $shows
+        | ($shows | map(select((.name // "") | ascii_downcase == ($q | ascii_downcase))) | .[0]) as $show
+        | if $show == null then
+            {ok: false, error: "show not found", show: $q, episodes: []}
+          else
+            {
+                ok: true,
+                show: $show.name,
+                showId: $show.id,
+                episodes: (
+                    ($show.episodes // [])
+                    | sort_by(.sort_key // "" | ascii_downcase)
+                    | map({id, season, episode, title, path, poster_path: (.poster_path // ""), label: ep_label})
+                )
+            }
+          end
+    ' <<<"$(index_read)"
 }
 
 play_mpv() {
@@ -653,12 +802,12 @@ cmd_play() {
         return 0
     fi
 
-    init_db
+    init_index
 
     if [[ "$kind" == "film" ]]; then
-        path="$(sqlite3 "$DB_PATH" "SELECT path FROM films WHERE id = $entry_id")"
+        path="$(jq -r --argjson id "$entry_id" '[.films[]? | select(.id == $id) | .path] | .[0] // empty' <<<"$(index_read)")"
     elif [[ "$kind" == "episode" ]]; then
-        path="$(sqlite3 "$DB_PATH" "SELECT path FROM episodes WHERE id = $entry_id")"
+        path="$(jq -r --argjson id "$entry_id" '[.shows[]? | (.episodes // [])[] | select(.id == $id) | .path] | .[0] // empty' <<<"$(index_read)")"
     else
         jq -n '{ok: false, error: "invalid kind"}'
         return 0
@@ -674,7 +823,7 @@ cmd_play() {
         return 0
     fi
 
-    record_play "$kind" "$entry_id"
+    record_play "$kind" "$path"
 
     play_mpv "$path"
     jq -n --arg path "$path" '{ok: true, path: $path}'
