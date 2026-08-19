@@ -14,7 +14,6 @@ Item {
     readonly property string barScript: Quickshell.env("HOME") + "/.local/bin/evo-layout"
     readonly property string fontScript: Quickshell.env("HOME") + "/.local/bin/evo-font"
     readonly property string mediaScript: Quickshell.env("HOME") + "/.local/bin/evo-media"
-    readonly property string playerScript: Quickshell.env("HOME") + "/.local/bin/evo-player"
     readonly property string tasksScript: Quickshell.env("HOME") + "/.local/bin/evo-tasks"
     readonly property string weatherScript: Quickshell.env("HOME") + "/.local/bin/evo-weather"
     readonly property string fontStatePath: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/evoshell/font.json"
@@ -81,10 +80,6 @@ Item {
     property bool notificationsReady: false
     property bool uiReady: false
     property bool fontReady: false
-    property string scUser: ""
-    property string scCookiesFrom: ""
-    property string musicLibrary: ""
-    property bool playerReady: false
     property string obsidianVault: ""
     property string detectedObsidianVault: ""
     property string tasksFile: ""
@@ -95,16 +90,8 @@ Item {
     readonly property bool fontBusy: fontSetProc.running
     readonly property bool mediaBusy: mediaTvSetProc.running || mediaFilmsSetProc.running
         || mediaTvPickProc.running || mediaFilmsPickProc.running
-    readonly property bool playerBusy: playerSetProc.running || playerLibraryPickProc.running
     readonly property bool tasksBusy: taskVaultSetProc.running || taskVaultPickProc.running
     readonly property bool weatherBusy: weatherSetProc.running
-    readonly property var cookieBrowsers: [
-        "brave", "chrome", "chromium", "edge", "firefox", "opera", "safari", "vivaldi", "whale"
-    ]
-    readonly property string cookieBrowserValue: {
-        var value = String(scCookiesFrom || "").trim()
-        return value !== "" ? value : "brave"
-    }
     readonly property var weatherLocationPresets: [
         "Derby", "London", "Manchester", "Birmingham", "Leeds", "Bristol",
         "Nottingham", "Sheffield", "Liverpool", "Glasgow", "Edinburgh", "Cardiff", "Belfast"
@@ -125,7 +112,7 @@ Item {
         var value = String(weatherLocation || "").trim()
         return value !== "" ? value : "Derby"
     }
-    readonly property bool settingsBusy: fontBusy || mediaBusy || playerBusy || tasksBusy || weatherBusy || hyprToggleProc.running || hyprSetProc.running
+    readonly property bool settingsBusy: fontBusy || mediaBusy || tasksBusy || weatherBusy || hyprToggleProc.running || hyprSetProc.running
         || barToggleProc.running || notificationsToggleProc.running || uiToggleProc.running
     readonly property bool active: host && host.opened && host.activeModule === "settings"
 
@@ -140,7 +127,6 @@ Item {
         if (!loadNotificationsProc.running) loadNotificationsProc.running = true
         if (!loadUiProc.running) loadUiProc.running = true
         if (!loadMediaProc.running) loadMediaProc.running = true
-        if (!loadPlayerProc.running) loadPlayerProc.running = true
         if (!loadTasksProc.running) loadTasksProc.running = true
         if (!loadWeatherProc.running) loadWeatherProc.running = true
     }
@@ -212,20 +198,6 @@ Item {
             return
         suppressMediaPathCommit = true
         mediaFilmsPickProc.running = true
-    }
-
-    function setMusicLibrary(path) {
-        if (!playerReady || settingsBusy)
-            return
-        playerSetProc.key = "paths.root"
-        playerSetProc.value = String(path || "")
-        playerSetProc.running = true
-    }
-
-    function pickMusicLibrary() {
-        if (!playerReady || settingsBusy)
-            return
-        playerLibraryPickProc.running = true
     }
 
     function openThemePicker() {
@@ -396,28 +368,6 @@ Item {
             root.mediaFilmsRoot = ""
             root.mediaReady = false
         }
-    }
-
-    function parsePlayerConfig(raw) {
-        try {
-            var data = JSON.parse(String(raw || "{}"))
-            var sc = data.soundcloud || {}
-            var paths = data.paths || {}
-            root.scUser = String(sc.user || "")
-            root.scCookiesFrom = String(sc.cookies_from || "")
-            root.musicLibrary = String(paths.root || "")
-            root.playerReady = true
-        } catch (e) {
-            root.playerReady = false
-        }
-    }
-
-    function setPlayerConfig(key, value) {
-        if (!playerReady || settingsBusy)
-            return
-        playerSetProc.key = key
-        playerSetProc.value = String(value || "")
-        playerSetProc.running = true
     }
 
     function parseTasksSettings(raw) {
@@ -672,35 +622,6 @@ Item {
         command: ["bash", root.mediaScript, "settings", "pick", "films"]
         stdout: StdioCollector {
             onStreamFinished: root.finishMediaPick(text)
-        }
-    }
-
-    Process {
-        id: loadPlayerProc
-        command: ["bash", root.playerScript, "config", "get", "--json"]
-        stdout: StdioCollector {
-            onStreamFinished: root.parsePlayerConfig(text)
-        }
-    }
-
-    Process {
-        id: playerSetProc
-        property string key: ""
-        property string value: ""
-        command: ["bash", root.playerScript, "config", "set", playerSetProc.key, playerSetProc.value, "--json"]
-        stdout: StdioCollector {
-            onStreamFinished: root.parsePlayerConfig(text)
-        }
-    }
-
-    Process {
-        id: playerLibraryPickProc
-        command: ["bash", root.playerScript, "config", "pick"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                if (String(text || "").trim())
-                    root.parsePlayerConfig(text)
-            }
         }
     }
 
@@ -1114,138 +1035,6 @@ Item {
                     }
                 }
 
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 4
-
-                    Text {
-                        text: "Music library"
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSizeS
-                        opacity: Theme.opacityMuted
-                    }
-
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: Theme.spacingS
-
-                        Rectangle {
-                            Layout.fillWidth: true
-                            implicitHeight: 34
-                            radius: 6
-                            color: Theme.foregroundWash
-                            border.color: Theme.foregroundDivider
-                            border.width: 1
-
-                            TextInput {
-                                anchors.fill: parent
-                                anchors.leftMargin: 8
-                                anchors.rightMargin: 8
-                                color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.fontSizeS
-                                selectionColor: Theme.accent
-                                selectedTextColor: Theme.mantle
-                                verticalAlignment: TextInput.AlignVCenter
-                                clip: true
-                                text: root.musicLibrary
-                                enabled: root.playerReady && !settingsBusy
-                                onEditingFinished: root.setMusicLibrary(text)
-                            }
-                        }
-
-                        Item {
-                            Layout.preferredWidth: 34
-                            Layout.preferredHeight: 34
-
-                            Text {
-                                anchors.centerIn: parent
-                                text: "󰉖"
-                                color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.fontSizeXl
-                                opacity: musicLibraryPickMouse.enabled
-                                    ? (musicLibraryPickMouse.containsMouse ? 1 : 0.72)
-                                    : 0.35
-                            }
-
-                            MouseArea {
-                                id: musicLibraryPickMouse
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                enabled: root.playerReady && !settingsBusy
-                                onClicked: root.pickMusicLibrary()
-                            }
-                        }
-                    }
-                }
-
-            }
-
-            SectionPanel {
-                contentPad: Theme.panelContentPad
-                legendBackground: Theme.background
-                label: ""
-                sectionSpacing: 12
-
-                HoverPopupLabelPill {
-                    text: "Evoplayer"
-                    fontSize: Theme.fontSizeS
-                }
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 4
-
-                    Text {
-                        text: "SoundCloud user"
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSizeS
-                        opacity: Theme.opacityMuted
-                    }
-
-                    Rectangle {
-                        Layout.fillWidth: true
-                        implicitHeight: 34
-                        radius: 6
-                        color: Theme.foregroundWash
-                        border.color: Theme.foregroundDivider
-                        border.width: 1
-
-                        TextInput {
-                            anchors.fill: parent
-                            anchors.leftMargin: 8
-                            anchors.rightMargin: 8
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontSizeS
-                            selectionColor: Theme.accent
-                            selectedTextColor: Theme.mantle
-                            verticalAlignment: TextInput.AlignVCenter
-                            clip: true
-                            text: root.scUser
-                            enabled: root.playerReady && !settingsBusy
-                            onEditingFinished: root.setPlayerConfig("soundcloud.user", text)
-                        }
-                    }
-                }
-
-                FontFamilyPicker {
-                    Layout.fillWidth: true
-                    label: "Cookies browser"
-                    previewFont: false
-                    labelBold: false
-                    value: root.cookieBrowserValue
-                    model: root.cookieBrowsers
-                    enabled: root.playerReady && !settingsBusy
-                    onActivated: function(browser) {
-                        root.scCookiesFrom = browser
-                        root.setPlayerConfig("soundcloud.cookies_from", browser)
-                    }
-                }
             }
 
             SectionPanel {

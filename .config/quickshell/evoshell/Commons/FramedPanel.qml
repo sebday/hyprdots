@@ -7,6 +7,7 @@ Item {
     property string label: ""
     property string labelAlign: "left"
     property int contentPad: Theme.panelContentPad
+    property int legendPad: -1
     property color frameBorder: Theme.foregroundBorder
     property bool contentFill: false
     property int labelFontSize: Theme.fontSizeS
@@ -33,6 +34,7 @@ Item {
         ? legendOverlayHeight + legendTopInset - legendLineOverlap : 0
     readonly property int cornerRadius: Theme.fieldsetCornerRadius
     readonly property int scaledPad: contentPad
+    readonly property int resolvedLegendPad: legendPad >= 0 ? legendPad : scaledPad
     readonly property int contentWidth: Math.max(contentHost.childrenRect.width, 1)
     readonly property int contentHeight: Math.max(contentHost.childrenRect.height, 1)
     readonly property int labelRowHeight: hasLabel ? frameLabel.implicitHeight + labelGap : 0
@@ -127,7 +129,7 @@ Item {
     Item {
         id: legendAnchor
         visible: root.hasLegendOverlay
-        x: frameBox.x + root.scaledPad
+        x: frameBox.x + root.resolvedLegendPad
         y: frameBox.y
         width: Math.max(root.legendOverlayWidth, 1)
         height: Math.max(root.legendOverlayHeight, 1)
@@ -169,6 +171,7 @@ Item {
 
     onContentHeightChanged: Qt.callLater(syncLegendOverlay)
     onLegendOverlapChanged: Qt.callLater(syncLegendOverlay)
+    onResolvedLegendPadChanged: Qt.callLater(syncLegendOverlay)
 
     Component.onCompleted: syncLegendOverlay()
 }

@@ -14,6 +14,7 @@ Item {
 
     readonly property string playerScript: (Quickshell.env("HOME") || "") + "/.local/bin/evo-player"
     readonly property int pad: Theme.hoverPopupMargin
+    readonly property color fieldsetLegendBackground: Theme.background
     readonly property int bodyFont: Theme.fontSize3xl
     readonly property int hintFont: Theme.fontSizeL
     readonly property int listFont: hintFont
@@ -54,7 +55,6 @@ Item {
     readonly property int libraryFont: Theme.fontSizeS
     readonly property int sectionLabelFont: Theme.fontSizeL
     readonly property int genreTabHeight: 34
-    readonly property int tabSearchBarWidth: 168
     readonly property bool playerPlaying: String(player.state || "") === "playing"
     readonly property real progress: player.duration > 0
         ? Math.max(0, Math.min(1, player.position / player.duration))
@@ -121,12 +121,13 @@ Item {
     property bool browseQueueBusy: false
     property bool browsePanelOpen: false
     property bool playlistPanelOpen: false
+    property bool settingsPanelOpen: false
     property string playlistPanelMode: "library"
-    readonly property bool sidePanelOpen: browsePanelOpen || playlistPanelOpen
+    readonly property bool sidePanelOpen: browsePanelOpen || playlistPanelOpen || settingsPanelOpen
     readonly property bool splitSidePanelMode: browsePanelOpen || playlistPanelOpen
-        || playerScreen === "filter"
+        || settingsPanelOpen || playerScreen === "filter"
     readonly property bool nowPlayingTabActive: !browsePanelOpen && !playlistPanelOpen
-        && playerScreen === "nowPlaying"
+        && !settingsPanelOpen && playerScreen === "nowPlaying"
     readonly property bool artPreviewActive: (browsePanelOpen || playlistPanelOpen)
         && String(selectedTrackPath || "") !== ""
         && String(selectedTrackPath) !== String(player.path || "")
@@ -212,8 +213,21 @@ Item {
     property string trashConfirmTitle: ""
     readonly property bool trashConfirmOpen: trashConfirmPath !== ""
     readonly property bool keyShortcutsBlocked: tabSearchInput.activeFocus
-        || trashConfirmOpen || artPickerSearchFocused
+        || trashConfirmOpen || artPickerSearchFocused || settingsFieldFocused
     property var volumeTransportBtn: null
+    property string settingsMusicLibrary: ""
+    property string settingsScUser: ""
+    property string settingsScCookiesFrom: ""
+    property bool settingsReady: false
+    property bool settingsBusy: false
+    property bool settingsFieldFocused: false
+    readonly property var cookieBrowsers: [
+        "brave", "chrome", "chromium", "edge", "firefox", "opera", "safari", "vivaldi", "whale"
+    ]
+    readonly property string cookieBrowserValue: {
+        var value = String(settingsScCookiesFrom || "").trim()
+        return value !== "" ? value : "brave"
+    }
     readonly property var libraryActions: [
         {
             key: "build",
@@ -284,6 +298,20 @@ Item {
         return album
     }
     readonly property bool nowPlayingBylineVisible: nowPlayingArtist !== "" || nowPlayingAlbum !== ""
+    readonly property string browseLegendText: {
+        var crumbs = browseCrumbs || []
+        if (crumbs.length > 0)
+            return String(crumbs[crumbs.length - 1].label || "Library")
+        return "Library"
+    }
+    readonly property string artworkLegendText: {
+        var t = artTargetTrack || {}
+        var album = String(t.album || "").trim()
+        var title = String(t.title || "").trim()
+        if (album !== "" && album !== title)
+            return album
+        return "Artwork"
+    }
 
     function artUrl(path) {
         if (!path) return ""
@@ -573,6 +601,7 @@ Item {
         savePlaylistView(selectedPlaylist)
         browsePanelOpen = false
         playlistPanelOpen = false
+        settingsPanelOpen = false
         playerScreen = "nowPlaying"
     }
 
@@ -584,6 +613,7 @@ Item {
         }
         savePlaylistView(selectedPlaylist)
         playlistPanelOpen = false
+        settingsPanelOpen = false
         browsePanelOpen = true
         playerScreen = "nowPlaying"
         if (!browsePath && !browseTreeRows.length)
@@ -599,11 +629,25 @@ Item {
             return
         }
         browsePanelOpen = false
+        settingsPanelOpen = false
         playlistPanelOpen = true
         playlistPanelMode = "library"
         playerScreen = "nowPlaying"
         if (!libraryPlaylists.length && !playlistsLoading)
             loadPlaylists()
+    }
+
+    function toggleSettingsPanel() {
+        if (settingsPanelOpen) {
+            settingsPanelOpen = false
+            return
+        }
+        savePlaylistView(selectedPlaylist)
+        browsePanelOpen = false
+        playlistPanelOpen = false
+        settingsPanelOpen = true
+        playerScreen = "nowPlaying"
+        loadPlayerSettings()
     }
 
     function showPlaylistLibrary() {
@@ -749,7 +793,7 @@ Item {
         jobLabel = label
         activeLibraryJobKey = (options && options.key) ? String(options.key) : ""
         jobLog = label + "…\n"
-        if (!(options && options.stayOnScreen) && playerScreen !== "filter")
+        if (!(options && options.stayOnScreen) && playerScreen !== "filter" && !settingsPanelOpen)
             playerScreen = "nowPlaying"
         jobProc.command = ["bash", playerScript].concat(args || [])
         notify(label + "…", 2000)
@@ -858,6 +902,56 @@ Item {
         })
     }
 
+    function parsePlayerSettings(raw) {
+        var prevRoot = String(settingsMusicLibrary || "")
+        try {
+            var data = JSON.parse(String(raw || "{}"))
+            var sc = data.soundcloud || {}
+            var paths = data.paths || {}
+            settingsScUser = String(sc.user || "")
+            settingsScCookiesFrom = String(sc.cookies_from || "")
+            settingsMusicLibrary = String(paths.root || "")
+            if (settingsMusicLibrary)
+                musicRoot = settingsMusicLibrary
+            settingsReady = true
+        } catch (e) {
+            settingsReady = false
+        }
+        settingsBusy = false
+        if (prevRoot && settingsMusicLibrary && settingsMusicLibrary !== prevRoot) {
+            loadLibraryStats()
+            if (browsePanelOpen || browseTreeRows.length > 0)
+                reloadBrowseTreeView()
+        }
+    }
+
+    function loadPlayerSettings() {
+        if (!runQuery(["config", "get", "--json"], function(text) {
+            root.parsePlayerSettings(text)
+        }))
+            Qt.callLater(root.loadPlayerSettings)
+    }
+
+    function setPlayerSetting(key, value) {
+        if (!settingsReady || settingsBusy || settingsSetProc.running)
+            return
+        settingsBusy = true
+        settingsSetProc.key = String(key || "")
+        settingsSetProc.value = String(value || "")
+        settingsSetProc.running = true
+    }
+
+    function setMusicLibrary(path) {
+        setPlayerSetting("paths.root", path)
+    }
+
+    function pickMusicLibrary() {
+        if (!settingsReady || settingsBusy || settingsPickProc.running)
+            return
+        settingsBusy = true
+        settingsPickProc.running = true
+    }
+
     function runMusic(args, onDone, proc) {
         var runner = proc || cmdProc
         if (runner.running) return false
@@ -925,17 +1019,9 @@ Item {
             name: currentPlaylistId,
             count: currentPlaylistActive ? currentPlaylistTracks.length : 0
         })
-        var allCount = 0
-        for (var i = 0; i < libraryPlaylists.length; i++) {
-            if (libraryPlaylists[i].name === "all") {
-                allCount = libraryPlaylists[i].count || 0
-                break
-            }
-        }
-        playlistTabModel.append({ name: "all", count: allCount })
         for (var k = 0; k < playlists.length; k++) {
             var tabName = String(playlists[k].name || "")
-            if (!tabName || tabName === currentPlaylistId || tabName === "all")
+            if (!tabName || tabName === currentPlaylistId)
                 continue
             playlistTabModel.append({
                 name: tabName,
@@ -947,7 +1033,7 @@ Item {
 
     function playlistCanStar(name) {
         var n = String(name || "")
-        return n && n !== currentPlaylistId && n !== "all"
+        return n !== "" && n !== currentPlaylistId
     }
 
     function refreshCurrentPlaylistView() {
@@ -1058,6 +1144,8 @@ Item {
             return "current"
         if (currentPlaylistActive && String(name || "") === currentPlaylistPath)
             return "current"
+        if (String(name || "") === "all")
+            return "all likes"
         return String(name || "")
     }
 
@@ -1193,6 +1281,7 @@ Item {
     function openPlaylistLibrary() {
         playerScreen = "nowPlaying"
         browsePanelOpen = false
+        settingsPanelOpen = false
         playlistPanelOpen = true
         playlistPanelMode = "library"
         if (!libraryPlaylists.length && !playlistsLoading)
@@ -1872,6 +1961,7 @@ Item {
     function openFilter(kind, value, label) {
         browsePanelOpen = false
         playlistPanelOpen = false
+        settingsPanelOpen = false
         filterKind = String(kind || "")
         filterLabel = String(label || value || "")
         filterTracks = []
@@ -1947,6 +2037,7 @@ Item {
     function openGenreTracks(genreName) {
         browsePanelOpen = false
         playlistPanelOpen = false
+        settingsPanelOpen = false
         filterKind = "genre"
         filterLabel = playlistTabLabel(genreName)
         filterTracks = []
@@ -2142,6 +2233,7 @@ Item {
         if (switchScreen !== false) {
             playerScreen = "nowPlaying"
             browsePanelOpen = false
+            settingsPanelOpen = false
             playlistPanelOpen = true
             playlistPanelMode = "tracks"
         }
@@ -3481,6 +3573,37 @@ Item {
     }
 
     Process {
+        id: settingsSetProc
+        property string key: ""
+        property string value: ""
+        command: ["bash", root.playerScript, "config", "set", settingsSetProc.key, settingsSetProc.value, "--json"]
+        stdout: StdioCollector {
+            onStreamFinished: root.parsePlayerSettings(text)
+        }
+        onExited: function(exitCode) {
+            if (exitCode !== 0)
+                root.settingsBusy = false
+        }
+    }
+
+    Process {
+        id: settingsPickProc
+        command: ["bash", root.playerScript, "config", "pick"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (String(text || "").trim())
+                    root.parsePlayerSettings(text)
+                else
+                    root.settingsBusy = false
+            }
+        }
+        onExited: function(exitCode) {
+            if (exitCode !== 0)
+                root.settingsBusy = false
+        }
+    }
+
+    Process {
         id: favoriteProc
         property var _onDone: null
         property var _queuedArgs: null
@@ -3753,12 +3876,13 @@ Item {
             id: rootLayout
             width: playerScroller.width
             height: Math.max(playerScroller.height, implicitHeight)
-            spacing: pad
+            spacing: Theme.hoverPopupSectionSpacing
 
         // Tabs
         SectionPanel {
             label: ""
             visible: !root.menuBarHidden
+            contentPad: Theme.panelContentPad
             Layout.fillWidth: true
             fillHeight: false
 
@@ -3783,6 +3907,11 @@ Item {
                     active: root.playlistPanelOpen
                     onActivated: root.togglePlaylistPanel()
                 }
+                IconTab {
+                    icon: "󰒓"
+                    active: root.settingsPanelOpen
+                    onActivated: root.toggleSettingsPanel()
+                }
 
                 Rectangle {
                     Layout.preferredWidth: 1
@@ -3795,6 +3924,9 @@ Item {
                     id: playlistTabBarHost
                     Layout.fillWidth: true
                     Layout.fillHeight: true
+                    Layout.preferredWidth: playlistTabBar.contentWidth
+                    Layout.maximumWidth: playlistTabBar.contentWidth
+                    Layout.minimumWidth: 0
 
                     ListView {
                         id: playlistTabBar
@@ -3861,7 +3993,8 @@ Item {
                 }
 
                 Item {
-                    Layout.preferredWidth: root.tabSearchBarWidth
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 120
                     Layout.preferredHeight: root.genreTabHeight
                     Layout.alignment: Qt.AlignVCenter
 
@@ -3878,7 +4011,7 @@ Item {
                             id: tabSearchInput
                             anchors.fill: parent
                             anchors.leftMargin: 8
-                            anchors.rightMargin: 8
+                            anchors.rightMargin: tabSearchClear.visible ? 26 : 8
                             color: Theme.foreground
                             font.family: Theme.fontFamily
                             font.pixelSize: root.libraryFont
@@ -3912,6 +4045,39 @@ Item {
                             font.pixelSize: root.libraryFont
                             opacity: 0.4
                         }
+
+                        Item {
+                            id: tabSearchClear
+                            visible: tabSearchInput.text !== ""
+                            anchors.right: parent.right
+                            anchors.rightMargin: 4
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 22
+                            height: 22
+                            z: 1
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: "󰅖"
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.libraryFont
+                                opacity: tabSearchClearMouse.containsMouse ? 0.95 : 0.45
+                            }
+
+                            MouseArea {
+                                id: tabSearchClearMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    tabSearchDebounce.stop()
+                                    root.tabSearchText = ""
+                                    tabSearchInput.text = ""
+                                    tabSearchInput.forceActiveFocus()
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -3941,10 +4107,17 @@ Item {
                         SectionPanel {
                             label: ""
                             visible: !root.splitSidePanelMode
+                            legendBackground: root.fieldsetLegendBackground
                             Layout.fillWidth: true
                             Layout.fillHeight: true
                             Layout.minimumHeight: root.nowPlayingFieldsetMinHeight
                             fillHeight: true
+
+                            HoverPopupLabelPill {
+                                text: "Now playing"
+                                icon: "󰎈"
+                                fontSize: Theme.fontSizeS
+                            }
 
                             ColumnLayout {
                                 Layout.fillWidth: true
@@ -4343,7 +4516,7 @@ Item {
                                         visible: waveformViz.vizMid > 0
                                         label: root.player.position_label || "0:00"
                                         anchors.left: parent.left
-                                        anchors.leftMargin: 5 - Theme.hoverPopupContentPad
+                                        anchors.leftMargin: 8
                                         y: waveformViz.vizMid - implicitHeight / 2
                                     }
 
@@ -4354,7 +4527,7 @@ Item {
                                         visible: waveformViz.vizMid > 0
                                         label: root.player.duration_label || "0:00"
                                         anchors.right: parent.right
-                                        anchors.rightMargin: 5 - Theme.hoverPopupContentPad
+                                        anchors.rightMargin: 8
                                         y: waveformViz.vizMid - implicitHeight / 2
                                     }
 
@@ -4404,6 +4577,12 @@ Item {
                             Layout.fillHeight: true
                         }
 
+                        PlayerSideSettingsPanel {
+                            visible: root.settingsPanelOpen
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                        }
+
                         PlayerSideFilterPanel {
                             visible: root.playerScreen === "filter"
                             Layout.fillWidth: true
@@ -4428,11 +4607,19 @@ Item {
                     SectionPanel {
                         label: ""
                         visible: !root.nowPlayingCompact
+                        legendBackground: root.fieldsetLegendBackground
+                        contentPad: Theme.panelContentPad
                         Layout.fillHeight: true
                         Layout.preferredWidth: root.nowPlayingArtWidth
                         Layout.maximumWidth: root.nowPlayingArtWidth
                         Layout.minimumWidth: root.nowPlayingArtWidth
                         fillHeight: true
+
+                        HoverPopupLabelPill {
+                            text: root.artworkLegendText
+                            icon: "󰋩"
+                            fontSize: Theme.fontSizeS
+                        }
 
                         Item {
                             Layout.fillWidth: true
@@ -4443,8 +4630,7 @@ Item {
                                 readonly property int fitSide: Math.min(parent.width, parent.height)
                                 side: fitSide
                                 showPickerOverlay: true
-                                anchors.right: parent.right
-                                anchors.verticalCenter: parent.verticalCenter
+                                anchors.centerIn: parent
                             }
 
                             Rectangle {
@@ -6107,7 +6293,14 @@ Item {
 
     component PlayerSideBrowsePanel: SectionPanel {
         label: ""
+        legendBackground: root.fieldsetLegendBackground
         fillHeight: true
+
+        HoverPopupLabelPill {
+            text: root.browseLegendText
+            icon: "󰉋"
+            fontSize: Theme.fontSizeS
+        }
 
         ColumnLayout {
             anchors.fill: parent
@@ -6145,52 +6338,8 @@ Item {
                     onActivated: root.refreshBrowseTree()
                 }
 
-                Repeater {
-                    model: root.libraryActions
-
-                    RowIconButton {
-                        required property var modelData
-                        icon: modelData.icon
-                        tooltip: modelData.hint || modelData.label
-                        opacityIdle: root.libraryJobBusy ? 0.2 : 0.5
-                        opacityHover: root.libraryJobBusy ? 0.35 : 0.9
-                        iconColor: (root.libraryActivityBusy && modelData.key === "build")
-                            || (root.libraryJobBusy && root.activeLibraryJobKey === modelData.key)
-                            ? Theme.accent
-                            : Theme.foreground
-                        flashing: modelData.key === "build" && root.libraryActivityBusy
-                        enabled: !root.browseTreeLoading && !root.libraryJobBusy
-                        onActivated: root.runLibraryAction(modelData)
-                    }
-                }
-
-                RowIconButton {
-                    visible: root.libraryActivityBusy
-                    icon: "󰓛"
-                    tooltip: "stop"
-                    opacityIdle: 0.5
-                    opacityHover: 0.9
-                    iconColor: Theme.urgent
-                    flashing: true
-                    enabled: !root.browseTreeLoading
-                    onActivated: root.stopLibraryJob()
-                }
-
-                Text {
-                    visible: root.libraryActivityBusy
-                    Layout.fillWidth: true
-                    Layout.minimumWidth: 48
-                    text: root.jobLogInline()
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.libraryFont
-                    opacity: Theme.opacityDisabled
-                    elide: Text.ElideRight
-                }
-
                 Item {
                     Layout.fillWidth: true
-                    visible: !root.libraryActivityBusy
                 }
 
                 Text {
@@ -6423,46 +6572,92 @@ Item {
 
     component PlayerSidePlaylistPanel: SectionPanel {
         label: ""
+        legendBackground: root.fieldsetLegendBackground
         fillHeight: true
+
+        Item {
+            id: playlistLegend
+            property bool fieldsetLegend: true
+            property color fieldsetFill: Theme.mantle
+
+            implicitWidth: playlistLegendBg.implicitWidth
+            implicitHeight: playlistLegendBg.implicitHeight
+
+            Rectangle {
+                id: playlistLegendBg
+                color: playlistLegend.fieldsetFill
+                implicitWidth: playlistLegendRow.implicitWidth + 10
+                implicitHeight: playlistLegendRow.implicitHeight
+
+                RowLayout {
+                    id: playlistLegendRow
+                    anchors.centerIn: parent
+                    spacing: 5
+
+                    Item {
+                        implicitWidth: playlistRootRow.implicitWidth
+                        implicitHeight: playlistRootRow.implicitHeight
+
+                        RowLayout {
+                            id: playlistRootRow
+                            spacing: 5
+
+                            Text {
+                                text: "󰲸"
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSizeS
+                                font.bold: Theme.fontBold
+                                opacity: playlistRootMouse.containsMouse ? 1 : 0.72
+                            }
+
+                            Text {
+                                text: "Playlists"
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSizeS
+                                font.bold: Theme.fontBold
+                                opacity: playlistRootMouse.containsMouse ? 1 : 0.72
+                            }
+                        }
+
+                        MouseArea {
+                            id: playlistRootMouse
+                            anchors.fill: parent
+                            enabled: root.playlistPanelMode === "tracks"
+                            hoverEnabled: enabled
+                            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                            onClicked: root.showPlaylistLibrary()
+                        }
+                    }
+
+                    Text {
+                        visible: root.playlistPanelMode === "tracks"
+                        text: "/"
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeS
+                        font.bold: Theme.fontBold
+                        opacity: 0.4
+                    }
+
+                    Text {
+                        visible: root.playlistPanelMode === "tracks"
+                        text: root.playlistTabLabel(root.selectedPlaylist)
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeS
+                        font.bold: Theme.fontBold
+                        opacity: 0.72
+                    }
+                }
+            }
+        }
 
         ColumnLayout {
             id: playlistPanelColumn
             anchors.fill: parent
             spacing: Theme.spacingS
-
-            Rectangle {
-                Layout.fillWidth: true
-                implicitHeight: playlistCrumbRow.implicitHeight + 8
-                Layout.preferredHeight: Math.max(30, implicitHeight)
-                radius: Theme.radiusM
-                color: Theme.foregroundWash
-                visible: root.playlistPanelMode === "tracks"
-
-                RowLayout {
-                    id: playlistCrumbRow
-                    anchors.fill: parent
-                    anchors.leftMargin: 6
-                    anchors.rightMargin: 6
-                    anchors.topMargin: 4
-                    anchors.bottomMargin: 4
-                    spacing: Theme.spacingM
-
-                    RowIconButton {
-                        icon: "󰁍"
-                        onActivated: root.showPlaylistLibrary()
-                    }
-
-                    Text {
-                        Layout.fillWidth: true
-                        text: root.playlistTabLabel(root.selectedPlaylist)
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.sectionLabelFont
-                        font.bold: Theme.fontBold
-                        elide: Text.ElideRight
-                    }
-                }
-            }
 
             ListView {
                 id: sidePlaylistLibraryList
@@ -6675,9 +6870,248 @@ Item {
         }
     }
 
+    component PlayerSideSettingsPanel: SectionPanel {
+        label: ""
+        legendBackground: root.fieldsetLegendBackground
+        fillHeight: true
+
+        HoverPopupLabelPill {
+            text: "Settings"
+            icon: "󰒓"
+            fontSize: Theme.fontSizeS
+        }
+
+        Flickable {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            clip: true
+            contentWidth: width
+            contentHeight: settingsCol.implicitHeight
+            boundsBehavior: Flickable.StopAtBounds
+
+            ColumnLayout {
+                id: settingsCol
+                width: parent.width
+                spacing: Theme.spacingL
+
+                Text {
+                    text: "Library"
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.libraryFont
+                    opacity: Theme.opacityMuted
+                }
+
+                Repeater {
+                    model: root.libraryActions
+
+                    Rectangle {
+                        required property var modelData
+                        Layout.fillWidth: true
+                        implicitHeight: 36
+                        radius: Theme.radiusL
+                        color: settingsActionMouse.containsMouse
+                            ? Theme.foregroundGhost
+                            : "transparent"
+                        opacity: enabled ? 1 : 0.45
+                        enabled: !root.libraryJobBusy
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: 8
+                            anchors.rightMargin: 8
+                            spacing: Theme.spacingM
+
+                            Text {
+                                text: modelData.icon
+                                color: (root.libraryActivityBusy && modelData.key === "build")
+                                    || (root.libraryJobBusy && root.activeLibraryJobKey === modelData.key)
+                                    ? Theme.accent
+                                    : Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.listFont
+                                opacity: 0.85
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: modelData.label
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.listFont
+                                elide: Text.ElideRight
+                            }
+                        }
+
+                        MouseArea {
+                            id: settingsActionMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: parent.enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                            enabled: parent.enabled
+                            onClicked: root.runLibraryAction(modelData)
+                        }
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Theme.spacingM
+                    visible: root.libraryActivityBusy
+
+                    Text {
+                        text: "󰓛"
+                        color: Theme.urgent
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.listFont
+
+                        MouseArea {
+                            anchors.fill: parent
+                            anchors.margins: -6
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.stopLibraryJob()
+                        }
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: root.jobLogInline()
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.libraryFont
+                        opacity: Theme.opacityDisabled
+                        elide: Text.ElideRight
+                    }
+                }
+
+                Text {
+                    Layout.topMargin: Theme.spacingS
+                    text: "Music library"
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.libraryFont
+                    opacity: Theme.opacityMuted
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Theme.spacingS
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        implicitHeight: 34
+                        radius: 6
+                        color: Theme.foregroundWash
+                        border.color: Theme.foregroundDivider
+                        border.width: 1
+
+                        TextInput {
+                            anchors.fill: parent
+                            anchors.leftMargin: 8
+                            anchors.rightMargin: 8
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.libraryFont
+                            selectionColor: Theme.accent
+                            selectedTextColor: Theme.mantle
+                            verticalAlignment: TextInput.AlignVCenter
+                            clip: true
+                            text: root.settingsMusicLibrary
+                            enabled: root.settingsReady && !root.settingsBusy
+                            onActiveFocusChanged: root.settingsFieldFocused = activeFocus
+                            onEditingFinished: root.setMusicLibrary(text)
+                        }
+                    }
+
+                    Item {
+                        Layout.preferredWidth: 34
+                        Layout.preferredHeight: 34
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: "󰉖"
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeXl
+                            opacity: settingsLibPickMouse.enabled
+                                ? (settingsLibPickMouse.containsMouse ? 1 : 0.72)
+                                : 0.35
+                        }
+
+                        MouseArea {
+                            id: settingsLibPickMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            enabled: root.settingsReady && !root.settingsBusy
+                            onClicked: root.pickMusicLibrary()
+                        }
+                    }
+                }
+
+                Text {
+                    Layout.topMargin: Theme.spacingS
+                    text: "SoundCloud user"
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.libraryFont
+                    opacity: Theme.opacityMuted
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    implicitHeight: 34
+                    radius: 6
+                    color: Theme.foregroundWash
+                    border.color: Theme.foregroundDivider
+                    border.width: 1
+
+                    TextInput {
+                        anchors.fill: parent
+                        anchors.leftMargin: 8
+                        anchors.rightMargin: 8
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.libraryFont
+                        selectionColor: Theme.accent
+                        selectedTextColor: Theme.mantle
+                        verticalAlignment: TextInput.AlignVCenter
+                        clip: true
+                        text: root.settingsScUser
+                        enabled: root.settingsReady && !root.settingsBusy
+                        onActiveFocusChanged: root.settingsFieldFocused = activeFocus
+                        onEditingFinished: root.setPlayerSetting("soundcloud.user", text)
+                    }
+                }
+
+                FontFamilyPicker {
+                    Layout.fillWidth: true
+                    label: "Cookies browser"
+                    previewFont: false
+                    labelBold: false
+                    value: root.cookieBrowserValue
+                    model: root.cookieBrowsers
+                    enabled: root.settingsReady && !root.settingsBusy
+                    onActivated: function(browser) {
+                        root.settingsScCookiesFrom = browser
+                        root.setPlayerSetting("soundcloud.cookies_from", browser)
+                    }
+                }
+            }
+        }
+    }
+
     component PlayerSideFilterPanel: SectionPanel {
         label: ""
+        legendBackground: root.fieldsetLegendBackground
         fillHeight: true
+
+        HoverPopupLabelPill {
+            text: root.filterHeaderTitle()
+            icon: "󰍉"
+            fontSize: Theme.fontSizeS
+        }
 
         ColumnLayout {
             anchors.fill: parent

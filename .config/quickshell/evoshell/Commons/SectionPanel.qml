@@ -9,6 +9,7 @@ Item {
     property int sectionSpacing: Theme.hoverPopupSectionSpacing
     property int labelFontSize: Theme.fontSizeL
     property int contentPad: Theme.hoverPopupContentPad
+    property int legendPad: -1
     property color legendBackground: Theme.mantle
     property bool filled: false
     property color fillColor: Theme.panelMantle
@@ -57,6 +58,7 @@ Item {
         labelAlign: root.labelAlign
         labelFontSize: root.labelFontSize
         contentPad: root.contentPad
+        legendPad: root.legendPad
         labelBackground: root.legendBackground
         filled: root.filled
         fillColor: root.fillColor

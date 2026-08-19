@@ -56,7 +56,7 @@ hl.window_rule({
 		tag = "floating-window",
 		title = "^Rename.*",
 	},
-	size = { 385, 150 },
+	size = { 450, 150 },
 	move = { "cursor_x-192", "cursor_y-75" },
 })
 
@@ -107,18 +107,6 @@ hl.window_rule({
 	name = "opacity-media-players",
 	match = { class = "^(mpv|imv|imv-dir)$" },
 	opacity = "1 override 1 override",
-})
-
-hl.window_rule({
-	name = "opacity-streaming",
-	match = { title = "^(.*Picture-in-Picture.*|.*www.channel4.com.*|.*My4.*|.*iplayer.*)" },
-	opacity = "1 override 1 override",
-})
-
-hl.window_rule({
-	name = "workspace-gimp",
-	match = { initial_class = "^(gimp)" },
-	workspace = "8",
 })
 
 hl.window_rule({

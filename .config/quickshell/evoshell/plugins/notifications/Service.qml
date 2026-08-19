@@ -529,7 +529,6 @@ Scope {
         property string fallbackIcon: "󰎆"
         property var fields: ({})
         property int artSize: Theme.notificationArtSize
-        property bool blurredBackground: true
         property int imageFillMode: Image.PreserveAspectCrop
 
         readonly property string artSource: {
@@ -546,22 +545,6 @@ Scope {
 
         width: Theme.notificationWidth
         implicitHeight: innerRow.height + Theme.notificationMediaPad * 2
-
-        Image {
-            visible: artworkRoot.blurredBackground && artworkRoot.artSource !== ""
-            anchors.fill: parent
-            source: artworkRoot.artSource
-            fillMode: Image.PreserveAspectCrop
-            asynchronous: true
-            cache: false
-            opacity: 0.18
-        }
-
-        Rectangle {
-            visible: artworkRoot.blurredBackground && artworkRoot.artSource !== ""
-            anchors.fill: parent
-            color: Qt.rgba(Theme.mantle.r, Theme.mantle.g, Theme.mantle.b, 0.55)
-        }
 
         Row {
             id: innerRow
