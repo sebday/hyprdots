@@ -164,20 +164,27 @@ Item {
     property bool artPickerLoading: false
     property string artPickerQuery: ""
     property var artPickerResults: []
+    property string artApplyScope: "track"
+    property string artPendingDropPath: ""
+    readonly property bool artApplyAlbumAvailable: {
+        var album = String(player.album || "").trim()
+        var title = String(player.title || "").trim()
+        return album !== "" && album !== title
+    }
     readonly property var nowPlayingMetaChips: {
         var chips = []
         var artist = String(player.artist || "").trim()
         if (artist !== "")
-            chips.push({ label: artist, accent: true, kind: "artist", value: artist })
-        var year = String(player.year || "").trim()
-        if (year !== "")
-            chips.push({ label: year, accent: false, kind: "year", value: year })
+            chips.push({ label: artist, kind: "artist", value: artist })
         var genre = String(player.genre || "").trim()
         if (genre !== "")
-            chips.push({ label: genre, accent: true, kind: "genre", value: genre })
+            chips.push({ label: genre, kind: "genre", value: genre })
+        var year = String(player.year || "").trim()
+        if (year !== "")
+            chips.push({ label: year, kind: "year", value: year })
         var durationLabel = String(player.duration_label || "").trim()
         if (durationLabel !== "" && Number(player.duration || 0) > 0)
-            chips.push({ label: durationLabel, accent: false, kind: "duration", value: durationLabel })
+            chips.push({ label: durationLabel, kind: "duration", value: durationLabel })
         return chips
     }
     readonly property string nowPlayingAlbum: {
@@ -217,10 +224,79 @@ Item {
         artRevision++
     }
 
-    function onAlbumArtUpdated() {
+    function onAlbumArtUpdated(scope) {
         bumpArtRevision()
         refreshStatus()
-        notify("track art updated", 2500)
+        if (scope === "album")
+            notify("album art updated", 2500)
+        else if (scope === "track")
+            notify("track art updated", 2500)
+        else
+            notify("art cleared", 2500)
+    }
+
+    function defaultArtApplyScope() {
+        return artApplyAlbumAvailable ? "album" : "track"
+    }
+
+    function artScopeArgs() {
+        return artApplyScope === "album" ? ["--album"] : ["--track"]
+    }
+
+    function setAlbumArtFromFile(imagePath) {
+        var track = String(player.path || "")
+        if (!track || !imagePath)
+            return
+        var scope = artApplyScope
+        runMusic(["art", "set", track, imagePath].concat(artScopeArgs()).concat(["--json"]), function(text) {
+            try {
+                JSON.parse(String(text || "{}"))
+                root.onAlbumArtUpdated(scope)
+            } catch (e) {
+                root.notify("could not update art", 3000)
+            }
+        })
+    }
+
+    function selectArtApplyScope(scope) {
+        artApplyScope = scope === "album" ? "album" : "track"
+        if (!artPendingDropPath)
+            return
+        var imagePath = artPendingDropPath
+        artPendingDropPath = ""
+        setAlbumArtFromFile(imagePath)
+        artPickerOpen = false
+    }
+
+    function openArtPickerForDrop(imagePath) {
+        var track = String(player.path || "")
+        imagePath = String(imagePath || "")
+        if (!track || !imagePath)
+            return
+        artPendingDropPath = imagePath
+        artApplyScope = defaultArtApplyScope()
+        artPickerOpen = true
+        artPickerLoading = false
+        artPickerResults = []
+        artPickerQuery = ""
+    }
+
+    function applyAlbumArtFromUrl(url) {
+        var track = String(player.path || "")
+        if (!track || !url)
+            return
+        var scope = artApplyScope
+        artPickerLoading = true
+        runMusic(["art", "apply", track, url].concat(artScopeArgs()).concat(["--json"]), function(text) {
+            artPickerLoading = false
+            try {
+                JSON.parse(String(text || "{}"))
+                artPickerOpen = false
+                root.onAlbumArtUpdated(scope)
+            } catch (e) {
+                root.notify("could not update art", 3000)
+            }
+        })
     }
 
     function toggleMenuBar() {
@@ -260,41 +336,12 @@ Item {
         })
     }
 
-    function setAlbumArtFromFile(imagePath) {
-        var track = String(player.path || "")
-        if (!track || !imagePath)
-            return
-        runMusic(["art", "set", track, imagePath, "--json"], function(text) {
-            try {
-                JSON.parse(String(text || "{}"))
-                root.onAlbumArtUpdated()
-            } catch (e) {
-                root.notify("could not update art", 3000)
-            }
-        })
-    }
-
-    function applyAlbumArtFromUrl(url) {
-        var track = String(player.path || "")
-        if (!track || !url)
-            return
-        artPickerLoading = true
-        runMusic(["art", "apply", track, url, "--json"], function(text) {
-            artPickerLoading = false
-            try {
-                JSON.parse(String(text || "{}"))
-                artPickerOpen = false
-                root.onAlbumArtUpdated()
-            } catch (e) {
-                root.notify("could not update art", 3000)
-            }
-        })
-    }
-
     function openArtPicker() {
         var track = String(player.path || "")
         if (!track)
             return
+        artPendingDropPath = ""
+        artApplyScope = defaultArtApplyScope()
         artPickerOpen = true
         artPickerLoading = true
         artPickerResults = []
@@ -312,6 +359,7 @@ Item {
     }
 
     function closeArtPicker() {
+        artPendingDropPath = ""
         artPickerOpen = false
     }
 
@@ -3242,7 +3290,7 @@ Item {
                                                 delegate: MetaChip {
                                                     required property var modelData
                                                     label: modelData.label
-                                                    accent: !!modelData.accent
+                                                    accent: false
                                                     clickable: modelData.kind === "artist"
                                                         || modelData.kind === "genre"
                                                         || modelData.kind === "year"
@@ -3713,7 +3761,7 @@ Item {
                     for (var j = 0; j < drop.urls.length; j++) {
                         var p = root.localPathFromUrl(drop.urls[j])
                         if (root.isImagePath(p)) {
-                            root.setAlbumArtFromFile(p)
+                            root.openArtPickerForDrop(p)
                             break
                         }
                     }
@@ -4607,11 +4655,26 @@ Item {
             acceptedButtons: Qt.LeftButton
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
-            onClicked: {
-                if (browseRow.selected)
-                    browseRow.playRequested()
-                else
+
+            Timer {
+                id: browseRowClickTimer
+                interval: 220
+                repeat: false
+                onTriggered: {
+                    if (browseRow.selected)
+                        browseRow.playRequested()
+                    else
+                        browseRow.pressed()
+                }
+            }
+
+            onClicked: browseRowClickTimer.restart()
+
+            onDoubleClicked: {
+                browseRowClickTimer.stop()
+                if (!browseRow.selected)
                     browseRow.pressed()
+                browseRow.playRequested()
             }
         }
     }
@@ -4671,96 +4734,56 @@ Item {
         ColumnLayout {
             anchors.fill: parent
             anchors.margins: gridPad
-            spacing: 4
+            spacing: Theme.spacingS
 
-            Item {
+            RowLayout {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 18
+                spacing: Theme.spacingS
 
                 Text {
-                    anchors.left: parent.left
-                    anchors.verticalCenter: parent.verticalCenter
-                    visible: (root.player.art || "") !== ""
-                    text: "remove current art"
-                    color: artPickerClearMouse.containsMouse ? Theme.accent : Theme.foreground
-                    opacity: artPickerClearMouse.containsMouse ? 1 : 0.55
+                    visible: root.artApplyAlbumAvailable || root.artPendingDropPath !== ""
+                    text: "apply to"
+                    color: Theme.foreground
                     font.family: Theme.fontFamily
                     font.pixelSize: root.libraryFont
-
-                    MouseArea {
-                        id: artPickerClearMouse
-                        anchors.fill: parent
-                        anchors.margins: -8
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.clearAlbumArt()
-                    }
+                    opacity: Theme.opacityDisabled
                 }
 
-                Text {
-                    anchors.right: parent.right
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: "󰅖"
-                    color: Theme.foreground
-                    opacity: artPickerCloseMouse.containsMouse ? 1 : 0.55
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeM
-
-                    MouseArea {
-                        id: artPickerCloseMouse
-                        anchors.fill: parent
-                        anchors.margins: -8
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.closeArtPicker()
-                    }
-                }
-            }
-
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: Math.min(artPickerRoot.width * 0.42, 120)
-                visible: (root.player.art || "") !== "" && !root.artPickerLoading
-                radius: Theme.radiusM
-                clip: true
-                color: Theme.foregroundWash
-                border.color: artCurrentMouse.containsMouse
-                    ? Theme.accent
-                    : Theme.foregroundRaised
-                border.width: artCurrentMouse.containsMouse ? 2 : 1
-
-                Image {
-                    anchors.fill: parent
-                    source: root.artUrl(root.player.art || "")
-                    fillMode: Image.PreserveAspectCrop
-                    smooth: true
-                    asynchronous: true
+                MetaChip {
+                    visible: root.artApplyAlbumAvailable
+                    label: root.nowPlayingAlbum !== ""
+                        ? root.nowPlayingAlbum
+                        : String(root.player.album || "album")
+                    accent: root.artApplyScope === "album"
+                    clickable: true
+                    maxLabelWidth: Math.min(180, artPickerRoot.width * 0.42)
+                    onActivated: root.selectArtApplyScope("album")
                 }
 
-                Rectangle {
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.bottom: parent.bottom
-                    height: 18
-                    color: Qt.rgba(Theme.mantle.r, Theme.mantle.g, Theme.mantle.b, 0.72)
-
-                    Text {
-                        anchors.centerIn: parent
-                        text: "current · click to remove"
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.libraryFont
-                        opacity: 0.8
-                    }
+                MetaChip {
+                    visible: root.artApplyAlbumAvailable || root.artPendingDropPath !== ""
+                    label: "this track"
+                    accent: root.artApplyScope === "track"
+                    clickable: true
+                    onActivated: root.selectArtApplyScope("track")
                 }
 
-                MouseArea {
-                    id: artCurrentMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.clearAlbumArt()
+                MetaChip {
+                    visible: (root.player.art || "") !== ""
+                    label: "remove"
+                    accent: false
+                    clickable: true
+                    onActivated: root.clearAlbumArt()
                 }
+
+                MetaChip {
+                    label: "close"
+                    accent: false
+                    clickable: true
+                    onActivated: root.closeArtPicker()
+                }
+
+                Item { Layout.fillWidth: true }
             }
 
             Item {
@@ -4769,12 +4792,11 @@ Item {
                 visible: root.artPickerLoading
 
                 Text {
-                    id: artPickerSpinner
                     anchors.centerIn: parent
                     text: "󰇘"
                     color: Theme.accent
                     font.family: Theme.fontFamily
-                    font.pixelSize: Math.round(artPickerRoot.width * 0.12)
+                    font.pixelSize: Math.round(Math.min(parent.width, parent.height) * 0.28)
                     opacity: Theme.opacityEmphasis
 
                     SequentialAnimation on opacity {
@@ -4788,79 +4810,111 @@ Item {
 
             Text {
                 Layout.fillWidth: true
-                Layout.alignment: Qt.AlignHCenter
-                visible: !root.artPickerLoading && root.artPickerResults.length === 0
+                Layout.fillHeight: true
+                visible: !root.artPickerLoading
+                    && root.artPickerResults.length === 0
+                    && root.artPendingDropPath === ""
                 text: "no results"
                 horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
                 color: Theme.foreground
                 font.family: Theme.fontFamily
                 font.pixelSize: root.libraryFont
                 opacity: Theme.opacityDisabled
             }
 
-            Flickable {
+            Item {
+                id: artPickerGridHost
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                clip: true
-                contentWidth: width
-                contentHeight: artPickerColumn.implicitHeight
-                boundsBehavior: Flickable.StopAtBounds
-                visible: !root.artPickerLoading && root.artPickerResults.length > 0
+                visible: !root.artPickerLoading
+                    && (root.artPickerResults.length > 0 || root.artPendingDropPath !== "")
 
-                Column {
-                    id: artPickerColumn
-                    width: parent.width
-                    spacing: artPickerRoot.gridSpacing
+                readonly property int cellSize: Math.max(
+                    40,
+                    Math.floor(Math.min(
+                        (width - artPickerRoot.gridSpacing) / 2,
+                        (height - artPickerRoot.gridSpacing) / 2)))
+                readonly property int gridWidth: cellSize * 2 + artPickerRoot.gridSpacing
+                readonly property int gridHeight: cellSize * 2 + artPickerRoot.gridSpacing
+                readonly property int xOffset: Math.max(0, Math.floor((width - gridWidth) / 2))
+                readonly property int yOffset: Math.max(0, Math.floor((height - gridHeight) / 2))
 
-                    Repeater {
-                        model: root.artPickerResults
+                Rectangle {
+                    visible: root.artPendingDropPath !== ""
+                    x: artPickerGridHost.xOffset
+                    y: artPickerGridHost.yOffset
+                    width: artPickerGridHost.gridWidth
+                    height: artPickerGridHost.gridHeight
+                    radius: Theme.radiusM
+                    clip: true
+                    color: Theme.foregroundWash
+                    border.color: Theme.foregroundRaised
+                    border.width: 1
+
+                    Image {
+                        anchors.fill: parent
+                        source: root.artPendingDropPath !== ""
+                            ? root.artUrl(root.artPendingDropPath)
+                            : ""
+                        fillMode: Image.PreserveAspectCrop
+                        smooth: true
+                        asynchronous: true
+                    }
+                }
+
+                Repeater {
+                    model: root.artPendingDropPath !== ""
+                        ? 0
+                        : Math.min(4, root.artPickerResults.length)
+
+                    Rectangle {
+                        required property int index
+                        readonly property var result: root.artPickerResults[index]
+                        x: artPickerGridHost.xOffset + (index % 2) * (artPickerGridHost.cellSize + artPickerRoot.gridSpacing)
+                        y: artPickerGridHost.yOffset + Math.floor(index / 2) * (artPickerGridHost.cellSize + artPickerRoot.gridSpacing)
+                        width: artPickerGridHost.cellSize
+                        height: artPickerGridHost.cellSize
+                        radius: Theme.radiusM
+                        clip: true
+                        color: Theme.foregroundWash
+                        border.color: artPickMouse.containsMouse
+                            ? Theme.accent
+                            : Theme.foregroundRaised
+                        border.width: artPickMouse.containsMouse ? 2 : 1
+
+                        Image {
+                            anchors.fill: parent
+                            source: result.url || ""
+                            fillMode: Image.PreserveAspectCrop
+                            smooth: true
+                            asynchronous: true
+                        }
 
                         Rectangle {
-                            required property var modelData
-                            required property int index
-                            width: artPickerColumn.width
-                            height: width
-                            radius: Theme.radiusM
-                            clip: true
-                            color: Theme.foregroundWash
-                            border.color: artPickMouse.containsMouse
-                                ? Theme.accent
-                                : Theme.foregroundRaised
-                            border.width: artPickMouse.containsMouse ? 2 : 1
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.bottom: parent.bottom
+                            height: 16
+                            visible: String(result.source || "") !== ""
+                            color: Qt.rgba(Theme.mantle.r, Theme.mantle.g, Theme.mantle.b, 0.78)
 
-                            Image {
-                                anchors.fill: parent
-                                source: modelData.url || ""
-                                fillMode: Image.PreserveAspectCrop
-                                smooth: true
-                                asynchronous: true
+                            Text {
+                                anchors.centerIn: parent
+                                text: String(result.source || "")
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.libraryFont
+                                opacity: 0.85
                             }
+                        }
 
-                            Rectangle {
-                                anchors.left: parent.left
-                                anchors.right: parent.right
-                                anchors.bottom: parent.bottom
-                                height: 16
-                                visible: String(modelData.source || "") !== ""
-                                color: Qt.rgba(Theme.mantle.r, Theme.mantle.g, Theme.mantle.b, 0.78)
-
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: String(modelData.source || "")
-                                    color: Theme.foreground
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: root.libraryFont
-                                    opacity: 0.85
-                                }
-                            }
-
-                            MouseArea {
-                                id: artPickMouse
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: root.applyAlbumArtFromUrl(modelData.url)
-                            }
+                        MouseArea {
+                            id: artPickMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.applyAlbumArtFromUrl(result.url)
                         }
                     }
                 }

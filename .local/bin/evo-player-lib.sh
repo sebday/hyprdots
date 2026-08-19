@@ -1819,11 +1819,17 @@ art_normalize_jpg() {
 art_install_image() {
   local track_path="$1"
   local image_path="$2"
-  local track_art content imghash tmp
+  local scope="${3:-track}"
+  local dest_art content imghash tmp
   [[ -f "$track_path" ]] && is_audio "$track_path" || return 1
   [[ -f "$image_path" ]] && is_image "$image_path" || return 1
+  [[ "$scope" == "album" || "$scope" == "track" ]] || return 1
   ensure_dirs
-  track_art="$(art_path_legacy "$track_path")"
+  if [[ "$scope" == "album" ]]; then
+    dest_art="$(art_path_folder "$track_path")"
+  else
+    dest_art="$(art_path_legacy "$track_path")"
+  fi
   tmp="$(mktemp "${ART_DIR}/.install.XXXXXX.jpg")"
   art_normalize_jpg "$image_path" "$tmp" || {
     rm -f "$tmp"
@@ -1840,8 +1846,8 @@ art_install_image() {
   else
     rm -f "$tmp"
   fi
-  art_link_folder_alias "$track_art" "$content" || return 1
-  printf '%s' "$track_art"
+  art_link_folder_alias "$dest_art" "$content" || return 1
+  printf '%s' "$dest_art"
 }
 
 art_notify_cache() {

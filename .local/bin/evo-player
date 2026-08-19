@@ -39,8 +39,8 @@ usage:
   evo-player tag set title <path> <value> [--json]
   evo-player mixes migrate [--dry-run] [--json]
   evo-player art search <track-path> [--json]
-  evo-player art set <track-path> <image-path> [--json]
-  evo-player art apply <track-path> <url> [--json]
+  evo-player art set <track-path> <image-path> [--album|--track] [--json]
+  evo-player art apply <track-path> <url> [--album|--track] [--json]
   evo-player art clear <track-path> [--json]
   evo-player art embed|maintain [--json]
   evo-player art notify-cache <track-path>
@@ -2597,10 +2597,12 @@ PY
 }
 
 cmd_art_set() {
-  local path="" image="" json=0
+  local path="" image="" json=0 scope="track"
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --json) json=1 ;;
+      --album) scope="album" ;;
+      --track) scope="track" ;;
       -h|--help|help) usage ;;
       -*) usage ;;
       *)
@@ -2624,7 +2626,7 @@ cmd_art_set() {
     return 1
   }
   local art track_art folder content
-  art="$(art_install_image "$path" "$image")" || {
+  art="$(art_install_image "$path" "$image" "$scope")" || {
     echo "evo-player: could not install art" >&2
     return 1
   }
@@ -2637,17 +2639,20 @@ cmd_art_set() {
       --arg track "$track_art" \
       --arg folder "$folder" \
       --arg content "$content" \
-      '{art:$art,track:$track,folder:$folder,content:$content}'
+      --arg scope "$scope" \
+      '{art:$art,track:$track,folder:$folder,content:$content,scope:$scope}'
   else
     printf '%s\n' "$art"
   fi
 }
 
 cmd_art_apply() {
-  local path="" url="" json=0
+  local path="" url="" json=0 scope="track"
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --json) json=1 ;;
+      --album) scope="album" ;;
+      --track) scope="track" ;;
       -h|--help|help) usage ;;
       -*) usage ;;
       *)
@@ -2674,7 +2679,7 @@ cmd_art_apply() {
     echo "evo-player: could not download art" >&2
     return 1
   fi
-  art="$(art_install_image "$path" "$tmp")" || {
+  art="$(art_install_image "$path" "$tmp" "$scope")" || {
     rm -f "$tmp"
     echo "evo-player: could not install art" >&2
     return 1
@@ -2689,7 +2694,8 @@ cmd_art_apply() {
       --arg track "$track_art" \
       --arg folder "$folder" \
       --arg content "$content" \
-      '{art:$art,track:$track,folder:$folder,content:$content}'
+      --arg scope "$scope" \
+      '{art:$art,track:$track,folder:$folder,content:$content,scope:$scope}'
   else
     printf '%s\n' "$art"
   fi
