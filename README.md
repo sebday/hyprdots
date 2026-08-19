@@ -31,7 +31,7 @@ Thank you to [Bjarne](https://github.com/bjarneo) for some gorgeous themes.
 		- Network
 			- Stats
 			- Transmission
-		- EvoPlayer Mini (not built)
+		- Evoplayer Mini (not built)
 		- Media
 			- Now playing
 			- Library
@@ -57,6 +57,8 @@ Thank you to [Bjarne](https://github.com/bjarneo) for some gorgeous themes.
 - stat box
 	- stat
 	- label
+  
+All colours, fonts, spacing, opacity, radius via `Theme.*` — no hardcoded values in QML.
   
 ## Install
   

@@ -51,6 +51,8 @@ Scope {
 
     function enqueuePopup(notification) {
         var entry = { notification: notification, key: Date.now() + Math.random() }
+        if (isHyprshot(entry))
+            entry.artRev = Date.now()
         activePopups = activePopups.concat([entry])
         scheduleDismiss(root.durationMs)
     }
@@ -257,14 +259,42 @@ Scope {
         return Util.fileUrl(path)
     }
 
-    function popupImage(entry) {
+    function popupArt(entry) {
         if (entry && entry.localMedia && entry.art)
             return entry.art
+
+        if (isHyprshot(entry))
+            return screenshotPath(entry)
+
         var n = entry && entry.notification
         if (!n) return ""
-        if (n.image) return imageSource(n.image)
-        if (looksLikeImage(n.appIcon)) return imageSource(n.appIcon)
+
+        if (n.image) {
+            var imagePath = notifyIconPath(n.image)
+            if (imagePath) return imagePath
+            if (looksLikeImage(n.image)) return String(n.image)
+        }
+
+        if (n.appIcon) {
+            if (looksLikeImage(n.appIcon)) {
+                var iconPath = notifyIconPath(n.appIcon)
+                if (iconPath) return iconPath
+                return imageSource(n.appIcon)
+            }
+            var themedIcon = Util.iconSourceForName(n.appIcon)
+            if (themedIcon) return themedIcon
+        }
+
+        if (n.desktopEntry) {
+            var desktopIcon = Util.iconSourceForName(n.desktopEntry)
+            if (desktopIcon) return desktopIcon
+        }
+
         return ""
+    }
+
+    function popupImage(entry) {
+        return popupArt(entry)
     }
 
     function popupIcon(entry) {
@@ -340,7 +370,8 @@ Scope {
         if (entry.local) return false
         if (isPlayerNotification(entry)) return true
         if (isScrobbler(entry)) return true
-        return popupImage(entry) !== ""
+        if (isHyprshot(entry)) return true
+        return popupArt(entry) !== ""
     }
 
     function mediaKicker(entry) {
@@ -375,6 +406,16 @@ Scope {
                 title: lines[1],
                 subtitle: lines[0],
                 footer: lines.slice(2).join(" · ")
+            }
+        }
+        if (isHyprshot(entry)) {
+            var shotPath = screenshotPath(entry)
+            var shotName = shotPath.split("/").pop() || shotPath
+            return {
+                kicker: "screenshot",
+                title: popupTitle(entry),
+                subtitle: lines[0] || shotName,
+                footer: "click to edit"
             }
         }
         return {
@@ -450,6 +491,7 @@ Scope {
         property var fields: ({})
         property int artSize: Theme.notificationArtSize
         property bool blurredBackground: true
+        property int imageFillMode: Image.PreserveAspectCrop
 
         readonly property string artSource: {
             if (!artworkRoot.coverArt)
@@ -517,7 +559,7 @@ Scope {
                     anchors.fill: parent
                     visible: artworkRoot.artSource !== "" && status === Image.Ready
                     source: artworkRoot.artSource
-                    fillMode: Image.PreserveAspectCrop
+                    fillMode: artworkRoot.imageFillMode
                     asynchronous: true
                     cache: false
                     smooth: true
@@ -602,7 +644,7 @@ Scope {
 
             readonly property string kind: root.entryKind(modelData)
             readonly property var media: kind === "media" ? root.mediaFields(modelData) : ({})
-            readonly property string art: kind === "media" ? String(modelData.art || "") : ""
+            readonly property string art: kind === "media" ? root.popupArt(modelData) : ""
 
             Component.onCompleted: {
                 if (modelData)
@@ -671,6 +713,9 @@ Scope {
                     coverArt: art
                     artRev: modelData.artRev || 0
                     fields: media
+                    imageFillMode: root.isHyprshot(modelData)
+                        ? Image.PreserveAspectFit
+                        : Image.PreserveAspectCrop
                 }
 
                 // Default
