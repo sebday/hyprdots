@@ -120,6 +120,10 @@ Item {
     property bool jobStopRequested: false
     property bool sortStopRequested: false
     property bool libraryPanelOpen: false
+    property bool menuBarHidden: false
+    property bool titleEditing: false
+    property bool titleSaveBusy: false
+    readonly property bool keyShortcutsBlocked: tabSearchInput.activeFocus || titleEditing
     property var volumeTransportBtn: null
     readonly property var libraryActions: [
         {
@@ -214,6 +218,43 @@ Item {
         bumpArtRevision()
         refreshStatus()
         notify("track art updated", 2500)
+    }
+
+    function toggleMenuBar() {
+        if (keyShortcutsBlocked)
+            return
+        menuBarHidden = !menuBarHidden
+    }
+
+    function commitTitleEdit(newTitle) {
+        var path = String(player.path || "")
+        var trimmed = String(newTitle || "").trim()
+        titleEditing = false
+        if (!path || titleSaveBusy)
+            return
+        if (!trimmed || trimmed === String(player.title || "").trim())
+            return
+        titleSaveBusy = true
+        runMusic(["tag", "set", "title", path, trimmed, "--json"], function(text) {
+            titleSaveBusy = false
+            try {
+                var data = JSON.parse(String(text || "{}"))
+                if (!data.ok)
+                    throw new Error("tag failed")
+                player = Object.assign({}, player, {
+                    path: String(data.path || path),
+                    title: String(data.title || trimmed)
+                })
+                tracksRevision++
+                refreshStatus()
+                mergePlayerFromTrackList()
+                if (browsePanelOpen)
+                    refreshBrowseTree()
+            } catch (e) {
+                notify("could not update title", 3000)
+                refreshStatus()
+            }
+        })
     }
 
     function setAlbumArtFromFile(imagePath) {
@@ -2735,6 +2776,7 @@ Item {
         // Tabs
         SectionPanel {
             label: ""
+            visible: !root.menuBarHidden
             Layout.fillWidth: true
             fillHeight: false
 
@@ -3011,15 +3053,65 @@ Item {
                                         Layout.fillWidth: true
                                         spacing: Theme.spacingM
 
-                                        Text {
+                                        Item {
                                             Layout.fillWidth: true
-                                            text: root.player.title || "No track"
-                                            color: Theme.foreground
-                                            font.family: Theme.fontFamily
-                                            font.pixelSize: root.nowPlayingTitleFont
-                                            font.bold: Theme.fontBold
-                                            wrapMode: Text.Wrap
-                                            maximumLineCount: 2
+                                            Layout.preferredHeight: titleInput.visible
+                                                ? titleInput.implicitHeight
+                                                : titleLabel.implicitHeight
+
+                                            Text {
+                                                id: titleLabel
+                                                width: parent.width
+                                                visible: !root.titleEditing
+                                                text: root.player.title || "No track"
+                                                color: Theme.foreground
+                                                font.family: Theme.fontFamily
+                                                font.pixelSize: root.nowPlayingTitleFont
+                                                font.bold: Theme.fontBold
+                                                wrapMode: Text.Wrap
+                                                maximumLineCount: 2
+                                                opacity: titleMouse.containsMouse && (root.player.path || "") !== ""
+                                                    ? 0.82
+                                                    : 1
+                                            }
+
+                                            MouseArea {
+                                                id: titleMouse
+                                                anchors.fill: titleLabel
+                                                enabled: (root.player.path || "") !== "" && !root.titleSaveBusy
+                                                hoverEnabled: true
+                                                cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                                onClicked: {
+                                                    titleInput.text = String(root.player.title || "")
+                                                    root.titleEditing = true
+                                                    titleInput.forceActiveFocus()
+                                                    titleInput.selectAll()
+                                                }
+                                            }
+
+                                            TextInput {
+                                                id: titleInput
+                                                width: parent.width
+                                                visible: root.titleEditing
+                                                text: root.player.title || ""
+                                                color: Theme.foreground
+                                                font.family: Theme.fontFamily
+                                                font.pixelSize: root.nowPlayingTitleFont
+                                                font.bold: Theme.fontBold
+                                                wrapMode: TextInput.Wrap
+                                                selectionColor: Theme.accent
+                                                selectedTextColor: Theme.mantle
+                                                focus: root.titleEditing
+                                                onAccepted: root.commitTitleEdit(text)
+                                                onEditingFinished: {
+                                                    if (root.titleEditing && !activeFocus)
+                                                        root.commitTitleEdit(text)
+                                                }
+                                                Keys.onEscapePressed: {
+                                                    text = String(root.player.title || "")
+                                                    root.titleEditing = false
+                                                }
+                                            }
                                         }
 
                                         Text {
@@ -3096,7 +3188,7 @@ Item {
                             ColumnLayout {
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
-                                spacing: Theme.spacingS
+                                spacing: Theme.spacing2
 
                                 Item {
                                     id: waveformViz
@@ -3350,11 +3442,11 @@ Item {
 
                                 Item {
                                     Layout.fillWidth: true
-                                    Layout.preferredHeight: 22
+                                    Layout.preferredHeight: 16
 
                                     Text {
                                         anchors.left: parent.left
-                                        anchors.verticalCenter: parent.verticalCenter
+                                        anchors.top: parent.top
                                         text: root.player.position_label || "0:00"
                                         color: Theme.foreground
                                         font.family: Theme.fontFamily
@@ -3364,7 +3456,7 @@ Item {
 
                                     Text {
                                         anchors.right: parent.right
-                                        anchors.verticalCenter: parent.verticalCenter
+                                        anchors.top: parent.top
                                         horizontalAlignment: Text.AlignRight
                                         text: root.player.duration_label || "0:00"
                                         color: Theme.foreground

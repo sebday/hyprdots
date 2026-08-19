@@ -36,6 +36,7 @@ usage:
   evo-player playlist <name> [--json] [--offset N] [--limit N]
   evo-player playlist star toggle <name> [--json]
   evo-player favorite toggle <path> [--json]
+  evo-player tag set title <path> <value> [--json]
   evo-player mixes migrate [--dry-run] [--json]
   evo-player art search <track-path> [--json]
   evo-player art set <track-path> <image-path> [--json]
@@ -2792,6 +2793,107 @@ cmd_status() {
   fi
 }
 
+queue_relocate_path() {
+  local old="$1" new="$2"
+  [[ -f "$CURRENT_M3U" ]] || return 0
+  if ! grep -qxF "$old" "$CURRENT_M3U" 2>/dev/null; then
+    return 0
+  fi
+  local -a paths=()
+  local p
+  while IFS= read -r p || [[ -n "$p" ]]; do
+    p="${p//$'\r'/}"
+    [[ -z "$p" || "$p" == \#* ]] && continue
+    if [[ "$p" == "$old" ]]; then
+      p="$new"
+    fi
+    paths+=("$p")
+  done <"$CURRENT_M3U"
+  queue_save "${paths[@]}"
+}
+
+cmd_tag_set_title() {
+  local path="" value="" json=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --json) json=1 ;;
+      -h|--help|help) usage ;;
+      -*) usage ;;
+      *)
+        if [[ -z "$path" ]]; then
+          path="$1"
+        else
+          value="$1"
+        fi
+        ;;
+    esac
+    shift
+  done
+  [[ -n "$path" && -f "$path" && -n "$value" ]] || {
+    echo "evo-player: tag set title requires path and value" >&2
+    return 1
+  }
+  ensure_dirs
+  local old_path="$path" new_path="" renamed=0 playing=0 pos=0 paused=false cur="" genre=""
+  if mpv_running; then
+    cur="$(mpv_prop path 2>/dev/null || true)"
+    if paths_equal "$cur" "$old_path"; then
+      playing=1
+      pos="$(mpv_prop time-pos 2>/dev/null || echo 0)"
+      paused="$(mpv_prop pause 2>/dev/null || echo false)"
+    fi
+  fi
+  new_path="$(track_set_title "$path" "$value")" || {
+    echo "evo-player: could not set title for $(basename "$path")" >&2
+    return 1
+  }
+  paths_equal "$old_path" "$new_path" || renamed=1
+  if [[ "$playing" -eq 1 ]]; then
+    mpv_load_file "$new_path" replace
+    mpv_ipc "{\"command\":[\"seek\",${pos},\"absolute\"]}" >/dev/null
+    [[ "$paused" == "true" ]] && mpv_ipc '{"command":["set_property","pause",true]}' >/dev/null
+  fi
+  queue_relocate_path "$old_path" "$new_path"
+  player_save_state "$new_path"
+  if is_liked "$new_path"; then
+    write_likes_m3u "${PLAYLIST_DIR}/all.m3u"
+    genre="$(genre_from_path "$new_path")"
+    [[ -n "$genre" ]] && write_playlist "$genre"
+  fi
+  value="$(ffprobe_meta "$new_path" title)"
+  [[ -z "$value" ]] && value="$(basename "${new_path%.*}")"
+  if [[ "$json" -eq 1 ]]; then
+    jq -n \
+      --arg path "$new_path" \
+      --arg title "$value" \
+      --argjson ok true \
+      --argjson renamed "$([[ $renamed -eq 1 ]] && echo true || echo false)" \
+      '{ok:$ok,path:$path,title:$title,renamed:$renamed}'
+  else
+    printf '%s\n' "$new_path"
+  fi
+}
+
+cmd_tag_set() {
+  local field="${1:-}"
+  shift || true
+  case "$field" in
+    title) cmd_tag_set_title "$@" ;;
+    -h|--help|help|"") usage ;;
+    *) echo "evo-player: unknown tag field: $field" >&2; usage ;;
+  esac
+}
+
+cmd_tag() {
+  local sub="${1:-}"
+  shift || true
+  case "$sub" in
+    set) cmd_tag_set "$@" ;;
+    -h|--help|help|"") usage ;;
+    *) echo "evo-player: unknown tag command: $sub" >&2; usage ;;
+  esac
+}
+
 main() {
   local cmd="${1:-}"
   shift || true
@@ -2850,6 +2952,7 @@ main() {
       shift
       cmd_favorite_toggle "${1:-}" "${2:-}"
       ;;
+    tag) cmd_tag "$@" ;;
     stats) cmd_status "$@" ;;
     art) cmd_art "$@" ;;
     find) cmd_find "$@" ;;

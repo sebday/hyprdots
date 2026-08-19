@@ -64,6 +64,13 @@ Item {
             anchors.fill: parent
             focus: root.opened
 
+            Keys.onPressed: function(event) {
+                if (event.key === Qt.Key_H && event.modifiers === Qt.NoModifier) {
+                    playerContent.toggleMenuBar()
+                    event.accepted = true
+                }
+            }
+
             PlayerModule {
                 id: playerContent
                 anchors.fill: parent

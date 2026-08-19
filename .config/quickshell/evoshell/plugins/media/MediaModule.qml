@@ -583,6 +583,7 @@ Item {
             property var items: []
             property string emptyLabel: ""
             property string fallbackIcon: "󰿯"
+            property bool showLabels: true
             property var iconForItem: function(item) { return posterGrid.fallbackIcon }
             property var itemActivated: null
 
@@ -673,6 +674,7 @@ Item {
 
                             Text {
                                 Layout.fillWidth: true
+                                visible: posterGrid.showLabels
                                 text: root.itemLabel(modelData)
                                 color: Theme.foreground
                                 font.family: Theme.fontFamily
@@ -710,6 +712,7 @@ Item {
                 items: root.mostPopularItems
                 emptyLabel: "No play history"
                 fallbackIcon: "󰿯"
+                showLabels: false
                 iconForItem: root.popularFallbackIcon
                 itemActivated: function(item) { root.openPopularItem(item) }
             }

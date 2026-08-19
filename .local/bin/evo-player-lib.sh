@@ -972,6 +972,103 @@ tag_set_metadata() {
   return 0
 }
 
+track_sanitize_filename_part() {
+  local s="$1"
+  python3 -c 'import re,sys
+s = sys.argv[1]
+s = re.sub(r"[/\\\\:*?\"<>|]+", " ", s)
+s = re.sub(r"\s+", " ", s).strip()
+print(s)' "$s"
+}
+
+track_filename_from_meta() {
+  local artist="$1" title="$2" ext="$3"
+  title="$(track_sanitize_filename_part "$title")"
+  artist="$(track_sanitize_filename_part "$artist")"
+  [[ -n "$title" ]] || return 1
+  if [[ -n "$artist" ]]; then
+    printf '%s - %s.%s' "$artist" "$title" "$ext"
+  else
+    printf '%s.%s' "$title" "$ext"
+  fi
+}
+
+likes_relocate_path() {
+  local old="$1" new="$2"
+  likes_init
+  jq -e --arg old "$old" 'has($old)' "$LIKES_FILE" >/dev/null 2>&1 || return 0
+  local title artist
+  title="$(ffprobe_meta "$new" title)"
+  artist="$(ffprobe_meta "$new" artist)"
+  [[ -z "$title" ]] && title="$(basename "${new%.*}")"
+  jq --arg old "$old" --arg new "$new" --arg title "$title" --arg artist "$artist" \
+    'if has($old) then .[$new] = (.[$old] + {title:$title, artist:$artist}) | del(.[$old]) else . end' \
+    "$LIKES_FILE" >"${LIKES_FILE}.tmp" && mv "${LIKES_FILE}.tmp" "$LIKES_FILE"
+}
+
+art_relocate_legacy() {
+  local old="$1" new="$2"
+  local old_art new_art
+  old_art="$(art_path_legacy "$old")"
+  [[ -f "$old_art" ]] || return 0
+  new_art="$(art_path_legacy "$new")"
+  [[ -f "$new_art" ]] && return 0
+  mkdir -p "$(dirname "$new_art")"
+  mv "$old_art" "$new_art"
+}
+
+waveform_relocate_cache() {
+  local old="$1" new="$2"
+  local old_wf new_wf
+  old_wf="$(waveform_cache_find "$old" 2>/dev/null || true)"
+  [[ -n "$old_wf" && -f "$old_wf" ]] || return 0
+  new_wf="$(waveform_cache_canonical "$new")"
+  [[ -f "$new_wf" ]] || mv "$old_wf" "$new_wf" 2>/dev/null || true
+}
+
+track_relocate_path() {
+  local old="$1" new="$2"
+  [[ -f "$old" ]] || return 1
+  if paths_equal "$old" "$new"; then
+    printf '%s' "$new"
+    return 0
+  fi
+  [[ -e "$new" ]] && return 1
+  local src_genre dest_genre
+  src_genre="$(genre_from_path "$old")"
+  mv "$old" "$new"
+  dest_genre="$(genre_from_path "$new")"
+  likes_relocate_path "$old" "$new"
+  art_relocate_legacy "$old" "$new"
+  waveform_relocate_cache "$old" "$new"
+  [[ -n "$src_genre" ]] && tracks_cache_invalidate_genre "$src_genre"
+  [[ -n "$dest_genre" ]] && tracks_cache_invalidate_genre "$dest_genre"
+  printf '%s' "$new"
+}
+
+track_set_title() {
+  local path="$1" title="$2"
+  local dir ext artist new_base new_path
+  [[ -f "$path" ]] || return 1
+  title="$(printf '%s' "$title" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+  [[ -n "$title" ]] || return 1
+  tag_set_metadata "$path" title "$title" || return 1
+  ext="${path##*.}"
+  if [[ "$ext" == "$path" || -z "$ext" ]]; then
+    ext="mp3"
+  fi
+  dir="$(dirname "$path")"
+  artist="$(ffprobe_meta "$path" artist)"
+  new_base="$(track_filename_from_meta "$artist" "$title" "$ext")" || return 1
+  new_path="${dir}/${new_base}"
+  if paths_equal "$path" "$new_path"; then
+    printf '%s' "$path"
+    return 0
+  fi
+  new_path="$(track_relocate_path "$path" "$new_path")" || return 1
+  printf '%s' "$new_path"
+}
+
 track_meta_json() {
   local path="$1"
   local tags title artist genre album
