@@ -179,12 +179,12 @@ Item {
     }
     readonly property var nowPlayingMetaChips: {
         var chips = []
-        var artist = String(player.artist || "").trim()
-        if (artist !== "")
-            chips.push({ label: artist, kind: "artist", value: artist })
+        var label = String(player.label || "").trim()
+        if (label !== "")
+            chips.push({ label: label, kind: "label", value: label, tint: Theme.chartPalette[3] })
         var genre = String(player.genre || "").trim()
         if (genre !== "")
-            chips.push({ label: genre, kind: "genre", value: genre })
+            chips.push({ label: genre, kind: "genre", value: genre, tint: Theme.accent })
         var year = String(player.year || "").trim()
         if (year !== "")
             chips.push({ label: year, kind: "year", value: year })
@@ -193,6 +193,7 @@ Item {
             chips.push({ label: durationLabel, kind: "duration", value: durationLabel })
         return chips
     }
+    readonly property string nowPlayingArtist: String(player.artist || "").trim()
     readonly property string nowPlayingAlbum: {
         var album = String(player.album || "").trim()
         var title = String(player.title || "").trim()
@@ -200,6 +201,7 @@ Item {
             return ""
         return album
     }
+    readonly property bool nowPlayingBylineVisible: nowPlayingArtist !== "" || nowPlayingAlbum !== ""
 
     function artUrl(path) {
         if (!path) return ""
@@ -1608,6 +1610,8 @@ Item {
             args = args.concat(["--artist", String(value || "")])
         else if (kind === "album")
             args = args.concat(["--album", String(value || "")])
+        else if (kind === "label")
+            args = args.concat(["--label", String(value || "")])
         else if (kind === "genre")
             args = args.concat(["--genre", String(value || "")])
         else if (kind === "year")
@@ -1637,6 +1641,8 @@ Item {
             return "Artist · " + filterLabel
         if (filterKind === "album")
             return "Album · " + filterLabel
+        if (filterKind === "label")
+            return "Label · " + filterLabel
         if (filterKind === "genre")
             return "Genre · " + filterLabel
         if (filterKind === "year")
@@ -3394,28 +3400,63 @@ Item {
                                             }
                                         }
 
-                                        Text {
+                                        Flow {
                                             Layout.fillWidth: true
-                                            visible: root.nowPlayingAlbum !== ""
-                                            text: root.nowPlayingAlbum
-                                            color: Theme.foreground
-                                            font.family: Theme.fontFamily
-                                            font.pixelSize: Theme.fontSizeXl
-                                            opacity: albumMouse.containsMouse ? 1 : 0.62
-                                            wrapMode: Text.Wrap
-                                            maximumLineCount: 2
+                                            spacing: 0
+                                            visible: root.nowPlayingBylineVisible
 
-                                            MouseArea {
-                                                id: albumMouse
-                                                anchors.fill: parent
-                                                hoverEnabled: true
-                                                cursorShape: Qt.PointingHandCursor
-                                                onClicked: function(mouse) {
-                                                    var album = String(root.nowPlayingAlbum || "").trim()
-                                                    if (!album)
-                                                        return
-                                                    mouse.accepted = true
-                                                    root.openFilter("album", album, album)
+                                            Text {
+                                                visible: root.nowPlayingArtist !== ""
+                                                text: root.nowPlayingArtist
+                                                color: Theme.foreground
+                                                font.family: Theme.fontFamily
+                                                font.pixelSize: Theme.fontSizeXl
+                                                opacity: artistMouse.containsMouse ? 1 : 0.62
+
+                                                MouseArea {
+                                                    id: artistMouse
+                                                    anchors.fill: parent
+                                                    hoverEnabled: true
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onClicked: function(mouse) {
+                                                        var artist = String(root.nowPlayingArtist || "").trim()
+                                                        if (!artist)
+                                                            return
+                                                        mouse.accepted = true
+                                                        root.openFilter("artist", artist, artist)
+                                                    }
+                                                }
+                                            }
+
+                                            Text {
+                                                visible: root.nowPlayingArtist !== "" && root.nowPlayingAlbum !== ""
+                                                text: " - "
+                                                color: Theme.foreground
+                                                font.family: Theme.fontFamily
+                                                font.pixelSize: Theme.fontSizeXl
+                                                opacity: 0.62
+                                            }
+
+                                            Text {
+                                                visible: root.nowPlayingAlbum !== ""
+                                                text: root.nowPlayingAlbum
+                                                color: Theme.foreground
+                                                font.family: Theme.fontFamily
+                                                font.pixelSize: Theme.fontSizeXl
+                                                opacity: albumMouse.containsMouse ? 1 : 0.62
+
+                                                MouseArea {
+                                                    id: albumMouse
+                                                    anchors.fill: parent
+                                                    hoverEnabled: true
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onClicked: function(mouse) {
+                                                        var album = String(root.nowPlayingAlbum || "").trim()
+                                                        if (!album)
+                                                            return
+                                                        mouse.accepted = true
+                                                        root.openFilter("album", album, album)
+                                                    }
                                                 }
                                             }
                                         }
@@ -3432,12 +3473,14 @@ Item {
                                                     required property var modelData
                                                     label: modelData.label
                                                     accent: false
-                                                    clickable: modelData.kind === "artist"
+                                                    tintColor: modelData.tint || Theme.foreground
+                                                    tinted: !!modelData.tint
+                                                    clickable: modelData.kind === "label"
                                                         || modelData.kind === "genre"
                                                         || modelData.kind === "year"
                                                     onActivated: {
-                                                        if (modelData.kind === "artist")
-                                                            root.openFilter("artist", modelData.value, modelData.value)
+                                                        if (modelData.kind === "label")
+                                                            root.openFilter("label", modelData.value, modelData.value)
                                                         else if (modelData.kind === "genre")
                                                             root.openFilter("genre", modelData.value, modelData.value)
                                                         else if (modelData.kind === "year")
@@ -4013,16 +4056,21 @@ Item {
     component MetaChip: Rectangle {
         property string label: ""
         property bool accent: false
+        property bool tinted: false
+        property color tintColor: Theme.accent
         property bool clickable: false
         property int maxLabelWidth: 0
         signal activated()
 
+        readonly property color chipTint: tinted ? tintColor : (accent ? Theme.accent : Theme.foreground)
+        readonly property bool chipTinted: tinted || accent
+
         radius: 10
-        color: accent
-            ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, (clickable && chipMouse.containsMouse) ? 0.22 : 0.14)
+        color: chipTinted
+            ? Theme.withOpacity(chipTint, (clickable && chipMouse.containsMouse) ? 0.22 : 0.14)
             : (clickable && chipMouse.containsMouse) ? Theme.foregroundHoverWash : Theme.foregroundWash
-        border.color: accent
-            ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.38)
+        border.color: chipTinted
+            ? Theme.withOpacity(chipTint, 0.38)
             : Theme.foregroundDivider
         border.width: 1
         implicitWidth: (maxLabelWidth > 0 ? Math.min(chipText.implicitWidth, maxLabelWidth) : chipText.implicitWidth) + 16
@@ -4033,11 +4081,11 @@ Item {
             anchors.centerIn: parent
             width: parent.maxLabelWidth > 0 ? parent.maxLabelWidth : implicitWidth
             text: parent.label
-            color: parent.accent ? Theme.accent : Theme.foreground
+            color: parent.chipTinted ? parent.chipTint : Theme.foreground
             font.family: Theme.fontFamily
             font.pixelSize: root.listFont
-            font.bold: parent.accent && Theme.fontBold
-            opacity: parent.accent ? 0.95 : 0.68
+            font.bold: parent.chipTinted && Theme.fontBold
+            opacity: parent.chipTinted ? 0.95 : 0.68
             elide: parent.maxLabelWidth > 0 ? Text.ElideRight : Text.ElideNone
             horizontalAlignment: Text.AlignHCenter
         }
@@ -4695,6 +4743,16 @@ Item {
             var _rev = browseRow.trackRevision
             return !!(browseRow.track && browseRow.track.liked)
         }
+        readonly property string artistAlbumLine: {
+            var artist = String(browseRow.track.artist || "").trim()
+            var album = String(browseRow.track.album || "").trim()
+            var title = String(browseRow.track.title || "").trim()
+            if (album === title)
+                album = ""
+            if (artist && album)
+                return artist + " - " + album
+            return artist || album
+        }
         readonly property int genreReserve: browseRow.showGenre && browseRow.genreLabel !== "" ? 108 : 0
         readonly property int likeReserve: 30
         readonly property int folderReserve: browseRow.showFolder ? 30 : 0
@@ -4792,8 +4850,8 @@ Item {
 
                 Text {
                     Layout.fillWidth: true
-                    visible: String(browseRow.track.artist || "").trim() !== ""
-                    text: browseRow.track.artist || ""
+                    visible: browseRow.artistAlbumLine !== ""
+                    text: browseRow.artistAlbumLine
                     color: Theme.foreground
                     font.family: Theme.fontFamily
                     font.pixelSize: root.listFont

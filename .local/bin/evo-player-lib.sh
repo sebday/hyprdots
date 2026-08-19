@@ -913,7 +913,7 @@ track_tags_read() {
   python3 - "$path" <<'PY'
 import json, os, subprocess, sys
 path = sys.argv[1]
-title = artist = genre = album = album_artist = year = ""
+title = artist = genre = album = album_artist = year = label = ""
 try:
     proc = subprocess.run(
         ["ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", path],
@@ -935,6 +935,7 @@ try:
         genre = pick("genre")
         album = pick("album")
         album_artist = pick("album_artist", "albumartist")
+        label = pick("label", "publisher", "organization", "tpub")
         year = pick("date", "year", "originaldate", "original_year", "tyer")
         import re
         m = re.search(r"(\d{4})", year or "")
@@ -943,7 +944,7 @@ except Exception:
     pass
 if not title:
     title = os.path.splitext(os.path.basename(path))[0]
-print(json.dumps({"title": title, "artist": artist, "genre": genre, "album": album, "album_artist": album_artist, "year": year}, ensure_ascii=False))
+print(json.dumps({"title": title, "artist": artist, "genre": genre, "album": album, "album_artist": album_artist, "year": year, "label": label}, ensure_ascii=False))
 PY
 }
 
@@ -1087,22 +1088,24 @@ track_meta_json() {
 
 track_list_json() {
   local path="$1"
-  local tags title artist genre album year art="" liked_json=false
+  local tags title artist genre album year label art="" liked_json=false
   tags="$(track_tags_read "$path")"
   title="$(jq -r '.title // ""' <<<"$tags")"
   artist="$(jq -r '.artist // ""' <<<"$tags")"
   genre="$(jq -r '.genre // ""' <<<"$tags")"
   album="$(jq -r '.album // ""' <<<"$tags")"
   year="$(jq -r '.year // ""' <<<"$tags")"
+  label="$(jq -r '.label // ""' <<<"$tags")"
   art="$(art_path_cached "$path")"
   is_liked "$path" && liked_json=true
-  printf '{"path":"%s","title":"%s","artist":"%s","genre":"%s","album":"%s","year":"%s","art":"%s","liked":%s}' \
+  printf '{"path":"%s","title":"%s","artist":"%s","genre":"%s","album":"%s","year":"%s","label":"%s","art":"%s","liked":%s}' \
     "$(json_escape "$path")" \
     "$(json_escape "$title")" \
     "$(json_escape "$artist")" \
     "$(json_escape "$genre")" \
     "$(json_escape "$album")" \
     "$(json_escape "$year")" \
+    "$(json_escape "$label")" \
     "$(json_escape "$art")" \
     "$liked_json"
 }
@@ -1213,6 +1216,7 @@ def read_tags(path):
             "genre": pick("genre"),
             "album": pick("album"),
             "year": m.group(1) if m else "",
+            "label": pick("label", "publisher", "organization", "tpub"),
         }
     except Exception:
         return {"title": os.path.splitext(os.path.basename(path))[0]}
@@ -1254,6 +1258,7 @@ for path in paths:
             "genre": meta.get("genre", ""),
             "album": meta.get("album", ""),
             "year": meta.get("year", ""),
+            "label": meta.get("label", ""),
         }
     else:
         row = dict(row)

@@ -104,24 +104,17 @@ Item {
     readonly property int gaugeLabelFont: Math.max(Theme.fontSizeL, Math.round(root.gaugeSize * 0.22))
     readonly property int usageBlockWidth: root.gaugeSize * 2 + root.gaugeSpacing
 
-    readonly property int cycleDaysLeft: {
-        var used = parseInt(root.detail.cycleDaysUsed, 10) || 0
-        var total = parseInt(root.detail.cycleDaysTotal, 10) || 0
-        return Math.max(0, total - used)
-    }
+    readonly property int cycleDaysUsed: parseInt(root.detail.cycleDaysUsed, 10) || 0
+    readonly property int cycleDaysTotal: parseInt(root.detail.cycleDaysTotal, 10) || 0
+    readonly property int cycleDaysLeft: Math.max(0, root.cycleDaysTotal - root.cycleDaysUsed)
     readonly property string cycleDaysLeftText: {
         if (root.loading)
             return "…"
         var left = root.cycleDaysLeft
         return left === 1 ? "1 day" : left + " days"
     }
-    readonly property real cycleElapsed: {
-        var used = parseInt(root.detail.cycleDaysUsed, 10) || 0
-        var total = parseInt(root.detail.cycleDaysTotal, 10) || 0
-        if (total <= 0)
-            return 0
-        return Math.max(0, Math.min(1, used / total))
-    }
+    readonly property int cycleDaysPadH: Theme.sparklineChartMargin
+    readonly property int cycleDaySpacing: Theme.spacing2
 
     function applyPayload(json) {
         loading = false
@@ -262,36 +255,76 @@ Item {
                             }
                         }
                     }
+                }
+            }
 
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: Theme.spacingS
+            RowLayout {
+                id: cycleDaysSection
+                Layout.alignment: Qt.AlignHCenter
+                Layout.preferredWidth: root.usageBlockWidth - root.cycleDaysPadH * 2
+                Layout.maximumWidth: root.usageBlockWidth - root.cycleDaysPadH * 2
+                spacing: Theme.spacingS
 
-                        HoverPopupLabelPill {
-                            text: root.cycleDaysLeftText
-                            fieldsetLegend: false
-                            fontSize: Theme.fontSizeXs
-                            textColor: root.cycleColor
-                            fill: Theme.withOpacity(root.cycleColor, 0.14)
-                            textOpacity: 1
-                        }
+                HoverPopupLabelPill {
+                    Layout.alignment: Qt.AlignVCenter
+                    text: root.cycleDaysLeftText
+                    fieldsetLegend: false
+                    fontSize: Theme.fontSizeXs
+                    textColor: root.cycleColor
+                    fill: Theme.withOpacity(root.cycleColor, 0.14)
+                    textOpacity: 1
+                }
 
-                        Text {
-                            text: "left"
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontSizeXs
-                            font.bold: Theme.fontBold
-                            opacity: 0.72
-                        }
+                Text {
+                    Layout.alignment: Qt.AlignVCenter
+                    text: "left"
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.fontSizeXs
+                    font.bold: Theme.fontBold
+                    opacity: Theme.opacitySecondary
+                }
 
-                        CycleProgressBar {
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 4
-                            Layout.alignment: Qt.AlignVCenter
-                            progress: root.cycleElapsed
-                            color: root.cycleColor
-                            barHeight: 4
+                Item {
+                    id: cycleDaysTrack
+                    Layout.fillWidth: true
+                    Layout.alignment: Qt.AlignVCenter
+                    visible: root.cycleDaysTotal > 0
+                    implicitHeight: cycleDaysRow.height
+
+                    readonly property int cellCount: root.cycleDaysTotal
+                    readonly property int cellWidth: cellCount > 0 && width > 0
+                        ? Math.max(4, Math.floor((width - Math.max(0, cellCount - 1) * root.cycleDaySpacing) / cellCount))
+                        : 12
+
+                    Row {
+                        id: cycleDaysRow
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        spacing: root.cycleDaySpacing
+
+                        Repeater {
+                            model: root.cycleDaysTotal
+
+                            Rectangle {
+                                required property int index
+                                readonly property bool isToday: {
+                                    if (root.cycleDaysTotal <= 0)
+                                        return false
+                                    if (root.cycleDaysUsed < root.cycleDaysTotal)
+                                        return index === root.cycleDaysUsed
+                                    return index === root.cycleDaysTotal - 1
+                                }
+                                readonly property bool elapsed: index < root.cycleDaysUsed || isToday
+
+                                width: cycleDaysTrack.cellWidth
+                                height: width
+                                radius: Theme.radiusM
+                                color: elapsed ? root.cycleColor : Theme.heatmap0
+                                opacity: elapsed ? 1 : Theme.opacityDisabled
+                                border.width: isToday ? 1 : 0
+                                border.color: Theme.accent
+                            }
                         }
                     }
                 }

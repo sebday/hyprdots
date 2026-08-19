@@ -44,7 +44,7 @@ usage:
   evo-player art clear <track-path> [--json]
   evo-player art embed|maintain [--json]
   evo-player art notify-cache <track-path>
-  evo-player find [--artist|--genre|--year|--album] <value> [--json]
+  evo-player find [--artist|--genre|--year|--album|--label] <value> [--json]
   evo-player find <query> [--json]
   evo-player scrobble auth|token <token>|nowplaying|submit|recent|touch [--json]
   evo-player stats [--json]
@@ -821,13 +821,15 @@ player_saved_status_json() {
     genre="$(jq -r '.genre // ""' "$PLAYER_STATE" 2>/dev/null || true)"
     playlist="$(jq -r '.playlist // ""' "$PLAYER_STATE" 2>/dev/null || true)"
   fi
-  local title="" artist="" album="" tag_genre="" year="" dur="0" art="" wf="" liked="false"
+  local title="" artist="" album="" tag_genre="" year="" label="" dur="0" art="" wf="" liked="false"
   if [[ -n "$path" && -f "$path" ]]; then
     title="$(ffprobe_meta "$path" title)"
     artist="$(ffprobe_meta "$path" artist)"
     tag_genre="$(ffprobe_meta "$path" genre)"
     album="$(ffprobe_meta "$path" album)"
     year="$(ffprobe_year "$path")"
+    label="$(ffprobe_meta "$path" publisher)"
+    [[ -z "$label" ]] && label="$(ffprobe_meta "$path" label)"
     [[ -z "$title" ]] && title="$(basename "$path")"
     title="${title%.*}"
     dur="$(ffprobe_duration "$path")"
@@ -853,6 +855,7 @@ player_saved_status_json() {
     --arg genre "$genre" \
     --arg album "$album" \
     --arg year "$year" \
+    --arg label "$label" \
     --argjson position "${pos:-0}" \
     --argjson duration "${dur:-0}" \
     --argjson volume 100 \
@@ -863,7 +866,7 @@ player_saved_status_json() {
     --argjson liked "$([[ $liked == true ]] && echo true || echo false)" \
     --arg position_label "$(format_time "${pos:-0}")" \
     --arg duration_label "$(format_time "${dur:-0}")" \
-    '{state:$state,path:$path,title:$title,artist:$artist,genre:$genre,album:$album,year:$year,position:$position,duration:$duration,volume:$volume,liked:$liked,art:$art,waveform:$waveform,playlist:$playlist,shuffle:$shuffle,position_label:$position_label,duration_label:$duration_label}'
+    '{state:$state,path:$path,title:$title,artist:$artist,genre:$genre,album:$album,year:$year,label:$label,position:$position,duration:$duration,volume:$volume,liked:$liked,art:$art,waveform:$waveform,playlist:$playlist,shuffle:$shuffle,position_label:$position_label,duration_label:$duration_label}'
 }
 
 cmd_player_status() {
@@ -876,7 +879,7 @@ cmd_player_status() {
     fi
     return 0
   fi
-  local path paused pos dur vol title artist genre album year art wf playlist shuffle state liked
+  local path paused pos dur vol title artist genre album year label art wf playlist shuffle state liked
   path="$(mpv_prop path)" || path=""
   paused="$(mpv_prop pause)" || paused="true"
   pos="$(mpv_prop time-pos)" || pos="0"
@@ -892,13 +895,15 @@ cmd_player_status() {
   else
     state="playing"
   fi
-  title="" artist="" genre="" album="" year="" liked="false"
+  title="" artist="" genre="" album="" year="" label="" liked="false"
   if [[ -n "$path" && -f "$path" ]]; then
     title="$(ffprobe_meta "$path" title)"
     artist="$(ffprobe_meta "$path" artist)"
     genre="$(ffprobe_meta "$path" genre)"
     album="$(ffprobe_meta "$path" album)"
     year="$(ffprobe_year "$path")"
+    label="$(ffprobe_meta "$path" publisher)"
+    [[ -z "$label" ]] && label="$(ffprobe_meta "$path" label)"
     [[ -z "$title" ]] && title="$(basename "$path")"
     title="${title%.*}"
     art="$(art_path_cached "$path")"
@@ -921,6 +926,7 @@ cmd_player_status() {
       --arg genre "$genre" \
       --arg album "$album" \
       --arg year "$year" \
+      --arg label "$label" \
       --argjson position "${pos:-0}" \
       --argjson duration "${dur:-0}" \
       --argjson volume "${vol:-100}" \
@@ -931,7 +937,7 @@ cmd_player_status() {
       --argjson liked "$([[ $liked == true ]] && echo true || echo false)" \
       --arg position_label "$(format_time "${pos:-0}")" \
       --arg duration_label "$(format_time "${dur:-0}")" \
-      '{state:$state,path:$path,title:$title,artist:$artist,genre:$genre,album:$album,year:$year,position:$position,duration:$duration,volume:$volume,liked:$liked,art:$art,waveform:$waveform,playlist:$playlist,shuffle:$shuffle,position_label:$position_label,duration_label:$duration_label}'
+      '{state:$state,path:$path,title:$title,artist:$artist,genre:$genre,album:$album,year:$year,label:$label,position:$position,duration:$duration,volume:$volume,liked:$liked,art:$art,waveform:$waveform,playlist:$playlist,shuffle:$shuffle,position_label:$position_label,duration_label:$duration_label}'
   else
     printf '%s — %s (%s)\n' "$artist" "$title" "$state"
   fi
@@ -2317,6 +2323,7 @@ cmd_find() {
       --genre) mode="genre"; shift; query="$1"; continue ;;
       --year) mode="year"; shift; query="$1"; continue ;;
       --album) mode="album"; shift; query="$1"; continue ;;
+      --label) mode="label"; shift; query="$1"; continue ;;
       -h|--help|help) usage ;;
       -*) usage ;;
       *) query="$1" ;;
@@ -2340,6 +2347,8 @@ def match(item):
         return needle in str(item.get("artist") or "").casefold()
     if mode == "album":
         return needle in str(item.get("album") or "").casefold()
+    if mode == "label":
+        return needle in str(item.get("label") or "").casefold()
     if mode == "genre":
         return needle in str(item.get("genre") or "").casefold()
     if mode == "year":
@@ -2350,6 +2359,7 @@ def match(item):
         str(item.get("album") or ""),
         str(item.get("genre") or ""),
         str(item.get("year") or ""),
+        str(item.get("label") or ""),
     ]).casefold()
     return needle in hay
 

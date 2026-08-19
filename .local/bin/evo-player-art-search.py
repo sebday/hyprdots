@@ -22,8 +22,8 @@ def ffprobe_tags(path: str) -> dict[str, str]:
         proc = subprocess.run(
             [
                 "ffprobe", "-v", "quiet",
-                "-show_entries", "format_tags=artist,album_artist,album,title",
-                "-of", "json",
+                "-print_format", "json",
+                "-show_format",
                 path,
             ],
             capture_output=True,
@@ -41,13 +41,52 @@ def ffprobe_tags(path: str) -> dict[str, str]:
         return {}
 
 
-def track_queries(path: str) -> list[str]:
+def pick_tag(tags: dict[str, str], *keys: str) -> str:
+    lookup = {str(k).lower(): str(v).strip() for k, v in tags.items() if v}
+    for key in keys:
+        val = lookup.get(key.lower())
+        if val:
+            return val
+    return ""
+
+
+def looks_like_catno(value: str) -> bool:
+    s = (value or "").strip()
+    if len(s) < 3 or len(s) > 24 or " " in s:
+        return False
+    return bool(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._/-]*\d[A-Za-z0-9._/-]*", s))
+
+
+def track_meta(path: str) -> dict[str, str]:
     tags = ffprobe_tags(path)
-    artist = tags.get("artist") or tags.get("album_artist") or ""
-    album = tags.get("album") or ""
-    title = tags.get("title") or os.path.splitext(os.path.basename(path))[0]
+    year_raw = pick_tag(tags, "date", "year", "originaldate", "original_year", "tyer")
+    year_match = re.search(r"(19\d{2}|20\d{2})", year_raw or "")
+    album = pick_tag(tags, "album")
+    catno = pick_tag(tags, "catalognumber", "catalog", "catalogue", "catno")
+    if not catno and looks_like_catno(album):
+        catno = album
+    return {
+        "artist": pick_tag(tags, "artist", "album_artist", "albumartist"),
+        "album": album,
+        "title": pick_tag(tags, "title") or os.path.splitext(os.path.basename(path))[0],
+        "catno": catno,
+        "year": year_match.group(1) if year_match else "",
+    }
+
+
+def fallback_queries(meta: dict[str, str]) -> list[str]:
+    artist = meta.get("artist") or ""
+    album = meta.get("album") or ""
+    title = meta.get("title") or ""
+    catno = meta.get("catno") or ""
     out = []
-    for q in (f"{artist} {album}".strip(), f"{artist} {title}".strip(), album.strip(), title.strip()):
+    for q in (
+        catno.strip(),
+        f"{artist} {album}".strip(),
+        f"{artist} {title}".strip(),
+        album.strip(),
+        title.strip(),
+    ):
         if q and q not in out:
             out.append(q)
     return out
@@ -112,26 +151,86 @@ def search_caa(query: str, limit: int = PER_SOURCE) -> list[dict]:
     return out
 
 
-def search_discogs(query: str, token: str, limit: int = PER_SOURCE) -> list[dict]:
-    if not token:
+def discogs_headers(token: str = "") -> dict[str, str]:
+    headers = {"User-Agent": USER_AGENT}
+    if token:
+        headers["Authorization"] = f"Discogs token={token}"
+    return headers
+
+
+def norm_catno(value: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", (value or "").lower())
+
+
+def discogs_release_art(resource_url: str, token: str = "") -> tuple[str, str]:
+    if not resource_url:
+        return "", ""
+    try:
+        data = fetch_json(resource_url, discogs_headers(token))
+    except Exception:
+        return "", ""
+    images = data.get("images") or []
+    primary = next((img for img in images if img.get("type") == "primary"), None)
+    img = primary or (images[0] if images else None)
+    if not img:
+        return "", ""
+    art = str(img.get("uri") or "")
+    thumb = str(img.get("uri150") or art)
+    return art, thumb
+
+
+def search_discogs(
+    query: str = "",
+    token: str = "",
+    limit: int = PER_SOURCE,
+    catno: str = "",
+    year: str = "",
+) -> list[dict]:
+    params = {"type": "release", "per_page": str(max(limit, 8))}
+    if catno:
+        params["catno"] = catno
+    if year:
+        params["year"] = year
+    if query:
+        params["q"] = query
+    if "q" not in params and "catno" not in params:
         return []
     try:
-        term = urllib.parse.quote(query)
-        url = f"https://api.discogs.com/database/search?q={term}&type=release&per_page={limit}"
-        data = fetch_json(url, {
-            "User-Agent": USER_AGENT,
-            "Authorization": f"Discogs token={token}",
-        })
+        url = "https://api.discogs.com/database/search?" + urllib.parse.urlencode(params)
+        data = fetch_json(url, discogs_headers(token))
     except Exception:
         return []
-    out = []
+    raw = []
+    want = norm_catno(catno)
     for item in data.get("results", []):
-        thumb = item.get("thumb") or item.get("cover_image") or ""
-        if not thumb:
+        raw.append({
+            "title": item.get("title") or catno or query,
+            "year": str(item.get("year") or ""),
+            "catno": str(item.get("catno") or ""),
+            "thumb": item.get("thumb") or item.get("cover_image") or "",
+            "resource_url": item.get("resource_url") or "",
+        })
+    if want:
+        exact = [row for row in raw if norm_catno(row.get("catno") or "") == want]
+        raw = exact or raw
+    out = []
+    for item in raw:
+        thumb = item.get("thumb") or ""
+        art = re.sub(r"/fit-in/\d+x\d+/", "/fit-in/600x600/", thumb) if thumb else ""
+        if not art:
+            art, thumb = discogs_release_art(item.get("resource_url") or "", token)
+        if not art:
             continue
-        art = re.sub(r"/fit-in/\d+x\d+/", "/fit-in/600x600/", thumb)
-        label = item.get("title") or query
-        out.append({"url": art, "thumb": art, "label": label, "source": "discogs"})
+        out.append({
+            "url": art,
+            "thumb": thumb or art,
+            "label": item.get("title") or catno or query,
+            "source": "discogs",
+            "year": item.get("year") or "",
+            "catno": item.get("catno") or "",
+        })
+        if len(out) >= limit:
+            break
     return out
 
 
@@ -188,6 +287,17 @@ def dedupe(results: list[dict], max_items: int = MAX_RESULTS) -> list[dict]:
         if len(out) >= max_items:
             break
     return out
+
+
+def search_discogs_catalog(catno: str, token: str, year: str = "") -> list[dict]:
+    hits = search_discogs(token=token, catno=catno, limit=PER_SOURCE)
+    if not year or len(hits) <= 1:
+        return hits
+    narrowed = search_discogs(token=token, catno=catno, year=year, limit=PER_SOURCE)
+    if narrowed:
+        return narrowed
+    year_hits = [row for row in hits if str(row.get("year") or "") == year]
+    return year_hits or hits
 
 
 def search_query(query: str, discogs_token: str, sp_token: str) -> list[dict]:
@@ -249,12 +359,15 @@ def main() -> int:
         except Exception:
             sp_token = ""
 
-    queries = track_queries(path)
-    primary = queries[0] if queries else os.path.basename(path)
-    merged = search_query(primary, discogs_token, sp_token)
+    meta = track_meta(path)
+    queries = fallback_queries(meta)
+    primary = meta.get("catno") or (queries[0] if queries else os.path.basename(path))
+    merged: list[dict] = []
+    if meta.get("catno"):
+        merged.extend(search_discogs_catalog(meta["catno"], discogs_token, meta.get("year") or ""))
     results = dedupe(merged)
     if len(results) < 4:
-        for q in queries[1:3]:
+        for q in queries:
             merged.extend(search_query(q, discogs_token, sp_token))
             results = dedupe(merged)
             if len(results) >= 4:

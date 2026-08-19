@@ -65,40 +65,67 @@ def load_path_year_module():
 _path_year = load_path_year_module()
 
 
+AUDIO_EXTS = {".mp3", ".mp2", ".m4a"}
+VINYL_SKIP_LABELS = {"_misc"}
+TAG_FIELDS = ("title", "artist", "genre", "year", "album", "publisher", "catalognumber")
+
+
+def _first_text(frame) -> str:
+    if frame is None:
+        return ""
+    text = getattr(frame, "text", None)
+    if text:
+        return str(text[0]).strip()
+    return str(frame).strip()
+
+
 def read_tags(path: Path) -> dict:
-    import subprocess
-
-    title = artist = genre = album = year = ""
+    title = artist = genre = album = year = publisher = catalognumber = ""
+    ext = path.suffix.lower()
     try:
-        proc = subprocess.run(
-            [
-                "ffprobe", "-v", "quiet", "-print_format", "json",
-                "-show_format", str(path),
-            ],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        if proc.returncode == 0 and proc.stdout.strip():
-            tags = json.loads(proc.stdout).get("format", {}).get("tags", {}) or {}
+        if ext in {".mp3", ".mp2"}:
+            from mutagen.id3 import ID3, ID3NoHeaderError
+            try:
+                id3 = ID3(path)
+            except ID3NoHeaderError:
+                id3 = None
+            if id3 is not None:
+                title = _first_text(id3.get("TIT2"))
+                artist = _first_text(id3.get("TPE1")) or _first_text(id3.get("TPE2"))
+                genre = _first_text(id3.get("TCON"))
+                album = _first_text(id3.get("TALB"))
+                publisher = _first_text(id3.get("TPUB"))
+                year = _first_text(id3.get("TDRC")) or _first_text(id3.get("TYER"))
+                for frame in id3.getall("TXXX"):
+                    desc = str(getattr(frame, "desc", "")).lower()
+                    if desc in {"catalognumber", "catalog", "catalogue"}:
+                        catalognumber = _first_text(frame)
+                        break
+        elif ext == ".m4a":
+            from mutagen.mp4 import MP4
+            mp4 = MP4(path)
+            tags = mp4.tags or {}
 
-            def pick(*keys: str) -> str:
-                lookup = {k.lower(): str(v).strip() for k, v in tags.items() if v}
-                for key in keys:
-                    val = lookup.get(key.lower())
-                    if val:
-                        return val
-                return ""
+            def mp4_pick(key: str) -> str:
+                val = tags.get(key)
+                if not val:
+                    return ""
+                item = val[0]
+                if isinstance(item, bytes):
+                    return item.decode("utf-8", "replace").strip()
+                return str(item).strip()
 
-            title = pick("title")
-            artist = pick("artist", "album_artist", "albumartist")
-            genre = pick("genre")
-            album = pick("album")
-            raw_year = pick("date", "year", "originaldate", "original_year", "tyer")
-            m = re.search(r"(\d{4})", raw_year or "")
-            year = m.group(1) if m else ""
-    except (json.JSONDecodeError, OSError):
+            title = mp4_pick("\xa9nam")
+            artist = mp4_pick("\xa9ART")
+            genre = mp4_pick("\xa9gen")
+            album = mp4_pick("\xa9alb")
+            year = mp4_pick("\xa9day")
+            publisher = mp4_pick("----:com.apple.iTunes:LABEL")
+            catalognumber = mp4_pick("----:com.apple.iTunes:CATALOGNUMBER")
+    except OSError:
         pass
+    m = re.search(r"(\d{4})", year or "")
+    year = m.group(1) if m else ""
     if not title:
         title = path.stem
     return {
@@ -107,7 +134,73 @@ def read_tags(path: Path) -> dict:
         "genre": genre,
         "album": album,
         "year": year,
+        "publisher": publisher,
+        "catalognumber": catalognumber,
     }
+
+
+def vinyl_label_name(folder: str) -> str:
+    return folder.replace("_", " ").replace("-", " ").strip().title()
+
+
+def vinyl_catalog_from_folder(release_folder: str) -> str | None:
+    def is_year_token(tok: str) -> bool:
+        return bool(re.fullmatch(r"(19|20)\d{2}", tok))
+
+    def is_cat_token(tok: str) -> bool:
+        tok = tok.upper()
+        if not re.fullmatch(r"[A-Z0-9]{3,16}", tok):
+            return False
+        if is_year_token(tok):
+            return False
+        if not re.search(r"[A-Z]", tok) or not re.search(r"\d", tok):
+            return False
+        return True
+
+    def score(tok: str) -> int:
+        return len(re.findall(r"\d", tok)) * 10 + len(tok)
+
+    first = release_folder.split("-", 1)[0]
+    if is_cat_token(first):
+        return first.upper()
+
+    candidates: list[str] = []
+    if "_" in first:
+        tail = first.rsplit("_", 1)[-1]
+        if is_cat_token(tail) and len(re.findall(r"\d", tail)) >= 2:
+            candidates.append(tail.upper())
+    for tok in re.split(r"[-_]", release_folder):
+        if is_cat_token(tok):
+            candidates.append(tok.upper())
+    if not candidates:
+        return None
+    return max(candidates, key=score)
+
+
+def vinyl_from_path(path: Path) -> dict | None:
+    try:
+        rel = path.resolve().relative_to(MUSIC_ROOT.resolve())
+    except ValueError:
+        return None
+    parts = rel.parts
+    if len(parts) < 4:
+        return None
+    if parts[1] != "vinyl":
+        return None
+    if parts[0] not in GENRE_FOLDER_TO_TAG:
+        return None
+    label_folder = parts[2]
+    if label_folder in VINYL_SKIP_LABELS:
+        return None
+    label = vinyl_label_name(label_folder)
+    if not label:
+        return None
+    out = {"publisher": label}
+    cat = vinyl_catalog_from_folder(parts[3])
+    if cat:
+        out["album"] = cat
+        out["catalognumber"] = cat
+    return out
 
 
 def valid_year(y: int) -> bool:
@@ -213,6 +306,9 @@ def target_tags(path: Path, tags: dict) -> dict:
         out["genre"] = genre_tag
     if year:
         out["year"] = str(year)
+    vinyl = vinyl_from_path(path)
+    if vinyl:
+        out.update(vinyl)
     return out
 
 
@@ -220,7 +316,7 @@ def write_tags(path: Path, targets: dict) -> bool:
     ext = path.suffix.lower()
     try:
         if ext in {".mp3", ".mp2"}:
-            from mutagen.id3 import ID3, ID3NoHeaderError, TDRC, TCON, TIT2, TPE1
+            from mutagen.id3 import ID3, ID3NoHeaderError, TALB, TCON, TDRC, TIT2, TPE1, TPUB, TXXX
             try:
                 id3 = ID3(path)
             except ID3NoHeaderError:
@@ -233,6 +329,19 @@ def write_tags(path: Path, targets: dict) -> bool:
                 id3["TCON"] = TCON(encoding=3, text=targets["genre"])
             if "year" in targets:
                 id3["TDRC"] = TDRC(encoding=3, text=targets["year"])
+            if "album" in targets:
+                id3["TALB"] = TALB(encoding=3, text=targets["album"])
+            if "publisher" in targets:
+                id3["TPUB"] = TPUB(encoding=3, text=targets["publisher"])
+            if "catalognumber" in targets:
+                keep_txxx = [
+                    frame for frame in id3.getall("TXXX")
+                    if str(getattr(frame, "desc", "")).lower() != "catalognumber"
+                ]
+                id3.delall("TXXX")
+                for frame in keep_txxx:
+                    id3.add(frame)
+                id3.add(TXXX(encoding=3, desc="CATALOGNUMBER", text=targets["catalognumber"]))
             id3.save(path, v2_version=4)
             return True
         if ext == ".m4a":
@@ -248,6 +357,12 @@ def write_tags(path: Path, targets: dict) -> bool:
                 mp4["\xa9gen"] = [targets["genre"]]
             if "year" in targets:
                 mp4["\xa9day"] = [targets["year"]]
+            if "album" in targets:
+                mp4["\xa9alb"] = [targets["album"]]
+            if "publisher" in targets:
+                mp4["----:com.apple.iTunes:LABEL"] = [targets["publisher"].encode("utf-8")]
+            if "catalognumber" in targets:
+                mp4["----:com.apple.iTunes:CATALOGNUMBER"] = [targets["catalognumber"].encode("utf-8")]
             mp4.save()
             return True
     except Exception as exc:
@@ -256,46 +371,70 @@ def write_tags(path: Path, targets: dict) -> bool:
     return False
 
 
-def main() -> int:
-    if len(sys.argv) < 2:
-        print("usage: evo-player-standardize-tags.py <audio-file>", file=sys.stderr)
-        return 1
-    path = Path(sys.argv[1])
-    if not path.is_file():
-        return 1
+def iter_audio_files(path: Path):
+    if path.is_file():
+        if path.suffix.lower() in AUDIO_EXTS:
+            yield path
+        return
+    if path.is_dir():
+        for child in sorted(path.rglob("*")):
+            if child.is_file() and child.suffix.lower() in AUDIO_EXTS:
+                yield child
 
+
+def standardize_file(path: Path) -> dict:
     before = read_tags(path)
     targets = target_tags(path, before)
     changes = {}
-    for key in ("title", "artist", "genre", "year"):
+    for key in TAG_FIELDS:
         new = targets.get(key, "")
         old = before.get(key, "")
         if new and new != old:
             changes[key] = {"from": old, "to": new}
 
     if not changes:
-        print(json.dumps({"path": str(path), "changed": False}))
-        return 0
+        return {"path": str(path), "changed": False}
 
-    merged = dict(before)
-    for key, val in targets.items():
-        if val:
-            merged[key] = val
+    if not write_tags(path, {key: diff["to"] for key, diff in changes.items()}):
+        return {"path": str(path), "changed": False, "error": True}
 
-    if not write_tags(path, merged):
+    return {"path": str(path), "changed": True, "changes": changes}
+
+
+def main() -> int:
+    if len(sys.argv) < 2:
+        print("usage: evo-player-standardize-tags.py <audio-file-or-dir>", file=sys.stderr)
+        return 1
+    path = Path(sys.argv[1])
+    if not path.exists():
         return 1
 
-    print(
-        json.dumps(
-            {"path": str(path), "changed": True, "changes": changes},
-            ensure_ascii=False,
-        )
-    )
-    for key, diff in changes.items():
-        print(
-            f"tag {key}: {diff['from'] or '∅'} -> {diff['to']}",
-            file=sys.stderr,
-        )
+    if path.is_dir():
+        changed_n = 0
+        failed = 0
+        for audio in iter_audio_files(path):
+            result = standardize_file(audio)
+            if result.get("error"):
+                failed += 1
+                continue
+            if result.get("changed"):
+                changed_n += 1
+        print(json.dumps({"root": str(path), "changed_files": changed_n, "failed": failed}))
+        return 1 if failed else 0
+
+    audio = next(iter_audio_files(path), None)
+    if audio is None:
+        return 1
+    result = standardize_file(audio)
+    if result.get("error"):
+        return 1
+    print(json.dumps(result, ensure_ascii=False))
+    if result.get("changed"):
+        for key, diff in result["changes"].items():
+            print(
+                f"tag {key}: {diff['from'] or '∅'} -> {diff['to']}",
+                file=sys.stderr,
+            )
     return 0
 
 
