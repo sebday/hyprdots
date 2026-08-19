@@ -61,6 +61,7 @@ Item {
     property string activeLibraryJobKey: ""
     readonly property bool buildBusy: libraryJobBusy
         && root.activeLibraryJobKey === "build"
+    readonly property bool libraryActivityBusy: libraryJobBusy || sortProc.running
     property bool tracksLoading: false
     property string browsePath: ""
     property string browseParent: ""
@@ -165,6 +166,9 @@ Item {
     property var artPickerResults: []
     readonly property var nowPlayingMetaChips: {
         var chips = []
+        var artist = String(player.artist || "").trim()
+        if (artist !== "")
+            chips.push({ label: artist, accent: true, kind: "artist", value: artist })
         var year = String(player.year || "").trim()
         if (year !== "")
             chips.push({ label: year, accent: false, kind: "year", value: year })
@@ -420,6 +424,17 @@ Item {
         if (!text)
             return ""
         return String(text).replace(/\r\n/g, "\n").replace(/\r/g, "\n")
+    }
+
+    function jobLogInline() {
+        var text = formatJobLog(jobLog).replace(/\n/g, " ").trim()
+        if (text)
+            return text
+        if (libraryJobBusy)
+            return libraryJobActiveLabel + "…"
+        if (sortProc.running)
+            return String(sortProc._label || "sort") + "…"
+        return ""
     }
 
     function syncJobLog() {
@@ -2959,12 +2974,12 @@ Item {
                     icon: "󰎆"
                     active: root.nowPlayingTabActive
                     spinning: queuePlayProc.running || loadProc.running || root.browseQueueBusy
-                        || root.libraryJobBusy || sortProc.running
                     onActivated: root.showNowPlaying()
                 }
                 IconTab {
                     icon: "󰉋"
                     active: root.browsePanelOpen
+                    spinning: root.libraryActivityBusy
                     onActivated: root.toggleBrowsePanel()
                 }
                 IconTab {
@@ -3216,32 +3231,6 @@ Item {
                                             maximumLineCount: 2
                                         }
 
-                                        Text {
-                                            Layout.fillWidth: true
-                                            visible: (root.player.artist || "") !== ""
-                                            text: String(root.player.artist || "")
-                                            color: Theme.foreground
-                                            font.family: Theme.fontFamily
-                                            font.pixelSize: Theme.fontSizeXl
-                                            font.bold: Theme.fontBold
-                                            opacity: artistMouse.containsMouse ? 1 : 0.72
-                                            elide: Text.ElideRight
-
-                                            MouseArea {
-                                                id: artistMouse
-                                                anchors.fill: parent
-                                                hoverEnabled: true
-                                                cursorShape: Qt.PointingHandCursor
-                                                onClicked: function(mouse) {
-                                                    var artist = String(root.player.artist || "").trim()
-                                                    if (!artist)
-                                                        return
-                                                    mouse.accepted = true
-                                                    root.openFilter("artist", artist, artist)
-                                                }
-                                            }
-                                        }
-
                                         Flow {
                                             Layout.fillWidth: true
                                             spacing: Theme.spacingS
@@ -3254,9 +3243,13 @@ Item {
                                                     required property var modelData
                                                     label: modelData.label
                                                     accent: !!modelData.accent
-                                                    clickable: modelData.kind === "genre" || modelData.kind === "year"
+                                                    clickable: modelData.kind === "artist"
+                                                        || modelData.kind === "genre"
+                                                        || modelData.kind === "year"
                                                     onActivated: {
-                                                        if (modelData.kind === "genre")
+                                                        if (modelData.kind === "artist")
+                                                            root.openFilter("artist", modelData.value, modelData.value)
+                                                        else if (modelData.kind === "genre")
                                                             root.openFilter("genre", modelData.value, modelData.value)
                                                         else if (modelData.kind === "year")
                                                             root.openFilter("year", modelData.value, modelData.value)
@@ -4335,8 +4328,15 @@ Item {
         property real opacityIdle: 0.42
         property real opacityHover: 0.9
         property bool enabled: true
+        property bool flashing: false
         property int iconSize: root.listFont
         signal activated()
+
+        function restingOpacity() {
+            if (!rowIconBtn.enabled)
+                return 0.2
+            return rowIconMouse.containsMouse ? rowIconBtn.opacityHover : rowIconBtn.opacityIdle
+        }
 
         implicitWidth: 22
         implicitHeight: 22
@@ -4346,13 +4346,42 @@ Item {
         z: 2
 
         Text {
+            id: rowIconGlyph
             anchors.centerIn: parent
             text: rowIconBtn.icon
             color: rowIconBtn.iconColor
-            opacity: !rowIconBtn.enabled ? 0.2
-                : (rowIconMouse.containsMouse ? rowIconBtn.opacityHover : rowIconBtn.opacityIdle)
+            opacity: rowIconBtn.flashing ? 1 : rowIconBtn.restingOpacity()
             font.family: Theme.fontFamily
             font.pixelSize: rowIconBtn.iconSize
+
+            SequentialAnimation on opacity {
+                running: rowIconBtn.flashing
+                loops: Animation.Infinite
+                NumberAnimation {
+                    from: 0.35
+                    to: 1.0
+                    duration: 600
+                    easing.type: Easing.InOutSine
+                }
+                NumberAnimation {
+                    from: 1.0
+                    to: 0.35
+                    duration: 600
+                    easing.type: Easing.InOutSine
+                }
+            }
+        }
+
+        Connections {
+            target: rowIconBtn
+            function onFlashingChanged() {
+                if (!rowIconBtn.flashing)
+                    rowIconGlyph.opacity = rowIconBtn.restingOpacity()
+            }
+            function onEnabledChanged() {
+                if (!rowIconBtn.flashing)
+                    rowIconGlyph.opacity = rowIconBtn.restingOpacity()
+            }
         }
 
         MouseArea {
@@ -4870,7 +4899,7 @@ Item {
             anchors.fill: parent
             radius: 6
             color: iconTab.active
-                ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.2)
+                ? "transparent"
                 : (iconTabMouse.containsMouse
                     ? Theme.foregroundWash
                     : "transparent")
@@ -4952,13 +4981,14 @@ Item {
                         iconColor: root.libraryJobBusy && root.activeLibraryJobKey === modelData.key
                             ? Theme.accent
                             : Theme.foreground
+                        flashing: root.libraryJobBusy && root.activeLibraryJobKey === modelData.key
                         enabled: !root.browseTreeLoading && !root.libraryJobBusy
                         onActivated: root.runLibraryAction(modelData)
                     }
                 }
 
                 RowIconButton {
-                    visible: root.libraryJobBusy || sortProc.running
+                    visible: root.libraryActivityBusy
                     icon: "󰓛"
                     tooltip: "stop"
                     opacityIdle: 0.5
@@ -4968,7 +4998,22 @@ Item {
                     onActivated: root.stopLibraryJob()
                 }
 
-                Item { Layout.fillWidth: true }
+                Text {
+                    visible: root.libraryActivityBusy
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 48
+                    text: root.jobLogInline()
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.libraryFont
+                    opacity: Theme.opacityDisabled
+                    elide: Text.ElideLeft
+                }
+
+                Item {
+                    Layout.fillWidth: true
+                    visible: !root.libraryActivityBusy
+                }
 
                 Text {
                     visible: root.browseTreeLoading
