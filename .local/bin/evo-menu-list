@@ -58,29 +58,301 @@ wallpapers)
 bindings)
     bindings_file="$home/.config/hypr/bindings.lua"
     [[ -f "$bindings_file" ]] || exit 0
-    python3 - "$bindings_file" <<'PY'
-import re, sys
+    python3 - "$bindings_file" "${home}" <<'PY'
+import os
+import re
+import sys
 
 path = sys.argv[1]
+home = sys.argv[2]
 text = open(path, encoding="utf-8").read()
-pattern = re.compile(r'bindd\(\s*"([^"]+)"\s*,\s*"([^"]+)"', re.S)
-seen = set()
-for keys, desc in pattern.findall(text):
-    keys = keys.strip()
-    desc = desc.strip()
+
+
+def parse_lua_locals(source: str) -> dict[str, str]:
+    vars: dict[str, str] = {
+        "bin": os.path.join(home, ".local/bin"),
+        "shell_ipc": os.path.join(home, ".local/bin/evo-ipc"),
+    }
+    for m in re.finditer(r"^(?:local\s+)?(\w+)\s*=\s*\"([^\"]*)\"", source, re.M):
+        vars[m.group(1)] = m.group(2)
+    for m in re.finditer(
+        r"^(?:local\s+)?(\w+)\s*=\s*(\w+)\s*\.\.\s*\"([^\"]*)\"",
+        source,
+        re.M,
+    ):
+        base = vars.get(m.group(2), m.group(2))
+        vars[m.group(1)] = base + m.group(3)
+    for m in re.finditer(
+        r"^(?:local\s+)?(\w+)\s*=\s*\(os\.getenv\(\"HOME\"\)\s+or\s+\"\"\)\s*\.\.\s*\"([^\"]*)\"",
+        source,
+        re.M,
+    ):
+        vars[m.group(1)] = home + m.group(2)
+    return vars
+
+
+VARS = parse_lua_locals(text)
+
+
+def skip_ws_comma(s: str, i: int) -> int:
+    while i < len(s) and s[i] in " \t\n\r,":
+        i += 1
+    return i
+
+
+def parse_lua_string(s: str, i: int) -> tuple[str, int] | tuple[None, int]:
+    i = skip_ws_comma(s, i)
+    if i >= len(s):
+        return None, i
+    quote = s[i]
+    if quote not in ('"', "'"):
+        return None, i
+    i += 1
+    out: list[str] = []
+    while i < len(s):
+        ch = s[i]
+        if ch == "\\" and i + 1 < len(s):
+            out.append(s[i + 1])
+            i += 2
+            continue
+        if ch == quote:
+            return "".join(out), i + 1
+        out.append(ch)
+        i += 1
+    return None, i
+
+
+def parse_bindd_arg(s: str, i: int) -> tuple[str, int]:
+    i = skip_ws_comma(s, i)
+    start = i
+    depth_paren = 0
+    depth_brace = 0
+    while i < len(s):
+        ch = s[i]
+        if ch in ('"', "'"):
+            _, i = parse_lua_string(s, i)
+            continue
+        if ch == "(":
+            depth_paren += 1
+        elif ch == ")":
+            if depth_paren == 0 and depth_brace == 0:
+                break
+            depth_paren -= 1
+        elif ch == "{":
+            depth_brace += 1
+        elif ch == "}":
+            depth_brace -= 1
+        elif ch == "," and depth_paren == 0 and depth_brace == 0:
+            break
+        i += 1
+    return s[start:i].strip(), i
+
+
+def expand_lua_expr(expr: str) -> str:
+    expr = re.sub(r"\s+", " ", expr.strip())
+    concat = re.match(r"^(\w+)\s*\.\.\s*(.+)$", expr)
+    if concat:
+        left = VARS.get(concat.group(1), concat.group(1))
+        right, _ = parse_lua_string(concat.group(2), 0)
+        if right is not None:
+            return left + right
+    bare, _ = parse_lua_string(expr, 0)
+    if bare is not None and expr.lstrip().startswith(('"', "'")):
+        return bare
+    if re.fullmatch(r"\w+", expr):
+        return VARS.get(expr, expr)
+    return expr
+
+
+def simplify_cmd(cmd: str) -> str:
+    cmd = expand_lua_expr(cmd)
+    cmd = re.sub(r"\s+", " ", cmd.strip())
+    ipc_suffix = re.search(r"evo-ipc\s+(.+)$", cmd)
+    if ipc_suffix:
+        return f"evo-ipc {ipc_suffix.group(1).strip()}"
+    return cmd
+
+
+def humanize_flags(flags: str) -> str:
+    if not flags:
+        return ""
+    hints: list[str] = []
+    if re.search(r"repeating\s*=\s*true", flags):
+        hints.append("repeating")
+    if re.search(r"locked\s*=\s*true", flags):
+        hints.append("active when screen locked")
+    if re.search(r"mouse\s*=\s*true", flags):
+        hints.append("mouse binding")
+    if not hints:
+        return ""
+    return " · " + ", ".join(hints)
+
+
+def humanize_dispatcher(dispatcher: str) -> str:
+    d = re.sub(r"\s+", " ", dispatcher.strip())
+    if d.startswith("function"):
+        return "Custom Lua handler in bindings.lua"
+
+    m = re.search(r"hl\.dsp\.exec_cmd\((.+)\)\s*$", d)
+    if m:
+        cmd = simplify_cmd(m.group(1))
+        if cmd.startswith("evo-ipc "):
+            return f"Runs evo-ipc: {cmd[8:]}"
+        return f"Runs: {cmd}"
+
+    m = re.search(r"hl\.dsp\.global\(\s*\"([^\"]+)\"\s*\)", d)
+    if m:
+        return f"Hyprland global event: {m.group(1)}"
+
+    patterns = [
+        (r"hl\.dsp\.window\.close\(\)", "Hyprland: close active window"),
+        (r"hl\.dsp\.window\.drag\(\)", "Hyprland: drag window with mouse"),
+        (r"hl\.dsp\.window\.resize\(\)", "Hyprland: resize window with mouse"),
+        (r"hl\.dsp\.layout\(\s*\"([^\"]+)\"\s*\)", lambda m: f"Hyprland layout: {m.group(1)}"),
+        (r"hl\.dsp\.workspace\.toggle_special\(\s*\"([^\"]+)\"\s*\)", lambda m: f"Hyprland: toggle special workspace {m.group(1)}"),
+        (r"hl\.dsp\.focus\(\s*\{\s*workspace\s*=\s*(\d+)\s*\}\s*\)", lambda m: f"Hyprland: focus workspace {m.group(1)}"),
+        (r"hl\.dsp\.focus\(\s*\{\s*workspace\s*=\s*\"([^\"]+)\"\s*\}\s*\)", lambda m: f"Hyprland: focus workspace {m.group(1)}"),
+        (r"hl\.dsp\.focus\(\s*\{\s*direction\s*=\s*\"([^\"]+)\"\s*\}\s*\)", lambda m: f"Hyprland: move focus {m.group(1)}"),
+        (r"hl\.dsp\.window\.move\(\s*\{\s*workspace\s*=\s*(\d+)", lambda m: f"Hyprland: move window to workspace {m.group(1)}"),
+        (r"hl\.dsp\.window\.move\(\s*\{\s*workspace\s*=\s*\"([^\"]+)\"\s*\}\s*\)", lambda m: f"Hyprland: move window to {m.group(1)}"),
+        (r"hl\.dsp\.window\.move\(\s*\{\s*direction\s*=\s*\"([^\"]+)\"\s*\}\s*\)", lambda m: f"Hyprland: move window {m.group(1)}"),
+        (r"hl\.dsp\.window\.float\(\s*\{\s*action\s*=\s*\"([^\"]+)\"\s*\}\s*\)", lambda m: f"Hyprland: {m.group(1)} floating"),
+        (r"hl\.dsp\.window\.fullscreen\(", "Hyprland: set window fullscreen"),
+        (r"hl\.dsp\.window\.resize\(\s*\{\s*x\s*=\s*(-?\d+)", lambda m: f"Hyprland: resize window width by {m.group(1)} px"),
+        (r"hl\.dsp\.window\.set_prop\(", "Hyprland: toggle window opacity"),
+        (r"hl\.dsp\.pass\(", "Hyprland: pass key to window"),
+    ]
+    for pattern, label in patterns:
+        m = re.search(pattern, d)
+        if m:
+            return label(m) if callable(label) else label
+
+    return d
+
+
+def shorten_path(p: str) -> str:
+    if p.startswith(home + "/"):
+        return "~" + p[len(home):]
+    return p
+
+
+def join_files(files: list[str]) -> str:
+    seen: set[str] = set()
+    out: list[str] = []
+    for path in files:
+        short = shorten_path(path)
+        if short and short not in seen:
+            seen.add(short)
+            out.append(short)
+    return "|".join(out)
+
+
+def load_plugin_table(evoshell_root: str) -> dict[str, dict[str, str]]:
+    try:
+        with open(os.path.join(evoshell_root, "shell.qml"), encoding="utf-8") as fh:
+            shell_text = fh.read()
+    except OSError:
+        return {}
+    plugins: dict[str, dict[str, str]] = {}
+    for m in re.finditer(r'"([^"]+)":\s*\{([^}]+)\}', shell_text, re.S):
+        block = m.group(2)
+        path_m = re.search(r'path:\s*"([^"]+)"', block)
+        service_m = re.search(r'servicePath:\s*"([^"]+)"', block)
+        plugins[m.group(1)] = {
+            "path": path_m.group(1) if path_m else "",
+            "servicePath": service_m.group(1) if service_m else "",
+        }
+    return plugins
+
+
+EVOSHELL = os.path.join(home, ".config/quickshell/evoshell")
+IPC_BIN = os.path.join(home, ".local/bin/evo-ipc")
+PLUGIN_TABLE = load_plugin_table(EVOSHELL)
+
+
+def plugin_file_paths(plugin_id: str) -> list[str]:
+    info = PLUGIN_TABLE.get(plugin_id, {})
+    out: list[str] = []
+    if info.get("path"):
+        out.append(os.path.join(EVOSHELL, info["path"]))
+    if info.get("servicePath"):
+        out.append(os.path.join(EVOSHELL, info["servicePath"]))
+    return out
+
+
+def related_files_for_binding(dispatcher: str, bindings_path: str) -> list[str]:
+    files = [bindings_path]
+    d = re.sub(r"\s+", " ", dispatcher.strip())
+
+    if "evoshell:" in d:
+        files.append(os.path.join(EVOSHELL, "shell.qml"))
+
+    m = re.search(r"hl\.dsp\.exec_cmd\((.+)\)\s*$", d, re.S)
+    if m:
+        expanded = expand_lua_expr(m.group(1).strip())
+        cmd = simplify_cmd(m.group(1))
+        if "evo-ipc" in expanded or "evo-ipc" in cmd:
+            files.append(IPC_BIN)
+            files.append(os.path.join(EVOSHELL, "shell.qml"))
+            if "toggleAppLauncher" in cmd or "toggleSystemMenu" in cmd:
+                files.extend(plugin_file_paths("evo.menu"))
+            toggle_m = re.search(r"shell toggle evo\.panel", cmd)
+            if toggle_m:
+                files.extend(plugin_file_paths("evo.panel"))
+            plugin_m = re.search(r"shell toggle (evo\.[^\s]+)", cmd)
+            if plugin_m:
+                files.extend(plugin_file_paths(plugin_m.group(1)))
+        token = expanded.split()[0] if expanded else ""
+        if token.startswith(home + "/") or (
+            token.startswith("/") and ("/evo-" in token or token.endswith(".lua"))
+        ):
+            files.append(token)
+
+    return files
+
+
+def iter_bindd_calls(s: str):
+    i = 0
+    while True:
+        start = s.find("bindd(", i)
+        if start == -1:
+            break
+        pos = start + len("bindd(")
+        keys, pos = parse_lua_string(s, pos)
+        if keys is None:
+            i = start + 1
+            continue
+        desc, pos = parse_lua_string(s, pos)
+        if desc is None:
+            i = start + 1
+            continue
+        dispatcher, pos = parse_bindd_arg(s, pos)
+        flags, pos = parse_bindd_arg(s, pos)
+        pos = skip_ws_comma(s, pos)
+        if pos < len(s) and s[pos] == ")":
+            pos += 1
+        yield keys.strip(), desc.strip(), dispatcher, flags.strip()
+        i = pos
+
+
+seen: set[tuple[str, str]] = set()
+for keys, desc, dispatcher, flags in iter_bindd_calls(text):
     if not keys or not desc:
         continue
     pair = (keys, desc)
     if pair in seen:
         continue
     seen.add(pair)
-    print(f"{desc}\t{keys}")
+    detail = humanize_dispatcher(dispatcher) + humanize_flags(flags)
+    files = join_files(related_files_for_binding(dispatcher, path))
+    print(f"{desc}\t{keys}\t{detail}\t{files}")
 PY
     ;;
 shell)
     python3 - "$home" "$script_dir" <<'PY'
 import glob
 import os
+import re
 import sys
 
 home, script_dir = sys.argv[1], sys.argv[2]
@@ -147,6 +419,83 @@ def build_corpus() -> str:
 
 
 corpus = build_corpus()
+EVOSHELL = os.path.join(home, ".config/quickshell/evoshell")
+IPC_BIN = os.path.join(home, ".local/bin/evo-ipc")
+
+
+def shorten_path(p: str) -> str:
+    if p.startswith(home + "/"):
+        return "~" + p[len(home):]
+    return p
+
+
+def join_files(files: list[str]) -> str:
+    seen: set[str] = set()
+    out: list[str] = []
+    for path in files:
+        short = shorten_path(path)
+        if short and short not in seen:
+            seen.add(short)
+            out.append(short)
+    return "|".join(out)
+
+
+def load_plugin_table() -> dict[str, dict[str, str]]:
+    shell_text = read_text(os.path.join(EVOSHELL, "shell.qml"))
+    plugins: dict[str, dict[str, str]] = {}
+    for m in re.finditer(r'"([^"]+)":\s*\{([^}]+)\}', shell_text, re.S):
+        block = m.group(2)
+        path_m = re.search(r'path:\s*"([^"]+)"', block)
+        service_m = re.search(r'servicePath:\s*"([^"]+)"', block)
+        plugins[m.group(1)] = {
+            "path": path_m.group(1) if path_m else "",
+            "servicePath": service_m.group(1) if service_m else "",
+        }
+    return plugins
+
+
+PLUGIN_TABLE = load_plugin_table()
+
+
+def plugin_file_paths(plugin_id: str) -> list[str]:
+    info = PLUGIN_TABLE.get(plugin_id, {})
+    out: list[str] = []
+    if info.get("path"):
+        out.append(os.path.join(EVOSHELL, info["path"]))
+    if info.get("servicePath"):
+        out.append(os.path.join(EVOSHELL, info["servicePath"]))
+    return out
+
+
+def related_files_for_shell(command: str) -> list[str]:
+    files = [IPC_BIN]
+    cmd = command.strip()
+
+    plugin_m = re.match(r"evo-ipc\s+(evo\.[^\s]+)", cmd)
+    if plugin_m:
+        files.extend(plugin_file_paths(plugin_m.group(1)))
+
+    if re.search(r"\bshell\b", cmd):
+        files.append(os.path.join(EVOSHELL, "shell.qml"))
+
+    if "toggleSystemMenu" in cmd or "toggleAppLauncher" in cmd:
+        files.extend(plugin_file_paths("evo.menu"))
+    elif re.search(r"shell toggle evo\.panel", cmd):
+        files.extend(plugin_file_paths("evo.panel"))
+    else:
+        for pattern in (
+            r"shell toggle\s+(\S+)",
+            r"shell summon\s+(\S+)",
+            r"shell hide\s+(\S+)",
+            r"shell openDashboard\s+(\S+)",
+            r"shell call\s+(\S+)",
+        ):
+            m = re.search(pattern, cmd)
+            if m:
+                files.extend(plugin_file_paths(m.group(1)))
+                break
+
+    return files
 
 
 def used(*needles: str) -> bool:
@@ -170,35 +519,180 @@ def dashboard_used(plugin: str) -> bool:
     return used(f"openDashboard {plugin}", f'openDashboardOnly("{plugin}"')
 
 
-def emit(name: str, command: str, internal: bool) -> None:
-    print(f"{name}\t{command}\t{1 if internal else 0}")
+def emit(name: str, command: str, internal: bool, detail: str = "") -> None:
+    files = join_files(related_files_for_shell(command))
+    print(f"{name}\t{command}\t{detail}\t{files}\t{1 if internal else 0}")
 
 
-emit("Ping shell", f"{ipc} shell ping", used("shell ping"))
-emit("Reload shell config", f"{ipc} shell reloadConfig", used("shell reloadConfig"))
-emit("List plugins", f"{ipc} shell listPlugins", used("shell listPlugins"))
-emit("Toggle system menu", f"{ipc} shell toggleSystemMenu", used("toggleSystemMenu"))
-emit("Toggle app launcher", f"{ipc} shell toggleAppLauncher", used("toggleAppLauncher"))
-emit("Summon overlay", f"{ipc} shell summon <plugin> [json]", False)
-emit("Toggle overlay", f"{ipc} shell toggle <plugin> [json]", False)
-emit("Hide overlay", f"{ipc} shell hide <plugin>", False)
-emit("Open dashboard", f"{ipc} shell openDashboard <plugin>", False)
-emit("Call plugin method", f"{ipc} shell call <plugin> <method> [arg]", False)
-emit("Volume up", f"{ipc} evo.audio stepUp", used("evo.audio stepUp", ".stepUp()"))
-emit("Volume down", f"{ipc} evo.audio stepDown", used("evo.audio stepDown", ".stepDown()"))
-emit("Toggle mute", f"{ipc} evo.audio toggleMute", used("evo.audio toggleMute", ".toggleMute()"))
-emit("Lock screen", f"{ipc} evo.lock lock", used("evo.lock lock", "evo-system lock"))
-emit("Lock status", f"{ipc} evo.lock isLocked", used("evo.lock isLocked"))
-emit("Idle status", f"{ipc} evo.idle status", used("evo.idle status"))
-emit("Next wallpaper", f"{ipc} evo.wallpaper next", used("evo.wallpaper next", 'evo.wallpaper "$cmd"'))
-emit("Previous wallpaper", f"{ipc} evo.wallpaper prev", used("evo.wallpaper prev", 'evo.wallpaper "$cmd"'))
-emit("Refresh wallpaper", f"{ipc} evo.wallpaper refresh", used("evo.wallpaper refresh"))
+PLUGIN_DETAILS = {
+    "evo.menu": "Shows or hides the system menu overlay.",
+    "evo.panel": "Shows or hides a side panel (calc, tasks, settings).",
+    "evo.calendar": "Shows or hides the calendar overlay.",
+    "evo.shopify_diy": "Shows or hides the Shopify DIY dashboard widget.",
+    "evo.shopify_tgs": "Shows or hides the Shopify TGS dashboard widget.",
+    "evo.cursor": "Shows or hides the Cursor agent overlay.",
+    "evo.weather": "Shows or hides the weather overlay.",
+    "evo.network": "Shows or hides the network status overlay.",
+    "evo.volume": "Shows or hides the volume overlay.",
+    "evo.media": "Shows or hides the media player overlay.",
+    "evo.github": "Shows or hides the GitHub activity overlay.",
+    "evo.system": "Shows or hides the system status overlay.",
+    "evo.stocks": "Shows or hides the stocks overlay.",
+    "evo.cloudflare": "Shows or hides the Cloudflare overlay.",
+    "evo.transmission": "Shows or hides the Transmission overlay.",
+    "evo.transmission.add": "Shows or hides the Transmission add dialog.",
+    "evo.insync": "Shows or hides the Insync overlay.",
+    "evo.steam": "Shows or hides the Steam overlay.",
+    "evo.library": "Shows or hides the music library overlay.",
+    "evo.theme": "Shows or hides the theme switcher overlay.",
+    "evo.wallpaper": "Shows or hides the wallpaper switcher overlay.",
+    "evo.clipboard": "Shows or hides the clipboard history overlay.",
+}
+
+DASHBOARD_DETAILS = {
+    "evo.shopify": "Opens the Shopify dashboard in full-screen dashboard mode.",
+    "evo.player": "Opens the music player dashboard in full-screen dashboard mode.",
+}
+
+
+def plugin_detail(plugin: str) -> str:
+    return PLUGIN_DETAILS.get(plugin, f"Shows or hides the {plugin} overlay via shell IPC.")
+
+
+def dashboard_detail(plugin: str) -> str:
+    return DASHBOARD_DETAILS.get(plugin, f"Opens the {plugin} dashboard.")
+
+
+emit(
+    "Ping shell",
+    f"{ipc} shell ping",
+    used("shell ping"),
+    "Checks whether evo-ipc can reach the running Quickshell process.",
+)
+emit(
+    "Reload shell config",
+    f"{ipc} shell reloadConfig",
+    used("shell reloadConfig"),
+    "Reloads evoshell Quickshell configuration without restarting the session.",
+)
+emit(
+    "List plugins",
+    f"{ipc} shell listPlugins",
+    used("shell listPlugins"),
+    "Lists registered evoshell plugin ids available over IPC.",
+)
+emit(
+    "Toggle system menu",
+    f"{ipc} shell toggleSystemMenu",
+    used("toggleSystemMenu"),
+    "Opens or closes this system menu overlay.",
+)
+emit(
+    "Toggle app launcher",
+    f"{ipc} shell toggleAppLauncher",
+    used("toggleAppLauncher"),
+    "Opens or closes the application launcher overlay.",
+)
+emit(
+    "Summon overlay",
+    f"{ipc} shell summon <plugin> [json]",
+    False,
+    "Shows a plugin overlay without toggling it off if already visible.",
+)
+emit(
+    "Toggle overlay",
+    f"{ipc} shell toggle <plugin> [json]",
+    False,
+    "Shows or hides a plugin overlay; optional JSON passes launch payload.",
+)
+emit(
+    "Hide overlay",
+    f"{ipc} shell hide <plugin>",
+    False,
+    "Hides a plugin overlay if it is currently visible.",
+)
+emit(
+    "Open dashboard",
+    f"{ipc} shell openDashboard <plugin>",
+    False,
+    "Opens a plugin in full-screen dashboard mode.",
+)
+emit(
+    "Call plugin method",
+    f"{ipc} shell call <plugin> <method> [arg]",
+    False,
+    "Invokes a plugin RPC method with an optional JSON argument.",
+)
+emit(
+    "Volume up",
+    f"{ipc} evo.audio stepUp",
+    used("evo.audio stepUp", ".stepUp()"),
+    "Increases system volume by one step via PipeWire.",
+)
+emit(
+    "Volume down",
+    f"{ipc} evo.audio stepDown",
+    used("evo.audio stepDown", ".stepDown()"),
+    "Decreases system volume by one step via PipeWire.",
+)
+emit(
+    "Toggle mute",
+    f"{ipc} evo.audio toggleMute",
+    used("evo.audio toggleMute", ".toggleMute()"),
+    "Toggles system audio mute state.",
+)
+emit(
+    "Lock screen",
+    f"{ipc} evo.lock lock",
+    used("evo.lock lock", "evo-system lock"),
+    "Locks the screen immediately.",
+)
+emit(
+    "Lock status",
+    f"{ipc} evo.lock isLocked",
+    used("evo.lock isLocked"),
+    "Reports whether the screen is currently locked.",
+)
+emit(
+    "Idle status",
+    f"{ipc} evo.idle status",
+    used("evo.idle status"),
+    "Reports idle inhibitor and screensaver state.",
+)
+emit(
+    "Next wallpaper",
+    f"{ipc} evo.wallpaper next",
+    used("evo.wallpaper next", 'evo.wallpaper "$cmd"'),
+    "Advances to the next wallpaper in the current theme rotation.",
+)
+emit(
+    "Previous wallpaper",
+    f"{ipc} evo.wallpaper prev",
+    used("evo.wallpaper prev", 'evo.wallpaper "$cmd"'),
+    "Goes back to the previous wallpaper in the current theme rotation.",
+)
+emit(
+    "Refresh wallpaper",
+    f"{ipc} evo.wallpaper refresh",
+    used("evo.wallpaper refresh"),
+    "Re-applies the current wallpaper (useful after theme or monitor changes).",
+)
 
 for plugin in plugins:
-    emit(f"Toggle {plugin}", f"{ipc} shell toggle {plugin}", plugin_used(plugin))
+    emit(
+        f"Toggle {plugin}",
+        f"{ipc} shell toggle {plugin}",
+        plugin_used(plugin),
+        plugin_detail(plugin),
+    )
 
 for plugin in dashboards:
-    emit(f"Open {plugin} dashboard", f"{ipc} shell openDashboard {plugin}", dashboard_used(plugin))
+    emit(
+        f"Open {plugin} dashboard",
+        f"{ipc} shell openDashboard {plugin}",
+        dashboard_used(plugin),
+        dashboard_detail(plugin),
+    )
 PY
     ;;
 icons)

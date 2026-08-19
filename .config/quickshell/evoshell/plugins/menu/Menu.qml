@@ -22,7 +22,6 @@ Item {
     property var appIconMap: ({})
     property int appIconEpoch: 0
     property bool dynamicLoading: false
-    property bool shellUnusedOnly: false
     property int selectedIndex: 0
     property real previewAreaMaxWidth: 1600
     property real previewAreaMaxHeight: 900
@@ -152,7 +151,39 @@ Item {
     readonly property int framedMenuHeight: 640
     readonly property int framedPadding: 16
     readonly property int framedFilterChromeHeight: listFilterHeight
-    readonly property int framedListHeight: Math.max(120, framedMenuHeight - framedPadding * 2 - framedFilterChromeHeight - 12)
+    readonly property int framedColumnSpacing: 12
+    readonly property int infoDetailHeight: 96
+    readonly property var selectedFiles: {
+        var list = visibleEntries
+        if (!infoListMode || list.length === 0)
+            return []
+        var idx = Math.max(0, Math.min(selectedIndex, list.length - 1))
+        var raw = String(list[idx].files || "").trim()
+        if (!raw)
+            return []
+        return raw.split("|").map(function(f) { return f.trim() }).filter(function(f) { return f.length > 0 })
+    }
+    readonly property string selectedDetail: {
+        var list = visibleEntries
+        if (!infoListMode || list.length === 0)
+            return ""
+        var idx = Math.max(0, Math.min(selectedIndex, list.length - 1))
+        return String(list[idx].detail || "").trim()
+    }
+    readonly property bool infoDetailVisible: infoListMode
+        && (selectedDetail.length > 0 || selectedFiles.length > 0)
+    readonly property int framedChromeHeight: framedFilterChromeHeight + framedColumnSpacing
+        + (infoDetailVisible ? infoDetailHeight + framedColumnSpacing : 0)
+    readonly property int framedListHeight: Math.max(
+        120,
+        framedMenuHeight - framedPadding * 2 - framedChromeHeight)
+
+    function shortenMenuPath(path) {
+        var p = String(path || "")
+        if (p.indexOf(home) === 0)
+            return "~" + p.slice(home.length)
+        return p
+    }
 
     function focusSearchField() {
         if (root.styledMenuMode)
@@ -216,7 +247,6 @@ Item {
         submenu = ""
         dynamicEntries = []
         dynamicEntryKind = ""
-        shellUnusedOnly = false
         selectedIndex = 0
     }
 
@@ -326,7 +356,6 @@ Item {
             submenu = ""
             dynamicEntries = []
             dynamicEntryKind = ""
-            shellUnusedOnly = false
             filterText = ""
             selectedIndex = 0
         } else if (styledMenuMode && filterText.trim() !== "") {
@@ -355,10 +384,6 @@ Item {
     }
     onCommandEntriesChanged: refreshVisibleEntries()
     onDynamicEntriesChanged: refreshVisibleEntries()
-    onShellUnusedOnlyChanged: {
-        selectedIndex = 0
-        refreshVisibleEntries()
-    }
 
     function refreshCommandEntries() {
         if (mode === "power") {
@@ -475,17 +500,14 @@ Item {
         if (submenu) {
             if (dynamicEntries.length === 0) return []
             var shellEntries = MenuEntries.filterEntries(dynamicEntries, q)
-            if (submenu === "shell" && shellUnusedOnly) {
-                shellEntries = shellEntries.filter(function(e) {
-                    return !e.internal
-                })
-            }
             return shellEntries.map(function(e) {
                 if (root.infoListMode) {
                     return {
                         kind: "info",
                         name: e.name,
                         keys: e.keys || e.command || "",
+                        detail: e.detail || "",
+                        files: e.files || "",
                         icon: root.submenu === "bindings" ? "󰌌" : "󰆍"
                     }
                 }
@@ -617,10 +639,13 @@ Item {
             } else {
                 var parts = line.split("\t")
                 if (infoMode && parts.length >= 2) {
+                    var isShell = root.dynamicEntryKind === "shell"
                     out.push({
                         name: parts[0] || "",
                         keys: parts[1] || "",
-                        internal: root.dynamicEntryKind === "shell" && parts.length >= 3 && parts[2] === "1"
+                        detail: parts.length >= 3 ? parts[2] || "" : "",
+                        files: parts.length >= 4 ? parts[3] || "" : "",
+                        internal: isShell && parts.length >= 5 && parts[4] === "1"
                     })
                 } else if (parts.length === 2 && parts[1].indexOf("/") < 0 && parts[1].indexOf("evo-") !== 0) {
                     out.push({ name: parts[0] || "", keys: parts[1] || "" })
@@ -764,8 +789,8 @@ Item {
                 id: framedColumn
                 anchors.fill: parent
                 anchors.margins: root.styledMenuMode ? root.powerMenuPadding : (root.boxTileMode ? 0 : root.framedPadding)
-                spacing: root.styledMenuMode ? 14 : 12
-                clip: root.framedMode
+                spacing: root.styledMenuMode ? 14 : root.framedColumnSpacing
+                clip: false
 
                 Item {
                     id: filterChrome
@@ -784,8 +809,8 @@ Item {
                         anchors.left: parent.left
                         anchors.leftMargin: 12
                         anchors.verticalCenter: parent.verticalCenter
-                        anchors.right: shellToggleRow.visible ? shellToggleRow.left : parent.right
-                        anchors.rightMargin: shellToggleRow.visible ? 12 : 12
+                        anchors.right: parent.right
+                        anchors.rightMargin: 12
                         text: root.placeholderText
                         color: Theme.foreground
                         opacity: Theme.opacityDisabled
@@ -800,7 +825,7 @@ Item {
                         anchors.top: parent.top
                         anchors.bottom: parent.bottom
                         anchors.left: parent.left
-                        anchors.right: shellToggleRow.visible ? shellToggleRow.left : parent.right
+                        anchors.right: parent.right
                         anchors.leftMargin: 12
                         anchors.rightMargin: 12
                         color: Theme.foreground
@@ -817,42 +842,6 @@ Item {
                         Keys.onUpPressed: root.handlePreviewUp()
                         Keys.onDownPressed: root.handlePreviewDown()
                         Keys.onReturnPressed: root.handleActivateKey()
-                    }
-
-                    Row {
-                        id: shellToggleRow
-                        visible: root.submenu === "shell"
-                        anchors.right: parent.right
-                        anchors.rightMargin: 10
-                        anchors.verticalCenter: parent.verticalCenter
-                        spacing: 8
-                        height: parent.height
-
-                        Text {
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: root.shellUnusedOnly ? "󰄲" : "󰄱"
-                            color: root.shellUnusedOnly ? Theme.accent : Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.listFilterFontSize
-                            font.bold: Theme.fontBold
-                        }
-
-                        Text {
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: "Unused only"
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.listFilterFontSize
-                            font.bold: Theme.fontBold
-                            opacity: root.shellUnusedOnly ? 1 : Theme.opacityMuted
-                        }
-
-                        MouseArea {
-                            anchors.fill: parent
-                            anchors.margins: -6
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: root.shellUnusedOnly = !root.shellUnusedOnly
-                        }
                     }
                 }
 
@@ -1306,9 +1295,65 @@ Item {
                             id: mouseArea
                             anchors.fill: parent
                             hoverEnabled: true
+                            onEntered: root.selectedIndex = index
                             onClicked: {
                                 root.selectedIndex = index
                                 root.activateEntry(modelData)
+                            }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    id: infoDetailPanel
+                    width: parent.width
+                    height: root.infoDetailVisible ? root.infoDetailHeight : 0
+                    visible: root.infoDetailVisible
+                    color: Theme.overlaySurface
+                    border.color: Theme.withOpacity(Theme.accent, 0.25)
+                    border.width: 1
+                    clip: false
+
+                    Flickable {
+                        anchors.fill: parent
+                        anchors.margins: 12
+                        contentHeight: infoDetailColumn.height
+                        clip: true
+                        boundsBehavior: Flickable.StopAtBounds
+
+                        Column {
+                            id: infoDetailColumn
+                            width: parent.width
+                            spacing: 8
+
+                            Text {
+                                width: parent.width
+                                visible: root.selectedDetail.length > 0
+                                text: root.selectedDetail
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSizeS
+                                font.bold: Theme.fontBold
+                                wrapMode: Text.WordWrap
+                                opacity: Theme.opacityMuted
+                            }
+
+                            Text {
+                                width: parent.width
+                                visible: root.selectedFiles.length > 0
+                                text: {
+                                    var lines = ["Related:"]
+                                    for (var i = 0; i < root.selectedFiles.length; i++)
+                                        lines.push("󰉋 " + root.shortenMenuPath(root.selectedFiles[i]))
+                                    return lines.join("\n")
+                                }
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSizeXs
+                                font.bold: Theme.fontBold
+                                wrapMode: Text.WordWrap
+                                opacity: Theme.opacitySecondary
+                                lineHeight: 1.35
                             }
                         }
                     }
