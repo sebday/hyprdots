@@ -27,35 +27,66 @@ Item {
     readonly property bool active: host && host.opened === true
     readonly property var barSource: host && host.shell ? host.shell.popupAnchorItem : null
     readonly property int hintFont: Theme.fontSizeL
-    readonly property int headerIconSize: Theme.fontSize2xl
-        + Theme.hoverPopupSectionSpacing
-        + Theme.fontSizeL
     readonly property color sectionLegendBackground: root.chartFillHeight
         ? Theme.background
         : Theme.mantle
 
-    readonly property string storeIconUrl: {
+    readonly property string legendStoreKey: {
+        if (!demoMode)
+            return storeKey
+        if (storeKey === "DIY")
+            return "TGS"
+        if (storeKey === "TGS")
+            return "DIY"
+        return storeKey
+    }
+
+    readonly property string legendTitle: {
+        if (!demoMode)
+            return title
+        if (storeKey === "DIY")
+            return "TGS"
+        if (storeKey === "TGS")
+            return "DIY"
+        return title
+    }
+
+    readonly property string legendIconUrl: {
         if (demoMode)
             return "file://" + demoLogoPath
-        if (barSource && barSource.storeIconUrl)
-            return String(barSource.storeIconUrl)
-        if (storeKey === "DIY")
+        if (legendStoreKey === "DIY")
             return "https://diybuildingsupplies.co.uk/cdn/shop/files/diy-square-logo-trans.png?crop=center&height=48&v=1770480698&width=48"
-        if (storeKey === "TGS")
+        if (legendStoreKey === "TGS")
             return "https://thegoodsheet.co.uk/cdn/shop/files/logo_osb.png?crop=center&height=48&v=1752889811&width=48"
         return ""
     }
 
-    readonly property string storeIconFallback: {
+    readonly property string storeAdminSlug: {
+        if (storeKey === "DIY")
+            return "diy-buildingsupplies"
+        if (storeKey === "TGS")
+            return "thegoodsheet-uk"
+        return ""
+    }
+
+    readonly property string liveAnalyticsUrl: storeAdminSlug !== ""
+        ? "https://admin.shopify.com/store/" + storeAdminSlug + "/analytics/live"
+        : adminUrl
+
+    readonly property bool hasLiveAnalyticsLink: liveAnalyticsUrl !== ""
+
+    readonly property string legendIconFallback: {
         if (demoMode) {
-            if (storeKey === "DIY") return "P"
-            if (storeKey === "TGS") return "R"
+            if (legendStoreKey === "DIY")
+                return "P"
+            if (legendStoreKey === "TGS")
+                return "R"
         }
-        if (barSource && barSource.storeIcon)
-            return String(barSource.storeIcon)
-        if (storeKey === "DIY") return "D"
-        if (storeKey === "TGS") return "T"
-        return storeKey ? storeKey.charAt(0) : ""
+        if (legendStoreKey === "DIY")
+            return "D"
+        if (legendStoreKey === "TGS")
+            return "T"
+        return legendStoreKey ? legendStoreKey.charAt(0) : ""
     }
 
     property var storeData: ({})
@@ -127,6 +158,15 @@ Item {
             applyPayload(fromFile)
     }
 
+    function statTodayRevenue() {
+        var rev = root.todayDetail.revenue
+        if (rev !== undefined && rev !== null)
+            return Format.formatRevenue(rev, currency)
+        if (storeData.revenue !== undefined && storeData.revenue !== null)
+            return Format.formatRevenue(storeData.revenue, currency)
+        return "—"
+    }
+
     function statOrders() {
         if (todayDetail.orders !== undefined && todayDetail.orders !== null)
             return String(todayDetail.orders)
@@ -162,13 +202,10 @@ Item {
             applyPayload(item.lastPayload)
     }
 
-    function shopifyHeader(data, fallbackName) {
-        if (!data || (data.revenue === undefined && !data.label))
-            return fallbackName + " …"
-        var sym = data.symbol || "£"
-        if (data.revenue !== undefined)
-            return Format.formatRevenue(data.revenue, sym)
-        return String(data.label || "").replace(/^[A-Z]\s+/, "")
+    function openAdmin() {
+        if (!liveAnalyticsUrl)
+            return
+        Quickshell.execDetached(["bash", "-lc", "xdg-open " + Util.shellQuote(liveAnalyticsUrl)])
     }
 
     function fmtPct(val) {
@@ -271,30 +308,12 @@ Item {
         SectionPanel {
             label: ""
             legendBackground: root.sectionLegendBackground
-
-            HoverPopupLabelPill {
-                text: root.title
-                iconUrl: root.storeIconUrl
-                icon: root.storeIconFallback
-                fontSize: Theme.fontSizeS
-            }
-
-            HoverPopupHeader {
-                Layout.fillWidth: true
-                value: root.shopifyHeader(root.storeData, root.title)
-                href: root.adminUrl
-                titleFont: Math.round(root.headerIconSize * 0.7)
-            }
-        }
-
-        SectionPanel {
-            label: ""
-            legendBackground: root.sectionLegendBackground
             Layout.fillWidth: true
 
             HoverPopupLabelPill {
-                text: "Today"
-                icon: "󰃭"
+                text: root.legendTitle
+                iconUrl: root.legendIconUrl
+                icon: root.legendIconFallback
                 fontSize: Theme.fontSizeS
             }
 
@@ -310,28 +329,37 @@ Item {
 
                     Repeater {
                         model: [
+                            {
+                                label: "Revenue",
+                                value: root.statTodayRevenue(),
+                                special: true,
+                                clickable: true
+                            },
                             { label: "Orders", value: root.statOrders() },
                             { label: "Sessions", value: String(root.todayDetail.sessions || "—") },
-                            { label: "CVR", value: root.fmtPct(root.todayDetail.cvr) },
-                            { label: "AoV", value: root.fmtAov() }
+                            { label: "CVR", value: root.fmtPct(root.todayDetail.cvr) }
                         ]
 
                         HoverPopupStatBox {
                             required property var modelData
                             value: String(modelData.value)
                             label: modelData.label
+                            special: modelData.special === true
+                            clickable: modelData.clickable === true && root.hasLiveAnalyticsLink
+                            onClicked: root.openAdmin()
                         }
                     }
                 }
 
                 GridLayout {
                     Layout.fillWidth: true
-                    columns: 3
+                    columns: 4
                     columnSpacing: 8
                     rowSpacing: 8
 
                     Repeater {
                         model: [
+                            { label: "AoV", value: root.fmtAov() },
                             { label: "CoS", value: String(root.todayDetail.cos || root.storeData.cos || "—") },
                             { label: "Ad spend", value: root.fmtMoney(root.todayDetail.spend) },
                             {
@@ -377,19 +405,9 @@ Item {
                     Layout.preferredHeight: root.chartFillHeight ? -1 : 100
 
                     SparklineChart {
-                        id: revenueChart
                         anchors.fill: parent
                         chartHeight: root.chartFillHeight ? Math.max(64, Math.round(height)) : 100
                         style: "bars"
-                        showBarTooltips: true
-                        formatBarTooltip: function(bar) {
-                            var parts = []
-                            if (bar && bar.date)
-                                parts.push(Format.formatDay(bar.date))
-                            if (bar && bar.value !== undefined && bar.value !== null)
-                                parts.push(Format.formatRevenue(bar.value, root.currency))
-                            return parts.join(" · ")
-                        }
                         bars: root.storeData.bars || []
                     }
 
@@ -398,7 +416,8 @@ Item {
                         width: parent.width
                         text: "demo mode"
                         visible: root.demoMode
-                        z: 1
+                        z: -1
+                        enabled: false
                         color: Theme.foreground
                         opacity: 0.12
                         font.family: Theme.fontFamily
