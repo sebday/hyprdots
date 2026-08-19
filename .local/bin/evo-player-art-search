@@ -1,0 +1,414 @@
+#!/bin/bash
+# Album art search for evo-player: iTunes, MusicBrainz/CAA, Discogs, Spotify.
+set -euo pipefail
+
+HTTP_TIMEOUT=8
+MAX_RESULTS=8
+PER_SOURCE=4
+USER_AGENT="evo-player/1.0 (local music player)"
+SECRETS="${EVOSHELL_SECRETS:-$HOME/.local/share/evoshell/secrets.env}"
+
+uri_encode() {
+  jq -nr --arg q "$1" '$q | @uri'
+}
+
+curl_json() {
+  local url="$1"
+  shift
+  curl -fsS --max-time "$HTTP_TIMEOUT" -A "$USER_AGENT" "$@" "$url" 2>/dev/null || echo "{}"
+}
+
+load_secrets() {
+  DISCOGS_TOKEN="${DISCOGS_TOKEN:-}"
+  SPOTIFY_CLIENT_ID="${SPOTIFY_CLIENT_ID:-}"
+  SPOTIFY_CLIENT_SECRET="${SPOTIFY_CLIENT_SECRET:-}"
+  [[ -f "$SECRETS" ]] || return 0
+  set -a
+  # shellcheck disable=SC1090
+  source "$SECRETS"
+  set +a
+}
+
+looks_like_catno() {
+  local s="${1:-}"
+  (( ${#s} >= 3 && ${#s} <= 24 )) || return 1
+  [[ "$s" != *" "* ]] || return 1
+  [[ "$s" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]*[0-9][A-Za-z0-9._/-]*$ ]]
+}
+
+norm_catno() {
+  printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9'
+}
+
+track_meta() {
+  local path="$1"
+  ffprobe -v quiet -print_format json -show_format "$path" 2>/dev/null \
+    | jq -c --arg fallback "$(basename "${path%.*}")" '
+      (.format.tags // {}) as $raw
+      | ($raw | with_entries(.key |= ascii_downcase)) as $t
+      | def pick($keys):
+          ($keys | map($t[.] // empty) | map(select(. != "")) | .[0] // "");
+        ($t.date // $t.year // $t.originaldate // $t.original_year // $t.tyer // "") as $year_raw
+      | {
+          artist: pick(["artist","album_artist","albumartist"]),
+          album: pick(["album"]),
+          title: (pick(["title"]) | if . == "" then $fallback else . end),
+          catno: pick(["catalognumber","catalog","catalogue","catno"]),
+          year: ($year_raw | capture("(?<y>19[0-9]{2}|20[0-9]{2})")? | .y // "")
+        }
+    '
+}
+
+search_itunes() {
+  local query="$1"
+  local url="https://itunes.apple.com/search?term=$(uri_encode "$query")&entity=album&limit=${PER_SOURCE}"
+  curl_json "$url" | jq -c --argjson n "$PER_SOURCE" '
+    [.results[]?
+      | (.artworkUrl100 // "") as $thumb
+      | select($thumb != "")
+      | {
+          url: ($thumb | gsub("100x100bb"; "600x600bb")),
+          thumb: ($thumb | gsub("100x100bb"; "600x600bb")),
+          label: (((.artistName // "") + " — " + (.collectionName // "")) | gsub("^ — ";"") | gsub(" — $";"")),
+          source: "itunes"
+        }
+    ] | .[:$n]
+  '
+}
+
+search_caa() {
+  local query="$1"
+  local url="https://musicbrainz.org/ws/2/release/?query=$(uri_encode "$query")&fmt=json&limit=${PER_SOURCE}"
+  curl_json "$url" | jq -c --argjson n "$PER_SOURCE" '
+    [.releases[]?
+      | select((.id // "") != "")
+      | select(
+          (.["cover-art-archive"] | not)
+          or .["cover-art-archive"].front == true
+          or .["cover-art-archive"].artwork == true
+        )
+      | (.id) as $mbid
+      | ((.["artist-credit"][0].name // "") ) as $artist
+      | ((.title // "") ) as $title
+      | {
+          url: ("https://coverartarchive.org/release/" + $mbid + "/front-500"),
+          thumb: ("https://coverartarchive.org/release/" + $mbid + "/front-250"),
+          label: (if $artist == "" then $title else ($artist + " — " + $title) end),
+          source: "caa"
+        }
+    ] | .[:$n]
+  '
+}
+
+discogs_curl() {
+  local url="$1"
+  local args=()
+  [[ -n "${DISCOGS_TOKEN:-}" ]] && args+=(-H "Authorization: Discogs token=${DISCOGS_TOKEN}")
+  curl_json "$url" "${args[@]}"
+}
+
+discogs_artist_id_from_query() {
+  local q="${1:-}"
+  if [[ "$q" =~ discogs\.com/artists?/([0-9]+) ]]; then
+    printf '%s' "${BASH_REMATCH[1]}"
+    return 0
+  fi
+  if [[ "$q" =~ api\.discogs\.com/artists/([0-9]+) ]]; then
+    printf '%s' "${BASH_REMATCH[1]}"
+    return 0
+  fi
+  return 1
+}
+
+discogs_release_art() {
+  local resource_url="$1"
+  [[ -n "$resource_url" ]] || return 0
+  discogs_curl "$resource_url" | jq -r '
+    (.images // []) as $imgs
+    | ($imgs | map(select(.type == "primary")) | .[0] // $imgs[0] // {}) as $img
+    | [($img.uri // ""), ($img.uri150 // $img.uri // "")] | @tsv
+  '
+}
+
+search_discogs_artist_id() {
+  local id="${1:-}"
+  [[ -n "$id" ]] || { echo "[]"; return 0; }
+  discogs_curl "https://api.discogs.com/artists/${id}" | jq -c --argjson n "$MAX_RESULTS" '
+    (.name // "artist") as $name
+    | [(.images // [])[]
+      | (.uri // "") as $url
+      | select($url != "")
+      | {
+          url: $url,
+          thumb: (.uri150 // $url),
+          label: $name,
+          source: "discogs",
+          year: "",
+          catno: ""
+        }
+    ] | .[:$n]
+  '
+}
+
+search_discogs() {
+  local query="${1:-}"
+  local catno="${2:-}"
+  local year="${3:-}"
+  local kind="${4:-release}"
+  [[ "$kind" == "artist" || "$kind" == "release" ]] || kind="release"
+  if [[ "$kind" == "artist" ]]; then
+    catno=""
+    year=""
+  fi
+  local params="type=${kind}&per_page=8"
+  [[ -n "$catno" ]] && params+="&catno=$(uri_encode "$catno")"
+  [[ -n "$year" ]] && params+="&year=$(uri_encode "$year")"
+  [[ -n "$query" ]] && params+="&q=$(uri_encode "$query")"
+  if [[ -z "$query" && -z "$catno" ]]; then
+    echo "[]"
+    return 0
+  fi
+  local data
+  data="$(discogs_curl "https://api.discogs.com/database/search?${params}")"
+  local rows want
+  want="$(norm_catno "$catno")"
+  rows="$(jq -c --arg want "$want" '
+    [.results[]? | {
+      title: (.title // ""),
+      year: ((.year // "") | tostring),
+      catno: ((.catno // "") | tostring),
+      thumb: (.thumb // .cover_image // ""),
+      resource_url: (.resource_url // "")
+    }]
+    | if $want == "" then .
+      else
+        (map(select((.catno | ascii_downcase | gsub("[^a-z0-9]"; "")) == $want))) as $exact
+        | if ($exact | length) > 0 then $exact else . end
+      end
+  ' <<<"$data")"
+  local i n title thumb resource art uri150 out="[]"
+  n="$(jq 'length' <<<"$rows")"
+  for ((i = 0; i < n && i < 12; i++)); do
+    title="$(jq -r --argjson i "$i" '.[$i].title' <<<"$rows")"
+    thumb="$(jq -r --argjson i "$i" '.[$i].thumb' <<<"$rows")"
+    resource="$(jq -r --argjson i "$i" '.[$i].resource_url' <<<"$rows")"
+    art=""
+    if [[ -n "$thumb" && "$thumb" != "null" ]]; then
+      art="$(printf '%s' "$thumb" | sed -E 's#/fit-in/[0-9]+x[0-9]+/#/fit-in/600x600/#')"
+    fi
+    if [[ -z "$art" ]]; then
+      IFS=$'\t' read -r art uri150 < <(discogs_release_art "$resource")
+      [[ -n "$uri150" && "$uri150" != "null" ]] && thumb="$uri150"
+    fi
+    [[ -n "$art" ]] || continue
+    out="$(jq -c --arg url "$art" --arg thumb "${thumb:-$art}" --arg label "${title:-$catno$query}" \
+      --arg year "$(jq -r --argjson i "$i" '.[$i].year' <<<"$rows")" \
+      --arg cat "$(jq -r --argjson i "$i" '.[$i].catno' <<<"$rows")" \
+      '. + [{url:$url, thumb:$thumb, label:$label, source:"discogs", year:$year, catno:$cat}]' <<<"$out")"
+    if (( $(jq 'length' <<<"$out") >= PER_SOURCE )); then
+      break
+    fi
+  done
+  printf '%s' "$out"
+}
+
+search_discogs_query() {
+  local query="$1"
+  local artist_id=""
+  if artist_id="$(discogs_artist_id_from_query "$query")"; then
+    search_discogs_artist_id "$artist_id"
+    return 0
+  fi
+
+  local artist_search artists="[]" releases
+  artist_search="$(discogs_curl "https://api.discogs.com/database/search?type=artist&per_page=8&q=$(uri_encode "$query")")"
+  artist_id="$(jq -r --arg q "$query" '
+    ($q | ascii_downcase) as $want
+    | [.results[]? | select((.id // 0) != 0)]
+    | (map(select((.title // "") | ascii_downcase == $want)) | .[0].id)
+      // .[0].id // empty
+  ' <<<"$artist_search")"
+  if [[ -n "$artist_id" && "$artist_id" != "null" ]]; then
+    artists="$(search_discogs_artist_id "$artist_id")"
+  fi
+  releases="$(search_discogs "$query")"
+  [[ -n "$artists" ]] || artists="[]"
+  [[ -n "$releases" ]] || releases="[]"
+  jq -n -c --argjson artists "$artists" --argjson releases "$releases" '$artists[:2] + $releases'
+}
+
+search_discogs_catalog() {
+  local catno="$1"
+  local year="${2:-}"
+  local hits narrowed year_hits
+  hits="$(search_discogs "" "$catno" "")"
+  if [[ -z "$year" ]] || (( $(jq 'length' <<<"$hits") <= 1 )); then
+    printf '%s' "$hits"
+    return 0
+  fi
+  narrowed="$(search_discogs "" "$catno" "$year")"
+  if (( $(jq 'length' <<<"$narrowed") > 0 )); then
+    printf '%s' "$narrowed"
+    return 0
+  fi
+  year_hits="$(jq -c --arg year "$year" '[.[] | select(.year == $year)]' <<<"$hits")"
+  if (( $(jq 'length' <<<"$year_hits") > 0 )); then
+    printf '%s' "$year_hits"
+  else
+    printf '%s' "$hits"
+  fi
+}
+
+spotify_token() {
+  local id="${SPOTIFY_CLIENT_ID:-}"
+  local secret="${SPOTIFY_CLIENT_SECRET:-}"
+  [[ -n "$id" && -n "$secret" ]] || return 0
+  curl -fsS --max-time "$HTTP_TIMEOUT" \
+    -u "${id}:${secret}" \
+    -d grant_type=client_credentials \
+    https://accounts.spotify.com/api/token 2>/dev/null \
+    | jq -r '.access_token // empty' || true
+}
+
+search_spotify() {
+  local query="$1"
+  local token="${2:-}"
+  if [[ -z "$token" ]]; then
+    echo "[]"
+    return 0
+  fi
+  local url="https://api.spotify.com/v1/search?q=$(uri_encode "$query")&type=album&limit=${PER_SOURCE}"
+  curl_json "$url" -H "Authorization: Bearer ${token}" | jq -c --argjson n "$PER_SOURCE" '
+    [(.albums.items // [])[]?
+      | (.images[0].url // "") as $art
+      | select($art != "")
+      | (([.artists[]?.name] | join(", "))) as $artists
+      | ((.name // "") ) as $title
+      | {
+          url: $art,
+          thumb: $art,
+          label: (if $artists == "" then $title else ($artists + " — " + $title) end),
+          source: "spotify"
+        }
+    ] | .[:$n]
+  '
+}
+
+search_query() {
+  local query="$1"
+  local sp_token="${2:-}"
+  local dir itunes caa discogs spotify
+  dir="$(mktemp -d)"
+  search_itunes "$query" >"$dir/itunes.json" &
+  search_caa "$query" >"$dir/caa.json" &
+  search_discogs "$query" >"$dir/discogs.json" &
+  search_spotify "$query" "$sp_token" >"$dir/spotify.json" &
+  wait || true
+  jq -s 'add' "$dir"/*.json 2>/dev/null || echo "[]"
+  rm -rf "$dir"
+}
+
+dedupe() {
+  jq -c --argjson n "$MAX_RESULTS" '
+    reduce .[] as $row ([];
+      if ($row.url // "") == "" or any(.[]; .url == $row.url) then .
+      else . + [$row]
+      end
+    ) | .[:$n]
+  '
+}
+
+main() {
+  local path="" json_mode=0 query=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --json) json_mode=1 ;;
+      --query)
+        shift
+        query="${1:-}"
+        ;;
+      -h|--help|help)
+        echo "usage: evo-player-art-search [<track-path>] [--query <text>] [--json]" >&2
+        return 0
+        ;;
+      -*)
+        echo "evo-player: unknown art search option: $1" >&2
+        return 1
+        ;;
+      *) path="$1" ;;
+    esac
+    shift
+  done
+
+  load_secrets
+
+  if [[ -n "$query" ]]; then
+    local results
+    results="$(search_discogs_query "$query" | dedupe)"
+    [[ -n "$results" ]] || results="[]"
+    if (( json_mode == 1 )); then
+      jq -n --arg query "$query" --argjson results "$results" '{query:$query, results:$results}'
+    else
+      jq -r '.[] | "\(.label // "")\t\(.url // "")"' <<<"$results"
+    fi
+    return 0
+  fi
+
+  [[ -f "$path" ]] || {
+    echo "evo-player: not a file" >&2
+    return 1
+  }
+  local sp_token=""
+  sp_token="$(spotify_token || true)"
+
+  local meta artist album title catno year
+  meta="$(track_meta "$path")"
+  artist="$(jq -r '.artist // empty' <<<"$meta")"
+  album="$(jq -r '.album // empty' <<<"$meta")"
+  title="$(jq -r '.title // empty' <<<"$meta")"
+  catno="$(jq -r '.catno // empty' <<<"$meta")"
+  year="$(jq -r '.year // empty' <<<"$meta")"
+  if [[ -z "$catno" ]] && looks_like_catno "$album"; then
+    catno="$album"
+  fi
+
+  local queries=() q
+  for q in "$catno" "${artist} ${album}" "${artist} ${title}" "$album" "$title"; do
+    q="$(printf '%s' "$q" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+    [[ -n "$q" ]] || continue
+    local seen=0 existing
+    for existing in "${queries[@]+"${queries[@]}"}"; do
+      [[ "$existing" == "$q" ]] && { seen=1; break; }
+    done
+    if (( seen == 0 )); then
+      queries+=("$q")
+    fi
+  done
+
+  local primary="${catno:-}"
+  ((${#queries[@]} > 0)) && [[ -z "$primary" ]] && primary="${queries[0]}"
+  [[ -n "$primary" ]] || primary="$(basename "$path")"
+
+  local merged="[]" results="[]"
+  if [[ -n "$catno" ]]; then
+    merged="$(jq -s 'add' <(printf '%s' "$merged") <(search_discogs_catalog "$catno" "$year"))"
+    results="$(dedupe <<<"$merged")"
+  fi
+  if (( $(jq 'length' <<<"$results") == 0 )); then
+    for q in "${queries[@]+"${queries[@]}"}"; do
+      merged="$(jq -s 'add' <(printf '%s' "$merged") <(search_query "$q" "$sp_token"))"
+      results="$(dedupe <<<"$merged")"
+      if (( $(jq 'length' <<<"$results") >= 4 )); then
+        break
+      fi
+    done
+  fi
+
+  if (( json_mode == 1 )); then
+    jq -n --arg query "$primary" --argjson results "$results" '{query:$query, results:$results}'
+  else
+    jq -r '.[] | "\(.label // "")\t\(.url // "")"' <<<"$results"
+  fi
+}
+
+main "$@"

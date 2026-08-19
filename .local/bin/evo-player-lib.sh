@@ -20,6 +20,7 @@ SYNC_ARCHIVE=""
 PLAYLIST_DIR=""
 WAVEFORM_DIR=""
 ART_DIR=""
+ART_DIRTY=""
 TRACKS_CACHE_DIR=""
 PLAYER_STATE=""
 CURRENT_M3U=""
@@ -89,6 +90,7 @@ music_paths_apply() {
   PLAYLIST_DIR="${MUSIC_STATE}/playlists"
   WAVEFORM_DIR="${MUSIC_STATE}/waveforms"
   ART_DIR="${MUSIC_STATE}/art"
+  ART_DIRTY="${MUSIC_STATE}/art-dirty.json"
   TRACKS_CACHE_DIR="${MUSIC_STATE}/tracks"
   PLAYER_STATE="${MUSIC_STATE}/player.json"
   CURRENT_M3U="${PLAYLIST_DIR}/current.m3u"
@@ -1933,7 +1935,65 @@ art_install_image() {
   if [[ "$scope" == "album" ]]; then
     art_strip_track_overrides_in_dir "$track_path"
   fi
+  art_dirty_mark "$track_path" "$scope" || true
   printf '%s' "$dest_art"
+}
+
+art_dirty_ensure() {
+  ensure_dirs
+  if [[ ! -f "$ART_DIRTY" ]] || ! jq -e 'type == "object"' "$ART_DIRTY" >/dev/null 2>&1; then
+    printf '{"dirs":{},"tracks":{}}\n' >"$ART_DIRTY"
+  fi
+}
+
+art_dirty_snapshot() {
+  ensure_dirs
+  (
+    flock -x 9
+    art_dirty_ensure
+    jq -c '{dirs:(.dirs // {}), tracks:(.tracks // {})}' "$ART_DIRTY"
+  ) 9>"${ART_DIRTY}.lock"
+}
+
+art_dirty_mark() {
+  local path="${1:-}"
+  local scope="${2:-album}"
+  local key kind at tmp
+  [[ -n "$path" ]] || return 0
+  path="$(readlink -f "$path" 2>/dev/null || printf '%s' "$path")"
+  [[ -e "$path" ]] || return 0
+  ensure_dirs
+  at="$(date -Iseconds)"
+  if [[ "$scope" == "track" ]] || art_track_in_genre_root "$path"; then
+    kind="tracks"
+    key="$path"
+  else
+    kind="dirs"
+    key="$(dirname "$path")"
+  fi
+  (
+    flock -x 9
+    art_dirty_ensure
+    tmp="$(mktemp "${ART_DIRTY}.XXXXXX")"
+    jq --arg kind "$kind" --arg key "$key" --arg at "$at" \
+      '.[$kind][$key] = {at:$at}' "$ART_DIRTY" >"$tmp" && mv "$tmp" "$ART_DIRTY"
+  ) 9>"${ART_DIRTY}.lock" || true
+}
+
+art_dirty_clear_if() {
+  local kind="${1:-}"
+  local key="${2:-}"
+  local at="${3:-}"
+  local tmp
+  [[ -n "$kind" && -n "$key" ]] || return 0
+  (
+    flock -x 9
+    [[ -f "$ART_DIRTY" ]] || exit 0
+    tmp="$(mktemp "${ART_DIRTY}.XXXXXX")"
+    jq --arg kind "$kind" --arg key "$key" --arg at "$at" \
+      'if ((.[$kind][$key].at // "") == $at) then del(.[$kind][$key]) else . end' \
+      "$ART_DIRTY" >"$tmp" && mv "$tmp" "$ART_DIRTY"
+  ) 9>"${ART_DIRTY}.lock" || true
 }
 
 art_notify_cache() {

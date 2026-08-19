@@ -2317,6 +2317,10 @@ cmd_art_clear() {
   elif [[ -n "$folder" && -f "$folder" ]]; then
     rm -f "$folder"
   fi
+  folder="$(art_path_folder "$path")"
+  if [[ -n "$folder" && -f "$folder" ]]; then
+    art_dirty_mark "$path" "track" || true
+  fi
   if [[ "$json" -eq 1 ]]; then
     jq -n --arg path "$path" '{ok:true,path:$path}'
   else
@@ -2727,34 +2731,69 @@ cmd_art_apply() {
 cmd_art_embed_impl() {
   echo "evo-player: embed art started at $(date -Iseconds)" >&2
   ensure_dirs
-  local -A seen=()
-  local path dir art embedded=0 failed=0 skipped=0 folders=0 emb fail skip
-  while IFS= read -r -d '' path; do
-    is_audio "$path" || continue
-    dir="$(dirname "$path")"
-    [[ -n "${seen[$dir]:-}" ]] && continue
-    seen["$dir"]=1
-    art="$(art_path_folder "$path")"
-    [[ -f "$art" ]] || continue
-    read -r emb fail skip < <(art_embed_folder "$dir")
+  local snapshot dirs_json tracks_json dir_count=0 track_count=0
+  local row key at art status emb fail skip
+  local embedded=0 failed=0 skipped=0 folders=0 tracks=0
+  snapshot="$(art_dirty_snapshot)"
+  dirs_json="$(jq -c '.dirs // {}' <<<"$snapshot")"
+  tracks_json="$(jq -c '.tracks // {}' <<<"$snapshot")"
+  dir_count="$(jq 'length' <<<"$dirs_json")"
+  track_count="$(jq 'length' <<<"$tracks_json")"
+  echo "evo-player: ${dir_count} dirty folder(s), ${track_count} dirty track(s)" >&2
+  while IFS= read -r row; do
+    [[ -n "$row" ]] || continue
+    key="$(jq -r '.key // ""' <<<"$row")"
+    at="$(jq -r '.at // ""' <<<"$row")"
+    [[ -n "$key" && -d "$key" ]] || {
+      art_dirty_clear_if dirs "$key" "$at"
+      continue
+    }
+    read -r emb fail skip < <(art_embed_folder "$key")
     embedded=$((embedded + emb))
     failed=$((failed + fail))
     skipped=$((skipped + skip))
     folders=$((folders + 1))
-    if (( folders % 25 == 0 )); then
-      echo "evo-player: art ${folders} folders (${embedded} embedded, ${skipped} unchanged, ${failed} failed)" >&2
+    if [[ "$fail" -eq 0 ]]; then
+      art_dirty_clear_if dirs "$key" "$at"
     fi
-  done < <(find "$MUSIC_ROOT" -type f -print0 2>/dev/null)
-  echo "evo-player: embed art complete — ${folders} folders, ${embedded} embedded, ${skipped} unchanged, ${failed} failed" >&2
-  printf '%d %d %d' "$folders" "$embedded" "$failed"
+    echo "evo-player: art folder ${folders}/${dir_count} (${embedded} embedded, ${skipped} unchanged, ${failed} failed)" >&2
+  done < <(jq -c 'to_entries[] | {key:.key, at:(.value.at // "")}' <<<"$dirs_json")
+  while IFS= read -r row; do
+    [[ -n "$row" ]] || continue
+    key="$(jq -r '.key // ""' <<<"$row")"
+    at="$(jq -r '.at // ""' <<<"$row")"
+    [[ -n "$key" && -f "$key" ]] || {
+      art_dirty_clear_if tracks "$key" "$at"
+      continue
+    }
+    is_audio "$key" || {
+      art_dirty_clear_if tracks "$key" "$at"
+      continue
+    }
+    art="$(art_path_cached "$key")"
+    if [[ -z "$art" || ! -f "$art" ]]; then
+      art_dirty_clear_if tracks "$key" "$at"
+      continue
+    fi
+    status=0
+    art_embed_audio "$key" "$art" || status=$?
+    tracks=$((tracks + 1))
+    if [[ "$status" -eq 0 ]]; then
+      embedded=$((embedded + 1))
+      art_dirty_clear_if tracks "$key" "$at"
+    elif [[ "$status" -eq 2 ]]; then
+      skipped=$((skipped + 1))
+      art_dirty_clear_if tracks "$key" "$at"
+    else
+      failed=$((failed + 1))
+    fi
+  done < <(jq -c 'to_entries[] | {key:.key, at:(.value.at // "")}' <<<"$tracks_json")
+  echo "evo-player: embed art complete — ${folders} folders, ${tracks} tracks, ${embedded} embedded, ${skipped} unchanged, ${failed} failed" >&2
 }
 
 cmd_art_maintain_impl() {
   echo "evo-player: fix art started at $(date -Iseconds)" >&2
   ensure_dirs
-  local pruned
-  pruned="$(art_prune_legacy)"
-  echo "evo-player: pruned ${pruned} legacy art file(s)" >&2
   cmd_art_embed_impl
   echo "evo-player: fix art complete at $(date -Iseconds)" >&2
 }

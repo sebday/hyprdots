@@ -97,6 +97,7 @@ Item {
     property var browseTreeFolderMeta: ({})
     property bool browseTreeLoadingMore: false
     property string selectedTrackPath: ""
+    property var selectedTrackCache: ({})
     property var playlists: []
     property var libraryPlaylists: []
     property string selectedPlaylist: ""
@@ -125,6 +126,52 @@ Item {
         || playerScreen === "filter"
     readonly property bool nowPlayingTabActive: !browsePanelOpen && !playlistPanelOpen
         && playerScreen === "nowPlaying"
+    readonly property bool artPreviewActive: (browsePanelOpen || playlistPanelOpen)
+        && String(selectedTrackPath || "") !== ""
+        && String(selectedTrackPath) !== String(player.path || "")
+    readonly property string artTargetPath: {
+        if ((browsePanelOpen || playlistPanelOpen) && String(selectedTrackPath || "") !== "")
+            return String(selectedTrackPath)
+        return String((player && player.path) || "")
+    }
+    readonly property var selectedTrackInfo: {
+        var path = String(selectedTrackPath || "")
+        if (!path)
+            return ({})
+        var i, item, track, itemPath
+        if (playlistPanelOpen) {
+            for (i = 0; i < tracks.length; i++) {
+                item = tracks[i]
+                if (String((item && item.path) || "") === path)
+                    return item
+            }
+        }
+        if (browsePanelOpen) {
+            for (i = 0; i < browseTreeRows.length; i++) {
+                item = browseTreeRows[i]
+                track = (item && item.track) ? item.track : item
+                itemPath = String((track && track.path) || (item && item.path) || "")
+                if (itemPath === path)
+                    return track
+            }
+        }
+        if (String(selectedTrackCache.path || "") === path)
+            return selectedTrackCache
+        return ({})
+    }
+    readonly property var artTargetTrack: {
+        var path = artTargetPath
+        if (!path)
+            return ({})
+        if (path === String((player && player.path) || ""))
+            return player
+        return selectedTrackInfo
+    }
+    readonly property string displayedArt: {
+        if (!artPreviewActive)
+            return String((player && player.art) || "")
+        return String((selectedTrackInfo && selectedTrackInfo.art) || "")
+    }
     property bool queueExtendBusy: false
     property string filterKind: ""
     property string filterLabel: ""
@@ -184,7 +231,7 @@ Item {
             key: "art",
             icon: "󰋩",
             label: "fix art",
-            hint: "fix art",
+            hint: "embed queued art",
             args: ["art", "maintain"]
         }
     ]
@@ -198,8 +245,9 @@ Item {
     property string artApplyScope: "track"
     property string artPendingDropPath: ""
     readonly property bool artApplyAlbumAvailable: {
-        var album = String(player.album || "").trim()
-        var title = String(player.title || "").trim()
+        var t = artTargetTrack
+        var album = String((t && t.album) || "").trim()
+        var title = String((t && t.title) || "").trim()
         return album !== "" && album !== title
     }
     readonly property var nowPlayingMetaChips: {
@@ -298,6 +346,7 @@ Item {
         tracks = patch(tracks)
         currentPlaylistTracks = patch(currentPlaylistTracks)
         filterTracks = patch(filterTracks)
+        patchBrowseTreeArt(trackPath, art, false)
         tracksRevision++
     }
 
@@ -331,32 +380,47 @@ Item {
         tracks = patch(tracks)
         currentPlaylistTracks = patch(currentPlaylistTracks)
         filterTracks = patch(filterTracks)
+        patchBrowseTreeArt(trackPath, art, true)
         tracksRevision++
     }
 
-    function applyArtCommandResult(text, scope) {
+    function tracksShareAlbumFolder(a, b) {
+        a = String(a || "")
+        b = String(b || "")
+        var aslash = a.lastIndexOf("/")
+        var bslash = b.lastIndexOf("/")
+        if (aslash < 0 || bslash < 0)
+            return false
+        return a.substring(0, aslash + 1) === b.substring(0, bslash + 1)
+    }
+
+    function applyArtCommandResult(text, scope, trackPath) {
         var data = JSON.parse(String(text || "{}"))
         if (!data || (data.art === undefined && data.ok !== true))
             throw new Error("art failed")
-        var trackPath = String(player.path || "")
-        if (data.art) {
-            player = Object.assign({}, player, { art: String(data.art) })
-            if (scope === "album")
-                patchAlbumArtInLists(trackPath, String(data.art))
-            else
-                patchTrackArtInLists(trackPath, String(data.art))
-        }
+        trackPath = String(trackPath || artTargetPath || "")
+        var art = data.art !== undefined && data.art !== null ? String(data.art) : ""
+        var playingPath = String(player.path || "")
+        if (playingPath && (playingPath === trackPath
+                || (scope === "album" && tracksShareAlbumFolder(playingPath, trackPath))))
+            player = Object.assign({}, player, { art: art })
+        if (scope === "album")
+            patchAlbumArtInLists(trackPath, art)
+        else
+            patchTrackArtInLists(trackPath, art)
+        if (String(selectedTrackCache.path || "") === trackPath)
+            selectedTrackCache = Object.assign({}, selectedTrackCache, { art: art })
         onAlbumArtUpdated(scope)
     }
 
     function setAlbumArtFromFile(imagePath) {
-        var track = String(player.path || "")
+        var track = String(artTargetPath || "")
         if (!track || !imagePath)
             return
         var scope = artApplyScope
         runMusic(["art", "set", track, imagePath].concat(artScopeArgs()).concat(["--json"]), function(text) {
             try {
-                root.applyArtCommandResult(text, scope)
+                root.applyArtCommandResult(text, scope, track)
             } catch (e) {
                 root.notify("could not update art", 3000)
             }
@@ -374,7 +438,7 @@ Item {
     }
 
     function openArtPickerForDrop(imagePath) {
-        var track = String(player.path || "")
+        var track = String(artTargetPath || "")
         imagePath = String(imagePath || "")
         if (!track || !imagePath)
             return
@@ -387,7 +451,7 @@ Item {
     }
 
     function applyAlbumArtFromUrl(url) {
-        var track = String(player.path || "")
+        var track = String(artTargetPath || "")
         if (!track || !url)
             return
         var scope = artApplyScope
@@ -395,7 +459,7 @@ Item {
         runMusic(["art", "apply", track, url].concat(artScopeArgs()).concat(["--json"]), function(text) {
             artPickerLoading = false
             try {
-                root.applyArtCommandResult(text, scope)
+                root.applyArtCommandResult(text, scope, track)
                 artPickerOpen = false
             } catch (e) {
                 root.notify("could not update art", 3000)
@@ -424,10 +488,21 @@ Item {
         notify("copied title", 1500)
     }
 
+    function copyTrackArtistTitle(track) {
+        track = track || {}
+        var artist = String(track.artist || "").trim()
+        var title = String(track.title || "").trim()
+        var text = artist && title ? (artist + " - " + title) : (artist || title)
+        if (!text)
+            return
+        Quickshell.execDetached(["wl-copy", "--", text])
+        notify("copied artist - title", 1500)
+    }
+
     function searchArtPicker(query) {
         artSearchDebounce.stop()
         query = String(query || "").trim()
-        var track = String(player.path || "")
+        var track = String(artTargetPath || "")
         artPendingDropPath = ""
         artPickerLoading = true
         var args
@@ -459,7 +534,7 @@ Item {
     }
 
     function openArtPicker() {
-        var track = String(player.path || "")
+        var track = String(artTargetPath || "")
         if (!track)
             return
         artPendingDropPath = ""
@@ -587,12 +662,12 @@ Item {
     }
 
     function clearAlbumArt() {
-        var track = String(player.path || "")
+        var track = String(artTargetPath || "")
         if (!track)
             return
         runMusic(["art", "clear", track, "--json"], function(text) {
             try {
-                root.applyArtCommandResult(text)
+                root.applyArtCommandResult(text, "", track)
                 root.artPickerOpen = false
             } catch (e) {
                 root.notify("could not update art", 3000)
@@ -1265,6 +1340,51 @@ Item {
         return true
     }
 
+    function patchBrowseTreeArt(trackPath, art, albumScope) {
+        trackPath = String(trackPath || "")
+        art = String(art || "")
+        if (!trackPath)
+            return false
+        var slash = trackPath.lastIndexOf("/")
+        var dir = slash >= 0 ? trackPath.substring(0, slash + 1) : ""
+        function match(path) {
+            path = String(path || "")
+            if (!path)
+                return false
+            if (path === trackPath)
+                return true
+            if (!albumScope || !dir)
+                return false
+            if (path.indexOf(dir) !== 0)
+                return false
+            return path.indexOf("/", dir.length) < 0
+        }
+        var nextChildren = {}
+        var changed = false
+        for (var key in browseTreeChildren) {
+            var kids = browseTreeChildren[key]
+            var nextKids = []
+            for (var i = 0; i < kids.length; i++) {
+                var kid = kids[i]
+                if (kid.type === "track" && match(kid.path)) {
+                    var patched = Object.assign({}, kid, { art: art })
+                    if (kid.track)
+                        patched.track = Object.assign({}, kid.track, { art: art })
+                    nextKids.push(patched)
+                    changed = true
+                } else {
+                    nextKids.push(kid)
+                }
+            }
+            nextChildren[key] = nextKids
+        }
+        if (!changed)
+            return false
+        browseTreeChildren = nextChildren
+        rebuildBrowseTreeRows(false)
+        return true
+    }
+
     function findTrackLikedInBrowseTree(trackPath) {
         trackPath = String(trackPath || "")
         for (var key in browseTreeChildren) {
@@ -1850,6 +1970,19 @@ Item {
         return n
     }
 
+    function cacheSelectedTrack(entry) {
+        var track = (entry && entry.track) ? entry.track : entry
+        if (!track)
+            return
+        selectedTrackCache = {
+            path: String(track.path || (entry && entry.path) || ""),
+            art: String(track.art || (entry && entry.art) || ""),
+            album: String(track.album || ""),
+            title: String(track.title || (entry && entry.name) || ""),
+            artist: String(track.artist || (entry && entry.artist) || "")
+        }
+    }
+
     function isTrackPlaying(path) {
         return String(player.path || "") === String(path || "")
     }
@@ -1866,7 +1999,10 @@ Item {
     function selectTrackEntry(entry) {
         if (!entry || !entry.path)
             return
+        if (String(entry.path) !== String(selectedTrackPath || ""))
+            closeArtPicker()
         selectedTrackPath = String(entry.path)
+        cacheSelectedTrack(entry)
     }
 
     function openTrackFolder(entry) {
@@ -2872,8 +3008,12 @@ Item {
     function selectPlaylistTrack(index) {
         if (index < 0 || index >= tracks.length)
             return
+        var path = String(tracks[index].path || "")
+        if (path !== String(selectedTrackPath || ""))
+            closeArtPicker()
         selectedTrackIndex = index
-        selectedTrackPath = String(tracks[index].path || "")
+        selectedTrackPath = path
+        cacheSelectedTrack(tracks[index])
     }
 
     function rememberLiked(path, liked) {
@@ -4342,6 +4482,7 @@ Item {
         property int side: 56
         property bool showPickerOverlay: false
         property bool fillPane: false
+        property string art: root.displayedArt
 
         function nudgeVolume(delta) {
             if (!delta)
@@ -4374,8 +4515,8 @@ Item {
             Image {
                 id: coverImage
                 anchors.fill: parent
-                visible: (root.player.art || "") !== "" && status === Image.Ready
-                source: root.artUrl(root.player.art)
+                visible: (thumbRoot.art || "") !== "" && status === Image.Ready
+                source: root.artUrl(thumbRoot.art)
                 fillMode: Image.PreserveAspectCrop
                 smooth: true
                 asynchronous: true
@@ -4416,7 +4557,7 @@ Item {
 
                 onEntered: function(drag) {
                     var ok = false
-                    if (drag.hasUrls) {
+                    if (root.artTargetPath && drag.hasUrls) {
                         for (var i = 0; i < drag.urls.length; i++) {
                             if (root.isImagePath(root.localPathFromUrl(drag.urls[i]))) {
                                 ok = true
@@ -4428,7 +4569,7 @@ Item {
                 }
 
                 onDropped: function(drop) {
-                    if (!drop.hasUrls || !root.player.path)
+                    if (!drop.hasUrls || !root.artTargetPath)
                         return
                     for (var j = 0; j < drop.urls.length; j++) {
                         var p = root.localPathFromUrl(drop.urls[j])
@@ -4445,10 +4586,10 @@ Item {
                 anchors.fill: parent
                 enabled: !root.artPickerOpen
                 hoverEnabled: true
-                cursorShape: (root.player.path || "") !== ""
+                cursorShape: (root.artTargetPath || "") !== ""
                     ? Qt.PointingHandCursor : Qt.ArrowCursor
                 onClicked: function(mouse) {
-                    if (!(root.player.path || ""))
+                    if (!(root.artTargetPath || ""))
                         return
                     mouse.accepted = true
                     root.openArtPicker()
@@ -5252,7 +5393,7 @@ Item {
         readonly property int likeReserve: 30
         readonly property int folderReserve: browseRow.showFolder ? 30 : 0
         readonly property int actionButtonReserve: browseRow.showActionButtons && browseRow.selected
-            ? (22 * 3 + Theme.spacingM * 2)
+            ? (22 * 4 + Theme.spacingM * 3)
             : 0
         readonly property bool hovered: browseRowMouse.containsMouse
             || (!browseRow.selected && browseArtSelectMouse.containsMouse)
@@ -5369,6 +5510,13 @@ Item {
                 visible: browseRow.showFolder && !(browseRow.showActionButtons && browseRow.selected)
                 icon: "󰉖"
                 onActivated: browseRow.folderOpenRequested()
+            }
+
+            RowIconButton {
+                visible: browseRow.showActionButtons && browseRow.selected
+                icon: "󰆏"
+                tooltip: "copy artist - title"
+                onActivated: root.copyTrackArtistTitle(browseRow.track)
             }
 
             RowIconButton {
@@ -5530,7 +5678,7 @@ Item {
                     }
 
                     MetaChip {
-                        visible: (root.player.art || "") !== ""
+                        visible: (root.displayedArt || "") !== ""
                         label: "Remove"
                         accent: false
                         clickable: true
