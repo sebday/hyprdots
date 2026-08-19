@@ -21,7 +21,7 @@ Item {
     readonly property int nowPlayingMinBioWidth: 300
     readonly property int nowPlayingInlineArtSize: 112
     readonly property int nowPlayingArtWidth: {
-        if (root.compactMode)
+        if (root.compactLayout)
             return 0
         var w = nowPlayingPanel.width
         var h = nowPlayingPanel.height
@@ -32,7 +32,7 @@ Item {
             return 0
         return maxSide
     }
-    readonly property bool nowPlayingCompact: root.compactMode || nowPlayingArtWidth <= 0
+    readonly property bool nowPlayingCompact: root.compactLayout || nowPlayingArtWidth <= 0
     readonly property int nowPlayingControlsHeight: 52
     readonly property int nowPlayingWaveformMinHeight: 56
     readonly property int nowPlayingTitleFont: nowPlayingCompact
@@ -200,6 +200,14 @@ Item {
     property bool sortStopRequested: false
     property bool menuBarHidden: false
     property bool compactMode: false
+    readonly property int compactLayoutBreakpoint: 768
+    readonly property bool compactLayout: compactMode || width <= compactLayoutBreakpoint
+    property string statusNote: ""
+    readonly property string playerStatusText: {
+        if (libraryActivityBusy)
+            return jobLogInline()
+        return statusNote
+    }
     property string trashConfirmPath: ""
     property string trashConfirmTitle: ""
     readonly property bool trashConfirmOpen: trashConfirmPath !== ""
@@ -654,6 +662,12 @@ Item {
     }
 
     function notify(body, durationMs) {
+        var text = String(body || "").trim()
+        if (text) {
+            statusNote = text
+            statusNoteTimer.interval = durationMs || 3000
+            statusNoteTimer.restart()
+        }
         if (!shell) return
         var notif = shell.serviceFor("evo.notifications")
         if (notif && typeof notif.showBrief === "function")
@@ -3639,6 +3653,13 @@ Item {
     }
 
     Timer {
+        id: statusNoteTimer
+        interval: 3000
+        repeat: false
+        onTriggered: root.statusNote = ""
+    }
+
+    Timer {
         id: statusTimer
         interval: 500
         repeat: true
@@ -4362,7 +4383,7 @@ Item {
                             }
 
                             PlayerTransportBar {
-                                visible: root.compactMode
+                                visible: root.compactLayout
                                 Layout.fillWidth: true
                                 Layout.preferredHeight: root.nowPlayingControlsHeight
                                 Layout.minimumHeight: root.nowPlayingControlsHeight
@@ -4391,7 +4412,7 @@ Item {
 
                         SectionPanel {
                             label: ""
-                            visible: !root.compactMode
+                            visible: !root.compactLayout
                             Layout.fillWidth: true
                             contentPad: Theme.panelContentPad
 
@@ -4418,11 +4439,41 @@ Item {
                             Layout.fillHeight: true
 
                             AlbumArtThumbnail {
+                                id: sideArtThumb
                                 readonly property int fitSide: Math.min(parent.width, parent.height)
                                 side: fitSide
                                 showPickerOverlay: true
                                 anchors.right: parent.right
                                 anchors.verticalCenter: parent.verticalCenter
+                            }
+
+                            Rectangle {
+                                visible: !root.artPickerOpen && root.playerStatusText !== ""
+                                z: 5
+                                anchors.right: sideArtThumb.right
+                                anchors.bottom: sideArtThumb.bottom
+                                anchors.rightMargin: 8
+                                anchors.bottomMargin: 8
+                                radius: Theme.radiusM
+                                color: Qt.rgba(Theme.mantle.r, Theme.mantle.g, Theme.mantle.b, 0.82)
+                                border.color: Theme.foregroundSubtle
+                                border.width: 1
+                                implicitWidth: artStatusText.width + 12
+                                implicitHeight: artStatusText.height + 8
+
+                                Text {
+                                    id: artStatusText
+                                    anchors.centerIn: parent
+                                    width: Math.min(implicitWidth, Math.max(48, sideArtThumb.width - 28))
+                                    text: root.playerStatusText
+                                    color: Theme.foreground
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: root.libraryFont
+                                    wrapMode: Text.Wrap
+                                    maximumLineCount: 2
+                                    elide: Text.ElideRight
+                                    opacity: 0.72
+                                }
                             }
                         }
                     }
@@ -4930,7 +4981,7 @@ Item {
         property int preferredBarWidth: 140
         Layout.preferredWidth: visible ? preferredBarWidth : 0
         Layout.minimumWidth: visible ? minBarWidth : 0
-        Layout.maximumWidth: visible ? (root.compactMode ? -1 : 240) : 0
+        Layout.maximumWidth: visible ? (root.compactLayout ? -1 : 240) : 0
         Layout.fillWidth: visible
         Layout.alignment: Qt.AlignVCenter
         implicitHeight: 20
@@ -4978,19 +5029,20 @@ Item {
         implicitHeight: root.nowPlayingControlsHeight
 
         readonly property int fitBtnCount: 6
-        readonly property int fitMaxGap: root.compactMode ? Theme.spacingL : 24
+        readonly property int fitMaxGap: root.compactLayout ? Theme.spacingL : 24
         readonly property int fitMinGap: 2
         readonly property int fitMinBtn: 18
         readonly property int fitMinProgress: 36
         readonly property int fitMaxProgress: 72
+        readonly property int fitProgressMinPanelWidth: 425
         readonly property int fitFullWidth: fitBtnCount * root.transportBtnSize
             + 5 * fitMaxGap
             + fitMinProgress
         readonly property bool fitShowProgress: {
-            var w = controlsRow.width
+            var w = transportBar.width
             if (w <= 1)
                 return true
-            return w >= fitFullWidth
+            return w >= fitProgressMinPanelWidth
         }
         readonly property int fitActiveGaps: fitShowProgress ? 6 : 5
 
@@ -5031,7 +5083,7 @@ Item {
         readonly property bool fitShowSpacers: {
             if (!fitShowProgress)
                 return true
-            if (root.compactMode)
+            if (root.compactLayout)
                 return false
             var w = controlsRow.width
             if (w <= 1)
@@ -5043,9 +5095,9 @@ Item {
         RowLayout {
             id: transportRow
             anchors.fill: parent
-            anchors.leftMargin: root.compactMode ? 0 : 6
-            anchors.rightMargin: root.compactMode ? 0 : 6
-            spacing: root.compactMode ? Theme.spacingL : 12
+            anchors.leftMargin: root.compactLayout ? 0 : 6
+            anchors.rightMargin: root.compactLayout ? 0 : 6
+            spacing: root.compactLayout ? Theme.spacingL : 12
 
             TransportTimePill {
                 visible: showTimestamps
