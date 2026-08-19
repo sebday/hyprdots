@@ -3548,6 +3548,28 @@ Item {
                                         fill: Qt.rgba(Theme.mantle.r, Theme.mantle.g, Theme.mantle.b, 0.92)
                                     }
 
+                                    TransportTimePill {
+                                        z: 3
+                                        dark: true
+                                        compact: true
+                                        visible: waveformViz.vizMid > 0
+                                        label: root.player.position_label || "0:00"
+                                        x: -implicitWidth / 2
+                                        y: waveformViz.vizMid - implicitHeight / 2
+                                    }
+
+                                    TransportTimePill {
+                                        z: 3
+                                        dark: true
+                                        compact: true
+                                        visible: waveformViz.vizMid > 0
+                                        label: root.player.duration_label || "0:00"
+                                        x: waveformViz.width > 0
+                                            ? waveformViz.width - implicitWidth / 2
+                                            : 0
+                                        y: waveformViz.vizMid - implicitHeight / 2
+                                    }
+
                                     MouseArea {
                                         z: 2
                                         anchors.fill: parent
@@ -3568,32 +3590,6 @@ Item {
                                             if (mouse.button === Qt.LeftButton)
                                                 root.commitSeekFromX(mouse.x, width)
                                         }
-                                    }
-                                }
-
-                                Item {
-                                    Layout.fillWidth: true
-                                    Layout.preferredHeight: 16
-
-                                    Text {
-                                        anchors.left: parent.left
-                                        anchors.top: parent.top
-                                        text: root.player.position_label || "0:00"
-                                        color: Theme.foreground
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: root.listFont
-                                        opacity: Theme.opacityHover
-                                    }
-
-                                    Text {
-                                        anchors.right: parent.right
-                                        anchors.top: parent.top
-                                        horizontalAlignment: Text.AlignRight
-                                        text: root.player.duration_label || "0:00"
-                                        color: Theme.foreground
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: root.listFont
-                                        opacity: Theme.opacityHover
                                     }
                                 }
                             }
@@ -3840,13 +3836,17 @@ Item {
     component TransportTimePill: Rectangle {
         property string label: ""
         property bool highlight: false
+        property bool dark: false
+        property bool compact: false
 
-        radius: Theme.radiusL
-        color: Theme.foregroundWash
-        border.color: Theme.foregroundDivider
+        radius: compact ? Theme.radiusM : Theme.radiusL
+        color: dark
+            ? Qt.rgba(Theme.mantle.r, Theme.mantle.g, Theme.mantle.b, 0.98)
+            : Theme.foregroundWash
+        border.color: dark ? Theme.foregroundSubtle : Theme.foregroundDivider
         border.width: 1
-        implicitWidth: pillText.implicitWidth + 20
-        implicitHeight: pillText.implicitHeight + 10
+        implicitWidth: pillText.implicitWidth + (compact ? 12 : 20)
+        implicitHeight: pillText.implicitHeight + (compact ? 4 : 10)
         Layout.alignment: Qt.AlignVCenter
 
         Text {
@@ -3855,7 +3855,7 @@ Item {
             text: parent.label
             color: parent.highlight ? Theme.accent : Theme.foreground
             font.family: Theme.fontFamily
-            font.pixelSize: root.hintFont
+            font.pixelSize: parent.compact ? root.libraryFont : root.hintFont
             font.bold: parent.highlight && Theme.fontBold
             opacity: parent.highlight ? 1 : 0.65
         }
