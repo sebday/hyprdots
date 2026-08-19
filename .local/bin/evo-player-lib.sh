@@ -933,7 +933,7 @@ canonical_track_dest() {
   local path="$1"
   local genre year dest_dir basename
   genre="$(resolve_genre_from_tags "$path")" || return 1
-  basename="$(basename "$path")"
+  basename="$(track_filename_from_tags "$path")" || return 1
   if track_is_mix "$path"; then
     year="$(resolve_year "$path")"
     dest_dir="${MUSIC_ROOT}/${genre}/mixes/${year}"
@@ -1038,6 +1038,52 @@ s = sys.argv[1]
 s = re.sub(r"[/\\\\:*?\"<>|]+", " ", s)
 s = re.sub(r"\s+", " ", s).strip()
 print(s)' "$s"
+}
+
+track_slugify() {
+  python3 -c 'import re, sys, unicodedata
+
+def slug(value: str) -> str:
+    value = unicodedata.normalize("NFKD", value or "")
+    value = "".join(c for c in value if not unicodedata.combining(c))
+    value = value.lower()
+    value = re.sub(r"[^a-z0-9]+", "_", value)
+    value = re.sub(r"_+", "_", value).strip("_")
+    return value
+
+print(slug(sys.argv[1]))' "$1"
+}
+
+track_filename_from_tags() {
+  local path="$1"
+  local tags title artist ext artist_slug title_slug base
+  [[ -f "$path" ]] || return 1
+  tags="$(track_tags_read "$path")"
+  title="$(jq -r '.title // ""' <<<"$tags")"
+  artist="$(jq -r '.artist // ""' <<<"$tags")"
+  ext="${path##*.}"
+  ext="${ext,,}"
+  [[ -n "$ext" && "$ext" != "$path" ]] || ext="mp3"
+  artist_slug="$(track_slugify "$artist")"
+  title_slug="$(track_slugify "$title")"
+  if [[ -n "$artist_slug" && -n "$title_slug" ]]; then
+    if [[ "$title_slug" == "${artist_slug}" ]]; then
+      title_slug=""
+    elif [[ "$title_slug" == "${artist_slug}"_* ]]; then
+      title_slug="${title_slug#${artist_slug}_}"
+    fi
+  fi
+  if [[ -n "$artist_slug" && -n "$title_slug" ]]; then
+    base="${artist_slug}-${title_slug}"
+  elif [[ -n "$title_slug" ]]; then
+    base="$title_slug"
+  elif [[ -n "$artist_slug" ]]; then
+    base="$artist_slug"
+  else
+    base="$(track_slugify "$(basename "${path%.*}")")"
+  fi
+  [[ -n "$base" ]] || return 1
+  printf '%s.%s' "$base" "$ext"
 }
 
 track_filename_from_meta() {

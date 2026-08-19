@@ -55,6 +55,7 @@ ShellRoot {
         "evo.library": { kinds: ["menu"], path: "plugins/library/Library.qml", keepLoaded: true },
         "evo.theme": { kinds: ["menu"], path: "plugins/theme/Theme.qml", keepLoaded: true },
         "evo.clipboard": { kinds: ["menu", "service"], path: "plugins/clipboard/Clipboard.qml", servicePath: "plugins/clipboard/Service.qml", keepLoaded: true },
+        "evo.settings": { kinds: ["menu"], path: "plugins/settings/Settings.qml", keepLoaded: true },
         "evo.panel": { kinds: ["panel"], path: "plugins/panel/Panel.qml", keepLoaded: true },
         "evo.bar": { kinds: ["bar"], path: "plugins/bar/Bar.qml" },
         "evo.shopify": { kinds: ["dashboard"], path: "plugins/shopify/Shopify.qml", keepLoaded: true },
@@ -549,7 +550,7 @@ ShellRoot {
         }
     }
 
-    readonly property var panelPluginIds: ["evo.menu", "evo.panel", "evo.calendar", "evo.shopify_diy", "evo.shopify_tgs", "evo.cursor", "evo.weather", "evo.network", "evo.volume", "evo.media", "evo.github", "evo.system", "evo.stocks", "evo.cloudflare", "evo.transmission", "evo.insync", "evo.steam", "evo.library", "evo.theme", "evo.wallpaper", "evo.clipboard"]
+    readonly property var panelPluginIds: ["evo.menu", "evo.panel", "evo.settings", "evo.calendar", "evo.shopify_diy", "evo.shopify_tgs", "evo.cursor", "evo.weather", "evo.network", "evo.volume", "evo.media", "evo.github", "evo.system", "evo.stocks", "evo.cloudflare", "evo.transmission", "evo.insync", "evo.steam", "evo.library", "evo.theme", "evo.wallpaper", "evo.clipboard"]
 
     Instantiator {
         model: shell.panelPluginIds

@@ -4,7 +4,6 @@ import QtQuick
 import QtQuick.Layouts
 import "../../Commons"
 import "../calc" as Calc
-import "modules"
 
 Item {
     id: root
@@ -18,11 +17,9 @@ Item {
     readonly property string layoutScript: Quickshell.env("HOME") + "/.local/bin/evo-layout"
 
     Component { id: calcComp; Calc.AppCalc {} }
-    Component { id: settingsComp; SettingsModule {} }
 
     readonly property var dockModules: [
-        { id: "calc", component: calcComp },
-        { id: "settings", component: settingsComp }
+        { id: "calc", component: calcComp }
     ]
 
     readonly property var moduleIds: dockModules.map(function(entry) { return entry.id })

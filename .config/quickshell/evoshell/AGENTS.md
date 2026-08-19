@@ -39,7 +39,7 @@ Feature CLIs: `evo-player` → `evo.player`, `evo-film` → `evo.library`, `evo-
 ## QML
 
 - 4-space indent; new bar widgets → `widgets/qmldir` + `BarWidgetCatalog.qml` (`Item` root)
-- Panel module ids: `calc`, `clipboard`, `settings` (legacy `"tools"` → `calc` only)
+- Panel module ids: `calc`, `clipboard` (legacy `"tools"` → `calc` only). Settings: `evo.settings` overlay.
 
 ## IPC & reload
 

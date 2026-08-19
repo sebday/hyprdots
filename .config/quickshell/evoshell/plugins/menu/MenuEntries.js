@@ -15,7 +15,7 @@ function systemEntries(home) {
     var bin = home + "/.local/bin"
     return [
         { name: "Apps", icon: "󰀻", keywords: ["apps", "applications", "launcher", "programs"], mode: "apps" },
-        { name: "Settings", icon: "󰒓", keywords: ["settings", "panel", "hypr", "bar"], command: panelToggle(home, "settings") },
+        { name: "Settings", icon: "󰒓", keywords: ["settings", "panel", "hypr", "bar"], command: ipc(home, "toggle evo.settings") },
         { name: "Themes", icon: "󰸌", keywords: ["theme", "colours", "gtk"], command: ipc(home, "toggle evo.theme") },
         { name: "Wallpaper", icon: "󰏘", keywords: ["wallpaper", "background"], command: ipc(home, "toggle evo.wallpaper") },
         { name: "Music", icon: "󰎈", keywords: ["music", "player", "mpv"], command: ipc(home, "toggle evo.player") },

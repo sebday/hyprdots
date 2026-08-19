@@ -23,3 +23,4 @@ HoverPopupHeader 1.0 HoverPopupHeader.qml
 HoverPopupStatBox 1.0 HoverPopupStatBox.qml
 HoverPopupLabelPill 1.0 HoverPopupLabelPill.qml
 BarWidgetRegistry 1.0 BarWidgetRegistry.qml
+MonitorLayoutPicker 1.0 MonitorLayoutPicker.qml

@@ -36,7 +36,7 @@ hl.window_rule({
 hl.window_rule({
 	name = "tag-floating-window-title-dialogs",
 	match = {
-		title = "^(Rename.*|Open.*Files?|Save.*Files?|Save.*As|.*wants to save.*|.*wants to open.*|Export Image.*)",
+		title = "^(Rename.*|Open.*Files?|Save.*Files?|Save.*As|.*wants to save.*|.*wants to open.*|Export Image.*|Select.*)",
 	},
 	tag = "+floating-window",
 })

@@ -268,7 +268,6 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        anchors.topMargin: 10
         anchors.bottom: parent.bottom
         spacing: Theme.spacingL
 

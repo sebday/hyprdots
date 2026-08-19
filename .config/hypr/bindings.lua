@@ -27,12 +27,12 @@ bindd("SUPER + K", "Toggle Floating Window", hl.dsp.window.float({ action = "tog
 bindd("SUPER + L", "Lock Screen", hl.dsp.exec_cmd(bin .. "/evo-system lock"))
 bindd("SUPER + R", "Restart evoshell", hl.dsp.exec_cmd(bin .. "/evo-system restart"))
 bindd("SUPER + C", "Calc panel", hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.panel \'{"module":"calc"}\''))
+bindd("SUPER + B", "Settings", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.settings"))
 bindd(
 	"SUPER + N",
 	"Tasks panel",
 	hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.panel \'{"module":"calc","focus":"tasks"}\'')
 )
-bindd("SUPER + B", "Settings panel", hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.panel \'{"module":"settings"}\''))
 bindd("SUPER + M", "Library", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.library"))
 bindd("SUPER + V", "Clipboard history", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.clipboard"))
 bindd("SUPER + P", "Colour Picker", hl.dsp.exec_cmd("hyprpicker -al"))

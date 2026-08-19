@@ -11,6 +11,7 @@ Item {
     property bool open: false
     property bool previewFont: true
     property bool labelBold: true
+    property int labelFontSize: Theme.fontSizeM
     property int popupMaxHeight: 160
 
     signal activated(string value)
@@ -30,6 +31,7 @@ Item {
     implicitHeight: header.implicitHeight + (open ? (6 + listHeight) : 0)
     implicitWidth: 200
     opacity: root.enabled ? 1 : Theme.opacityDisabled
+    z: root.open ? 100 : 0
 
     function toggle() {
         if (!root.enabled) return
@@ -55,8 +57,9 @@ Item {
             text: root.label
             color: Theme.foreground
             font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontSizeM
+            font.pixelSize: root.labelFontSize
             font.bold: root.labelBold ? Theme.fontBold : false
+            opacity: Theme.opacityMuted
             Layout.fillWidth: true
         }
 

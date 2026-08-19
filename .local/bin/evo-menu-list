@@ -361,6 +361,7 @@ ipc = "evo-ipc"
 plugins = [
     "evo.menu",
     "evo.panel",
+    "evo.settings",
     "evo.calendar",
     "evo.shopify_diy",
     "evo.shopify_tgs",
@@ -525,7 +526,8 @@ def emit(name: str, command: str, internal: bool, detail: str = "") -> None:
 
 PLUGIN_DETAILS = {
     "evo.menu": "Shows or hides the system menu overlay.",
-    "evo.panel": "Shows or hides a side panel (calc, tasks, settings).",
+    "evo.panel": "Shows or hides a side panel (calc, tasks).",
+    "evo.settings": "Shows or hides the evoshell settings overlay.",
     "evo.calendar": "Shows or hides the calendar overlay.",
     "evo.shopify_diy": "Shows or hides the Shopify DIY dashboard widget.",
     "evo.shopify_tgs": "Shows or hides the Shopify TGS dashboard widget.",

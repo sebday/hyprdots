@@ -66,8 +66,10 @@ Item {
     property bool animationsOn: false
     property int activeOpacityPercent: 97
     property int inactiveOpacityPercent: 88
-    property bool barOnDp1Top: false
-    property bool notificationsOnHdmiBottom: true
+    property string barOutput: ""
+    property string barPosition: "bottom"
+    property string notificationsOutput: ""
+    property string notificationsPosition: "bottom"
     property bool fieldsetRoundingOn: true
     property string fontFamily: "CaskaydiaMono Nerd Font"
     property var fontFamilies: []
@@ -113,7 +115,7 @@ Item {
         return value !== "" ? value : "Derby"
     }
     readonly property bool settingsBusy: fontBusy || mediaBusy || tasksBusy || weatherBusy || hyprToggleProc.running || hyprSetProc.running
-        || barToggleProc.running || notificationsToggleProc.running || uiToggleProc.running
+        || barSetProc.running || notificationsSetProc.running || uiToggleProc.running
     readonly property bool active: host && host.opened && host.activeModule === "settings"
 
     Keys.onEscapePressed: if (host) host.dismiss()
@@ -144,14 +146,28 @@ Item {
         hyprSetProc.running = true
     }
 
-    function toggleBar() {
-        if (!barReady || settingsBusy) return
-        barToggleProc.running = true
+    function setBar(output, position) {
+        if (!barReady || settingsBusy)
+            return
+        var out = String(output || "")
+        var pos = String(position || "")
+        if (!out || (pos !== "top" && pos !== "bottom"))
+            return
+        barSetProc.output = out
+        barSetProc.position = pos
+        barSetProc.running = true
     }
 
-    function toggleNotifications() {
-        if (!notificationsReady || settingsBusy) return
-        notificationsToggleProc.running = true
+    function setNotifications(output, position) {
+        if (!notificationsReady || settingsBusy)
+            return
+        var out = String(output || "")
+        var pos = String(position || "")
+        if (!out || (pos !== "top" && pos !== "bottom"))
+            return
+        notificationsSetProc.output = out
+        notificationsSetProc.position = pos
+        notificationsSetProc.running = true
     }
 
     function toggleFieldsetRounding() {
@@ -310,7 +326,8 @@ Item {
     function parseBarState(raw) {
         try {
             var data = JSON.parse(String(raw || "{}"))
-            root.barOnDp1Top = data.barOnDp1Top === true
+            root.barOutput = String(data.output || "")
+            root.barPosition = String(data.position || "bottom")
             root.barReady = true
         } catch (e) {
             root.barReady = false
@@ -320,7 +337,8 @@ Item {
     function parseNotificationsState(raw) {
         try {
             var data = JSON.parse(String(raw || "{}"))
-            root.notificationsOnHdmiBottom = data.notificationsOnHdmiBottom === true
+            root.notificationsOutput = String(data.output || "")
+            root.notificationsPosition = String(data.position || "bottom")
             root.notificationsReady = true
         } catch (e) {
             root.notificationsReady = false
@@ -539,16 +557,20 @@ Item {
     }
 
     Process {
-        id: barToggleProc
-        command: ["bash", root.barScript, "bar", "toggle"]
+        id: barSetProc
+        property string output: ""
+        property string position: ""
+        command: ["bash", root.barScript, "bar", "set", barSetProc.output, barSetProc.position]
         stdout: StdioCollector {
             onStreamFinished: root.parseBarState(text)
         }
     }
 
     Process {
-        id: notificationsToggleProc
-        command: ["bash", root.barScript, "notifications", "toggle"]
+        id: notificationsSetProc
+        property string output: ""
+        property string position: ""
+        command: ["bash", root.barScript, "notifications", "set", notificationsSetProc.output, notificationsSetProc.position]
         stdout: StdioCollector {
             onStreamFinished: root.parseNotificationsState(text)
         }
@@ -676,503 +698,512 @@ Item {
         }
     }
 
-    readonly property int settingsContentTopPad: 8
+    implicitHeight: settingsColumn.implicitHeight
+    implicitWidth: settingsColumn.implicitWidth
 
-    Flickable {
-        anchors.fill: parent
-        clip: true
-        contentWidth: width
-        contentHeight: settingsColumn.implicitHeight + settingsContentTopPad + Theme.spacing2
-        boundsBehavior: Flickable.StopAtBounds
-        flickableDirection: Flickable.VerticalFlick
+    ColumnLayout {
+        id: settingsColumn
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.right: parent.right
+        spacing: 16
 
-        ColumnLayout {
-            id: settingsColumn
-            width: parent.width
-            y: settingsContentTopPad
-            spacing: 16
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 12
 
             SectionPanel {
+                Layout.preferredWidth: 500
+                Layout.fillHeight: true
+                fillHeight: true
                 contentPad: Theme.panelContentPad
-                legendBackground: Theme.background
-                label: ""
-                sectionSpacing: 12
+                    legendBackground: Theme.background
+                    label: ""
+                    sectionSpacing: 12
 
-                HoverPopupLabelPill {
-                    text: "Evoshell"
-                    fontSize: Theme.fontSizeS
-                }
+                    HoverPopupLabelPill {
+                        text: "Evoshell"
+                        fontSize: Theme.fontSizeS
+                    }
 
-                FontFamilyPicker {
-                    Layout.fillWidth: true
-                    label: "Font family"
-                    value: root.fontFamily
-                    model: root.fontFamilies
-                    enabled: root.fontReady && !settingsBusy
-                    onActivated: function(family) {
-                        root.fontFamily = family
-                        root.setFont("family", family)
+                    MonitorLayoutPicker {
+                        Layout.fillWidth: true
+                        barOutput: root.barOutput
+                        barPosition: root.barPosition
+                        notificationsOutput: root.notificationsOutput
+                        notificationsPosition: root.notificationsPosition
+                        enabled: root.barReady && root.notificationsReady && !settingsBusy
+                        onBarChosen: function(output, position) {
+                            root.setBar(output, position)
+                        }
+                        onNotificationsChosen: function(output, position) {
+                            root.setNotifications(output, position)
+                        }
+                    }
+
+                    ToggleRow {
+                        Layout.fillWidth: true
+                        label: "Fieldset radius"
+                        checked: root.fieldsetRoundingOn
+                        enabled: root.uiReady && !settingsBusy
+                        onToggled: root.toggleFieldsetRounding()
+                    }
+
+                    ToggleRow {
+                        Layout.fillWidth: true
+                        label: "Border radius"
+                        checked: root.roundingOn
+                        enabled: root.hyprReady && !settingsBusy
+                        onToggled: root.toggleHypr("rounding")
+                    }
+
+                    ToggleRow {
+                        Layout.fillWidth: true
+                        label: "Window gaps"
+                        checked: root.gapsOn
+                        enabled: root.hyprReady && !settingsBusy
+                        onToggled: root.toggleHypr("gaps")
+                    }
+
+                    ToggleRow {
+                        Layout.fillWidth: true
+                        label: "Animations"
+                        checked: root.animationsOn
+                        enabled: root.hyprReady && !settingsBusy
+                        onToggled: root.toggleHypr("animations")
+                    }
+
+                    SliderSetting {
+                        Layout.fillWidth: true
+                        label: "Active opacity"
+                        value: root.activeOpacityPercent
+                        valueSuffix: "%"
+                        minimum: 0
+                        maximum: 100
+                        step: 1
+                        enabled: root.hyprReady && !settingsBusy
+                        onValueEdited: function(v) {
+                            root.activeOpacityPercent = v
+                        }
+                        onValueCommitted: function(v) {
+                            root.activeOpacityPercent = v
+                            root.setHyprOpacity("active", v)
+                        }
+                    }
+
+                    SliderSetting {
+                        Layout.fillWidth: true
+                        label: "Inactive opacity"
+                        value: root.inactiveOpacityPercent
+                        valueSuffix: "%"
+                        minimum: 0
+                        maximum: 100
+                        step: 1
+                        enabled: root.hyprReady && !settingsBusy
+                        onValueEdited: function(v) {
+                            root.inactiveOpacityPercent = v
+                        }
+                        onValueCommitted: function(v) {
+                            root.inactiveOpacityPercent = v
+                            root.setHyprOpacity("inactive", v)
+                        }
+                    }
+
+                    FontFamilyPicker {
+                        Layout.fillWidth: true
+                        label: "Font family"
+                        value: root.fontFamily
+                        model: root.fontFamilies
+                        enabled: root.fontReady && !settingsBusy
+                        onActivated: function(family) {
+                            root.fontFamily = family
+                            root.setFont("family", family)
+                        }
                     }
                 }
 
-                ToggleRow {
-                    Layout.fillWidth: true
-                    label: "Bar position"
-                    checked: root.barOnDp1Top
-                    enabled: root.barReady && !settingsBusy
-                    onToggled: root.toggleBar()
-                }
-
-                ToggleRow {
-                    Layout.fillWidth: true
-                    label: "Notification position"
-                    checked: !root.notificationsOnHdmiBottom
-                    enabled: root.notificationsReady && !settingsBusy
-                    onToggled: root.toggleNotifications()
-                }
-
-                ToggleRow {
-                    Layout.fillWidth: true
-                    label: "Fieldset radius"
-                    checked: root.fieldsetRoundingOn
-                    enabled: root.uiReady && !settingsBusy
-                    onToggled: root.toggleFieldsetRounding()
-                }
-
-                ToggleRow {
-                    Layout.fillWidth: true
-                    label: "Border radius"
-                    checked: root.roundingOn
-                    enabled: root.hyprReady && !settingsBusy
-                    onToggled: root.toggleHypr("rounding")
-                }
-
-                ToggleRow {
-                    Layout.fillWidth: true
-                    label: "Window gaps"
-                    checked: root.gapsOn
-                    enabled: root.hyprReady && !settingsBusy
-                    onToggled: root.toggleHypr("gaps")
-                }
-
-                ToggleRow {
-                    Layout.fillWidth: true
-                    label: "Animations"
-                    checked: root.animationsOn
-                    enabled: root.hyprReady && !settingsBusy
-                    onToggled: root.toggleHypr("animations")
-                }
-
-                SliderSetting {
-                    Layout.fillWidth: true
-                    label: "Active opacity"
-                    value: root.activeOpacityPercent
-                    valueSuffix: "%"
-                    minimum: 0
-                    maximum: 100
-                    step: 1
-                    enabled: root.hyprReady && !settingsBusy
-                    onValueEdited: function(v) {
-                        root.activeOpacityPercent = v
-                    }
-                    onValueCommitted: function(v) {
-                        root.activeOpacityPercent = v
-                        root.setHyprOpacity("active", v)
-                    }
-                }
-
-                SliderSetting {
-                    Layout.fillWidth: true
-                    label: "Inactive opacity"
-                    value: root.inactiveOpacityPercent
-                    valueSuffix: "%"
-                    minimum: 0
-                    maximum: 100
-                    step: 1
-                    enabled: root.hyprReady && !settingsBusy
-                    onValueEdited: function(v) {
-                        root.inactiveOpacityPercent = v
-                    }
-                    onValueCommitted: function(v) {
-                        root.inactiveOpacityPercent = v
-                        root.setHyprOpacity("inactive", v)
-                    }
-                }
-
-            }
-
-            SectionPanel {
-                contentPad: Theme.panelContentPad
-                legendBackground: Theme.background
-                label: ""
-                sectionSpacing: 12
-
-                HoverPopupLabelPill {
-                    text: "Locations"
-                    fontSize: Theme.fontSizeS
-                }
-
-                FontFamilyPicker {
-                    Layout.fillWidth: true
-                    label: "Weather"
-                    previewFont: false
-                    value: root.weatherLocationValue
-                    model: root.weatherLocationOptions
-                    enabled: root.weatherReady && !settingsBusy
-                    onActivated: function(location) {
-                        root.setWeatherLocation(location)
-                    }
-                }
 
                 ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 4
+                    Layout.preferredWidth: 200
+                    Layout.alignment: Qt.AlignTop
+                    spacing: 12
 
-                    Text {
-                        text: "Obsidian vault"
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSizeS
-                        opacity: Theme.opacityMuted
-                    }
-
-                    RowLayout {
+                    SectionPanel {
                         Layout.fillWidth: true
-                        spacing: Theme.spacingS
+                        contentPad: Theme.panelContentPad
+                        legendBackground: Theme.background
+                        label: ""
+                        sectionSpacing: 12
 
-                        Rectangle {
-                            Layout.fillWidth: true
-                            implicitHeight: 34
-                            radius: 6
-                            color: Theme.foregroundWash
-                            border.color: Theme.foregroundDivider
-                            border.width: 1
-
-                            TextInput {
-                                id: obsidianVaultInput
-                                anchors.fill: parent
-                                anchors.leftMargin: 8
-                                anchors.rightMargin: 8
-                                color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.fontSizeS
-                                selectionColor: Theme.accent
-                                selectedTextColor: Theme.mantle
-                                verticalAlignment: TextInput.AlignVCenter
-                                clip: true
-                                text: root.obsidianVault
-                                enabled: root.tasksReady && !settingsBusy
-                                onEditingFinished: root.setObsidianVault(text)
-                            }
+                        HoverPopupLabelPill {
+                            text: "Theme"
+                            fontSize: Theme.fontSizeS
                         }
 
-                        Item {
-                            Layout.preferredWidth: 34
-                            Layout.preferredHeight: 34
+                        Rectangle {
+                        Layout.fillWidth: true
+                        implicitHeight: themeCard.implicitHeight + 16
+                        radius: 6
+                        color: themePickMouse.containsMouse ? Theme.foregroundHoverWash : Theme.foregroundWash
+                        border.color: Theme.foregroundDivider
+                        border.width: 1
+
+                        ColumnLayout {
+                            id: themeCard
+                            anchors.fill: parent
+                            anchors.margins: 8
+                            spacing: Theme.spacingS
+
+                            Rectangle {
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 80
+                                radius: 4
+                                color: Theme.overlaySurface
+                                clip: true
+
+                                Image {
+                                    id: themePreviewImage
+                                    anchors.fill: parent
+                                    source: root.themePreviewSource ? Util.fileUrl(root.themePreviewSource) : ""
+                                    fillMode: Image.PreserveAspectCrop
+                                    smooth: true
+                                    asynchronous: true
+                                    cache: true
+                                    visible: root.themePreviewSource !== "" && status !== Image.Error
+                                }
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    visible: root.themePreviewSource === "" || themePreviewImage.status === Image.Error
+                                    text: "󰸌"
+                                    color: Theme.accent
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.fontSize5xl
+                                }
+                            }
 
                             Text {
-                                anchors.centerIn: parent
-                                text: "󰉖"
+                                Layout.fillWidth: true
+                                horizontalAlignment: Text.AlignHCenter
+                                text: root.themeDisplayName
                                 color: Theme.foreground
                                 font.family: Theme.fontFamily
-                                font.pixelSize: Theme.fontSizeXl
-                                opacity: obsidianVaultPickMouse.enabled
-                                    ? (obsidianVaultPickMouse.containsMouse ? 1 : 0.72)
-                                    : 0.35
+                                font.pixelSize: Theme.fontSizeS
+                                font.bold: Theme.fontBold
+                                elide: Text.ElideRight
+                            }
+                        }
+
+                        MouseArea {
+                            id: themePickMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.openThemePicker()
+                        }
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        implicitHeight: wallpaperCard.implicitHeight + 16
+                        radius: 6
+                        color: wallpaperPickMouse.containsMouse ? Theme.foregroundHoverWash : Theme.foregroundWash
+                        border.color: Theme.foregroundDivider
+                        border.width: 1
+
+                        ColumnLayout {
+                            id: wallpaperCard
+                            anchors.fill: parent
+                            anchors.margins: 8
+                            spacing: Theme.spacingS
+
+                            Rectangle {
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 80
+                                radius: 4
+                                color: Theme.overlaySurface
+                                clip: true
+
+                                Image {
+                                    id: wallpaperPreviewImage
+                                    anchors.fill: parent
+                                    source: root.wallpaperPreviewSource ? Util.fileUrl(root.wallpaperPreviewSource) : ""
+                                    fillMode: Image.PreserveAspectCrop
+                                    smooth: true
+                                    asynchronous: true
+                                    cache: true
+                                    visible: root.wallpaperPreviewSource !== "" && status !== Image.Error
+                                }
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    visible: root.wallpaperPreviewSource === "" || wallpaperPreviewImage.status === Image.Error
+                                    text: "󰏘"
+                                    color: Theme.accent
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.fontSize5xl
+                                }
                             }
 
-                            MouseArea {
-                                id: obsidianVaultPickMouse
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                enabled: root.tasksReady && !settingsBusy
-                                onClicked: root.pickObsidianVault()
+                            Text {
+                                Layout.fillWidth: true
+                                horizontalAlignment: Text.AlignHCenter
+                                text: root.wallpaperDisplayName
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSizeS
+                                font.bold: Theme.fontBold
+                                elide: Text.ElideRight
                             }
+                        }
+
+                        MouseArea {
+                            id: wallpaperPickMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.openWallpaperPicker()
                         }
                     }
                 }
 
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 4
-
-                    Text {
-                        text: "TV folder"
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSizeS
-                        opacity: Theme.opacityMuted
-                    }
-
-                    RowLayout {
+                    SectionPanel {
                         Layout.fillWidth: true
-                        spacing: Theme.spacingS
+                        contentPad: Theme.panelContentPad
+                        legendBackground: Theme.background
+                        label: ""
+                        sectionSpacing: 12
 
-                        Rectangle {
+                        HoverPopupLabelPill {
+                            text: "Locations"
+                            fontSize: Theme.fontSizeS
+                        }
+
+                        FontFamilyPicker {
                             Layout.fillWidth: true
-                            implicitHeight: 34
-                            radius: 6
-                            color: Theme.foregroundWash
-                            border.color: Theme.foregroundDivider
-                            border.width: 1
+                            label: "Weather"
+                            previewFont: false
+                            value: root.weatherLocationValue
+                            model: root.weatherLocationOptions
+                            enabled: root.weatherReady && !settingsBusy
+                            onActivated: function(location) {
+                                root.setWeatherLocation(location)
+                            }
+                        }
 
-                            TextInput {
-                                anchors.fill: parent
-                                anchors.leftMargin: 8
-                                anchors.rightMargin: 8
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 4
+
+                            Text {
+                                text: "Obsidian vault"
                                 color: Theme.foreground
                                 font.family: Theme.fontFamily
                                 font.pixelSize: Theme.fontSizeS
-                                selectionColor: Theme.accent
-                                selectedTextColor: Theme.mantle
-                                verticalAlignment: TextInput.AlignVCenter
-                                clip: true
-                                text: root.mediaTvRoot
-                                enabled: root.mediaReady && !settingsBusy
-                                onEditingFinished: {
-                                    if (!root.suppressMediaPathCommit)
-                                        root.setMediaTvRoot(text)
+                                opacity: Theme.opacityMuted
+                            }
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: Theme.spacingS
+
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    implicitHeight: 34
+                                    radius: 6
+                                    color: Theme.foregroundWash
+                                    border.color: Theme.foregroundDivider
+                                    border.width: 1
+
+                                    TextInput {
+                                        id: obsidianVaultInput
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 8
+                                        anchors.rightMargin: 8
+                                        color: Theme.foreground
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.fontSizeS
+                                        selectionColor: Theme.accent
+                                        selectedTextColor: Theme.mantle
+                                        verticalAlignment: TextInput.AlignVCenter
+                                        clip: true
+                                        text: root.obsidianVault
+                                        enabled: root.tasksReady && !settingsBusy
+                                        onEditingFinished: root.setObsidianVault(text)
+                                    }
+                                }
+
+                                Item {
+                                    Layout.preferredWidth: 34
+                                    Layout.preferredHeight: 34
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: "󰉖"
+                                        color: Theme.foreground
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.fontSizeXl
+                                        opacity: obsidianVaultPickMouse.enabled
+                                            ? (obsidianVaultPickMouse.containsMouse ? 1 : 0.72)
+                                            : 0.35
+                                    }
+
+                                    MouseArea {
+                                        id: obsidianVaultPickMouse
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        enabled: root.tasksReady && !settingsBusy
+                                        onClicked: root.pickObsidianVault()
+                                    }
                                 }
                             }
                         }
 
-                        Item {
-                            Layout.preferredWidth: 34
-                            Layout.preferredHeight: 34
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 4
 
                             Text {
-                                anchors.centerIn: parent
-                                text: "󰉖"
-                                color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.fontSizeXl
-                                opacity: mediaTvPickMouse.enabled
-                                    ? (mediaTvPickMouse.containsMouse ? 1 : 0.72)
-                                    : 0.35
-                            }
-
-                            MouseArea {
-                                id: mediaTvPickMouse
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                enabled: root.mediaReady && !settingsBusy
-                                onClicked: root.pickMediaTv()
-                            }
-                        }
-                    }
-                }
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 4
-
-                    Text {
-                        text: "Films folder"
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSizeS
-                        opacity: Theme.opacityMuted
-                    }
-
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: Theme.spacingS
-
-                        Rectangle {
-                            Layout.fillWidth: true
-                            implicitHeight: 34
-                            radius: 6
-                            color: Theme.foregroundWash
-                            border.color: Theme.foregroundDivider
-                            border.width: 1
-
-                            TextInput {
-                                anchors.fill: parent
-                                anchors.leftMargin: 8
-                                anchors.rightMargin: 8
+                                text: "TV folder"
                                 color: Theme.foreground
                                 font.family: Theme.fontFamily
                                 font.pixelSize: Theme.fontSizeS
-                                selectionColor: Theme.accent
-                                selectedTextColor: Theme.mantle
-                                verticalAlignment: TextInput.AlignVCenter
-                                clip: true
-                                text: root.mediaFilmsRoot
-                                enabled: root.mediaReady && !settingsBusy
-                                onEditingFinished: {
-                                    if (!root.suppressMediaPathCommit)
-                                        root.setMediaFilmsRoot(text)
+                                opacity: Theme.opacityMuted
+                            }
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: Theme.spacingS
+
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    implicitHeight: 34
+                                    radius: 6
+                                    color: Theme.foregroundWash
+                                    border.color: Theme.foregroundDivider
+                                    border.width: 1
+
+                                    TextInput {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 8
+                                        anchors.rightMargin: 8
+                                        color: Theme.foreground
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.fontSizeS
+                                        selectionColor: Theme.accent
+                                        selectedTextColor: Theme.mantle
+                                        verticalAlignment: TextInput.AlignVCenter
+                                        clip: true
+                                        text: root.mediaTvRoot
+                                        enabled: root.mediaReady && !settingsBusy
+                                        onEditingFinished: {
+                                            if (!root.suppressMediaPathCommit)
+                                                root.setMediaTvRoot(text)
+                                        }
+                                    }
+                                }
+
+                                Item {
+                                    Layout.preferredWidth: 34
+                                    Layout.preferredHeight: 34
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: "󰉖"
+                                        color: Theme.foreground
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.fontSizeXl
+                                        opacity: mediaTvPickMouse.enabled
+                                            ? (mediaTvPickMouse.containsMouse ? 1 : 0.72)
+                                            : 0.35
+                                    }
+
+                                    MouseArea {
+                                        id: mediaTvPickMouse
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        enabled: root.mediaReady && !settingsBusy
+                                        onClicked: root.pickMediaTv()
+                                    }
                                 }
                             }
                         }
 
-                        Item {
-                            Layout.preferredWidth: 34
-                            Layout.preferredHeight: 34
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 4
 
                             Text {
-                                anchors.centerIn: parent
-                                text: "󰉖"
+                                text: "Films folder"
                                 color: Theme.foreground
                                 font.family: Theme.fontFamily
-                                font.pixelSize: Theme.fontSizeXl
-                                opacity: mediaFilmsPickMouse.enabled
-                                    ? (mediaFilmsPickMouse.containsMouse ? 1 : 0.72)
-                                    : 0.35
+                                font.pixelSize: Theme.fontSizeS
+                                opacity: Theme.opacityMuted
                             }
 
-                            MouseArea {
-                                id: mediaFilmsPickMouse
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                enabled: root.mediaReady && !settingsBusy
-                                onClicked: root.pickMediaFilms()
-                            }
-                        }
-                    }
-                }
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: Theme.spacingS
 
-            }
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    implicitHeight: 34
+                                    radius: 6
+                                    color: Theme.foregroundWash
+                                    border.color: Theme.foregroundDivider
+                                    border.width: 1
 
-            SectionPanel {
-                contentPad: Theme.panelContentPad
-                legendBackground: Theme.background
-                label: ""
+                                    TextInput {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 8
+                                        anchors.rightMargin: 8
+                                        color: Theme.foreground
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.fontSizeS
+                                        selectionColor: Theme.accent
+                                        selectedTextColor: Theme.mantle
+                                        verticalAlignment: TextInput.AlignVCenter
+                                        clip: true
+                                        text: root.mediaFilmsRoot
+                                        enabled: root.mediaReady && !settingsBusy
+                                        onEditingFinished: {
+                                            if (!root.suppressMediaPathCommit)
+                                                root.setMediaFilmsRoot(text)
+                                        }
+                                    }
+                                }
 
-                HoverPopupLabelPill {
-                    text: "Theme"
-                    fontSize: Theme.fontSizeS
-                }
+                                Item {
+                                    Layout.preferredWidth: 34
+                                    Layout.preferredHeight: 34
 
-                Rectangle {
-                    Layout.fillWidth: true
-                    implicitHeight: themeCard.implicitHeight + 16
-                    radius: 6
-                    color: themePickMouse.containsMouse ? Theme.foregroundHoverWash : Theme.foregroundWash
-                    border.color: Theme.foregroundDivider
-                    border.width: 1
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: "󰉖"
+                                        color: Theme.foreground
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.fontSizeXl
+                                        opacity: mediaFilmsPickMouse.enabled
+                                            ? (mediaFilmsPickMouse.containsMouse ? 1 : 0.72)
+                                            : 0.35
+                                    }
 
-                    ColumnLayout {
-                        id: themeCard
-                        anchors.fill: parent
-                        anchors.margins: 8
-                        spacing: Theme.spacingS
-
-                        Rectangle {
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 120
-                            radius: 4
-                            color: Theme.overlaySurface
-                            clip: true
-
-                            Image {
-                                id: themePreviewImage
-                                anchors.fill: parent
-                                source: root.themePreviewSource ? Util.fileUrl(root.themePreviewSource) : ""
-                                fillMode: Image.PreserveAspectCrop
-                                smooth: true
-                                asynchronous: true
-                                cache: true
-                                visible: root.themePreviewSource !== "" && status !== Image.Error
-                            }
-
-                            Text {
-                                anchors.centerIn: parent
-                                visible: root.themePreviewSource === "" || themePreviewImage.status === Image.Error
-                                text: "󰸌"
-                                color: Theme.accent
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.fontSize6xl
+                                    MouseArea {
+                                        id: mediaFilmsPickMouse
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        enabled: root.mediaReady && !settingsBusy
+                                        onClicked: root.pickMediaFilms()
+                                    }
+                                }
                             }
                         }
 
-                        Text {
-                            Layout.fillWidth: true
-                            horizontalAlignment: Text.AlignHCenter
-                            text: root.themeDisplayName
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontSizeM
-                            font.bold: Theme.fontBold
-                            elide: Text.ElideRight
-                        }
-                    }
-
-                    MouseArea {
-                        id: themePickMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.openThemePicker()
-                    }
-                }
-
-                Rectangle {
-                    Layout.fillWidth: true
-                    implicitHeight: wallpaperCard.implicitHeight + 16
-                    radius: 6
-                    color: wallpaperPickMouse.containsMouse ? Theme.foregroundHoverWash : Theme.foregroundWash
-                    border.color: Theme.foregroundDivider
-                    border.width: 1
-
-                    ColumnLayout {
-                        id: wallpaperCard
-                        anchors.fill: parent
-                        anchors.margins: 8
-                        spacing: Theme.spacingS
-
-                        Rectangle {
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 120
-                            radius: 4
-                            color: Theme.overlaySurface
-                            clip: true
-
-                            Image {
-                                id: wallpaperPreviewImage
-                                anchors.fill: parent
-                                source: root.wallpaperPreviewSource ? Util.fileUrl(root.wallpaperPreviewSource) : ""
-                                fillMode: Image.PreserveAspectCrop
-                                smooth: true
-                                asynchronous: true
-                                cache: true
-                                visible: root.wallpaperPreviewSource !== "" && status !== Image.Error
-                            }
-
-                            Text {
-                                anchors.centerIn: parent
-                                visible: root.wallpaperPreviewSource === "" || wallpaperPreviewImage.status === Image.Error
-                                text: "󰏘"
-                                color: Theme.accent
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.fontSize6xl
-                            }
-                        }
-
-                        Text {
-                            Layout.fillWidth: true
-                            horizontalAlignment: Text.AlignHCenter
-                            text: root.wallpaperDisplayName
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontSizeM
-                            font.bold: Theme.fontBold
-                            elide: Text.ElideRight
-                        }
-                    }
-
-                    MouseArea {
-                        id: wallpaperPickMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.openWallpaperPicker()
                     }
                 }
             }
         }
-    }
 }

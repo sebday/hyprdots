@@ -9,7 +9,11 @@ STATE_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/evoshell"
 UI_STATE="${STATE_DIR}/ui.json"
 
 read_bar_state() {
-    jq -c '{barOnDp1Top: ((.bar.output // "") == "DP-1" and (.bar.position // "") == "top")}' "$SHELL_JSON"
+    jq -c '{output: (.bar.output // ""), position: (.bar.position // "bottom")}' "$SHELL_JSON"
+}
+
+bar_on_dp1_top() {
+    jq -e '(.bar.output // "") == "DP-1" and (.bar.position // "") == "top"' "$SHELL_JSON" >/dev/null
 }
 
 write_bar_layout() {
@@ -24,12 +28,26 @@ write_bar_layout() {
     mv "$tmp" "$SHELL_JSON"
 }
 
+set_bar_layout() {
+    local output="$1"
+    local position="$2"
+    local tmp
+    tmp="$(mktemp)"
+    jq --arg output "$output" --arg position "$position" \
+        '.bar.output = $output | .bar.position = $position' "$SHELL_JSON" >"$tmp"
+    mv "$tmp" "$SHELL_JSON"
+}
+
 read_panel_state() {
     jq -c '{panelOnRight: ((.panel.side // "left") == "right")}' "$SHELL_JSON"
 }
 
 read_notifications_state() {
-    jq -c '{notificationsOnHdmiBottom: ((.notifications.output // "") == "HDMI-A-1" and ((.notifications.position // "bottom") == "bottom"))}' "$SHELL_JSON"
+    jq -c '{output: (.notifications.output // ""), position: (.notifications.position // "bottom")}' "$SHELL_JSON"
+}
+
+notifications_on_hdmi_bottom() {
+    jq -e '(.notifications.output // "") == "HDMI-A-1" and ((.notifications.position // "bottom") == "bottom")' "$SHELL_JSON" >/dev/null
 }
 
 write_notifications_layout() {
@@ -41,6 +59,16 @@ write_notifications_layout() {
     else
         jq '.notifications.output = "DP-1" | .notifications.position = "top"' "$SHELL_JSON" >"$tmp"
     fi
+    mv "$tmp" "$SHELL_JSON"
+}
+
+set_notifications_layout() {
+    local output="$1"
+    local position="$2"
+    local tmp
+    tmp="$(mktemp)"
+    jq --arg output "$output" --arg position "$position" \
+        '.notifications.output = $output | .notifications.position = $position' "$SHELL_JSON" >"$tmp"
     mv "$tmp" "$SHELL_JSON"
 }
 
@@ -90,9 +118,9 @@ toggle_fieldset_rounding() {
 usage() {
     cat >&2 <<'EOF'
 usage:
-  evo-layout bar get|toggle|reset
+  evo-layout bar get|set <output> <top|bottom>|toggle|reset
   evo-layout panel get|toggle
-  evo-layout notifications get|toggle
+  evo-layout notifications get|set <output> <top|bottom>|toggle
   evo-layout ui get|toggle fieldsetRounding
 EOF
     exit 1
@@ -107,10 +135,24 @@ bar)
     get)
         read_bar_state
         ;;
+    set)
+        output="${3:-}"
+        position="${4:-}"
+        if [[ -z "$output" || -z "$position" ]]; then
+            usage
+        fi
+        case "$position" in
+        top | bottom) ;;
+        *)
+            usage
+            ;;
+        esac
+        set_bar_layout "$output" "$position"
+        reload_shell_config
+        read_bar_state
+        ;;
     toggle)
-        current="$(read_bar_state)"
-        on="$(jq -r 'if .barOnDp1Top then "true" else "false" end' <<<"$current")"
-        if [[ "$on" == "true" ]]; then
+        if bar_on_dp1_top; then
             write_bar_layout false
         else
             write_bar_layout true
@@ -154,10 +196,24 @@ notifications)
     get)
         read_notifications_state
         ;;
+    set)
+        output="${3:-}"
+        position="${4:-}"
+        if [[ -z "$output" || -z "$position" ]]; then
+            usage
+        fi
+        case "$position" in
+        top | bottom) ;;
+        *)
+            usage
+            ;;
+        esac
+        set_notifications_layout "$output" "$position"
+        reload_shell_config
+        read_notifications_state
+        ;;
     toggle)
-        current="$(read_notifications_state)"
-        on="$(jq -r 'if .notificationsOnHdmiBottom then "true" else "false" end' <<<"$current")"
-        if [[ "$on" == "true" ]]; then
+        if notifications_on_hdmi_bottom; then
             write_notifications_layout false
         else
             write_notifications_layout true
