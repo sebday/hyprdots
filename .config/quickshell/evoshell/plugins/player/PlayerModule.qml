@@ -58,8 +58,9 @@ Item {
     property string externalJobLabel: ""
     readonly property bool libraryJobBusy: jobBusy || externalJobBusy
     readonly property string libraryJobActiveLabel: jobBusy ? jobLabel : externalJobLabel
+    property string activeLibraryJobKey: ""
     readonly property bool buildBusy: libraryJobBusy
-        && libraryJobActiveLabel === "build"
+        && root.activeLibraryJobKey === "build"
     property bool tracksLoading: false
     property string browsePath: ""
     property string browseParent: ""
@@ -73,6 +74,8 @@ Item {
     property bool browseTreeLoading: false
     property real browseTreeScrollY: 0
     property real browseTreeRestoreY: -1
+    property real browseTreeHoldY: -1
+    property bool browseTreeReflowHidden: false
     property var browseTreeScrollByKey: ({})
     property var browseTreeListView: null
     property var browseTreeFolderMeta: ({})
@@ -102,7 +105,7 @@ Item {
     readonly property bool splitSidePanelMode: browsePanelOpen || playlistPanelOpen
         || playerScreen === "filter"
     readonly property bool nowPlayingTabActive: !browsePanelOpen && !playlistPanelOpen
-        && !libraryPanelOpen && playerScreen === "nowPlaying"
+        && playerScreen === "nowPlaying"
     property bool queueExtendBusy: false
     property string filterKind: ""
     property string filterLabel: ""
@@ -119,7 +122,6 @@ Item {
     property string playbackStateTarget: ""
     property bool jobStopRequested: false
     property bool sortStopRequested: false
-    property bool libraryPanelOpen: false
     property bool menuBarHidden: false
     property bool titleEditing: false
     property bool titleSaveBusy: false
@@ -127,38 +129,34 @@ Item {
     property var volumeTransportBtn: null
     readonly property var libraryActions: [
         {
+            key: "build",
             icon: "󰲹",
-            label: "build",
-            hint: "rebuild playlists, tag cache, art and waveforms",
+            label: "sync",
+            hint: "sync",
             args: ["build"]
         },
         {
+            key: "sync",
             icon: "󰕧",
             label: "download soundcloud",
-            hint: "download new tracks from soundcloud",
+            hint: "soundcloud",
             args: ["sync"]
         },
         {
+            key: "import",
             icon: "󰋋",
             label: "import incoming",
-            hint: "import files from .incoming into the library",
+            hint: "import incoming folder",
             args: ["import"]
         },
         {
+            key: "art",
             icon: "󰋩",
             label: "fix art",
-            hint: "find and fix missing album art",
+            hint: "fix art",
             args: ["art", "maintain"]
         }
     ]
-    readonly property string libraryStatusLine: {
-        var busyLabel = root.libraryJobBusy
-            ? root.libraryJobActiveLabel
-            : (root.externalJobBusy ? root.externalJobLabel : "")
-        if (busyLabel)
-            return root.libraryLogTail(root.jobLog, busyLabel + "…")
-        return root.libraryLogTail(root.jobLog, "")
-    }
     property int artRevision: 0
     property bool artPickerOpen: false
     property bool artPickerLoading: false
@@ -315,7 +313,6 @@ Item {
     function showNowPlaying() {
         browsePanelOpen = false
         playlistPanelOpen = false
-        libraryPanelOpen = false
         playerScreen = "nowPlaying"
     }
 
@@ -326,7 +323,6 @@ Item {
             return
         }
         playlistPanelOpen = false
-        libraryPanelOpen = false
         browsePanelOpen = true
         playerScreen = "nowPlaying"
         if (!browsePath && !browseTreeRows.length)
@@ -341,7 +337,6 @@ Item {
             return
         }
         browsePanelOpen = false
-        libraryPanelOpen = false
         playlistPanelOpen = true
         playlistPanelMode = "library"
         playerScreen = "nowPlaying"
@@ -426,31 +421,6 @@ Item {
         return String(text).replace(/\r\n/g, "\n").replace(/\r/g, "\n")
     }
 
-    function libraryLogTail(log, busyFallback) {
-        var lines = String(log || "").split("\n")
-        var i, line, cleaned
-        for (i = lines.length - 1; i >= 0; i--) {
-            line = String(lines[i] || "").trim()
-            if (!line)
-                continue
-            if (line.indexOf("evo-player:") >= 0) {
-                cleaned = line.replace(/^.*evo-player:\s*/, "").trim()
-                if (cleaned)
-                    return cleaned
-            }
-            if (line.indexOf("…") < 0 && line.indexOf(" complete") < 0)
-                return line
-        }
-        for (i = lines.length - 1; i >= 0; i--) {
-            line = String(lines[i] || "").trim()
-            if (line)
-                return line
-        }
-        if (busyFallback)
-            return busyFallback
-        return (root.libraryStats.tracks || 0) + " tracks · " + (root.libraryStats.genres || 0) + " genres"
-    }
-
     function syncJobLog() {
         var parts = []
         var err = jobErr.text ? formatJobLog(jobErr.text) : ""
@@ -463,19 +433,10 @@ Item {
             jobLog = parts.join("\n")
     }
 
-    function toggleLibraryPanel() {
-        if (libraryPanelOpen) {
-            libraryPanelOpen = false
-            return
-        }
-        playerScreen = "nowPlaying"
-        libraryPanelOpen = true
-    }
-
     function runLibraryAction(action) {
         if (!action)
             return
-        runJob(action.args || [], action.label || "library task")
+        runJob(action.args || [], action.label || "library task", { key: action.key || "" })
     }
 
     function runJob(args, label, options) {
@@ -486,12 +447,10 @@ Item {
         jobStopRequested = false
         jobBusy = true
         jobLabel = label
+        activeLibraryJobKey = (options && options.key) ? String(options.key) : ""
         jobLog = label + "…\n"
-        if (!(options && options.stayOnScreen)) {
-            libraryPanelOpen = true
-            if (playerScreen !== "filter")
-                playerScreen = "nowPlaying"
-        }
+        if (!(options && options.stayOnScreen) && playerScreen !== "filter")
+            playerScreen = "nowPlaying"
         jobProc.command = ["bash", playerScript].concat(args || [])
         notify(label + "…", 2000)
         jobProc.running = true
@@ -539,6 +498,7 @@ Item {
             } catch (e) {}
             jobBusy = false
             jobLabel = ""
+            activeLibraryJobKey = ""
             externalJobBusy = false
             externalJobLabel = ""
             jobStopRequested = false
@@ -553,6 +513,7 @@ Item {
         var label = jobLabel
         jobBusy = false
         jobLabel = ""
+        activeLibraryJobKey = ""
         if (jobStopRequested) {
             jobStopRequested = false
             if (label)
@@ -1050,11 +1011,9 @@ Item {
             }
         }
         appendChildren("", 0)
-        if (preserveScroll && browseTreeListView)
-            browseTreeRestoreY = browseTreeListView.contentY
-        else if (preserveScroll)
-            browseTreeRestoreY = browseTreeScrollY
         browseTreeRows = rows
+        if (browseTreeHoldY >= 0 && browseTreeListView)
+            browseTreeListView.contentY = browseTreeHoldY
     }
 
     function applyBrowseTreeEntries(relPath, entries, meta, append) {
@@ -1191,8 +1150,8 @@ Item {
                 browseTreeChildren = nextChildren
                 browseTreeFolderMeta = nextMeta
                 browseTreeLoading = false
-                rebuildBrowseTreeRows(true)
-                browseTreeRestoreY = anchorY >= 0 ? anchorY : -1
+                rebuildBrowseTreeRows(false)
+                restoreBrowseTreeViewport(anchorY, -1)
                 return
             }
             var path = paths[pathIndex++]
@@ -1227,27 +1186,57 @@ Item {
         loadBrowseTreeRoot()
     }
 
+    function browseTreeDirIndex(path) {
+        path = String(path || "")
+        for (var i = 0; i < browseTreeRows.length; i++) {
+            var row = browseTreeRows[i]
+            if (row && row.type === "dir" && String(row.path) === path)
+                return i
+        }
+        return -1
+    }
+
+    function restoreBrowseTreeViewport(contentY, anchorIndex) {
+        browseTreeRestoreY = -1
+        if (contentY < 0 || !browseTreeListView) {
+            browseTreeHoldY = -1
+            browseTreeReflowHidden = false
+            restoreListViewport(browseTreeListView, contentY, anchorIndex)
+            return
+        }
+        browseTreeHoldY = contentY
+        browseTreeReflowHidden = true
+        browseTreeListView.contentY = contentY
+        restoreListViewport(browseTreeListView, contentY, anchorIndex, function() {
+            browseTreeHoldY = -1
+            browseTreeReflowHidden = false
+        })
+    }
+
     function toggleBrowseTreeNode(path) {
         path = String(path || "")
         saveBrowseTreeScroll()
-        var anchorY = browseTreeListView ? browseTreeListView.contentY : -1
+        var list = browseTreeListView
+        var anchorY = list ? list.contentY : -1
+        var anchorIndex = browseTreeDirIndex(path)
         var nextExp = Object.assign({}, browseTreeExpanded)
         if (nextExp[path]) {
             nextExp = pruneBrowseTreeExpansion(path)
             browseTreeExpanded = nextExp
             rebuildBrowseTreeRows(false)
-            restoreBrowseTreeScroll(expansionStateKey(nextExp))
+            restoreBrowseTreeViewport(anchorY, anchorIndex)
             return
         }
         nextExp[path] = true
         browseTreeExpanded = nextExp
         if (browseTreeChildren[path]) {
-            rebuildBrowseTreeRows(true)
+            rebuildBrowseTreeRows(false)
+            restoreBrowseTreeViewport(anchorY, anchorIndex)
             return
         }
         fetchBrowseTreeEntries(path, 0, false, function(entries, meta) {
             applyBrowseTreeEntries(path, entries, meta, false)
-            browseTreeRestoreY = anchorY >= 0 ? anchorY : -1
+            restoreBrowseTreeViewport(anchorY, anchorIndex)
         })
     }
 
@@ -2273,17 +2262,34 @@ Item {
         favoriteProc.running = true
     }
 
-    function restoreListViewport(listView, contentY, anchorIndex) {
-        if (!listView)
+    function restoreListViewport(listView, contentY, anchorIndex, onSettled) {
+        if (!listView) {
+            if (onSettled)
+                onSettled()
             return
-        Qt.callLater(function() {
-            if (!listView)
+        }
+        var attempts = 0
+        function step() {
+            if (!listView) {
+                if (onSettled)
+                    onSettled()
                 return
-            if (anchorIndex >= 0 && listView.count > anchorIndex)
+            }
+            attempts++
+            if (contentY >= 0) {
+                var maxY = Math.max(0, listView.contentHeight - listView.height)
+                listView.contentY = Math.min(contentY, maxY)
+            } else if (anchorIndex >= 0 && anchorIndex < listView.count) {
                 listView.positionViewAtIndex(anchorIndex, ListView.Beginning)
-            else if (contentY >= 0)
-                listView.contentY = contentY
-        })
+            }
+            if (listView.contentHeight > 0 || attempts >= 20) {
+                if (onSettled)
+                    onSettled()
+                return
+            }
+            Qt.callLater(step)
+        }
+        Qt.callLater(step)
     }
 
     function toggleTrackFavorite(path) {
@@ -2487,7 +2493,7 @@ Item {
         id: jobLogTimer
         interval: 100
         repeat: true
-        running: root.jobBusy || root.externalJobBusy || root.libraryPanelOpen
+        running: root.jobBusy || root.externalJobBusy
         onTriggered: root.syncJobLog()
     }
 
@@ -2790,6 +2796,7 @@ Item {
                     icon: "󰎆"
                     active: root.nowPlayingTabActive
                     spinning: queuePlayProc.running || loadProc.running || root.browseQueueBusy
+                        || root.libraryJobBusy || sortProc.running
                     onActivated: root.showNowPlaying()
                 }
                 IconTab {
@@ -2802,86 +2809,8 @@ Item {
                     active: root.playlistPanelOpen
                     onActivated: root.togglePlaylistPanel()
                 }
-                IconTab {
-                    icon: "󰠮"
-                    active: root.libraryPanelOpen
-                    spinning: root.libraryJobBusy
-                    onActivated: root.toggleLibraryPanel()
-                }
-
-                RowLayout {
-                    id: libraryExpandMenu
-                    visible: root.libraryPanelOpen
-                    spacing: Theme.spacingM
-                    Layout.fillWidth: true
-
-                    ListView {
-                        id: libraryActionBar
-                        Layout.fillWidth: false
-                        Layout.fillHeight: true
-                        implicitWidth: contentWidth
-                        orientation: ListView.Horizontal
-                        spacing: Theme.spacingS
-                        clip: true
-                        boundsBehavior: Flickable.StopAtBounds
-                        model: root.libraryActions
-
-                        delegate: LibraryBarAction {
-                            required property var modelData
-                            barHeight: root.genreTabHeight
-                            icon: modelData.icon
-                            label: modelData.label
-                            hint: modelData.hint || ""
-                            dimmed: root.libraryJobBusy
-                            spinning: root.libraryJobBusy && root.libraryJobActiveLabel === modelData.label
-                            onActivated: if (!root.libraryJobBusy) root.runLibraryAction(modelData)
-                        }
-                    }
-
-                    LibraryBarAction {
-                        visible: root.libraryJobBusy || sortProc.running
-                        barHeight: root.genreTabHeight
-                        icon: "󰓛"
-                        label: "stop"
-                        hint: "stop " + root.libraryJobActiveLabel
-                        onActivated: root.stopLibraryJob()
-                    }
-
-                    Item {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                    }
-
-                    Rectangle {
-                        Layout.preferredWidth: Math.max(180, tabBarHost.width * 0.28)
-                        Layout.maximumWidth: 520
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: root.genreTabHeight
-                        radius: 6
-                        color: Theme.foregroundWash
-                        border.color: Theme.foregroundDivider
-                        border.width: 1
-                        clip: true
-
-                        Text {
-                            anchors.fill: parent
-                            anchors.leftMargin: 8
-                            anchors.rightMargin: 8
-                            verticalAlignment: Text.AlignVCenter
-                            text: root.libraryStatusLine
-                                || ((root.libraryStats.tracks || 0) + " tracks · " + (root.libraryStats.genres || 0) + " genres")
-                            color: root.libraryJobBusy || root.externalJobBusy ? Theme.accent : Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.libraryFont
-                            font.bold: root.libraryJobBusy || root.externalJobBusy
-                            elide: Text.ElideRight
-                            opacity: root.libraryJobBusy || root.externalJobBusy ? 1 : 0.72
-                        }
-                    }
-                }
 
                 Rectangle {
-                    visible: !root.libraryPanelOpen
                     Layout.preferredWidth: 1
                     Layout.preferredHeight: Math.max(12, root.genreTabHeight - 16)
                     Layout.alignment: Qt.AlignVCenter
@@ -2890,7 +2819,6 @@ Item {
 
                 Item {
                     id: playlistTabBarHost
-                    visible: !root.libraryPanelOpen
                     Layout.fillWidth: true
                     Layout.fillHeight: true
 
@@ -2959,7 +2887,6 @@ Item {
                 }
 
                 Item {
-                    visible: !root.libraryPanelOpen
                     Layout.preferredWidth: root.tabSearchBarWidth
                     Layout.preferredHeight: root.genreTabHeight
                     Layout.alignment: Qt.AlignVCenter
@@ -4240,6 +4167,7 @@ Item {
     component RowIconButton: Item {
         id: rowIconBtn
         property string icon: ""
+        property string tooltip: ""
         property color iconColor: Theme.foreground
         property real opacityIdle: 0.42
         property real opacityHover: 0.9
@@ -4275,6 +4203,11 @@ Item {
                 mouse.accepted = true
                 rowIconBtn.activated()
             }
+        }
+
+        BriefTooltip {
+            show: rowIconMouse.containsMouse
+            text: rowIconBtn.tooltip
         }
     }
 
@@ -5015,21 +4948,6 @@ Item {
                     : "transparent")
         }
 
-        Rectangle {
-            anchors.fill: parent
-            radius: 6
-            visible: iconTab.spinning
-            color: Theme.accent
-            opacity: 0.1
-
-            SequentialAnimation on opacity {
-                running: iconTab.spinning
-                loops: Animation.Infinite
-                NumberAnimation { from: 0.05; to: 0.22; duration: 650; easing.type: Easing.InOutSine }
-                NumberAnimation { from: 0.22; to: 0.05; duration: 650; easing.type: Easing.InOutSine }
-            }
-        }
-
         Text {
             id: iconTabGlyph
             anchors.centerIn: parent
@@ -5037,7 +4955,7 @@ Item {
             color: iconTab.active || iconTab.spinning ? Theme.accent : Theme.foreground
             font.family: Theme.fontFamily
             font.pixelSize: Theme.fontSize7xl
-            opacity: iconTab.restingOpacity()
+            opacity: iconTab.spinning ? 1 : iconTab.restingOpacity()
 
             SequentialAnimation on opacity {
                 running: iconTab.spinning
@@ -5078,60 +4996,48 @@ Item {
                 Layout.fillWidth: true
                 spacing: Theme.spacingS
 
-                Item {
-                    implicitWidth: refreshBrowseBtn.width
-                    implicitHeight: refreshBrowseBtn.height
+                RowIconButton {
+                    icon: "󰑐"
+                    tooltip: "refresh"
+                    opacityIdle: 0.5
+                    enabled: !root.browseTreeLoading
+                    onActivated: root.refreshBrowseTree()
+                }
+
+                RowIconButton {
+                    icon: "󰋜"
+                    tooltip: "home"
+                    opacityIdle: 0.5
+                    enabled: !root.browseTreeLoading
+                    onActivated: root.browseTreeHome()
+                }
+
+                Repeater {
+                    model: root.libraryActions
 
                     RowIconButton {
-                        id: refreshBrowseBtn
-                        icon: "󰑐"
-                        opacityIdle: 0.5
-                        enabled: !root.browseTreeLoading
-                        onActivated: root.refreshBrowseTree()
-                    }
-
-                    BriefTooltip {
-                        show: refreshBrowseMouse.containsMouse
-                        text: "refresh filesystem view"
-                        anchors.horizontalCenter: parent.horizontalCenter
-                    }
-
-                    MouseArea {
-                        id: refreshBrowseMouse
-                        anchors.fill: parent
-                        anchors.margins: -4
-                        hoverEnabled: true
-                        propagateComposedEvents: true
-                        onPressed: function(mouse) { mouse.accepted = false }
+                        required property var modelData
+                        icon: modelData.icon
+                        tooltip: modelData.hint || modelData.label
+                        opacityIdle: root.libraryJobBusy ? 0.2 : 0.5
+                        opacityHover: root.libraryJobBusy ? 0.35 : 0.9
+                        iconColor: root.libraryJobBusy && root.activeLibraryJobKey === modelData.key
+                            ? Theme.accent
+                            : Theme.foreground
+                        enabled: !root.browseTreeLoading && !root.libraryJobBusy
+                        onActivated: root.runLibraryAction(modelData)
                     }
                 }
 
-                Item {
-                    implicitWidth: browseHomeBtn.width
-                    implicitHeight: browseHomeBtn.height
-
-                    RowIconButton {
-                        id: browseHomeBtn
-                        icon: "󰋜"
-                        opacityIdle: 0.5
-                        enabled: !root.browseTreeLoading
-                        onActivated: root.browseTreeHome()
-                    }
-
-                    BriefTooltip {
-                        show: browseHomeMouse.containsMouse
-                        text: "collapse all folders"
-                        anchors.horizontalCenter: parent.horizontalCenter
-                    }
-
-                    MouseArea {
-                        id: browseHomeMouse
-                        anchors.fill: parent
-                        anchors.margins: -4
-                        hoverEnabled: true
-                        propagateComposedEvents: true
-                        onPressed: function(mouse) { mouse.accepted = false }
-                    }
+                RowIconButton {
+                    visible: root.libraryJobBusy || sortProc.running
+                    icon: "󰓛"
+                    tooltip: "stop"
+                    opacityIdle: 0.5
+                    opacityHover: 0.9
+                    iconColor: Theme.accent
+                    enabled: !root.browseTreeLoading
+                    onActivated: root.stopLibraryJob()
                 }
 
                 Item { Layout.fillWidth: true }
@@ -5153,6 +5059,9 @@ Item {
                 clip: true
                 spacing: Theme.spacing2
                 model: root.browseTreeRows
+                reuseItems: true
+                cacheBuffer: Math.max(240, height * 2)
+                opacity: root.browseTreeReflowHidden ? 0 : 1
 
                 Component.onCompleted: root.browseTreeListView = sideBrowseTree
                 Component.onDestruction: {
@@ -5161,8 +5070,17 @@ Item {
                 }
 
                 onContentYChanged: {
+                    if (root.browseTreeHoldY >= 0)
+                        return
                     if (root.browseTreeRestoreY < 0)
                         root.saveBrowseTreeScroll()
+                }
+
+                onContentHeightChanged: {
+                    if (root.browseTreeHoldY < 0)
+                        return
+                    var maxY = Math.max(0, contentHeight - height)
+                    contentY = Math.min(root.browseTreeHoldY, maxY)
                 }
 
                 onMovementEnded: {
@@ -5650,74 +5568,6 @@ Item {
         BriefTooltip {
             show: iconMouse.containsMouse && treeIcon.hint !== ""
             text: treeIcon.hint
-        }
-    }
-
-    component LibraryBarAction: Rectangle {
-        id: barAction
-        property int barHeight: 34
-        property string icon: ""
-        property string label: ""
-        property string hint: ""
-        property bool dimmed: false
-        property bool spinning: false
-        signal activated()
-
-        height: barHeight
-        width: actionRow.implicitWidth + 16
-        radius: 6
-        color: barAction.spinning
-            ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.12)
-            : (barMouse.containsMouse
-                ? Theme.foregroundWash
-                : (dimmed
-                    ? "transparent"
-                    : Qt.rgba(Theme.foreground.r, Theme.foreground.g, Theme.foreground.b, 0.03)))
-
-        BriefTooltip {
-            show: barMouse.containsMouse && barAction.hint !== ""
-            text: barAction.hint
-        }
-
-        Row {
-            id: actionRow
-            anchors.centerIn: parent
-            spacing: Theme.spacingS
-
-            Text {
-                id: actionIcon
-                text: barAction.icon
-                color: barAction.spinning ? Theme.accent : Theme.foreground
-                opacity: barAction.dimmed && !barAction.spinning ? 0.35 : 0.9
-                font.family: Theme.fontFamily
-                font.pixelSize: Theme.fontSizeM
-
-                SequentialAnimation on opacity {
-                    running: barAction.spinning
-                    loops: Animation.Infinite
-                    NumberAnimation { from: 0.35; to: 1.0; duration: 600; easing.type: Easing.InOutSine }
-                    NumberAnimation { from: 1.0; to: 0.35; duration: 600; easing.type: Easing.InOutSine }
-                }
-            }
-
-            Text {
-                text: barAction.label
-                color: barAction.spinning ? Theme.accent : Theme.foreground
-                opacity: barAction.dimmed && !barAction.spinning
-                    ? 0.35
-                    : (barAction.spinning ? 0.85 : (barMouse.containsMouse ? 1 : 0.78))
-                font.family: Theme.fontFamily
-                font.pixelSize: root.libraryFont
-            }
-        }
-
-        MouseArea {
-            id: barMouse
-            anchors.fill: parent
-            enabled: !dimmed
-            hoverEnabled: true
-            cursorShape: dimmed ? Qt.ArrowCursor : Qt.PointingHandCursor
-            onClicked: barAction.activated()
         }
     }
 
