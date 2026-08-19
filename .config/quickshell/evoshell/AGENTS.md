@@ -62,6 +62,8 @@ journalctl -t evoshell -f
 
 All colours, fonts, spacing, opacity, radius via `Theme.*` — no hardcoded values in QML. Add a token when a value repeats 3+ times or is semantic; layout ratios OK, not font sizes. Token scales and sources: `Commons/Theme.qml` (`theme.json`, `hypr-looks.json`, `ui.json`).
 
+`HoverPopupStatBox` with `icon` set: icon inline before the value on the top line; label centred below. The icon+value row is centred in the box. Without `icon`, value and label are centred as usual.
+
 ## Testing
 
 ```bash

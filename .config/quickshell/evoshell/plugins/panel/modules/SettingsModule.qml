@@ -16,6 +16,7 @@ Item {
     readonly property string mediaScript: Quickshell.env("HOME") + "/.local/bin/evo-media"
     readonly property string playerScript: Quickshell.env("HOME") + "/.local/bin/evo-player"
     readonly property string tasksScript: Quickshell.env("HOME") + "/.local/bin/evo-tasks"
+    readonly property string weatherScript: Quickshell.env("HOME") + "/.local/bin/evo-weather"
     readonly property string fontStatePath: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/evoshell/font.json"
     readonly property string themeNamePath: Quickshell.env("HOME") + "/.themes/current/.theme-name"
 
@@ -32,8 +33,6 @@ Item {
     property var fontFamilies: []
     property string mediaTvRoot: ""
     property string mediaFilmsRoot: ""
-    property var mediaAvailableShows: []
-    property var mediaEnabledShows: []
     property bool mediaReady: false
     property bool suppressMediaPathCommit: false
     property bool hyprReady: false
@@ -49,13 +48,16 @@ Item {
     property string detectedObsidianVault: ""
     property string tasksFile: ""
     property bool tasksReady: false
+    property string weatherLocation: ""
+    property bool weatherReady: false
     readonly property bool ready: hyprReady && barReady && fontReady
     readonly property bool fontBusy: fontSetProc.running
     readonly property bool mediaBusy: mediaTvSetProc.running || mediaFilmsSetProc.running
-        || mediaTvPickProc.running || mediaFilmsPickProc.running || mediaShowsSetProc.running
+        || mediaTvPickProc.running || mediaFilmsPickProc.running
     readonly property bool playerBusy: playerSetProc.running || playerLibraryPickProc.running
     readonly property bool tasksBusy: taskVaultSetProc.running || taskVaultPickProc.running
-    readonly property bool settingsBusy: fontBusy || mediaBusy || playerBusy || tasksBusy || hyprToggleProc.running || hyprSetProc.running
+    readonly property bool weatherBusy: weatherSetProc.running
+    readonly property bool settingsBusy: fontBusy || mediaBusy || playerBusy || tasksBusy || weatherBusy || hyprToggleProc.running || hyprSetProc.running
         || barToggleProc.running || notificationsToggleProc.running || uiToggleProc.running
     readonly property bool active: host && host.opened && host.activeModule === "settings"
 
@@ -72,6 +74,7 @@ Item {
         if (!loadMediaProc.running) loadMediaProc.running = true
         if (!loadPlayerProc.running) loadPlayerProc.running = true
         if (!loadTasksProc.running) loadTasksProc.running = true
+        if (!loadWeatherProc.running) loadWeatherProc.running = true
     }
 
     function toggleHypr(key) {
@@ -141,13 +144,6 @@ Item {
             return
         suppressMediaPathCommit = true
         mediaFilmsPickProc.running = true
-    }
-
-    function setMediaEnabledShows(shows) {
-        if (!mediaReady || settingsBusy)
-            return
-        mediaShowsSetProc.payload = JSON.stringify(shows || [])
-        mediaShowsSetProc.running = true
     }
 
     function setMusicLibrary(path) {
@@ -245,16 +241,10 @@ Item {
             var data = JSON.parse(String(raw || "{}"))
             root.mediaTvRoot = data.tvRoot ? String(data.tvRoot) : ""
             root.mediaFilmsRoot = data.filmsRoot ? String(data.filmsRoot) : ""
-            var available = Array.isArray(data.availableShows) ? data.availableShows : []
-            var enabled = Array.isArray(data.enabledShows) ? data.enabledShows : available
-            root.mediaAvailableShows = available
-            root.mediaEnabledShows = enabled
             root.mediaReady = data.ok === true
         } catch (e) {
             root.mediaTvRoot = ""
             root.mediaFilmsRoot = ""
-            root.mediaAvailableShows = []
-            root.mediaEnabledShows = []
             root.mediaReady = false
         }
     }
@@ -307,6 +297,27 @@ Item {
         if (!tasksReady || settingsBusy)
             return
         taskVaultPickProc.running = true
+    }
+
+    function parseWeatherSettings(raw) {
+        try {
+            var data = JSON.parse(String(raw || "{}"))
+            root.weatherLocation = String(data.name || "")
+            root.weatherReady = data.ok === true
+        } catch (e) {
+            root.weatherLocation = ""
+            root.weatherReady = false
+        }
+    }
+
+    function setWeatherLocation(location) {
+        if (!weatherReady || settingsBusy)
+            return
+        var trimmed = String(location || "").trim()
+        if (!trimmed || trimmed === root.weatherLocation)
+            return
+        weatherSetProc.location = trimmed
+        weatherSetProc.running = true
     }
 
     Process {
@@ -443,18 +454,28 @@ Item {
     Process {
         id: mediaTvSetProc
         property string path: ""
-        command: ["bash", root.mediaScript, "settings", "set", "tv", mediaTvSetProc.path]
+        command: ["bash", "-lc",
+            Util.shellQuote(root.mediaScript) + " settings set tv " + Util.shellQuote(mediaTvSetProc.path)
+        ]
         stdout: StdioCollector {
-            onStreamFinished: root.parseMediaSettings(text)
+            onStreamFinished: {
+                if (String(text || "").trim())
+                    root.parseMediaSettings(text)
+            }
         }
     }
 
     Process {
         id: mediaFilmsSetProc
         property string path: ""
-        command: ["bash", root.mediaScript, "settings", "set", "films", mediaFilmsSetProc.path]
+        command: ["bash", "-lc",
+            Util.shellQuote(root.mediaScript) + " settings set films " + Util.shellQuote(mediaFilmsSetProc.path)
+        ]
         stdout: StdioCollector {
-            onStreamFinished: root.parseMediaSettings(text)
+            onStreamFinished: {
+                if (String(text || "").trim())
+                    root.parseMediaSettings(text)
+            }
         }
     }
 
@@ -464,7 +485,6 @@ Item {
         stdout: StdioCollector {
             onStreamFinished: root.finishMediaPick(text)
         }
-        onExited: root.finishMediaPick()
     }
 
     Process {
@@ -472,18 +492,6 @@ Item {
         command: ["bash", root.mediaScript, "settings", "pick", "films"]
         stdout: StdioCollector {
             onStreamFinished: root.finishMediaPick(text)
-        }
-        onExited: root.finishMediaPick()
-    }
-
-    Process {
-        id: mediaShowsSetProc
-        property string payload: "[]"
-        command: ["bash", "-lc",
-            Util.shellQuote(root.mediaScript) + " settings set " + Util.shellQuote(mediaShowsSetProc.payload)
-        ]
-        stdout: StdioCollector {
-            onStreamFinished: root.parseMediaSettings(text)
         }
     }
 
@@ -543,6 +551,26 @@ Item {
             onStreamFinished: {
                 if (String(text || "").trim())
                     root.parseTasksSettings(text)
+            }
+        }
+    }
+
+    Process {
+        id: loadWeatherProc
+        command: ["bash", root.weatherScript, "settings", "get"]
+        stdout: StdioCollector {
+            onStreamFinished: root.parseWeatherSettings(text)
+        }
+    }
+
+    Process {
+        id: weatherSetProc
+        property string location: ""
+        command: ["bash", root.weatherScript, "settings", "set", weatherSetProc.location]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (String(text || "").trim())
+                    root.parseWeatherSettings(text)
             }
         }
     }
@@ -634,6 +662,57 @@ Item {
                     onValueCommitted: function(v) {
                         root.inactiveOpacityPercent = v
                         root.setHyprOpacity("inactive", v)
+                    }
+                }
+            }
+
+            SectionPanel {
+                contentPad: Theme.panelContentPad
+                legendBackground: Theme.background
+                label: ""
+                sectionSpacing: 12
+
+                HoverPopupLabelPill {
+                    text: "Weather"
+                    fontSize: Theme.fontSizeS
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 4
+
+                    Text {
+                        text: "Location"
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeS
+                        opacity: Theme.opacityMuted
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        implicitHeight: 34
+                        radius: 6
+                        color: Theme.foregroundWash
+                        border.color: Theme.foregroundDivider
+                        border.width: 1
+
+                        TextInput {
+                            id: weatherLocationInput
+                            anchors.fill: parent
+                            anchors.leftMargin: 8
+                            anchors.rightMargin: 8
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeS
+                            selectionColor: Theme.accent
+                            selectedTextColor: Theme.mantle
+                            verticalAlignment: TextInput.AlignVCenter
+                            clip: true
+                            text: root.weatherLocation
+                            enabled: root.weatherReady && !settingsBusy
+                            onEditingFinished: root.setWeatherLocation(text)
+                        }
                     }
                 }
             }
@@ -920,20 +999,6 @@ Item {
                                 onClicked: root.pickMediaFilms()
                             }
                         }
-                    }
-                }
-
-                MultiSelectPicker {
-                    Layout.fillWidth: true
-                    label: "TV shows in media popup"
-                    placeholder: root.mediaAvailableShows.length > 0
-                        ? "Select shows…"
-                        : "Set TV folder and scan library"
-                    options: root.mediaAvailableShows
-                    selected: root.mediaEnabledShows
-                    enabled: root.mediaReady && !settingsBusy && root.mediaAvailableShows.length > 0
-                    onSelectionChanged: function(next) {
-                        root.setMediaEnabledShows(next)
                     }
                 }
             }

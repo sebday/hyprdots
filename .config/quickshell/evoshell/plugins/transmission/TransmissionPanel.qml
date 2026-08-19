@@ -205,46 +205,34 @@ Item {
         GridLayout {
             Layout.fillWidth: true
             columns: 2
-            columnSpacing: 12
-            rowSpacing: 4
+            columnSpacing: 8
+            rowSpacing: 8
 
-            Text {
-                text: "Active"
-                color: Theme.foreground
-                opacity: Theme.opacityHover
-                font.family: Theme.fontFamily
-                font.pixelSize: root.statFont
-            }
-            Text {
-                text: String(root.activeCount)
-                color: Theme.foreground
-                font.family: Theme.fontFamily
-                font.pixelSize: root.statFont
-                font.bold: Theme.fontBold
+            HoverPopupStatBox {
+                value: String(root.activeCount)
+                label: "active"
+                valueFontSize: Theme.fontSizeXl
             }
 
-            Text {
-                text: "Downloading"
-                color: Theme.foreground
-                opacity: Theme.opacityHover
-                font.family: Theme.fontFamily
-                font.pixelSize: root.statFont
-            }
-            Text {
-                text: String(root.downloadingCount)
-                color: Theme.foreground
-                font.family: Theme.fontFamily
-                font.pixelSize: root.statFont
-                font.bold: Theme.fontBold
+            HoverPopupStatBox {
+                value: String(root.downloadingCount)
+                label: "downloading"
+                valueFontSize: Theme.fontSizeXl
             }
         }
 
         SectionPanel {
             Layout.fillWidth: true
-            label: "Torrents"
+            label: ""
             sectionSpacing: 8
             contentPad: Theme.hoverPopupContentPad
             visible: root.torrents.length > 0
+
+            HoverPopupLabelPill {
+                text: "Torrents"
+                icon: "󰇚"
+                fontSize: Theme.fontSizeS
+            }
 
             ColumnLayout {
                 Layout.fillWidth: true
@@ -378,8 +366,8 @@ Item {
 
         Text {
             Layout.fillWidth: true
-            visible: !root.loading && root.torrents.length === 0 && !root.errorText
-            text: root.connected ? "No active torrents" : "Transmission offline"
+            visible: !root.loading && !root.connected && !root.errorText
+            text: "Transmission offline"
             color: Theme.foreground
             font.family: Theme.fontFamily
             font.pixelSize: root.hintFont

@@ -2,6 +2,7 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
 import QtQuick
+import QtQuick.Layouts
 import "../../Commons"
 import "MenuEntries.js" as MenuEntries
 
@@ -145,8 +146,9 @@ Item {
     }
 
     readonly property bool infoListMode: submenu === "bindings" || submenu === "shell"
-    readonly property int framedMenuWidth: infoListMode ? 960 : 720
-    readonly property int infoKeysWidth: Math.min(380, Math.floor(framedMenuWidth * 0.42))
+    readonly property int framedMenuWidth: infoListMode ? 1040 : 720
+    readonly property int infoListFontSize: Theme.fontSizeM
+    readonly property int infoListRowHeight: 48
     readonly property int framedMenuHeight: 640
     readonly property int framedPadding: 16
     readonly property int framedFilterChromeHeight: listFilterHeight
@@ -1221,8 +1223,8 @@ Item {
                         required property var modelData
                         required property int index
                         width: entryList.width
-                        height: root.listRowHeight
-                        clip: true
+                        height: entryRow.infoRow ? root.infoListRowHeight : root.listRowHeight
+                        clip: false
                         color: index === entryList.currentIndex || mouseArea.containsMouse ? Theme.panelMantle : "transparent"
 
                         readonly property string appIconSource: {
@@ -1232,22 +1234,25 @@ Item {
                         readonly property string glyphIcon: root.entryGlyphIcon(modelData)
                         readonly property bool infoRow: modelData.kind === "info"
                         readonly property string keysLabel: String(modelData.keys || "")
-                        readonly property int keysColumnWidth: root.infoKeysWidth
+                        readonly property int rowFontSize: entryRow.infoRow
+                            ? root.infoListFontSize
+                            : root.listFontSize
 
-                        Row {
+                        RowLayout {
                             anchors.fill: parent
-                            anchors.leftMargin: 8
+                            anchors.leftMargin: 12
                             anchors.rightMargin: 12
-                            spacing: 12
+                            spacing: entryRow.infoRow ? 16 : 12
 
                             Item {
-                                width: root.listIconSize
-                                height: root.listIconSize
-                                anchors.verticalCenter: parent.verticalCenter
+                                visible: !entryRow.infoRow
+                                Layout.preferredWidth: root.listIconSize
+                                Layout.preferredHeight: root.listIconSize
+                                Layout.alignment: Qt.AlignVCenter
 
                                 Image {
                                     anchors.fill: parent
-                                    visible: !entryRow.infoRow && entryRow.appIconSource.length > 0
+                                    visible: entryRow.appIconSource.length > 0
                                     source: Util.normalizeIconSource(entryRow.appIconSource)
                                     fillMode: Image.PreserveAspectFit
                                     smooth: true
@@ -1258,7 +1263,7 @@ Item {
 
                                 Text {
                                     anchors.centerIn: parent
-                                    visible: entryRow.infoRow || entryRow.appIconSource.length === 0
+                                    visible: entryRow.appIconSource.length === 0
                                     text: entryRow.glyphIcon
                                     color: Theme.accent
                                     font.family: Theme.fontFamily
@@ -1268,31 +1273,32 @@ Item {
                             }
 
                             Text {
-                                width: entryRow.infoRow
-                                    ? Math.max(120, entryList.width - 16 - root.listIconSize - 12 - entryRow.keysColumnWidth)
-                                    : entryList.width - 16 - root.listIconSize - 12
-                                anchors.verticalCenter: parent.verticalCenter
+                                Layout.fillWidth: true
+                                Layout.preferredWidth: entryRow.infoRow ? 1 : 0
+                                Layout.alignment: Qt.AlignVCenter
                                 text: modelData.name
                                 color: Theme.foreground
                                 font.family: Theme.fontFamily
-                                font.pixelSize: root.listFontSize
+                                font.pixelSize: entryRow.rowFontSize
                                 font.bold: Theme.fontBold
                                 elide: Text.ElideRight
+                                maximumLineCount: 1
                             }
 
                             Text {
                                 visible: entryRow.infoRow && entryRow.keysLabel !== ""
-                                width: entryRow.keysColumnWidth
-                                anchors.verticalCenter: parent.verticalCenter
+                                Layout.fillWidth: true
+                                Layout.preferredWidth: 1
+                                Layout.alignment: Qt.AlignVCenter
                                 horizontalAlignment: Text.AlignRight
                                 text: entryRow.keysLabel
                                 color: Theme.foreground
                                 font.family: Theme.fontFamily
-                                font.pixelSize: root.listFilterFontSize
+                                font.pixelSize: entryRow.rowFontSize
                                 font.bold: Theme.fontBold
-                                opacity: Theme.opacityMuted
-                                elide: Text.ElideLeft
-                                clip: true
+                                opacity: Theme.opacitySecondary
+                                elide: Text.ElideMiddle
+                                maximumLineCount: 1
                             }
                         }
 

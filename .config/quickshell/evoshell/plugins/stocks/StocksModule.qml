@@ -16,13 +16,9 @@ Item {
     readonly property string home: Quickshell.env("HOME")
     readonly property bool active: host && host.opened === true
     readonly property int chartHistoryDays: 30
-    readonly property int bodyFont: Theme.fontSize3xl
     readonly property int hintFont: Theme.fontSizeL
     readonly property int labelFont: Theme.fontSizeL
     readonly property int statFont: Theme.fontSizeXl
-    readonly property int heroFont: Theme.fontSize5xl
-    readonly property int headerIconSize: Math.round(root.heroFont * 1.15)
-    readonly property int headerBlockHeight: root.headerIconSize
     readonly property int chartBlockHeight: 96
     readonly property int statRowHeight: Theme.fontSizeL
         + Theme.fontSizeL + 36
@@ -54,6 +50,11 @@ Item {
 
     function marketStatBoxes(market) {
         var position = market.position || {}
+        var quote = market.quote || {}
+        var price = quote.price
+        var priceValue = price !== undefined && price !== null
+            ? root.fmtUsd(price)
+            : "—"
         var quantityValue = market.name === "BTC"
             ? root.fmtBtc(position.balance)
             : root.fmtQty(position.quantity)
@@ -61,9 +62,9 @@ Item {
         var upnl = position.upnlPct
         var upnlColor = signedColor(upnl)
         return [
+            { label: "Price", value: priceValue },
             { label: "Value", value: root.fmtUsd(position.valueUsd) },
             { label: quantityLabel, value: quantityValue },
-            { label: "Avg cost", value: root.fmtUsd(position.averagePrice) },
             {
                 label: "P/L",
                 value: root.fmtSignedPct(upnl),
@@ -123,14 +124,14 @@ Item {
         var n = parseFloat(val)
         if (isNaN(n) || n <= 0)
             return "—"
-        return n.toFixed(3) + " BTC"
+        return n.toFixed(3)
     }
 
     function fmtQty(val) {
         var n = parseFloat(val)
         if (isNaN(n) || n <= 0)
             return "—"
-        return n.toFixed(2) + " shares"
+        return n.toFixed(2)
     }
 
     function chartBars(data) {
@@ -187,75 +188,21 @@ Item {
 
     implicitHeight: column.implicitHeight
 
-    component MarketHeader: Item {
-        id: marketHeader
-        property var market: ({})
-
-        Layout.fillWidth: true
-        implicitHeight: headerRow.implicitHeight
-
-        readonly property string priceText: {
-            var price = market.quote ? market.quote.price : undefined
-            return price !== undefined && price !== null
-                ? root.fmtUsd(price)
-                : "—"
-        }
-
-        RowLayout {
-            id: headerRow
-            anchors.left: parent.left
-            spacing: 12
-
-            Item {
-                    Layout.preferredWidth: root.headerIconSize
-                    Layout.preferredHeight: root.headerIconSize
-                    Layout.alignment: Qt.AlignVCenter
-
-                    Text {
-                        anchors.centerIn: parent
-                        text: root.marketSymbolIcon(market.name)
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Math.round(root.headerIconSize * 0.78)
-                        font.bold: Theme.fontBold
-                        opacity: Theme.opacityEmphasis
-                    }
-                }
-
-                Text {
-                    Layout.alignment: Qt.AlignVCenter
-                    text: marketHeader.priceText
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.heroFont
-                    font.bold: Theme.fontBold
-                    horizontalAlignment: Text.AlignLeft
-                    lineHeight: root.heroFont
-                    lineHeightMode: Text.FixedHeight
-                }
-        }
-
-        MouseArea {
-            anchors.fill: parent
-            visible: market.href !== ""
-            cursorShape: Qt.PointingHandCursor
-            onClicked: root.openMarketUrl(market.href)
-        }
-    }
-
     component MarketPanel: SectionPanel {
         id: panel
         property var market: ({})
 
+        HoverPopupLabelPill {
+            text: panel.market.name
+            icon: root.marketSymbolIcon(panel.market.name)
+            fontSize: Theme.fontSizeS
+            clickable: panel.market.href !== ""
+            onClicked: root.openMarketUrl(panel.market.href)
+        }
+
         ColumnLayout {
             Layout.fillWidth: true
             spacing: Theme.hoverPopupSectionSpacing
-
-            MarketHeader {
-                Layout.fillWidth: true
-                Layout.preferredHeight: root.headerBlockHeight
-                market: panel.market
-            }
 
             GridLayout {
                 Layout.fillWidth: true

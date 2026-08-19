@@ -18,7 +18,7 @@ Item {
     readonly property string steamBin: Quickshell.env("HOME") + "/.local/bin/evo-steam"
     readonly property int hintFont: Theme.fontSizeL
     readonly property int titleFont: Theme.fontSize2xl
-    readonly property int actionIconFont: Theme.fontSizeL
+    readonly property int recentTitleFont: Theme.fontSizeXl
     readonly property int tileArtWidth: 96
     readonly property int tileArtHeight: 88
     readonly property int tileArtSourceSize: 192
@@ -54,25 +54,36 @@ Item {
     }
 
     function formatPlaytime(minutes) {
-        var m = parseInt(minutes, 10) || 0
+        var m = Number(minutes) || 0
         if (m <= 0)
             return ""
-        return Math.round(m / 60) + "h"
+        var hours = Math.round(m / 60)
+        if (hours <= 0)
+            return ""
+        return String(hours) + "h"
     }
 
-    readonly property string installedDisplay: {
-        if (root.libraryTotal > 0)
-            return root.installedCount + " / " + root.libraryTotal
+    readonly property string installedCountDisplay: {
+        if (root.loading)
+            return "…"
         return String(root.installedCount)
+    }
+
+    readonly property string libraryTotalDisplay: {
+        if (root.loading)
+            return "…"
+        if (root.libraryTotal <= 0)
+            return "—"
+        return String(root.libraryTotal)
     }
 
     readonly property string totalPlayedDisplay: {
         if (root.loading)
             return "…"
-        var days = Math.round(root.totalPlaytimeMin / 1440)
-        if (days <= 0)
+        var hours = Math.round(Number(root.totalPlaytimeMin) / 60)
+        if (hours <= 0)
             return "—"
-        return days.toLocaleString(Qt.locale()) + "d"
+        return String(hours) + "h"
     }
 
     function formatLastPlayed(ts) {
@@ -201,13 +212,6 @@ Item {
         actionProc.running = true
     }
 
-    function openSteam() {
-        if (actionProc.running)
-            return
-        actionProc.command = [root.steamBin, "open"]
-        actionProc.running = true
-    }
-
     Process {
         id: popupProc
         command: ["bash", "-lc", root.script]
@@ -245,63 +249,91 @@ Item {
         width: root.hoverPopupWidth
         spacing: Theme.hoverPopupSectionSpacing
 
-        FramedPanel {
+        SectionPanel {
             Layout.fillWidth: true
             label: ""
             contentPad: Theme.hoverPopupContentPad
 
             Item {
-                width: parent.width
-                implicitHeight: steamTopCol.implicitHeight
+                id: steamLegend
+                property bool fieldsetLegend: true
+                property color fieldsetFill: Theme.mantle
 
-                ColumnLayout {
-                    id: steamTopCol
-                    width: parent.width
-                    spacing: Theme.hoverPopupSectionSpacing
+                implicitWidth: legendBg.implicitWidth
+                implicitHeight: legendBg.implicitHeight
 
-                    HoverPopupHeader {
-                        Layout.fillWidth: true
-                        iconFallback: "󰓓"
-                        titleFont: root.titleFont
-                        detailFont: root.hintFont
-                        value: "Steam"
-                    }
-
-                    GridLayout {
-                        Layout.fillWidth: true
-                        columns: 2
-                        columnSpacing: 8
-                        rowSpacing: 8
-
-                        HoverPopupStatBox {
-                            value: root.loading ? "…" : root.installedDisplay
-                            label: "installed"
-                            valueFontSize: Theme.fontSize5xl
-                        }
-
-                        HoverPopupStatBox {
-                            value: root.totalPlayedDisplay
-                            label: "played"
-                            valueFontSize: Theme.fontSize5xl
-                        }
-                    }
+                Rectangle {
+                    id: legendBg
+                    color: steamLegend.fieldsetFill
+                    implicitWidth: legendRow.implicitWidth + 10
+                    implicitHeight: legendRow.implicitHeight
 
                     RowLayout {
-                        Layout.fillWidth: true
-                        spacing: Theme.spacingS
-                        visible: root.statusPillText !== ""
+                        id: legendRow
+                        anchors.centerIn: parent
+                        spacing: 5
 
-                        HoverPopupLabelPill {
-                            text: root.statusPillText
-                            fontSize: Theme.fontSizeS
-                            textColor: root.statusPillTextColor
-                            fill: root.statusPillFill
-                            textOpacity: root.errorText || root.runningGames.length > 0 || root.downloadRate > 0 ? 1 : 0.72
+                        Text {
+                            text: "󰓓"
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeS
+                            font.bold: Theme.fontBold
+                            opacity: 0.85
                         }
 
-                        Item { Layout.fillWidth: true }
+                        Text {
+                            text: "Steam"
+                            color: Theme.foreground
+                            opacity: 0.72
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeS
+                            font.bold: Theme.fontBold
+                        }
                     }
                 }
+            }
+
+            GridLayout {
+                Layout.fillWidth: true
+                columns: 3
+                columnSpacing: 8
+                rowSpacing: 8
+
+                HoverPopupStatBox {
+                    value: root.installedCountDisplay
+                    label: "installed"
+                    valueFontSize: Theme.fontSize5xl
+                }
+
+                HoverPopupStatBox {
+                    value: root.libraryTotalDisplay
+                    label: "total games"
+                    valueFontSize: Theme.fontSize5xl
+                }
+
+                HoverPopupStatBox {
+                    value: root.totalPlayedDisplay
+                    label: "played"
+                    valueFontSize: Theme.fontSize5xl
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: Theme.spacingS
+                visible: root.statusPillText !== ""
+
+                HoverPopupLabelPill {
+                    text: root.statusPillText
+                    fontSize: Theme.fontSizeS
+                    textColor: root.statusPillTextColor
+                    fill: root.statusPillFill
+                    textOpacity: root.errorText || root.runningGames.length > 0 || root.downloadRate > 0 ? 1 : 0.72
+                    fieldsetLegend: false
+                }
+
+                Item { Layout.fillWidth: true }
             }
         }
 
@@ -312,206 +344,155 @@ Item {
             contentPad: Theme.hoverPopupContentPad
             visible: root.displayedGames.length > 0
 
+            HoverPopupLabelPill {
+                text: "Recent"
+                icon: "󰋚"
+                fontSize: Theme.fontSizeS
+            }
+
             ColumnLayout {
                 Layout.fillWidth: true
-                spacing: Theme.spacingM
+                spacing: 0
 
                 Repeater {
                     model: root.displayedGames
 
-                    Item {
+                    ColumnLayout {
                         required property var modelData
+                        required property int index
                         Layout.fillWidth: true
-                        implicitWidth: parent.width
-                        implicitHeight: root.tileHeight
+                        spacing: 0
 
-                        readonly property bool isRunning: {
-                            var id = String(modelData.appid || "")
-                            for (var i = 0; i < root.runningGames.length; i++) {
-                                if (String(root.runningGames[i].appid || "") === id)
-                                    return true
+                        Item {
+                            Layout.fillWidth: true
+                            implicitWidth: parent.width
+                            implicitHeight: root.tileHeight
+
+                            scale: tileMouse.pressed ? 0.97 : 1
+                            opacity: tileMouse.pressed ? 0.88 : 1
+
+                            Behavior on scale {
+                                NumberAnimation {
+                                    duration: 90
+                                    easing.type: Easing.OutCubic
+                                }
                             }
-                            return false
-                        }
 
-                        scale: tileMouse.pressed ? 0.97 : 1
-                        opacity: tileMouse.pressed ? 0.88 : 1
-
-                        Behavior on scale {
-                            NumberAnimation {
-                                duration: 90
-                                easing.type: Easing.OutCubic
+                            Behavior on opacity {
+                                NumberAnimation {
+                                    duration: 90
+                                }
                             }
-                        }
 
-                        Behavior on opacity {
-                            NumberAnimation {
-                                duration: 90
+                            Rectangle {
+                                anchors.fill: parent
+                                radius: Theme.panelCornerRadius
+                                color: tileMouse.pressed
+                                    ? Theme.withOpacity(Theme.accent, 0.14)
+                                    : (tileMouse.containsMouse
+                                        ? Theme.withOpacity(Theme.foreground, 0.07)
+                                        : "transparent")
+                            }
+
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.margins: 10
+                                spacing: 12
+
+                                Item {
+                                    Layout.preferredWidth: root.tileArtWidth
+                                    Layout.preferredHeight: root.tileArtHeight
+                                    Layout.alignment: Qt.AlignVCenter
+                                    clip: true
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        visible: gameIcon.source === "" || gameIcon.status === Image.Error
+                                        text: "󰓓"
+                                        color: Theme.foreground
+                                        opacity: 0.35
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: Theme.fontSize3xl
+                                        font.bold: Theme.fontBold
+                                    }
+
+                                    Image {
+                                        id: gameIcon
+                                        anchors.fill: parent
+                                        visible: gameIcon.source !== "" && status !== Image.Error
+                                        source: root.gameArtSource(modelData)
+                                        fillMode: Image.PreserveAspectCrop
+                                        asynchronous: true
+                                        cache: true
+                                        smooth: true
+                                        mipmap: true
+                                        sourceSize: Qt.size(root.tileArtSourceSize, Math.round(root.tileArtSourceSize * root.tileArtHeight / root.tileArtWidth))
+                                    }
+                                }
+
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 4
+
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: String(modelData.name || "Game")
+                                        color: tileMouse.containsMouse ? Theme.accent : Theme.foreground
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: root.recentTitleFont
+                                        font.bold: Theme.fontBold
+                                        elide: Text.ElideRight
+                                        maximumLineCount: 2
+                                        wrapMode: Text.Wrap
+                                    }
+
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: Theme.spacingS
+
+                                        HoverPopupLabelPill {
+                                            visible: root.formatLastPlayed(modelData.last_played) !== "—"
+                                            text: root.formatLastPlayed(modelData.last_played)
+                                            fontSize: Theme.fontSizeS
+                                        }
+
+                                        HoverPopupLabelPill {
+                                            visible: root.formatPlaytime(modelData.playtime_min) !== ""
+                                            text: root.formatPlaytime(modelData.playtime_min)
+                                            fontSize: Theme.fontSizeS
+                                        }
+                                    }
+                                }
+
+                                Text {
+                                    visible: tileMouse.containsMouse && !tileMouse.pressed
+                                    text: "󰐊"
+                                    color: Theme.accent
+                                    opacity: 0.85
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: root.titleFont
+                                    font.bold: Theme.fontBold
+                                    Layout.alignment: Qt.AlignVCenter
+                                }
+                            }
+
+                            MouseArea {
+                                id: tileMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.launchGame(modelData.appid)
                             }
                         }
 
                         Rectangle {
-                            anchors.fill: parent
-                            radius: Theme.panelCornerRadius
-                            color: tileMouse.pressed
-                                ? Theme.withOpacity(Theme.accent, 0.14)
-                                : (tileMouse.containsMouse
-                                    ? Theme.withOpacity(Theme.foreground, 0.07)
-                                    : Theme.withOpacity(Theme.mantle, 0.65))
-                            border.width: tileMouse.containsMouse || isRunning ? 1 : 0
-                            border.color: isRunning ? Theme.accent : Theme.withOpacity(Theme.accent, 0.55)
-                        }
-
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.margins: 10
-                            spacing: 12
-
-                            Item {
-                                Layout.preferredWidth: root.tileArtWidth
-                                Layout.preferredHeight: root.tileArtHeight
-                                Layout.alignment: Qt.AlignVCenter
-                                clip: true
-
-                                Rectangle {
-                                    anchors.fill: parent
-                                    radius: Theme.fieldsetCornerRadius
-                                    color: Theme.panelMantle
-                                }
-
-                                Text {
-                                    anchors.centerIn: parent
-                                    visible: gameIcon.source === "" || gameIcon.status === Image.Error
-                                    text: "󰓓"
-                                    color: Theme.foreground
-                                    opacity: 0.35
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.fontSize3xl
-                                    font.bold: Theme.fontBold
-                                }
-
-                                Image {
-                                    id: gameIcon
-                                    anchors.fill: parent
-                                    anchors.margins: 4
-                                    visible: gameIcon.source !== "" && status !== Image.Error
-                                    source: root.gameArtSource(modelData)
-                                    fillMode: Image.PreserveAspectCrop
-                                    asynchronous: true
-                                    cache: true
-                                    smooth: true
-                                    mipmap: true
-                                    sourceSize: Qt.size(root.tileArtSourceSize, Math.round(root.tileArtSourceSize * root.tileArtHeight / root.tileArtWidth))
-                                }
-
-                                Rectangle {
-                                    anchors.fill: parent
-                                    radius: Theme.fieldsetCornerRadius
-                                    color: Theme.withOpacity(Theme.accent, 0.08)
-                                    visible: tileMouse.containsMouse
-                                }
-                            }
-
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                spacing: 4
-
-                                Text {
-                                    Layout.fillWidth: true
-                                    text: String(modelData.name || "Game")
-                                    color: tileMouse.containsMouse ? Theme.accent : Theme.foreground
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: root.titleFont
-                                    font.bold: Theme.fontBold
-                                    elide: Text.ElideRight
-                                    maximumLineCount: 2
-                                    wrapMode: Text.Wrap
-                                }
-
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: Theme.spacingS
-
-                                    HoverPopupLabelPill {
-                                        visible: root.formatLastPlayed(modelData.last_played) !== "—"
-                                        text: root.formatLastPlayed(modelData.last_played)
-                                        fontSize: Theme.fontSizeS
-                                    }
-
-                                    HoverPopupLabelPill {
-                                        visible: root.formatPlaytime(modelData.playtime_min) !== ""
-                                        text: root.formatPlaytime(modelData.playtime_min)
-                                        fontSize: Theme.fontSizeS
-                                    }
-                                }
-
-                                Text {
-                                    Layout.fillWidth: true
-                                    visible: isRunning
-                                    text: "Playing now"
-                                    color: Theme.accent
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: root.hintFont
-                                    font.bold: Theme.fontBold
-                                }
-                            }
-
-                            Text {
-                                visible: tileMouse.containsMouse && !tileMouse.pressed
-                                text: "󰐊"
-                                color: Theme.accent
-                                opacity: 0.85
-                                font.family: Theme.fontFamily
-                                font.pixelSize: root.titleFont
-                                font.bold: Theme.fontBold
-                                Layout.alignment: Qt.AlignVCenter
-                            }
-                        }
-
-                        MouseArea {
-                            id: tileMouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: root.launchGame(modelData.appid)
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 1
+                            visible: index < root.displayedGames.length - 1
+                            color: Theme.foregroundDivider
                         }
                     }
                 }
-            }
-        }
-
-        Item {
-            Layout.fillWidth: true
-            implicitHeight: openSteamRow.implicitHeight
-
-            RowLayout {
-                id: openSteamRow
-                anchors.right: parent.right
-                spacing: Theme.spacingS
-
-                Text {
-                    text: "󰓓"
-                    color: openSteamBtn.containsMouse ? Theme.accent : Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.actionIconFont
-                    font.bold: Theme.fontBold
-                }
-
-                Text {
-                    text: "Open"
-                    color: openSteamBtn.containsMouse ? Theme.accent : Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.hintFont
-                    font.bold: Theme.fontBold
-                }
-            }
-
-            MouseArea {
-                id: openSteamBtn
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: root.openSteam()
             }
         }
 

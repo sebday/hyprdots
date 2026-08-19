@@ -110,6 +110,7 @@ Item {
     }
 
     function openBtop() {
+        Util.dismissHoverPopupFromBar(shell, hoverPopupId)
         if (settings.onClick)
             Quickshell.execDetached(["bash", "-lc", String(settings.onClick)])
         else
@@ -150,7 +151,9 @@ Item {
     }
 
     MouseArea {
+        id: rootMouseArea
         anchors.fill: parent
+        hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
         onClicked: root.openBtop()
     }
@@ -161,6 +164,11 @@ Item {
             root.widgetHovered = hovered
             root.syncHoverPopup()
         }
+    }
+
+    BarHoverPinArea {
+        shell: root.shell
+        popupId: root.hoverPopupId
     }
 
     Process {

@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
 import "../../../Commons"
@@ -219,10 +218,19 @@ Item {
     }
 
     function handleClick(mouse) {
-        if (mouse.button === Qt.RightButton && settings.onClickRight)
-            Quickshell.execDetached(["bash", "-lc", String(settings.onClickRight)])
-        else if (settings.onClick)
+        if (mouse.button === Qt.RightButton) {
+            if (Util.pinHoverPopupFromBarIfActive(shell, hoverPopupId))
+                return
+            if (settings.onClickRight) {
+                Util.dismissHoverPopupFromBar(shell, hoverPopupId)
+                Quickshell.execDetached(["bash", "-lc", String(settings.onClickRight)])
+            }
+            return
+        }
+        if (settings.onClick) {
+            Util.dismissHoverPopupFromBar(shell, hoverPopupId)
             Quickshell.execDetached(["bash", "-lc", String(settings.onClick)])
+        }
     }
 
     Item {
@@ -295,16 +303,6 @@ Item {
         font.family: Theme.fontFamily
         font.pixelSize: commandRoot.iconOnly ? Theme.fontSize2xl : Theme.fontSizeM
         font.bold: Theme.fontBold && !commandRoot.iconOnly
-    }
-
-    ToolTip {
-        visible: commandRoot.tooltipText !== ""
-            && barMouseArea.containsMouse
-            && commandRoot.hoverPopupId === ""
-            && !commandRoot.trayMode
-        delay: 400
-        timeout: 8000
-        text: commandRoot.tooltipText
     }
 
     Process {

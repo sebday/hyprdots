@@ -71,6 +71,11 @@ Item {
             root.shell.hoverLeave(popupId)
     }
 
+    function openSteamClient() {
+        Util.dismissHoverPopupFromBar(root.shell, "evo.steam")
+        Quickshell.execDetached(["bash", "-lc", Quickshell.env("HOME") + "/.local/bin/evo-steam open"])
+    }
+
     function rewireTrayWidgets() {
         if (weatherLoader.item) wireBarWidget(weatherLoader.item, settings.weather, "evo.weather")
         if (githubLoader.item) wireBarWidget(githubLoader.item, settings.github, "evo.github")
@@ -236,6 +241,7 @@ Item {
                 }
 
                 MouseArea {
+                    id: sniMouseArea
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
@@ -247,17 +253,28 @@ Item {
                             modelData.secondaryActivate()
                             return
                         }
-                        if (mouse.button === Qt.RightButton && modelData.hasMenu) {
-                            trayContextMenu.open(modelData.menu, trayCell)
-                            return
+                        if (mouse.button === Qt.RightButton) {
+                            var popupId = root.trayHoverPopupId(modelData)
+                            if (popupId && Util.pinHoverPopupFromBarIfActive(root.shell, popupId))
+                                return
+                            if (modelData.hasMenu) {
+                                trayContextMenu.open(modelData.menu, trayCell)
+                                return
+                            }
                         }
                         if (modelData.onlyMenu && modelData.hasMenu) {
                             trayContextMenu.open(modelData.menu, trayCell)
                             return
                         }
+                        if (mouse.button === Qt.LeftButton
+                                && root.trayHoverPopupId(modelData) === "evo.steam") {
+                            root.openSteamClient()
+                            return
+                        }
                         modelData.activate()
                     }
                 }
+
             }
         }
     }

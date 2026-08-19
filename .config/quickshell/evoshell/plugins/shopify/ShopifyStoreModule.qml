@@ -272,13 +272,17 @@ Item {
             label: ""
             legendBackground: root.sectionLegendBackground
 
+            HoverPopupLabelPill {
+                text: root.title
+                iconUrl: root.storeIconUrl
+                icon: root.storeIconFallback
+                fontSize: Theme.fontSizeS
+            }
+
             HoverPopupHeader {
                 Layout.fillWidth: true
                 value: root.shopifyHeader(root.storeData, root.title)
                 href: root.adminUrl
-                iconUrl: root.storeIconUrl
-                iconFallback: root.storeIconFallback
-                iconSize: root.headerIconSize
                 titleFont: Math.round(root.headerIconSize * 0.7)
             }
         }
@@ -287,6 +291,12 @@ Item {
             label: ""
             legendBackground: root.sectionLegendBackground
             Layout.fillWidth: true
+
+            HoverPopupLabelPill {
+                text: "Today"
+                icon: "󰃭"
+                fontSize: Theme.fontSizeS
+            }
 
             ColumnLayout {
                 Layout.fillWidth: true
@@ -351,6 +361,7 @@ Item {
 
             HoverPopupLabelPill {
                 text: root.chartDays + " day revenue"
+                icon: "󰄔"
                 fontSize: Theme.fontSizeS
             }
 
@@ -407,6 +418,7 @@ Item {
 
             HoverPopupLabelPill {
                 text: "Channels " + root.chartDays + " days"
+                icon: "󰒋"
                 fontSize: Theme.fontSizeS
             }
 

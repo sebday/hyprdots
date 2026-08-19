@@ -55,11 +55,19 @@ Item {
     }
 
     MouseArea {
+        id: mediaMouseArea
         anchors.fill: parent
         hoverEnabled: true
-        acceptedButtons: Qt.LeftButton
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
         cursorShape: Qt.PointingHandCursor
         onContainsMouseChanged: root.setMediaHoverPopup(containsMouse)
-        onClicked: root.openMediaLibrary()
+        onClicked: function(mouse) {
+            if (mouse.button === Qt.RightButton) {
+                Util.pinHoverPopupFromBarIfActive(root.shell, root.mediaHoverPopupId)
+                return
+            }
+            root.openMediaLibrary()
+        }
     }
+
 }

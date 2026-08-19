@@ -25,6 +25,7 @@ bindd("SUPER + F", "Fullscreen", hl.dsp.window.fullscreen({ mode = "fullscreen",
 bindd("SUPER + J", "Toggle Split Direction", hl.dsp.layout("togglesplit"))
 bindd("SUPER + K", "Toggle Floating Window", hl.dsp.window.float({ action = "toggle" }))
 bindd("SUPER + L", "Lock Screen", hl.dsp.exec_cmd(bin .. "/evo-system lock"))
+bindd("SUPER + R", "Restart evoshell", hl.dsp.exec_cmd(bin .. "/evo-system restart"))
 bindd("SUPER + C", "Calc panel", hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.panel \'{"module":"calc"}\''))
 bindd(
 	"SUPER + N",

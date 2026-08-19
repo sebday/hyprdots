@@ -180,12 +180,12 @@ Item {
                     }
                 }
 
-                ColumnLayout {
+                RowLayout {
                     Layout.fillWidth: true
-                    spacing: Theme.spacingS
+                    spacing: Theme.spacingL
 
                     Item {
-                        Layout.fillWidth: true
+                        implicitWidth: downloadActionRow.implicitWidth
                         implicitHeight: downloadActionRow.implicitHeight
 
                         RowLayout {
@@ -221,7 +221,7 @@ Item {
                     }
 
                     Item {
-                        Layout.fillWidth: true
+                        implicitWidth: cancelActionRow.implicitWidth
                         implicitHeight: cancelActionRow.implicitHeight
 
                         RowLayout {

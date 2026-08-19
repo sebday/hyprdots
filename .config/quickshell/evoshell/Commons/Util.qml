@@ -33,6 +33,24 @@ Singleton {
         shell.setHoverPopupData(String(cacheKey), json)
     }
 
+    function pinHoverPopupFromBarIfActive(shell, popupId) {
+        if (!shell || !popupId)
+            return false
+        var id = String(popupId)
+        if (shell.hoverPopupId !== id && !shell.isHoverPopupPinned(id))
+            return false
+        return shell.toggleHoverPopupPinFromBar(id)
+    }
+
+    function dismissHoverPopupFromBar(shell, popupId) {
+        if (!shell || !popupId)
+            return
+        var id = String(popupId)
+        shell.hoverLeave(id)
+        if (shell.hoverPopupId === id)
+            shell.hide(id)
+    }
+
     function screenForOutput(outputName, fallbackOutput) {
         var screens = Quickshell.screens
         if (!screens || screens.length === 0)

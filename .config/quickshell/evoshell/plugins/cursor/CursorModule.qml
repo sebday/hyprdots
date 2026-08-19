@@ -71,15 +71,10 @@ Item {
         }
     }
 
-    readonly property int cycleDaysTotal: detail && detail.cycleDaysTotal !== undefined
-        ? parseInt(detail.cycleDaysTotal, 10) || 0 : 0
-    readonly property int cycleDaysUsed: detail && detail.cycleDaysUsed !== undefined
-        ? parseInt(detail.cycleDaysUsed, 10) || 0 : 0
-    readonly property int cycleDaysLeft: cycleDaysTotal > 0
-        ? Math.max(0, cycleDaysTotal - cycleDaysUsed) : 0
     readonly property real cycleProgress: detail && detail.cycleProgress !== undefined
         ? Number(detail.cycleProgress) || 0 : 0
-    readonly property bool showCycleBar: !loading && !isError && cycleDaysTotal > 0
+    readonly property int cyclePercent: Math.round(Math.max(0, Math.min(1, root.cycleProgress)) * 100)
+    readonly property color cycleColor: Theme.heatmap3
     readonly property bool showTokens: !isError && !!(detail.tokensTotal || detail.tokensToday)
 
     function formatTokens(n) {
@@ -101,16 +96,26 @@ Item {
 
     readonly property int smallFont: Theme.fontSize4xl
     readonly property int hintFont: Theme.fontSizeL
-    readonly property int heroFont: Theme.fontSizeHero
-    readonly property int breakdownFont: Theme.fontSizeXl
+    readonly property int breakdownFont: Theme.fontSizeS
     readonly property int tokensFont: Theme.fontSizeL
-    readonly property int gaugeLabelFont: Theme.fontSizeS
-    readonly property int gaugeSize: 168
-    readonly property int gaugeSpacing: 18
+    readonly property int gaugeSpacing: 12
+    readonly property int usageChartPadH: Theme.hoverPopupChartPadH
+    readonly property int usageContentWidth: Math.max(Theme.hoverPopupWidthStandard, root.hoverPopupWidth)
+        - Theme.hoverPopupContentPad * 2
+        - root.usageChartPadH * 2
+    readonly property int gaugeSize: Math.max(96, Math.floor((root.usageContentWidth - root.gaugeSpacing * 2) / 3))
+    readonly property int gaugeLabelFont: Math.max(Theme.fontSizeL, Math.round(root.gaugeSize * 0.22))
+    readonly property int usageBlockWidth: root.gaugeSize * 3 + root.gaugeSpacing * 2
 
-    readonly property string cycleDaysPillLabel: root.cycleDaysLeft === 1
-        ? "1 day"
-        : (root.cycleDaysLeft + " days")
+    readonly property string cyclePillText: {
+        if (root.loading)
+            return "…"
+        var used = parseInt(root.detail.cycleDaysUsed, 10) || 0
+        var total = parseInt(root.detail.cycleDaysTotal, 10) || 0
+        if (total <= 0)
+            return "cycle"
+        return used + "/" + total + "d"
+    }
 
     function applyPayload(json) {
         loading = false
@@ -168,58 +173,121 @@ Item {
             label: ""
             visible: !root.isError
 
-            Item {
+            HoverPopupLabelPill {
+                text: "Usage"
+                icon: "󰆧"
+                fontSize: Theme.fontSizeS
+            }
+
+            GridLayout {
                 Layout.fillWidth: true
-                implicitHeight: gaugeRow.implicitHeight
+                columns: 2
+                columnSpacing: 8
+                rowSpacing: 8
+                visible: root.showTokens
 
-                RowLayout {
-                    id: gaugeRow
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    spacing: root.gaugeSpacing
+                HoverPopupStatBox {
+                    value: root.loading ? "…" : root.formatTokens(root.detail.tokensTotal)
+                    label: "tokens"
+                }
 
-                    UsageGauge {
-                        title: "Cursor usage"
-                        percent: root.cursorPercent
-                        gaugeColor: root.cursorColor
-                        loading: root.loading
-                        labelFont: root.gaugeLabelFont
-                        gaugeSize: root.gaugeSize
-                    }
-
-                    UsageGauge {
-                        title: "Other models"
-                        percent: root.otherPercent
-                        gaugeColor: root.otherColor
-                        loading: root.loading
-                        labelFont: root.gaugeLabelFont
-                        gaugeSize: root.gaugeSize
-                    }
+                HoverPopupStatBox {
+                    value: root.loading ? "…" : root.formatTokens(root.detail.tokensToday)
+                    label: "today"
+                    valueColor: Theme.accent
                 }
             }
-        }
 
-        GridLayout {
-            Layout.fillWidth: true
-            columns: 2
-            columnSpacing: 8
-            rowSpacing: 8
-            visible: !root.isError && root.showTokens
+            Item {
+                Layout.fillWidth: true
+                implicitHeight: usageBlock.implicitHeight
 
-            HoverPopupStatBox {
-                value: root.loading ? "…" : root.formatTokens(root.detail.tokensTotal)
-                label: "tokens"
-            }
+                ColumnLayout {
+                    id: usageBlock
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    width: root.usageBlockWidth
+                    spacing: Theme.spacingL
 
-            HoverPopupStatBox {
-                value: root.loading ? "…" : root.formatTokens(root.detail.tokensToday)
-                label: "today"
-                valueColor: Theme.accent
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: root.gaugeSpacing
+
+                        ColumnLayout {
+                            Layout.preferredWidth: root.gaugeSize
+                            spacing: Theme.spacingS
+
+                            UsageGauge {
+                                Layout.alignment: Qt.AlignHCenter
+                                percent: root.cursorPercent
+                                gaugeColor: root.cursorColor
+                                loading: root.loading
+                                gaugeSize: root.gaugeSize
+                            }
+
+                            HoverPopupLabelPill {
+                                Layout.alignment: Qt.AlignHCenter
+                                text: "Cursor"
+                                fieldsetLegend: false
+                                fontSize: Theme.fontSizeXs
+                                textColor: root.cursorColor
+                            }
+                        }
+
+                        ColumnLayout {
+                            Layout.preferredWidth: root.gaugeSize
+                            spacing: Theme.spacingS
+
+                            UsageGauge {
+                                Layout.alignment: Qt.AlignHCenter
+                                percent: root.otherPercent
+                                gaugeColor: root.otherColor
+                                loading: root.loading
+                                gaugeSize: root.gaugeSize
+                            }
+
+                            HoverPopupLabelPill {
+                                Layout.alignment: Qt.AlignHCenter
+                                text: "Other"
+                                fieldsetLegend: false
+                                fontSize: Theme.fontSizeXs
+                                textColor: root.otherColor
+                            }
+                        }
+
+                        ColumnLayout {
+                            Layout.preferredWidth: root.gaugeSize
+                            spacing: Theme.spacingS
+
+                            UsageGauge {
+                                Layout.alignment: Qt.AlignHCenter
+                                percent: root.cyclePercent
+                                gaugeColor: root.cycleColor
+                                loading: root.loading
+                                gaugeSize: root.gaugeSize
+                            }
+
+                            HoverPopupLabelPill {
+                                Layout.alignment: Qt.AlignHCenter
+                                text: root.cyclePillText
+                                fieldsetLegend: false
+                                fontSize: Theme.fontSizeXs
+                                textColor: root.cycleColor
+                            }
+                        }
+                    }
+                }
             }
         }
 
         SectionPanel {
             label: ""
             visible: !root.isError && root.hasModelDetails
+
+            HoverPopupLabelPill {
+                text: "Breakdown"
+                icon: "󰄪"
+                fontSize: Theme.fontSizeS
+            }
 
             Repeater {
                 model: root.modelSplit
@@ -289,72 +357,18 @@ Item {
                 opacity: 0.6
             }
         }
-
-        SectionPanel {
-            label: ""
-            visible: !root.isError && root.showCycleBar
-
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: Theme.spacingL
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: Theme.spacingS
-                    visible: !root.loading
-
-                    Rectangle {
-                        radius: Theme.radiusL
-                        color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.14)
-                        border.color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.38)
-                        border.width: 1
-                        implicitWidth: daysPillText.implicitWidth + 16
-                        implicitHeight: daysPillText.implicitHeight + 8
-
-                        Text {
-                            id: daysPillText
-                            anchors.centerIn: parent
-                            text: root.cycleDaysPillLabel
-                            color: Theme.accent
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.tokensFont
-                            font.bold: Theme.fontBold
-                        }
-                    }
-
-                    Text {
-                        text: "left on plan"
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.tokensFont
-                        opacity: Theme.opacitySecondary
-                    }
-
-                    Item { Layout.fillWidth: true }
-                }
-
-                CycleProgressBar {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 4
-                    progress: root.cycleProgress
-                    barHeight: 4
-                }
-            }
-        }
     }
 
     component UsageGauge: Item {
         id: gaugeRoot
 
-        property string title: ""
         property int percent: 0
         property color gaugeColor: Theme.accent
         property bool loading: false
-        property int labelFont: Theme.fontSizeXxs
         property int gaugeSize: 130
 
         implicitWidth: gaugeRoot.gaugeSize
-        implicitHeight: ring.height + 4 + titleHost.implicitHeight
+        implicitHeight: ring.height
 
         readonly property int ringSize: Math.round(gaugeRoot.gaugeSize * 0.91)
         readonly property real ringRadius: gaugeRoot.gaugeSize * 0.34
@@ -407,25 +421,8 @@ Item {
             text: gaugeRoot.loading ? "…" : (gaugeRoot.percent + "%")
             color: Theme.foreground
             font.family: Theme.fontFamily
-            font.pixelSize: root.heroFont
+            font.pixelSize: root.gaugeLabelFont
             font.bold: Theme.fontBold
-        }
-
-        Item {
-            id: titleHost
-            anchors.top: ring.bottom
-            anchors.topMargin: 4
-            anchors.horizontalCenter: parent.horizontalCenter
-            width: parent.width - 4
-            implicitHeight: titlePill.implicitHeight
-
-            HoverPopupLabelPill {
-                id: titlePill
-                width: parent.width
-                alignCenter: true
-                text: gaugeRoot.title
-                fontSize: gaugeRoot.labelFont
-            }
         }
     }
 }

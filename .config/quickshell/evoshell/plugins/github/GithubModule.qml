@@ -31,7 +31,8 @@ Item {
     implicitHeight: column.implicitHeight
 
     readonly property int trendMax: 40
-    readonly property int heatmapSpacing: 3
+    readonly property int trendChartHeight: 64
+    readonly property int trendsSpacing: 3
     readonly property var legendColors: {
         var colors = []
         for (var level = 0; level < 5; level++) {
@@ -57,13 +58,6 @@ Item {
     property string username: "sebday"
     property string profileUrl: "https://github.com/sebday"
     property var cells: []
-
-    readonly property int heatmapCellSize: {
-        if (cells.length === 0 || hoverPopupWidth <= 0)
-            return 12
-        var gaps = Math.max(0, cells.length - 1) * heatmapSpacing
-        return Math.max(10, Math.min(16, Math.floor((hoverPopupWidth - gaps) / cells.length)))
-    }
 
     readonly property string todayLabel: todayCount === 1
         ? "contribution today"
@@ -257,16 +251,20 @@ Item {
         }
 
         SectionPanel {
+            id: githubUserPanel
             label: ""
+            Layout.fillWidth: true
             visible: !root.loading && !root.isError
-            contentPad: Theme.panelContentPad
-            sectionSpacing: 0
+
+            HoverPopupLabelPill {
+                text: "@" + root.username
+                icon: ""
+                fontSize: Theme.fontSizeS
+            }
 
             Item {
                 Layout.fillWidth: true
                 Layout.preferredHeight: root.headerBlockHeight
-                Layout.topMargin: 2
-                Layout.bottomMargin: 1
 
                 RowLayout {
                     anchors.verticalCenter: parent.verticalCenter
@@ -307,12 +305,6 @@ Item {
                         Layout.fillWidth: true
                         spacing: Theme.spacingM
 
-                        HoverPopupLabelPill {
-                            id: usernamePill
-                            text: "@" + root.username
-                            fontSize: Theme.fontSizeS
-                        }
-
                         Text {
                             Layout.fillWidth: true
                             text: root.todayLabel
@@ -325,112 +317,111 @@ Item {
                         }
                     }
                 }
+
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.openProfile()
+                }
             }
 
-            MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: root.openProfile()
-            }
-        }
+            GridLayout {
+                Layout.fillWidth: true
+                columns: 3
+                columnSpacing: Theme.spacingM
+                rowSpacing: Theme.spacingM
 
-        GridLayout {
-            Layout.fillWidth: true
-            columns: 3
-            columnSpacing: 10
-            rowSpacing: 10
-            visible: !root.loading && !root.isError
+                HoverPopupStatBox {
+                    value: String(root.total30)
+                    label: "30 days"
+                }
 
-            Repeater {
-                model: [
-                    { label: "30 days", value: String(root.total30) },
-                    { label: "Streak", value: root.streak > 0
+                HoverPopupStatBox {
+                    value: root.streak > 0
                         ? root.streak + (root.streak === 1 ? " day" : " days")
-                        : "—" },
-                    { label: "Best day", value: root.bestCount > 0 ? String(root.bestCount) : "—" }
-                ]
+                        : "—"
+                    label: "streak"
+                }
 
-                SectionPanel {
-                    required property var modelData
-                    Layout.fillWidth: true
-                    label: ""
-                    filled: true
-                    contentPad: Theme.panelContentPad
-
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: Theme.spacing2
-
-                        Text {
-                            Layout.fillWidth: true
-                            horizontalAlignment: Text.AlignHCenter
-                            text: String(modelData.value)
-                            color: Theme.accent
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontSize5xl
-                            font.bold: Theme.fontBold
-                        }
-
-                        Text {
-                            Layout.fillWidth: true
-                            horizontalAlignment: Text.AlignHCenter
-                            text: modelData.label
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.hintFont
-                            opacity: Theme.opacityMuted
-                        }
-                    }
+                HoverPopupStatBox {
+                    value: root.bestCount > 0 ? String(root.bestCount) : "—"
+                    label: "best day"
                 }
             }
         }
 
         SectionPanel {
             label: ""
-            visible: !root.loading && !root.isError && root.sparkBars.length > 0
+            Layout.fillWidth: true
+            visible: !root.loading && !root.isError
 
             HoverPopupLabelPill {
-                text: "Trend"
+                text: "Trends"
+                icon: "󰄪"
                 fontSize: Theme.fontSizeS
             }
 
-            SparklineChart {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 64
-                chartHeight: 64
-                bars: root.sparkBars
-            }
-        }
-
-        SectionPanel {
-            label: ""
-            visible: !root.loading && !root.isError
-
             Item {
+                id: trendsTrack
                 Layout.fillWidth: true
-                implicitHeight: heatmapRow.height
+                visible: root.cells.length > 0
+                implicitHeight: trendsRow.height
+
+                readonly property int cellCount: root.cells.length
+                readonly property int cellWidth: cellCount > 0 && width > 0
+                    ? Math.max(4, Math.floor((width - Math.max(0, cellCount - 1) * root.trendsSpacing) / cellCount))
+                    : 12
 
                 Row {
-                    id: heatmapRow
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    spacing: root.heatmapSpacing
-                    height: root.heatmapCellSize
+                    id: trendsRow
+                    width: parent.width
+                    spacing: root.trendsSpacing
 
                     Repeater {
                         model: root.cells
 
-                        Rectangle {
+                        Item {
                             required property var modelData
                             required property int index
-                            width: root.heatmapCellSize
-                            height: root.heatmapCellSize
-                            radius: Theme.radiusM
-                            color: modelData.color
-                                || Theme.heatmapColors[Math.max(0, Math.min(4, parseInt(modelData.level, 10) || 0))]
-                                || Theme.foreground
-                            opacity: (modelData.count || 0) > 0 ? 1 : 0.35
-                            border.width: index === root.cells.length - 1 ? 1 : 0
-                            border.color: Theme.accent
+                            readonly property var bar: root.sparkBars[index] || {}
+
+                            width: trendsTrack.cellWidth
+                            implicitHeight: trendsColumn.implicitHeight
+
+                            Column {
+                                id: trendsColumn
+                                width: parent.width
+                                spacing: Theme.spacingS
+
+                                Item {
+                                    id: trendBarSlot
+                                    width: parent.width
+                                    height: root.trendChartHeight
+
+                                    Rectangle {
+                                        width: parent.width
+                                        height: bar.level > 0
+                                            ? Math.max(2, parent.height * bar.level / 7)
+                                            : 0
+                                        anchors.bottom: parent.bottom
+                                        radius: Theme.radiusS
+                                        color: bar.color || Theme.accent
+                                        opacity: 0.85
+                                    }
+                                }
+
+                                Rectangle {
+                                    width: parent.width
+                                    height: width
+                                    radius: Theme.radiusM
+                                    color: modelData.color
+                                        || Theme.heatmapColors[Math.max(0, Math.min(4, parseInt(modelData.level, 10) || 0))]
+                                        || Theme.foreground
+                                    opacity: (modelData.count || 0) > 0 ? 1 : 0.35
+                                    border.width: index === root.cells.length - 1 ? 1 : 0
+                                    border.color: Theme.accent
+                                }
+                            }
                         }
                     }
                 }

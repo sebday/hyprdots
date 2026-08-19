@@ -56,6 +56,7 @@ Item {
     }
 
     MouseArea {
+        id: trayMouseArea
         anchors.fill: parent
         visible: root.trayMode
         hoverEnabled: true
@@ -66,6 +67,8 @@ Item {
             if (!cf)
                 return
             if (mouse.button === Qt.RightButton) {
+                if (Util.pinHoverPopupFromBarIfActive(root.shell, root.hoverPopupId))
+                    return
                 cf.refresh()
                 cf.refreshAnalytics()
                 return

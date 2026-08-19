@@ -1,9 +1,9 @@
 {
-  "foreground": "#d4be98",
-  "background": "#282828",
-  "accent": "#7daea3",
-  "mantle": "#1d2021",
-  "urgent": "#ea6962",
+  "foreground": "#f8f8f2",
+  "background": "#0a0e19",
+  "accent": "#8be9fd",
+  "mantle": "#080a12",
+  "urgent": "#ff5555",
   "iconTheme": "evo-current",
   "fontFamily": "CaskaydiaMono Nerd Font",
   "fontPixelSize": 13

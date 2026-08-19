@@ -29,18 +29,20 @@
             "exec": "~/.local/bin/evo-bar-weather",
             "interval": 1800,
             "onHover": "evo.weather",
-            "onClickRight": "xdg-open https://weather.metoffice.gov.uk/forecast/gcqvn6pq4"
+            "onClick": "~/.local/bin/evo-weather open",
+            "onClickRight": "~/.local/bin/evo-weather open"
           },
           "cursor": {
             "type": "command",
             "exec": "~/.local/bin/evo-bar-cursor",
             "interval": 300,
-            "onHover": "evo.cursor"
+            "onHover": "evo.cursor",
+            "onClick": "~/.local/bin/evo-cursor open"
           },
           "github": {
             "interval": 300,
             "onHover": "evo.github",
-            "onClick": "xdg-open https://github.com/sebday"
+            "onClick": "brave --class=brave-github --new-window https://github.com/sebday"
           },
           "stocks": {
             "onHover": "evo.stocks"
@@ -61,6 +63,7 @@
             "interval": 2,
             "transmissionInterval": 3,
             "onHover": "evo.network",
+            "onClick": "~/.local/bin/evo-ipc shell summon evo.transmission.add \"\"",
             "iconOnly": true
           }
         }

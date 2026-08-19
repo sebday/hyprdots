@@ -137,6 +137,7 @@ Item {
     }
 
     function openMixer() {
+        Util.dismissHoverPopupFromBar(shell, volumeHoverPopupId)
         if (settings.onClickRight)
             Quickshell.execDetached(["bash", "-lc", String(settings.onClickRight)])
         else
@@ -144,6 +145,7 @@ Item {
     }
 
     function openAlsamixer() {
+        Util.dismissHoverPopupFromBar(shell, volumeHoverPopupId)
         if (settings.onClick)
             Quickshell.execDetached(["bash", "-lc", String(settings.onClick)])
         else
@@ -151,6 +153,7 @@ Item {
     }
 
     function openMediaLibrary() {
+        Util.dismissHoverPopupFromBar(shell, mediaHoverPopupId)
         if (shell) {
             shell.toggle("evo.library", "")
             return
@@ -159,17 +162,23 @@ Item {
     }
 
     function handleCavaClick(mouse) {
-        if (mouse.button === Qt.RightButton)
+        if (mouse.button === Qt.RightButton) {
+            if (Util.pinHoverPopupFromBarIfActive(shell, volumeHoverPopupId))
+                return
             openMixer()
-        else
-            openAlsamixer()
+            return
+        }
+        openAlsamixer()
     }
 
     function handleVolumeClick(mouse) {
-        if (mouse.button === Qt.RightButton)
+        if (mouse.button === Qt.RightButton) {
+            if (Util.pinHoverPopupFromBarIfActive(shell, volumeHoverPopupId))
+                return
             openMixer()
-        else
-            openAlsamixer()
+            return
+        }
+        openAlsamixer()
     }
 
     function setMediaHoverPopup(active) {
@@ -260,14 +269,22 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
 
             MouseArea {
+                id: mediaMouseArea
                 anchors.fill: parent
                 anchors.margins: -6
                 hoverEnabled: true
-                acceptedButtons: Qt.LeftButton
+                acceptedButtons: Qt.LeftButton | Qt.RightButton
                 cursorShape: Qt.PointingHandCursor
                 onContainsMouseChanged: root.setMediaHoverPopup(containsMouse)
-                onClicked: root.openMediaLibrary()
+                onClicked: function(mouse) {
+                    if (mouse.button === Qt.RightButton) {
+                        Util.pinHoverPopupFromBarIfActive(root.shell, root.mediaHoverPopupId)
+                        return
+                    }
+                    root.openMediaLibrary()
+                }
             }
+
         }
 
         Item {
@@ -302,13 +319,16 @@ Item {
             }
 
             MouseArea {
+                id: cavaMouseArea
                 enabled: !root.trayMode
                 anchors.fill: parent
+                hoverEnabled: true
                 acceptedButtons: Qt.LeftButton | Qt.RightButton
                 cursorShape: Qt.PointingHandCursor
                 onWheel: function(wheel) { root.handleWheel(wheel) }
                 onClicked: function(mouse) { root.handleCavaClick(mouse) }
             }
+
         }
 
         Text {
@@ -322,6 +342,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
 
             MouseArea {
+                id: volumeMouseArea
                 anchors.fill: parent
                 anchors.margins: -6
                 hoverEnabled: true
@@ -331,6 +352,7 @@ Item {
                 onWheel: function(wheel) { root.handleWheel(wheel) }
                 onClicked: function(mouse) { root.handleVolumeClick(mouse) }
             }
+
         }
     }
 
@@ -346,6 +368,7 @@ Item {
         font.bold: Theme.fontBold
 
         MouseArea {
+            id: trayVolumeMouseArea
             anchors.fill: parent
             hoverEnabled: true
             acceptedButtons: Qt.LeftButton | Qt.RightButton
@@ -355,4 +378,5 @@ Item {
             onClicked: function(mouse) { root.handleVolumeClick(mouse) }
         }
     }
+
 }

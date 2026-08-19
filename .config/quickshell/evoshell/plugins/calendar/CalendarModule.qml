@@ -45,6 +45,9 @@ Item {
     readonly property int hintFont: Theme.fontSizeL
     readonly property int bodyFont: Theme.fontSize3xl
     readonly property int titleFont: Theme.fontSize2xl
+    readonly property string calendarLegendLabel: "Calendar"
+    readonly property string calendarLegendLogo: "https://www.google.com/s2/favicons?domain=calendar.google.com&sz=32"
+    readonly property string calendarLegendIcon: "󰃭"
 
     function onActivated() {
         today = new Date()
@@ -98,6 +101,64 @@ Item {
             label: ""
             Layout.fillWidth: true
             sectionSpacing: 10
+            contentPad: Theme.hoverPopupContentPad
+
+            Item {
+                id: calendarLegend
+                property bool fieldsetLegend: true
+                property color fieldsetFill: Theme.mantle
+
+                implicitWidth: legendBg.implicitWidth
+                implicitHeight: legendBg.implicitHeight
+
+                Rectangle {
+                    id: legendBg
+                    color: calendarLegend.fieldsetFill
+                    implicitWidth: legendRow.implicitWidth + 10
+                    implicitHeight: legendRow.implicitHeight
+
+                    RowLayout {
+                        id: legendRow
+                        anchors.centerIn: parent
+                        spacing: 5
+
+                        Item {
+                            Layout.preferredWidth: 14
+                            Layout.preferredHeight: 14
+
+                            Image {
+                                id: calendarLegendLogoImage
+                                anchors.fill: parent
+                                source: root.calendarLegendLogo
+                                fillMode: Image.PreserveAspectFit
+                                smooth: true
+                                asynchronous: true
+                                visible: source !== "" && status === Image.Ready
+                            }
+
+                            Text {
+                                anchors.centerIn: parent
+                                visible: !calendarLegendLogoImage.visible
+                                text: root.calendarLegendIcon
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSizeS
+                                font.bold: Theme.fontBold
+                                opacity: 0.85
+                            }
+                        }
+
+                        Text {
+                            text: root.calendarLegendLabel
+                            color: Theme.foreground
+                            opacity: 0.72
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeS
+                            font.bold: Theme.fontBold
+                        }
+                    }
+                }
+            }
 
             Text {
                 Layout.fillWidth: true

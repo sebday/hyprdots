@@ -2,6 +2,7 @@ import Quickshell
 import QtQuick
 import QtQuick.Layouts
 import "../../Commons"
+import "."
 import "Api.js" as Api
 import "Model.js" as Model
 
@@ -13,6 +14,21 @@ Item {
     property int hoverPopupWidth: 0
 
     readonly property var cf: shell ? shell.serviceFor("evo.cloudflare") : null
+    readonly property string accountLegendLabel: {
+        if (!cf)
+            return "day.marketing"
+        void cf.accountName
+        void cf.accountId
+        if (cf.accountName !== "")
+            return cf.accountName
+        return "day.marketing"
+    }
+    readonly property string accountLegendLogo: {
+        var host = root.accountLegendLabel
+        if (!host || host.indexOf(".") < 0)
+            return ""
+        return "https://www.google.com/s2/favicons?domain=" + encodeURIComponent(host) + "&sz=32"
+    }
     readonly property int bodyFont: Theme.fontSize3xl
     readonly property int hintFont: Theme.fontSizeL
     readonly property int titleFont: Theme.fontSize2xl
@@ -20,18 +36,80 @@ Item {
     readonly property int activityTextBlockHeight: root.statFont + root.activityRowSpacing + root.hintFont
     readonly property int activityRowIconSize: root.activityTextBlockHeight + 6
     readonly property int statFont: Theme.fontSizeXl
+    readonly property int recentTitleFont: Theme.fontSizeL
 
     property double nowMs: Date.now()
 
     readonly property var rows: {
         if (!cf)
             return []
-        var touch = cf.lastRefreshMs + Number(cf.analytics.loaded) + cf.workers.length
-        void touch
+        void cf.lastRefreshMs
+        void cf.loggedIn
+        void cf.accountId
+        void cf.refreshing
+        void cf.analyticsRefreshing
+        void cf.workers.length
+        void cf.pages.length
+        void cf.buckets.length
+        void cf.databases.length
+        void cf.namespaces.length
+        void cf.queues.length
+        void cf.zones.length
+        void cf.analytics.loaded
+        void cf.analytics.workerRequests
+        void cf.analytics.workerErrors
+        void cf.analytics.r2Bytes
+        void cf.analytics.d1RowsRead
         return buildRows()
     }
 
-    readonly property var groupedSections: groupedSectionsFromRows()
+    readonly property var groupedSections: {
+        var sourceRows = root.rows
+        void sourceRows.length
+        return groupedSectionsFromRows(sourceRows)
+    }
+
+    readonly property var usageSection: {
+        var sections = root.groupedSections
+        void sections.length
+        for (var i = 0; i < sections.length; i++) {
+            if (String(sections[i].title || "").toUpperCase() === "USAGE")
+                return sections[i]
+        }
+        return { title: "USAGE", rows: [] }
+    }
+
+    readonly property var resourcesSection: {
+        var sections = root.groupedSections
+        void sections.length
+        for (var i = 0; i < sections.length; i++) {
+            if (String(sections[i].title || "").toUpperCase() === "RESOURCES")
+                return sections[i]
+        }
+        return { title: "RESOURCES", rows: [] }
+    }
+
+    readonly property var attentionSection: {
+        var sections = root.groupedSections
+        void sections.length
+        for (var i = 0; i < sections.length; i++) {
+            if (String(sections[i].title || "").toUpperCase() === "NEEDS ATTENTION")
+                return sections[i]
+        }
+        return { title: "NEEDS ATTENTION", rows: [] }
+    }
+
+    readonly property var recentGroupedSection: {
+        var sections = root.groupedSections
+        void sections.length
+        for (var i = 0; i < sections.length; i++) {
+            if (String(sections[i].title || "").toUpperCase() === "RECENT ACTIVITY")
+                return sections[i]
+        }
+        return { title: "", rows: [] }
+    }
+
+    readonly property bool contentReady: !cf || cf.lastRefreshMs > 0 || cf.lastError !== ""
 
     implicitHeight: column.implicitHeight
 
@@ -48,7 +126,8 @@ Item {
         })
     }
 
-    function groupedSectionsFromRows() {
+    function groupedSectionsFromRows(sourceRows) {
+        var rows = sourceRows || []
         var out = []
         var currentKey = null
         var current = null
@@ -330,6 +409,7 @@ Item {
     component ActivityLine: Item {
         id: activityLine
         property var row: ({})
+        property int titleFont: root.statFont
 
         Layout.fillWidth: true
         implicitHeight: content.implicitHeight
@@ -380,9 +460,9 @@ Item {
                     text: root.rowTitle(row)
                     color: row.alarming ? Theme.urgent : Theme.foreground
                     font.family: Theme.fontFamily
-                    font.pixelSize: root.statFont
+                    font.pixelSize: activityLine.titleFont
                     font.bold: Theme.fontBold
-                    lineHeight: root.statFont
+                    lineHeight: activityLine.titleFont
                     lineHeightMode: Text.FixedHeight
                     elide: Text.ElideRight
                     maximumLineCount: 1
@@ -461,16 +541,54 @@ Item {
             label: ""
             sectionSpacing: 8
             contentPad: Theme.hoverPopupContentPad
+            legendBackground: Theme.mantle
 
-            HoverPopupHeader {
+            HoverPopupLabelPill {
+                text: root.accountLegendLabel
+                iconUrl: root.accountLegendLogo
+                icon: "󰠞"
+                fontSize: Theme.fontSizeS
+            }
+
+            GridLayout {
                 Layout.fillWidth: true
-                iconFallback: "󰠞"
-                titleFont: root.titleFont
-                detailFont: root.hintFont
-                value: {
-                    if (!cf)
-                        return "Cloudflare\nLoading…"
-                    return cf.accountName !== "" ? cf.accountName : "Cloudflare"
+                columns: 2
+                columnSpacing: 8
+                rowSpacing: 8
+                visible: root.usageSection.rows.length > 0
+
+                Repeater {
+                    model: root.usageSection.rows
+
+                    HoverPopupStatBox {
+                        required property var modelData
+                        value: root.statValue(modelData)
+                        label: root.statLabel(modelData)
+                        valueColor: root.statValueColor(modelData)
+                        clickable: root.rowClickable(modelData)
+                        onClicked: root.openRow(modelData)
+                    }
+                }
+            }
+
+            GridLayout {
+                Layout.fillWidth: true
+                columns: 3
+                columnSpacing: 8
+                rowSpacing: 8
+                visible: root.resourcesSection.rows.length > 0
+
+                Repeater {
+                    model: root.resourcesSection.rows
+
+                    HoverPopupStatBox {
+                        required property var modelData
+                        value: root.statValue(modelData)
+                        label: root.statLabel(modelData)
+                        valueColor: root.statValueColor(modelData)
+                        clickable: root.rowClickable(modelData)
+                        onClicked: root.openRow(modelData)
+                    }
                 }
             }
 
@@ -487,59 +605,54 @@ Item {
             }
         }
 
-        Repeater {
-            model: root.groupedSections
+        SectionPanel {
+            Layout.fillWidth: true
+            visible: root.attentionSection.rows.length > 0
+            label: root.sectionLabel(root.attentionSection.title)
+            sectionSpacing: 8
+            contentPad: Theme.hoverPopupContentPad
+            legendBackground: Theme.mantle
 
-            Item {
-                required property var modelData
+            ColumnLayout {
                 Layout.fillWidth: true
-                visible: modelData.rows.length > 0
-                implicitHeight: root.sectionUsesStatGrid(modelData.title)
-                    ? statGrid.implicitHeight
-                    : activitySection.implicitHeight
+                spacing: Theme.spacingM
 
-                GridLayout {
-                    id: statGrid
-                    width: parent.width
-                    columns: root.sectionStatColumns(modelData.title)
-                    columnSpacing: 8
-                    rowSpacing: 8
-                    visible: root.sectionUsesStatGrid(modelData.title)
+                Repeater {
+                    model: root.attentionSection.rows
 
-                    Repeater {
-                        model: modelData.rows
-
-                        HoverPopupStatBox {
-                            required property var modelData
-                            value: root.statValue(modelData)
-                            label: root.statLabel(modelData)
-                            valueColor: root.statValueColor(modelData)
-                            clickable: root.rowClickable(modelData)
-                            onClicked: root.openRow(modelData)
-                        }
+                    ActivityLine {
+                        required property var modelData
+                        row: modelData
                     }
                 }
+            }
+        }
 
-                SectionPanel {
-                    id: activitySection
-                    width: parent.width
-                    visible: !root.sectionUsesStatGrid(modelData.title)
-                    label: root.sectionLabel(modelData.title)
-                    sectionSpacing: 8
-                    contentPad: Theme.hoverPopupContentPad
+        SectionPanel {
+            Layout.fillWidth: true
+            label: ""
+            visible: root.recentGroupedSection.rows.length > 0
+            sectionSpacing: 8
+            contentPad: Theme.hoverPopupContentPad
+            legendBackground: Theme.mantle
 
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: Theme.spacingM
+            HoverPopupLabelPill {
+                text: "Recent"
+                icon: "󰋚"
+                fontSize: Theme.fontSizeS
+            }
 
-                        Repeater {
-                            model: modelData.rows
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: Theme.spacingM
 
-                            ActivityLine {
-                                required property var modelData
-                                row: modelData
-                            }
-                        }
+                Repeater {
+                    model: root.recentGroupedSection.rows
+
+                    ActivityLine {
+                        required property var modelData
+                        row: modelData
+                        titleFont: root.recentTitleFont
                     }
                 }
             }
@@ -547,8 +660,19 @@ Item {
 
         Text {
             Layout.fillWidth: true
-            visible: cf && cf.loggedIn && root.rows.length === 0
-            text: cf && cf.busy ? "Loading…" : "No data"
+            visible: cf && cf.lastError !== "" && root.rows.length === 0
+            text: cf.lastError
+            color: Theme.urgent
+            font.family: Theme.fontFamily
+            font.pixelSize: root.hintFont
+            wrapMode: Text.WordWrap
+            horizontalAlignment: Text.AlignHCenter
+        }
+
+        Text {
+            Layout.fillWidth: true
+            visible: cf && cf.lastError === "" && root.rows.length === 0
+            text: cf && cf.busy ? "Loading…" : (cf && cf.loggedIn ? "No data" : "Not logged in")
             color: Theme.foreground
             opacity: Theme.opacityMuted
             font.family: Theme.fontFamily

@@ -161,6 +161,14 @@ Item {
             }
         }
 
+        MouseArea {
+            anchors.fill: revealHost
+            z: 50
+            acceptedButtons: Qt.RightButton
+            enabled: root.opened && root.revealed
+            onClicked: root.pinPressed()
+        }
+
         Shortcut {
             sequence: "Meta+Space"
             enabled: root.opened && root.revealed && root.keyboardFocusEnabled
@@ -176,13 +184,6 @@ Item {
             enabled: root.opened && root.revealed && root.keyboardFocusEnabled
             context: Qt.WindowShortcut
             onActivated: root.escapePressed()
-        }
-
-        Shortcut {
-            sequence: "P"
-            enabled: root.opened && root.revealed && root.keyboardFocusEnabled
-            context: Qt.WindowShortcut
-            onActivated: root.pinPressed()
         }
     }
 }

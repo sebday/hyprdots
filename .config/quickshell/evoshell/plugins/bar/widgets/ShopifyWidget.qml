@@ -172,11 +172,20 @@ Item {
     }
 
     MouseArea {
+        id: shopMouseArea
         anchors.fill: parent
         hoverEnabled: true
         cursorShape: (root.settings.onClick || root.hoverPopupId) ? Qt.PointingHandCursor : Qt.ArrowCursor
-        onClicked: if (root.settings.onClick)
-            Quickshell.execDetached(["bash", "-lc", String(root.settings.onClick)])
+        onClicked: function(mouse) {
+            if (mouse.button === Qt.RightButton) {
+                Util.pinHoverPopupFromBarIfActive(root.shell, root.hoverPopupId)
+                return
+            }
+            if (root.settings.onClick) {
+                Util.dismissHoverPopupFromBar(root.shell, root.hoverPopupId)
+                Quickshell.execDetached(["bash", "-lc", String(root.settings.onClick)])
+            }
+        }
     }
 
     Timer {

@@ -225,11 +225,13 @@ Singleton {
     readonly property int panelContentPad: 10
     readonly property int panelDockPad: panelContentPad + spacingS
     readonly property int hoverPopupMargin: 16
+    readonly property int hoverPopupTopPad: hoverPopupMargin - 10
     readonly property int hoverPopupBorderWidth: 2
     readonly property int hoverPopupRevealDuration: 180
     readonly property int hoverPopupRevealOffset: 10
     readonly property int hoverPopupRevealMaxWait: 200
     readonly property int barHoverTopPad: 20
+    readonly property int barHoverContentTopPad: barHoverTopPad - 10
     readonly property int overlayWidthDefault: hoverPopupWidthStandard
     readonly property int overlayMargin: hoverPopupMargin
     readonly property int screenEdgeInset: barHoverTopPad
@@ -241,6 +243,7 @@ Singleton {
     readonly property int barSectionGap: 14
     readonly property int sparklineGap: 6
     readonly property int sparklineChartMargin: 10
+    readonly property int hoverPopupChartPadH: sparklineChartMargin + spacingS
     readonly property int sparklineHeight: 12
     readonly property int sparklineWideBarWidth: 8
     readonly property int sparklineCellSize: 7

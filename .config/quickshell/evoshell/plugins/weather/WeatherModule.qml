@@ -19,23 +19,13 @@ Item {
     readonly property bool active: host && host.opened === true
     readonly property var barSource: host && host.shell ? host.shell.popupAnchorItem : null
 
-    readonly property int primaryStatFont: Theme.fontSize6xl
-    readonly property int outlookStatFont: Theme.fontSize4xl
-    readonly property int outlookIconFont: Theme.fontSize3xl
     readonly property int bodyFont: Theme.fontSize3xl
     readonly property int hintFont: Theme.fontSizeL
     readonly property int chartAxisFont: Theme.fontSizeS
-    readonly property int sectionSpacing: 6
-    readonly property int statBoxPad: 14
-    readonly property int statBoxMinHeight: root.statBoxPad * 2
-        + Theme.fontSizeS + 8
-        + Math.max(root.outlookIconFont, root.outlookStatFont)
-        + root.hintFont
-        + root.sectionSpacing * 2
-        + 10
     readonly property int chartHeight: 150
     readonly property int chartLabelPad: 4
     readonly property int chartBottomPad: 22
+    readonly property int weeklyBandWidth: 3
 
     property var weather: ({})
     property bool loading: false
@@ -51,10 +41,6 @@ Item {
     readonly property string statusText: loading
         ? "Loading…"
         : (weatherOk && current ? String(current.label || "") : String(weather.error || "Unavailable"))
-
-    readonly property string currentIcon: current ? String(current.icon || "󰖐") : "󰖐"
-    readonly property string currentTemp: loading ? "…" : (current ? String(current.temp) + "°" : "—")
-    readonly property string currentLabel: weatherOk && current ? String(current.label || "") : ""
 
     readonly property var outlookDays: {
         var titles = ["Today", "Tomorrow"]
@@ -205,6 +191,15 @@ Item {
 
     readonly property int todayCode: root.daily.length > 0 ? (Number(root.daily[0].code) || 0) : 0
     readonly property int tomorrowCode: root.daily.length > 1 ? (Number(root.daily[1].code) || 0) : 0
+    readonly property int currentCode: root.current ? (Number(root.current.code) || 0) : 0
+    readonly property string currentTemp: {
+        if (!root.current || root.current.temp === undefined)
+            return "—"
+        return String(Math.round(Number(root.current.temp))) + "°"
+    }
+    readonly property string currentIcon: root.current && root.current.icon
+        ? String(root.current.icon)
+        : "󰖐"
 
     function tempColor(temp) {
         return Format.tempColor(temp)
@@ -271,204 +266,7 @@ Item {
     }
 
     function openMetOffice() {
-        if (!metOfficeUrl)
-            return
-        Quickshell.execDetached(["bash", "-lc", "xdg-open " + Util.shellQuote(metOfficeUrl)])
-    }
-
-    component OutlookStatColumn: ColumnLayout {
-        id: col
-        Layout.fillWidth: true
-        Layout.minimumWidth: 0
-        spacing: root.sectionSpacing
-
-        property string colTitle: ""
-        property string colIcon: ""
-        property string colValue: ""
-        property string colDetail: ""
-        property color colValueColor: Theme.foreground
-        property color colAccent: Theme.accent
-
-        HoverPopupLabelPill {
-            text: col.colTitle
-            fontSize: Theme.fontSizeS
-            fill: Qt.rgba(col.colAccent.r, col.colAccent.g, col.colAccent.b, 0.12)
-            textColor: col.colAccent
-        }
-
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 6
-
-            Text {
-                visible: col.colIcon !== ""
-                text: col.colIcon
-                color: col.colAccent
-                font.family: Theme.fontFamily
-                font.pixelSize: root.outlookIconFont
-                font.bold: Theme.fontBold
-            }
-
-            Text {
-                Layout.fillWidth: true
-                text: col.colValue
-                color: col.colValueColor
-                font.family: Theme.fontFamily
-                font.pixelSize: root.outlookStatFont
-                font.bold: Theme.fontBold
-                wrapMode: Text.NoWrap
-                maximumLineCount: 1
-                minimumPixelSize: Theme.fontSizeL
-                fontSizeMode: Text.Fit
-            }
-        }
-
-        Text {
-            Layout.fillWidth: true
-            visible: col.colDetail !== ""
-            text: col.colDetail
-            color: Theme.foreground
-            font.family: Theme.fontFamily
-            font.pixelSize: root.hintFont
-            opacity: Theme.opacityMuted
-            elide: Text.ElideRight
-            maximumLineCount: 1
-        }
-    }
-
-    component OutlookStatCard: Item {
-        id: card
-        property color accentColor: Theme.accent
-        property string cornerIcon: ""
-        property bool linkable: false
-
-        signal linkActivated()
-
-        default property alias content: body.data
-
-        Layout.fillWidth: true
-        Layout.minimumWidth: 0
-        implicitHeight: root.statBoxMinHeight
-        clip: true
-
-        Rectangle {
-            anchors.fill: parent
-            radius: Theme.fieldsetCornerRadius
-            color: Theme.panelMantle
-            clip: true
-        }
-
-        Rectangle {
-            anchors.left: parent.left
-            anchors.top: parent.top
-            anchors.bottom: parent.bottom
-            width: 3
-            color: card.accentColor
-            opacity: 0.75
-        }
-
-        Text {
-            anchors.right: parent.right
-            anchors.bottom: parent.bottom
-            anchors.rightMargin: 6
-            anchors.bottomMargin: -2
-            visible: card.cornerIcon !== ""
-            text: card.cornerIcon
-            color: card.accentColor
-            font.family: Theme.fontFamily
-            font.pixelSize: 30
-            opacity: 0.05
-        }
-
-        Item {
-            id: body
-            anchors.fill: parent
-            anchors.leftMargin: 15
-            anchors.margins: root.statBoxPad
-            z: 1
-        }
-
-        MouseArea {
-            anchors.fill: parent
-            visible: card.linkable
-            cursorShape: Qt.PointingHandCursor
-            onClicked: card.linkActivated()
-        }
-    }
-
-    component OutlookStatBox: OutlookStatCard {
-        id: outlook
-        property string boxTitle: ""
-        property string boxIcon: ""
-        property string boxValue: ""
-        property string boxDetail: ""
-        property color boxValueColor: Theme.foreground
-        property int moodCode: 0
-
-        readonly property var mood: root.weatherStyle(outlook.moodCode)
-
-        accentColor: outlook.mood.accent
-        cornerIcon: outlook.boxIcon
-        Layout.preferredWidth: 1
-
-        OutlookStatColumn {
-            anchors.fill: parent
-            colTitle: outlook.boxTitle
-            colIcon: outlook.boxIcon
-            colValue: outlook.boxValue
-            colDetail: outlook.boxDetail
-            colValueColor: outlook.boxValueColor
-            colAccent: outlook.mood.accent
-        }
-    }
-
-    component NowTodayStatBox: OutlookStatCard {
-        id: nowToday
-        property int nowMoodCode: 0
-        property int todayMoodCode: 0
-
-        readonly property var nowMood: root.weatherStyle(nowToday.nowMoodCode)
-        readonly property var todayMood: root.weatherStyle(nowToday.todayMoodCode)
-
-        accentColor: nowToday.nowMood.accent
-        cornerIcon: root.currentIcon
-        linkable: root.metOfficeUrl !== ""
-        Layout.preferredWidth: 2
-        onLinkActivated: root.openMetOffice()
-
-        RowLayout {
-            anchors.fill: parent
-            spacing: 8
-
-            OutlookStatColumn {
-                colTitle: "Now"
-                colIcon: root.currentIcon
-                colValue: root.currentTemp
-                colValueColor: root.current
-                    ? root.tempColor(root.current.temp)
-                    : Theme.foreground
-                colDetail: root.currentLabel
-                colAccent: nowToday.nowMood.accent
-            }
-
-            Rectangle {
-                Layout.preferredWidth: 1
-                Layout.fillHeight: true
-                Layout.topMargin: 2
-                Layout.bottomMargin: 2
-                color: Theme.foregroundBorder
-                opacity: 0.35
-            }
-
-            OutlookStatColumn {
-                visible: root.todayOutlook !== null
-                colTitle: "Today"
-                colIcon: root.todayOutlook ? root.todayOutlook.icon : ""
-                colValue: root.todayOutlook ? root.todayOutlook.range : ""
-                colDetail: root.todayOutlook ? root.todayOutlook.label : ""
-                colAccent: nowToday.todayMood.accent
-            }
-        }
+        Quickshell.execDetached(["bash", "-lc", Quickshell.env("HOME") + "/.local/bin/evo-weather open"])
     }
 
     ColumnLayout {
@@ -502,51 +300,74 @@ Item {
             }
         }
 
-        RowLayout {
+        SectionPanel {
+            label: ""
             Layout.fillWidth: true
-            spacing: Theme.spacingL
-            clip: true
             visible: root.weatherOk && !root.loading
 
-            NowTodayStatBox {
-                Layout.fillWidth: true
-                Layout.minimumWidth: 0
-                Layout.preferredWidth: 2
-                nowMoodCode: root.current ? (Number(root.current.code) || root.todayCode) : root.todayCode
-                todayMoodCode: root.todayCode
+            HoverPopupLabelPill {
+                text: "Outlook"
+                icon: "󰖐"
+                fontSize: Theme.fontSizeS
             }
 
-            OutlookStatBox {
+            GridLayout {
                 Layout.fillWidth: true
-                Layout.minimumWidth: 0
-                Layout.preferredWidth: 1
-                visible: root.tomorrowOutlook !== null
-                boxTitle: root.tomorrowOutlook ? root.tomorrowOutlook.title : ""
-                boxIcon: root.tomorrowOutlook ? root.tomorrowOutlook.icon : ""
-                boxValue: root.tomorrowOutlook ? root.tomorrowOutlook.range : ""
-                boxDetail: root.tomorrowOutlook ? root.tomorrowOutlook.label : ""
-                moodCode: root.tomorrowCode
+                columns: 3
+                columnSpacing: Theme.spacingM
+
+                HoverPopupStatBox {
+                    visible: root.current !== null
+                    clickable: root.metOfficeUrl !== ""
+                    onClicked: root.openMetOffice()
+                    icon: root.currentIcon
+                    iconColor: root.weatherStyle(root.currentCode).accent
+                    value: root.loading ? "…" : root.currentTemp
+                    label: "now"
+                    valueColor: root.weatherStyle(root.currentCode).accent
+                }
+
+                HoverPopupStatBox {
+                    visible: root.todayOutlook !== null
+                    clickable: root.metOfficeUrl !== ""
+                    onClicked: root.openMetOffice()
+                    icon: root.todayOutlook ? root.todayOutlook.icon : ""
+                    iconColor: root.weatherStyle(root.todayCode).accent
+                    value: root.todayOutlook ? root.todayOutlook.range : "—"
+                    label: "today"
+                    valueColor: root.weatherStyle(root.todayCode).accent
+                }
+
+                HoverPopupStatBox {
+                    visible: root.tomorrowOutlook !== null
+                    icon: root.tomorrowOutlook ? root.tomorrowOutlook.icon : ""
+                    iconColor: root.weatherStyle(root.tomorrowCode).accent
+                    value: root.tomorrowOutlook ? root.tomorrowOutlook.range : "—"
+                    label: "tomorrow"
+                    valueColor: root.weatherStyle(root.tomorrowCode).accent
+                }
             }
         }
 
         SectionPanel {
             label: ""
-            visible: root.weatherOk && !root.loading
-                && (root.hourly.length > 0 || root.weekDays.length > 0)
+            Layout.fillWidth: true
+            visible: root.weatherOk && !root.loading && root.hourly.length > 0
+
+            HoverPopupLabelPill {
+                text: "Today"
+                icon: "󰃭"
+                fontSize: Theme.fontSizeS
+            }
 
             ColumnLayout {
                 Layout.fillWidth: true
-                spacing: Theme.hoverPopupSectionSpacing
+                spacing: 0
 
-                ColumnLayout {
+                Item {
+                    id: hourlyChartHost
                     Layout.fillWidth: true
-                    spacing: 0
-                    visible: root.hourly.length > 0
-
-                    Item {
-                        id: hourlyChartHost
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: root.chartHeight + root.chartBottomPad
+                    Layout.preferredHeight: root.chartHeight + root.chartBottomPad
 
                         Text {
                             id: hourlyMaxLabel
@@ -700,7 +521,7 @@ Item {
                                 height: sunMarkerColumn.implicitHeight
                                 x: root.sunXOnChart(modelData.time, hourlyChartHost.width) - width / 2
                                 anchors.top: hourlyChart.bottom
-                                anchors.topMargin: 3
+                                anchors.topMargin: -11
                                 z: 2
 
                                 Column {
@@ -752,15 +573,26 @@ Item {
                         }
                     }
                 }
+            }
 
-                ColumnLayout {
+        SectionPanel {
+            label: ""
+            Layout.fillWidth: true
+            visible: root.weatherOk && !root.loading && root.weekDays.length > 0
+
+            HoverPopupLabelPill {
+                text: "7 days"
+                icon: "󰙹"
+                fontSize: Theme.fontSizeS
+            }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 0
+
+                Item {
                     Layout.fillWidth: true
-                    spacing: 0
-                    visible: root.weekDays.length > 0
-
-                    Item {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: root.chartHeight
+                    Layout.preferredHeight: root.chartHeight
 
                         Text {
                             id: weeklyMaxLabel
@@ -824,7 +656,7 @@ Item {
                                         ctx.moveTo(bx, byMax)
                                         ctx.lineTo(bx, byMin)
                                         ctx.strokeStyle = Qt.rgba(bandColor.r, bandColor.g, bandColor.b, 0.35)
-                                        ctx.lineWidth = 6
+                                        ctx.lineWidth = root.weeklyBandWidth
                                         ctx.lineCap = "round"
                                         ctx.stroke()
                                     }
@@ -908,4 +740,3 @@ Item {
             }
         }
     }
-}

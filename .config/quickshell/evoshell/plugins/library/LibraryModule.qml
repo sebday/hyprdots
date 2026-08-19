@@ -90,6 +90,10 @@ Item {
         pendingOpenShow = payload.show ? String(payload.show) : ""
         if (pendingOpenShow)
             browseTab = "shows"
+        else if (payload.tab === "films")
+            browseTab = "films"
+        else if (payload.tab === "shows")
+            browseTab = "shows"
         searchQuery = ""
         screen = "browse"
         episodes = []
@@ -232,6 +236,7 @@ Item {
             var film = filmsSrc[i] || {}
             filmsOut.push({
                 section: "films",
+                id: film.id,
                 title: film.title,
                 name: film.title,
                 year: film.year,
@@ -255,6 +260,7 @@ Item {
                 continue
             showsOut.push({
                 section: "shows",
+                id: show.id,
                 title: show.name,
                 name: show.name,
                 path: show.path,
@@ -314,18 +320,34 @@ Item {
         return path ? Util.fileUrl(path) : ""
     }
 
+    function playItem(item) {
+        if (!item)
+            return
+        if (item.id) {
+            var kind = root.screen === "episodes" ? "episode" : "film"
+            Quickshell.execDetached(["bash", root.script, "play", kind, String(item.id)])
+        } else if (item.path) {
+            Quickshell.execDetached(["mpv", "--fullscreen", "--force-window=immediate", "--really-quiet", String(item.path)])
+        }
+        if (host)
+            host.dismiss()
+    }
+
     function playPath(path) {
-        if (!path) return
-        Quickshell.execDetached(["mpv", "--fs", "--really-quiet", String(path)])
-        if (host) host.dismiss()
+        if (!path)
+            return
+        Quickshell.execDetached(["mpv", "--fullscreen", "--force-window=immediate", "--really-quiet", String(path)])
+        if (host)
+            host.dismiss()
     }
 
     function activateItem(item) {
-        if (!item) return
+        if (!item)
+            return
         if (item.section === "shows")
             openShow(item)
         else
-            playPath(item.path)
+            playItem(item)
     }
 
     function rememberEpisodes(name, items) {

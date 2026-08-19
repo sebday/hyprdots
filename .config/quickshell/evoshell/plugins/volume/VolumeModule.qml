@@ -216,8 +216,14 @@ Item {
         spacing: Theme.hoverPopupSectionSpacing
 
         SectionPanel {
-            label: "Volume"
+            label: ""
             visible: !root.sliderOnly
+
+            HoverPopupLabelPill {
+                text: "Volume"
+                icon: SystemVolume.icon(root.systemPercent, root.systemMuted)
+                fontSize: Theme.fontSizeS
+            }
 
             Text {
                 Layout.fillWidth: true
@@ -305,8 +311,14 @@ Item {
         }
 
         SectionPanel {
-            label: "Output"
+            label: ""
             visible: !root.sliderOnly && root.sinkReady
+
+            HoverPopupLabelPill {
+                text: "Output"
+                icon: "󰓃"
+                fontSize: Theme.fontSizeS
+            }
 
             Text {
                 text: root.outputActive

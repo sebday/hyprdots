@@ -177,9 +177,14 @@ Item {
             label: ""
             visible: !root.loading && root.headerValue !== ""
 
+            HoverPopupLabelPill {
+                text: "System"
+                icon: "󰍛"
+                fontSize: Theme.fontSizeS
+            }
+
             HoverPopupHeader {
                 Layout.fillWidth: true
-                iconFallback: "󰍛"
                 value: root.headerValue
             }
         }
@@ -187,6 +192,12 @@ Item {
         SectionPanel {
             label: ""
             visible: !root.loading
+
+            HoverPopupLabelPill {
+                text: "Resources"
+                icon: "󰘚"
+                fontSize: Theme.fontSizeS
+            }
 
             RowLayout {
                 Layout.fillWidth: true
@@ -202,6 +213,7 @@ Item {
                         textColor: modelData.color
                         fill: Theme.withOpacity(modelData.color, 0.14)
                         textOpacity: 1
+                        fieldsetLegend: false
                     }
                 }
 
@@ -212,6 +224,12 @@ Item {
         SectionPanel {
             label: ""
             visible: !root.loading && root.detailLines.length > 0
+
+            HoverPopupLabelPill {
+                text: "Details"
+                icon: "󰋼"
+                fontSize: Theme.fontSizeS
+            }
 
             ColumnLayout {
                 Layout.fillWidth: true

@@ -6,14 +6,19 @@ Item {
 
     property string value: ""
     property string label: ""
+    property string icon: ""
     property color valueColor: Theme.accent
+    property color iconColor: Theme.foreground
     property bool customFill: false
     property color customFillColor: Theme.panelMantle
     property int valueFontSize: Theme.fontSize5xl
+    property int iconFontSize: Theme.fontSize6xl
     property int labelFontSize: Theme.fontSizeS
     property int contentPad: Theme.panelContentPad
     property bool clickable: false
     property bool special: false
+
+    readonly property bool hasIcon: root.icon !== ""
 
     signal clicked()
 
@@ -37,8 +42,34 @@ Item {
             Layout.fillWidth: true
             spacing: Theme.spacing2
 
+            RowLayout {
+                Layout.alignment: Qt.AlignHCenter
+                visible: root.hasIcon
+                spacing: Theme.spacingS
+
+                Text {
+                    text: root.icon
+                    color: root.iconColor
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.iconFontSize
+                    Layout.alignment: Qt.AlignVCenter
+                    Layout.topMargin: 1
+                }
+
+                Text {
+                    text: root.value
+                    color: root.special ? Theme.accent : root.valueColor
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.valueFontSize
+                    font.bold: Theme.fontBold
+                    elide: Text.ElideRight
+                    Layout.alignment: Qt.AlignVCenter
+                }
+            }
+
             Text {
                 Layout.fillWidth: true
+                visible: !root.hasIcon
                 horizontalAlignment: Text.AlignHCenter
                 text: root.value
                 color: root.special ? Theme.accent : root.valueColor

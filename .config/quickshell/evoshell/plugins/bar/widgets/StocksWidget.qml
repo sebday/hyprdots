@@ -78,4 +78,10 @@ Item {
         cursorShape: Qt.PointingHandCursor
         onContainsMouseChanged: root.setHoverPopup(containsMouse)
     }
+
+    BarHoverPinArea {
+        visible: root.trayMode
+        shell: root.shell
+        popupId: root.hoverPopupId
+    }
 }

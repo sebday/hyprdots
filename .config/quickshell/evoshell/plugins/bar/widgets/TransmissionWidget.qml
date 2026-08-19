@@ -148,6 +148,7 @@ Item {
     }
 
     MouseArea {
+        id: trayMouseArea
         anchors.fill: parent
         visible: root.trayMode
         hoverEnabled: true
@@ -159,6 +160,8 @@ Item {
                 return
             }
             if (mouse.button === Qt.RightButton) {
+                if (Util.pinHoverPopupFromBarIfActive(root.shell, root.hoverPopupId))
+                    return
                 var dir = root.home + "/downloads"
                 Quickshell.execDetached(["xdg-open", dir])
             }
@@ -168,6 +171,12 @@ Item {
     HoverHandler {
         enabled: !root.trayMode && root.hoverPopupId !== "" && root.shell
         onHoveredChanged: root.setHoverPopup(hovered)
+    }
+
+    BarHoverPinArea {
+        visible: !root.trayMode
+        shell: root.shell
+        popupId: root.hoverPopupId
     }
 
     Timer {

@@ -305,10 +305,16 @@ Item {
         width: root.hoverPopupWidth
         spacing: Theme.hoverPopupSectionSpacing
 
-        FramedPanel {
+        SectionPanel {
             Layout.fillWidth: true
             label: ""
             contentPad: Theme.hoverPopupContentPad
+
+            HoverPopupLabelPill {
+                text: "Insync"
+                icon: "󰓦"
+                fontSize: Theme.fontSizeS
+            }
 
             Item {
                 width: parent.width
@@ -318,14 +324,6 @@ Item {
                     id: insyncTopCol
                     width: parent.width
                     spacing: Theme.hoverPopupSectionSpacing
-
-                    HoverPopupHeader {
-                        Layout.fillWidth: true
-                        iconFallback: "󰓦"
-                        titleFont: root.titleFont
-                        detailFont: root.hintFont
-                        value: "Insync"
-                    }
 
                     RowLayout {
                         Layout.fillWidth: true
@@ -346,6 +344,7 @@ Item {
                             textColor: root.statusPillTextColor
                             fill: root.statusPillFill
                             textOpacity: root.errorText || root.isSyncing ? 1 : 0.72
+                            fieldsetLegend: false
                         }
 
                         Item { Layout.fillWidth: true }
@@ -379,6 +378,12 @@ Item {
             contentPad: Theme.hoverPopupContentPad
             visible: root.files.length > 0 || root.filesLoading
                 || (!root.loading && root.errors.length === 0 && !root.errorText)
+
+            HoverPopupLabelPill {
+                text: "Files"
+                icon: "󰉋"
+                fontSize: Theme.fontSizeS
+            }
 
             Item {
                 Layout.fillWidth: true
@@ -474,10 +479,16 @@ Item {
 
         SectionPanel {
             Layout.fillWidth: true
-            label: "Errors"
+            label: ""
             sectionSpacing: 8
             contentPad: Theme.hoverPopupContentPad
             visible: root.errors.length > 0
+
+            HoverPopupLabelPill {
+                text: "Errors"
+                icon: "󰅙"
+                fontSize: Theme.fontSizeS
+            }
 
             ColumnLayout {
                 Layout.fillWidth: true

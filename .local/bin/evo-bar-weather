@@ -14,6 +14,13 @@ EVO_WEATHER_LOCATION="Derby"
 EVO_WEATHER_CACHE_SEC="${EVO_WEATHER_CACHE_SEC:-1800}"
 MET_OFFICE_URL="https://weather.metoffice.gov.uk/forecast/gcqvn6pq4"
 
+if settings="$(~/.local/bin/evo-weather settings get 2>/dev/null)"; then
+    EVO_WEATHER_LOCATION="$(jq -r '.name // "Derby"' <<<"$settings")"
+    EVO_WEATHER_LAT="$(jq -r '.lat // "52.9219"' <<<"$settings")"
+    EVO_WEATHER_LON="$(jq -r '.lon // "-1.4746"' <<<"$settings")"
+    MET_OFFICE_URL="$(jq -r '.metOfficeUrl // "https://weather.metoffice.gov.uk/forecast/gcqvn6pq4"' <<<"$settings")"
+fi
+
 weather_cache_slug() {
     printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/_/g' | sed 's/_\+/_/g' | sed 's/^_\|_$//g'
 }

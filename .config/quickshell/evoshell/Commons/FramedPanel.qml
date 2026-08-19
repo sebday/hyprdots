@@ -27,17 +27,16 @@ Item {
     readonly property bool hasLabel: label !== ""
     readonly property bool hasLegendOverlay: legendOverlay && legendOverlay.visible
     readonly property int legendOverlayHeight: hasLegendOverlay ? legendOverlay.implicitHeight : 0
-    readonly property int legendTopInset: hasLegendOverlay ? 6 : 0
+    readonly property int legendTopInset: hasLegendOverlay ? 4 : 0
+    readonly property int legendLineOverlap: 7
     readonly property int legendOverlap: legendOverlayHeight > 0
-        ? Math.ceil(legendOverlayHeight / 2) + legendTopInset : 0
+        ? legendOverlayHeight + legendTopInset - legendLineOverlap : 0
     readonly property int cornerRadius: Theme.fieldsetCornerRadius
     readonly property int scaledPad: contentPad
     readonly property int contentWidth: Math.max(contentHost.childrenRect.width, 1)
     readonly property int contentHeight: Math.max(contentHost.childrenRect.height, 1)
     readonly property int labelRowHeight: hasLabel ? frameLabel.implicitHeight + labelGap : 0
-    readonly property int legendContentGap: hasLegendOverlay
-        ? Math.max(Theme.spacingS, Math.ceil(legendOverlayHeight / 2)) + 4
-        : 0
+    readonly property int legendContentGap: hasLegendOverlay ? Theme.spacingS : 0
     readonly property int verticalChrome: scaledPad * 2 + labelRowHeight + legendContentGap
     readonly property int frameHeight: contentHeight + verticalChrome
 
@@ -73,9 +72,7 @@ Item {
             id: legendBorderMask
             visible: root.hasLegendOverlay
             z: 1
-            x: root.scaledPad - 6
             y: -1
-            width: root.legendOverlayWidth + 12
             height: 3
             color: root.labelBackground
         }
@@ -132,8 +129,8 @@ Item {
         visible: root.hasLegendOverlay
         x: frameBox.x + root.scaledPad
         y: frameBox.y
-        width: root.legendOverlayWidth
-        height: 0
+        width: Math.max(root.legendOverlayWidth, 1)
+        height: Math.max(root.legendOverlayHeight, 1)
     }
 
     onLegendOverlayChanged: {
@@ -143,8 +140,12 @@ Item {
 
     onLegendOverlayHeightChanged: syncLegendOverlay()
 
-    onLegendOverlayWidthChanged: {
-        legendBorderMask.width = root.legendOverlayWidth + 12
+    onLegendOverlayWidthChanged: Qt.callLater(syncLegendOverlay)
+
+    Connections {
+        target: frameBox
+        function onYChanged() { Qt.callLater(root.syncLegendOverlay) }
+        function onXChanged() { Qt.callLater(root.syncLegendOverlay) }
     }
 
     Connections {
@@ -160,10 +161,14 @@ Item {
             return
         legendOverlay.parent = root
         legendOverlay.x = legendAnchor.x
-        legendOverlay.y = legendAnchor.y - legendOverlay.implicitHeight / 2
-        legendOverlay.z = 2
-        legendBorderMask.width = legendOverlay.implicitWidth + 12
+        legendOverlay.y = legendAnchor.y - legendOverlay.implicitHeight + root.legendLineOverlap
+        legendOverlay.z = 10
+        legendBorderMask.x = legendAnchor.x - frameBox.x
+        legendBorderMask.width = legendOverlay.implicitWidth
     }
+
+    onContentHeightChanged: Qt.callLater(syncLegendOverlay)
+    onLegendOverlapChanged: Qt.callLater(syncLegendOverlay)
 
     Component.onCompleted: syncLegendOverlay()
 }

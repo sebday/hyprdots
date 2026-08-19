@@ -109,6 +109,17 @@ ShellRoot {
         pinnedHoverPopupIds = next
     }
 
+    function toggleHoverPopupPinFromBar(id) {
+        var pluginId = canonicalPluginId(id)
+        if (!pluginId || !isPluginOpen(pluginId))
+            return false
+        if (hoverPopupId !== pluginId && !isHoverPopupPinned(pluginId))
+            return false
+        hoverHideTimer.stop()
+        peekHideTimer.stop()
+        return invokeIfLoaded(pluginId, "togglePin", null)
+    }
+
     function setHoverPopupData(key, json) {
         var id = String(key || "")
         if (!id || !Util.isPlainObject(json))

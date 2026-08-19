@@ -273,22 +273,15 @@ Item {
         onExited: root.applyTransmissionLine(transmissionProc.stdoutText)
     }
 
-    MouseArea {
-        anchors.fill: parent
-        visible: root.trayMode
-        hoverEnabled: true
-        acceptedButtons: Qt.LeftButton
-        cursorShape: Qt.PointingHandCursor
-        onContainsMouseChanged: root.setHoverPopup(containsMouse)
-        onClicked: function(mouse) {
-            if (mouse.button === Qt.LeftButton && root.shell)
-                root.shell.toggle("evo.transmission.add", "")
-        }
-    }
-
     HoverHandler {
         enabled: !root.trayMode && root.hoverPopupId !== "" && root.shell
         onHoveredChanged: root.setHoverPopup(hovered)
+    }
+
+    BarHoverPinArea {
+        visible: !root.trayMode
+        shell: root.shell
+        popupId: root.hoverPopupId
     }
 
     Timer {
@@ -322,6 +315,52 @@ Item {
             shell.hoverEnter(hoverPopupId, root, barPanel)
         else
             shell.hoverLeave(hoverPopupId)
+    }
+
+    function openTransmissionAdd() {
+        Util.dismissHoverPopupFromBar(shell, hoverPopupId)
+        if (shell) {
+            shell.summon("evo.transmission.add", "")
+            return
+        }
+        if (settings.onClick) {
+            Quickshell.execDetached(["bash", "-lc", String(settings.onClick)])
+            return
+        }
+        Quickshell.execDetached([
+            "bash", (Quickshell.env("HOME") || "") + "/.local/bin/evo-ipc",
+            "shell", "summon", "evo.transmission.add", ""
+        ])
+    }
+
+    function handleNetworkClick(mouse) {
+        if (mouse.button === Qt.RightButton) {
+            if (Util.pinHoverPopupFromBarIfActive(shell, hoverPopupId))
+                return
+            return
+        }
+        openTransmissionAdd()
+    }
+
+    MouseArea {
+        id: trayMouseArea
+        anchors.fill: parent
+        visible: root.trayMode
+        hoverEnabled: true
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
+        cursorShape: Qt.PointingHandCursor
+        onContainsMouseChanged: root.setHoverPopup(containsMouse)
+        onClicked: function(mouse) { root.handleNetworkClick(mouse) }
+    }
+
+    MouseArea {
+        id: barMouseArea
+        anchors.fill: parent
+        visible: !root.trayMode
+        hoverEnabled: true
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
+        cursorShape: Qt.PointingHandCursor
+        onClicked: function(mouse) { root.handleNetworkClick(mouse) }
     }
 
     onSettingsChanged: restartPolling()

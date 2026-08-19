@@ -935,61 +935,6 @@ cmd_player_status() {
   fi
 }
 
-beet_library_path() {
-  local path="$1"
-  local abs="$path"
-  [[ "$abs" == /* ]] || abs="${MUSIC_ROOT}/${abs}"
-  if [[ -f "$abs" ]]; then
-    abs="$(realpath "$abs")"
-  fi
-  local root="${MUSIC_ROOT%/}"
-  case "$abs" in
-    "$root"/*) printf '%s' "${abs#"$root"/}" ;;
-    *) printf '%s' "$(basename "$abs")" ;;
-  esac
-}
-
-beet_path_query() {
-  local path="$1"
-  local rel escaped
-  rel="$(beet_library_path "$path")"
-  escaped="${rel//\\/\\\\}"
-  escaped="${escaped//\"/\\\"}"
-  printf 'path:"%s"' "$escaped"
-}
-
-beet_item_id_for_path() {
-  local path="$1"
-  local query id
-  query="$(beet_path_query "$path")"
-  id="$(beet ls -f '$id' "$query" 2>/dev/null | grep -E '^[0-9]+$' | head -1 || true)"
-  [[ -n "$id" ]] || return 1
-  printf '%s' "$id"
-}
-
-beet_remove_item_id() {
-  local id="$1"
-  [[ -n "$id" ]] || return 0
-  command -v beet >/dev/null 2>&1 || return 0
-  beet remove -d "$id" 2>/dev/null || true
-}
-
-beet_catalog_file() {
-  local path="$1"
-  local id
-  [[ -f "$path" ]] || return 1
-  if ! command -v beet >/dev/null 2>&1; then
-    echo "evo-player: beet not found (run: uv tool install beets)" >&2
-    return 1
-  fi
-  id="$(beet_item_id_for_path "$path")"
-  if [[ -n "$id" ]]; then
-    return 0
-  fi
-  beet import -qA -s "$path" 2>/dev/null || true
-  return 0
-}
-
 cmd_sync_impl() {
   ensure_dirs
   local cookies user url
@@ -1024,10 +969,6 @@ incoming_skip_file() {
 }
 
 cmd_import_impl() {
-  if ! command -v beet >/dev/null 2>&1; then
-    echo "evo-player: beet not found (run: uv tool install beets)" >&2
-    return 1
-  fi
   local incoming="${MUSIC_ROOT}/.incoming"
   [[ -d "$incoming" ]] || mkdir -p "$incoming"
   local moved=0 failed=0 f dest
@@ -1039,7 +980,6 @@ cmd_import_impl() {
       continue
     }
     moved=$((moved + 1))
-    beet_catalog_file "$dest" || failed=$((failed + 1))
   done < <(find "$incoming" -maxdepth 1 -type f -print0 2>/dev/null)
   if [[ "$moved" -eq 0 && "$failed" -eq 0 ]]; then
     echo "evo-player: nothing to import in .incoming/" >&2
@@ -1074,7 +1014,6 @@ cmd_sort_impl() {
       moved=$((moved + 1))
       f="$dest"
     fi
-    beet_catalog_file "$f" || failed=$((failed + 1))
   done < <(sort_folder_collect_audio "$dir")
   if [[ "$json" -eq 1 ]]; then
     jq -n --arg folder "$rel" --argjson moved "$moved" --argjson failed "$failed" \

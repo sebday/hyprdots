@@ -17,8 +17,14 @@ hl.window_rule({
 })
 
 hl.window_rule({
+    name = "floating-window-monitor",
+    match = { tag = "floating-window" },
+    monitor = "DP-1",
+})
+
+hl.window_rule({
     name = "tag-floating-window-class",
-    match = { class = "(insync|brave-calendar.*|brave-mail.*|TUI.float)" },
+    match = { class = "(insync|brave-calendar.*|brave-mail.*|brave-weather|brave-cursor|brave-github|steam|TUI.float)" },
     tag = "+floating-window",
 })
 

@@ -34,6 +34,7 @@ Item {
     property var upHistory: []
     property var topDown: []
     property var topUp: []
+    property var lastDownloadProcess: null
     property bool processesLoading: false
     readonly property int maxProcessRows: 1
 
@@ -238,6 +239,10 @@ Item {
             else if (parts[0] === "proc_up") up.push(entry)
         }
         topDown = down.slice(0, maxProcessRows)
+        if (down.length > 0)
+            lastDownloadProcess = { name: down[0].name, rate: down[0].rate }
+        else if (lastDownloadProcess)
+            topDown = [{ name: lastDownloadProcess.name, rate: 0 }]
         topUp = up.slice(0, maxProcessRows)
     }
 
@@ -355,94 +360,84 @@ Item {
             Layout.fillWidth: true
             visible: !root.loading || root.info.iface
 
-            ColumnLayout {
+            HoverPopupLabelPill {
+                text: "Network"
+                icon: "󰖩"
+                fontSize: Theme.fontSizeS
+            }
+
+            GridLayout {
                 Layout.fillWidth: true
-                spacing: Theme.spacingM
+                columns: 3
+                columnSpacing: 8
 
-                GridLayout {
-                    Layout.fillWidth: true
-                    columns: 3
-                    columnSpacing: 8
-
-                    Repeater {
-                        model: root.networkStatRow1
-
-                        HoverPopupStatBox {
-                            required property var modelData
-                            value: String(modelData.value)
-                            label: modelData.label
-                            valueFontSize: Theme.fontSizeXl
-                        }
-                    }
-                }
-
-                GridLayout {
-                    Layout.fillWidth: true
-                    columns: 2
-                    columnSpacing: 8
-
-                    Repeater {
-                        model: root.networkStatRow2
-
-                        HoverPopupStatBox {
-                            required property var modelData
-                            value: String(modelData.value)
-                            label: modelData.label
-                            valueFontSize: Theme.fontSizeXl
-                        }
-                    }
-                }
-
-                GridLayout {
-                    Layout.fillWidth: true
-                    columns: 2
-                    columnSpacing: 8
+                Repeater {
+                    model: root.networkStatRow1
 
                     HoverPopupStatBox {
-                        value: root.hasTransferStats
-                            ? root.formatRate(root.networkDownloadRate)
-                            : "--"
-                        label: "download"
-                        valueColor: "#a6e3a1"
+                        required property var modelData
+                        value: String(modelData.value)
+                        label: modelData.label
                         valueFontSize: Theme.fontSizeXl
                     }
+                }
+            }
+
+            GridLayout {
+                Layout.fillWidth: true
+                columns: 2
+                columnSpacing: 8
+
+                Repeater {
+                    model: root.networkStatRow2
 
                     HoverPopupStatBox {
-                        value: root.hasTransferStats
-                            ? root.formatRate(root.networkUploadRate)
-                            : "--"
-                        label: "upload"
-                        valueColor: Theme.urgent
+                        required property var modelData
+                        value: String(modelData.value)
+                        label: modelData.label
                         valueFontSize: Theme.fontSizeXl
                     }
+                }
+            }
+
+            GridLayout {
+                Layout.fillWidth: true
+                columns: 2
+                columnSpacing: 8
+
+                HoverPopupStatBox {
+                    value: root.hasTransferStats
+                        ? root.formatRate(root.networkDownloadRate)
+                        : "--"
+                    label: "download"
+                    valueColor: "#a6e3a1"
+                    valueFontSize: Theme.fontSizeXl
+                }
+
+                HoverPopupStatBox {
+                    value: root.hasTransferStats
+                        ? root.formatRate(root.networkUploadRate)
+                        : "--"
+                    label: "upload"
+                    valueColor: Theme.urgent
+                    valueFontSize: Theme.fontSizeXl
                 }
             }
         }
 
         SectionPanel {
             label: ""
+            Layout.fillWidth: true
+
+            HoverPopupLabelPill {
+                text: "Speeds"
+                icon: "󰁅"
+                fontSize: Theme.fontSizeS
+            }
 
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: Theme.spacingM
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: Theme.spacingS
-
-                    HoverPopupLabelPill {
-                        text: "Download"
-                        textColor: Theme.accent
-                        textOpacity: 1
-                        fill: Theme.withOpacity(Theme.accent, 0.12)
-                    }
-
-                    HoverPopupLabelPill {
-                        text: "Upload"
-                    }
-
-                    Item { Layout.fillWidth: true }
-                }
 
                 Item {
                     Layout.fillWidth: true
@@ -460,32 +455,39 @@ Item {
                     }
                 }
 
-                RowLayout {
+                Item {
                     Layout.fillWidth: true
-                    spacing: Theme.spacingM
-                    visible: root.topDownloadProcess !== null || root.processesLoading
+                    Layout.preferredHeight: root.hintFont + 6
+                    Layout.minimumHeight: root.hintFont + 6
 
-                    Text {
-                        Layout.fillWidth: true
-                        text: root.processesLoading
-                            ? "…"
-                            : (root.topDownloadProcess ? root.topDownloadProcess.name : "—")
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.hintFont
-                        elide: Text.ElideRight
-                        opacity: root.topDownloadProcess ? 0.85 : 0.45
-                    }
+                    RowLayout {
+                        anchors.fill: parent
+                        spacing: Theme.spacingM
 
-                    Text {
-                        text: root.processesLoading || !root.topDownloadProcess
-                            ? "—"
-                            : root.formatRate(root.topDownloadProcess.rate)
-                        color: Theme.accent
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.hintFont
-                        font.bold: Theme.fontBold
-                        opacity: root.topDownloadProcess ? 1 : 0.45
+                        Text {
+                            Layout.fillWidth: true
+                            text: root.lastDownloadProcess
+                                ? root.lastDownloadProcess.name
+                                : (root.processesLoading ? "…" : "—")
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.hintFont
+                            elide: Text.ElideRight
+                            verticalAlignment: Text.AlignVCenter
+                            opacity: root.lastDownloadProcess ? 0.85 : 0.45
+                        }
+
+                        Text {
+                            text: root.topDownloadProcess
+                                ? root.formatRate(root.topDownloadProcess.rate)
+                                : (root.processesLoading ? "…" : "—")
+                            color: Theme.accent
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.hintFont
+                            font.bold: Theme.fontBold
+                            verticalAlignment: Text.AlignVCenter
+                            opacity: root.topDownloadProcess && root.topDownloadProcess.rate > 0 ? 1 : 0.45
+                        }
                     }
                 }
             }
@@ -495,51 +497,14 @@ Item {
             label: ""
             Layout.fillWidth: true
 
-            Item {
-                Layout.fillWidth: true
-                implicitHeight: transmissionHeader.implicitHeight
-
-                RowLayout {
-                    id: transmissionHeader
-                    anchors.fill: parent
-                    spacing: Theme.spacingM
-
-                    HoverPopupLabelPill {
-                        text: "Transmission"
-                        fontSize: Theme.fontSizeS
-                    }
-
-                    Item { Layout.fillWidth: true }
-
-                    Item {
-                        Layout.preferredWidth: 22
-                        Layout.preferredHeight: 22
-
-                        Text {
-                            anchors.centerIn: parent
-                            text: "󰐕"
-                            color: transmissionAddBtn.containsMouse ? Theme.accent : Theme.foreground
-                            opacity: transmissionAddBtn.containsMouse ? 1 : 0.72
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.hintFont
-                            font.bold: Theme.fontBold
-                        }
-
-                        MouseArea {
-                            id: transmissionAddBtn
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                if (root.shell)
-                                    root.shell.toggle("evo.transmission.add", "")
-                            }
-                        }
-                    }
-                }
+            HoverPopupLabelPill {
+                text: "Transmission"
+                icon: "󰇚"
+                fontSize: Theme.fontSizeS
             }
 
             TransmissionPanel {
+                id: transmissionPanel
                 Layout.fillWidth: true
                 active: root.active
                 shell: root.shell

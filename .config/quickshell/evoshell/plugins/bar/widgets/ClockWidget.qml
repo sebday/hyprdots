@@ -148,6 +148,11 @@ Item {
         }
     }
 
+    BarHoverPinArea {
+        shell: root.shell
+        popupId: root.hoverPopupId
+    }
+
     Timer {
         interval: 80
         running: true

@@ -14,16 +14,52 @@ Item {
 
     readonly property bool active: host && host.opened === true
     readonly property int bodyFont: Theme.fontSize3xl
+    readonly property int nowPlayingTitleFont: Theme.fontSize2xl
     readonly property int hintFont: Theme.fontSizeL
     readonly property int iconFont: Theme.fontSize4xl
     readonly property string mediaScript: (Quickshell.env("HOME") || "") + "/.local/bin/evo-media"
     readonly property string cacheKey: "evo.media"
 
+    property var mediaFilms: []
     property var mediaShows: []
     property bool mediaLoading: false
     readonly property bool contentReady: !mediaLoading
 
-    readonly property var mediaPreviewItems: mediaShows
+    readonly property int libraryGridCols: 4
+    readonly property int popularLimit: 4
+    readonly property int libraryTileSpacing: Theme.hoverPopupSectionSpacing
+
+    readonly property var mostPopularItems: {
+        var combined = []
+        var i
+        for (i = 0; i < mediaFilms.length; i++) {
+            var film = mediaFilms[i]
+            combined.push({
+                id: film.id,
+                name: film.name,
+                poster_path: film.poster_path,
+                play_count: Number(film.play_count) || 0,
+                kind: "film"
+            })
+        }
+        for (i = 0; i < mediaShows.length; i++) {
+            var show = mediaShows[i]
+            combined.push({
+                id: show.id,
+                name: show.name,
+                poster_path: show.poster_path,
+                play_count: Number(show.play_count) || 0,
+                kind: "show"
+            })
+        }
+        combined.sort(function(a, b) {
+            var diff = (Number(b.play_count) || 0) - (Number(a.play_count) || 0)
+            if (diff !== 0)
+                return diff
+            return String(a.name || "").localeCompare(String(b.name || ""))
+        })
+        return combined.slice(0, popularLimit)
+    }
 
     property MprisPlayer trackedPlayer: null
     property real positionTick: 0
@@ -66,20 +102,18 @@ Item {
     readonly property int artSize: 64
     readonly property int posterWidth: Math.round(artSize * 36 / 54)
 
+    readonly property int posterGridWidth: Math.max(0, hoverPopupWidth - Theme.hoverPopupContentPad * 2)
+
     readonly property int posterCellWidth: {
-        if (hoverPopupWidth <= 0)
+        if (posterGridWidth <= 0)
             return 72
-        var gaps = (tvLibraryGridCols - 1) * tvLibraryTileSpacing
-        return Math.floor((hoverPopupWidth - gaps) / tvLibraryGridCols)
+        var gaps = (libraryGridCols - 1) * libraryTileSpacing
+        return Math.floor((posterGridWidth - gaps) / libraryGridCols)
     }
     readonly property int posterHeight: Math.round(posterCellWidth * 3 / 2)
-    readonly property real posterAspect: 3 / 2
 
-    readonly property int tvLibraryGridCols: 4
-    readonly property int tvLibraryTileSpacing: Theme.hoverPopupSectionSpacing
-    readonly property int tvLibraryLinkHeight: hintFont + 8
-    readonly property int tvLibraryNameHeight: hintFont + 6
-    readonly property int tvLibraryPlaceholderHeight: hintFont + 24
+    readonly property int libraryNameHeight: hintFont + 6
+    readonly property int libraryPlaceholderHeight: hintFont + 24
 
     implicitHeight: column.implicitHeight
 
@@ -93,7 +127,7 @@ Item {
 
     function onActivated() {
         refreshTrackedPlayer()
-        loadMediaShows()
+        loadMediaPreview()
     }
 
     function onDeactivated() {}
@@ -104,36 +138,69 @@ Item {
         var cached = Util.hoverPopupCacheRead(shell, cacheKey)
         if (!cached || typeof cached !== "object")
             return
-        if (Array.isArray(cached.shows) && cached.shows.length > 0)
+        if (Array.isArray(cached.films))
+            mediaFilms = cached.films.slice()
+        if (Array.isArray(cached.shows))
             mediaShows = cached.shows.slice()
     }
 
     function publishCache() {
         if (!shell)
             return
-        Util.hoverPopupCacheWrite(shell, cacheKey, { shows: mediaShows })
+        Util.hoverPopupCacheWrite(shell, cacheKey, {
+            films: mediaFilms,
+            shows: mediaShows
+        })
     }
 
-    function openMediaLibrary(showName) {
+    function openMediaLibrary(showName, tab) {
         if (!shell) return
         if (host && typeof host.close === "function")
             host.close()
         var payload = {}
         if (showName)
             payload.show = String(showName)
+        if (tab)
+            payload.tab = String(tab)
         shell.summon("evo.library", JSON.stringify(payload))
     }
 
     function openMediaShow(item) {
         if (!item || !item.name) return
-        openMediaLibrary(item.name)
+        openMediaLibrary(item.name, "shows")
     }
 
-    function loadMediaShows() {
+    function openMediaFilm(item) {
+        if (!item || item.id === undefined)
+            return
+        Quickshell.execDetached(["bash", root.mediaScript, "play", "film", String(item.id)])
+    }
+
+    function openPopularItem(item) {
+        if (!item)
+            return
+        if (item.kind === "film")
+            openMediaFilm(item)
+        else
+            openMediaShow(item)
+    }
+
+    function popularFallbackIcon(item) {
+        if (item && item.kind === "show")
+            return "󰖺"
+        return "󰿯"
+    }
+
+    function loadMediaPreview() {
         if (mediaPopupProc.running)
             return
-        mediaLoading = mediaShows.length === 0
+        mediaLoading = mediaFilms.length === 0 && mediaShows.length === 0
         mediaPopupProc.running = true
+    }
+
+    function itemLabel(item) {
+        if (!item) return ""
+        return String(item.name || item.title || "")
     }
 
     function showPoster(item) {
@@ -219,6 +286,7 @@ Item {
 
             HoverPopupLabelPill {
                 text: "Now playing"
+                icon: "󰎈"
                 fontSize: Theme.fontSizeS
             }
 
@@ -274,7 +342,7 @@ Item {
                             text: root.trackTitle
                             color: Theme.foreground
                             font.family: Theme.fontFamily
-                            font.pixelSize: root.bodyFont
+                            font.pixelSize: root.nowPlayingTitleFont
                             font.bold: Theme.fontBold
                             elide: Text.ElideRight
                             maximumLineCount: 2
@@ -456,8 +524,14 @@ Item {
         }
 
         SectionPanel {
-            label: "Players"
+            label: ""
             visible: root.allPlayers.length > 1
+
+            HoverPopupLabelPill {
+                text: "Players"
+                icon: "󰝚"
+                fontSize: Theme.fontSizeS
+            }
 
             Repeater {
                 model: root.allPlayers
@@ -504,186 +578,156 @@ Item {
             }
         }
 
-        SectionPanel {
-            label: ""
+        component MediaPosterGrid: Item {
+            id: posterGrid
+            property var items: []
+            property string emptyLabel: ""
+            property string fallbackIcon: "󰿯"
+            property var iconForItem: function(item) { return posterGrid.fallbackIcon }
+            property var itemActivated: null
 
-            HoverPopupLabelPill {
-                text: "TV library"
-                fontSize: Theme.fontSizeS
+            Layout.fillWidth: true
+            implicitHeight: grid.visible
+                ? grid.implicitHeight
+                : root.libraryPlaceholderHeight
+
+            Text {
+                anchors.centerIn: parent
+                width: parent.width
+                visible: root.mediaLoading && posterGrid.items.length === 0
+                text: "Loading…"
+                color: Theme.foreground
+                font.family: Theme.fontFamily
+                font.pixelSize: root.hintFont
+                opacity: Theme.opacityMuted
             }
 
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: Theme.hoverPopupSectionSpacing
+            Text {
+                anchors.centerIn: parent
+                width: parent.width
+                visible: !root.mediaLoading && posterGrid.items.length === 0
+                text: posterGrid.emptyLabel
+                color: Theme.foreground
+                font.family: Theme.fontFamily
+                font.pixelSize: root.hintFont
+                opacity: Theme.opacityMuted
+            }
 
-                Item {
-                    Layout.fillWidth: true
-                    implicitHeight: showGrid.visible
-                        ? showGrid.implicitHeight
-                        : root.tvLibraryPlaceholderHeight
+            GridLayout {
+                id: grid
+                width: root.posterCellWidth * root.libraryGridCols
+                    + root.libraryTileSpacing * (root.libraryGridCols - 1)
+                visible: posterGrid.items.length > 0
+                columns: root.libraryGridCols
+                columnSpacing: root.libraryTileSpacing
+                rowSpacing: root.libraryTileSpacing
 
-                    Text {
-                        anchors.centerIn: parent
-                        width: parent.width
-                        visible: root.mediaLoading && root.mediaPreviewItems.length === 0
-                        text: "Loading…"
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.hintFont
-                        opacity: Theme.opacityMuted
-                    }
+                Repeater {
+                    model: posterGrid.items
 
-                    Text {
-                        anchors.centerIn: parent
-                        width: parent.width
-                        visible: !root.mediaLoading && root.mediaPreviewItems.length === 0
-                        text: "No TV shows selected in settings"
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.hintFont
-                        opacity: Theme.opacityMuted
-                    }
+                    Item {
+                        required property var modelData
+                        Layout.preferredWidth: root.posterCellWidth
+                        Layout.maximumWidth: root.posterCellWidth
+                        implicitHeight: posterCol.implicitHeight
 
-                    GridLayout {
-                        id: showGrid
-                        width: parent.width
-                        visible: root.mediaPreviewItems.length > 0
-                        columns: root.tvLibraryGridCols
-                        columnSpacing: root.tvLibraryTileSpacing
-                        rowSpacing: root.tvLibraryTileSpacing
-
-                        Repeater {
-                            model: root.mediaPreviewItems
+                        ColumnLayout {
+                            id: posterCol
+                            width: root.posterCellWidth
+                            spacing: 4
 
                             Item {
-                                required property var modelData
-                                Layout.fillWidth: true
-                                implicitHeight: posterCol.implicitHeight
+                                id: posterFrame
+                                Layout.preferredWidth: root.posterCellWidth
+                                Layout.preferredHeight: root.posterHeight
 
-                                ColumnLayout {
-                                    id: posterCol
-                                    width: parent.width
-                                    spacing: 4
-
-                                    Item {
-                                        id: posterFrame
-                                        Layout.fillWidth: true
-                                        implicitHeight: posterFrame.width > 0
-                                            ? Math.round(posterFrame.width * root.posterAspect)
-                                            : root.posterHeight
-
-                                        Rectangle {
-                                            anchors.fill: parent
-                                            radius: Theme.fieldsetCornerRadius
-                                            color: Theme.foregroundFaint
-                                            visible: showPosterImage.status !== Image.Ready
-                                        }
-
-                                        Image {
-                                            id: showPosterImage
-                                            anchors.fill: parent
-                                            source: root.showPoster(modelData)
-                                            fillMode: Image.PreserveAspectFit
-                                            smooth: true
-                                            asynchronous: true
-                                            visible: status === Image.Ready
-                                            layer.enabled: true
-                                            layer.smooth: true
-                                        }
-
-                                        Text {
-                                            anchors.centerIn: parent
-                                            visible: showPosterImage.status !== Image.Ready
-                                            text: "󰖺"
-                                            color: Theme.accent
-                                            font.family: Theme.fontFamily
-                                            font.pixelSize: root.hintFont
-                                            opacity: 0.75
-                                        }
-                                    }
-
-                                    Text {
-                                        Layout.fillWidth: true
-                                        text: modelData.name || ""
-                                        color: Theme.foreground
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: root.hintFont
-                                        font.bold: Theme.fontBold
-                                        elide: Text.ElideRight
-                                        horizontalAlignment: Text.AlignHCenter
-                                    }
-                                }
-
-                                MouseArea {
+                                Rectangle {
                                     anchors.fill: parent
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: root.openMediaShow(modelData)
+                                    radius: Theme.fieldsetCornerRadius
+                                    color: Theme.foregroundFaint
+                                    visible: showPosterImage.status !== Image.Ready
                                 }
+
+                                Image {
+                                    id: showPosterImage
+                                    anchors.fill: parent
+                                    source: root.showPoster(modelData)
+                                    fillMode: Image.PreserveAspectFit
+                                    smooth: true
+                                    asynchronous: true
+                                    visible: status === Image.Ready
+                                    layer.enabled: true
+                                    layer.smooth: true
+                                }
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    visible: showPosterImage.status !== Image.Ready
+                                    text: posterGrid.iconForItem(modelData)
+                                    color: Theme.accent
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: root.hintFont
+                                    opacity: 0.75
+                                }
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: root.itemLabel(modelData)
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.hintFont
+                                font.bold: Theme.fontBold
+                                elide: Text.ElideRight
+                                horizontalAlignment: Text.AlignHCenter
+                            }
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                if (posterGrid.itemActivated)
+                                    posterGrid.itemActivated(modelData)
                             }
                         }
                     }
                 }
-                }
+            }
         }
 
-        Item {
-            Layout.fillWidth: true
-            Layout.preferredHeight: root.tvLibraryLinkHeight
-            visible: !root.mediaLoading && root.mediaPreviewItems.length > 0
+        SectionPanel {
+            label: ""
+            visible: !root.mediaLoading
 
-            RowLayout {
-                anchors.right: parent.right
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: Theme.spacingS
-
-                Text {
-                    text: "󰖺"
-                    color: Theme.accent
-                    opacity: openLink.containsMouse ? 1 : 0.85
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.hintFont
-                    font.bold: Theme.fontBold
-                }
-
-                Text {
-                    text: "Open"
-                    color: Theme.accent
-                    opacity: openLink.containsMouse ? 1 : 0.85
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.hintFont
-                    font.bold: Theme.fontBold
-                }
-
-                Text {
-                    text: "󰁔"
-                    color: Theme.accent
-                    opacity: openLink.containsMouse ? 1 : 0.85
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.hintFont
-                    font.bold: Theme.fontBold
-                }
+            HoverPopupLabelPill {
+                text: "Most popular"
+                icon: "󰕶"
+                fontSize: Theme.fontSizeS
             }
 
-            MouseArea {
-                id: openLink
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: root.openMediaLibrary()
+            MediaPosterGrid {
+                items: root.mostPopularItems
+                emptyLabel: "No play history"
+                fallbackIcon: "󰿯"
+                iconForItem: root.popularFallbackIcon
+                itemActivated: function(item) { root.openPopularItem(item) }
             }
         }
     }
 
     Process {
         id: mediaPopupProc
-        command: ["bash", root.mediaScript, "popup", "shows"]
+        command: ["bash", root.mediaScript, "popup", "preview"]
         stdout: StdioCollector {
             onStreamFinished: {
                 root.mediaLoading = false
                 try {
-                    var data = JSON.parse(String(text || "[]"))
-                    root.mediaShows = Array.isArray(data) ? data : []
+                    var data = JSON.parse(String(text || "{}"))
+                    root.mediaFilms = Array.isArray(data.films) ? data.films : []
+                    root.mediaShows = Array.isArray(data.shows) ? data.shows : []
                 } catch (e) {
+                    root.mediaFilms = []
                     root.mediaShows = []
                 }
                 root.publishCache()

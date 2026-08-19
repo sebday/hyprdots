@@ -16,6 +16,8 @@ Item {
     property bool opened: false
     property bool revealed: false
     property bool pinned: false
+    property var pinnedAnchorItem: null
+    property var pinnedAnchorWindow: null
     property string layerNamespace: "evo-hover"
     property int contentWidth: Theme.overlayWidthDefault
     property int contentMargin: Theme.hoverPopupMargin
@@ -23,7 +25,7 @@ Item {
 
     readonly property bool barOnTop: shell && shell.barConfig
         && String(shell.barConfig.position) === "top"
-    readonly property int contentTopPad: barOnTop ? Theme.barHoverTopPad : contentMargin
+    readonly property int contentTopPad: barOnTop ? Theme.barHoverContentTopPad : Theme.hoverPopupTopPad
     readonly property int contentBottomPad: contentMargin
     readonly property int contentInset: root.contentMargin + Theme.hoverPopupBorderWidth
 
@@ -68,6 +70,10 @@ Item {
     function pin() {
         if (pinned)
             return
+        if (shell) {
+            pinnedAnchorItem = shell.popupAnchorItem
+            pinnedAnchorWindow = shell.popupAnchorWindow
+        }
         pinned = true
         revealed = true
         if (shell && effectivePluginId)
@@ -78,6 +84,8 @@ Item {
         if (!pinned)
             return
         pinned = false
+        pinnedAnchorItem = null
+        pinnedAnchorWindow = null
         if (shell && effectivePluginId)
             shell.unpinHoverPopup(effectivePluginId)
         close()
@@ -105,6 +113,8 @@ Item {
     function close() {
         if (pinned) {
             pinned = false
+            pinnedAnchorItem = null
+            pinnedAnchorWindow = null
             if (shell && effectivePluginId)
                 shell.unpinHoverPopup(effectivePluginId)
         }
@@ -150,6 +160,15 @@ Item {
         shell: root.shell
         opened: root.opened
         revealed: root.revealed
+        anchorItem: root.pinned
+            ? root.pinnedAnchorItem
+            : (root.opened && root.shell ? root.shell.popupAnchorItem : null)
+        anchorWindow: root.pinned
+            ? root.pinnedAnchorWindow
+            : (root.opened && root.shell ? root.shell.popupAnchorWindow : null)
+        barPosition: root.shell && root.shell.barConfig && root.shell.barConfig.position
+            ? String(root.shell.barConfig.position)
+            : "bottom"
         keyboardFocusEnabled: root.opened && root.revealed && hoverOverlay.pointerInside
         layerNamespace: root.layerNamespace
         contentMargin: root.contentMargin
@@ -199,11 +218,6 @@ Item {
                         root.shell.hide(root.effectivePluginId)
                     else
                         root.close()
-                    event.accepted = true
-                    return
-                }
-                if (event.key === Qt.Key_P && event.modifiers === Qt.NoModifier) {
-                    root.togglePin()
                     event.accepted = true
                 }
             }

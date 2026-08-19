@@ -28,6 +28,12 @@ Item {
     default property alias sectionContent: innerCol.data
 
     function adoptFieldsetLegend() {
+        if (panel.legendOverlay && panel.legendOverlay.fieldsetLegend === true) {
+            panel.legendOverlay.fieldsetFill = root.legendBackground
+            panel.labelBackground = root.legendBackground
+            Qt.callLater(panel.syncLegendOverlay)
+            return
+        }
         for (var i = 0; i < innerCol.children.length; i++) {
             var child = innerCol.children[i]
             if (!child || child.fieldsetLegend !== true)
@@ -35,10 +41,13 @@ Item {
             child.fieldsetFill = root.legendBackground
             panel.legendOverlay = child
             panel.labelBackground = root.legendBackground
+            Qt.callLater(panel.syncLegendOverlay)
             return
         }
         panel.legendOverlay = null
     }
+
+    onVisibleChanged: if (visible) Qt.callLater(adoptFieldsetLegend)
 
     FramedPanel {
         id: panel

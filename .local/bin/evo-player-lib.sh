@@ -320,7 +320,6 @@ migrate_cache() {
     mkdir -p "$MUSIC_STATE/art"
     cp -an "$old/art/." "$MUSIC_STATE/art/" 2>/dev/null || true
   fi
-  [[ -f "$MUSIC_STATE/library.db" ]] || [[ ! -f "$old/library.db" ]] || cp "$old/library.db" "$MUSIC_STATE/library.db"
   likes_migrate_from_m3u
 }
 
@@ -840,16 +839,6 @@ paths_equal() {
   [[ "$a" == "$b" ]]
 }
 
-beet_path_query_lib() {
-  local path="$1"
-  local rel escaped
-  rel="${path#${MUSIC_ROOT}/}"
-  [[ "$rel" == "$path" ]] && rel="$(basename "$path")"
-  escaped="${rel//\\/\\\\}"
-  escaped="${escaped//\"/\\\"}"
-  printf 'path:"%s"' "$escaped"
-}
-
 canonical_track_dest() {
   local path="$1"
   local genre year dest_dir basename
@@ -866,7 +855,7 @@ canonical_track_dest() {
 
 place_track() {
   local src="$1"
-  local dest src_genre dest_genre stale_id
+  local dest src_genre dest_genre
   [[ -f "$src" ]] || return 1
   is_audio "$src" || return 1
   dest="$(canonical_track_dest "$src")" || return 1
@@ -879,14 +868,8 @@ place_track() {
     echo "evo-player: skip existing dest: $dest" >&2
     return 1
   fi
-  if command -v beet >/dev/null 2>&1; then
-    stale_id="$(beet ls -f '$id' "$(beet_path_query_lib "$src")" 2>/dev/null | grep -E '^[0-9]+$' | head -1 || true)"
-  fi
   src_genre="$(genre_from_path "$src")"
   mv "$src" "$dest"
-  if [[ -n "${stale_id:-}" ]]; then
-    beet remove -d "$stale_id" 2>/dev/null || true
-  fi
   dest_genre="$(genre_from_path "$dest")"
   [[ -n "$src_genre" ]] && tracks_cache_invalidate_genre "$src_genre"
   [[ -n "$dest_genre" ]] && tracks_cache_invalidate_genre "$dest_genre"

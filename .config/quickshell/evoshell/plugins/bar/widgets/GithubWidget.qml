@@ -110,6 +110,7 @@ Item {
     }
 
     function openGithub() {
+        Util.dismissHoverPopupFromBar(shell, hoverPopupId)
         if (settings.onClick)
             Quickshell.execDetached(["bash", "-lc", String(settings.onClick)])
         else
@@ -209,12 +210,20 @@ Item {
     }
 
     MouseArea {
+        id: trayMouseArea
         anchors.fill: parent
         visible: root.trayMode
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
         onContainsMouseChanged: root.setHoverPopup(containsMouse)
-        onClicked: root.openGithub()
+        onClicked: function(mouse) {
+            if (mouse.button === Qt.RightButton) {
+                if (Util.pinHoverPopupFromBarIfActive(root.shell, root.hoverPopupId))
+                    return
+                return
+            }
+            root.openGithub()
+        }
     }
 
     HoverHandler {
@@ -223,11 +232,19 @@ Item {
     }
 
     MouseArea {
+        id: barMouseArea
         anchors.fill: parent
         visible: !root.trayMode
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onClicked: root.openGithub()
+        onClicked: function(mouse) {
+            if (mouse.button === Qt.RightButton) {
+                if (Util.pinHoverPopupFromBarIfActive(root.shell, root.hoverPopupId))
+                    return
+                return
+            }
+            root.openGithub()
+        }
     }
 
     function restartPolling() {
