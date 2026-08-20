@@ -23,6 +23,7 @@ HoverPopupHeader 1.0 HoverPopupHeader.qml
 HoverPopupStatBox 1.0 HoverPopupStatBox.qml
 HoverPopupLabelPill 1.0 HoverPopupLabelPill.qml
 FieldsetLegendRow 1.0 FieldsetLegendRow.qml
+HistoryRecapStatBox 1.0 HistoryRecapStatBox.qml
 HoverPopupStatsGrid 1.0 HoverPopupStatsGrid.qml
 TempGaugeDial 1.0 TempGaugeDial.qml
 TempGradientSlider 1.0 TempGradientSlider.qml

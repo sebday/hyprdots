@@ -4,6 +4,7 @@
   "accent": "#8be9fd",
   "mantle": "#080a12",
   "urgent": "#ff5555",
+  "highlight": "#bd93f9",
   "iconTheme": "evo-current",
   "fontFamily": "CaskaydiaMono Nerd Font",
   "fontPixelSize": 13

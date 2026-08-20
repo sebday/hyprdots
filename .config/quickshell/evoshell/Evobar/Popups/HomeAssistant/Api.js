@@ -7,23 +7,8 @@ function statesCommand(home, configJson, fresh) {
     return cmd
 }
 
-function snapshotCommand(home, entityId) {
-    return ["bash", String(home || "") + "/.local/bin/evo-bar-home-assistant", "snapshot", String(entityId || "")]
-}
-
-function snapshotCacheBatchCommand(home, entityIdsJson) {
-    return ["bash", String(home || "") + "/.local/bin/evo-bar-home-assistant", "snapshot-cache-batch", String(entityIdsJson || "[]")]
-}
-
 function lightCommand(home, entityId, action, brightnessPct) {
     var cmd = ["bash", String(home || "") + "/.local/bin/evo-bar-home-assistant", "light", String(entityId || ""), String(action || "")]
-    if (brightnessPct !== undefined && brightnessPct !== null && String(brightnessPct) !== "")
-        cmd.push(String(brightnessPct))
-    return cmd
-}
-
-function lightColorCommand(home, entityId, red, green, blue, brightnessPct) {
-    var cmd = ["bash", String(home || "") + "/.local/bin/evo-bar-home-assistant", "light", String(entityId || ""), "rgb", String(red), String(green), String(blue)]
     if (brightnessPct !== undefined && brightnessPct !== null && String(brightnessPct) !== "")
         cmd.push(String(brightnessPct))
     return cmd
@@ -53,14 +38,4 @@ function parseJson(text) {
     } catch (e) {
         return { ok: false, error: "unparseable response" }
     }
-}
-
-function fileUrl(path, updatedAt) {
-    var p = String(path || "").trim()
-    if (p === "")
-        return ""
-    var url = p.indexOf("file://") === 0 ? p : "file://" + p
-    if (updatedAt !== undefined && updatedAt !== null && String(updatedAt) !== "")
-        url += (url.indexOf("?") >= 0 ? "&" : "?") + "t=" + String(updatedAt)
-    return url
 }

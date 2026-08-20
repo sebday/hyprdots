@@ -46,7 +46,7 @@ cleanup_gdk_temps() {
 
 notify_shot() {
 	[[ "${SILENT:-0}" -eq 1 ]] && return 0
-	notify-send -a evoshell screenshot "$@" 2>/dev/null || true
+	notify-send -a evoshell "$@" 2>/dev/null || true
 }
 
 image_size() {
@@ -238,7 +238,7 @@ cmd_edit() {
 	shot="${shot#file://}"
 
 	if [[ ! -f "$shot" ]]; then
-		notify-send -a evoshell screenshot "no capture — press Print first" 2>/dev/null || true
+		notify-send -a evoshell "No capture — press Print first" 2>/dev/null || true
 		exit 1
 	fi
 

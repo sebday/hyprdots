@@ -6,7 +6,6 @@ BarHoverPopup {
     pluginId: "evo.bar.popups.home-assistant"
     layerNamespace: "evo-bar-popups-home-assistant"
     contentWidth: Theme.hoverPopupWidthStandard
-    minContentHeight: 200
 
     HomeAssistantModule {}
 }

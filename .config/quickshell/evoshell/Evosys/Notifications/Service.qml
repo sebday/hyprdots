@@ -846,6 +846,18 @@ Scope {
         return app === "hyprshot"
     }
 
+    function isEvoScreenshot(entry) {
+        if (!entry || entry.local) return false
+        var app = String(entry.notification && entry.notification.appName || "").toLowerCase()
+        if (app !== "evoshell") return false
+        var summary = popupTitle(entry).trim().toLowerCase()
+        if (summary === "screenshot") return true
+        if (summary.indexOf("screenshot") !== -1) return true
+        if (summary.indexOf("capturing monitor") !== -1) return true
+        if (summary.indexOf("no capture") !== -1) return true
+        return false
+    }
+
     function isPlayerNotification(entry) {
         if (!entry || entry.local) return false
         var app = String(entry.notification && entry.notification.appName || "").toLowerCase()
@@ -921,7 +933,7 @@ Scope {
         var lines = bodyLines(entry)
         if (isPlayerNotification(entry)) {
             return {
-                kicker: "now playing",
+                kicker: "Now playing",
                 title: popupTitle(entry),
                 subtitle: lines[0] || "",
                 footer: ""
@@ -939,9 +951,17 @@ Scope {
             var shotPath = screenshotPath(entry)
             var shotName = shotPath.split("/").pop() || shotPath
             return {
-                kicker: "screenshot",
+                kicker: "",
                 title: popupTitle(entry),
                 subtitle: lines[0] || shotName,
+                footer: ""
+            }
+        }
+        if (isEvoScreenshot(entry)) {
+            return {
+                kicker: "",
+                title: lines[0] || popupTitle(entry),
+                subtitle: "",
                 footer: ""
             }
         }

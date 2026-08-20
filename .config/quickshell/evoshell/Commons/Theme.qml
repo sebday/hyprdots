@@ -124,6 +124,7 @@ Singleton {
     readonly property color background: themeColor("background", "#2d353b")
     readonly property color accent: themeColor("accent", "#7fbbb3")
     readonly property color urgent: themeColor("urgent", "#e67e80")
+    readonly property color highlight: themeColor("highlight", "#bd93f9")
     // Hyprland general:col.inactive_border default when unset (ff444444).
     readonly property color inactiveBorder: themeColor("inactiveBorder", "#444444")
     readonly property color mantle: themeColor("mantle", "#252b30")
@@ -160,6 +161,9 @@ Singleton {
     readonly property color heatmap3: mixColors(mantle, accent, 0.8)
     readonly property color heatmap4: accent
     readonly property var heatmapColors: [heatmap0, heatmap1, heatmap2, heatmap3, heatmap4]
+    readonly property color recapArtistsTint: mixColors(mantle, accent, 0.52)
+    readonly property color recapAlbumsTint: mixColors(mantle, urgent, 0.52)
+    readonly property color recapTracksTint: mixColors(mantle, highlight, 0.52)
     readonly property var chartPalette: [
         accent,
         mixColors(accent, foreground, 0.4),

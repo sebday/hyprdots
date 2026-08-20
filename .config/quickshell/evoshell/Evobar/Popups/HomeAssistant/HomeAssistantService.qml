@@ -43,22 +43,15 @@ Item {
 
     readonly property string home: Quickshell.env("HOME") || ""
     readonly property int refreshIntervalSec: intSetting("refreshIntervalSec", 30, 10, 3600)
-    readonly property int snapshotIntervalSec: intSetting("snapshotIntervalSec", 20, 5, 600)
-    readonly property var cameraEntities: asArray(setting("cameraEntities", []))
     readonly property var lightEntities: asArray(setting("lightEntities", []))
     readonly property var lightAreas: asArray(setting("lightAreas", []))
     readonly property bool lightGroupsOnly: setting("lightGroupsOnly", false) === true
-    readonly property var temperatureEntities: asArray(setting("temperatureEntities", []))
-    readonly property var temperatureExclude: asArray(setting("temperatureExclude", []))
     readonly property var climateEntities: asArray(setting("climateEntities", []))
     readonly property var lightBrightnessEntities: asArray(setting("lightBrightnessEntities", []))
     readonly property var lightColorEntities: asArray(setting("lightColorEntities", []))
-    readonly property string aqiEntity: String(setting("aqiEntity", ""))
 
     property var data: ({ ok: false })
-    property var snapshots: ({})
     property bool refreshing: false
-    property bool snapshotRefreshing: false
     property bool acting: false
     property string lastError: ""
     property double lastRefreshMs: 0
@@ -67,18 +60,12 @@ Item {
     property var climateOptimistic: ({})
 
     readonly property bool configured: data && data.ok === true
-    readonly property bool busy: refreshing || snapshotRefreshing || acting
+    readonly property bool busy: refreshing || acting
     readonly property bool climateBusy: climateProc.running
-    readonly property bool warning: configured && (
-        (data.summary && data.summary.camerasOnline < data.summary.camerasTotal)
-        || lastError !== ""
-    )
+    readonly property bool warning: configured && lastError !== ""
     readonly property string haUrl: data && data.url ? String(data.url) : ""
-    readonly property var temperatures: configured && Array.isArray(data.temperatures) ? data.temperatures : []
     readonly property var climates: configured && Array.isArray(data.climates) ? data.climates : []
-    readonly property var cameras: configured && Array.isArray(data.cameras) ? data.cameras : []
     readonly property var lights: configured && Array.isArray(data.lights) ? data.lights : []
-    readonly property var airQuality: configured && data.airQuality ? data.airQuality : ({ ok: false })
     readonly property bool heatingActive: {
         if (!root.configured)
             return false
@@ -96,16 +83,12 @@ Item {
 
     function configJson() {
         return JSON.stringify({
-            cameraEntities: root.cameraEntities,
             lightEntities: root.lightEntities,
             lightAreas: root.lightAreas,
             lightGroupsOnly: root.lightGroupsOnly,
-            temperatureEntities: root.temperatureEntities,
-            temperatureExclude: root.temperatureExclude,
             climateEntities: root.climateEntities,
             lightBrightnessEntities: root.lightBrightnessEntities,
-            lightColorEntities: root.lightColorEntities,
-            aqiEntity: root.aqiEntity
+            lightColorEntities: root.lightColorEntities
         })
     }
 
@@ -121,69 +104,6 @@ Item {
 
     function lightHasColor(entityId) {
         return root.entityAllowed(root.lightColorEntities, entityId)
-    }
-
-    function mergeSnapshot(entityId, payload) {
-        if (!entityId || !payload || payload.ok !== true)
-            return
-        var updatedAt = Number(payload.updatedAt) || Date.now()
-        var next = {}
-        for (var key in root.snapshots)
-            next[key] = root.snapshots[key]
-        next[String(entityId)] = {
-            path: String(payload.path || ""),
-            url: Api.fileUrl(payload.path, updatedAt),
-            updatedAt: updatedAt,
-            cached: payload.cached === true
-        }
-        root.snapshots = next
-    }
-
-    function mergeCachedSnapshots(items) {
-        if (!Array.isArray(items))
-            return
-        for (var i = 0; i < items.length; i++) {
-            var row = items[i]
-            if (!row || !row.entityId)
-                continue
-            var entityId = String(row.entityId)
-            if (root.snapshotFor(entityId))
-                continue
-            mergeSnapshot(entityId, {
-                ok: true,
-                path: row.path,
-                updatedAt: row.updatedAt,
-                cached: row.cached === true
-            })
-        }
-    }
-
-    function cameraEntityIds() {
-        return root.cameras.map(function(cam) {
-            return String(cam.entityId || "")
-        }).filter(function(id) { return id !== "" })
-    }
-
-    function seedSnapshotsFromCache(thenRefresh) {
-        if (!root.configured || root.cameras.length === 0) {
-            if (thenRefresh)
-                root.refreshSnapshots()
-            return
-        }
-        if (cacheSeedProc.running) {
-            cacheSeedProc.pendingRefresh = cacheSeedProc.pendingRefresh || thenRefresh
-            return
-        }
-        cacheSeedProc.pendingRefresh = thenRefresh === true
-        cacheSeedProc.command = Api.snapshotCacheBatchCommand(
-            root.home,
-            JSON.stringify(root.cameraEntityIds())
-        )
-        cacheSeedProc.running = true
-    }
-
-    function snapshotFor(entityId) {
-        return root.snapshots[String(entityId || "")] || null
     }
 
     function cloneData() {
@@ -249,32 +169,6 @@ Item {
         if (!Array.isArray(rowHs) || rowHs.length < 1)
             return false
         return root.hsClose(rowHs, wantHs)
-    }
-
-    function rgbClose(a, b, tolerance) {
-        if (!Array.isArray(a) || !Array.isArray(b) || a.length < 3 || b.length < 3)
-            return false
-        var tol = tolerance !== undefined ? tolerance : 14
-        return Math.abs(Number(a[0]) - Number(b[0])) <= tol
-            && Math.abs(Number(a[1]) - Number(b[1])) <= tol
-            && Math.abs(Number(a[2]) - Number(b[2])) <= tol
-    }
-
-    function hueCloseRgb(a, b, tolerance) {
-        if (!Array.isArray(a) || !Array.isArray(b) || a.length < 3 || b.length < 3)
-            return false
-        function hueOf(rgb) {
-            var c = Qt.rgba(Number(rgb[0]) / 255, Number(rgb[1]) / 255, Number(rgb[2]) / 255, 1)
-            return c.hsvHue >= 0 ? c.hsvHue : 0
-        }
-        var delta = Math.abs(hueOf(a) - hueOf(b))
-        if (delta > 0.5)
-            delta = 1 - delta
-        return delta <= (tolerance !== undefined ? tolerance : 0.05)
-    }
-
-    function rgbMatchesTarget(rowRgb, wantRgb) {
-        return root.rgbClose(rowRgb, wantRgb, 24) || root.hueCloseRgb(rowRgb, wantRgb)
     }
 
     function setLightOptimistic(entityId, patch) {
@@ -492,7 +386,7 @@ Item {
             return
         var notif = root.shell ? root.shell.serviceFor("evo.sys.notifications") : null
         if (notif && typeof notif.showBrief === "function")
-            notif.showBrief("home assistant", message)
+            notif.showBrief("Home assistant", message)
     }
 
     function refresh(fresh) {
@@ -503,34 +397,9 @@ Item {
         statesProc.running = true
     }
 
-    function refreshSnapshots() {
-        if (!root.configured || root.cameras.length === 0)
-            return
-        if (snapshotQueue.length === 0) {
-            snapshotQueue = root.cameras.map(function(cam) {
-                return String(cam.entityId || "")
-            }).filter(function(id) { return id !== "" })
-        }
-        drainSnapshotQueue()
-    }
-
-    property var snapshotQueue: []
     property var climateTempQueue: ({ entityId: "", temperature: 0 })
     property var climateModeQueue: ({ entityId: "", mode: "" })
     property var lightQueue: ({ entityId: "", command: "" })
-
-    function drainSnapshotQueue() {
-        if (snapshotProc.running || root.snapshotQueue.length === 0) {
-            if (root.snapshotQueue.length === 0)
-                root.snapshotRefreshing = false
-            return
-        }
-        root.snapshotRefreshing = true
-        var entityId = root.snapshotQueue.shift()
-        snapshotProc.entityId = entityId
-        snapshotProc.command = Api.snapshotCommand(root.home, entityId)
-        snapshotProc.running = true
-    }
 
     function lightRowFor(entityId) {
         var id = String(entityId || "")
@@ -575,32 +444,6 @@ Item {
         root.setLight(entityId, on, brightnessPct)
     }
 
-    function previewLightColor(entityId, red, green, blue, brightnessPct) {
-        if (!entityId)
-            return
-        var id = String(entityId)
-        var rgb = [
-            Math.max(0, Math.min(255, Math.round(Number(red)))),
-            Math.max(0, Math.min(255, Math.round(Number(green)))),
-            Math.max(0, Math.min(255, Math.round(Number(blue))))
-        ]
-        var h = (function() {
-            var c = Qt.rgba(rgb[0] / 255, rgb[1] / 255, rgb[2] / 255, 1)
-            return c.hsvHue >= 0 ? c.hsvHue : 0
-        })()
-        var hs = [Math.round(h * 360), 100]
-        var patch = {
-            on: true,
-            rgbColor: rgb,
-            hsColor: hs,
-            available: true
-        }
-        if (brightnessPct !== undefined && brightnessPct !== null)
-            patch.brightnessPct = Math.max(1, Math.min(100, Math.round(Number(brightnessPct))))
-        root.setLightOptimistic(id, { on: true, hs: hs })
-        root.patchLight(id, patch)
-    }
-
     function setLightHue(entityId, hue, red, green, blue, brightnessPct) {
         if (!entityId)
             return
@@ -633,22 +476,6 @@ Item {
         lightQueue.entityId = id
         lightQueue.command = Api.lightHueCommand(root.home, id, h, pct)
         root.flushLightRequest()
-    }
-
-    function setLightColor(entityId, red, green, blue, brightnessPct) {
-        if (!entityId)
-            return
-        var id = String(entityId)
-        var rgb = [
-            Math.max(0, Math.min(255, Math.round(Number(red)))),
-            Math.max(0, Math.min(255, Math.round(Number(green)))),
-            Math.max(0, Math.min(255, Math.round(Number(blue))))
-        ]
-        var h = rgb.length >= 3 ? (function() {
-            var c = Qt.rgba(rgb[0] / 255, rgb[1] / 255, rgb[2] / 255, 1)
-            return c.hsvHue >= 0 ? c.hsvHue : 0
-        })() : 0
-        root.setLightHue(id, h, rgb[0], rgb[1], rgb[2], brightnessPct)
     }
 
     function setClimateTemperature(entityId, temperature) {
@@ -734,34 +561,6 @@ Item {
             root.lastRefreshMs = Date.now()
             if (root.lastError !== "" && parsed.ok === true)
                 root.lastError = ""
-            root.seedSnapshotsFromCache(root.popupActive)
-        }
-    }
-
-    Process {
-        id: cacheSeedProc
-        property bool pendingRefresh: false
-        stdout: StdioCollector { id: cacheSeedOut; waitForEnd: true }
-        onExited: function(exitCode) {
-            var parsed = Api.parseJson(cacheSeedOut.text)
-            if (exitCode === 0 && parsed.ok === true)
-                root.mergeCachedSnapshots(parsed.snapshots)
-            var refresh = cacheSeedProc.pendingRefresh
-            cacheSeedProc.pendingRefresh = false
-            if (refresh)
-                root.refreshSnapshots()
-        }
-    }
-
-    Process {
-        id: snapshotProc
-        property string entityId: ""
-        stdout: StdioCollector { id: snapshotOut; waitForEnd: true }
-        onExited: function(exitCode) {
-            var parsed = Api.parseJson(snapshotOut.text)
-            if (exitCode === 0 && parsed.ok === true)
-                root.mergeSnapshot(snapshotProc.entityId, parsed)
-            Qt.callLater(function() { root.drainSnapshotQueue() })
         }
     }
 
@@ -837,26 +636,8 @@ Item {
         onTriggered: root.refresh()
     }
 
-    Timer {
-        id: snapshotTimer
-        interval: root.snapshotIntervalSec * 1000
-        repeat: true
-        running: root.popupActive
-        onTriggered: {
-            root.snapshotQueue = []
-            root.refreshSnapshots()
-        }
-    }
-
     onPopupActiveChanged: {
-        if (root.popupActive) {
-            root.snapshotQueue = []
-            if (root.configured)
-                root.seedSnapshotsFromCache(true)
+        if (root.popupActive)
             root.refresh()
-            snapshotTimer.restart()
-        } else {
-            snapshotTimer.stop()
-        }
     }
 }

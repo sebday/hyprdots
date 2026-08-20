@@ -62,8 +62,6 @@
             "interval": 30,
             "onHover": "evo.bar.popups.home-assistant",
             "refreshIntervalSec": 30,
-            "snapshotIntervalSec": 20,
-            "cameraEntities": [],
             "lightEntities": [],
             "lightAreas": [
               "Bathroom",
@@ -89,11 +87,6 @@
             ],
             "climateEntities": [
               "climate.downstairs_downstairs"
-            ],
-            "temperatureEntities": [],
-            "temperatureExclude": [
-              "climate.downstairs_downstairs",
-              "sensor.downstairs_downstairs_temperature"
             ]
           },
           "audio": {

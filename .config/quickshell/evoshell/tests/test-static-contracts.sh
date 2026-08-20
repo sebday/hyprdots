@@ -90,6 +90,13 @@ else
   fail=1
 fi
 
+if rg -q 'HistoryRecapStatBox' "${root}/Commons/qmldir"; then
+  echo "HistoryRecapStatBox exported"
+else
+  echo "HistoryRecapStatBox not exported" >&2
+  fail=1
+fi
+
 # Player state paths
 lib="${bin}/evo-player-lib.sh"
 # shellcheck source=/dev/null

@@ -687,16 +687,10 @@ ShellRoot {
 
         function onReloadCompleted() {
             Quickshell.inhibitReloadPopup()
-            var notif = shell.serviceFor("evo.sys.notifications")
-            if (notif && typeof notif.showBrief === "function")
-                notif.showBrief("evoshell", "reloaded")
         }
 
         function onReloadFailed() {
             Quickshell.inhibitReloadPopup()
-            var notif = shell.serviceFor("evo.sys.notifications")
-            if (notif && typeof notif.showBrief === "function")
-                notif.showBrief("evoshell", "reload failed")
         }
     }
 }

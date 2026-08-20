@@ -17,9 +17,6 @@ Item {
     readonly property int pad: Theme.hoverPopupMargin
     readonly property int menuBarPad: Theme.spacingS
     readonly property int playerSectionGap: 15
-    readonly property int playerFieldsetPullUp: root.useFieldsetLegends ? 10 : 0
-    readonly property color fieldsetLegendBackground: Theme.background
-    property bool useFieldsetLegends: true
     readonly property int bodyFont: Theme.fontSize3xl
     readonly property int hintFont: Theme.fontSizeL
     readonly property int listFont: hintFont
@@ -174,10 +171,9 @@ Item {
     }
     property var historyReport: ({})
     property bool historyLoading: false
-    property int historyWeekFrom: 0
     property string selectedLibraryPlaylist: ""
     readonly property bool nowPlayingTabActive: !browsePanelOpen && !playlistPanelOpen
-        && !settingsPanelOpen && playerScreen === "nowPlaying"
+        && !settingsPanelOpen && !historyPanelOpen && playerScreen === "nowPlaying"
     readonly property bool artPreviewActive: (browsePanelOpen || playlistPanelOpen)
         && String(selectedTrackPath || "") !== ""
         && String(selectedTrackPath) !== String(player.path || "")
@@ -703,26 +699,16 @@ Item {
     }
 
     function toggleBrowsePanel() {
-        if (browsePanelOpen) {
-            saveBrowseTreeScroll()
-            browsePanelOpen = false
-            return
-        }
         savePlaylistView(selectedPlaylist)
+        browsePanelOpen = true
         playlistPanelOpen = false
         settingsPanelOpen = false
         historyPanelOpen = false
-        browsePanelOpen = true
         playerScreen = "nowPlaying"
         kickSidePanels()
     }
 
     function togglePlaylistPanel() {
-        if (playlistPanelOpen) {
-            savePlaylistView(selectedPlaylist)
-            playlistPanelOpen = false
-            return
-        }
         browsePanelOpen = false
         settingsPanelOpen = false
         historyPanelOpen = false
@@ -808,10 +794,6 @@ Item {
     }
 
     function toggleSettingsPanel() {
-        if (settingsPanelOpen) {
-            settingsPanelOpen = false
-            return
-        }
         savePlaylistView(selectedPlaylist)
         browsePanelOpen = false
         playlistPanelOpen = false
@@ -822,10 +804,6 @@ Item {
     }
 
     function toggleHistoryPanel() {
-        if (historyPanelOpen) {
-            historyPanelOpen = false
-            return
-        }
         savePlaylistView(selectedPlaylist)
         browsePanelOpen = false
         playlistPanelOpen = false
@@ -836,38 +814,75 @@ Item {
         kickSidePanels()
     }
 
-    function loadHistoryReport(weekFrom) {
-        if (weekFrom !== undefined && weekFrom !== null)
-            historyWeekFrom = Number(weekFrom) || 0
+    function loadHistoryReport() {
         historyLoading = true
-        var args = ["history", "report", "--json", "--limit", "12"]
-        if (historyWeekFrom > 0)
-            args = args.concat(["--week", String(historyWeekFrom)])
-        runQuery(args, function(text) {
+        runQuery(["history", "report", "--json", "--limit", "12"], function(text) {
             historyLoading = false
             try {
                 historyReport = JSON.parse(String(text || "{}"))
-                if (historyReport.week && historyReport.week.from)
-                    historyWeekFrom = Number(historyReport.week.from) || 0
             } catch (e) {
                 historyReport = {}
             }
         })
     }
 
-    function shiftHistoryWeek(delta) {
-        var weeks = historyReport.available_weeks || []
-        if (!weeks.length)
-            return
-        var idx = 0
-        for (var i = 0; i < weeks.length; i++) {
-            if (Number(weeks[i].from) === historyWeekFrom) {
-                idx = i
-                break
-            }
+    function historyRecapStat(kind) {
+        var stat = ((root.historyReport.recap || {})[kind]) || {}
+        var top = stat.top || {}
+        return {
+            count: Number(stat.count) || 0,
+            deltaPct: Number(stat.delta_pct) || 0,
+            trendUp: stat.up !== false,
+            peak: !!stat.peak,
+            allTime: !!stat.all_time || root.historyReport.period === "overall",
+            topName: String(top.name || ""),
+            topCount: Number(top.count) || 0,
+            topArtist: String(top.artist || ""),
+            topTitle: String(top.title || "")
         }
-        idx = Math.max(0, Math.min(weeks.length - 1, idx + Number(delta || 0)))
-        loadHistoryReport(weeks[idx].from)
+    }
+
+    function historyTopTracks() {
+        return (root.historyReport.top_tracks || []).slice(0, 12)
+    }
+
+    function historyTopTrackMaxCount() {
+        var rows = root.historyTopTracks()
+        var max = 1
+        for (var i = 0; i < rows.length; i++)
+            max = Math.max(max, Number(rows[i].count) || 0)
+        return max
+    }
+
+    function historyTrackField(value) {
+        if (value === undefined || value === null)
+            return ""
+        if (typeof value === "object")
+            return String(value["#text"] || value.name || value.text || "").trim()
+        var text = String(value).trim()
+        if (text.indexOf("'#text'") >= 0 || text.indexOf("\"#text\"") >= 0) {
+            var match = text.match(/['"]#text['"]\s*:\s*['"]([^'"]*)['"]/)
+            if (match && match[1])
+                return match[1].trim()
+        }
+        return text
+    }
+
+    function historyTrackArtist(row) {
+        return root.historyTrackField(row && row.artist)
+    }
+
+    function historyTrackTitle(row) {
+        return root.historyTrackField(row && (row.title || row.name))
+    }
+
+    function openHistoryTrackFilter(row) {
+        var artist = root.historyTrackArtist(row)
+        var title = root.historyTrackTitle(row)
+        if (!title)
+            return
+        var label = artist ? artist + " — " + title : title
+        root.openFilter("track", title, label)
     }
 
     function createUserPlaylist(name) {
@@ -1840,6 +1855,7 @@ Item {
         playerScreen = "nowPlaying"
         browsePanelOpen = false
         settingsPanelOpen = false
+        historyPanelOpen = false
         playlistPanelOpen = true
         playlistPanelMode = "library"
         if (!libraryPlaylists.length && !playlistsLoading)
@@ -2530,6 +2546,7 @@ Item {
         browsePanelOpen = false
         playlistPanelOpen = false
         settingsPanelOpen = false
+        historyPanelOpen = false
         filterKind = String(kind || "")
         filterLabel = String(label || value || "")
         filterTracks = []
@@ -2628,6 +2645,7 @@ Item {
         browsePanelOpen = false
         playlistPanelOpen = false
         settingsPanelOpen = false
+        historyPanelOpen = false
         filterKind = "genre"
         filterLabel = playlistTabLabel(genreName)
         filterTracks = []
@@ -2824,6 +2842,7 @@ Item {
             playerScreen = "nowPlaying"
             browsePanelOpen = false
             settingsPanelOpen = false
+            historyPanelOpen = false
             playlistPanelOpen = true
             playlistPanelMode = "tracks"
         }
@@ -4063,7 +4082,9 @@ Item {
             return
         if (openDirProc.running)
             return
-        openDirProc.command = ["thunar", target]
+        openDirProc.command = ["bash", "-lc",
+            "GDK_WAYLAND_APP_ID=floating-window exec -a floating-window thunar "
+                + JSON.stringify(target)]
         openDirProc.running = true
     }
 
@@ -4738,7 +4759,7 @@ Item {
                     onActivated: root.togglePlaylistPanel()
                 }
                 IconTab {
-                    icon: "󰋚"
+                    icon: "󰄨"
                     active: root.historyPanelOpen
                     onActivated: root.toggleHistoryPanel()
                 }
@@ -4936,7 +4957,6 @@ Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.minimumHeight: root.nowPlayingMinBodyHeight
-            Layout.topMargin: -root.playerFieldsetPullUp
 
             RowLayout {
                     anchors.fill: parent
@@ -4964,12 +4984,6 @@ Item {
 
                         SectionPanel {
                             label: ""
-                            legendBackground: root.useFieldsetLegends
-                                ? root.fieldsetLegendBackground
-                                : Theme.background
-                            notchLegend: root.useFieldsetLegends
-                            legendText: "Now playing"
-                            legendIcon: "󰎈"
                             Layout.fillWidth: true
                             Layout.fillHeight: true
                             Layout.minimumHeight: root.nowPlayingFieldsetMinHeight
@@ -5544,12 +5558,6 @@ Item {
                     SectionPanel {
                         label: ""
                         visible: !root.nowPlayingCompact
-                        legendBackground: root.useFieldsetLegends
-                            ? root.fieldsetLegendBackground
-                            : Theme.background
-                        notchLegend: root.useFieldsetLegends
-                        legendText: root.artworkLegendText
-                        legendIcon: "󰋩"
                         Layout.fillHeight: true
                         Layout.preferredWidth: root.nowPlayingArtWidth
                         Layout.maximumWidth: root.nowPlayingArtWidth
@@ -6413,6 +6421,7 @@ Item {
                     btnSize: transportBar.fitBtnSize
                     iconScale: transportBar.fitIconScale
                     icon: "󰋑"
+                    iconOffsetY: 1
                     smallGlyph: true
                     liked: root.favoriteApplyPending && root.favoriteApplyPath === String(root.player.path || "")
                         ? root.favoriteApplyLiked
@@ -6597,12 +6606,21 @@ Item {
             onTriggered: volBtn.wheelPopupActive = false
         }
 
+        Rectangle {
+            anchors.fill: parent
+            radius: btnSize / 2
+            color: Theme.foregroundWash
+            visible: volHover.containsMouse
+        }
+
         Text {
             id: volIcon
             anchors.centerIn: parent
             text: root.volumeIcon(volBtn.level)
             color: volBtn.level <= 0 ? Theme.foreground : Theme.accent
-            opacity: volBtn.level <= 0 ? 0.45 : 0.9
+            opacity: volBtn.level <= 0
+                ? (volHover.containsMouse ? 0.58 : 0.45)
+                : (volHover.containsMouse ? 1 : 0.9)
             font.family: Theme.fontFamily
             font.pixelSize: Math.max(9, Math.round(root.transportSecondaryIconFont * volBtn.iconScale))
         }
@@ -7360,25 +7378,12 @@ Item {
 
     component PlayerSideBrowsePanel: SectionPanel {
         label: ""
-        legendBackground: root.useFieldsetLegends ? root.fieldsetLegendBackground : Theme.background
-        notchLegend: root.useFieldsetLegends
-        legendText: {
-            var base = root.browseTreeLoading ? "Library…" : "Library"
-            var path = String(root.selectedBrowseFolderPath || "")
-            if (!path)
-                return base
-            return base + " / " + root.playlistTabLabel(path.split("/").pop())
-        }
-        legendIcon: "󰉋"
-        legendClickable: !root.browseTreeLoading
         fillHeight: true
 
         onVisibleChanged: {
             if (visible)
                 root.kickSidePanels()
         }
-
-        onLegendClicked: root.browseTreeHome()
 
         ListView {
             id: browseTreeListRoot
@@ -7572,15 +7577,6 @@ Item {
 
     component PlayerSidePlaylistPanel: SectionPanel {
         label: ""
-        legendBackground: root.useFieldsetLegends ? root.fieldsetLegendBackground : Theme.background
-        notchLegend: root.useFieldsetLegends && root.playlistPanelMode !== "library"
-        legendText: {
-            if (root.playlistPanelMode !== "tracks")
-                return "Playlists"
-            return "Playlists / " + root.playlistTabLabel(root.selectedPlaylist)
-        }
-        legendIcon: "󰲸"
-        legendClickable: root.playlistPanelMode === "tracks"
         fillHeight: true
 
         onVisibleChanged: {
@@ -7590,40 +7586,37 @@ Item {
             }
         }
 
-        onLegendClicked: root.showPlaylistLibrary()
-
         ColumnLayout {
             id: playlistPanelColumn
             Layout.fillWidth: true
             Layout.fillHeight: true
             spacing: Theme.spacingS
 
-            Item {
-                id: playlistLibraryLegend
-                property bool fieldsetLegend: true
-                visible: root.useFieldsetLegends && root.playlistPanelMode === "library"
-                implicitWidth: playlistLibraryLegendRow.implicitWidth
-                implicitHeight: playlistLibraryLegendRow.implicitHeight
+            RowLayout {
+                visible: root.playlistPanelMode === "library"
+                Layout.fillWidth: true
+                spacing: Theme.spacingS
 
-                RowLayout {
-                    id: playlistLibraryLegendRow
-                    spacing: Theme.spacingS
+                Text {
+                    Layout.fillWidth: true
+                    text: "Playlists"
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.fontSizeS
+                    opacity: Theme.opacityMuted
+                }
 
-                    HoverPopupLabelPill {
-                        text: "Playlists"
-                        icon: "󰲸"
-                        fontSize: Theme.fontSizeS
-                        fieldsetLegend: true
-                        fieldsetFill: root.fieldsetLegendBackground
-                    }
+                Text {
+                    text: "+ add"
+                    color: Theme.accent
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.fontSizeS
+                    font.bold: Theme.fontBold
 
-                    HoverPopupLabelPill {
-                        text: "+ add"
-                        fontSize: Theme.fontSizeS
-                        textColor: Theme.accent
-                        clickable: true
-                        fieldsetLegend: true
-                        fieldsetFill: root.fieldsetLegendBackground
+                    MouseArea {
+                        anchors.fill: parent
+                        anchors.margins: -6
+                        cursorShape: Qt.PointingHandCursor
                         onClicked: root.createUserPlaylist("playlist-" + Date.now())
                     }
                 }
@@ -7906,10 +7899,6 @@ Item {
 
     component PlayerSideImportPanel: SectionPanel {
         label: ""
-        legendBackground: root.useFieldsetLegends ? root.fieldsetLegendBackground : Theme.background
-        notchLegend: root.useFieldsetLegends
-        legendText: "Actions"
-        legendIcon: "󰉍"
         fillHeight: false
 
         ColumnLayout {
@@ -8072,10 +8061,6 @@ Item {
 
     component PlayerSideLibrarySettingsPanel: SectionPanel {
         label: ""
-        legendBackground: root.useFieldsetLegends ? root.fieldsetLegendBackground : Theme.background
-        notchLegend: root.useFieldsetLegends
-        legendText: "Library"
-        legendIcon: "󰲹"
         fillHeight: false
 
         onVisibleChanged: {
@@ -8183,10 +8168,6 @@ Item {
 
     component PlayerSideSoundCloudSettingsPanel: SectionPanel {
         label: ""
-        legendBackground: root.useFieldsetLegends ? root.fieldsetLegendBackground : Theme.background
-        notchLegend: root.useFieldsetLegends
-        legendText: "SoundCloud"
-        legendIcon: "󰕧"
         fillHeight: false
 
         ColumnLayout {
@@ -8271,13 +8252,6 @@ Item {
 
     component PlayerSideHistoryPanel: SectionPanel {
         label: ""
-        legendBackground: root.useFieldsetLegends ? root.fieldsetLegendBackground : Theme.background
-        notchLegend: root.useFieldsetLegends
-        legendText: {
-            var label = String((root.historyReport.week && root.historyReport.week.label) || "History")
-            return root.historyLoading ? "History…" : label
-        }
-        legendIcon: "󰋚"
         fillHeight: true
 
         onVisibleChanged: {
@@ -8288,49 +8262,104 @@ Item {
         ColumnLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            spacing: Theme.spacingS
+            spacing: Theme.spacing2
+
+            GridLayout {
+                Layout.fillWidth: true
+                columns: 3
+                columnSpacing: Theme.spacingS
+                rowSpacing: Theme.spacingS
+                visible: !root.historyLoading
+
+                HistoryRecapStatBox {
+                    label: "Artists"
+                    value: String(root.historyRecapStat("artists").count)
+                    deltaPct: root.historyRecapStat("artists").deltaPct
+                    trendUp: root.historyRecapStat("artists").trendUp
+                    peak: root.historyRecapStat("artists").peak
+                    allTime: root.historyRecapStat("artists").allTime
+                    topName: root.historyRecapStat("artists").topName
+                    topCount: root.historyRecapStat("artists").topCount
+                    tintColor: Theme.recapArtistsTint
+                    clickable: root.historyRecapStat("artists").topName !== ""
+                    onClicked: {
+                        var name = root.historyRecapStat("artists").topName
+                        if (name)
+                            root.openFilter("artist", name, name)
+                    }
+                }
+
+                HistoryRecapStatBox {
+                    label: "Albums"
+                    value: String(root.historyRecapStat("albums").count)
+                    deltaPct: root.historyRecapStat("albums").deltaPct
+                    trendUp: root.historyRecapStat("albums").trendUp
+                    peak: root.historyRecapStat("albums").peak
+                    allTime: root.historyRecapStat("albums").allTime
+                    topName: root.historyRecapStat("albums").topName
+                    topCount: root.historyRecapStat("albums").topCount
+                    tintColor: Theme.recapAlbumsTint
+                    clickable: root.historyRecapStat("albums").topName !== ""
+                    onClicked: {
+                        var name = root.historyRecapStat("albums").topName
+                        if (name)
+                            root.openFilter("album", name, name)
+                    }
+                }
+
+                HistoryRecapStatBox {
+                    label: "Tracks"
+                    value: String(root.historyRecapStat("tracks").count)
+                    deltaPct: root.historyRecapStat("tracks").deltaPct
+                    trendUp: root.historyRecapStat("tracks").trendUp
+                    peak: root.historyRecapStat("tracks").peak
+                    allTime: root.historyRecapStat("tracks").allTime
+                    topName: root.historyRecapStat("tracks").topName
+                    topCount: root.historyRecapStat("tracks").topCount
+                    tintColor: Theme.recapTracksTint
+                    clickable: root.historyRecapStat("tracks").topName !== ""
+                    onClicked: {
+                        var stat = root.historyRecapStat("tracks")
+                        if (stat.topTitle)
+                            root.openFilter("track", stat.topTitle, stat.topName)
+                        else if (stat.topName)
+                            root.openFilter("search", stat.topName, stat.topName)
+                    }
+                }
+            }
 
             RowLayout {
                 Layout.fillWidth: true
+                Layout.topMargin: Theme.spacing2
                 spacing: Theme.spacingS
+                visible: !root.historyLoading && root.historyTopTracks().length > 0
 
-                BrowseTreeIcon {
-                    icon: "󰅁"
-                    hint: "previous week"
-                    onActivated: root.shiftHistoryWeek(1)
+                Text {
+                    Layout.preferredWidth: 22
+                    text: "#"
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.fontSizeXs
+                    opacity: Theme.opacityMuted
                 }
 
                 Text {
                     Layout.fillWidth: true
-                    horizontalAlignment: Text.AlignHCenter
-                    text: String((root.historyReport.totals && root.historyReport.totals.scrobbles) || 0)
-                        + " scrobbles · "
-                        + String((root.historyReport.totals && root.historyReport.totals.artists) || 0)
-                        + " artists · "
-                        + String((root.historyReport.totals && root.historyReport.totals.hours) || 0)
-                        + " h"
+                    text: "Track"
                     color: Theme.foreground
                     font.family: Theme.fontFamily
-                    font.pixelSize: root.libraryFont
-                    opacity: 0.8
+                    font.pixelSize: Theme.fontSizeXs
+                    opacity: Theme.opacityMuted
                 }
 
-                BrowseTreeIcon {
-                    icon: "󰅂"
-                    hint: "next week"
-                    onActivated: root.shiftHistoryWeek(-1)
-                }
-            }
-
-            SparklineChart {
-                Layout.fillWidth: true
-                chartHeight: 72
-                bars: {
-                    var daily = root.historyReport.daily || []
-                    var out = []
-                    for (var i = 0; i < daily.length; i++)
-                        out.push({ value: Number(daily[i].count) || 0 })
-                    return out
+                Text {
+                    Layout.preferredWidth: 36
+                    horizontalAlignment: Text.AlignRight
+                    text: "Plays"
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.fontSizeXs
+                    opacity: Theme.opacityMuted
                 }
             }
 
@@ -8339,36 +8368,76 @@ Item {
                 Layout.fillHeight: true
                 clip: true
                 spacing: Theme.spacing2
-                model: (root.historyReport.top_tracks || []).slice(0, 12)
+                visible: !root.historyLoading
+                model: root.historyTopTracks()
 
                 delegate: Rectangle {
                     required property var modelData
+                    required property int index
                     width: parent.width
-                    height: 34
+                    height: 42
                     radius: Theme.radiusL
                     color: historyRowMouse.containsMouse ? Theme.foregroundGhost : "transparent"
+                    clip: true
+
+                    Rectangle {
+                        anchors.left: parent.left
+                        anchors.top: parent.top
+                        anchors.bottom: parent.bottom
+                        width: parent.width * ((Number(modelData.count) || 0)
+                            / Math.max(1, root.historyTopTrackMaxCount()))
+                        color: Theme.withOpacity(Theme.highlight, historyRowMouse.containsMouse ? 0.18 : 0.1)
+                    }
 
                     RowLayout {
                         anchors.fill: parent
                         anchors.leftMargin: 10
                         anchors.rightMargin: 10
                         spacing: Theme.spacingS
+                        z: 1
 
                         Text {
-                            Layout.fillWidth: true
-                            text: String(modelData.artist || "") + " — " + String(modelData.title || "")
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.listFont
-                            elide: Text.ElideRight
-                        }
-
-                        Text {
-                            text: String(modelData.count || 0)
+                            Layout.preferredWidth: 22
+                            text: String(index + 1)
                             color: Theme.foreground
                             font.family: Theme.fontFamily
                             font.pixelSize: root.libraryFont
                             opacity: Theme.opacityDisabled
+                        }
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 0
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: root.historyTrackTitle(modelData)
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.listFont
+                                elide: Text.ElideRight
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                visible: root.historyTrackArtist(modelData) !== ""
+                                text: root.historyTrackArtist(modelData)
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSizeXs
+                                opacity: Theme.opacityMuted
+                                elide: Text.ElideRight
+                            }
+                        }
+
+                        Text {
+                            Layout.preferredWidth: 36
+                            horizontalAlignment: Text.AlignRight
+                            text: String(modelData.count || 0)
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.libraryFont
+                            font.bold: Theme.fontBold
                         }
                     }
 
@@ -8377,26 +8446,29 @@ Item {
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
+                        onClicked: root.openHistoryTrackFilter(modelData)
                     }
                 }
+            }
+
+            Text {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                visible: !root.historyLoading && root.historyTopTracks().length === 0
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+                text: "no tracks"
+                color: Theme.foreground
+                font.family: Theme.fontFamily
+                font.pixelSize: root.listFont
+                opacity: Theme.opacityDisabled
             }
         }
     }
 
     component PlayerSideFilterPanel: SectionPanel {
         label: ""
-        legendBackground: root.useFieldsetLegends ? root.fieldsetLegendBackground : Theme.background
-        notchLegend: root.useFieldsetLegends
-        legendText: {
-            var base = root.filterKindTitle()
-            var label = String(root.filterLabel || "")
-            return label ? base + " / " + label : base
-        }
-        legendIcon: root.filterKindIcon()
-        legendClickable: true
         fillHeight: true
-
-        onLegendClicked: root.showNowPlaying()
 
         ListView {
             id: sideFilterTrackList
@@ -8534,6 +8606,8 @@ Item {
         property bool smallGlyph: false
         property int btnSize: root.transportBtnSize
         property real iconScale: 1
+        property int iconOffsetX: 0
+        property int iconOffsetY: 0
         signal activated()
 
         implicitWidth: btnSize
@@ -8542,11 +8616,22 @@ Item {
         Layout.preferredHeight: btnSize
         Layout.alignment: Qt.AlignVCenter
 
+        Rectangle {
+            anchors.fill: parent
+            radius: btnSize / 2
+            color: Theme.foregroundWash
+            visible: transportMouse.containsMouse
+        }
+
         Text {
             anchors.centerIn: parent
+            anchors.horizontalCenterOffset: btn.iconOffsetX
+            anchors.verticalCenterOffset: btn.iconOffsetY
             text: btn.icon
             color: liked ? Theme.urgent : (accent ? Theme.accent : Theme.foreground)
-            opacity: dimmed ? 0.35 : (liked ? 1 : 0.9)
+            opacity: dimmed
+                ? (transportMouse.containsMouse ? 0.55 : 0.35)
+                : (liked ? 1 : (transportMouse.containsMouse ? 1 : 0.9))
             font.family: Theme.fontFamily
             font.pixelSize: Math.max(10, Math.round((accent
                 ? root.transportIconFont * 1.2
@@ -8554,7 +8639,9 @@ Item {
         }
 
         MouseArea {
+            id: transportMouse
             anchors.fill: parent
+            hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
             onClicked: btn.activated()
         }
