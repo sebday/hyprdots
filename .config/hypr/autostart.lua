@@ -1,7 +1,6 @@
 hl.on("hyprland.start", function()
 	hl.exec_cmd("gsettings set org.gnome.desktop.wm.keybindings switch-input-source \"['XF86Keyboard']\"")
 	hl.exec_cmd("xrandr --output DP-1 --primary")
-	hl.exec_cmd("systemctl --user start evoshell.service")
 	hl.dispatch(hl.dsp.exec_cmd("brave", { workspace = "2" }))
 	hl.dispatch(hl.dsp.exec_cmd("obsidian", { workspace = "6 silent" }))
 	hl.exec_cmd("bash -c 'sleep 20 && insync start --qt-qpa-platform=xcb'")

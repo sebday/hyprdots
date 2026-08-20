@@ -121,6 +121,26 @@ configure_timesync() {
     sudo systemctl enable systemd-timesyncd
 }
 
+link_evoshell() {
+    log "Linking evoshell..."
+    local evoshell_root="${EVOSHELL_ROOT:-${HOME}/projects/evoshell}"
+    if [[ ! -f "${evoshell_root}/scripts/install" ]]; then
+        log "WARNING: evoshell repo missing at ${evoshell_root}; clone it before using the shell" >&2
+        return 0
+    fi
+    bash "${evoshell_root}/scripts/install"
+}
+
+link_evoplayer() {
+    log "Linking evoplayer into evoshell..."
+    local evoplayer_root="${EVOPLAYER_ROOT:-${HOME}/projects/evoplayer}"
+    if [[ ! -f "${evoplayer_root}/scripts/install" ]]; then
+        log "WARNING: evoplayer repo missing at ${evoplayer_root}; clone it before using the player" >&2
+        return 0
+    fi
+    bash "${evoplayer_root}/scripts/install"
+}
+
 # Limit journal size and trim old logs (audit: journald was ~4 GB before vacuum).
 configure_journald() {
     log "Configuring journald..."
@@ -252,6 +272,8 @@ main() {
     install_dependencies
     clone_dotfiles
     cd "$HOME"
+    link_evoshell
+    link_evoplayer
     install_pacman_packages
     install_yay
     install_aur_packages

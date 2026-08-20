@@ -103,24 +103,6 @@ hl.window_rule({
 	opacity = "1 override 1 override",
 })
 
-hl.window_rule({
-	name = "dashboard-no-initial-focus-shopify",
-	match = {
-		class = "^(org%.quickshell)$",
-		title = "^evo.panel.shopify",
-	},
-	no_initial_focus = true,
-})
-
-hl.window_rule({
-	name = "dashboard-no-initial-focus-player",
-	match = {
-		class = "^(org%.quickshell)$",
-		title = "^evo.panel.player$",
-	},
-	no_initial_focus = true,
-})
-
 local function brave_app_to_floating(win)
 	if not win or not win.class or not win.class:match("^brave%-.-__") then
 		return
@@ -132,17 +114,8 @@ local function brave_app_to_floating(win)
 	end, { timeout = 1, type = "oneshot" })
 end
 
-local function dashboard_to_ws10(win)
-	local title = win and win.title or ""
-	if win and win.class == "org.quickshell" and (title:match("^evo.panel.shopify") or title == "evo.panel.player") then
-		hl.dispatch(hl.dsp.window.move({ workspace = "10", window = win, follow = false }))
-	end
-end
-
 local function on_window_open(win)
-	dashboard_to_ws10(win)
 	brave_app_to_floating(win)
 end
 
 hl.on("window.open", on_window_open)
-hl.on("window.title", dashboard_to_ws10)

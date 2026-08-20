@@ -6,7 +6,6 @@ local browser = "brave"
 local terminal = "ghostty"
 local editor = terminal .. " -e nvim"
 local bin = (os.getenv("HOME") or "") .. "/.local/bin"
-local shell_ipc = bin .. "/evo-ipc"
 
 local function bindd(keys, description, dispatcher, flags)
 	flags = flags or {}
@@ -15,26 +14,12 @@ local function bindd(keys, description, dispatcher, flags)
 end
 
 bindd("SUPER + Return", "Terminal", hl.dsp.exec_cmd(terminal))
-bindd("SUPER + Space", "System menu", hl.dsp.global("evoshell:systemMenu"))
-bindd("SUPER + Home", "Wallpaper switcher", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.sys.wallpaper"))
-bindd("SUPER + ALT + Home", "Theme picker", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.sys.themes"))
 bindd("SUPER + W", "Close Active Window", hl.dsp.window.close())
 bindd("SUPER + E", "Editor", hl.dsp.exec_cmd(editor))
 bindd("SUPER + T", "GUI File Manager", hl.dsp.exec_cmd("thunar"))
 bindd("SUPER + F", "Fullscreen", hl.dsp.window.fullscreen({ mode = "fullscreen", action = "set" }))
 bindd("SUPER + J", "Toggle Split Direction", hl.dsp.layout("togglesplit"))
 bindd("SUPER + K", "Toggle Floating Window", hl.dsp.window.float({ action = "toggle" }))
-bindd("SUPER + L", "Lock Screen", hl.dsp.exec_cmd(bin .. "/evo-system lock"))
-bindd("SUPER + R", "Restart evoshell", hl.dsp.exec_cmd(bin .. "/evo-system restart"))
-bindd("SUPER + C", "Calc panel", hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.side \'{"module":"calc"}\''))
-bindd("SUPER + B", "Settings", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.sys.settings"))
-bindd(
-	"SUPER + N",
-	"Tasks panel",
-	hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.side \'{"module":"calc","focus":"tasks"}\'')
-)
-bindd("SUPER + M", "Library", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.bar.media.library"))
-bindd("SUPER + V", "Clipboard history", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.side.clipboard"))
 bindd("SUPER + P", "Colour Picker", hl.dsp.exec_cmd("hyprpicker -al"))
 bindd("SUPER + H", "Toggle window transparency", function()
 	local window = hl.get_active_window()
@@ -128,30 +113,6 @@ bindd(
 	{ repeating = true }
 )
 
--- Volume controls (Pipewire via evoshell)
-bindd(
-	"XF86AudioRaiseVolume",
-	"Volume up",
-	hl.dsp.exec_cmd(shell_ipc .. " evo.bar.media.audio stepUp"),
-	{ locked = true, repeating = true }
-)
-bindd(
-	"XF86AudioLowerVolume",
-	"Volume down",
-	hl.dsp.exec_cmd(shell_ipc .. " evo.bar.media.audio stepDown"),
-	{ locked = true, repeating = true }
-)
-bindd(
-	"XF86AudioMute",
-	"Mute volume",
-	hl.dsp.exec_cmd(shell_ipc .. " evo.bar.media.audio toggleMute"),
-	{ locked = true, repeating = true }
-)
-bindd("XF86AudioPlay", "Play/Pause media", hl.dsp.exec_cmd(bin .. "/evo-media-keys play-pause"), { locked = true })
-bindd("XF86AudioPause", "Pause media", hl.dsp.exec_cmd(bin .. "/evo-media-keys play-pause"), { locked = true })
-bindd("XF86AudioNext", "Next media track", hl.dsp.exec_cmd(bin .. "/evo-media-keys next"), { locked = true })
-bindd("XF86AudioPrev", "Previous media track", hl.dsp.exec_cmd(bin .. "/evo-media-keys prev"), { locked = true })
-
 -- Screenshot
 bindd("PRINT", "Screenshot Region", hl.dsp.exec_cmd('bash -c "hyprshot -m region -o /tmp/ -f hyprshot.png;"'))
 bindd(
@@ -163,12 +124,6 @@ bindd(
 	"SUPER + ALT + PRINT",
 	"Screenshot Active Window",
 	hl.dsp.exec_cmd('bash -c "hyprshot -m window -m active -o /tmp/ -f hyprshot.png;"')
-)
-bindd("SUPER + PRINT", "Annotate screenshot", hl.dsp.exec_cmd(bin .. "/evo-screenshot edit"))
-bindd(
-	"SUPER + SHIFT + PRINT",
-	"Screenshot region and annotate",
-	hl.dsp.exec_cmd(bin .. "/evo-screenshot edit --capture region")
 )
 bindd("q", "Close satty", function()
 	local win = hl.get_active_window()

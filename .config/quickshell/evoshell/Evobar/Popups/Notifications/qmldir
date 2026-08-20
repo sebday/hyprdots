@@ -1,6 +1,0 @@
-module notifications
-NotificationsModule 1.0 NotificationsModule.qml
-NotificationCard 1.0 NotificationCard.qml
-NotificationsToast 1.0 NotificationsToast.qml
-NotificationMetaPill 1.0 NotificationMetaPill.qml
-NotificationHistoryEntry 1.0 NotificationHistoryEntry.qml

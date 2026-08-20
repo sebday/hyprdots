@@ -1,4 +1,0 @@
-module transmission
-TransmissionModule 1.0 TransmissionModule.qml
-TransmissionPanel 1.0 TransmissionPanel.qml
-TransmissionAddForm 1.0 TransmissionAddForm.qml

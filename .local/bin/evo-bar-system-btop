@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-# Centered btop for evoshell bar widgets.
-
-set -euo pipefail
-
-exec ghostty --class=TUI.main --window-padding-x=0 --window-padding-y=0 -e btop

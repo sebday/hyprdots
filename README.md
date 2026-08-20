@@ -19,6 +19,12 @@ Thank you to [Bjarne](https://github.com/bjarneo) for some gorgeous themes.
   
 ## Quickshell
 
+Evoshell lives in a separate repo: `~/projects/evoshell`. After cloning hyprdots, run:
+
+```bash
+bash ~/projects/evoshell/scripts/install
+```
+
 Evoshell uses canonical `evo.*` plugin ids and `evo-*` executables:
 
 | Kind | Example id | Namespace | Executable |
@@ -28,7 +34,7 @@ Evoshell uses canonical `evo.*` plugin ids and `evo-*` executables:
 | Dashboard | `evo.panel.player` | — (window title) | `evo-panel-player` |
 | Side panel | `evo.side` | `evo-side` | `evo-calculator`, `evo-tasks` |
 | System | `evo.sys.settings` | `evo-sys-settings` | `evo-system`, `evo-ipc` |
-| Player backend | `evo.panel.player.monitor` | — | `evo-player` |
+| Player backend | `evo.panel.player.monitor` | — | `evoplayer` |
 
 State: `$XDG_STATE_HOME/evoshell/panel/player` · Cache: `$XDG_CACHE_HOME/evoshell/panel/player`
 
