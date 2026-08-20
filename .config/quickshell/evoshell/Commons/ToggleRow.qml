@@ -9,6 +9,8 @@ Item {
     property bool detailInline: false
     property bool checked: false
     property bool enabled: true
+    property int labelFontSize: Theme.fontSizeM
+    property int detailFontSize: Theme.fontSizeM
 
     signal toggled()
 
@@ -31,7 +33,7 @@ Item {
                 text: root.label
                 color: Theme.foreground
                 font.family: Theme.fontFamily
-                font.pixelSize: Theme.fontSizeM
+                font.pixelSize: root.labelFontSize
                 font.bold: Theme.fontBold
                 elide: Text.ElideRight
                 Layout.fillWidth: true
@@ -58,7 +60,7 @@ Item {
                 text: root.label
                 color: Theme.foreground
                 font.family: Theme.fontFamily
-                font.pixelSize: Theme.fontSizeM
+                font.pixelSize: root.labelFontSize
                 font.bold: Theme.fontBold
                 elide: Text.ElideRight
             }
@@ -68,7 +70,7 @@ Item {
                 text: root.detail
                 color: Theme.foreground
                 font.family: Theme.fontFamily
-                font.pixelSize: Theme.fontSizeM
+                font.pixelSize: root.detailFontSize
                 opacity: Theme.opacityMuted
                 elide: Text.ElideRight
             }

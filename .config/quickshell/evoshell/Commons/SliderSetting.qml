@@ -27,6 +27,20 @@ ColumnLayout {
             dragValue = value
     }
 
+    function valueAt(mouseX, trackWidth) {
+        var ratio = Math.max(0, Math.min(1, mouseX / trackWidth))
+        var raw = minimum + ratio * (maximum - minimum)
+        var stepped = Math.round(raw / step) * step
+        return Math.max(minimum, Math.min(maximum, stepped))
+    }
+
+    function setDragValue(next) {
+        if (next === dragValue)
+            return
+        dragValue = next
+        valueEdited(next)
+    }
+
     spacing: Theme.spacingS
     opacity: root.enabled ? 1 : Theme.opacityDisabled
 
@@ -100,36 +114,22 @@ ColumnLayout {
             property int dragStartValue: root.activeValue
             property bool finishedPress: false
 
-            function valueAt(mouseX) {
-                var ratio = Math.max(0, Math.min(1, mouseX / track.width))
-                var raw = root.minimum + ratio * (root.maximum - root.minimum)
-                var stepped = Math.round(raw / root.step) * root.step
-                return Math.max(root.minimum, Math.min(root.maximum, stepped))
-            }
-
-            function setDragValue(next) {
-                if (next === dragValue)
-                    return
-                dragValue = next
-                root.valueEdited(next)
-            }
-
             onPressed: function(mouse) {
                 finishedPress = false
                 dragStartValue = root.activeValue
                 root.dragging = true
-                root.setDragValue(valueAt(mouse.x))
+                root.setDragValue(root.valueAt(mouse.x, track.width))
             }
 
             onPositionChanged: function(mouse) {
                 if (!pressed)
                     return
-                root.setDragValue(valueAt(mouse.x))
+                root.setDragValue(root.valueAt(mouse.x, track.width))
             }
 
             onReleased: function(mouse) {
                 finishedPress = true
-                root.setDragValue(valueAt(mouse.x))
+                root.setDragValue(root.valueAt(mouse.x, track.width))
                 root.dragging = false
                 root.valueCommitted(root.dragValue)
             }

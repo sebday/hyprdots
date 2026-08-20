@@ -22,7 +22,7 @@ ColumnLayout {
 
     Layout.fillWidth: true
     implicitWidth: 188
-    implicitHeight: labelRow.implicitHeight + Theme.spacingM + hueField.implicitHeight
+    implicitHeight: hueField.implicitHeight
     spacing: Theme.spacingM
     opacity: enabled ? 1 : Theme.opacityDisabled
 
@@ -68,29 +68,6 @@ ColumnLayout {
             return false
         setHue(x / w)
         return true
-    }
-
-    RowLayout {
-        id: labelRow
-        Layout.fillWidth: true
-        spacing: Theme.spacingS
-
-        Rectangle {
-            Layout.preferredWidth: 18
-            Layout.preferredHeight: 18
-            radius: Theme.radiusS
-            color: root.currentColor
-            border.color: Theme.foregroundSubtle
-            border.width: 1
-        }
-
-        Text {
-            text: "Colour"
-            color: Theme.foreground
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontSizeM
-            font.bold: Theme.fontBold
-        }
     }
 
     Item {

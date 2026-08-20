@@ -547,21 +547,11 @@ Item {
             return
         var id = String(entityId)
         var pct = Math.max(1, Math.min(100, Math.round(Number(brightnessPct))))
-        var row = root.lightRowFor(id)
-        var opt = root.lightOptimistic[id]
-        var hs = opt && Array.isArray(opt.hs) && opt.hs.length >= 1
-            ? opt.hs
-            : (row && row.hsColor)
         var patch = { on: true, brightnessPct: pct, available: true }
-        root.setLightOptimistic(id, { on: true, hs: hs, brightnessPct: pct })
+        root.setLightOptimistic(id, { on: true, brightnessPct: pct })
         root.patchLight(id, patch)
         lightQueue.entityId = id
-        if (Array.isArray(hs) && hs.length >= 1) {
-            var hue = Math.max(0, Math.min(1, Number(hs[0]) / 360))
-            lightQueue.command = Api.lightHueCommand(root.home, id, hue, pct)
-        } else {
-            lightQueue.command = Api.lightCommand(root.home, id, "on", pct)
-        }
+        lightQueue.command = Api.lightCommand(root.home, id, "on", pct)
         lightDebounce.restart()
     }
 

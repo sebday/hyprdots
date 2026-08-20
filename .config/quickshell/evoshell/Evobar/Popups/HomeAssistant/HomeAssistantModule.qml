@@ -110,10 +110,6 @@ Item {
                 return "—"
             return Number(currentValue).toFixed(1) + unit
         }
-        readonly property color aqiTone: root.aqiColor(ha && ha.airQuality ? ha.airQuality.value : NaN)
-        readonly property string aqiLabelText: ha && ha.airQuality && ha.airQuality.label
-            ? String(ha.airQuality.label)
-            : "AQI"
 
         property bool draftHeating: heating
         property bool pendingHeating: false
@@ -164,58 +160,28 @@ Item {
             }
         }
 
-        GridLayout {
+        ToggleRow {
             Layout.fillWidth: true
-            columns: 2
-            columnSpacing: Theme.spacingS
-            rowSpacing: Theme.spacingS
-
-            HoverPopupStatBox {
-                Layout.fillWidth: true
-                icon: "󰔏"
-                value: currentLabel
-                special: true
-                labelToggle: true
-                toggleVertical: true
-                toggleChecked: draftHeating
-                toggleEnabled: available && ha && !ha.climateBusy
-                toggleWidth: 12
-                toggleHeight: 26
-                valueColor: root.climateTempColor(currentValue)
-                iconColor: root.climateTempColor(currentValue)
-                onToggleClicked: {
-                    if (!ha)
-                        return
-                    pendingHeating = true
-                    draftHeating = !draftHeating
-                    if (draftHeating) {
-                        draftTarget = minTemp
-                        pendingTarget = true
-                        ha.setClimateTemperature(entityId, minTemp)
-                    }
-                    ha.setClimateMode(entityId, draftHeating ? "heat" : "off")
+            label: currentLabel
+            detail: draftHeating ? (String(draftTarget) + unit) : ""
+            detailInline: true
+            labelFontSize: Theme.fontSizeL
+            detailFontSize: Theme.fontSizeL
+            checked: draftHeating
+            enabled: available && ha && !ha.climateBusy
+            onToggled: {
+                if (!ha)
+                    return
+                pendingHeating = true
+                draftHeating = !draftHeating
+                if (draftHeating) {
+                    pendingTarget = true
+                    ha.setClimateMode(entityId, "heat")
+                    ha.setClimateTemperature(entityId, draftTarget)
+                } else {
+                    ha.setClimateMode(entityId, "off")
                 }
             }
-
-            HoverPopupStatBox {
-                Layout.fillWidth: true
-                icon: "󰂫"
-                value: root.aqiValueText()
-                label: aqiLabelText
-                labelInline: true
-                valueColor: aqiTone
-                iconColor: aqiTone
-            }
-        }
-
-        Text {
-            Layout.alignment: Qt.AlignHCenter
-            visible: draftHeating
-            text: String(draftTarget) + "°"
-            color: root.climateTempColor(draftTarget)
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontSize4xl
-            font.bold: Theme.fontBold
         }
 
         RowLayout {
@@ -354,11 +320,12 @@ Item {
 
         ToggleRow {
             Layout.fillWidth: true
-            label: String(lightData.name || lightData.entityId || "Light")
-            detail: draftOn
+            label: draftOn
                 ? (showBrightness ? (draftBrightness + "%") : "On")
                 : "Off"
+            detail: ""
             detailInline: true
+            labelFontSize: Theme.fontSizeL
             checked: draftOn
             enabled: available && ha
             onToggled: {
@@ -466,26 +433,6 @@ Item {
         return Theme.mixColors(Qt.color("#6ec8ff"), Theme.urgent, Math.max(0, Math.min(1, (n - 12) / 13)))
     }
 
-    function aqiColor(value) {
-        var n = Number(value)
-        if (isNaN(n))
-            return Theme.foreground
-        if (n < 20)
-            return Theme.accent
-        if (n < 60)
-            return Theme.mixColors(Theme.accent, Theme.urgent, 0.45)
-        return Theme.urgent
-    }
-
-    function aqiValueText() {
-        if (!ha || !ha.airQuality || ha.airQuality.available !== true)
-            return "—"
-        var n = Number(ha.airQuality.value)
-        if (isNaN(n))
-            return "—"
-        return String(Math.round(n))
-    }
-
     Timer {
         id: tickTimer
         interval: 30000
@@ -497,35 +444,6 @@ Item {
         id: column
         width: root.hoverPopupWidth
         spacing: Theme.hoverPopupSectionSpacing
-
-        SectionPanel {
-            Layout.fillWidth: true
-            visible: root.climates.length > 0
-            label: ""
-            sectionSpacing: 8
-            contentPad: Theme.hoverPopupContentPad
-            legendBackground: Theme.background
-
-            HoverPopupLabelPill {
-                text: "Climate"
-                icon: "󰔏"
-                fontSize: Theme.fontSizeS
-            }
-
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: Theme.spacingS
-
-                Repeater {
-                    model: root.climates
-
-                    ClimateRow {
-                        required property var modelData
-                        climateData: modelData
-                    }
-                }
-            }
-        }
 
         Item {
             Layout.fillWidth: true
@@ -654,44 +572,78 @@ Item {
                     }
                 }
 
-                SectionPanel {
+                Column {
                     width: root.layoutColumnWidth
-                    label: ""
-                    sectionSpacing: 8
-                    contentPad: Theme.hoverPopupContentPad
-                    legendBackground: Theme.background
+                    spacing: Theme.spacingM
 
-                    HoverPopupLabelPill {
-                        text: "Lights"
-                        icon: "󰌵"
-                        fontSize: Theme.fontSizeS
-                    }
+                    SectionPanel {
+                        width: parent.width
+                        visible: root.climates.length > 0
+                        label: ""
+                        sectionSpacing: 8
+                        contentPad: Theme.hoverPopupContentPad
+                        legendBackground: Theme.background
 
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: Theme.spacingS
-
-                        LightRow {
-                            Layout.fillWidth: true
-                            visible: root.selectedLight !== null
-                            lightData: root.selectedLight || ({
-                                entityId: "",
-                                name: "",
-                                on: false,
-                                available: false,
-                                supportsColor: false
-                            })
+                        HoverPopupLabelPill {
+                            text: "Climate"
+                            icon: "󰔏"
+                            fontSize: Theme.fontSizeS
                         }
 
-                        Text {
+                        ColumnLayout {
                             Layout.fillWidth: true
-                            visible: root.lights.length === 0
-                            text: "No lights"
-                            color: Theme.foreground
-                            opacity: Theme.opacityMuted
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.hintFont
-                            horizontalAlignment: Text.AlignHCenter
+                            spacing: Theme.spacingS
+
+                            Repeater {
+                                model: root.climates
+
+                                ClimateRow {
+                                    required property var modelData
+                                    climateData: modelData
+                                }
+                            }
+                        }
+                    }
+
+                    SectionPanel {
+                        width: parent.width
+                        label: ""
+                        sectionSpacing: 8
+                        contentPad: Theme.hoverPopupContentPad
+                        legendBackground: Theme.background
+
+                        HoverPopupLabelPill {
+                            text: "Lights"
+                            icon: "󰌵"
+                            fontSize: Theme.fontSizeS
+                        }
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: Theme.spacingS
+
+                            LightRow {
+                                Layout.fillWidth: true
+                                visible: root.selectedLight !== null
+                                lightData: root.selectedLight || ({
+                                    entityId: "",
+                                    name: "",
+                                    on: false,
+                                    available: false,
+                                    supportsColor: false
+                                })
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                visible: root.lights.length === 0
+                                text: "No lights"
+                                color: Theme.foreground
+                                opacity: Theme.opacityMuted
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.hintFont
+                                horizontalAlignment: Text.AlignHCenter
+                            }
                         }
                     }
                 }
