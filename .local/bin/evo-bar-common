@@ -161,8 +161,53 @@ kraken_api_errors() {
     jq -r '.error // [] | .[]' <<<"$resp" 2>/dev/null || true
 }
 
-# Merge date|value rows from stdin into a JSON history file.
-# Prints date|value lines for the last $keep days.
+# Build candlestick JSON from date|open|high|low|close rows (or legacy date|close).
+# Prints a JSON array with open, high, low, close, and value (= close).
+evo_bar_build_candles_json() {
+    local -a rows=("$@")
+    local row day_iso open high low close lines
+
+    if ((${#rows[@]} == 0)); then
+        printf '[]'
+        return
+    fi
+
+    lines=""
+    for row in "${rows[@]}"; do
+        IFS='|' read -ra parts <<< "$row"
+        day_iso="${parts[0]}"
+        if ((${#parts[@]} >= 5)); then
+            open="${parts[1]}"
+            high="${parts[2]}"
+            low="${parts[3]}"
+            close="${parts[4]}"
+        elif ((${#parts[@]} >= 2)); then
+            close="${parts[1]}"
+            open="$close"
+            high="$close"
+            low="$close"
+        else
+            continue
+        fi
+        lines+="$(jq -cn \
+            --arg date "$day_iso" \
+            --argjson open "${open:-0}" \
+            --argjson high "${high:-0}" \
+            --argjson low "${low:-0}" \
+            --argjson close "${close:-0}" \
+            '{date: $date, open: $open, high: $high, low: $low, close: $close, value: $close}')"
+        lines+=$'\n'
+    done
+
+    if [[ -z "$lines" ]]; then
+        printf '[]'
+        return
+    fi
+    printf '%s' "$lines" | jq -s '.'
+}
+
+# Merge date|value or date|open|high|low|close rows from stdin into a JSON history file.
+# Prints merged rows in the same format for the last $keep days.
 # Usage: { echo '2026-01-01|100'; ...; } | evo_bar_merge_history <path> [keep]
 evo_bar_merge_history() {
     local path="$1"
@@ -181,17 +226,42 @@ evo_bar_merge_history() {
         line="${line//$'\r'/}"
         [[ "$line" == *"|"* ]] || continue
         d="${line%%|*}"
-        v="${line#*|}"
         d="${d//[[:space:]]/}"
         [[ -n "$d" ]] || continue
-        existing=$(jq -c --arg d "$d" --arg v "$v" '
-            (map(select(.date != $d)) + [{date: $d, value: ($v | tonumber)}])
-        ' <<<"$existing" 2>/dev/null || echo "$existing")
+        IFS='|' read -ra parts <<< "$line"
+        if ((${#parts[@]} >= 5)); then
+            existing=$(jq -c --arg d "$d" \
+                --argjson open "${parts[1]}" \
+                --argjson high "${parts[2]}" \
+                --argjson low "${parts[3]}" \
+                --argjson close "${parts[4]}" '
+                (map(select(.date != $d)) + [{
+                    date: $d,
+                    value: $close,
+                    open: $open,
+                    high: $high,
+                    low: $low,
+                    close: $close
+                }])
+            ' <<<"$existing" 2>/dev/null || echo "$existing")
+        else
+            v="${parts[1]}"
+            existing=$(jq -c --arg d "$d" --arg v "$v" '
+                (map(select(.date != $d)) + [{date: $d, value: ($v | tonumber)}])
+            ' <<<"$existing" 2>/dev/null || echo "$existing")
+        fi
     done <<<"$stdin_data"
 
     merged=$(jq -c --argjson keep "$keep" 'sort_by(.date) | .[-$keep:]' <<<"$existing")
     tmp="$(mktemp)"
     printf '%s\n' "$merged" | jq '.' >"$tmp"
     mv "$tmp" "$path"
-    jq -r '.[] | "\(.date)|\(.value)"' <<<"$merged"
+    jq -r '
+        .[]
+        | if (.open != null and .high != null and .low != null and .close != null) then
+            "\(.date)|\(.open)|\(.high)|\(.low)|\(.close)"
+          else
+            "\(.date)|\(.value)"
+          end
+    ' <<<"$merged"
 }

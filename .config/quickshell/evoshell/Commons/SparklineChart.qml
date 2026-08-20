@@ -6,7 +6,7 @@ Item {
 
     property var bars: []
     property var secondaryBars: []
-    property string style: "bars" // "bars" | "line"
+    property string style: "bars" // "bars" | "line" | "candlestick"
     property int chartHeight: Theme.sparklineExpandedHeight
     property int barWidth: Theme.sparklineExpandedBarWidth
     property int barSpacing: Theme.sparklineExpandedBarSpacing
@@ -14,9 +14,12 @@ Item {
     property bool showEmptyLabel: true
     property color lineColor: Theme.accent
     property color secondaryLineColor: "#a6e3a1"
+    property color bullishColor: Theme.accent
+    property color bearishColor: Theme.urgent
     property int lineWidth: 2
 
     readonly property bool isLine: style === "line"
+    readonly property bool isCandlestick: style === "candlestick"
     readonly property bool hasSecondary: secondaryBars.length > 0
 
     implicitHeight: chartHeight
@@ -27,14 +30,36 @@ Item {
             lineCanvas.requestPaint()
     }
 
-    onBarsChanged: repaintLine()
+    function repaintCandles() {
+        if (isCandlestick)
+            candleCanvas.requestPaint()
+    }
+
+    onBarsChanged: {
+        repaintLine()
+        repaintCandles()
+    }
     onSecondaryBarsChanged: repaintLine()
-    onWidthChanged: repaintLine()
-    onHeightChanged: repaintLine()
-    onChartHeightChanged: repaintLine()
+    onWidthChanged: {
+        repaintLine()
+        repaintCandles()
+    }
+    onHeightChanged: {
+        repaintLine()
+        repaintCandles()
+    }
+    onChartHeightChanged: {
+        repaintLine()
+        repaintCandles()
+    }
     onLineColorChanged: repaintLine()
     onSecondaryLineColorChanged: repaintLine()
-    onStyleChanged: repaintLine()
+    onBullishColorChanged: repaintCandles()
+    onBearishColorChanged: repaintCandles()
+    onStyleChanged: {
+        repaintLine()
+        repaintCandles()
+    }
 
     readonly property int scaledBarWidth: barWidth
     readonly property int scaledBarSpacing: barSpacing
@@ -73,6 +98,50 @@ Item {
         return { min: minV - span * 0.08, max: maxV + span * 0.08 }
     }
 
+    function ohlcForBar(bar, index, series) {
+        var pts = series || []
+        var close = parseFloat(bar && (bar.close !== undefined ? bar.close : bar.value))
+        if (isNaN(close))
+            close = 0
+        var open = parseFloat(bar && bar.open)
+        var high = parseFloat(bar && bar.high)
+        var low = parseFloat(bar && bar.low)
+        if (!isNaN(open) && !isNaN(high) && !isNaN(low))
+            return { open: open, high: high, low: low, close: close }
+        var prev = close
+        if (index > 0) {
+            var p = pts[index - 1]
+            prev = parseFloat(p && (p.close !== undefined ? p.close : p.value))
+            if (isNaN(prev))
+                prev = close
+        }
+        return {
+            open: prev,
+            high: Math.max(prev, close),
+            low: Math.min(prev, close),
+            close: close
+        }
+    }
+
+    function ohlcValueRange() {
+        var pts = bars || []
+        var minV = Number.POSITIVE_INFINITY
+        var maxV = Number.NEGATIVE_INFINITY
+        for (var i = 0; i < pts.length; i++) {
+            var ohlc = ohlcForBar(pts[i], i, pts)
+            if (ohlc.low < minV) minV = ohlc.low
+            if (ohlc.high > maxV) maxV = ohlc.high
+        }
+        if (!isFinite(minV) || !isFinite(maxV))
+            return { min: 0, max: 1 }
+        if (minV === maxV) {
+            var pad = Math.abs(minV) * 0.02 || 1
+            return { min: minV - pad, max: maxV + pad }
+        }
+        var span = maxV - minV
+        return { min: minV - span * 0.08, max: maxV + span * 0.08 }
+    }
+
     function valueRange() {
         return valueRangeFor(bars)
     }
@@ -91,7 +160,7 @@ Item {
 
     Row {
         id: chartRow
-        visible: !root.isLine
+        visible: !root.isLine && !root.isCandlestick
         anchors.fill: parent
         spacing: root.scaledBarSpacing
 
@@ -192,6 +261,69 @@ Item {
             if (root.hasSecondary)
                 drawSeries(root.secondaryBars, root.secondaryLineColor, false, sharedRange)
             drawSeries(pts, root.lineColor, !root.hasSecondary, sharedRange)
+        }
+
+        Component.onCompleted: requestPaint()
+        onWidthChanged: requestPaint()
+        onHeightChanged: requestPaint()
+    }
+
+    Canvas {
+        id: candleCanvas
+        visible: root.isCandlestick
+        anchors.fill: parent
+
+        onPaint: {
+            var ctx = getContext("2d")
+            ctx.reset()
+            var pts = root.bars || []
+            if (pts.length === 0)
+                return
+
+            var w = width
+            var h = height
+            var padX = 2
+            var padY = 3
+            var usableW = Math.max(1, w - padX * 2)
+            var usableH = Math.max(1, h - padY * 2)
+            var slotW = pts.length > 0 ? usableW / pts.length : usableW
+            var bodyW = Math.max(2, Math.min(10, slotW * 0.62))
+            var range = root.ohlcValueRange()
+            var minV = range.min
+            var maxV = range.max
+            var span = maxV - minV || 1
+
+            function yAt(v) {
+                var n = parseFloat(v)
+                if (isNaN(n))
+                    n = minV
+                return padY + usableH - ((n - minV) / span) * usableH
+            }
+
+            for (var i = 0; i < pts.length; i++) {
+                var ohlc = root.ohlcForBar(pts[i], i, pts)
+                var x = padX + i * slotW + slotW / 2
+                var yHigh = yAt(ohlc.high)
+                var yLow = yAt(ohlc.low)
+                var yOpen = yAt(ohlc.open)
+                var yClose = yAt(ohlc.close)
+                var bullish = ohlc.close >= ohlc.open
+                var color = bullish ? root.bullishColor : root.bearishColor
+
+                ctx.beginPath()
+                ctx.moveTo(x, yHigh)
+                ctx.lineTo(x, yLow)
+                ctx.strokeStyle = color
+                ctx.lineWidth = 1
+                ctx.stroke()
+
+                var top = Math.min(yOpen, yClose)
+                var bodyH = Math.max(1, Math.abs(yClose - yOpen))
+                ctx.fillStyle = color
+                ctx.globalAlpha = bullish ? 0.92 : 0.88
+                ctx.fillRect(x - bodyW / 2, top, bodyW, bodyH)
+                ctx.globalAlpha = 1
+            }
         }
 
         Component.onCompleted: requestPaint()

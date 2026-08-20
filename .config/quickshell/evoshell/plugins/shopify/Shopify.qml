@@ -48,8 +48,6 @@ Item {
         }
     }
 
-    onOpenedChanged: if (opened) Qt.callLater(function() { keySurface.forceActiveFocus() })
-
     FloatingWindow {
         id: dashWindow
         visible: root.opened && root.dashScreen !== null
@@ -61,7 +59,16 @@ Item {
         Item {
             id: keySurface
             anchors.fill: parent
-            focus: root.opened
+            focus: false
+
+            MouseArea {
+                anchors.fill: parent
+                propagateComposedEvents: true
+                onPressed: function(mouse) {
+                    keySurface.forceActiveFocus()
+                    mouse.accepted = false
+                }
+            }
 
             Keys.onPressed: root.handleKey(event)
 

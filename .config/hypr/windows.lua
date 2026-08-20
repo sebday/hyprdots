@@ -106,11 +106,29 @@ hl.window_rule({
 	opacity = "1 override 1 override",
 })
 
+hl.window_rule({
+	name = "dashboard-no-initial-focus-shopify",
+	match = {
+		class = "^(org%.quickshell)$",
+		title = "^evo%.shopify",
+	},
+	no_initial_focus = true,
+})
+
+hl.window_rule({
+	name = "dashboard-no-initial-focus-player",
+	match = {
+		class = "^(org%.quickshell)$",
+		title = "^evo%.player$",
+	},
+	no_initial_focus = true,
+})
+
 local function dashboard_to_ws10(win)
 	local title = win and win.title or ""
 	if win and win.class == "org.quickshell"
 		and (title:match("^evo%.shopify") or title == "evo.player") then
-		hl.dispatch(hl.dsp.window.move({ workspace = "10", window = win }))
+		hl.dispatch(hl.dsp.window.move({ workspace = "10", window = win, follow = false }))
 	end
 end
 

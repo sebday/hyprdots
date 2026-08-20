@@ -88,7 +88,11 @@ fetch_ohlc_rows() {
         (.result | to_entries[0].value) // []
         | .[-90:]
         | .[]
-        | ((.[0] | tonumber | strftime("%Y-%m-%d")) + "|" + (.[4] | tonumber | tostring))
+        | ((.[0] | tonumber | strftime("%Y-%m-%d"))
+            + "|" + (.[1] | tonumber | tostring)
+            + "|" + (.[2] | tonumber | tostring)
+            + "|" + (.[3] | tonumber | tostring)
+            + "|" + (.[4] | tonumber | tostring))
     ' 2>/dev/null || true
 }
 
@@ -101,7 +105,7 @@ build_bars() {
 
     mapfile -t rows < <({
         fetch_ohlc_rows
-        printf '%s|%s\n' "$today" "$price"
+        printf '%s|%s|%s|%s|%s\n' "$today" "$OPEN24" "$HIGH24" "$LOW24" "$price"
     } | evo_bar_merge_history "$HISTORY_FILE" "$HISTORY_KEEP")
 
     period_rows=("${rows[@]}")
@@ -114,7 +118,7 @@ build_bars() {
         PERIOD_JSON='{}'
         return
     fi
-    BARS_JSON=$(evo_bar_build_bars_json "${rows[@]}")
+    BARS_JSON=$(evo_bar_build_candles_json "${rows[@]}")
     PERIOD_JSON=$(evo_bar_period_stats_json "${PERIOD_ROWS[@]}")
 }
 
@@ -156,19 +160,25 @@ kraken_btc_balance() {
 }
 
 kraken_position_json() {
-    local price="$1"
-    local bal_resp bal trades_resp buy_vol buy_cost upnl_pct value_usd
-    [[ -n "$price" && "$price" != "null" ]] || return 1
+    local usd_price="$1"
+    local gbp_price="$2"
+    local bal_resp bal trades_resp buy_vol buy_cost upnl_pct value_gbp
+    [[ -n "$usd_price" && "$usd_price" != "null" ]] || return 1
 
     bal_resp=$(kraken_private "/0/private/Balance") || return 1
     bal=$(kraken_btc_balance "$bal_resp")
     awk -v b="$bal" 'BEGIN { exit (b > 0) ? 0 : 1 }' || {
-        jq -cn --argjson balance 0 --argjson valueUsd 0 --argjson upnlPct 0 --argjson averagePrice 0 \
-            '{balance: $balance, valueUsd: $valueUsd, upnlPct: $upnlPct, averagePrice: $averagePrice}'
+        jq -cn --argjson balance 0 --argjson value 0 --arg currency "GBP" \
+            --argjson upnlPct 0 --argjson averagePrice 0 \
+            '{balance: $balance, value: $value, currency: $currency, upnlPct: $upnlPct, averagePrice: $averagePrice}'
         return 0
     }
 
-    value_usd=$(awk -v b="$bal" -v p="$price" 'BEGIN { printf "%.2f", b * p }')
+    if [[ -n "$gbp_price" && "$gbp_price" != "null" ]]; then
+        value_gbp=$(awk -v b="$bal" -v p="$gbp_price" 'BEGIN { printf "%.2f", b * p }')
+    else
+        value_gbp=0
+    fi
     trades_resp=$(kraken_private "/0/private/TradesHistory" "trades=true" 2>/dev/null) || trades_resp=""
     buy_vol=0
     buy_cost=0
@@ -191,7 +201,7 @@ kraken_position_json() {
     avg_price=0
     if awk -v v="$buy_vol" 'BEGIN { exit (v > 0) ? 0 : 1 }'; then
         avg_price=$(awk -v buy_cost="$buy_cost" -v buy_vol="$buy_vol" 'BEGIN { printf "%.2f", buy_cost / buy_vol }')
-        upnl_pct=$(awk -v price="$price" -v buy_cost="$buy_cost" -v buy_vol="$buy_vol" 'BEGIN {
+        upnl_pct=$(awk -v price="$usd_price" -v buy_cost="$buy_cost" -v buy_vol="$buy_vol" 'BEGIN {
             avg = buy_cost / buy_vol
             printf "%.4f", (price - avg) / avg * 100
         }')
@@ -199,10 +209,11 @@ kraken_position_json() {
 
     jq -cn \
         --argjson balance "$(awk -v b="$bal" 'BEGIN { printf "%.8f", b + 0 }')" \
-        --argjson valueUsd "$value_usd" \
+        --argjson value "$value_gbp" \
+        --arg currency "GBP" \
         --argjson upnlPct "$upnl_pct" \
         --argjson averagePrice "$avg_price" \
-        '{balance: $balance, valueUsd: $valueUsd, upnlPct: $upnlPct, averagePrice: $averagePrice}'
+        '{balance: $balance, value: $value, currency: $currency, upnlPct: $upnlPct, averagePrice: $averagePrice}'
 }
 
 # --- Kraken public ticker ---
@@ -211,9 +222,16 @@ TICKER=$(curl -sf --max-time 8 'https://api.kraken.com/0/public/Ticker?pair=XBTU
 if [[ -z "$TICKER" ]] || ! echo "$TICKER" | jq -e '.result | length > 0' >/dev/null 2>&1; then
     evo_bar_load_heatmap_colors || true
     if [[ -f "$HISTORY_FILE" ]]; then
-        mapfile -t rows < <(jq -r '.[] | "\(.date)|\(.value)"' "$HISTORY_FILE" 2>/dev/null | tail -n "$CHART_DAYS")
+        mapfile -t rows < <(jq -r '
+            .[]
+            | if (.open != null and .high != null and .low != null and .close != null) then
+                "\(.date)|\(.open)|\(.high)|\(.low)|\(.close)"
+              else
+                "\(.date)|\(.value)"
+              end
+        ' "$HISTORY_FILE" 2>/dev/null | tail -n "$CHART_DAYS")
         if ((${#rows[@]} > 0)); then
-            BARS_JSON=$(evo_bar_build_bars_json "${rows[@]}")
+            BARS_JSON=$(evo_bar_build_candles_json "${rows[@]}")
             PERIOD_JSON=$(evo_bar_period_stats_json "${rows[@]}")
             json_out "₿ —" "Kraken ticker unavailable" "" "$BARS_JSON" "Kraken" '{}' "$PERIOD_JSON" '{}'
             exit 0
@@ -247,6 +265,12 @@ QUOTE_JSON=$(jq -cn \
 build_bars "$LAST"
 PRICE_S=$(fmt_price "$LAST")
 
+GBP_TICKER=$(curl -sf --max-time 8 'https://api.kraken.com/0/public/Ticker?pair=XBTGBP' 2>/dev/null) || GBP_TICKER=""
+GBP_LAST=""
+if [[ -n "$GBP_TICKER" ]] && echo "$GBP_TICKER" | jq -e '.result | length > 0' >/dev/null 2>&1; then
+    GBP_LAST=$(echo "$GBP_TICKER" | jq -r '.result | to_entries[0].value | .c[0]')
+fi
+
 # --- Unrealized P/L % (Kraken private API) ---
 POSITION_JSON='{}'
 KRAKEN_ERR=""
@@ -254,7 +278,7 @@ if [[ -z "${KRAKEN_API_KEY:-}" || -z "${KRAKEN_SECRET:-}" ]]; then
     KRAKEN_ERR="set KRAKEN_API_KEY and KRAKEN_SECRET in secrets.env"
 else
     export KRAKEN_API_KEY KRAKEN_SECRET
-    POSITION_JSON=$(kraken_position_json "$LAST" 2>/dev/null) || {
+    POSITION_JSON=$(kraken_position_json "$LAST" "$GBP_LAST" 2>/dev/null) || {
         KRAKEN_ERR="kraken api request failed"
         POSITION_JSON='{}'
     }

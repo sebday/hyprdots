@@ -88,11 +88,15 @@ fetch_yahoo_rows() {
     echo "$raw" | jq -r '
         .chart.result[0] as $r
         | ($r.timestamp // []) as $ts
-        | ($r.indicators.quote[0].close // []) as $c
+        | ($r.indicators.quote[0]) as $q
         | [range(0; ($ts|length))]
         | .[]
-        | select($c[.] != null)
-        | (($ts[.] | tonumber | strftime("%Y-%m-%d")) + "|" + ($c[.] | tonumber | tostring))
+        | select($q.close[.] != null)
+        | (($ts[.] | tonumber | strftime("%Y-%m-%d"))
+            + "|" + ($q.open[.] | tonumber | tostring)
+            + "|" + ($q.high[.] | tonumber | tostring)
+            + "|" + ($q.low[.] | tonumber | tostring)
+            + "|" + ($q.close[.] | tonumber | tostring))
     ' 2>/dev/null || true
 }
 
@@ -105,7 +109,7 @@ build_bars() {
 
     mapfile -t rows < <({
         fetch_yahoo_rows
-        printf '%s|%s\n' "$today" "$price"
+        printf '%s|%s|%s|%s|%s\n' "$today" "$price" "$price" "$price" "$price"
     } | evo_bar_merge_history "$HISTORY_FILE" "$HISTORY_KEEP")
 
     period_rows=("${rows[@]}")
@@ -118,7 +122,7 @@ build_bars() {
         PERIOD_JSON='{}'
         return
     fi
-    BARS_JSON=$(evo_bar_build_bars_json "${rows[@]}")
+    BARS_JSON=$(evo_bar_build_candles_json "${rows[@]}")
     PERIOD_JSON=$(evo_bar_period_stats_json "${PERIOD_ROWS[@]}")
 }
 
@@ -130,13 +134,20 @@ bars_from_cache() {
         return
     fi
     local rows=()
-    mapfile -t rows < <(jq -r '.[] | "\(.date)|\(.value)"' "$HISTORY_FILE" 2>/dev/null | tail -n "$CHART_DAYS")
+    mapfile -t rows < <(jq -r '
+        .[]
+        | if (.open != null and .high != null and .low != null and .close != null) then
+            "\(.date)|\(.open)|\(.high)|\(.low)|\(.close)"
+          else
+            "\(.date)|\(.value)"
+          end
+    ' "$HISTORY_FILE" 2>/dev/null | tail -n "$CHART_DAYS")
     if ((${#rows[@]} == 0)); then
         BARS_JSON='[]'
         PERIOD_JSON='{}'
         return
     fi
-    BARS_JSON=$(evo_bar_build_bars_json "${rows[@]}")
+    BARS_JSON=$(evo_bar_build_candles_json "${rows[@]}")
     PERIOD_JSON=$(evo_bar_period_stats_json "${rows[@]}")
 }
 
@@ -157,7 +168,7 @@ if [[ -z "$POSITION" ]]; then
     exit 0
 fi
 
-read -r LAST UPNL TOTAL_COST QTY AVG_PRICE < <(
+read -r LAST UPNL TOTAL_COST QTY AVG_PRICE CURRENT_VALUE WALLET_CURRENCY < <(
     echo "$POSITION" | jq -r '
         (if type == "array" then .[0] else . end) // empty
         | [
@@ -165,7 +176,9 @@ read -r LAST UPNL TOTAL_COST QTY AVG_PRICE < <(
             (.walletImpact.unrealizedProfitLoss // 0),
             (.walletImpact.totalCost // 0),
             (.quantity // 0),
-            (.averagePrice // .averagePricePaid // 0)
+            (.averagePrice // .averagePricePaid // 0),
+            (.walletImpact.currentValue // 0),
+            (.walletImpact.currency // "GBP")
           ]
         | @tsv
     ' 2>/dev/null
@@ -179,7 +192,8 @@ fi
 
 build_bars "$LAST"
 PRICE_S=$(fmt_price "$LAST")
-VALUE_USD=$(awk -v q="$QTY" -v p="$LAST" 'BEGIN { printf "%.2f", (q + 0) * (p + 0) }')
+VALUE_GBP=$(awk -v v="$CURRENT_VALUE" 'BEGIN { printf "%.2f", v + 0 }')
+WALLET_CURRENCY="${WALLET_CURRENCY:-GBP}"
 
 QUOTE_JSON=$(jq -cn \
     --argjson price "$(awk -v p="$LAST" 'BEGIN { printf "%.2f", p + 0 }')" \
@@ -197,11 +211,12 @@ Unrealized P/L: unavailable (cost basis is zero)"
     POSITION_JSON=$(jq -cn \
         --argjson quantity "$(awk -v q="$QTY" 'BEGIN { printf "%.4f", q + 0 }')" \
         --argjson averagePrice "$(awk -v p="$AVG_PRICE" 'BEGIN { printf "%.2f", p + 0 }')" \
-        --argjson valueUsd "$VALUE_USD" \
+        --argjson value "$VALUE_GBP" \
+        --arg currency "$WALLET_CURRENCY" \
         --argjson upnlPct 0 \
         --argjson unrealizedPnl 0 \
         --argjson totalCost 0 \
-        '{quantity: $quantity, averagePrice: $averagePrice, valueUsd: $valueUsd, upnlPct: $upnlPct, unrealizedPnl: $unrealizedPnl, totalCost: $totalCost}')
+        '{quantity: $quantity, averagePrice: $averagePrice, value: $value, currency: $currency, upnlPct: $upnlPct, unrealizedPnl: $unrealizedPnl, totalCost: $totalCost}')
 else
     PCT_S=$(awk -v upnl="$UPNL" -v cost="$TOTAL_COST" 'BEGIN {
         printf "%+.2f", (upnl / cost) * 100
@@ -217,11 +232,12 @@ Unrealized P/L: ${PCT_S}%"
     POSITION_JSON=$(jq -cn \
         --argjson quantity "$(awk -v q="$QTY" 'BEGIN { printf "%.4f", q + 0 }')" \
         --argjson averagePrice "$(awk -v p="$AVG_PRICE" 'BEGIN { printf "%.2f", p + 0 }')" \
-        --argjson valueUsd "$VALUE_USD" \
+        --argjson value "$VALUE_GBP" \
+        --arg currency "$WALLET_CURRENCY" \
         --argjson upnlPct "$UPNL_PCT" \
         --argjson unrealizedPnl "$(awk -v u="$UPNL" 'BEGIN { printf "%.2f", u + 0 }')" \
         --argjson totalCost "$(awk -v c="$TOTAL_COST" 'BEGIN { printf "%.2f", c + 0 }')" \
-        '{quantity: $quantity, averagePrice: $averagePrice, valueUsd: $valueUsd, upnlPct: $upnlPct, unrealizedPnl: $unrealizedPnl, totalCost: $totalCost}')
+        '{quantity: $quantity, averagePrice: $averagePrice, value: $value, currency: $currency, upnlPct: $upnlPct, unrealizedPnl: $unrealizedPnl, totalCost: $totalCost}')
 fi
 
 output=$(json_out "$TEXT" "$TIP" "$DETAIL" "$BARS_JSON" "Trading 212" "$QUOTE_JSON" "$PERIOD_JSON" "$POSITION_JSON")

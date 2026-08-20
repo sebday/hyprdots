@@ -63,7 +63,7 @@ Item {
         var upnlColor = signedColor(upnl)
         return [
             { label: "Price", value: priceValue },
-            { label: "Value", value: root.fmtUsd(position.valueUsd) },
+            { label: "Value", value: root.fmtPositionValue(position) },
             { label: quantityLabel, value: quantityValue },
             {
                 label: "P/L",
@@ -120,6 +120,23 @@ Item {
         return Format.formatRevenue(n, "$")
     }
 
+    function fmtGbp(val) {
+        var n = parseFloat(val)
+        if (isNaN(n))
+            return "—"
+        return Format.formatRevenue(n, "£")
+    }
+
+    function fmtPositionValue(position) {
+        if (!position || typeof position !== "object")
+            return "—"
+        if (position.value !== undefined && position.value !== null)
+            return root.fmtGbp(position.value)
+        if (position.valueUsd !== undefined && position.valueUsd !== null)
+            return root.fmtUsd(position.valueUsd)
+        return "—"
+    }
+
     function fmtBtc(val) {
         var n = parseFloat(val)
         if (isNaN(n) || n <= 0)
@@ -172,7 +189,7 @@ Item {
         cacheKey: root.btcCacheKey
         active: root.active
         defaultIntervalSec: 60
-        command: [root.home + "/.local/bin/evo", "bar", "btc", String(root.chartHistoryDays)]
+        command: ["bash", root.home + "/.local/bin/evo-bar-btc", String(root.chartHistoryDays)]
         onPolled: function(json) { root.btcData = json }
     }
 
@@ -182,7 +199,7 @@ Item {
         cacheKey: root.spcxCacheKey
         active: root.active
         defaultIntervalSec: 60
-        command: [root.home + "/.local/bin/evo", "bar", "spcx", String(root.chartHistoryDays)]
+        command: ["bash", root.home + "/.local/bin/evo-bar-spcx", String(root.chartHistoryDays)]
         onPolled: function(json) { root.spcxData = json }
     }
 
@@ -235,8 +252,8 @@ Item {
 
                 SparklineChart {
                     anchors.fill: parent
-                    style: "line"
-                    lineColor: panel.market.chartColor
+                    style: "candlestick"
+                    bullishColor: panel.market.chartColor
                     chartHeight: root.chartBlockHeight
                     bars: panel.market.bars
                     showEmptyLabel: false
