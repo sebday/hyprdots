@@ -65,6 +65,11 @@ var plugins = {
         path: "Evobar/Media/NowPlaying/Media.qml",
         keepLoaded: true
     },
+    "evo.bar.media.evo-player": {
+        kinds: ["menu"],
+        path: "Evobar/Media/EvoPlayer/EvoPlayer.qml",
+        keepLoaded: true
+    },
     "evo.bar.popups.github": {
         kinds: ["menu"],
         path: "Evobar/Popups/GitHub/Github.qml",
@@ -167,6 +172,7 @@ var panelPluginIds = [
     "evo.bar.network.stats",
     "evo.bar.media.volume",
     "evo.bar.media.now-playing",
+    "evo.bar.media.evo-player",
     "evo.bar.popups.github",
     "evo.bar.popups.system-stats",
     "evo.bar.popups.stocks",

@@ -1,0 +1,392 @@
+#!/bin/bash
+# Home Assistant REST helper for evoshell bar/popup.
+# Secrets: HOME_ASSISTANT_URL and HOME_ASSISTANT_TOKEN in evoshell secrets.env
+
+set -euo pipefail
+
+source "${HOME}/.local/bin/evo-bar-common"
+
+HA_CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/evoshell/home-assistant"
+HA_DEFAULT_CONFIG='{}'
+mkdir -p "$HA_CACHE_DIR"
+
+load_secrets() {
+    if [[ -f "$EVO_SECRETS_FILE" ]]; then
+        # shellcheck disable=SC1090
+        source "$EVO_SECRETS_FILE"
+    fi
+}
+
+ha_base_url() {
+    local url="${HOME_ASSISTANT_URL:-}"
+    url="${url%/}"
+    printf '%s' "$url"
+}
+
+ha_token() {
+    printf '%s' "${HOME_ASSISTANT_TOKEN:-}"
+}
+
+json_error() {
+    local msg="$1"
+    local detail="${2:-}"
+    jq -cn --arg error "$msg" --arg detail "$detail" '{ok: false, error: $error, detail: $detail}'
+}
+
+require_config() {
+    local url token
+    url="$(ha_base_url)"
+    token="$(ha_token)"
+    if [[ -z "$url" || -z "$token" ]]; then
+        json_error "not configured" "Set HOME_ASSISTANT_URL and HOME_ASSISTANT_TOKEN in ~/.local/share/evoshell/secrets.env"
+        exit 1
+    fi
+}
+
+ha_request() {
+    local method="$1"
+    local path="$2"
+    local body="${3:-}"
+    local url token resp
+    url="$(ha_base_url)"
+    token="$(ha_token)"
+    if [[ -z "$body" ]]; then
+        resp=$(curl -sS -w $'\n%{http_code}' -X "$method" \
+            -H "Authorization: Bearer ${token}" \
+            -H "Content-Type: application/json" \
+            "${url}${path}" 2>/dev/null || true)
+    else
+        resp=$(curl -sS -w $'\n%{http_code}' -X "$method" \
+            -H "Authorization: Bearer ${token}" \
+            -H "Content-Type: application/json" \
+            -d "$body" \
+            "${url}${path}" 2>/dev/null || true)
+    fi
+    printf '%s' "$resp"
+}
+
+ha_template() {
+    local template="$1"
+    local body code resp
+    body=$(jq -cn --arg template "$template" '{template: $template}')
+    resp=$(ha_request POST "/api/template" "$body")
+    code="${resp##*$'\n'}"
+    resp="${resp%$'\n'*}"
+    if [[ "$code" != "200" ]]; then
+        return 1
+    fi
+    printf '%s' "$resp"
+}
+
+light_area_map() {
+    local lines
+    lines=$(ha_template $'{% for s in states.light %}{{ s.entity_id }}|{{ area_name(s.entity_id) }}\n{% endfor %}' 2>/dev/null || true)
+    if [[ -z "$lines" ]]; then
+        printf '{}'
+        return 0
+    fi
+    jq -Rn '[inputs | select(length > 0) | split("|") | {(.[0]): (.[1] // "")}] | add // {}' <<<"$lines"
+}
+
+entity_cache_name() {
+    printf '%s' "${1//./_}"
+}
+
+is_allowed_entity() {
+    local entity_id="$1"
+    local allow_json="$2"
+    local domain="${entity_id%%.*}"
+    if [[ "$allow_json" == "[]" || -z "$allow_json" ]]; then
+        return 0
+    fi
+    jq -e --arg id "$entity_id" --arg domain "$domain" '
+        any(.[]; . == $id or . == $domain or (. | endswith(".*") and ($id | startswith(.[0:-2] + "."))))
+    ' <<<"$allow_json" >/dev/null 2>&1
+}
+
+filter_entities() {
+    local domain="$1"
+    local allow_json="$2"
+    jq -c --arg domain "$domain" --argjson allow "$allow_json" '
+        map(select(.entity_id | startswith($domain + ".")))
+        | if ($allow | length) == 0 then . else
+            map(select(.entity_id as $id | any($allow[]; . == $id)))
+          end
+    '
+}
+
+temperature_value() {
+    jq -r '
+        if .attributes.current_temperature != null then .attributes.current_temperature
+        elif .attributes.temperature != null then .attributes.temperature
+        elif .state != null and (.state | test("^[0-9.+-]+$")) then .state
+        else empty end
+    '
+}
+
+temperature_unit() {
+    jq -r '
+        if .attributes.unit_of_measurement != null then .attributes.unit_of_measurement
+        elif .attributes.temperature_unit != null then .attributes.temperature_unit
+        else "°C" end
+    '
+}
+
+cmd_states() {
+    local config_json="${1:-$HA_DEFAULT_CONFIG}"
+    require_config
+
+    local camera_allow light_allow temp_allow
+    camera_allow=$(jq -c '.cameraEntities // []' <<<"$config_json")
+    light_allow=$(jq -c '.lightEntities // []' <<<"$config_json")
+    temp_allow=$(jq -c '.temperatureEntities // []' <<<"$config_json")
+
+    local cache_key
+    cache_key=$(printf '%s' "$config_json" | sha256sum | awk '{print $1}')
+    if cached=$(evo_bar_cache_read "home-assistant-states-${cache_key}" 20 2>/dev/null); then
+        printf '%s\n' "$cached"
+        exit 0
+    fi
+
+    local body code
+    body=$(ha_request GET "/api/states")
+    code="${body##*$'\n'}"
+    body="${body%$'\n'*}"
+
+    if [[ "$code" != "200" ]]; then
+        if [[ "$code" == "401" || "$code" == "403" ]]; then
+            json_error "authentication failed" "Check HOME_ASSISTANT_TOKEN"
+            exit 1
+        fi
+        json_error "request failed" "Home Assistant returned HTTP ${code:-unknown}"
+        exit 1
+    fi
+
+    if ! jq -e 'type == "array"' <<<"$body" >/dev/null 2>&1; then
+        json_error "invalid response" "Expected a JSON array from /api/states"
+        exit 1
+    fi
+
+    local cameras lights climates sensors temperatures
+    cameras=$(jq -c --argjson allow "$camera_allow" '
+        [.[] | select(.entity_id | startswith("camera."))]
+        | if ($allow | length) == 0 then . else map(select(.entity_id as $id | any($allow[]; . == $id))) end
+        | map({
+            entityId: .entity_id,
+            name: (.attributes.friendly_name // .entity_id),
+            available: ((.state // "") != "unavailable")
+          })
+    ' <<<"$body")
+
+    lights=$(jq -c --argjson allow "$light_allow" --argjson area_map "$(light_area_map)" '
+        [.[] | select(.entity_id | startswith("light."))]
+        | if ($allow | length) == 0 then . else map(select(.entity_id as $id | any($allow[]; . == $id))) end
+        | map({
+            entityId: .entity_id,
+            name: (.attributes.friendly_name // .entity_id),
+            area: (
+              ($area_map[.entity_id] // "") as $mapped
+              | if ($mapped | length) > 0 and $mapped != "None" then $mapped
+                else (.attributes.friendly_name // .entity_id)
+                end
+            ),
+            on: (.state == "on"),
+            brightness: ((.attributes.brightness // 0) | tonumber? // 0),
+            brightnessPct: (
+              if (.attributes.brightness // null) == null then 0
+              else ((.attributes.brightness | tonumber) / 255 * 100 | round)
+              end
+            ),
+            available: ((.state // "") != "unavailable")
+          })
+    ' <<<"$body")
+
+    climates=$(jq -c --argjson allow "$temp_allow" '
+        [.[] | select(.entity_id | startswith("climate."))]
+        | if ($allow | length) == 0 then . else map(select(.entity_id as $id | any($allow[]; . == $id))) end
+    ' <<<"$body")
+
+    sensors=$(jq -c --argjson allow "$temp_allow" '
+        [.[] | select(.entity_id | startswith("sensor."))
+               | select((.attributes.device_class // "") == "temperature"
+                     or (.attributes.unit_of_measurement // "" | test("°|C|F")))]
+        | if ($allow | length) == 0 then . else map(select(.entity_id as $id | any($allow[]; . == $id))) end
+    ' <<<"$body")
+
+    temperatures=$(
+        jq -cn --argjson climates "$climates" --argjson sensors "$sensors" '
+            def temp_row:
+                {
+                    entityId: .entity_id,
+                    name: (.attributes.friendly_name // .entity_id),
+                    value: (
+                        if .attributes.current_temperature != null then .attributes.current_temperature
+                        elif .attributes.temperature != null then .attributes.temperature
+                        elif (.state | test("^[0-9.+-]+$")) then (.state | tonumber)
+                        else null end
+                    ),
+                    unit: (
+                        if .attributes.unit_of_measurement != null then .attributes.unit_of_measurement
+                        elif .attributes.temperature_unit != null then .attributes.temperature_unit
+                        else "°C" end
+                    ),
+                    available: ((.state // "") != "unavailable")
+                };
+            [($climates + $sensors)[] | temp_row | select(.value != null)]
+        '
+    )
+
+    local summary_temp cameras_online lights_on lights_total cameras_total
+    summary_temp=$(jq -r '.[0].value // empty' <<<"$temperatures")
+    cameras_total=$(jq 'length' <<<"$cameras")
+    cameras_online=$(jq '[.[] | select(.available)] | length' <<<"$cameras")
+    lights_total=$(jq 'length' <<<"$lights")
+    lights_on=$(jq '[.[] | select(.on)] | length' <<<"$lights")
+
+    local now_ms
+    now_ms=$(($(date +%s) * 1000))
+
+    local output
+    output=$(jq -cn \
+        --arg url "$(ha_base_url)" \
+        --argjson updatedAt "$now_ms" \
+        --argjson cameras "$cameras" \
+        --argjson lights "$lights" \
+        --argjson temperatures "$temperatures" \
+        --argjson camerasTotal "$cameras_total" \
+        --argjson camerasOnline "$cameras_online" \
+        --argjson lightsTotal "$lights_total" \
+        --argjson lightsOn "$lights_on" \
+        --arg summaryTemp "${summary_temp:-}" \
+        '{
+            ok: true,
+            url: $url,
+            updatedAt: $updatedAt,
+            summary: {
+                temperature: (if $summaryTemp == "" then null else ($summaryTemp | tonumber) end),
+                temperatureUnit: (
+                    if ($temperatures | length) > 0 then $temperatures[0].unit else "°C" end
+                ),
+                camerasOnline: $camerasOnline,
+                camerasTotal: $camerasTotal,
+                lightsOn: $lightsOn,
+                lightsTotal: $lightsTotal
+            },
+            cameras: $cameras,
+            lights: $lights,
+            temperatures: $temperatures
+        }')
+
+    printf '%s\n' "$output" | evo_bar_cache_write "home-assistant-states-${cache_key}"
+    printf '%s\n' "$output"
+}
+
+cmd_snapshot() {
+    local entity_id="$1"
+    require_config
+    [[ -n "$entity_id" ]] || { json_error "missing entity"; exit 1; }
+
+    local cache_file
+    cache_file="${HA_CACHE_DIR}/$(entity_cache_name "$entity_id").jpg"
+    local tmp
+    tmp="$(mktemp "${cache_file}.XXXXXX")"
+
+    local url token code
+    url="$(ha_base_url)"
+    token="$(ha_token)"
+    code=$(curl -sS -o "$tmp" -w '%{http_code}' \
+        -H "Authorization: Bearer ${token}" \
+        "${url}/api/camera_proxy/${entity_id}" 2>/dev/null || echo "000")
+
+    if [[ "$code" != "200" ]]; then
+        rm -f "$tmp"
+        json_error "snapshot failed" "HTTP ${code} for ${entity_id}"
+        exit 1
+    fi
+
+    mv "$tmp" "$cache_file"
+    local now_ms
+    now_ms=$(($(date +%s) * 1000))
+    jq -cn \
+        --arg entityId "$entity_id" \
+        --arg path "$cache_file" \
+        --argjson updatedAt "$now_ms" \
+        '{ok: true, entityId: $entityId, path: $path, updatedAt: $updatedAt}'
+}
+
+cmd_light() {
+    local entity_id="$1"
+    local action="$2"
+    local brightness="${3:-}"
+    require_config
+    [[ -n "$entity_id" && -n "$action" ]] || { json_error "usage: light <entity_id> on|off [brightness_pct]"; exit 1; }
+
+    local service body
+    if [[ "$action" == "on" ]]; then
+        service="light/turn_on"
+        if [[ -n "$brightness" ]]; then
+            local raw
+            raw=$(awk -v pct="$brightness" 'BEGIN { printf "%d", int(pct * 255 / 100 + 0.5) }')
+            body=$(jq -cn --arg entity_id "$entity_id" --argjson brightness "$raw" \
+                '{entity_id: $entity_id, brightness: $brightness}')
+        else
+            body=$(jq -cn --arg entity_id "$entity_id" '{entity_id: $entity_id}')
+        fi
+    elif [[ "$action" == "off" ]]; then
+        service="light/turn_off"
+        body=$(jq -cn --arg entity_id "$entity_id" '{entity_id: $entity_id}')
+    else
+        json_error "invalid action" "Use on or off"
+        exit 1
+    fi
+
+    local resp code
+    resp=$(ha_request POST "/api/services/${service}" "$body")
+    code="${resp##*$'\n'}"
+    if [[ "$code" != "200" ]]; then
+        json_error "light action failed" "HTTP ${code}"
+        exit 1
+    fi
+    jq -cn --arg entityId "$entity_id" --arg action "$action" '{ok: true, entityId: $entityId, action: $action}'
+}
+
+cmd_open() {
+    local url
+    url="$(ha_base_url)"
+    if [[ -z "$url" ]]; then
+        json_error "not configured"
+        exit 1
+    fi
+    exec "${HOME}/.local/bin/evo-bar-brave" open brave-home-assistant "$url"
+}
+
+usage() {
+    cat <<'EOF'
+usage:
+  evo-bar-home-assistant states [config_json]
+  evo-bar-home-assistant snapshot <entity_id>
+  evo-bar-home-assistant light <entity_id> on|off [brightness_pct]
+  evo-bar-home-assistant open
+EOF
+    exit 1
+}
+
+load_secrets
+
+case "${1:-}" in
+    states)
+        cmd_states "${2:-$HA_DEFAULT_CONFIG}"
+        ;;
+    snapshot)
+        cmd_snapshot "${2:-}"
+        ;;
+    light)
+        cmd_light "${2:-}" "${3:-}" "${4:-}"
+        ;;
+    open)
+        cmd_open
+        ;;
+    *)
+        usage
+        ;;
+esac

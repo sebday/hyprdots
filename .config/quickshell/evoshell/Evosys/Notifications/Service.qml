@@ -535,13 +535,20 @@ Scope {
         return isIdentityHidden(item)
     }
 
+    function isMessageSource(source) {
+        var s = String(source || "")
+        return s === "telegram" || s === "android"
+    }
+
     function hideHistoryEntry(key) {
         var item = historyEntryForKey(key)
         if (item) {
             addHiddenIdentity(item)
             var source = String(item.source || "")
-            if (source === "telegram" || source === "android")
-                addHiddenSource(source)
+            if (isMessageSource(source)) {
+                addHiddenSource("telegram")
+                addHiddenSource("android")
+            }
         }
         setHistoryEntryHidden(key, true)
     }
@@ -551,8 +558,10 @@ Scope {
         if (item) {
             removeHiddenIdentity(item)
             var source = String(item.source || "")
-            if (source === "telegram" || source === "android")
-                removeHiddenSource(source)
+            if (isMessageSource(source)) {
+                removeHiddenSource("telegram")
+                removeHiddenSource("android")
+            }
         }
         setHistoryEntryHidden(key, false)
     }
@@ -671,17 +680,13 @@ Scope {
     }
 
     function sourceLabel(source) {
-        if (source === "telegram")
-            return "Telegram"
-        if (source === "android")
-            return "Android"
+        if (isMessageSource(source))
+            return "Messages"
         return "System"
     }
 
     function sourceIcon(source) {
-        if (source === "telegram")
-            return "󰍉"
-        if (source === "android")
+        if (isMessageSource(source))
             return "󰍳"
         return "󰂚"
     }

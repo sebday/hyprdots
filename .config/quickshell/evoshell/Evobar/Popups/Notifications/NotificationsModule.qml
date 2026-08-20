@@ -37,8 +37,13 @@ Item {
             }
             if (hidden)
                 continue
-            if (filter !== "all" && String(item.source || "") !== filter)
+            if (filter === "messages") {
+                var src = String(item.source || "")
+                if (src !== "telegram" && src !== "android")
+                    continue
+            } else if (filter !== "all" && String(item.source || "") !== filter) {
                 continue
+            }
             out.push(item)
         }
         return out
@@ -169,8 +174,7 @@ Item {
                     model: [
                         { id: "all", label: "All" },
                         { id: "system", label: "System" },
-                        { id: "android", label: "Android" },
-                        { id: "telegram", label: "Telegram" },
+                        { id: "messages", label: "Messages" },
                         { id: "hidden", label: "Hidden" }
                     ]
 
