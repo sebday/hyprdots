@@ -242,7 +242,7 @@ Singleton {
     readonly property int hoverPopupRevealDuration: 180
     readonly property int hoverPopupRevealOffset: 10
     readonly property int hoverPopupRevealMaxWait: 200
-    readonly property int barHoverTopPad: 20
+    readonly property int barHoverTopPad: 10
     readonly property int barHoverContentTopPad: barHoverTopPad - 10
     readonly property int overlayWidthDefault: hoverPopupWidthStandard
     readonly property int overlayMargin: hoverPopupMargin

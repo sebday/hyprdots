@@ -61,7 +61,18 @@ EOF
 mpv_ipc() {
   local payload="$1"
   [[ -S "$MPV_SOCKET" ]] || return 1
-  printf '%s\n' "$payload" | curl -sf --max-time 2 --unix-socket "$MPV_SOCKET" -d @- "http://localhost/" 2>/dev/null
+  # mpv 0.41+ JSON IPC expects newline-delimited JSON (not HTTP over curl).
+  perl -MIO::Socket::UNIX -MIO::Select -e '
+    my ($sock_path, $payload) = @ARGV;
+    my $sock = IO::Socket::UNIX->new(Peer => $sock_path, Timeout => 2) or exit 1;
+    $sock->send($payload . "\n");
+    my $sel = IO::Select->new($sock);
+    if ($sel->can_read(2)) {
+      my $line = <$sock>;
+      print $line if defined $line;
+    }
+    close $sock;
+  ' "$MPV_SOCKET" "$payload" 2>/dev/null
 }
 
 mpv_prop() {
@@ -889,6 +900,13 @@ cmd_track_meta() {
   [[ -z "$art" ]] && art="$(art_path_cached "$path")"
   [[ -z "$wf" ]] && wf="$(waveform_cache_path "$path")"
   [[ "$liked" == "true" ]] || { is_liked "$path" && liked="true"; }
+  if [[ "$dur" == "0" || -z "$dur" ]] && mpv_running; then
+    local cur
+    cur="$(mpv_prop path 2>/dev/null || true)"
+    if [[ -n "$cur" ]] && paths_equal "$cur" "$path"; then
+      dur="$(mpv_prop duration 2>/dev/null || echo 0)"
+    fi
+  fi
   if [[ "$json" == --json ]]; then
     jq -n \
       --arg path "$path" \
@@ -1220,51 +1238,6 @@ cmd_config() {
   esac
 }
 
-write_likes_m3u() {
-  local out="$1"
-  likes_init
-  local tmp
-  tmp="$(mktemp)"
-  {
-    printf '#EXTM3U\n'
-    jq -r 'keys[]' "$LIKES_FILE" 2>/dev/null | while IFS= read -r f; do
-      [[ -f "$f" ]] || continue
-      is_audio "$f" || continue
-      printf '%s\n' "$f"
-    done | sort -u
-  } >"$tmp"
-  mv "$tmp" "$out"
-}
-
-write_playlist() {
-  local genre="${1%-fav}"
-  local out="${PLAYLIST_DIR}/${genre}.m3u"
-  likes_init
-  local tmp count line
-  tmp="$(mktemp)"
-  {
-    printf '#EXTM3U\n'
-    jq -r 'keys[]' "$LIKES_FILE" 2>/dev/null | while IFS= read -r f; do
-      [[ -f "$f" ]] || continue
-      is_audio "$f" || continue
-      [[ "$(genre_from_path "$f")" == "$genre" ]] || continue
-      printf '%s\n' "$f"
-    done | sort -u
-  } >"$tmp"
-  count=0
-  while IFS= read -r line || [[ -n "$line" ]]; do
-    line="${line//$'\r'/}"
-    [[ -z "$line" || "$line" == \#* ]] && continue
-    count=$((count + 1))
-  done <"$tmp"
-  if [[ "$count" -eq 0 ]]; then
-    rm -f "$out" "${PLAYLIST_DIR}/${genre}-fav.m3u" "$tmp"
-    return 0
-  fi
-  mv "$tmp" "$out"
-  rm -f "${PLAYLIST_DIR}/${genre}-fav.m3u"
-}
-
 cmd_playlists() {
   local force=0
   while [[ $# -gt 0 ]]; do
@@ -1275,15 +1248,8 @@ cmd_playlists() {
     shift
   done
   ensure_dirs
-  likes_init
   echo "evo-player: rebuilding liked-track playlists..." >&2
-  local g
-  while IFS= read -r g; do
-    write_playlist "$g"
-  done < <(list_genres)
-  write_likes_m3u "${PLAYLIST_DIR}/all.m3u"
-  rm -f "${PLAYLIST_DIR}/favorites.m3u"
-  rm -f "${PLAYLIST_DIR}"/*-fav.m3u
+  playlists_rebuild_liked
   echo "evo-player: rebuilding track tag caches..." >&2
   if [[ "$force" -eq 1 ]]; then
     cmd_cache --force
@@ -1907,10 +1873,12 @@ playlist_kind() {
 playlist_emit_tracks_json() {
   local list="$1"
   local first=1 line
+  likes_init
   while IFS= read -r line || [[ -n "$line" ]]; do
     line="${line//$'\r'/}"
     [[ -z "$line" || "$line" == \#* ]] && continue
     [[ -f "$line" ]] || continue
+    is_liked "$line" || continue
     [[ "$first" -eq 1 ]] || printf ','
     first=0
     track_list_cached_json "$line"
@@ -2136,14 +2104,24 @@ cmd_playlist() {
     playlist_stars_prune
     if [[ "$json" -eq 1 ]]; then
       printf '['
-      local first=1 m3u base count kind starred_json
-      for m3u in "$PLAYLIST_DIR"/*.m3u; do
-        [[ -f "$m3u" ]] || continue
-        base="$(basename "$m3u" .m3u)"
-        [[ "$base" == favorites || "$base" == current ]] && continue
-        count="$(playlist_track_count "$m3u")"
-        kind="$(playlist_kind "$base")"
-        if playlist_is_starred "$base"; then
+      local first=1 g count kind starred_json all_count
+      all_count="$(jq 'keys | length' "$LIKES_FILE" 2>/dev/null || echo 0)"
+      [[ "$all_count" =~ ^[0-9]+$ ]] || all_count=0
+      if (( all_count > 0 )); then
+        if playlist_is_starred "all"; then
+          starred_json=true
+        else
+          starred_json=false
+        fi
+        printf '{"name":"all","count":%s,"kind":"system","starred":%s}' \
+          "$all_count" "$starred_json"
+        first=0
+      fi
+      while IFS= read -r g; do
+        count="$(playlist_liked_count_for_genre "$g")"
+        [[ "$count" -gt 0 ]] || continue
+        kind="$(playlist_kind "$g")"
+        if playlist_is_starred "$g"; then
           starred_json=true
         else
           starred_json=false
@@ -2151,8 +2129,8 @@ cmd_playlist() {
         [[ "$first" -eq 1 ]] || printf ','
         first=0
         printf '{"name":"%s","count":%s,"kind":"%s","starred":%s}' \
-          "$(json_escape "$base")" "$count" "$kind" "$starred_json"
-      done
+          "$(json_escape "$g")" "$count" "$kind" "$starred_json"
+      done < <(list_genres)
       printf ']\n'
     else
       local m3u base
@@ -2165,7 +2143,16 @@ cmd_playlist() {
     fi
     return 0
   fi
-  local list="${PLAYLIST_DIR}/${name}.m3u"
+  local list=""
+  if [[ "$name" == all ]]; then
+    write_likes_m3u "${PLAYLIST_DIR}/all.m3u"
+    list="${PLAYLIST_DIR}/all.m3u"
+  elif [[ -d "${MUSIC_ROOT}/${name}" ]]; then
+    write_playlist "$name"
+    list="${PLAYLIST_DIR}/${name}.m3u"
+  else
+    list="${PLAYLIST_DIR}/${name}.m3u"
+  fi
   [[ -f "$list" ]] || { echo "evo-player: unknown playlist: $name" >&2; return 1; }
   if [[ "$json" -eq 1 ]]; then
     if [[ -n "$offset" || -n "$limit" ]]; then
@@ -2321,6 +2308,9 @@ cmd_favorite_toggle() {
       '.[$p] = {title:$title, artist:$artist, liked_at:$at}' \
       "$LIKES_FILE" >"${LIKES_FILE}.tmp" && mv "${LIKES_FILE}.tmp" "$LIKES_FILE"
   fi
+  write_likes_m3u "${PLAYLIST_DIR}/all.m3u"
+  genre="$(genre_from_path "$path")"
+  [[ -n "$genre" ]] && write_playlist "$genre"
   if [[ "$json" == --json ]]; then
     jq -nc --arg path "$path" --argjson liked "$([[ $liked == true ]] && echo true || echo false)" \
       '{path:$path,liked:$liked}'

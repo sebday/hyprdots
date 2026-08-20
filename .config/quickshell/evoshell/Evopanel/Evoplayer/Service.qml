@@ -114,6 +114,7 @@ Item {
     function mergePlayer(patch) {
         var prevPath = String(player.path || "")
         var prevState = String(player.state || "")
+        var prevArt = String(player.art || "")
         var next = Object.assign({}, player, patch)
         var newPath = String(next.path || "")
         if (prevPath && newPath !== prevPath
@@ -123,8 +124,11 @@ Item {
             maybeSubmitScrobble()
         player = next
         var state = String(player.state || "")
+        var pathChanged = newPath !== prevPath
+        var artChanged = String(next.art || "") !== prevArt
         if (newPath && state === "playing") {
-            notifyNowPlaying()
+            if (pathChanged || state !== prevState || artChanged)
+                notifyNowPlaying()
             maybeSubmitScrobble()
         }
     }
@@ -308,10 +312,9 @@ Item {
     function ensureMpvConnect() {
         if (mpvSocket.connected)
             return
-        if (!socketCheckProc.running)
-            socketCheckProc.running = true
-        else
-            connectRetryTimer.start()
+        mpvSocket.connected = true
+        if (!mpvSocket.connected)
+            connectRetryTimer.restart()
     }
 
     function ensureMpv() {
@@ -319,7 +322,8 @@ Item {
             return
         if (!startMpvProc.running)
             startMpvProc.running = true
-        ensureMpvConnect()
+        else
+            ensureMpvConnect()
     }
 
     Socket {
@@ -333,6 +337,7 @@ Item {
 
         onConnectedChanged: {
             if (connected) {
+                connectRetryTimer.stop()
                 root.mpvObserveSent = false
                 Qt.callLater(root.observeMpv)
             }
@@ -347,20 +352,9 @@ Item {
     }
 
     Process {
-        id: socketCheckProc
-        command: ["test", "-S", root.mpvSocketPath]
-        onExited: function(exitCode) {
-            if (exitCode === 0) {
-                mpvSocket.connected = true
-                connectRetryTimer.stop()
-            }
-        }
-    }
-
-    Process {
         id: startMpvProc
         command: [root.playerScript, "start"]
-        onExited: root.ensureMpvConnect()
+        onExited: Qt.callLater(root.ensureMpvConnect)
     }
 
     Process {
@@ -386,6 +380,13 @@ Item {
                 } catch (e) {
                     parsed = {}
                 }
+                delete parsed.state
+                delete parsed.position
+                delete parsed.position_label
+                delete parsed.duration
+                delete parsed.duration_label
+                delete parsed.volume
+                delete parsed.shuffle
                 root.mergePlayer(parsed)
                 if (String(root.enrichQueuedPath || ""))
                     root.pumpEnrich()

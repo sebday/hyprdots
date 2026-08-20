@@ -28,13 +28,16 @@ Item {
         var w = nowPlayingPanel.width
         var h = nowPlayingPanel.height
         if (w <= 0 || h <= 0)
-            return 0
+            return nowPlayingInlineArtSize
         var maxSide = Math.min(h, w - pad - nowPlayingMinBioWidth)
         if (maxSide < nowPlayingInlineArtSize)
             return 0
         return maxSide
     }
-    readonly property bool nowPlayingCompact: root.compactLayout || nowPlayingArtWidth <= 0
+    readonly property bool nowPlayingCompact: root.compactLayout
+        || (nowPlayingPanel.width > 0
+            && nowPlayingPanel.height > 0
+            && nowPlayingArtWidth <= 0)
     readonly property int nowPlayingControlsHeight: 52
     readonly property int nowPlayingWaveformMinHeight: 56
     readonly property int nowPlayingTitleFont: nowPlayingCompact
@@ -179,6 +182,7 @@ Item {
         var p = String((player && player.path) || "")
         if (!p)
             return ""
+        var _tracksRev = root.tracksRevision
         if (resolvedArtPath === p && resolvedArt)
             return resolvedArt
         var fromPlayer = String((player && player.art) || "")
@@ -186,6 +190,21 @@ Item {
             return fromPlayer
         return artForTrackPath(p)
     }
+    readonly property string nowPlayingArtPath: {
+        var p = String((player && player.path) || "")
+        if (!p)
+            return ""
+        var _tracksRev = root.tracksRevision
+        if (resolvedArtPath === p && resolvedArt)
+            return resolvedArt
+        var fromPlayer = String((player && player.art) || "")
+        if (fromPlayer && fromPlayer.charAt(0) === "/")
+            return fromPlayer
+        return artForTrackPath(p)
+    }
+    readonly property string nowPlayingArtUrl: nowPlayingArtPath
+        ? artUrl(nowPlayingArtPath, false)
+        : ""
     readonly property string displayedArt: {
         if (artPreviewActive)
             return String((selectedTrackInfo && selectedTrackInfo.art) || "")
@@ -193,6 +212,9 @@ Item {
     }
     property string resolvedArt: ""
     property string resolvedArtPath: ""
+    property string sideArtImageSource: ""
+    property bool sideArtLoaderHold: false
+    property bool sideArtLoaded: false
     property bool queueExtendBusy: false
     property string filterKind: ""
     property string filterLabel: ""
@@ -364,6 +386,33 @@ Item {
 
     function bumpArtRevision() {
         artRevision++
+        syncSideArtImageSource()
+    }
+
+    function syncSideArtImageSource() {
+        var path = nowPlayingArtPath
+        if (!path) {
+            if (sideArtImageSource !== "") {
+                sideArtImageSource = ""
+                remountSideArtLoader()
+            }
+            return
+        }
+        var next = artUrl(path, true)
+        if (next === sideArtImageSource)
+            return
+        sideArtImageSource = next
+        remountSideArtLoader()
+    }
+
+    function remountSideArtLoader() {
+        if (sideArtLoaderHold)
+            return
+        sideArtLoaded = false
+        sideArtLoaderHold = true
+        Qt.callLater(function() {
+            root.sideArtLoaderHold = false
+        })
     }
 
     function onAlbumArtUpdated(scope) {
@@ -409,6 +458,11 @@ Item {
         filterTracks = patch(filterTracks)
         patchBrowseTreeArt(trackPath, art, false)
         tracksRevision++
+        if (trackPath === String(player.path || "") && art.charAt(0) === "/") {
+            if (String(player.art || "") !== art)
+                player = Object.assign({}, player, { art: art })
+            syncSideArtImageSource()
+        }
     }
 
     function patchAlbumArtInLists(trackPath, art) {
@@ -533,16 +587,17 @@ Item {
     }
 
     function toggleMenuBar() {
-        if (keyShortcutsBlocked)
-            return
         menuBarHidden = !menuBarHidden
     }
 
     function toggleCompactMode() {
-        if (keyShortcutsBlocked)
-            return
         compactMode = !compactMode
         menuBarHidden = compactMode
+        Qt.callLater(function() {
+            root.syncSideArtImageSource()
+            root.remountSideArtLoader()
+            sideArtKickTimer.restart()
+        })
     }
 
     function copyTitleToClipboard() {
@@ -644,9 +699,8 @@ Item {
         settingsPanelOpen = false
         browsePanelOpen = true
         playerScreen = "nowPlaying"
-        if (!browsePath && !browseTreeRows.length)
-            loadBrowseTreeRoot()
-        else
+        Qt.callLater(root.ensureLibraryData)
+        if (browseTreeRows.length)
             restoreBrowseTreeScroll()
     }
 
@@ -661,8 +715,7 @@ Item {
         playlistPanelOpen = true
         playlistPanelMode = "library"
         playerScreen = "nowPlaying"
-        if (!libraryPlaylists.length && !playlistsLoading)
-            loadPlaylists()
+        Qt.callLater(root.ensureLibraryData)
     }
 
     function toggleSettingsPanel() {
@@ -897,7 +950,7 @@ Item {
             notify(label + " complete", 4000)
             loadGenres()
             loadLibraryStats()
-            loadPlaylists()
+            loadPlaylists(true)
             if (browsePanelOpen || browseTreeRows.length > 0)
                 reloadBrowseTreeView()
             if (playlistPanelOpen && selectedPlaylist)
@@ -1048,7 +1101,16 @@ Item {
         if (bootPath && (resolvedArtPath !== bootPath || !resolvedArt))
             applyDisplayArtForPath(bootPath)
         refreshCurrentPlaylistView()
-        loadPlaylists()
+        ensureLibraryData()
+        syncSideArtImageSource()
+        sideArtKickTimer.restart()
+    }
+
+    function ensureLibraryData() {
+        if (!libraryPlaylists.length && !playlistsLoading)
+            loadPlaylists()
+        if (!browseTreeRows.length && !browseTreeLoading)
+            loadBrowseTreeRoot()
     }
 
     function applyPlaylists(list) {
@@ -1169,6 +1231,8 @@ Item {
                 player = Object.assign({}, player, { art: nextArt })
             if (nextArt !== prevArt)
                 bumpArtRevision()
+            else
+                syncSideArtImageSource()
         }
     }
 
@@ -1207,6 +1271,11 @@ Item {
     function applyDisplayArtForPath(path, onDone) {
         var p = String(path || "")
         if (!p) {
+            if (onDone)
+                onDone()
+            return
+        }
+        if (resolvedArtPath === p && resolvedArt) {
             if (onDone)
                 onDone()
             return
@@ -1433,6 +1502,8 @@ Item {
         _startupBootstrapOpenDone = false
         _startupBootstrapCurrentDone = false
         loadGenres()
+        loadPlaylists()
+        loadBrowseTreeRoot()
         loadCurrentPlaylist(function() {
             _startupBootstrapCurrentDone = true
             finishStartupBootstrap()
@@ -1452,6 +1523,9 @@ Item {
         statusTimer.start()
         if (playerMonitor)
             mergeMonitorStatus()
+        pollStatus(applyStatus)
+        syncSideArtImageSource()
+        sideArtKickTimer.restart()
         saveStateTimer.start()
         jobStatusTimer.start()
         syncExternalJobStatus()
@@ -1511,7 +1585,11 @@ Item {
         return n
     }
 
-    function loadPlaylists() {
+    function loadPlaylists(force) {
+        if (playlistsLoading && !force)
+            return
+        if (force)
+            playlistViewByKey = {}
         playlistsLoading = true
         runPlaylistQuery(["playlist", "--json"], function(text) {
             playlistsLoading = false
@@ -1568,6 +1646,8 @@ Item {
         playlistPanelMode = "library"
         if (!libraryPlaylists.length && !playlistsLoading)
             loadPlaylists()
+        else
+            Qt.callLater(root.ensureLibraryData)
     }
 
     function selectGenrePlaylist(name) {
@@ -1600,7 +1680,7 @@ Item {
                 JSON.parse(String(text || "{}"))
             } catch (e) {
             }
-            root.loadPlaylists()
+            root.loadPlaylists(true)
         })
     }
 
@@ -2744,6 +2824,52 @@ Item {
         var snap = playerMonitor && playerMonitor.player
         if (!snap || typeof snap !== "object")
             return
+        var prevPath = String(player.path || "")
+        if (!String(snap.path || "") && prevPath)
+            return
+        var sameTrack = String(snap.path || "") === prevPath
+            && String(snap.title || "") === String(player.title || "")
+            && String(snap.artist || "") === String(player.artist || "")
+            && String(snap.genre || "") === String(player.genre || "")
+            && String(snap.year || "") === String(player.year || "")
+            && String(snap.album || "") === String(player.album || "")
+            && String(snap.label || "") === String(player.label || "")
+            && String(snap.art || "") === String(player.art || "")
+            && String(snap.waveform || "") === String(player.waveform || "")
+        if (sameTrack) {
+            var next = Object.assign({}, player)
+            if (snap.state !== undefined)
+                next.state = snap.state
+            if (snap.position !== undefined) {
+                next.position = Number(snap.position) || 0
+                next.position_label = snap.position_label || formatPlaybackTime(next.position)
+            }
+            if (snap.duration !== undefined) {
+                var snapDur = Number(snap.duration) || 0
+                if (snapDur > 0 || !(Number(player.duration) > 0)) {
+                    next.duration = snapDur
+                    next.duration_label = snap.duration_label || formatPlaybackTime(snapDur)
+                }
+            }
+            if (snap.volume !== undefined)
+                next.volume = Number(snap.volume) || 0
+            if (snap.shuffle !== undefined)
+                next.shuffle = !!snap.shuffle
+            if (snap.liked !== undefined)
+                next.liked = !!snap.liked
+            var snapArt = String(snap.art || "")
+            if (snapArt.charAt(0) === "/")
+                next.art = snapArt
+            player = next
+            if (!resolvedArt && prevPath) {
+                if (snapArt.charAt(0) === "/")
+                    applyPlayerArt(prevPath, snapArt)
+                else
+                    applyDisplayArtForPath(prevPath)
+            }
+            syncSideArtImageSource()
+            return
+        }
         applyStatus(JSON.stringify(snap))
     }
 
@@ -3009,7 +3135,8 @@ Item {
             return
         var fields = playerFieldsFromTrack(t)
         delete fields.liked
-        if (String(player.art || ""))
+        var playerArt = String(player.art || "")
+        if (playerArt && playerArt.charAt(0) === "/")
             delete fields.art
         var next = Object.assign({}, player, fields)
         if (favoriteApplyPending && favoriteApplyPath === String(player.path || ""))
@@ -3082,16 +3209,27 @@ Item {
                 parsed = Object.assign({}, parsed, held)
             }
         }
+        if (parsed.duration !== undefined) {
+            var parsedDur = Number(parsed.duration) || 0
+            if (parsedDur <= 0 && Number(player.duration) > 0)
+                parsed = Object.assign({}, parsed, {
+                    duration: player.duration,
+                    duration_label: player.duration_label
+                })
+        }
         if (parsed.waveform)
             rememberWaveformPath(parsed.path || player.path, parsed.waveform)
-        player = Object.assign({}, player, parsed)
-        var newPath = String(player.path || "")
-        if (newPath !== prevPath && prevPath) {
+        var newPathBefore = String(parsed.path || player.path || "")
+        if (newPathBefore !== prevPath && prevPath) {
             resolvedArtPath = ""
             resolvedArt = ""
         }
+        player = Object.assign({}, player, parsed)
+        var newPath = String(player.path || "")
         if (newPath && (newPath !== prevPath || resolvedArtPath !== newPath || !resolvedArt))
             applyDisplayArtForPath(newPath)
+        if (newPath && String(player.art || "").charAt(0) === "/" && resolvedArtPath !== newPath)
+            applyPlayerArt(newPath, player.art)
         if (newPath !== prevPath) {
             if (!applyCachedWaveform(newPath))
                 waveformSamples = []
@@ -3099,6 +3237,7 @@ Item {
         }
         checkAutoExtendQueue()
         mergePlayerFromTrackList()
+        syncSideArtImageSource()
     }
 
     function applyWaveform(text) {
@@ -4178,8 +4317,51 @@ Item {
         enabled: root.playerMonitor !== null
         function onPlayerChanged() {
             if (root.active)
-                root.mergeMonitorStatus()
+                monitorMergeTimer.restart()
         }
+    }
+
+    Timer {
+        id: monitorMergeTimer
+        interval: 120
+        repeat: false
+        onTriggered: root.mergeMonitorStatus()
+    }
+
+    Connections {
+        target: root
+        function onTracksRevisionChanged() {
+            var path = String(root.player.path || "")
+            if (!path)
+                return
+            var listArt = root.artForTrackPath(path)
+            if (!listArt || listArt.charAt(0) !== "/")
+                return
+            if (String(root.player.art || "") === listArt)
+                return
+            root.player = Object.assign({}, root.player, { art: listArt })
+            if (root.resolvedArtPath !== path || !root.resolvedArt)
+                root.applyPlayerArt(path, listArt)
+            else
+                root.syncSideArtImageSource()
+        }
+    }
+
+    Timer {
+        id: sideArtKickTimer
+        interval: 100
+        repeat: true
+        property int tries: 0
+        onTriggered: {
+            root.syncSideArtImageSource()
+            if (root.sideArtImageSource !== "" && !root.sideArtLoaded)
+                root.remountSideArtLoader()
+            tries++
+            if (tries >= 24)
+                stop()
+        }
+        onRunningChanged: if (!running)
+            tries = 0
     }
 
     Timer {
@@ -4424,6 +4606,17 @@ Item {
                                 root.tabSearchText = ""
                                 text = ""
                             }
+                            Keys.onPressed: function(event) {
+                                if (event.modifiers !== Qt.NoModifier)
+                                    return
+                                if (event.key === Qt.Key_B) {
+                                    root.toggleMenuBar()
+                                    event.accepted = true
+                                } else if (event.key === Qt.Key_C) {
+                                    root.toggleCompactMode()
+                                    event.accepted = true
+                                }
+                            }
                         }
 
                         Text {
@@ -4482,6 +4675,11 @@ Item {
             Layout.fillHeight: true
             Layout.minimumHeight: root.nowPlayingMinBodyHeight
 
+            onWidthChanged: if (width > 0 && height > 0)
+                root.syncSideArtImageSource()
+            onHeightChanged: if (width > 0 && height > 0)
+                root.syncSideArtImageSource()
+
             RowLayout {
                     anchors.fill: parent
                     spacing: pad
@@ -4525,8 +4723,8 @@ Item {
                                         visible: root.nowPlayingCompact
                                         side: root.nowPlayingInlineArtSize
                                         showPickerOverlay: false
-                                        useRevision: true
-                                        art: root.displayedArt
+                                        useRevision: false
+                                        art: root.nowPlayingArt
                                         Layout.alignment: Qt.AlignTop | Qt.AlignLeft
                                         Layout.rightMargin: Theme.hoverPopupContentPad
                                     }
@@ -4682,6 +4880,8 @@ Item {
                                     Layout.minimumHeight: root.nowPlayingWaveformMinHeight
 
                                     property string presetHint: ""
+                                    property int _vizLayoutW: 0
+                                    property int _vizLayoutH: 0
 
                                     function showPresetHint(name) {
                                         presetHint = root.formatVizPresetLabel(name)
@@ -4796,8 +4996,18 @@ Item {
                                         cavaOverlay.requestPaint()
                                     }
 
-                                    onWidthChanged: recomputeVizEnvelopes()
-                                    onHeightChanged: recomputeVizEnvelopes()
+                                    onWidthChanged: {
+                                        if (Math.abs(width - _vizLayoutW) > 2) {
+                                            _vizLayoutW = width
+                                            recomputeVizEnvelopes()
+                                        }
+                                    }
+                                    onHeightChanged: {
+                                        if (Math.abs(height - _vizLayoutH) > 2) {
+                                            _vizLayoutH = height
+                                            recomputeVizEnvelopes()
+                                        }
+                                    }
 
                                     Connections {
                                         target: root
@@ -4906,22 +5116,22 @@ Item {
                                         z: 3
                                         dark: true
                                         compact: true
-                                        visible: waveformViz.vizMid > 0
+                                        visible: String(root.player.path || "") !== ""
                                         label: root.player.position_label || "0:00"
                                         anchors.left: parent.left
                                         anchors.leftMargin: 8
-                                        y: waveformViz.vizMid - implicitHeight / 2
+                                        anchors.verticalCenter: parent.verticalCenter
                                     }
 
                                     TransportTimePill {
                                         z: 3
                                         dark: true
                                         compact: true
-                                        visible: waveformViz.vizMid > 0
+                                        visible: String(root.player.path || "") !== ""
                                         label: root.player.duration_label || "0:00"
                                         anchors.right: parent.right
                                         anchors.rightMargin: 8
-                                        y: waveformViz.vizMid - implicitHeight / 2
+                                        anchors.verticalCenter: parent.verticalCenter
                                     }
 
                                     MouseArea {
@@ -5017,6 +5227,19 @@ Item {
                         Layout.minimumWidth: root.nowPlayingArtWidth
                         fillHeight: true
 
+                        Component.onCompleted: Qt.callLater(function() {
+                            root.syncSideArtImageSource()
+                            sideArtKickTimer.restart()
+                        })
+
+                        onVisibleChanged: {
+                            if (visible) {
+                                root.syncSideArtImageSource()
+                                root.remountSideArtLoader()
+                                sideArtKickTimer.restart()
+                            }
+                        }
+
                         HoverPopupLabelPill {
                             text: root.artworkLegendText
                             icon: "󰋩"
@@ -5024,23 +5247,143 @@ Item {
                         }
 
                         Item {
+                            id: sideArtHost
                             Layout.fillWidth: true
                             Layout.fillHeight: true
 
-                            AlbumArtThumbnail {
-                                id: sideArtThumb
+                            readonly property bool mountArtReady: width > 8
+                                && height > 8
+                                && root.sideArtImageSource !== ""
+                            readonly property bool loaderActive: mountArtReady
+                                && !root.sideArtLoaderHold
+                            readonly property bool artShowing: sideArtLoader.item
+                                && sideArtLoader.item.status === Image.Ready
+                                && sideArtLoader.item.source !== ""
+
+                            onMountArtReadyChanged: {
+                                if (mountArtReady)
+                                    root.remountSideArtLoader()
+                            }
+
+                            Rectangle {
                                 anchors.fill: parent
-                                fillPane: true
-                                showPickerOverlay: true
-                                useRevision: true
-                                art: root.displayedArt
+                                radius: Theme.fieldsetCornerRadius
+                                clip: true
+                                color: Theme.foregroundFaint
+                                visible: !sideArtHost.artShowing
+                            }
+
+                            Text {
+                                anchors.centerIn: parent
+                                visible: !sideArtHost.artShowing
+                                text: "󰎈"
+                                color: Theme.accent
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Math.round(Math.min(sideArtHost.width, sideArtHost.height) * 0.22)
+                                opacity: 0.5
+                            }
+
+                            Loader {
+                                id: sideArtLoader
+                                anchors.fill: parent
+                                active: sideArtHost.loaderActive
+                                asynchronous: true
+                                sourceComponent: sideArtImageComponent
+                            }
+
+                            Component {
+                                id: sideArtImageComponent
+                                Image {
+                                    anchors.fill: parent
+                                    source: root.sideArtImageSource
+                                    fillMode: Image.PreserveAspectCrop
+                                    smooth: true
+                                    asynchronous: true
+                                    cache: false
+                                    onStatusChanged: {
+                                        if (status === Image.Ready) {
+                                            root.sideArtLoaded = true
+                                            sideArtKickTimer.stop()
+                                        }
+                                        if (status === Image.Error
+                                                && root.nowPlayingArtPath
+                                                && !sideArtHost.retryQueued) {
+                                            sideArtHost.retryQueued = true
+                                            root.applyDisplayArtForPath(String(player.path || ""), function() {
+                                                sideArtHost.retryQueued = false
+                                            })
+                                        }
+                                    }
+                                }
+                            }
+
+                            property bool retryQueued: false
+
+                            DropArea {
+                                id: sideArtDrop
+                                anchors.fill: parent
+                                z: 2
+                                keys: ["text/uri-list"]
+                                onEntered: function(drag) {
+                                    var ok = false
+                                    if (root.artTargetPath && drag.hasUrls) {
+                                        for (var i = 0; i < drag.urls.length; i++) {
+                                            if (root.isImagePath(root.localPathFromUrl(drag.urls[i]))) {
+                                                ok = true
+                                                break
+                                            }
+                                        }
+                                    }
+                                    drag.accepted = ok
+                                }
+                                onDropped: function(drop) {
+                                    if (!drop.hasUrls || !root.artTargetPath)
+                                        return
+                                    for (var j = 0; j < drop.urls.length; j++) {
+                                        var p = root.localPathFromUrl(drop.urls[j])
+                                        if (root.isImagePath(p)) {
+                                            root.openArtPickerForDrop(p)
+                                            break
+                                        }
+                                    }
+                                }
+                            }
+
+                            MouseArea {
+                                z: 3
+                                anchors.fill: parent
+                                enabled: !root.artPickerOpen
+                                hoverEnabled: true
+                                cursorShape: (root.artTargetPath || "") !== ""
+                                    ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                onClicked: function(mouse) {
+                                    if (!(root.artTargetPath || ""))
+                                        return
+                                    mouse.accepted = true
+                                    root.openArtPicker()
+                                }
+                                onWheel: function(wheel) {
+                                    if (!wheel.angleDelta.y)
+                                        return
+                                    if (root.volumeTransportBtn)
+                                        root.volumeTransportBtn.nudgeVolume(wheel.angleDelta.y > 0 ? 5 : -5)
+                                    else
+                                        root.adjustVolume(wheel.angleDelta.y > 0 ? 5 : -5)
+                                    wheel.accepted = true
+                                }
+                            }
+
+                            ArtPickerOverlay {
+                                z: 4
+                                anchors.fill: parent
+                                visible: root.artPickerOpen
                             }
 
                             Rectangle {
                                 visible: !root.artPickerOpen && root.playerStatusText !== ""
                                 z: 5
-                                anchors.right: sideArtThumb.right
-                                anchors.bottom: sideArtThumb.bottom
+                                anchors.right: sideArtHost.right
+                                anchors.bottom: sideArtHost.bottom
                                 anchors.rightMargin: 8
                                 anchors.bottomMargin: 8
                                 radius: Theme.radiusM
@@ -5053,7 +5396,7 @@ Item {
                                 Text {
                                     id: artStatusText
                                     anchors.centerIn: parent
-                                    width: Math.min(implicitWidth, Math.max(48, sideArtThumb.width - 28))
+                                    width: Math.min(implicitWidth, Math.max(48, sideArtHost.width - 28))
                                     text: root.playerStatusText
                                     color: Theme.foreground
                                     font.family: Theme.fontFamily
@@ -5166,6 +5509,7 @@ Item {
         property bool fillPane: false
         property string art: ""
         property bool useRevision: false
+        property bool artRetryQueued: false
 
         function nudgeVolume(delta) {
             if (!delta)
@@ -5192,6 +5536,12 @@ Item {
             ? root.artUrl(thumbRoot.art, thumbRoot.useRevision)
             : ""
 
+        readonly property string displaySource: {
+            if (!thumbRoot.art)
+                return ""
+            return thumbRoot.imageUrl
+        }
+
         Rectangle {
             id: coverFrame
             anchors.fill: parent
@@ -5203,19 +5553,23 @@ Item {
                 id: coverImage
                 anchors.fill: parent
                 visible: thumbRoot.art !== "" && status === Image.Ready
-                source: thumbRoot.imageUrl
+                source: thumbRoot.displaySource
                 fillMode: Image.PreserveAspectCrop
                 smooth: true
                 asynchronous: true
-                layer.enabled: true
-                layer.smooth: true
                 onStatusChanged: {
-                    if (status === Image.Error && thumbRoot.art !== "") {
+                    if (status === Image.Error && thumbRoot.art !== "" && !thumbRoot.artRetryQueued) {
+                        thumbRoot.artRetryQueued = true
                         var p = String((root.player && root.player.path) || "")
                         if (p)
-                            root.invalidateResolvedArt(p)
-                        root.bumpArtRevision()
+                            root.applyDisplayArtForPath(p, function() {
+                                thumbRoot.artRetryQueued = false
+                            })
+                        else
+                            thumbRoot.artRetryQueued = false
                     }
+                    if (status === Image.Ready)
+                        thumbRoot.artRetryQueued = false
                 }
             }
 

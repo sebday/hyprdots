@@ -244,12 +244,17 @@ cmd_job_stop() {
 cmd_job_status() {
   local json="${1:-}"
   if [[ -f "$JOB_STATE" ]]; then
-    if [[ "$json" == --json ]]; then
-      jq -c '. + {busy:true}' "$JOB_STATE"
-    else
-      jq -r '.label // .command // "library task"' "$JOB_STATE"
+    local pid
+    pid="$(jq -r '.pid // empty' "$JOB_STATE" 2>/dev/null || echo "")"
+    if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+      if [[ "$json" == --json ]]; then
+        jq -c '. + {busy:true}' "$JOB_STATE"
+      else
+        jq -r '.label // .command // "library task"' "$JOB_STATE"
+      fi
+      return 0
     fi
-    return 0
+    rm -f "$JOB_STATE"
   fi
   local running pid cmd label
   running="$(library_job_running)"
@@ -369,6 +374,10 @@ migrate_cache() {
   fi
   [[ -f "$ART_DIRTY" ]] || [[ ! -f "${legacy_music_cache}/art-dirty.json" ]] || cp "${legacy_music_cache}/art-dirty.json" "$ART_DIRTY"
   likes_migrate_from_m3u
+  if [[ ! -f "${MUSIC_STATE}/.liked-playlists-v2" ]]; then
+    printf '%s\n' "$(date -Iseconds)" >"${MUSIC_STATE}/.liked-playlists-v2"
+    playlists_rebuild_liked
+  fi
 }
 
 likes_migrate_from_m3u() {
@@ -1333,6 +1342,77 @@ track_list_cached_json() {
   track_list_json "$path"
 }
 
+playlist_liked_paths_for_genre() {
+  local genre="$1"
+  likes_init
+  jq -r 'keys[]' "$LIKES_FILE" 2>/dev/null | while IFS= read -r f; do
+    [[ -f "$f" ]] || continue
+    is_audio "$f" || continue
+    [[ "$(genre_from_path "$f")" == "$genre" ]] || continue
+    printf '%s\n' "$f"
+  done | sort -u
+}
+
+playlist_liked_count_for_genre() {
+  local genre="$1" n=0 _
+  while IFS= read -r _; do
+    n=$((n + 1))
+  done < <(playlist_liked_paths_for_genre "$genre")
+  printf '%d' "$n"
+}
+
+write_likes_m3u() {
+  local out="$1"
+  likes_init
+  local tmp
+  tmp="$(mktemp)"
+  {
+    printf '#EXTM3U\n'
+    jq -r 'keys[]' "$LIKES_FILE" 2>/dev/null | while IFS= read -r f; do
+      [[ -f "$f" ]] || continue
+      is_audio "$f" || continue
+      printf '%s\n' "$f"
+    done | sort -u
+  } >"$tmp"
+  mv "$tmp" "$out"
+}
+
+write_playlist() {
+  local genre="${1%-fav}"
+  local out="${PLAYLIST_DIR}/${genre}.m3u"
+  likes_init
+  local tmp count line
+  tmp="$(mktemp)"
+  {
+    printf '#EXTM3U\n'
+    playlist_liked_paths_for_genre "$genre"
+  } >"$tmp"
+  count=0
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line="${line//$'\r'/}"
+    [[ -z "$line" || "$line" == \#* ]] && continue
+    count=$((count + 1))
+  done <"$tmp"
+  if [[ "$count" -eq 0 ]]; then
+    rm -f "$out" "${PLAYLIST_DIR}/${genre}-fav.m3u" "$tmp"
+    return 0
+  fi
+  mv "$tmp" "$out"
+  rm -f "${PLAYLIST_DIR}/${genre}-fav.m3u"
+}
+
+playlists_rebuild_liked() {
+  mkdir -p "$MUSIC_STATE" "$PLAYLIST_DIR" "${MUSIC_ROOT}/.incoming"
+  likes_init
+  local g
+  while IFS= read -r g; do
+    write_playlist "$g"
+  done < <(list_genres)
+  write_likes_m3u "${PLAYLIST_DIR}/all.m3u"
+  rm -f "${PLAYLIST_DIR}/favorites.m3u" 2>/dev/null || true
+  rm -f "${PLAYLIST_DIR}"/*-fav.m3u 2>/dev/null || true
+}
+
 playlist_paths_collect() {
   local list="$1"
   local line
@@ -1346,131 +1426,32 @@ playlist_paths_collect() {
 }
 
 playlist_emit_tracks_page() {
-  local list="$1" offset="${2:-0}" limit="${3:-0}"
-  python3 - "$list" "$offset" "$limit" "$TRACKS_CACHE_DIR" "$LIKES_FILE" "$ART_DIR" "$MUSIC_ROOT" <<'PY'
-import json, os, re, subprocess, sys
-
-list_path, offset_s, limit_s, cache_dir, likes_file, art_dir, music_root = sys.argv[1:8]
-offset = max(0, int(offset_s or 0))
-limit = max(0, int(limit_s or 0))
-
-paths = []
-with open(list_path, encoding="utf-8", errors="replace") as fh:
-    for line in fh:
-        line = line.strip("\r\n")
-        if not line or line.startswith("#"):
-            continue
-        if os.path.isfile(line):
-            paths.append(line)
-
-total = len(paths)
-if limit > 0:
-    paths = paths[offset:offset + limit]
-else:
-    paths = paths[offset:]
-
-genre_cache = {}
-
-def slug(value):
-    return re.sub(r"[^a-zA-Z0-9&_-]", "_", value or "")
-
-def load_genre(genre):
-    if genre in genre_cache:
-        return genre_cache[genre]
-    path = os.path.join(cache_dir, f"{slug(genre)}.tags.json")
-    lookup = {}
-    if os.path.isfile(path):
-        try:
-            with open(path, encoding="utf-8") as fh:
-                for row in json.load(fh):
-                    p = row.get("path")
-                    if p:
-                        lookup[p] = row
-        except Exception:
-            pass
-    genre_cache[genre] = lookup
-    return lookup
-
-def read_tags(path):
-    try:
-        proc = subprocess.run(
-            ["ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", path],
-            capture_output=True, text=True, check=False,
-        )
-        if proc.returncode != 0 or not proc.stdout.strip():
-            return {}
-        tags = json.loads(proc.stdout).get("format", {}).get("tags", {}) or {}
-        lower = {k.lower(): str(v).strip() for k, v in tags.items() if v}
-
-        def pick(*keys):
-            for key in keys:
-                val = lower.get(key.lower())
-                if val:
-                    return val
-            return ""
-
-        title = pick("title") or os.path.splitext(os.path.basename(path))[0]
-        year = pick("date", "year", "originaldate", "original_year", "tyer")
-        m = re.search(r"(\d{4})", year or "")
-        return {
-            "title": title,
-            "artist": pick("artist", "album_artist", "albumartist"),
-            "genre": pick("genre"),
-            "album": pick("album"),
-            "year": m.group(1) if m else "",
-            "label": pick("label", "publisher", "organization", "tpub"),
-        }
-    except Exception:
-        return {"title": os.path.splitext(os.path.basename(path))[0]}
-
-def art_path(path):
-    rel = path[len(music_root) + 1:] if path.startswith(music_root + os.sep) else os.path.basename(path)
-    key = slug(rel)
-    candidate = os.path.join(art_dir, f"{key}.jpg")
-    if os.path.isfile(candidate):
-        return candidate
-    legacy = slug(os.path.basename(path))
-    candidate = os.path.join(art_dir, f"{legacy}.jpg")
-    return candidate if os.path.isfile(candidate) else ""
-
-likes = set()
-if os.path.isfile(likes_file):
-    try:
-        with open(likes_file, encoding="utf-8") as fh:
-            likes = set(json.load(fh).keys())
-    except Exception:
-        likes = set()
-
-def genre_from_path(path):
-    rel = path[len(music_root) + 1:] if path.startswith(music_root + os.sep) else ""
-    if not rel or rel == path:
-        return ""
-    return rel.split(os.sep, 1)[0]
-
-items = []
-for path in paths:
-    genre = genre_from_path(path)
-    row = load_genre(genre).get(path) if genre else None
-    if not row:
-        meta = read_tags(path)
-        row = {
-            "path": path,
-            "title": meta.get("title", ""),
-            "artist": meta.get("artist", ""),
-            "genre": meta.get("genre", ""),
-            "album": meta.get("album", ""),
-            "year": meta.get("year", ""),
-            "label": meta.get("label", ""),
-        }
-    else:
-        row = dict(row)
-    row["path"] = path
-    row["art"] = row.get("art") or art_path(path)
-    row["liked"] = path in likes
-    items.append(row)
-
-print(json.dumps({"total": total, "offset": offset, "items": items}, ensure_ascii=False))
-PY
+  local list="$1" offset="${2:-0}" limit="${3:-50}"
+  local -a paths=()
+  local line path row liked_json first=1 i end total
+  offset="${offset:-0}"
+  limit="${limit:-50}"
+  [[ -f "$list" ]] || return 0
+  likes_init
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line="${line//$'\r'/}"
+    [[ -z "$line" || "$line" == \#* ]] && continue
+    [[ -f "$line" ]] || continue
+    is_liked "$line" || continue
+    paths+=("$line")
+  done <"$list"
+  total=${#paths[@]}
+  end=$((offset + limit))
+  printf '{"total":%s,"offset":%s,"items":[' "$total" "$offset"
+  for ((i = offset; i < end && i < total; i++)); do
+    path="${paths[i]}"
+    row="$(track_list_cached_json "$path")" || continue
+    is_liked "$path" && liked_json=true || liked_json=false
+    [[ "$first" -eq 1 ]] || printf ','
+    first=0
+    jq -c --argjson liked "$liked_json" '. + {liked:$liked}' <<<"$row"
+  done
+  printf ']}\n'
 }
 
 load_evoshell_secrets() {
@@ -2204,6 +2185,7 @@ art_notify_cache() {
     rm -f "$tmp"
     return 1
   }
+  chmod 644 "$dest" 2>/dev/null || true
   printf '%s' "$dest"
 }
 

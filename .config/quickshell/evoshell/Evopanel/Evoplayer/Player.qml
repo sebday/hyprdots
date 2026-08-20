@@ -47,6 +47,7 @@ Item {
         Qt.callLater(function() {
             if (playerContent && typeof playerContent.onActivated === "function")
                 playerContent.onActivated()
+            keySurface.forceActiveFocus()
         })
     }
 
@@ -63,10 +64,15 @@ Item {
         color: Theme.background
         minimumSize: Qt.size(480, 300)
 
+        onVisibleChanged: {
+            if (visible)
+                Qt.callLater(function() { keySurface.forceActiveFocus() })
+        }
+
         Item {
             id: keySurface
             anchors.fill: parent
-            focus: false
+            focus: true
 
             MouseArea {
                 anchors.fill: parent
