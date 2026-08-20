@@ -12,7 +12,7 @@ Item {
     property var shell: null
     property bool opened: false
     property string filterText: ""
-    property string mode: "apps"
+    property string mode: "power"
     property string submenu: ""
     property var commandEntries: []
     property var dynamicEntries: []
@@ -26,12 +26,12 @@ Item {
     property real previewAreaMaxWidth: 1600
     property real previewAreaMaxHeight: 900
 
-    readonly property bool tileMode: mode === "power" && !submenu
+    readonly property bool powerMenuMode: mode === "power" && !submenu
     readonly property bool previewTileMode: submenu === "themes" || submenu === "wallpaper"
-    readonly property bool appsGridMode: mode === "apps"
-    readonly property bool styledMenuMode: tileMode || appsGridMode
-    readonly property bool boxTileMode: tileMode || previewTileMode
-    readonly property bool framedMode: !boxTileMode && !appsGridMode
+    readonly property bool boxTileMode: previewTileMode
+    readonly property bool framedMode: !previewTileMode
+    readonly property bool sectionMenuMode: powerMenuMode
+    readonly property var sectionColumnOrder: ["programs", "games", "panels", "right"]
     readonly property string previewFallbackIcon: submenu === "wallpaper" ? "󰏘" : "󰸌"
     readonly property int tileWidth: 160
     readonly property int tileHeight: 160
@@ -54,23 +54,24 @@ Item {
     readonly property int listFilterFontSize: Theme.fontSizeL
     readonly property int previewMenuMargin: 48
     readonly property int appIconSourceSize: 128
-    readonly property string menuHeaderIcon: appsGridMode ? "󰀻" : "󰣇"
-    readonly property string menuHeaderTitle: appsGridMode ? "Apps" : "Evo shell"
-    readonly property string menuHeaderSubtitle: appsGridMode ? "Desktop programs" : "Panels · overlays · session"
+    readonly property string menuHeaderIcon: "󰣇"
+    readonly property string menuHeaderTitle: "Evo shell"
+    readonly property string menuHeaderSubtitle: "Programs · games · panels · session"
 
     readonly property int previewGridColumns: 5
     readonly property int previewColumnCount: gridColumnCount
-    readonly property int activeTileWidth: previewTileMode ? previewTileWidth : (styledMenuMode ? powerTileWidth : tileWidth)
-    readonly property int activeTileHeight: previewTileMode ? previewTileHeight : (styledMenuMode ? powerTileHeight : tileHeight)
+    readonly property int activeTileWidth: previewTileMode ? previewTileWidth : tileWidth
+    readonly property int activeTileHeight: previewTileMode ? previewTileHeight : tileHeight
 
     readonly property int sizingEntryCount: {
         var q = filterText.trim()
-        if (q === "")
+        if (q === "") {
+            if (mode === "power")
+                return Math.max(cachedApps.length, visibleEntries.length, commandEntries.length)
             return visibleEntries.length
+        }
         if (submenu)
             return dynamicEntries.length
-        if (mode === "apps")
-            return appEntries().length
         if (mode === "power")
             return commandEntries.length
         return visibleEntries.length
@@ -78,7 +79,6 @@ Item {
 
     readonly property int gridColumnCount: {
         var n = sizingEntryCount
-        if (styledMenuMode) return Math.max(1, Math.min(n, powerGridColumns))
         if (n <= 0) return 1
         if (previewTileMode)
             return Math.max(1, Math.min(n, previewGridColumns))
@@ -135,33 +135,36 @@ Item {
         return n * previewTileWidth + (n - 1) * tileSpacing
     }
 
-    readonly property int boxRowWidth: previewTileMode ? gridWidth : (tileMode ? gridWidth : tileRowWidth)
-    readonly property int boxRowHeight: previewTileMode
-        ? gridHeight
-        : (tileMode ? gridHeight + 12 : tileHeight)
+    readonly property int boxRowWidth: previewTileMode ? gridWidth : tileRowWidth
+    readonly property int boxRowHeight: previewTileMode ? gridHeight : tileHeight
     readonly property int styledMenuHostHeight: styledMenuViewportHeight + menuChromeHeight
 
     readonly property string home: Quickshell.env("HOME")
     readonly property string placeholderText: {
         if (submenu === "bindings") return "Search bindings…"
         if (submenu === "shell") return "Search shell commands…"
-        if (mode === "power") return "Search system…"
-        if (mode === "apps") return "Applications…"
+        if (mode === "power") return "Search programs and system…"
         return "Search…"
     }
     readonly property string framedLegendTitle: {
+        if (powerMenuMode) return "Evo shell"
         if (submenu === "bindings") return "Bindings"
         if (submenu === "shell") return "Shell commands"
         return "Menu"
     }
-    readonly property string styledLegendTitle: appsGridMode ? "Apps" : "Evo shell"
     readonly property int sectionLegendChrome: menuLegendChrome
 
     readonly property bool infoListMode: submenu === "bindings" || submenu === "shell"
-    readonly property int framedMenuWidth: infoListMode ? 1040 : 720
-    readonly property int infoListFontSize: Theme.fontSizeM
-    readonly property int infoListRowHeight: 48
+    readonly property int framedMenuWidth: powerMenuMode
+        ? Theme.systemMenuWidth
+        : Theme.overlayPanelWidth
+    readonly property int infoListFontSize: Theme.fontSizeS
+    readonly property int infoListRowHeight: 40
     readonly property int framedMenuHeight: 640
+    readonly property int powerLinkRowHeight: 36
+    readonly property int powerLinkIconSize: 18
+    readonly property int powerSectionChrome: 36
+    readonly property int powerSectionSpacing: Theme.hoverPopupSectionSpacing
     readonly property int framedFilterChromeHeight: listFilterHeight
     readonly property int framedColumnSpacing: Theme.hoverPopupSectionSpacing
     readonly property int infoDetailHeight: 96
@@ -199,9 +202,7 @@ Item {
     }
 
     function focusSearchField() {
-        if (root.styledMenuMode)
-            silentFilterField.forceActiveFocus()
-        else if (root.framedMode)
+        if (root.framedMode)
             filterField.forceActiveFocus()
         else if (root.previewTileMode)
             menuHost.forceActiveFocus()
@@ -211,10 +212,7 @@ Item {
         if (!text)
             return
         root.filterText = root.filterText + text
-        if (root.styledMenuMode) {
-            silentFilterField.text = root.filterText
-            silentFilterField.forceActiveFocus()
-        } else if (root.framedMode) {
+        if (root.framedMode) {
             filterField.text = root.filterText
             filterField.forceActiveFocus()
         }
@@ -223,24 +221,28 @@ Item {
     function open(payloadJson) {
         try {
             var payload = JSON.parse(payloadJson || "{}")
-            mode = String(payload.mode || "apps")
+            mode = String(payload.mode || "power")
+            if (mode === "apps")
+                mode = "power"
             submenu = String(payload.submenu || "")
         } catch (e) {
-            mode = "apps"
+            mode = "power"
             submenu = ""
         }
         filterText = ""
+        if (filterField.text !== "")
+            filterField.text = ""
         selectedIndex = 0
         refreshCommandEntries()
         if (submenu) loadDynamicEntries(submenu)
         else dynamicEntries = []
-        opened = true
-        if (mode === "apps" && cachedApps.length === 0) {
+        if (mode === "power") {
             rebuildAppCache()
-            refreshVisibleEntries()
+            syncVisibleEntries()
         } else {
-            refreshVisibleEntries()
+            syncVisibleEntries()
         }
+        opened = true
         Qt.callLater(function() {
             root.previewAreaMaxWidth = panel.previewAreaMaxWidth
             root.previewAreaMaxHeight = panel.previewAreaMaxHeight
@@ -288,26 +290,327 @@ Item {
         if (next < 0) next = count - 1
         else if (next >= count) next = 0
         selectedIndex = next
-        if (framedMode)
+        if (framedMode && !sectionMenuMode)
             entryList.positionViewAtIndex(selectedIndex, ListView.Contain)
-        else if (appsGridMode || previewTileMode)
+        else if (previewTileMode)
             ensureGridSelectionVisible()
+        else if (sectionMenuMode)
+            ensureSectionSelectionVisible()
+    }
+
+    function stampPowerSection(section, globalIndex) {
+        if (!section)
+            return { section: null, nextIndex: globalIndex }
+        var q = filterText.trim()
+        var entries = q
+            ? MenuEntries.filterEntries(section.entries, q).map(MenuEntries.mapEntry)
+            : section.entries.map(MenuEntries.mapEntry)
+        if (entries.length === 0)
+            return { section: null, nextIndex: globalIndex }
+        var stamped = []
+        for (var j = 0; j < entries.length; j++) {
+            var entry = entries[j]
+            entry.globalIndex = globalIndex
+            globalIndex++
+            stamped.push(entry)
+        }
+        return {
+            section: {
+                title: section.title,
+                icon: section.icon,
+                entries: stamped
+            },
+            nextIndex: globalIndex
+        }
+    }
+
+    function stampAppSection(section, globalIndex) {
+        if (!section || !section.entries || section.entries.length === 0)
+            return { section: null, nextIndex: globalIndex }
+        var stamped = []
+        for (var j = 0; j < section.entries.length; j++) {
+            var entry = section.entries[j]
+            stamped.push({
+                kind: entry.kind,
+                name: entry.name,
+                id: entry.id,
+                entryRef: entry.entryRef,
+                iconSource: entry.iconSource || "",
+                icon: entry.icon || "󰀻",
+                globalIndex: globalIndex
+            })
+            globalIndex++
+        }
+        return {
+            section: {
+                title: section.title,
+                icon: section.icon,
+                entries: stamped
+            },
+            nextIndex: globalIndex
+        }
+    }
+
+    function isGameApp(app) {
+        if (!app || !app.entryRef || !app.entryRef.categories)
+            return false
+        var cats = app.entryRef.categories
+        for (var i = 0; i < cats.length; i++) {
+            var cat = String(cats[i] || "").toLowerCase()
+            if (cat === "game" || cat.startsWith("game"))
+                return true
+        }
+        return false
+    }
+
+    function filteredApps() {
+        var apps = appEntries().slice().sort(function(a, b) {
+            return String(a.name || "").localeCompare(String(b.name || ""))
+        })
+        var q = filterText.trim()
+        if (!q)
+            return apps
+        var needle = q.toLowerCase()
+        var out = []
+        for (var i = 0; i < apps.length; i++) {
+            var app = apps[i]
+            var name = String(app.name || "").toLowerCase()
+            var id = String(app.id || "").toLowerCase()
+            if (name.startsWith(needle) || id.startsWith(needle))
+                out.push(app)
+        }
+        return out
+    }
+
+    function filteredAppsByKind(games) {
+        var apps = filteredApps()
+        var out = []
+        for (var i = 0; i < apps.length; i++) {
+            if (isGameApp(apps[i]) === games)
+                out.push(apps[i])
+        }
+        return out
+    }
+
+    function sectionMenuLayout() {
+        if (!powerMenuMode)
+            return { programs: [], games: [], panels: [], right: [] }
+        var raw = MenuEntries.systemSectionLayout(home)
+        var globalIndex = 0
+        var programsResult = stampAppSection({
+            title: "Programs",
+            icon: "󰀻",
+            entries: filteredAppsByKind(false)
+        }, globalIndex)
+        globalIndex = programsResult.nextIndex
+        var gamesResult = stampAppSection({
+            title: "Games",
+            icon: "󰊗",
+            entries: filteredAppsByKind(true)
+        }, globalIndex)
+        globalIndex = gamesResult.nextIndex
+        var panelsResult = stampPowerSection(raw.panels, globalIndex)
+        globalIndex = panelsResult.nextIndex
+        var right = []
+        for (var i = 0; i < raw.right.length; i++) {
+            var result = stampPowerSection(raw.right[i], globalIndex)
+            globalIndex = result.nextIndex
+            if (result.section)
+                right.push(result.section)
+        }
+        return {
+            programs: programsResult.section ? [programsResult.section] : [],
+            games: gamesResult.section ? [gamesResult.section] : [],
+            panels: panelsResult.section ? [panelsResult.section] : [],
+            right: right
+        }
+    }
+
+    function sectionMenuEntries() {
+        var layout = sectionMenuLayout()
+        var sections = []
+        for (var c = 0; c < sectionColumnOrder.length; c++)
+            sections = sections.concat(layout[sectionColumnOrder[c]])
+        return sections
+    }
+
+    function powerSectionEntries() {
+        return sectionMenuEntries()
+    }
+
+    function layoutColumnSections(layout, column) {
+        return layout[column] || []
+    }
+
+    function sectionPosFromGlobal(globalIdx) {
+        var layout = sectionMenuLayout()
+        var idx = 0
+        for (var c = 0; c < sectionColumnOrder.length; c++) {
+            var column = sectionColumnOrder[c]
+            var sections = layoutColumnSections(layout, column)
+            for (var s = 0; s < sections.length; s++) {
+                var section = sections[s]
+                for (var e = 0; e < section.entries.length; e++) {
+                    if (idx === globalIdx)
+                        return {
+                            column: column,
+                            sectionIndex: s,
+                            entryIndex: e,
+                            sections: sections
+                        }
+                    idx++
+                }
+            }
+        }
+        return null
+    }
+
+    function globalFromSectionPos(column, sectionIndex, entryIndex) {
+        var layout = sectionMenuLayout()
+        var idx = 0
+        for (var c = 0; c < sectionColumnOrder.length; c++) {
+            var col = sectionColumnOrder[c]
+            var sections = layoutColumnSections(layout, col)
+            if (col === column) {
+                for (var s = 0; s < sectionIndex; s++)
+                    idx += sections[s].entries.length
+                return idx + entryIndex
+            }
+            for (var s2 = 0; s2 < sections.length; s2++)
+                idx += sections[s2].entries.length
+        }
+        return 0
+    }
+
+    function sectionHeight(section) {
+        if (!section || !section.entries)
+            return powerSectionChrome
+        return powerSectionChrome + section.entries.length * powerLinkRowHeight + 8
+    }
+
+    function columnEntryY(sections, sectionIndex, entryIndex) {
+        var y = 0
+        for (var s = 0; s < sectionIndex; s++)
+            y += sectionHeight(sections[s]) + powerSectionSpacing
+        return y + powerSectionChrome + entryIndex * powerLinkRowHeight
+    }
+
+    function columnFlatIndex(sections, sectionIndex, entryIndex) {
+        var flat = 0
+        for (var s = 0; s < sectionIndex; s++)
+            flat += sections[s].entries.length
+        return flat + entryIndex
+    }
+
+    function sectionPosFromColumnFlat(sections, column, flat) {
+        var walk = 0
+        for (var s = 0; s < sections.length; s++) {
+            var count = sections[s].entries.length
+            if (flat < walk + count)
+                return globalFromSectionPos(column, s, flat - walk)
+            walk += count
+        }
+        return -1
+    }
+
+    function columnEntryCount(sections) {
+        var total = 0
+        for (var s = 0; s < sections.length; s++)
+            total += sections[s].entries.length
+        return total
+    }
+
+    function moveSectionSelection(dx, dy) {
+        if (visibleEntries.length <= 0)
+            return
+        var pos = sectionPosFromGlobal(selectedIndex)
+        if (!pos)
+            return
+
+        var layout = sectionMenuLayout()
+
+        if (dy !== 0) {
+            var flat = columnFlatIndex(pos.sections, pos.sectionIndex, pos.entryIndex)
+            var columnCount = columnEntryCount(pos.sections)
+            if (columnCount <= 0)
+                return
+            flat = (flat + dy + columnCount) % columnCount
+            var next = sectionPosFromColumnFlat(pos.sections, pos.column, flat)
+            if (next >= 0)
+                selectedIndex = next
+            ensureSectionSelectionVisible()
+            return
+        }
+
+        if (dx === 0)
+            return
+
+        var colIdx = sectionColumnOrder.indexOf(pos.column)
+        if (colIdx < 0)
+            return
+        var step = dx > 0 ? 1 : -1
+        for (var attempt = 0; attempt < sectionColumnOrder.length - 1; attempt++) {
+            colIdx += step
+            if (colIdx < 0 || colIdx >= sectionColumnOrder.length)
+                return
+            var otherColumn = sectionColumnOrder[colIdx]
+            var otherSections = layoutColumnSections(layout, otherColumn)
+            if (otherSections.length === 0 || columnEntryCount(otherSections) === 0)
+                continue
+
+            var currentY = columnEntryY(pos.sections, pos.sectionIndex, pos.entryIndex)
+            var bestIdx = -1
+            var bestDist = Infinity
+            for (var os = 0; os < otherSections.length; os++) {
+                for (var oe = 0; oe < otherSections[os].entries.length; oe++) {
+                    var y = columnEntryY(otherSections, os, oe)
+                    var dist = Math.abs(y - currentY)
+                    if (dist < bestDist) {
+                        bestDist = dist
+                        bestIdx = globalFromSectionPos(otherColumn, os, oe)
+                    }
+                }
+            }
+            if (bestIdx >= 0) {
+                selectedIndex = bestIdx
+                ensureSectionSelectionVisible()
+            }
+            return
+        }
+    }
+
+    function sectionSelectedRowY() {
+        var layout = sectionMenuLayout()
+        var idx = 0
+        for (var c = 0; c < sectionColumnOrder.length; c++) {
+            var column = sectionColumnOrder[c]
+            var sections = layoutColumnSections(layout, column)
+            for (var s = 0; s < sections.length; s++) {
+                var section = sections[s]
+                for (var e = 0; e < section.entries.length; e++) {
+                    if (idx === selectedIndex)
+                        return columnEntryY(sections, s, e)
+                    idx++
+                }
+            }
+        }
+        return 0
+    }
+
+    function ensureSectionSelectionVisible() {
+        if (!sectionMenuMode)
+            return
+        var itemTop = sectionSelectedRowY()
+        var itemBottom = itemTop + powerLinkRowHeight
+        if (itemTop < sectionListFlickable.contentY)
+            sectionListFlickable.contentY = itemTop
+        else if (itemBottom > sectionListFlickable.contentY + sectionListFlickable.height)
+            sectionListFlickable.contentY = Math.max(0, itemBottom - sectionListFlickable.height)
     }
 
     function ensureGridSelectionVisible() {
-        if (!appsGridMode)
+        if (!previewTileMode)
             return
-        var cols = gridColumnCount
-        if (cols <= 0)
-            return
-        var row = Math.floor(selectedIndex / cols)
-        var rowHeight = powerTileHeight + tileSpacing
-        var itemTop = row * rowHeight
-        var itemBottom = itemTop + powerTileHeight
-        if (itemTop < appFlickable.contentY)
-            appFlickable.contentY = itemTop
-        else if (itemBottom > appFlickable.contentY + appFlickable.height)
-            appFlickable.contentY = Math.max(0, itemBottom - appFlickable.height)
     }
 
     function moveGridSelection(dx, dy) {
@@ -347,20 +650,24 @@ Item {
     }
 
     function handlePreviewLeft() {
-        if (previewTileMode || appsGridMode || tileMode) moveGridSelection(-1, 0)
+        if (previewTileMode) moveGridSelection(-1, 0)
+        else if (sectionMenuMode) moveSectionSelection(-1, 0)
     }
 
     function handlePreviewRight() {
-        if (previewTileMode || appsGridMode || tileMode) moveGridSelection(1, 0)
+        if (previewTileMode) moveGridSelection(1, 0)
+        else if (sectionMenuMode) moveSectionSelection(1, 0)
     }
 
     function handlePreviewUp() {
-        if (previewTileMode || appsGridMode || tileMode) moveGridSelection(0, -1)
+        if (previewTileMode) moveGridSelection(0, -1)
+        else if (sectionMenuMode) moveSectionSelection(0, -1)
         else if (framedMode) moveSelection(-1)
     }
 
     function handlePreviewDown() {
-        if (previewTileMode || appsGridMode || tileMode) moveGridSelection(0, 1)
+        if (previewTileMode) moveGridSelection(0, 1)
+        else if (sectionMenuMode) moveSectionSelection(0, 1)
         else if (framedMode) moveSelection(1)
     }
 
@@ -386,7 +693,7 @@ Item {
             dynamicEntryKind = ""
             filterText = ""
             selectedIndex = 0
-        } else if (styledMenuMode && filterText.trim() !== "") {
+        } else if (powerMenuMode && filterText.trim() !== "") {
             filterText = ""
             selectedIndex = 0
         } else {
@@ -401,6 +708,12 @@ Item {
     onFilterTextChanged: {
         selectedIndex = 0
         refreshVisibleEntries()
+    }
+    onSelectedIndexChanged: {
+        if (sectionMenuMode)
+            Qt.callLater(root.ensureSectionSelectionVisible)
+        else if (framedMode && infoListMode && entryList)
+            entryList.positionViewAtIndex(selectedIndex, ListView.Contain)
     }
     onSubmenuChanged: {
         selectedIndex = 0
@@ -517,11 +830,12 @@ Item {
         return true
     }
 
+    function syncVisibleEntries() {
+        visibleEntries = filteredEntries()
+    }
+
     function refreshVisibleEntries() {
-        var next = filteredEntries()
-        if (entryListsEqual(visibleEntries, next))
-            return
-        visibleEntries = next
+        syncVisibleEntries()
     }
 
     function filteredEntries() {
@@ -551,22 +865,14 @@ Item {
             })
         }
         var out = []
-        if (mode === "apps") {
-            var apps = appEntries()
-            if (!q)
-                return apps
-            var needle = q.toLowerCase()
-            for (var i = 0; i < apps.length; i++) {
-                var app = apps[i]
-                var name = String(app.name || "").toLowerCase()
-                var id = String(app.id || "").toLowerCase()
-                if (name.startsWith(needle) || id.startsWith(needle))
-                    out.push(app)
+        if (mode === "power") {
+            var sections = powerSectionEntries()
+            var out = []
+            for (var i = 0; i < sections.length; i++) {
+                for (var j = 0; j < sections[i].entries.length; j++)
+                    out.push(sections[i].entries[j])
             }
             return out
-        }
-        if (mode === "power") {
-            return MenuEntries.filterEntries(commandEntries, q).map(MenuEntries.mapEntry)
         }
         return []
     }
@@ -612,12 +918,14 @@ Item {
         }
         if (entry.kind === "mode" && entry.mode) {
             mode = String(entry.mode)
+            if (mode === "apps")
+                mode = "power"
             submenu = ""
             filterText = ""
             selectedIndex = 0
             refreshCommandEntries()
             dynamicEntries = []
-            if (mode === "apps" && cachedApps.length === 0)
+            if (mode === "power")
                 rebuildAppCache()
             refreshVisibleEntries()
             Qt.callLater(function() {
@@ -695,6 +1003,115 @@ Item {
         })
     }
 
+    component PowerMenuSection: SectionPanel {
+        required property var sectionData
+
+        Layout.fillWidth: true
+        Layout.fillHeight: false
+        Layout.alignment: Qt.AlignTop
+        visible: sectionData !== null
+        legendBackground: Theme.background
+        label: ""
+        sectionSpacing: 4
+
+        HoverPopupLabelPill {
+            text: sectionData ? sectionData.title : ""
+            icon: sectionData ? sectionData.icon : ""
+            fontSize: Theme.fontSizeS
+        }
+
+        ColumnLayout {
+            Layout.fillWidth: true
+            spacing: 2
+
+            Repeater {
+                model: sectionData ? sectionData.entries : []
+
+                Rectangle {
+                    required property var modelData
+                    required property int index
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: root.powerLinkRowHeight
+                    radius: Theme.fieldsetCornerRadius
+                    color: powerRowMouse.containsMouse || powerGlobalIndex === root.selectedIndex
+                        ? Theme.withOpacity(Theme.panelMantle, 0.95)
+                        : "transparent"
+
+                    readonly property int powerGlobalIndex: modelData.globalIndex
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: 8
+                        anchors.rightMargin: 8
+                        spacing: 10
+
+                        Item {
+                            Layout.preferredWidth: root.powerLinkIconSize
+                            Layout.preferredHeight: root.powerLinkIconSize
+                            Layout.alignment: Qt.AlignVCenter
+                            readonly property string rowIconSource: {
+                                if (modelData.kind !== "app")
+                                    return ""
+                                var _epoch = root.appIconEpoch
+                                return root.entryIconSource(modelData)
+                            }
+
+                            Image {
+                                id: rowIconImage
+                                anchors.fill: parent
+                                visible: parent.rowIconSource.length > 0
+                                    && status !== Image.Error
+                                source: Util.normalizeIconSource(parent.rowIconSource)
+                                fillMode: Image.PreserveAspectFit
+                                smooth: true
+                                asynchronous: true
+                                cache: true
+                                sourceSize: Qt.size(
+                                    root.powerLinkIconSize * 2, root.powerLinkIconSize * 2)
+                            }
+
+                            Text {
+                                anchors.centerIn: parent
+                                visible: modelData.kind !== "app"
+                                    || parent.rowIconSource.length === 0
+                                    || rowIconImage.status === Image.Error
+                                text: modelData.icon || "󰍉"
+                                color: powerGlobalIndex === root.selectedIndex
+                                    ? Theme.accent : Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.powerLinkIconSize
+                                font.bold: Theme.fontBold
+                            }
+                        }
+
+                        Text {
+                            Layout.fillWidth: true
+                            Layout.alignment: Qt.AlignVCenter
+                            text: modelData.name
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeS
+                            font.bold: Theme.fontBold
+                            elide: Text.ElideRight
+                        }
+                    }
+
+                    MouseArea {
+                        id: powerRowMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onEntered: root.selectedIndex = powerGlobalIndex
+                        onClicked: {
+                            root.selectedIndex = powerGlobalIndex
+                            root.activateEntry(modelData)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     Process {
         id: dynamicProc
         stdout: StdioCollector {
@@ -753,31 +1170,13 @@ Item {
             id: menuHost
             z: 1
             anchors.centerIn: parent
-            width: root.styledMenuMode
-                ? root.gridWidth + root.menuChromeWidth
-                : root.boxTileMode
-                    ? root.boxRowWidth
-                    : root.framedMenuWidth
-            height: root.styledMenuMode
-                ? (root.appsGridMode ? root.styledMenuHostHeight : root.gridHeight + root.menuChromeHeight)
-                : root.boxTileMode ? root.boxRowHeight : root.framedMenuHeight
-            focus: root.opened && (root.previewTileMode || root.styledMenuMode)
-
-            TextInput {
-                id: silentFilterField
-                visible: false
-                width: 1
-                height: 1
-                opacity: 0
-                text: root.filterText
-                onTextEdited: root.filterText = text
-                Keys.onEscapePressed: root.handleEscapeKey()
-                Keys.onLeftPressed: root.handlePreviewLeft()
-                Keys.onRightPressed: root.handlePreviewRight()
-                Keys.onUpPressed: root.handlePreviewUp()
-                Keys.onDownPressed: root.handlePreviewDown()
-                Keys.onReturnPressed: root.handleActivateKey()
-            }
+            width: root.framedMode
+                ? root.framedMenuWidth
+                : root.boxRowWidth
+            height: root.framedMode
+                ? root.framedMenuHeight
+                : root.boxRowHeight
+            focus: root.opened && (root.previewTileMode || root.framedMode)
 
             Keys.onEscapePressed: root.handleEscapeKey()
             Keys.onLeftPressed: root.handlePreviewLeft()
@@ -786,7 +1185,7 @@ Item {
             Keys.onDownPressed: root.handlePreviewDown()
             Keys.onReturnPressed: root.handleActivateKey()
             Keys.onPressed: function(event) {
-                if (!root.styledMenuMode && !root.framedMode)
+                if (!root.framedMode)
                     return
                 if (event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier))
                     return
@@ -799,20 +1198,20 @@ Item {
 
             Rectangle {
                 anchors.fill: parent
-                visible: root.framedMode || root.styledMenuMode
+                visible: root.framedMode
                 color: Theme.background
                 border.color: Theme.accent
                 border.width: Theme.hoverPopupBorderWidth
-                radius: root.styledMenuMode ? Theme.panelCornerRadius : 0
+                radius: 0
             }
 
             ColumnLayout {
                 id: framedColumn
                 anchors.fill: parent
-                anchors.topMargin: (root.styledMenuMode || root.framedMode) ? root.menuOuterTopInset : 0
-                anchors.leftMargin: (root.styledMenuMode || root.framedMode) ? root.menuOuterInset : 0
-                anchors.rightMargin: (root.styledMenuMode || root.framedMode) ? root.menuOuterInset : 0
-                anchors.bottomMargin: (root.styledMenuMode || root.framedMode) ? root.menuOuterInset : 0
+                anchors.topMargin: root.framedMode ? root.menuOuterTopInset : 0
+                anchors.leftMargin: root.framedMode ? root.menuOuterInset : 0
+                anchors.rightMargin: root.framedMode ? root.menuOuterInset : 0
+                anchors.bottomMargin: root.framedMode ? root.menuOuterInset : 0
                 spacing: root.framedColumnSpacing
                 clip: false
 
@@ -827,7 +1226,8 @@ Item {
 
                     HoverPopupLabelPill {
                         text: root.framedLegendTitle
-                        icon: root.submenu === "bindings" ? "󰌌" : "󰆍"
+                        icon: root.powerMenuMode ? "󰣇"
+                            : (root.submenu === "bindings" ? "󰌌" : "󰆍")
                         fontSize: Theme.fontSizeS
                     }
 
@@ -893,8 +1293,116 @@ Item {
                         font.bold: Theme.fontBold
                     }
 
+                    Text {
+                        visible: root.sectionMenuMode && !root.dynamicLoading && root.visibleEntries.length === 0
+                        Layout.alignment: Qt.AlignHCenter
+                        text: root.filterText.trim() === "" ? "No entries" : "No matches"
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeS
+                        font.bold: Theme.fontBold
+                        opacity: Theme.opacityMuted
+                    }
+
+                    Flickable {
+                        id: sectionListFlickable
+                        visible: root.sectionMenuMode && root.visibleEntries.length > 0
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: root.framedListHeight
+                        clip: true
+                        boundsBehavior: Flickable.StopAtBounds
+                        contentWidth: width
+                        contentHeight: sectionColumn.height
+
+                        Item {
+                            id: sectionColumn
+                            width: parent.width
+                            height: Math.max(
+                                programsSectionsColumn.implicitHeight,
+                                gamesSectionsColumn.implicitHeight,
+                                panelsSectionsColumn.implicitHeight,
+                                rightSectionsColumn.implicitHeight)
+
+                            RowLayout {
+                                anchors.top: parent.top
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                spacing: root.powerSectionSpacing
+
+                                ColumnLayout {
+                                    id: programsSectionsColumn
+                                    Layout.fillWidth: true
+                                    Layout.preferredWidth: 1
+                                    Layout.alignment: Qt.AlignTop
+                                    spacing: root.powerSectionSpacing
+
+                                    Repeater {
+                                        model: root.sectionMenuLayout().programs
+
+                                        PowerMenuSection {
+                                            required property var modelData
+                                            sectionData: modelData
+                                        }
+                                    }
+                                }
+
+                                ColumnLayout {
+                                    id: gamesSectionsColumn
+                                    Layout.fillWidth: true
+                                    Layout.preferredWidth: 1
+                                    Layout.alignment: Qt.AlignTop
+                                    spacing: root.powerSectionSpacing
+
+                                    Repeater {
+                                        model: root.sectionMenuLayout().games
+
+                                        PowerMenuSection {
+                                            required property var modelData
+                                            sectionData: modelData
+                                        }
+                                    }
+                                }
+
+                                ColumnLayout {
+                                    id: panelsSectionsColumn
+                                    Layout.fillWidth: true
+                                    Layout.preferredWidth: 1
+                                    Layout.alignment: Qt.AlignTop
+                                    spacing: root.powerSectionSpacing
+
+                                    Repeater {
+                                        model: root.sectionMenuLayout().panels
+
+                                        PowerMenuSection {
+                                            required property var modelData
+                                            sectionData: modelData
+                                        }
+                                    }
+                                }
+
+                                ColumnLayout {
+                                    id: rightSectionsColumn
+                                    Layout.fillWidth: true
+                                    Layout.preferredWidth: 1
+                                    Layout.alignment: Qt.AlignTop
+                                    spacing: root.powerSectionSpacing
+
+                                    Repeater {
+                                        model: root.sectionMenuLayout().right
+
+                                        PowerMenuSection {
+                                            required property var modelData
+                                            sectionData: modelData
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     ListView {
                         id: entryList
+                        visible: root.framedMode && !root.sectionMenuMode
                         Layout.fillWidth: true
                         Layout.preferredHeight: root.framedListHeight
                         clip: true
@@ -1135,261 +1643,17 @@ Item {
                         }
                     }
                 }
-
-                SectionPanel {
-                    visible: root.styledMenuMode
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    fillHeight: true
-                    legendBackground: Theme.background
-                    label: ""
-                    sectionSpacing: Theme.hoverPopupSectionSpacing
-
-                    HoverPopupLabelPill {
-                        text: root.styledLegendTitle
-                        icon: root.appsGridMode ? "󰀻" : "󰣇"
-                        fontSize: Theme.fontSizeS
-                    }
-
-                    Text {
-                        visible: root.appsGridMode && !root.dynamicLoading && root.visibleEntries.length === 0
-                        Layout.alignment: Qt.AlignHCenter
-                        text: root.filterText.trim() === "" ? "No applications" : "No matches"
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSizeS
-                        font.bold: Theme.fontBold
-                        opacity: Theme.opacityMuted
-                    }
-
-                    Text {
-                        visible: root.tileMode && !root.dynamicLoading && root.visibleEntries.length === 0
-                        Layout.alignment: Qt.AlignHCenter
-                        text: root.filterText.trim() === "" ? "No system entries" : "No matches"
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSizeS
-                        font.bold: Theme.fontBold
-                        opacity: Theme.opacityMuted
-                    }
-
-                    Item {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: root.appsGridMode && root.visibleEntries.length > 0
-                            ? root.styledMenuViewportHeight : 0
-                        visible: root.appsGridMode && root.visibleEntries.length > 0
-
-                        Flickable {
-                            id: appFlickable
-                            anchors.fill: parent
-                            clip: true
-                            boundsBehavior: Flickable.StopAtBounds
-                            contentWidth: width
-                            contentHeight: appFlow.height
-
-                            Flow {
-                                id: appFlow
-                                width: parent.width
-                                spacing: root.tileSpacing
-                                flow: Flow.LeftToRight
-
-                            Repeater {
-                                model: root.visibleEntries
-
-                                Item {
-                                    id: appTile
-                                    required property var modelData
-                                    required property int index
-                                    width: root.powerTileWidth
-                                    height: root.powerTileHeight
-
-                                    readonly property string appIconSource: {
-                                        var _epoch = root.appIconEpoch
-                                        if (!modelData)
-                                            return ""
-                                        if (modelData.iconSource)
-                                            return modelData.iconSource
-                                        if (modelData.id && root.appIconMap[modelData.id])
-                                            return root.appIconMap[modelData.id]
-                                        return root.entryIconSource(modelData)
-                                    }
-                                    readonly property string glyphIcon: root.entryGlyphIcon(modelData)
-                                    readonly property bool appSelected: index === root.selectedIndex
-
-                                    scale: appMouse.pressed ? 0.96 : (appMouse.containsMouse ? 1.02 : 1)
-                                    transformOrigin: Item.Center
-
-                                    Behavior on scale {
-                                        NumberAnimation {
-                                            duration: 120
-                                            easing.type: Easing.OutCubic
-                                        }
-                                    }
-
-                                    Rectangle {
-                                        id: tileBg
-                                        anchors.fill: parent
-                                        radius: Theme.fieldsetCornerRadius
-                                        color: appTile.appSelected
-                                            ? Theme.withOpacity(Theme.accent, 0.14)
-                                            : Theme.withOpacity(Theme.panelMantle, appMouse.containsMouse ? 0.95 : 0.72)
-                                        border.color: appTile.appSelected
-                                            ? Theme.accent
-                                            : Theme.withOpacity(Theme.accent, appMouse.containsMouse ? 0.45 : 0.22)
-                                        border.width: appTile.appSelected ? 2 : 1
-
-                                        Column {
-                                            anchors.centerIn: parent
-                                            width: parent.width - 16
-                                            spacing: Theme.spacingM
-
-                                            Item {
-                                                anchors.horizontalCenter: parent.horizontalCenter
-                                                width: root.powerTileIconSize
-                                                height: root.powerTileIconSize
-
-                                                Image {
-                                                    id: appIcon
-                                                    anchors.fill: parent
-                                                    visible: appTile.appIconSource.length > 0 && status !== Image.Error
-                                                    source: Util.normalizeIconSource(appTile.appIconSource)
-                                                    fillMode: Image.PreserveAspectFit
-                                                    smooth: true
-                                                    asynchronous: true
-                                                    cache: true
-                                                    mipmap: true
-                                                    sourceSize: Qt.size(root.appIconSourceSize, root.appIconSourceSize)
-                                                }
-
-                                                Text {
-                                                    anchors.centerIn: parent
-                                                    visible: appTile.appIconSource.length === 0 || appIcon.status === Image.Error
-                                                    text: appTile.glyphIcon
-                                                    color: appTile.appSelected ? Theme.accent : Theme.foreground
-                                                    font.family: Theme.fontFamily
-                                                    font.pixelSize: root.powerTileIconSize
-                                                    font.bold: Theme.fontBold
-                                                }
-                                            }
-
-                                            Text {
-                                                anchors.horizontalCenter: parent.horizontalCenter
-                                                width: parent.width
-                                                text: modelData.name || ""
-                                                color: Theme.foreground
-                                                font.family: Theme.fontFamily
-                                                font.pixelSize: Theme.fontSizeXs
-                                                font.bold: Theme.fontBold
-                                                horizontalAlignment: Text.AlignHCenter
-                                                wrapMode: Text.Wrap
-                                                maximumLineCount: 2
-                                                elide: Text.ElideRight
-                                                opacity: appTile.appSelected ? 1 : 0.82
-                                            }
-                                        }
-                                    }
-
-                                    MouseArea {
-                                        id: appMouse
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        cursorShape: Qt.PointingHandCursor
-                                        onEntered: root.selectedIndex = index
-                                        onClicked: {
-                                            root.selectedIndex = index
-                                            root.activateEntry(modelData)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    Item {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: root.tileMode ? root.gridHeight : 0
-                        visible: root.tileMode
-
-                        Flow {
-                            id: powerFlow
-                            anchors.fill: parent
-                            spacing: root.tileSpacing
-                            flow: Flow.LeftToRight
-
-                            Repeater {
-                                model: root.visibleEntries
-
-                                Rectangle {
-                                    required property var modelData
-                                    required property int index
-                                    width: root.powerTileWidth
-                                    height: root.powerTileHeight
-                                    radius: Theme.fieldsetCornerRadius
-                                    color: index === root.selectedIndex
-                                        ? Theme.withOpacity(Theme.accent, 0.14)
-                                        : Theme.withOpacity(Theme.panelMantle, powerMouse.containsMouse ? 0.95 : 0.72)
-                                    border.color: index === root.selectedIndex
-                                        ? Theme.accent
-                                        : Theme.withOpacity(Theme.accent, powerMouse.containsMouse ? 0.45 : 0.22)
-                                    border.width: index === root.selectedIndex ? 2 : 1
-
-                                    scale: powerMouse.pressed ? 0.96 : (powerMouse.containsMouse ? 1.02 : 1)
-                                    Behavior on scale {
-                                        NumberAnimation {
-                                            duration: 120
-                                            easing.type: Easing.OutCubic
-                                        }
-                                    }
-
-                                    Column {
-                                        anchors.centerIn: parent
-                                        width: parent.width - 16
-                                        spacing: Theme.spacingM
-
-                                        Text {
-                                            anchors.horizontalCenter: parent.horizontalCenter
-                                            text: modelData.icon || "󰍉"
-                                            color: index === root.selectedIndex ? Theme.accent : Theme.foreground
-                                            font.family: Theme.fontFamily
-                                            font.pixelSize: root.powerTileIconSize
-                                            font.bold: Theme.fontBold
-                                        }
-
-                                        Text {
-                                            anchors.horizontalCenter: parent.horizontalCenter
-                                            width: parent.width
-                                            text: modelData.name
-                                            color: Theme.foreground
-                                            font.family: Theme.fontFamily
-                                            font.pixelSize: Theme.fontSizeXs
-                                            font.bold: Theme.fontBold
-                                            horizontalAlignment: Text.AlignHCenter
-                                            wrapMode: Text.Wrap
-                                            maximumLineCount: 2
-                                            elide: Text.ElideRight
-                                            opacity: index === root.selectedIndex ? 1 : 0.82
-                                        }
-                                    }
-
-                                    MouseArea {
-                                        id: powerMouse
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        cursorShape: Qt.PointingHandCursor
-                                        onEntered: root.selectedIndex = index
-                                        onClicked: {
-                                            root.selectedIndex = index
-                                            root.activateEntry(modelData)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
             }
         }
     }
+
+    Connections {
+        target: DesktopEntries
+        function onApplicationsChanged() {
+            rebuildAppCache()
+            if (powerMenuMode)
+                syncVisibleEntries()
+        }
     }
 
     Component.onCompleted: {

@@ -36,7 +36,6 @@ Item {
     property bool ok: false
     property string errorText: ""
     property bool steamRunning: false
-    property real downloadRate: 0
     property int installedCount: 0
     property int libraryTotal: 0
     property int totalPlaytimeMin: 0
@@ -44,14 +43,6 @@ Item {
     property var runningGames: []
 
     implicitHeight: column.implicitHeight
-
-    function formatRate(bytesPerSec) {
-        var n = Number(bytesPerSec) || 0
-        if (n < 1024) return Math.round(n) + " B/s"
-        if (n < 1048576) return (n / 1024).toFixed(1) + " KB/s"
-        if (n < 1048576 * 10) return (n / 1048576).toFixed(1) + " MB/s"
-        return (n / 1048576).toFixed(2) + " GB/s"
-    }
 
     function formatPlaytime(minutes) {
         var m = Number(minutes) || 0
@@ -111,8 +102,6 @@ Item {
             return "Not running"
         if (runningGames.length > 0)
             return "Playing · " + String(runningGames[0].name || "")
-        if (downloadRate > 0)
-            return root.formatRate(downloadRate)
         return ""
     }
 
@@ -123,15 +112,13 @@ Item {
             return Theme.withOpacity(Theme.foreground, 0.08)
         if (runningGames.length > 0)
             return Theme.withOpacity(Theme.accent, 0.16)
-        if (downloadRate > 0)
-            return Theme.withOpacity(Theme.accent, 0.12)
         return Theme.withOpacity(Theme.foreground, 0.08)
     }
 
     readonly property color statusPillTextColor: {
         if (errorText)
             return Theme.urgent
-        if (steamRunning && (runningGames.length > 0 || downloadRate > 0))
+        if (steamRunning && runningGames.length > 0)
             return Theme.accent
         return Theme.foreground
     }
@@ -160,7 +147,6 @@ Item {
         ok = json.ok === true
         errorText = String(json.error || "")
         steamRunning = json.running === true
-        downloadRate = parseFloat(json.download_bps || 0) || 0
         installedCount = parseInt(json.installed_count !== undefined
             ? json.installed_count : json.library_count, 10) || 0
         libraryTotal = parseInt(json.library_total, 10) || 0
@@ -295,7 +281,7 @@ Item {
                     fontSize: Theme.fontSizeS
                     textColor: root.statusPillTextColor
                     fill: root.statusPillFill
-                    textOpacity: root.errorText || root.runningGames.length > 0 || root.downloadRate > 0 ? 1 : 0.72
+                    textOpacity: root.errorText || root.runningGames.length > 0 ? 1 : 0.72
                     fieldsetLegend: false
                 }
 

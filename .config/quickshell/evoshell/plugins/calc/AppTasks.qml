@@ -56,7 +56,7 @@ Item {
     property int taskUiTick: 0
 
     readonly property int listHeight: Math.max(root.taskRowMin, taskList.contentHeight)
-    implicitHeight: tasksSection.panel.verticalChrome + listHeight + root.taskBottomPad + 28 + Theme.spacingL
+    implicitHeight: tasksSection.verticalChrome + listHeight + root.taskBottomPad + 28 + Theme.spacingL
 
     readonly property bool completedTasksPresent: {
         var tick = taskUiTick

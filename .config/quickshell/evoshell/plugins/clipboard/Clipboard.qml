@@ -28,7 +28,7 @@ Item {
     CenteredOverlay {
         opened: root.opened
         layerNamespace: "evo-clipboard"
-        contentWidth: 560
+        contentWidth: Theme.overlayPanelWidth
         contentHeight: 640
         framed: true
         borderWidth: 2

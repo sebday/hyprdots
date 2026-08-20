@@ -21,7 +21,6 @@ bindd("SUPER + ALT + Home", "Theme picker", hl.dsp.exec_cmd(shell_ipc .. " shell
 bindd("SUPER + W", "Close Active Window", hl.dsp.window.close())
 bindd("SUPER + E", "Editor", hl.dsp.exec_cmd(editor))
 bindd("SUPER + T", "GUI File Manager", hl.dsp.exec_cmd("thunar"))
-bindd("SUPER + D", "App launcher", hl.dsp.exec_cmd(shell_ipc .. " shell toggleAppLauncher"))
 bindd("SUPER + F", "Fullscreen", hl.dsp.window.fullscreen({ mode = "fullscreen", action = "set" }))
 bindd("SUPER + J", "Toggle Split Direction", hl.dsp.layout("togglesplit"))
 bindd("SUPER + K", "Toggle Floating Window", hl.dsp.window.float({ action = "toggle" }))

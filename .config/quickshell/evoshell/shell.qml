@@ -589,7 +589,7 @@ ShellRoot {
     }
 
     function toggleAppLauncher() {
-        return toggle("evo.menu", '{"mode":"apps"}')
+        return toggle("evo.menu", '{"mode":"power"}')
     }
 
     GlobalShortcut {

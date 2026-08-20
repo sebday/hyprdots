@@ -26,6 +26,8 @@ Item {
     implicitWidth: panel.implicitWidth
     implicitHeight: panel.implicitHeight
 
+    readonly property int verticalChrome: panel.verticalChrome
+
     default property alias sectionContent: innerCol.data
 
     function syncLegendFill(child) {

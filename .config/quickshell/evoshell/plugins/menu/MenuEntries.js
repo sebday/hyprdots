@@ -11,10 +11,50 @@ function panelToggle(home, module, focus) {
     return ipc(home, "toggle evo.panel '" + JSON.stringify(payload) + "'")
 }
 
+function systemSectionLayout(home) {
+    var entries = systemEntries(home)
+    var byName = {}
+    for (var i = 0; i < entries.length; i++)
+        byName[entries[i].name] = entries[i]
+
+    function pick(names) {
+        var out = []
+        for (var j = 0; j < names.length; j++) {
+            if (byName[names[j]])
+                out.push(byName[names[j]])
+        }
+        return out
+    }
+
+    return {
+        panels: {
+            title: "Panels",
+            icon: "󰐒",
+            entries: pick([
+                "Settings", "Themes", "Wallpaper", "Music", "Library",
+                "Calculator", "Tasks", "Clipboard", "Shopify"
+            ])
+        },
+        right: [
+            { title: "Reference", icon: "󰋗", entries: pick(["Bindings", "Shell commands"]) },
+            { title: "Session", icon: "󰍃", entries: pick([
+                "Lock", "Restart shell", "Clear cache", "Backup", "Reboot", "Shutdown"
+            ]) }
+        ]
+    }
+}
+
+function systemSections(home) {
+    var layout = systemSectionLayout(home)
+    var out = []
+    if (layout.panels)
+        out.push(layout.panels)
+    return out.concat(layout.right)
+}
+
 function systemEntries(home) {
     var bin = home + "/.local/bin"
     return [
-        { name: "Apps", icon: "󰀻", keywords: ["apps", "applications", "launcher", "programs"], mode: "apps" },
         { name: "Settings", icon: "󰒓", keywords: ["settings", "panel", "hypr", "bar"], command: ipc(home, "toggle evo.settings") },
         { name: "Themes", icon: "󰸌", keywords: ["theme", "colours", "gtk"], command: ipc(home, "toggle evo.theme") },
         { name: "Wallpaper", icon: "󰏘", keywords: ["wallpaper", "background"], command: ipc(home, "toggle evo.wallpaper") },
