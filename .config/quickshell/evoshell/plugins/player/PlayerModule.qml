@@ -1074,6 +1074,39 @@ Item {
         runMusic(args, null, saveCurrentProc)
     }
 
+    function ensureNowPlayingFromCurrentPlaylist() {
+        if (String(player.path || ""))
+            return
+        if (!currentPlaylistTracks.length)
+            return
+        var track = null
+        for (var i = 0; i < currentPlaylistTracks.length; i++) {
+            if (currentPlaylistTracks[i] && currentPlaylistTracks[i].path) {
+                track = currentPlaylistTracks[i]
+                break
+            }
+        }
+        if (!track)
+            return
+        var p = String(track.path)
+        var t = trackMetaForPath(p) || track
+        var wf = (t && t.waveform) || waveformPathByTrack[p] || waveformCachePath(p)
+        var next = Object.assign({}, player, playerFieldsFromTrack(t), {
+            path: p,
+            state: "stopped",
+            position: 0,
+            position_label: formatPlaybackTime(0),
+            art: (t && t.art) || "",
+            waveform: wf
+        })
+        player = next
+        if (wf)
+            rememberWaveformPath(p, wf)
+        applyCachedWaveform(p)
+        prefetchNeighbors(p)
+        prioritizeCurrentAssets()
+    }
+
     function loadCurrentPlaylist(onDone) {
         runPlaylistQuery(["current", "load", "--json"], function(text) {
             try {
@@ -1085,6 +1118,7 @@ Item {
                 }
             } catch (e) {
             }
+            ensureNowPlayingFromCurrentPlaylist()
             if (onDone)
                 onDone()
         })

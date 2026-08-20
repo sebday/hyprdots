@@ -22,7 +22,7 @@ Hyprland: `~/.config/hypr/{autostart,bindings,evoshell,windows}.lua`. Secrets: `
 - Bar widgets run `evo-bar-*` scripts → one JSON line stdout → `CommandWidget.lastPayload` → hover `*Module.qml`
 - Hover popups: `Commons/BarHoverPopup.qml`; bar `onHover: "evo.weather"` etc.
 
-Plugin ids: `evo.<feature>`. Directory: `plugins/<feature>/` with `<Feature>.qml`, `<Feature>Module.qml`, or `Service.qml`. Hypr layer: id with `.` → `-`, `_` → `-` (`evo.shopify_diy` → `evo-shopify-diy`); register in `evoshell.lua`. Tray exceptions: `bar-volume`, `bar-media`.
+Plugin ids: `evo.<feature>`. Directory: `plugins/<feature>/` with `<Feature>.qml`, `<Feature>Module.qml`, or `Service.qml`. Hypr layer: id with `.` → `-`, `_` → `-` (`evo.shopify` → `evo-shopify`); register in `evoshell.lua`. Tray exceptions: `bar-volume`, `bar-media`.
 
 Kinds: **service** (`Service.qml`), **bar** (`evo.bar` + `shell.json`), **hover popup** (`BarHoverPopup` + module), **overlay** (`evo.library`, `evo.theme`), **panel/menu**, **dashboard** (`FloatingWindow` title = plugin id, e.g. `evo.player`).
 

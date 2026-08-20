@@ -38,8 +38,6 @@ ShellRoot {
         "evo.notifications": { kinds: ["service"], path: "plugins/notifications/Service.qml", keepLoaded: true },
         "evo.menu": { kinds: ["menu"], path: "plugins/menu/Menu.qml", keepLoaded: true },
         "evo.calendar": { kinds: ["menu"], path: "plugins/calendar/Calendar.qml", keepLoaded: true },
-        "evo.shopify_diy": { kinds: ["menu"], path: "plugins/shopify/ShopifyDiy.qml", keepLoaded: true },
-        "evo.shopify_tgs": { kinds: ["menu"], path: "plugins/shopify/ShopifyTgs.qml", keepLoaded: true },
         "evo.cursor": { kinds: ["menu"], path: "plugins/cursor/Cursor.qml", keepLoaded: true },
         "evo.weather": { kinds: ["menu"], path: "plugins/weather/Weather.qml", keepLoaded: true },
         "evo.network": { kinds: ["menu"], path: "plugins/network/Network.qml", keepLoaded: true },
@@ -530,7 +528,7 @@ ShellRoot {
         source: shell.pluginUrl(shell.pluginTable["evo.shopify"].path)
         onLoaded: {
             if (item && "shell" in item) item.shell = shell
-            shell.ensureStartupDashboards()
+            shell.openStartupDashboard("evo.shopify")
         }
         onStatusChanged: {
             if (status === Loader.Error) console.warn("shopify load error:", String(shopifyLoader.errorString))
@@ -543,14 +541,14 @@ ShellRoot {
         source: shell.pluginUrl(shell.pluginTable["evo.player"].path)
         onLoaded: {
             if (item && "shell" in item) item.shell = shell
-            shell.ensureStartupDashboards()
+            shell.openStartupDashboard("evo.player")
         }
         onStatusChanged: {
             if (status === Loader.Error) console.warn("player load error:", String(playerLoader.errorString))
         }
     }
 
-    readonly property var panelPluginIds: ["evo.menu", "evo.panel", "evo.settings", "evo.calendar", "evo.shopify_diy", "evo.shopify_tgs", "evo.cursor", "evo.weather", "evo.network", "evo.volume", "evo.media", "evo.github", "evo.system", "evo.stocks", "evo.cloudflare", "evo.transmission", "evo.insync", "evo.steam", "evo.library", "evo.theme", "evo.wallpaper", "evo.clipboard"]
+    readonly property var panelPluginIds: ["evo.menu", "evo.panel", "evo.settings", "evo.calendar", "evo.cursor", "evo.weather", "evo.network", "evo.volume", "evo.media", "evo.github", "evo.system", "evo.stocks", "evo.cloudflare", "evo.transmission", "evo.insync", "evo.steam", "evo.library", "evo.theme", "evo.wallpaper", "evo.clipboard"]
 
     Instantiator {
         model: shell.panelPluginIds
@@ -568,20 +566,28 @@ ShellRoot {
         }
     }
 
-    property bool _startupDashboardsPinned: false
+    property bool _shopifyDashOpened: false
+    property bool _playerDashOpened: false
+
+    function openStartupDashboard(pluginId) {
+        if (pluginId === "evo.shopify") {
+            if (_shopifyDashOpened || !shopifyLoader.item)
+                return
+            _shopifyDashOpened = true
+            Qt.callLater(function() { shell.openDashboardOnly("evo.shopify") })
+            return
+        }
+        if (pluginId === "evo.player") {
+            if (_playerDashOpened || !playerLoader.item)
+                return
+            _playerDashOpened = true
+            Qt.callLater(function() { shell.openDashboardOnly("evo.player") })
+        }
+    }
 
     function ensureStartupDashboards() {
-        if (_startupDashboardsPinned)
-            return
-        if (!shopifyLoader.item && !playerLoader.item)
-            return
-        _startupDashboardsPinned = true
-        Qt.callLater(function() {
-            if (shopifyLoader.item)
-                openDashboardOnly("evo.shopify")
-            if (playerLoader.item)
-                openDashboardOnly("evo.player")
-        })
+        openStartupDashboard("evo.shopify")
+        openStartupDashboard("evo.player")
     }
 
     function toggleSystemMenu() {
