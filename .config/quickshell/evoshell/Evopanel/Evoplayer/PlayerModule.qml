@@ -5481,19 +5481,37 @@ Item {
                             Layout.fillHeight: true
                         }
 
-                        ColumnLayout {
+                        Item {
                             Layout.fillWidth: true
                             Layout.fillHeight: true
-                            spacing: pad
                             z: 20
 
-                            PlayerSideImportPanel {
-                                Layout.fillWidth: true
-                            }
+                            Flickable {
+                                id: settingsScroll
+                                anchors.fill: parent
+                                clip: true
+                                contentWidth: width
+                                contentHeight: Math.max(height, settingsScrollCol.implicitHeight)
+                                boundsBehavior: Flickable.StopAtBounds
+                                interactive: contentHeight > height
 
-                            PlayerSideSettingsPanel {
-                                Layout.fillWidth: true
-                                Layout.fillHeight: true
+                                ColumnLayout {
+                                    id: settingsScrollCol
+                                    width: settingsScroll.width
+                                    spacing: pad
+
+                                    PlayerSideImportPanel {
+                                        Layout.fillWidth: true
+                                    }
+
+                                    PlayerSideLibrarySettingsPanel {
+                                        Layout.fillWidth: true
+                                    }
+
+                                    PlayerSideSoundCloudSettingsPanel {
+                                        Layout.fillWidth: true
+                                    }
+                                }
                             }
                         }
 
@@ -7555,7 +7573,7 @@ Item {
     component PlayerSidePlaylistPanel: SectionPanel {
         label: ""
         legendBackground: root.useFieldsetLegends ? root.fieldsetLegendBackground : Theme.background
-        notchLegend: root.useFieldsetLegends
+        notchLegend: root.useFieldsetLegends && root.playlistPanelMode !== "library"
         legendText: {
             if (root.playlistPanelMode !== "tracks")
                 return "Playlists"
@@ -7580,26 +7598,32 @@ Item {
             Layout.fillHeight: true
             spacing: Theme.spacingS
 
-            RowLayout {
-                Layout.fillWidth: true
-                visible: root.playlistPanelMode === "library"
-                spacing: Theme.spacingS
+            Item {
+                id: playlistLibraryLegend
+                property bool fieldsetLegend: true
+                visible: root.useFieldsetLegends && root.playlistPanelMode === "library"
+                implicitWidth: playlistLibraryLegendRow.implicitWidth
+                implicitHeight: playlistLibraryLegendRow.implicitHeight
 
-                Item { Layout.fillWidth: true }
+                RowLayout {
+                    id: playlistLibraryLegendRow
+                    spacing: Theme.spacingS
 
-                Text {
-                    text: "󰐕"
-                    color: Theme.accent
-                    opacity: playlistCreateMouse.containsMouse ? 1 : 0.65
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.listFont
+                    HoverPopupLabelPill {
+                        text: "Playlists"
+                        icon: "󰲸"
+                        fontSize: Theme.fontSizeS
+                        fieldsetLegend: true
+                        fieldsetFill: root.fieldsetLegendBackground
+                    }
 
-                    MouseArea {
-                        id: playlistCreateMouse
-                        anchors.fill: parent
-                        anchors.margins: -6
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
+                    HoverPopupLabelPill {
+                        text: "+ add"
+                        fontSize: Theme.fontSizeS
+                        textColor: Theme.accent
+                        clickable: true
+                        fieldsetLegend: true
+                        fieldsetFill: root.fieldsetLegendBackground
                         onClicked: root.createUserPlaylist("playlist-" + Date.now())
                     }
                 }
@@ -7884,7 +7908,7 @@ Item {
         label: ""
         legendBackground: root.useFieldsetLegends ? root.fieldsetLegendBackground : Theme.background
         notchLegend: root.useFieldsetLegends
-        legendText: "Import"
+        legendText: "Actions"
         legendIcon: "󰉍"
         fillHeight: false
 
@@ -7949,37 +7973,85 @@ Item {
                         }
                     }
                 }
-            }
 
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: Theme.spacingM
-                visible: root.libraryActivityBusy
-
-                Text {
+                Item {
                     Layout.fillWidth: true
-                    text: root.libraryJobActiveLabel || "running"
-                    color: Theme.accent
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.libraryFont
-                    elide: Text.ElideRight
-                }
+                    Layout.columnSpan: 2
+                    implicitHeight: 34
 
-                Text {
-                    text: "󰓛"
-                    color: Theme.urgent
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.listFont
-                    opacity: importStopMouse.containsMouse ? 1 : 0.8
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: 4
+                        anchors.rightMargin: 4
+                        spacing: Theme.spacingS
+
+                        Text {
+                            text: "󰓛"
+                            color: Theme.urgent
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.listFont
+                            opacity: stopPlaybackMouse.containsMouse ? 1 : 0.85
+                        }
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: "Stop playback"
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.libraryFont
+                            elide: Text.ElideRight
+                            opacity: stopPlaybackMouse.containsMouse ? 1 : 0.78
+                        }
+                    }
 
                     MouseArea {
-                        id: importStopMouse
+                        id: stopPlaybackMouse
                         anchors.fill: parent
-                        anchors.margins: -6
                         hoverEnabled: true
+                        z: 1
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: root.stopLibraryJob()
+                        onClicked: root.stopPlayback()
                     }
+                }
+            }
+
+            Item {
+                Layout.fillWidth: true
+                visible: root.libraryActivityBusy
+                implicitHeight: 34
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 4
+                    anchors.rightMargin: 4
+                    spacing: Theme.spacingS
+
+                    Text {
+                        text: "󰓛"
+                        color: Theme.urgent
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.listFont
+                        opacity: importStopMouse.containsMouse ? 1 : 0.85
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: "Stop processing"
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.libraryFont
+                        elide: Text.ElideRight
+                        opacity: importStopMouse.containsMouse ? 1 : 0.78
+                    }
+                }
+
+                MouseArea {
+                    id: importStopMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    z: 1
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.stopLibraryJob()
                 }
             }
 
@@ -7998,111 +8070,38 @@ Item {
         }
     }
 
-    component PlayerSideSettingsPanel: SectionPanel {
+    component PlayerSideLibrarySettingsPanel: SectionPanel {
         label: ""
         legendBackground: root.useFieldsetLegends ? root.fieldsetLegendBackground : Theme.background
         notchLegend: root.useFieldsetLegends
-        legendText: "Settings"
-        legendIcon: "󰒓"
-        fillHeight: true
+        legendText: "Library"
+        legendIcon: "󰲹"
+        fillHeight: false
+
+        onVisibleChanged: {
+            if (visible)
+                root.loadLibraryStats()
+        }
 
         ColumnLayout {
             Layout.fillWidth: true
-            Layout.fillHeight: true
-            spacing: Theme.spacingL
+            spacing: Theme.spacingS
 
-            Text {
-                text: "Music library"
-                color: Theme.foreground
-                font.family: Theme.fontFamily
-                font.pixelSize: root.libraryFont
-                opacity: Theme.opacityMuted
-            }
-
-            RowLayout {
+            ColumnLayout {
                 Layout.fillWidth: true
-                spacing: Theme.spacingS
+                spacing: 4
 
-                Rectangle {
-                    Layout.fillWidth: true
-                    implicitHeight: 34
-                    radius: 6
-                    color: Theme.foregroundWash
-                    border.color: Theme.foregroundDivider
-                    border.width: 1
-
-                    TextInput {
-                        id: settingsMusicLibInput
-                        anchors.fill: parent
-                        anchors.leftMargin: 8
-                        anchors.rightMargin: 8
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.libraryFont
-                        selectionColor: Theme.accent
-                        selectedTextColor: Theme.mantle
-                        verticalAlignment: TextInput.AlignVCenter
-                        clip: true
-                        text: root.settingsMusicLibrary
-                        enabled: root.settingsInputsEnabled
-                        onActiveFocusChanged: root.settingsFieldFocused = activeFocus
-                        onEditingFinished: {
-                            if (root.settingsReady)
-                                root.setMusicLibrary(text)
-                        }
-
-                        Connections {
-                            target: root
-                            function onSettingsMusicLibraryChanged() {
-                                if (!settingsMusicLibInput.activeFocus)
-                                    settingsMusicLibInput.text = root.settingsMusicLibrary
-                            }
-                        }
-                    }
+                Text {
+                    text: "Library"
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.fontSizeS
+                    opacity: Theme.opacityMuted
                 }
 
-                Item {
-                    Layout.preferredWidth: 34
-                    Layout.preferredHeight: 34
-
-                    Text {
-                        anchors.centerIn: parent
-                        text: "󰉖"
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSizeXl
-                        opacity: settingsLibPickMouse.enabled
-                            ? (settingsLibPickMouse.containsMouse ? 1 : 0.72)
-                            : 0.35
-                    }
-
-                    MouseArea {
-                        id: settingsLibPickMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        enabled: root.settingsInputsEnabled
-                        onClicked: root.pickMusicLibrary()
-                    }
-                }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                Layout.topMargin: Theme.spacingS
-                spacing: Theme.spacingS
-
-                ColumnLayout {
+                RowLayout {
                     Layout.fillWidth: true
-                    spacing: 4
-
-                    Text {
-                        text: "SoundCloud user"
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.libraryFont
-                        opacity: Theme.opacityMuted
-                    }
+                    spacing: Theme.spacingS
 
                     Rectangle {
                         Layout.fillWidth: true
@@ -8113,7 +8112,7 @@ Item {
                         border.width: 1
 
                         TextInput {
-                            id: settingsScUserInput
+                            id: settingsMusicLibInput
                             anchors.fill: parent
                             anchors.leftMargin: 8
                             anchors.rightMargin: 8
@@ -8124,71 +8123,147 @@ Item {
                             selectedTextColor: Theme.mantle
                             verticalAlignment: TextInput.AlignVCenter
                             clip: true
-                            text: root.settingsScUser
+                            text: root.settingsMusicLibrary
                             enabled: root.settingsInputsEnabled
                             onActiveFocusChanged: root.settingsFieldFocused = activeFocus
                             onEditingFinished: {
                                 if (root.settingsReady)
-                                    root.setPlayerSetting("soundcloud.user", text)
+                                    root.setMusicLibrary(text)
                             }
 
                             Connections {
                                 target: root
-                                function onSettingsScUserChanged() {
-                                    if (!settingsScUserInput.activeFocus)
-                                        settingsScUserInput.text = root.settingsScUser
+                                function onSettingsMusicLibraryChanged() {
+                                    if (!settingsMusicLibInput.activeFocus)
+                                        settingsMusicLibInput.text = root.settingsMusicLibrary
                                 }
                             }
                         }
                     }
-                }
 
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 4
+                    Item {
+                        Layout.preferredWidth: 34
+                        Layout.preferredHeight: 34
 
-                    FontFamilyPicker {
-                        Layout.fillWidth: true
-                        label: "Cookies browser"
-                        previewFont: false
-                        labelBold: false
-                        labelFontSize: root.libraryFont
-                        value: root.cookieBrowserValue
-                        model: root.cookieBrowsers
-                        enabled: root.settingsInputsEnabled
-                        onActivated: function(browser) {
-                            root.settingsScCookiesFrom = browser
-                            if (root.settingsReady)
-                                root.setPlayerSetting("soundcloud.cookies_from", browser)
-                            else
-                                root.loadPlayerSettings()
+                        Text {
+                            anchors.centerIn: parent
+                            text: "󰉖"
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeXl
+                            opacity: settingsLibPickMouse.enabled
+                                ? (settingsLibPickMouse.containsMouse ? 1 : 0.72)
+                                : 0.35
+                        }
+
+                        MouseArea {
+                            id: settingsLibPickMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            enabled: root.settingsInputsEnabled
+                            onClicked: root.pickMusicLibrary()
                         }
                     }
                 }
             }
 
-            Item {
+            Text {
                 Layout.fillWidth: true
-                Layout.fillHeight: true
+                text: String(root.libraryStats.tracks || 0) + " tracks · "
+                    + String(root.libraryStats.genres || 0) + " genres"
+                color: Theme.foreground
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSizeXs
+                opacity: Theme.opacityMuted
+                elide: Text.ElideRight
             }
+        }
+    }
 
-            RowLayout {
+    component PlayerSideSoundCloudSettingsPanel: SectionPanel {
+        label: ""
+        legendBackground: root.useFieldsetLegends ? root.fieldsetLegendBackground : Theme.background
+        notchLegend: root.useFieldsetLegends
+        legendText: "SoundCloud"
+        legendIcon: "󰕧"
+        fillHeight: false
+
+        ColumnLayout {
+            Layout.fillWidth: true
+            spacing: Theme.spacingL
+
+            ColumnLayout {
                 Layout.fillWidth: true
-                spacing: Theme.spacingS
+                spacing: 4
 
                 Text {
-                    text: "Stop playback"
+                    text: "User"
                     color: Theme.foreground
                     font.family: Theme.fontFamily
-                    font.pixelSize: root.libraryFont
-                    Layout.fillWidth: true
+                    font.pixelSize: Theme.fontSizeS
+                    opacity: Theme.opacityMuted
                 }
 
-                BrowseTreeIcon {
-                    icon: "󰓛"
-                    hint: "stop mpv and quit playback"
-                    glyphColor: Theme.urgent
-                    onActivated: root.stopPlayback()
+                Rectangle {
+                    Layout.fillWidth: true
+                    implicitHeight: 34
+                    radius: 6
+                    color: Theme.foregroundWash
+                    border.color: Theme.foregroundDivider
+                    border.width: 1
+
+                    TextInput {
+                        id: settingsScUserInput
+                        anchors.fill: parent
+                        anchors.leftMargin: 8
+                        anchors.rightMargin: 8
+                        color: Theme.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.libraryFont
+                        selectionColor: Theme.accent
+                        selectedTextColor: Theme.mantle
+                        verticalAlignment: TextInput.AlignVCenter
+                        clip: true
+                        text: root.settingsScUser
+                        enabled: root.settingsInputsEnabled
+                        onActiveFocusChanged: root.settingsFieldFocused = activeFocus
+                        onEditingFinished: {
+                            if (root.settingsReady)
+                                root.setPlayerSetting("soundcloud.user", text)
+                        }
+
+                        Connections {
+                            target: root
+                            function onSettingsScUserChanged() {
+                                if (!settingsScUserInput.activeFocus)
+                                    settingsScUserInput.text = root.settingsScUser
+                            }
+                        }
+                    }
+                }
+            }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 4
+
+                FontFamilyPicker {
+                    Layout.fillWidth: true
+                    label: "Cookies browser"
+                    previewFont: false
+                    labelBold: false
+                    labelFontSize: Theme.fontSizeS
+                    value: root.cookieBrowserValue
+                    model: root.cookieBrowsers
+                    enabled: root.settingsInputsEnabled
+                    onActivated: function(browser) {
+                        root.settingsScCookiesFrom = browser
+                        if (root.settingsReady)
+                            root.setPlayerSetting("soundcloud.cookies_from", browser)
+                        else
+                            root.loadPlayerSettings()
+                    }
                 }
             }
         }

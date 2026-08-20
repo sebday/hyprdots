@@ -61,12 +61,71 @@ Item {
         return combined.slice(0, popularLimit)
     }
 
-    property MprisPlayer trackedPlayer: null
     property real positionTick: 0
 
     readonly property var allPlayers: {
         var values = Mpris.players.values
         return values ? values : []
+    }
+
+    function mprisPlayerActive(candidate) {
+        if (!candidate)
+            return false
+        if (candidate.playbackState === MprisPlaybackState.Stopped)
+            return false
+        if (String(candidate.trackTitle || "").trim() !== "")
+            return true
+        if (candidate.isPlaying)
+            return true
+        return candidate.playbackState === MprisPlaybackState.Paused
+    }
+
+    function mprisCanStop(player) {
+        if (!player)
+            return false
+        return player.canControl || player.canPause || player.canTogglePlaying
+    }
+
+    function mprisPlaybackLabel(player) {
+        if (!player)
+            return ""
+        if (player.isPlaying)
+            return "Playing"
+        if (player.playbackState === MprisPlaybackState.Paused)
+            return "Paused"
+        return "Stopped"
+    }
+
+    readonly property var activeMediaFeeds: {
+        var _ = root.positionTick
+        var feeds = []
+        var list = allPlayers
+        var i
+        for (i = 0; i < list.length; i++) {
+            var player = list[i]
+            if (root.mprisPlayerActive(player))
+                feeds.push({ kind: "mpris", player: player })
+        }
+        feeds.sort(function(a, b) {
+            var aPlaying = a.player.isPlaying ? 0 : 1
+            var bPlaying = b.player.isPlaying ? 0 : 1
+            if (aPlaying !== bPlaying)
+                return aPlaying - bPlaying
+            return String(a.player.identity || "").localeCompare(String(b.player.identity || ""))
+        })
+        if (root.evoPlayerHasTrack)
+            feeds.push({ kind: "evo" })
+        return feeds
+    }
+
+    readonly property bool anyFeedPlaying: {
+        var list = allPlayers
+        var i
+        for (i = 0; i < list.length; i++) {
+            if (list[i] && list[i].isPlaying)
+                return true
+        }
+        return root.evoPlayerPlaying
     }
 
     readonly property string evoPlayerScript: (Quickshell.env("HOME") || "") + "/.local/bin/evo-player"
@@ -77,45 +136,6 @@ Item {
     readonly property bool evoPlayerHasTrack: String(evoPlayerStatus.path || "") !== ""
     readonly property bool evoPlayerPlaying: String(evoPlayerStatus.state || "") === "playing"
     readonly property bool evoPlayerPaused: String(evoPlayerStatus.state || "") === "paused"
-
-    readonly property MprisPlayer player: trackedPlayer
-    readonly property bool hasMprisPlayer: player !== null
-    readonly property bool mprisPlaying: hasMprisPlayer && player.isPlaying
-    readonly property real mprisPosition: {
-        if (!hasMprisPlayer)
-            return 0
-        var _ = positionTick
-        return player.position
-    }
-    readonly property real mprisLength: hasMprisPlayer && player.lengthSupported ? player.length : 0
-    readonly property real mprisProgress: mprisLength > 0
-        ? Math.max(0, Math.min(1, mprisPosition / mprisLength))
-        : 0
-    readonly property string mprisTitle: hasMprisPlayer
-        ? String(player.trackTitle || "Unknown track")
-        : ""
-    readonly property string mprisArtist: hasMprisPlayer
-        ? String(player.trackArtist || player.trackAlbumArtist || "")
-        : ""
-    readonly property string mprisAlbum: hasMprisPlayer
-        ? String(player.trackAlbum || "")
-        : ""
-    readonly property string mprisArtUrl: hasMprisPlayer ? String(player.trackArtUrl || "") : ""
-    readonly property string mprisPlayerName: hasMprisPlayer
-        ? String(player.identity || "Media player")
-        : ""
-    readonly property string mprisPlaybackLabel: {
-        if (!hasMprisPlayer)
-            return ""
-        if (player.isPlaying)
-            return "Playing"
-        if (player.playbackState === MprisPlaybackState.Paused)
-            return "Paused"
-        return "Stopped"
-    }
-    readonly property bool mprisCanToggle: hasMprisPlayer && player.canTogglePlaying
-    readonly property bool mprisCanPrevious: hasMprisPlayer && player.canGoPrevious
-    readonly property bool mprisCanNext: hasMprisPlayer && player.canGoNext
 
     readonly property real evoTrackProgress: {
         var dur = Number(evoPlayerStatus.duration) || 0
@@ -146,16 +166,7 @@ Item {
 
     implicitHeight: column.implicitHeight
 
-    function playerInList(candidate, list) {
-        if (!candidate || !list) return false
-        for (var i = 0; i < list.length; i++) {
-            if (list[i] === candidate) return true
-        }
-        return false
-    }
-
     function onActivated() {
-        refreshTrackedPlayer()
         loadMediaPreview()
     }
 
@@ -241,25 +252,9 @@ Item {
         return path ? Util.fileUrl(path) : ""
     }
 
-    function refreshTrackedPlayer() {
-        var list = allPlayers
-        if (!list || list.length === 0) {
-            trackedPlayer = null
-            return
-        }
-        for (var i = 0; i < list.length; i++) {
-            if (list[i] && list[i].isPlaying) {
-                trackedPlayer = list[i]
-                return
-            }
-        }
-        if (!trackedPlayer || !playerInList(trackedPlayer, list))
-            trackedPlayer = list[0]
-    }
-
-    function toggleMprisPlayback() {
-        if (player && player.canTogglePlaying)
-            player.togglePlaying()
+    function toggleMprisPlayback(mprisPlayer) {
+        if (mprisPlayer && mprisPlayer.canTogglePlaying)
+            mprisPlayer.togglePlaying()
     }
 
     function toggleEvoPlayback() {
@@ -284,51 +279,38 @@ Item {
         Quickshell.execDetached(["bash", evoPlayerScript, "stop"])
     }
 
-    function stopMprisPlayback() {
-        if (player && player.canQuit)
-            player.quit()
-        else if (player && player.canTogglePlaying && player.isPlaying)
-            player.togglePlaying()
+    function stopMprisPlayback(mprisPlayer) {
+        if (!mprisPlayer)
+            return
+        if (mprisPlayer.canControl) {
+            mprisPlayer.stop()
+            return
+        }
+        if (mprisPlayer.canPause && mprisPlayer.isPlaying) {
+            mprisPlayer.pause()
+            return
+        }
+        if (mprisPlayer.canTogglePlaying && mprisPlayer.isPlaying)
+            mprisPlayer.togglePlaying()
     }
 
-    function raiseMprisPlayer() {
-        if (player && player.canRaise)
-            player.raise()
+    function raiseMprisPlayer(mprisPlayer) {
+        if (mprisPlayer && mprisPlayer.canRaise)
+            mprisPlayer.raise()
     }
 
     Timer {
         interval: 250
-        running: root.active && (root.mprisPlaying || root.evoPlayerPlaying)
+        running: root.active && root.anyFeedPlaying
         repeat: true
         onTriggered: {
-            if (root.hasMprisPlayer && root.player)
-                root.player.positionChanged()
+            var list = root.allPlayers
+            for (var i = 0; i < list.length; i++) {
+                if (list[i] && list[i].isPlaying)
+                    list[i].positionChanged()
+            }
             root.positionTick = Date.now()
         }
-    }
-
-    Instantiator {
-        model: Mpris.players
-
-        Connections {
-            required property MprisPlayer modelData
-            target: modelData
-
-            function onIsPlayingChanged() {
-                if (modelData.isPlaying)
-                    root.trackedPlayer = modelData
-            }
-
-            function onTrackTitleChanged() {
-                if (modelData.isPlaying)
-                    root.trackedPlayer = modelData
-            }
-        }
-    }
-
-    onActiveChanged: {
-        if (active)
-            refreshTrackedPlayer()
     }
 
     ColumnLayout {
@@ -336,457 +318,12 @@ Item {
         width: root.hoverPopupWidth
         spacing: Theme.hoverPopupSectionSpacing
 
-        SectionPanel {
-            label: ""
+        Repeater {
+            model: root.activeMediaFeeds
 
-            HoverPopupLabelPill {
-                text: "Now playing"
-                icon: "󰎈"
-                fontSize: Theme.fontSizeS
-            }
-
-            Item {
-                Layout.fillWidth: true
-                visible: root.hasMprisPlayer
-                implicitHeight: mprisRow.implicitHeight
-
-                RowLayout {
-                    id: mprisRow
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    spacing: 12
-
-                    Item {
-                        Layout.preferredWidth: root.artSize
-                        Layout.preferredHeight: root.artSize
-
-                        Rectangle {
-                            anchors.fill: parent
-                            radius: Theme.fieldsetCornerRadius
-                            color: Theme.foregroundFaint
-                            visible: root.mprisArtUrl === ""
-                        }
-
-                        Image {
-                            anchors.fill: parent
-                            visible: root.mprisArtUrl !== ""
-                            source: root.mprisArtUrl
-                            fillMode: Image.PreserveAspectCrop
-                            smooth: true
-                            asynchronous: true
-                            layer.enabled: true
-                            layer.smooth: true
-                        }
-
-                        Text {
-                            anchors.centerIn: parent
-                            visible: root.mprisArtUrl === ""
-                            text: "󰎈"
-                            color: Theme.accent
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.iconFont
-                            opacity: 0.75
-                        }
-                    }
-
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: Theme.spacing2
-
-                        Text {
-                            Layout.fillWidth: true
-                            text: root.mprisTitle
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.nowPlayingTitleFont
-                            font.bold: Theme.fontBold
-                            elide: Text.ElideRight
-                            maximumLineCount: 2
-                            wrapMode: Text.Wrap
-                        }
-
-                        Text {
-                            Layout.fillWidth: true
-                            visible: root.mprisArtist !== ""
-                            text: root.mprisArtist
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.hintFont
-                            opacity: 0.82
-                            elide: Text.ElideRight
-                        }
-
-                        Text {
-                            Layout.fillWidth: true
-                            visible: root.mprisAlbum !== ""
-                            text: root.mprisAlbum
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.hintFont
-                            opacity: Theme.opacityMuted
-                            elide: Text.ElideRight
-                        }
-
-                        Text {
-                            Layout.fillWidth: true
-                            text: root.mprisPlayerName + " · " + root.mprisPlaybackLabel
-                            color: Theme.accent
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.hintFont
-                            opacity: Theme.opacitySecondary
-                            elide: Text.ElideRight
-                        }
-                    }
-                }
-
-                MouseArea {
-                    anchors.fill: parent
-                    enabled: root.mprisCanToggle
-                    cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                    onClicked: root.toggleMprisPlayback()
-                }
-            }
-
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 4
-                radius: Theme.radiusS
-                color: Theme.foregroundDivider
-                visible: root.hasMprisPlayer
-
-                Rectangle {
-                    width: parent.width * root.mprisProgress
-                    height: parent.height
-                    radius: Theme.radiusS
-                    color: Theme.accent
-                }
-
-                MouseArea {
-                    anchors.fill: parent
-                    enabled: root.mprisCanToggle
-                    cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                    onClicked: root.toggleMprisPlayback()
-                }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: Theme.spacingM
-                visible: root.hasMprisPlayer
-
-                Text {
-                    text: "󰒮"
-                    color: Theme.foreground
-                    opacity: 0.85
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.iconFont
-                    MouseArea {
-                        anchors.fill: parent
-                        anchors.margins: -6
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: { if (root.player) root.player.previous() }
-                    }
-                }
-
-                Text {
-                    text: root.mprisPlaying ? "󰏤" : "󰐊"
-                    color: Theme.accent
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSize6xl
-                    MouseArea {
-                        anchors.fill: parent
-                        anchors.margins: -8
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.toggleMprisPlayback()
-                    }
-                }
-
-                Text {
-                    text: "󰒭"
-                    color: Theme.foreground
-                    opacity: 0.85
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.iconFont
-                    MouseArea {
-                        anchors.fill: parent
-                        anchors.margins: -6
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: { if (root.player) root.player.next() }
-                    }
-                }
-
-                Item { Layout.fillWidth: true }
-
-                Text {
-                    text: "󰍉"
-                    color: Theme.foreground
-                    opacity: 0.75
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.iconFont
-                    MouseArea {
-                        anchors.fill: parent
-                        anchors.margins: -6
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.raiseMprisPlayer()
-                    }
-                }
-
-                Text {
-                    text: "󰓛"
-                    color: Theme.urgent
-                    opacity: 0.85
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.iconFont
-                    MouseArea {
-                        anchors.fill: parent
-                        anchors.margins: -6
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.stopMprisPlayback()
-                    }
-                }
-            }
-
-            Text {
-                Layout.fillWidth: true
-                visible: !root.hasMprisPlayer
-                text: "Nothing playing"
-                color: Theme.foreground
-                font.family: Theme.fontFamily
-                font.pixelSize: root.bodyFont
-                opacity: Theme.opacityMuted
-            }
-
-            Repeater {
-                model: root.allPlayers.length > 1 ? root.allPlayers : []
-
-                Item {
-                    required property var modelData
-                    Layout.fillWidth: true
-                    implicitHeight: mprisPlayerRow.implicitHeight
-
-                    RowLayout {
-                        id: mprisPlayerRow
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        spacing: Theme.spacingM
-
-                        Text {
-                            Layout.fillWidth: true
-                            Layout.minimumWidth: 120
-                            text: String(modelData.identity || "Player")
-                            color: root.trackedPlayer === modelData ? Theme.accent : Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.hintFont
-                            font.bold: root.trackedPlayer === modelData
-                            elide: Text.ElideRight
-                            opacity: modelData.isPlaying ? 1 : 0.55
-                        }
-
-                        Text {
-                            Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
-                            text: modelData.isPlaying ? "Playing" : "Idle"
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.hintFont
-                            opacity: Theme.opacityDisabled
-                        }
-                    }
-
-                    MouseArea {
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.trackedPlayer = modelData
-                    }
-                }
-            }
-        }
-
-        SectionPanel {
-            label: ""
-
-            HoverPopupLabelPill {
-                text: "Evoplayer"
-                icon: "󰎈"
-                fontSize: Theme.fontSizeS
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 12
-                visible: root.evoPlayerHasTrack
-
-                Item {
-                    Layout.preferredWidth: root.artSize
-                    Layout.preferredHeight: root.artSize
-
-                    Rectangle {
-                        anchors.fill: parent
-                        radius: Theme.fieldsetCornerRadius
-                        color: Theme.foregroundFaint
-                        visible: root.evoArtUrl === ""
-                    }
-
-                    Image {
-                        anchors.fill: parent
-                        visible: root.evoArtUrl !== ""
-                        source: root.evoArtUrl
-                        fillMode: Image.PreserveAspectCrop
-                        smooth: true
-                        asynchronous: true
-                    }
-                }
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: Theme.spacing2
-
-                    Text {
-                        Layout.fillWidth: true
-                        text: String(evoPlayerStatus.title || "Unknown track")
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.nowPlayingTitleFont
-                        font.bold: Theme.fontBold
-                        elide: Text.ElideRight
-                    }
-
-                    Text {
-                        Layout.fillWidth: true
-                        visible: String(evoPlayerStatus.artist || "") !== ""
-                        text: String(evoPlayerStatus.artist || "")
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.hintFont
-                        opacity: 0.82
-                        elide: Text.ElideRight
-                    }
-
-                    Text {
-                        Layout.fillWidth: true
-                        text: String(evoPlayerStatus.position_label || "0:00")
-                            + " / "
-                            + String(evoPlayerStatus.duration_label || "0:00")
-                        color: Theme.accent
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.hintFont
-                    }
-                }
-            }
-
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 4
-                radius: Theme.radiusS
-                color: Theme.foregroundDivider
-                visible: root.evoPlayerHasTrack
-
-                Rectangle {
-                    width: parent.width * root.evoTrackProgress
-                    height: parent.height
-                    radius: Theme.radiusS
-                    color: Theme.accent
-                }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: Theme.spacingM
-                visible: root.evoPlayerHasTrack
-
-                Text {
-                    text: "󰒮"
-                    color: Theme.foreground
-                    opacity: 0.85
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.iconFont
-                    MouseArea {
-                        anchors.fill: parent
-                        anchors.margins: -6
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.evoPlayerPrevious()
-                    }
-                }
-
-                Text {
-                    text: root.evoPlayerPlaying ? "󰏤" : "󰐊"
-                    color: Theme.accent
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSize6xl
-                    MouseArea {
-                        anchors.fill: parent
-                        anchors.margins: -8
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.toggleEvoPlayback()
-                    }
-                }
-
-                Text {
-                    text: "󰒭"
-                    color: Theme.foreground
-                    opacity: 0.85
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.iconFont
-                    MouseArea {
-                        anchors.fill: parent
-                        anchors.margins: -6
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.evoPlayerNext()
-                    }
-                }
-
-                Item { Layout.fillWidth: true }
-
-                Text {
-                    text: "󰍉"
-                    color: Theme.foreground
-                    opacity: 0.75
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.iconFont
-                    MouseArea {
-                        anchors.fill: parent
-                        anchors.margins: -6
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.openEvoplayerDashboard()
-                    }
-                }
-
-                Text {
-                    text: "󰓛"
-                    color: Theme.urgent
-                    opacity: 0.85
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.iconFont
-                    MouseArea {
-                        anchors.fill: parent
-                        anchors.margins: -6
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.stopEvoplayerPlayback()
-                    }
-                }
-            }
-
-            Text {
-                Layout.fillWidth: true
-                visible: !root.evoPlayerHasTrack
-                text: "No track playing"
-                color: Theme.foreground
-                font.family: Theme.fontFamily
-                font.pixelSize: root.hintFont
-                opacity: Theme.opacityMuted
-            }
-
-            Text {
-                visible: !root.evoPlayerHasTrack
-                text: "Open Evoplayer"
-                color: Theme.accent
-                font.family: Theme.fontFamily
-                font.pixelSize: root.hintFont
-
-                MouseArea {
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.openEvoplayerDashboard()
-                }
+            PlayingFeedPanel {
+                required property var modelData
+                feed: modelData
             }
         }
 
@@ -806,6 +343,314 @@ Item {
                 showLabels: false
                 iconForItem: root.popularFallbackIcon
                 itemActivated: function(item) { root.openPopularItem(item) }
+            }
+        }
+
+        component PlayingFeedPanel: SectionPanel {
+            id: feedPanel
+            property var feed: ({})
+            readonly property bool isMpris: feed && feed.kind === "mpris"
+            readonly property bool isEvo: feed && feed.kind === "evo"
+            readonly property var mprisPlayer: isMpris ? feed.player : null
+            readonly property bool feedPlaying: isMpris
+                ? (mprisPlayer && mprisPlayer.isPlaying)
+                : root.evoPlayerPlaying
+            readonly property real feedProgress: {
+                if (isMpris && mprisPlayer) {
+                    var _ = root.positionTick
+                    var len = mprisPlayer.lengthSupported ? mprisPlayer.length : 0
+                    if (len <= 0)
+                        return 0
+                    return Math.max(0, Math.min(1, mprisPlayer.position / len))
+                }
+                if (isEvo)
+                    return root.evoTrackProgress
+                return 0
+            }
+            readonly property string feedArtUrl: isMpris
+                ? String(mprisPlayer ? mprisPlayer.trackArtUrl || "" : "")
+                : root.evoArtUrl
+            readonly property string feedTitle: isMpris
+                ? String(mprisPlayer ? mprisPlayer.trackTitle || "Unknown track" : "")
+                : String(root.evoPlayerStatus.title || "Unknown track")
+            readonly property string feedArtist: isMpris
+                ? String(mprisPlayer
+                    ? mprisPlayer.trackArtist || mprisPlayer.trackAlbumArtist || ""
+                    : "")
+                : String(root.evoPlayerStatus.artist || "")
+            readonly property string feedAlbum: isMpris
+                ? String(mprisPlayer ? mprisPlayer.trackAlbum || "" : "")
+                : ""
+            readonly property string feedSourceLine: {
+                if (isMpris && mprisPlayer)
+                    return String(mprisPlayer.identity || "Media player")
+                        + " · "
+                        + root.mprisPlaybackLabel(mprisPlayer)
+                if (isEvo)
+                    return "Evoplayer · "
+                        + (root.evoPlayerPlaying
+                            ? "Playing"
+                            : (root.evoPlayerPaused ? "Paused" : "Stopped"))
+                return ""
+            }
+            readonly property string feedTimeLine: isEvo
+                ? String(root.evoPlayerStatus.position_label || "0:00")
+                    + " / "
+                    + String(root.evoPlayerStatus.duration_label || "0:00")
+                : ""
+            readonly property bool feedCanStop: isMpris
+                ? root.mprisCanStop(mprisPlayer)
+                : true
+
+            label: ""
+
+            HoverPopupLabelPill {
+                text: "Playing"
+                icon: "󰎈"
+                fontSize: Theme.fontSizeS
+            }
+
+            Item {
+                Layout.fillWidth: true
+                implicitHeight: feedRow.implicitHeight
+
+                RowLayout {
+                    id: feedRow
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    spacing: 12
+
+                    Item {
+                        Layout.preferredWidth: root.artSize
+                        Layout.preferredHeight: root.artSize
+
+                        Rectangle {
+                            anchors.fill: parent
+                            radius: Theme.fieldsetCornerRadius
+                            color: Theme.foregroundFaint
+                            visible: feedPanel.feedArtUrl === ""
+                        }
+
+                        Image {
+                            anchors.fill: parent
+                            visible: feedPanel.feedArtUrl !== ""
+                            source: feedPanel.feedArtUrl
+                            fillMode: Image.PreserveAspectCrop
+                            smooth: true
+                            asynchronous: true
+                            layer.enabled: true
+                            layer.smooth: true
+                        }
+
+                        Text {
+                            anchors.centerIn: parent
+                            visible: feedPanel.feedArtUrl === ""
+                            text: "󰎈"
+                            color: Theme.accent
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.iconFont
+                            opacity: 0.75
+                        }
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacing2
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: feedPanel.feedTitle
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.nowPlayingTitleFont
+                            font.bold: Theme.fontBold
+                            elide: Text.ElideRight
+                            maximumLineCount: 2
+                            wrapMode: Text.Wrap
+                        }
+
+                        Text {
+                            Layout.fillWidth: true
+                            visible: feedPanel.feedArtist !== ""
+                            text: feedPanel.feedArtist
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.hintFont
+                            opacity: 0.82
+                            elide: Text.ElideRight
+                        }
+
+                        Text {
+                            Layout.fillWidth: true
+                            visible: feedPanel.feedAlbum !== ""
+                            text: feedPanel.feedAlbum
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.hintFont
+                            opacity: Theme.opacityMuted
+                            elide: Text.ElideRight
+                        }
+
+                        Text {
+                            Layout.fillWidth: true
+                            visible: feedPanel.isMpris
+                            text: feedPanel.feedSourceLine
+                            color: Theme.accent
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.hintFont
+                            opacity: Theme.opacitySecondary
+                            elide: Text.ElideRight
+                        }
+
+                        Text {
+                            Layout.fillWidth: true
+                            visible: feedPanel.isEvo
+                            text: feedPanel.feedTimeLine
+                            color: Theme.accent
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.hintFont
+                        }
+                    }
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    enabled: feedPanel.isMpris
+                        ? (feedPanel.mprisPlayer && feedPanel.mprisPlayer.canTogglePlaying)
+                        : true
+                    cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                    onClicked: {
+                        if (feedPanel.isMpris)
+                            root.toggleMprisPlayback(feedPanel.mprisPlayer)
+                        else
+                            root.toggleEvoPlayback()
+                    }
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 4
+                radius: Theme.radiusS
+                color: Theme.foregroundDivider
+
+                Rectangle {
+                    width: parent.width * feedPanel.feedProgress
+                    height: parent.height
+                    radius: Theme.radiusS
+                    color: Theme.accent
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    enabled: feedPanel.isMpris
+                        ? (feedPanel.mprisPlayer && feedPanel.mprisPlayer.canTogglePlaying)
+                        : false
+                    cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                    onClicked: root.toggleMprisPlayback(feedPanel.mprisPlayer)
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: Theme.spacingM
+
+                Text {
+                    text: "󰒮"
+                    color: Theme.foreground
+                    opacity: 0.85
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.iconFont
+                    MouseArea {
+                        anchors.fill: parent
+                        anchors.margins: -6
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            if (feedPanel.isMpris && feedPanel.mprisPlayer)
+                                feedPanel.mprisPlayer.previous()
+                            else
+                                root.evoPlayerPrevious()
+                        }
+                    }
+                }
+
+                Text {
+                    text: feedPanel.feedPlaying ? "󰏤" : "󰐊"
+                    color: Theme.accent
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.fontSize6xl
+                    MouseArea {
+                        anchors.fill: parent
+                        anchors.margins: -8
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            if (feedPanel.isMpris)
+                                root.toggleMprisPlayback(feedPanel.mprisPlayer)
+                            else
+                                root.toggleEvoPlayback()
+                        }
+                    }
+                }
+
+                Text {
+                    text: "󰒭"
+                    color: Theme.foreground
+                    opacity: 0.85
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.iconFont
+                    MouseArea {
+                        anchors.fill: parent
+                        anchors.margins: -6
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            if (feedPanel.isMpris && feedPanel.mprisPlayer)
+                                feedPanel.mprisPlayer.next()
+                            else
+                                root.evoPlayerNext()
+                        }
+                    }
+                }
+
+                Item { Layout.fillWidth: true }
+
+                Text {
+                    text: "󰍉"
+                    color: Theme.foreground
+                    opacity: 0.75
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.iconFont
+                    MouseArea {
+                        anchors.fill: parent
+                        anchors.margins: -6
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            if (feedPanel.isMpris)
+                                root.raiseMprisPlayer(feedPanel.mprisPlayer)
+                            else
+                                root.openEvoplayerDashboard()
+                        }
+                    }
+                }
+
+                Text {
+                    text: "󰓛"
+                    color: Theme.urgent
+                    opacity: feedPanel.feedCanStop ? 0.85 : 0.35
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.iconFont
+                    MouseArea {
+                        anchors.fill: parent
+                        anchors.margins: -6
+                        enabled: feedPanel.feedCanStop
+                        cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                        onClicked: {
+                            if (feedPanel.isMpris)
+                                root.stopMprisPlayback(feedPanel.mprisPlayer)
+                            else
+                                root.stopEvoplayerPlayback()
+                        }
+                    }
+                }
             }
         }
 

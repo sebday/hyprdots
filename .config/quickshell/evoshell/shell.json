@@ -30,7 +30,9 @@
             "interval": 1800,
             "onHover": "evo.bar.popups.weather",
             "onClick": "~/.local/bin/evo-bar-weather open",
-            "onClickRight": "~/.local/bin/evo-bar-weather open"
+            "onClickRight": "~/.local/bin/evo-bar-weather open",
+            "indoorTemperatureEntity": "climate.downstairs_downstairs",
+            "indoorTemperatureRefreshSec": 60
           },
           "cursor": {
             "type": "command",
@@ -43,6 +45,9 @@
             "interval": 300,
             "onHover": "evo.bar.popups.github",
             "onClick": "~/.local/bin/evo-bar-brave open brave-github https://github.com/sebday"
+          },
+          "notifications": {
+            "onHover": "evo.bar.popups.notifications"
           },
           "stocks": {
             "onHover": "evo.bar.popups.stocks"
@@ -60,16 +65,42 @@
             "snapshotIntervalSec": 20,
             "cameraEntities": [],
             "lightEntities": [],
-            "temperatureEntities": []
+            "lightAreas": [
+              "Bathroom",
+              "Hallway",
+              "Bedroom",
+              "Living Room",
+              "Shed"
+            ],
+            "lightGroupsOnly": true,
+            "lightBrightnessEntities": [
+              "light.shed_shed",
+              "light.bathroom_bathroom",
+              "light.bedroom_bedroom_2",
+              "light.living_room_living_room",
+              "light.hallway_hallway"
+            ],
+            "lightColorEntities": [
+              "light.shed_shed",
+              "light.bathroom_bathroom",
+              "light.bedroom_bedroom_2",
+              "light.living_room_living_room",
+              "light.hallway_hallway"
+            ],
+            "climateEntities": [
+              "climate.downstairs_downstairs"
+            ],
+            "temperatureEntities": [],
+            "temperatureExclude": [
+              "climate.downstairs_downstairs",
+              "sensor.downstairs_downstairs_temperature"
+            ]
           },
           "audio": {
             "onHover": "evo.bar.media.volume",
             "mediaOnHover": "evo.bar.media.now-playing",
             "onClick": "ghostty --class=TUI.main -e alsamixer",
             "onClickRight": "ghostty --class=TUI.main -e wiremix"
-          },
-          "notifications": {
-            "onHover": "evo.bar.popups.notifications"
           },
           "network": {
             "interval": 2,
