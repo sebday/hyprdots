@@ -212,8 +212,10 @@ Item {
     }
     property string resolvedArt: ""
     property string resolvedArtPath: ""
-    property string sideArtImageSource: ""
-    property bool sideArtLoaderHold: false
+    property string sideArtHeldSource: ""
+    property string sideArtIncomingSource: ""
+    property string sideArtPendingSource: ""
+    property bool sideArtLayoutReady: false
     property bool sideArtLoaded: false
     property bool queueExtendBusy: false
     property string filterKind: ""
@@ -392,27 +394,46 @@ Item {
     function syncSideArtImageSource() {
         var path = nowPlayingArtPath
         if (!path) {
-            if (sideArtImageSource !== "") {
-                sideArtImageSource = ""
-                remountSideArtLoader()
-            }
+            sideArtHeldSource = ""
+            sideArtIncomingSource = ""
+            sideArtPendingSource = ""
+            sideArtLoaded = false
             return
         }
         var next = artUrl(path, true)
-        if (next === sideArtImageSource)
+        if (!sideArtLayoutReady) {
+            sideArtPendingSource = next
             return
-        sideArtImageSource = next
-        remountSideArtLoader()
+        }
+        sideArtPendingSource = ""
+        if (next === sideArtIncomingSource)
+            return
+        if (next === sideArtHeldSource && !sideArtIncomingSource)
+            return
+        if (!sideArtHeldSource || !sideArtLoaded) {
+            sideArtIncomingSource = ""
+            if (next !== sideArtHeldSource) {
+                sideArtHeldSource = next
+                sideArtLoaded = false
+            }
+            return
+        }
+        sideArtIncomingSource = next
     }
 
-    function remountSideArtLoader() {
-        if (sideArtLoaderHold)
+    function finishSideArtIncoming() {
+        if (!sideArtIncomingSource)
             return
-        sideArtLoaded = false
-        sideArtLoaderHold = true
-        Qt.callLater(function() {
-            root.sideArtLoaderHold = false
-        })
+        sideArtIncomingSource = ""
+        sideArtLoaded = true
+        sideArtKickTimer.stop()
+    }
+
+    function beginSideArtHeldPromote(incomingUrl) {
+        incomingUrl = String(incomingUrl || "")
+        if (!incomingUrl || sideArtHeldSource === incomingUrl)
+            return
+        sideArtHeldSource = incomingUrl
     }
 
     function onAlbumArtUpdated(scope) {
@@ -595,7 +616,6 @@ Item {
         menuBarHidden = compactMode
         Qt.callLater(function() {
             root.syncSideArtImageSource()
-            root.remountSideArtLoader()
             sideArtKickTimer.restart()
         })
     }
@@ -4354,10 +4374,8 @@ Item {
         property int tries: 0
         onTriggered: {
             root.syncSideArtImageSource()
-            if (root.sideArtImageSource !== "" && !root.sideArtLoaded)
-                root.remountSideArtLoader()
             tries++
-            if (tries >= 24)
+            if (tries >= 24 || root.sideArtLoaded)
                 stop()
         }
         onRunningChanged: if (!running)
@@ -5235,7 +5253,6 @@ Item {
                         onVisibleChanged: {
                             if (visible) {
                                 root.syncSideArtImageSource()
-                                root.remountSideArtLoader()
                                 sideArtKickTimer.restart()
                             }
                         }
@@ -5251,18 +5268,17 @@ Item {
                             Layout.fillWidth: true
                             Layout.fillHeight: true
 
-                            readonly property bool mountArtReady: width > 8
-                                && height > 8
-                                && root.sideArtImageSource !== ""
-                            readonly property bool loaderActive: mountArtReady
-                                && !root.sideArtLoaderHold
-                            readonly property bool artShowing: sideArtLoader.item
-                                && sideArtLoader.item.status === Image.Ready
-                                && sideArtLoader.item.source !== ""
+                            readonly property bool layoutReady: width > 8 && height > 8
+                            readonly property bool heldReady: sideArtHeldImage.status === Image.Ready
+                                && root.sideArtHeldSource !== ""
+                            readonly property bool incomingReady: sideArtIncomingImage.status === Image.Ready
+                                && root.sideArtIncomingSource !== ""
+                            readonly property bool artShowing: heldReady || incomingReady
 
-                            onMountArtReadyChanged: {
-                                if (mountArtReady)
-                                    root.remountSideArtLoader()
+                            onLayoutReadyChanged: {
+                                root.sideArtLayoutReady = layoutReady
+                                if (layoutReady)
+                                    root.syncSideArtImageSource()
                             }
 
                             Rectangle {
@@ -5271,42 +5287,72 @@ Item {
                                 clip: true
                                 color: Theme.foregroundFaint
                                 visible: !sideArtHost.artShowing
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "󰎈"
+                                    color: Theme.accent
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Math.round(Math.min(sideArtHost.width, sideArtHost.height) * 0.22)
+                                    opacity: 0.5
+                                }
                             }
 
-                            Text {
-                                anchors.centerIn: parent
-                                visible: !sideArtHost.artShowing
-                                text: "󰎈"
-                                color: Theme.accent
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Math.round(Math.min(sideArtHost.width, sideArtHost.height) * 0.22)
-                                opacity: 0.5
-                            }
-
-                            Loader {
-                                id: sideArtLoader
+                            Rectangle {
                                 anchors.fill: parent
-                                active: sideArtHost.loaderActive
-                                asynchronous: true
-                                sourceComponent: sideArtImageComponent
-                            }
+                                radius: Theme.fieldsetCornerRadius
+                                clip: true
+                                color: "transparent"
 
-                            Component {
-                                id: sideArtImageComponent
                                 Image {
+                                    id: sideArtHeldImage
                                     anchors.fill: parent
-                                    source: root.sideArtImageSource
+                                    z: 0
+                                    visible: heldReady
+                                    source: root.sideArtHeldSource
                                     fillMode: Image.PreserveAspectCrop
                                     smooth: true
                                     asynchronous: true
-                                    cache: false
                                     onStatusChanged: {
                                         if (status === Image.Ready) {
-                                            root.sideArtLoaded = true
-                                            sideArtKickTimer.stop()
+                                            if (root.sideArtIncomingSource
+                                                    && root.sideArtHeldSource === root.sideArtIncomingSource)
+                                                root.finishSideArtIncoming()
+                                            else if (!root.sideArtIncomingSource && root.sideArtHeldSource) {
+                                                root.sideArtLoaded = true
+                                                sideArtKickTimer.stop()
+                                            }
                                         }
                                         if (status === Image.Error
-                                                && root.nowPlayingArtPath
+                                                && root.sideArtHeldSource
+                                                && !sideArtHost.retryQueued) {
+                                            sideArtHost.retryQueued = true
+                                            root.applyDisplayArtForPath(String(player.path || ""), function() {
+                                                sideArtHost.retryQueued = false
+                                            })
+                                        }
+                                    }
+                                }
+
+                                Image {
+                                    id: sideArtIncomingImage
+                                    anchors.fill: parent
+                                    z: 1
+                                    visible: incomingReady
+                                    source: root.sideArtIncomingSource
+                                    fillMode: Image.PreserveAspectCrop
+                                    smooth: true
+                                    asynchronous: true
+                                    onStatusChanged: {
+                                        if (status === Image.Ready && root.sideArtIncomingSource) {
+                                            if (root.sideArtHeldSource === root.sideArtIncomingSource
+                                                    && sideArtHeldImage.status === Image.Ready)
+                                                root.finishSideArtIncoming()
+                                            else
+                                                root.beginSideArtHeldPromote(root.sideArtIncomingSource)
+                                        }
+                                        if (status === Image.Error
+                                                && root.sideArtIncomingSource
                                                 && !sideArtHost.retryQueued) {
                                             sideArtHost.retryQueued = true
                                             root.applyDisplayArtForPath(String(player.path || ""), function() {
