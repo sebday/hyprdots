@@ -33,7 +33,16 @@ check_absent 'evopanel-'
 check_absent 'evoside-'
 check_absent 'evosys-'
 check_absent 'evoshell-'
-check_absent 'evo-sys-menu'
+check_absent 'Evoplayer'
+check_absent 'evo\.bar\.media\.evo-player'
+check_absent 'Evopanel/Evoplayer'
+check_absent 'PlayerModule 1.0'
+check_absent 'PlayerSideBrowsePanel'
+check_absent 'historyPanelOpen'
+check_absent 'browsePanelOpen'
+check_absent 'migrate_intermediate_player_paths'
+check_absent 'LEGACY_MPV_SOCKET'
+check_absent 'evo-music\.sock'
 
 # Canonical executables must exist
 for exe in \
@@ -64,8 +73,12 @@ check_absent 'NotificationArtworkCard' "${root}/Evosys/Notifications/Service.qml
 # Manifest ids
 check_present 'evo\.bar\.popups\.weather' "${root}/pluginManifest.js"
 check_present 'evo\.bar\.popups\.home-assistant' "${root}/pluginManifest.js"
-check_present 'evo\.bar\.media\.evo-player' "${root}/pluginManifest.js"
-check_present 'evo\.bar\.media\.evo-player' "${root}/shell.json"
+check_present 'evo\.bar\.media\.player' "${root}/pluginManifest.js"
+check_present 'EvoPlayerDashboardModule' "${root}/Evopanel/EvoPlayer/qmldir"
+check_present 'EvoPlayerFiletreePanel' "${root}/Evopanel/EvoPlayer/panels/qmldir"
+check_present 'EvoPlayerControls' "${root}/Evopanel/EvoPlayer/panels/qmldir"
+check_present 'toggleFiletreePanel' "${root}/Evopanel/EvoPlayer/EvoPlayerDashboardModule.qml"
+check_present 'statsPanelOpen' "${root}/Evopanel/EvoPlayer/EvoPlayerDashboardModule.qml"
 check_present 'evo\.panel\.player' "${root}/pluginManifest.js"
 check_present 'evo\.sys\.settings' "${root}/pluginManifest.js"
 check_present '"exec": "~/.local/bin/evo-bar-weather-bar"' "${root}/shell.json"

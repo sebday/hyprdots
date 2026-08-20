@@ -53,7 +53,7 @@ Bar pollers use `evo.bar-*` scripts. The tray widget (`evo.bar.tray`) hosts nest
 Floating dashboards and their monitor services.
 
 - `Evopanel/Shopify/` — store dashboard (`evo.panel.shopify`)
-- `Evopanel/Evoplayer/` — player dashboard (`evo.panel.player`) and monitor service (`evo.panel.player.monitor`)
+- `Evopanel/EvoPlayer/` — player dashboard (`evo.panel.player`) and monitor service (`evo.panel.player.monitor`)
 
 Dashboards load on demand via dedicated `Loader`s in `shell.qml`.
 
@@ -175,7 +175,7 @@ journalctl -t evoshell -f
 
 | Path | Contents |
 |------|----------|
-| `$EVOSHELL_STATE/panel/player` | Evoplayer playlists, likes, queue, `player.json` |
+| `$EVOSHELL_STATE/panel/player` | EvoPlayer playlists, likes, queue, `player.json` |
 | `$EVOSHELL_CACHE/panel/player` | Art, waveforms, track tags |
 | `$EVOSHELL_CACHE/display-art/<hash>.jpg` | Display art copies (atomic write) |
 | `$EVOSHELL_STATE/notification-history.json` | Notification history and hide lists |
@@ -192,11 +192,28 @@ journalctl -t evoshell -f
 - Do not commit `$EVOSHELL_DATA/secrets.env` or machine-specific monitor names from `shell.json`
 - Visual changes are not done until [`agents/skills/visual-verification.md`](agents/skills/visual-verification.md) passes
 
+## EvoPlayer naming
+
+| Layer | Canonical |
+|-------|-----------|
+| Product / UI brand | **EvoPlayer** |
+| Panel path | `Evopanel/EvoPlayer/` |
+| Bar popup plugin id | `evo.bar.media.player` |
+| Dashboard plugin ids | `evo.panel.player`, `evo.panel.player.monitor` |
+| CLI | `evo-player` |
+| State / cache | `$EVOSHELL_STATE/panel/player`, `$EVOSHELL_CACHE/evoshell/panel/player` |
+
+Dashboard **UI sections**: `menubar`, `nowplaying`, `albumart`, `controls`.
+
+Menubar **tabs** (left to right): `nowplaying`, `filetree`, `playlists`, `stats`, `settings`.
+
+QML split: `EvoPlayerDashboardModule.qml` (logic) + `panels/` + `widgets/`.
+
 ## Testing
 
 ```bash
 bash tests/test-plugin-manifest.sh
-bash tests/test-evoplayer-art.sh
+bash tests/test-evo-player-art.sh
 bash tests/test-static-contracts.sh
 evo-ipc shell ping
 ```

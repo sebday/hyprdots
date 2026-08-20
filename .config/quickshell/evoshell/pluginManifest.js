@@ -65,7 +65,7 @@ var plugins = {
         path: "Evobar/Media/NowPlaying/Media.qml",
         keepLoaded: true
     },
-    "evo.bar.media.evo-player": {
+    "evo.bar.media.player": {
         kinds: ["menu"],
         path: "Evobar/Media/EvoPlayer/EvoPlayer.qml",
         keepLoaded: true
@@ -153,11 +153,11 @@ var plugins = {
     },
     "evo.panel.player": {
         kinds: ["dashboard"],
-        path: "Evopanel/Evoplayer/Player.qml"
+        path: "Evopanel/EvoPlayer/EvoPlayer.qml"
     },
     "evo.panel.player.monitor": {
         kinds: ["service"],
-        path: "Evopanel/Evoplayer/Service.qml",
+        path: "Evopanel/EvoPlayer/Service.qml",
         keepLoaded: true
     }
 }
@@ -172,7 +172,7 @@ var panelPluginIds = [
     "evo.bar.network.stats",
     "evo.bar.media.volume",
     "evo.bar.media.now-playing",
-    "evo.bar.media.evo-player",
+    "evo.bar.media.player",
     "evo.bar.popups.github",
     "evo.bar.popups.system-stats",
     "evo.bar.popups.stocks",

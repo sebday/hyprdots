@@ -19,7 +19,7 @@ required=(
   evo.panel.player
   evo.panel.player.monitor
   evo.bar.media.now-playing
-  evo.bar.media.evo-player
+  evo.bar.media.player
   evo.bar.media.library
   evo.bar.popups.notifications
 )
@@ -43,6 +43,6 @@ done < <(rg -o 'servicePath: "[^"]+"' "$manifest" | sed 's/servicePath: "//;s/"$
 
 [[ -f "${root}/Evopanel/Shopify/Shopify.qml" ]] || { echo "missing Shopify.qml" >&2; fail=1; }
 [[ -f "${root}/Evopanel/Shopify/demo.json" ]] || { echo "missing Shopify demo.json" >&2; fail=1; }
-[[ -f "${root}/Evopanel/Evoplayer/Player.qml" ]] || { echo "missing Player.qml" >&2; fail=1; }
+[[ -f "${root}/Evopanel/EvoPlayer/EvoPlayer.qml" ]] || { echo "missing EvoPlayer.qml" >&2; fail=1; }
 
 exit "$fail"

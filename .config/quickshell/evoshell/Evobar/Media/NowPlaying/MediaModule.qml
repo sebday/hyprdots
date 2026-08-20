@@ -269,13 +269,13 @@ Item {
         Quickshell.execDetached(["bash", evoPlayerScript, "next"])
     }
 
-    function openEvoplayerDashboard() {
+    function openEvoPlayerDashboard() {
         if (!shell)
             return
         shell.summon("evo.panel.player", "")
     }
 
-    function stopEvoplayerPlayback() {
+    function stopEvoPlayerPlayback() {
         Quickshell.execDetached(["bash", evoPlayerScript, "stop"])
     }
 
@@ -387,7 +387,7 @@ Item {
                         + " · "
                         + root.mprisPlaybackLabel(mprisPlayer)
                 if (isEvo)
-                    return "Evoplayer · "
+                    return "EvoPlayer · "
                         + (root.evoPlayerPlaying
                             ? "Playing"
                             : (root.evoPlayerPaused ? "Paused" : "Stopped"))
@@ -627,7 +627,7 @@ Item {
                             if (feedPanel.isMpris)
                                 root.raiseMprisPlayer(feedPanel.mprisPlayer)
                             else
-                                root.openEvoplayerDashboard()
+                                root.openEvoPlayerDashboard()
                         }
                     }
                 }
@@ -647,7 +647,7 @@ Item {
                             if (feedPanel.isMpris)
                                 root.stopMprisPlayback(feedPanel.mprisPlayer)
                             else
-                                root.stopEvoplayerPlayback()
+                                root.stopEvoPlayerPlayback()
                         }
                     }
                 }
