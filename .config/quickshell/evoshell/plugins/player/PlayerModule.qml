@@ -174,11 +174,24 @@ Item {
             return player
         return selectedTrackInfo
     }
-    readonly property string displayedArt: {
-        if (!artPreviewActive)
-            return String((player && player.art) || "")
-        return String((selectedTrackInfo && selectedTrackInfo.art) || "")
+    readonly property string nowPlayingArt: {
+        var p = String((player && player.path) || "")
+        if (!p)
+            return ""
+        if (resolvedArtPath === p && resolvedArt)
+            return resolvedArt
+        var fromPlayer = String((player && player.art) || "")
+        if (fromPlayer && fromPlayer.charAt(0) === "/")
+            return fromPlayer
+        return artForTrackPath(p)
     }
+    readonly property string displayedArt: {
+        if (artPreviewActive)
+            return String((selectedTrackInfo && selectedTrackInfo.art) || "")
+        return nowPlayingArt
+    }
+    property string resolvedArt: ""
+    property string resolvedArtPath: ""
     property bool queueExtendBusy: false
     property string filterKind: ""
     property string filterLabel: ""
@@ -317,9 +330,15 @@ Item {
         return "Artwork"
     }
 
-    function artUrl(path) {
-        if (!path) return ""
-        var base = path.startsWith("file://") ? path : Util.fileUrl(path)
+    function artUrl(path, withRevision) {
+        if (!path)
+            return ""
+        var value = String(path).trim()
+        if (!value)
+            return ""
+        var base = value.indexOf("file://") === 0 ? value : Util.fileUrl(value)
+        if (!withRevision)
+            return base
         var sep = base.indexOf("?") >= 0 ? "&" : "?"
         return base + sep + "rev=" + artRevision
     }
@@ -990,14 +1009,41 @@ Item {
         return true
     }
 
-    function runPlaylistQuery(args, onDone) {
-        if (playlistQueryProc.running) {
-            Qt.callLater(function() { runPlaylistQuery(args, onDone) })
+    property var _playlistQueryQueue: []
+    property bool _startupBootstrapOpenDone: false
+    property bool _startupBootstrapCurrentDone: false
+
+    function pumpPlaylistQuery() {
+        if (playlistQueryProc.running || _playlistQueryQueue.length === 0)
             return
+        var job = _playlistQueryQueue[0]
+        playlistQueryProc.command = ["bash", playerScript].concat(job.args || [])
+        playlistQueryProc._onDone = function(text) {
+            _playlistQueryQueue.shift()
+            if (job.onDone)
+                job.onDone(text)
+            Qt.callLater(pumpPlaylistQuery)
         }
-        playlistQueryProc.command = ["bash", playerScript].concat(args || [])
-        playlistQueryProc._onDone = onDone || null
         playlistQueryProc.running = true
+    }
+
+    function runPlaylistQuery(args, onDone) {
+        _playlistQueryQueue.push({
+            args: (args || []).slice(),
+            onDone: onDone || null
+        })
+        pumpPlaylistQuery()
+    }
+
+    function finishStartupBootstrap() {
+        if (!_startupBootstrapOpenDone || !_startupBootstrapCurrentDone)
+            return
+        ensureNowPlayingFromCurrentPlaylist()
+        var bootPath = String(player.path || "")
+        if (bootPath && (resolvedArtPath !== bootPath || !resolvedArt))
+            applyDisplayArtForPath(bootPath)
+        refreshCurrentPlaylistView()
+        loadPlaylists()
     }
 
     function applyPlaylists(list) {
@@ -1074,9 +1120,85 @@ Item {
         runMusic(args, null, saveCurrentProc)
     }
 
-    function ensureNowPlayingFromCurrentPlaylist() {
-        if (String(player.path || ""))
+    function artForTrackPath(path) {
+        var p = String(path || "")
+        if (!p)
+            return ""
+        var t = trackMetaForPath(p)
+        if (t && t.art)
+            return String(t.art)
+        for (var i = 0; i < currentPlaylistTracks.length; i++) {
+            if (currentPlaylistTracks[i].path === p && currentPlaylistTracks[i].art)
+                return String(currentPlaylistTracks[i].art)
+        }
+        return ""
+    }
+
+    function applyPlayerArt(path, art) {
+        var p = String(path || "")
+        var nextArt = String(art || "")
+        if (!p || !nextArt || nextArt.charAt(0) !== "/")
             return
+        var prevArt = resolvedArtPath === p ? String(resolvedArt || "") : ""
+        resolvedArtPath = p
+        resolvedArt = nextArt
+        if (String(player.path || "") === p) {
+            if (String(player.art || "") !== nextArt)
+                player = Object.assign({}, player, { art: nextArt })
+            if (nextArt !== prevArt)
+                bumpArtRevision()
+        }
+    }
+
+    function applyDisplayArtForPath(path, onDone) {
+        var p = String(path || "")
+        if (!p) {
+            if (onDone)
+                onDone()
+            return
+        }
+        if (displayArtCacheProc.running) {
+            displayArtCacheProc._pendingPath = p
+            displayArtCacheProc._pendingOnDone = onDone || null
+            return
+        }
+        displayArtCacheProc.command = ["bash", playerScript, "art", "notify-cache", p]
+        displayArtCacheProc._onDone = function(text) {
+            var dest = String(text || "").trim()
+            if (dest && dest.charAt(0) === "/")
+                applyPlayerArt(p, dest)
+            if (onDone)
+                onDone()
+            var pending = String(displayArtCacheProc._pendingPath || "")
+            if (pending) {
+                var pendingDone = displayArtCacheProc._pendingOnDone
+                displayArtCacheProc._pendingPath = ""
+                displayArtCacheProc._pendingOnDone = null
+                Qt.callLater(function() { applyDisplayArtForPath(pending, pendingDone) })
+            }
+        }
+        displayArtCacheProc.running = true
+    }
+
+    function warmArtForPath(path, onDone) {
+        var p = String(path || "")
+        if (!p) {
+            if (onDone)
+                onDone()
+            return
+        }
+        if (warmArtProc.running) {
+            Qt.callLater(function() { warmArtForPath(path, onDone) })
+            return
+        }
+        warmArtProc.command = ["bash", playerScript, "warm", p, "--json"]
+        warmArtProc._onDone = function() {
+            applyDisplayArtForPath(p, onDone)
+        }
+        warmArtProc.running = true
+    }
+
+    function ensureNowPlayingFromCurrentPlaylist() {
         if (!currentPlaylistTracks.length)
             return
         var track = null
@@ -1089,13 +1211,27 @@ Item {
         if (!track)
             return
         var p = String(track.path)
+        var existingPath = String(player.path || "")
+        if (existingPath && existingPath !== p)
+            return
+        if (existingPath && resolvedArt && resolvedArtPath === p) {
+            prioritizeCurrentAssets()
+            return
+        }
+        if (existingPath && existingPath === p) {
+            applyDisplayArtForPath(p)
+            prioritizeCurrentAssets()
+            return
+        }
         var t = trackMetaForPath(p) || track
         var wf = (t && t.waveform) || waveformPathByTrack[p] || waveformCachePath(p)
         var next = Object.assign({}, player, playerFieldsFromTrack(t), {
             path: p,
-            state: "stopped",
-            position: 0,
-            position_label: formatPlaybackTime(0),
+            state: existingPath ? (player.state || "stopped") : "stopped",
+            position: existingPath ? (Number(player.position) || 0) : 0,
+            position_label: existingPath
+                ? (player.position_label || formatPlaybackTime(Number(player.position) || 0))
+                : formatPlaybackTime(0),
             art: (t && t.art) || "",
             waveform: wf
         })
@@ -1104,11 +1240,17 @@ Item {
             rememberWaveformPath(p, wf)
         applyCachedWaveform(p)
         prefetchNeighbors(p)
+        applyDisplayArtForPath(p)
         prioritizeCurrentAssets()
     }
 
     function loadCurrentPlaylist(onDone) {
-        runPlaylistQuery(["current", "load", "--json"], function(text) {
+        if (currentPlaylistLoadProc.running) {
+            Qt.callLater(function() { loadCurrentPlaylist(onDone) })
+            return
+        }
+        currentPlaylistLoadProc.command = ["bash", playerScript, "current", "load", "--json"]
+        currentPlaylistLoadProc._onDone = function(text) {
             try {
                 var list = JSON.parse(String(text || "[]"))
                 if (list.length > 0) {
@@ -1118,23 +1260,39 @@ Item {
                 }
             } catch (e) {
             }
-            ensureNowPlayingFromCurrentPlaylist()
             if (onDone)
                 onDone()
-        })
+        }
+        currentPlaylistLoadProc.running = true
     }
 
-    function prioritizeCurrentAssets() {
-        if (!currentPlaylistActive || !currentPlaylistTracks.length)
+    function prioritizeCurrentAssets(onDone) {
+        if (!currentPlaylistActive || !currentPlaylistTracks.length) {
+            if (onDone)
+                onDone()
             return
+        }
         var args = ["prioritize"]
         var limit = Math.min(currentPlaylistTracks.length, 32)
         for (var i = 0; i < limit; i++) {
             if (currentPlaylistTracks[i].path)
                 args.push(currentPlaylistTracks[i].path)
         }
-        if (args.length > 1)
-            runMusic(args, null, cmdProc)
+        if (args.length <= 1) {
+            if (onDone)
+                onDone()
+            return
+        }
+        if (prioritizeProc.running) {
+            Qt.callLater(function() { prioritizeCurrentAssets(onDone) })
+            return
+        }
+        prioritizeProc.command = ["bash", playerScript].concat(args)
+        prioritizeProc._onDone = function() {
+            if (onDone)
+                onDone()
+        }
+        prioritizeProc.running = true
     }
 
     function stageCurrentPlaylistFromBrowse(entry) {
@@ -1194,6 +1352,13 @@ Item {
     }
 
     function onActivated() {
+        _startupBootstrapOpenDone = false
+        _startupBootstrapCurrentDone = false
+        loadGenres()
+        loadCurrentPlaylist(function() {
+            _startupBootstrapCurrentDone = true
+            finishStartupBootstrap()
+        })
         if (!runPlayerQuery(["open", "--json"], function(text) {
             try {
                 var saved = JSON.parse(String(text || "{}"))
@@ -1202,9 +1367,8 @@ Item {
             } catch (e) {
                 resumePlaylist = ""
             }
-            loadGenres()
-            loadPlaylists()
-            loadCurrentPlaylist()
+            _startupBootstrapOpenDone = true
+            finishStartupBootstrap()
         }))
             Qt.callLater(onActivated)
         statusTimer.start()
@@ -2758,7 +2922,8 @@ Item {
             return
         var fields = playerFieldsFromTrack(t)
         delete fields.liked
-        delete fields.art
+        if (String(player.art || ""))
+            delete fields.art
         var next = Object.assign({}, player, fields)
         if (favoriteApplyPending && favoriteApplyPath === String(player.path || ""))
             next.liked = favoriteApplyLiked
@@ -2834,6 +2999,12 @@ Item {
             rememberWaveformPath(parsed.path || player.path, parsed.waveform)
         player = Object.assign({}, player, parsed)
         var newPath = String(player.path || "")
+        if (newPath !== prevPath && prevPath) {
+            resolvedArtPath = ""
+            resolvedArt = ""
+        }
+        if (newPath && (newPath !== prevPath || resolvedArtPath !== newPath || !resolvedArt))
+            applyDisplayArtForPath(newPath)
         if (newPath !== prevPath) {
             if (!applyCachedWaveform(newPath))
                 waveformSamples = []
@@ -3731,12 +3902,75 @@ Item {
     }
 
     Process {
+        id: currentPlaylistLoadProc
+        property var _onDone: null
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (currentPlaylistLoadProc._onDone) {
+                    var done = currentPlaylistLoadProc._onDone
+                    currentPlaylistLoadProc._onDone = null
+                    done(text)
+                }
+            }
+        }
+        onExited: currentPlaylistLoadProc._onDone = null
+    }
+
+    Process {
+        id: warmArtProc
+        property var _onDone: null
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (warmArtProc._onDone) {
+                    var done = warmArtProc._onDone
+                    warmArtProc._onDone = null
+                    done(text)
+                }
+            }
+        }
+    }
+
+    Process {
+        id: displayArtCacheProc
+        property var _onDone: null
+        property string _pendingPath: ""
+        property var _pendingOnDone: null
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (displayArtCacheProc._onDone) {
+                    var done = displayArtCacheProc._onDone
+                    displayArtCacheProc._onDone = null
+                    done(text)
+                }
+            }
+        }
+    }
+
+    Process {
+        id: prioritizeProc
+        property var _onDone: null
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (prioritizeProc._onDone) {
+                    var done = prioritizeProc._onDone
+                    prioritizeProc._onDone = null
+                    done(text)
+                }
+            }
+        }
+        onExited: prioritizeProc._onDone = null
+    }
+
+    Process {
         id: playlistQueryProc
         property var _onDone: null
         stdout: StdioCollector {
             onStreamFinished: {
-                if (playlistQueryProc._onDone)
-                    playlistQueryProc._onDone(text)
+                if (playlistQueryProc._onDone) {
+                    var done = playlistQueryProc._onDone
+                    playlistQueryProc._onDone = null
+                    done(text)
+                }
             }
         }
         onExited: playlistQueryProc._onDone = null
@@ -4191,6 +4425,7 @@ Item {
                                         visible: root.nowPlayingCompact
                                         side: root.nowPlayingInlineArtSize
                                         showPickerOverlay: false
+                                        art: root.nowPlayingArt
                                         Layout.alignment: Qt.AlignTop | Qt.AlignLeft
                                         Layout.rightMargin: Theme.hoverPopupContentPad
                                     }
@@ -4693,10 +4928,10 @@ Item {
 
                             AlbumArtThumbnail {
                                 id: sideArtThumb
-                                readonly property int fitSide: Math.min(parent.width, parent.height)
-                                side: fitSide
+                                anchors.fill: parent
+                                fillPane: true
                                 showPickerOverlay: true
-                                anchors.centerIn: parent
+                                art: root.nowPlayingArt
                             }
 
                             Rectangle {
@@ -4827,7 +5062,8 @@ Item {
         property int side: 56
         property bool showPickerOverlay: false
         property bool fillPane: false
-        property string art: root.displayedArt
+        property string art: ""
+        property bool useRevision: false
 
         function nudgeVolume(delta) {
             if (!delta)
@@ -4850,6 +5086,10 @@ Item {
         width: fillPane ? undefined : side
         height: fillPane ? undefined : side
 
+        property string imageUrl: thumbRoot.art
+            ? root.artUrl(thumbRoot.art, thumbRoot.useRevision)
+            : ""
+
         Rectangle {
             id: coverFrame
             anchors.fill: parent
@@ -4860,11 +5100,13 @@ Item {
             Image {
                 id: coverImage
                 anchors.fill: parent
-                visible: (thumbRoot.art || "") !== "" && status === Image.Ready
-                source: root.artUrl(thumbRoot.art)
+                visible: thumbRoot.art !== "" && status === Image.Ready
+                source: thumbRoot.imageUrl
                 fillMode: Image.PreserveAspectCrop
                 smooth: true
                 asynchronous: true
+                layer.enabled: true
+                layer.smooth: true
             }
 
             Text {
@@ -6202,7 +6444,7 @@ Item {
                     Image {
                         anchors.fill: parent
                         source: root.artPendingDropPath !== ""
-                            ? root.artUrl(root.artPendingDropPath)
+                            ? root.artUrl(root.artPendingDropPath, true)
                             : ""
                         fillMode: Image.PreserveAspectCrop
                         smooth: true

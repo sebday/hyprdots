@@ -3,7 +3,6 @@
 
 set -euo pipefail
 
-BRAVE_CLASS="brave-cursor"
 SPENDING_URL="https://cursor.com/dashboard/spending"
 
 usage() {
@@ -14,7 +13,7 @@ EOF
 }
 
 cmd_open() {
-    exec brave --class="$BRAVE_CLASS" --new-window "$SPENDING_URL"
+    exec "${HOME}/.local/bin/evo-brave" open brave-cursor "$SPENDING_URL"
 }
 
 case "${1:-}" in

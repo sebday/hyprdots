@@ -45,10 +45,14 @@ Item {
             return
         }
         Qt.callLater(function() {
-            keySurface.forceActiveFocus()
             if (playerContent && typeof playerContent.onActivated === "function")
                 playerContent.onActivated()
         })
+    }
+
+    function applyDisplayArt(trackPath, artPath) {
+        if (playerContent && typeof playerContent.applyPlayerArt === "function")
+            playerContent.applyPlayerArt(trackPath, artPath)
     }
 
     FloatingWindow {
@@ -62,7 +66,16 @@ Item {
         Item {
             id: keySurface
             anchors.fill: parent
-            focus: root.opened
+            focus: false
+
+            MouseArea {
+                anchors.fill: parent
+                propagateComposedEvents: true
+                onPressed: function(mouse) {
+                    keySurface.forceActiveFocus()
+                    mouse.accepted = false
+                }
+            }
 
             Keys.onPressed: function(event) {
                 if (playerContent.trashConfirmOpen) {

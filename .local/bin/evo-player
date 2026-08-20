@@ -1363,11 +1363,16 @@ cmd_warm() {
       waveform_build "$track_path" >/dev/null 2>&1 && wf_built=1
     fi
     if [[ "$json" -eq 1 ]]; then
+      local art_path=""
+      if [[ "$do_art" -eq 1 ]]; then
+        art_path="$(art_path_cached "$track_path")"
+      fi
       jq -n \
         --arg path "$track_path" \
+        --arg art "$art_path" \
         --argjson art_built "$art_built" \
         --argjson wf_built "$wf_built" \
-        '{path:$path,art_built:$art_built,waveform_built:$wf_built}'
+        '{path:$path,art:$art,art_built:$art_built,waveform_built:$wf_built}'
     fi
     return 0
   fi

@@ -626,7 +626,11 @@ Item {
 
   function openUrl(url) {
     if (!url) return
-    Quickshell.execDetached(["xdg-open", String(url)])
+    var home = Quickshell.env("HOME") || ""
+    Quickshell.execDetached([
+      "bash", "-lc",
+      home + "/.local/bin/evo-brave open brave-cloudflare " + Util.shellQuote(String(url))
+    ])
   }
 
   function runInTerminal(command) {

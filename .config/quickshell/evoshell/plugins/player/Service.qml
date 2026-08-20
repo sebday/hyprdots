@@ -193,6 +193,8 @@ Item {
             onStreamFinished: {
                 var cached = String(text || "").trim()
                 root.pushMediaNotification(cached)
+                if (cached && root.shell && typeof root.shell.playerDisplayArtReady === "function")
+                    root.shell.playerDisplayArtReady(String(root.player.path || ""), cached)
             }
         }
     }

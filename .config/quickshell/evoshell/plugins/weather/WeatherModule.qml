@@ -266,7 +266,13 @@ Item {
     }
 
     function openMetOffice() {
-        Quickshell.execDetached(["bash", "-lc", Quickshell.env("HOME") + "/.local/bin/evo-weather open"])
+        if (!root.metOfficeUrl)
+            return
+        var home = Quickshell.env("HOME") || ""
+        Quickshell.execDetached([
+            "bash", "-lc",
+            home + "/.local/bin/evo-brave open brave-weather " + Util.shellQuote(root.metOfficeUrl)
+        ])
     }
 
     ColumnLayout {

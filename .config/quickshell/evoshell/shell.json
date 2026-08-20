@@ -42,7 +42,7 @@
           "github": {
             "interval": 300,
             "onHover": "evo.github",
-            "onClick": "brave --class=brave-github --new-window https://github.com/sebday"
+            "onClick": "~/.local/bin/evo-brave open brave-github https://github.com/sebday"
           },
           "stocks": {
             "onHover": "evo.stocks"

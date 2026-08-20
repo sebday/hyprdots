@@ -197,6 +197,13 @@ ShellRoot {
         return _services[String(id)] || null
     }
 
+    function playerDisplayArtReady(trackPath, artPath) {
+        var loader = playerLoader
+        if (!loader || !loader.item || typeof loader.item.applyDisplayArt !== "function")
+            return
+        loader.item.applyDisplayArt(trackPath, artPath)
+    }
+
     function canonicalPluginId(id) {
         return String(id || "")
     }

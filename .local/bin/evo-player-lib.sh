@@ -563,7 +563,7 @@ cache_asset_find() {
   local path="$1"
   local ext="$2"
   local dir="$3"
-  local key legacy hash candidate
+  local key legacy candidate rel
   [[ -f "$path" ]] || return 1
   key="$(cache_key "$path")"
   candidate="${dir}/${key}.${ext}"
@@ -571,7 +571,15 @@ cache_asset_find() {
     printf '%s' "$candidate"
     return 0
   }
-  legacy="$(track_cache_slug "${path#${MUSIC_ROOT}/}")"
+  rel="${path#${MUSIC_ROOT}/}"
+  [[ "$rel" == "$path" ]] && rel="$(basename "$path")"
+  legacy="$(track_cache_slug_legacy "$rel")"
+  candidate="${dir}/${legacy}.${ext}"
+  [[ -f "$candidate" ]] && {
+    printf '%s' "$candidate"
+    return 0
+  }
+  legacy="$(track_cache_slug "$rel")"
   candidate="${dir}/${legacy}.${ext}"
   [[ -f "$candidate" ]] && {
     printf '%s' "$candidate"
@@ -1412,6 +1420,10 @@ genre_from_path() {
 }
 
 track_cache_slug() {
+  printf '%s' "$1" | sed 's/[^a-zA-Z0-9_-]/_/g'
+}
+
+track_cache_slug_legacy() {
   printf '%s' "$1" | sed 's/[^a-zA-Z0-9&_-]/_/g'
 }
 
@@ -1830,6 +1842,27 @@ art_link_folder_alias() {
   ln "$content_path" "$folder_path" 2>/dev/null || cp -f "$content_path" "$folder_path"
 }
 
+art_folder_key_legacy() {
+  local path="$1"
+  local rel dir
+  rel="${path#${MUSIC_ROOT}/}"
+  [[ "$rel" == "$path" ]] && rel="$(basename "$path")"
+  if art_track_in_genre_root "$path"; then
+    cache_key_legacy "$path"
+    return 0
+  fi
+  dir="$(dirname "$rel")"
+  [[ "$dir" == "." || -z "$dir" ]] && dir="$rel"
+  track_cache_slug_legacy "$dir"
+}
+
+cache_key_legacy() {
+  local path="$1"
+  local rel="${path#${MUSIC_ROOT}/}"
+  [[ "$rel" == "$path" ]] && rel="$(basename "$path")"
+  track_cache_slug_legacy "$rel"
+}
+
 art_cache_find() {
   local path="$1" candidate
   [[ -f "$path" ]] || return 1
@@ -1839,6 +1872,16 @@ art_cache_find() {
     return 0
   }
   candidate="$(art_path_folder "$path")"
+  [[ -f "$candidate" ]] && {
+    printf '%s' "$candidate"
+    return 0
+  }
+  candidate="${ART_DIR}/$(cache_key_legacy "$path").jpg"
+  [[ -f "$candidate" ]] && {
+    printf '%s' "$candidate"
+    return 0
+  }
+  candidate="${ART_DIR}/$(art_folder_key_legacy "$path").jpg"
   [[ -f "$candidate" ]] && {
     printf '%s' "$candidate"
     return 0
@@ -2066,6 +2109,10 @@ art_notify_cache() {
   hash="$(printf '%s' "$path" | md5sum | awk '{print $1}')"
   dest="${XDG_CACHE_HOME:-$HOME/.cache}/evoshell/notification-art-${hash}.jpg"
   mkdir -p "$(dirname "$dest")"
+  if [[ -f "$dest" ]] && cmp -s "$art" "$dest" 2>/dev/null; then
+    printf '%s' "$dest"
+    return 0
+  fi
   cp -f "$art" "$dest"
   printf '%s' "$dest"
 }

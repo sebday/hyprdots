@@ -24,7 +24,7 @@ hl.window_rule({
 hl.window_rule({
 	name = "tag-floating-window-class",
 	match = {
-		class = "(insync|brave-calendar.*|brave-mail.*|brave-weather|brave-cursor|brave-github|steam|TUI.float|floating-window)",
+		class = "(TUI.float|floating-window)",
 	},
 	tag = "+floating-window",
 })
@@ -124,13 +124,47 @@ hl.window_rule({
 	no_initial_focus = true,
 })
 
+local FLOAT_WIDTH = 1600
+local FLOAT_HEIGHT = 900
+
+local function layout_floating_window(win)
+	if not win then
+		return
+	end
+
+	hl.timer(function()
+		hl.dispatch(hl.dsp.window.tag({ tag = "+floating-window", window = win }))
+		hl.dispatch(hl.dsp.window.float({ action = "set", window = win }))
+		hl.dispatch(hl.dsp.window.resize({ window = win, x = FLOAT_WIDTH, y = FLOAT_HEIGHT }))
+		local mon = win.monitor
+		if mon then
+			local at_x = mon.x + math.floor((mon.width - FLOAT_WIDTH) / 2)
+			local at_y = mon.y + math.floor((mon.height - FLOAT_HEIGHT) / 2)
+			hl.dispatch(hl.dsp.window.move({ window = win, x = at_x, y = at_y, relative = false }))
+		end
+	end, { timeout = 1, type = "oneshot" })
+end
+
+local function brave_app_to_floating(win)
+	if not win or not win.class then
+		return
+	end
+	if win.class:match("^brave%-.-__") then
+		layout_floating_window(win)
+	end
+end
+
 local function dashboard_to_ws10(win)
 	local title = win and win.title or ""
-	if win and win.class == "org.quickshell"
-		and (title:match("^evo%.shopify") or title == "evo.player") then
+	if win and win.class == "org.quickshell" and (title:match("^evo%.shopify") or title == "evo.player") then
 		hl.dispatch(hl.dsp.window.move({ workspace = "10", window = win, follow = false }))
 	end
 end
 
-hl.on("window.open", dashboard_to_ws10)
+local function on_window_open(win)
+	dashboard_to_ws10(win)
+	brave_app_to_floating(win)
+end
+
+hl.on("window.open", on_window_open)
 hl.on("window.title", dashboard_to_ws10)

@@ -9,8 +9,6 @@ DEFAULT_NAME="Derby"
 DEFAULT_LAT="52.9219"
 DEFAULT_LON="-1.4746"
 DEFAULT_MET_URL="https://weather.metoffice.gov.uk/forecast/gcqvn6pq4"
-BRAVE_CLASS="brave-weather"
-
 usage() {
     cat >&2 <<'EOF'
 usage:
@@ -127,7 +125,7 @@ cmd_open() {
     local url
     url="$(read_location_json | jq -r '.metOfficeUrl // empty')"
     [[ -n "$url" ]] || url="$DEFAULT_MET_URL"
-    exec brave --class="$BRAVE_CLASS" --new-window "$url"
+    exec "${HOME}/.local/bin/evo-brave" open brave-weather "$url"
 }
 
 cmd="${1:-}"
