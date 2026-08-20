@@ -64,7 +64,7 @@
           },
           "audio": {
             "onHover": "evo.bar.media.volume",
-            "mediaOnHover": "evo.bar.media.evo-player",
+            "mediaOnHover": "evo.bar.media.now-playing",
             "onClick": "ghostty --class=TUI.main -e alsamixer",
             "onClickRight": "ghostty --class=TUI.main -e wiremix"
           },

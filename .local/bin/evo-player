@@ -2264,9 +2264,20 @@ cmd_playlist() {
   if [[ -z "$name" ]]; then
     playlist_stars_prune
     if [[ "$json" -eq 1 ]]; then
+      local sqlite_ready=0
+      if declare -F library_db_ready >/dev/null 2>&1; then
+        if ! library_db_ready; then
+          library_rebuild 2>/dev/null || true
+        fi
+        library_db_ready && sqlite_ready=1
+      fi
       printf '['
       local first=1 g count kind starred_json all_count
-      all_count="$(jq 'keys | length' "$LIKES_FILE" 2>/dev/null || echo 0)"
+      if (( sqlite_ready )); then
+        all_count="$(library_count_liked_all)"
+      else
+        all_count="$(jq 'keys | length' "$LIKES_FILE" 2>/dev/null || echo 0)"
+      fi
       [[ "$all_count" =~ ^[0-9]+$ ]] || all_count=0
       if (( all_count > 0 )); then
         if playlist_is_starred "all"; then
@@ -2279,7 +2290,11 @@ cmd_playlist() {
         first=0
       fi
       while IFS= read -r g; do
-        count="$(playlist_liked_count_for_genre "$g")"
+        if (( sqlite_ready )); then
+          count="$(library_count_liked_genre "$g")"
+        else
+          count="$(playlist_liked_count_for_genre "$g")"
+        fi
         [[ "$count" -gt 0 ]] || continue
         kind="$(playlist_kind "$g")"
         if playlist_is_starred "$g"; then
@@ -2303,6 +2318,16 @@ cmd_playlist() {
       done | sort
     fi
     return 0
+  fi
+  if [[ "$json" -eq 1 && ( -n "$offset" || -n "$limit" ) ]]; then
+    if declare -F library_emit_playlist_page >/dev/null 2>&1; then
+      if ! library_db_ready; then
+        library_rebuild 2>/dev/null || true
+      fi
+      if library_db_ready && library_emit_playlist_page "$name" "${offset:-0}" "${limit:-50}"; then
+        return 0
+      fi
+    fi
   fi
   local list=""
   if [[ "$name" == all ]]; then
@@ -2472,6 +2497,13 @@ cmd_favorite_toggle() {
   write_likes_m3u "${PLAYLIST_DIR}/all.m3u"
   genre="$(genre_from_path "$path")"
   [[ -n "$genre" ]] && write_playlist "$genre"
+  if declare -F library_set_liked >/dev/null 2>&1 && library_db_ready; then
+    if [[ "$liked" == true ]]; then
+      library_set_liked "$path" 1
+    else
+      library_set_liked "$path" 0
+    fi
+  fi
   if [[ "$json" == --json ]]; then
     jq -nc --arg path "$path" --argjson liked "$([[ $liked == true ]] && echo true || echo false)" \
       '{path:$path,liked:$liked}'

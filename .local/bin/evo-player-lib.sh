@@ -1324,6 +1324,13 @@ track_list_cached_json() {
   local path="$1"
   local genre cache row art="" wf="" liked_json=false
   [[ -f "$path" ]] || return 1
+  if declare -F library_track_list_json >/dev/null 2>&1 && library_db_ready; then
+    row="$(library_track_list_json "$path" 2>/dev/null || true)"
+    if [[ -n "$row" ]]; then
+      printf '%s' "$row"
+      return 0
+    fi
+  fi
   genre="$(genre_from_path "$path")"
   if [[ -n "$genre" ]]; then
     cache="$(tracks_cache_path "$genre")"
@@ -1427,29 +1434,26 @@ playlist_paths_collect() {
 
 playlist_emit_tracks_page() {
   local list="$1" offset="${2:-0}" limit="${3:-50}"
-  local -a paths=()
-  local line path row liked_json first=1 i end total
+  local -a page=()
+  local line path row first=1 total=0
   offset="${offset:-0}"
   limit="${limit:-50}"
   [[ -f "$list" ]] || return 0
-  likes_init
   while IFS= read -r line || [[ -n "$line" ]]; do
     line="${line//$'\r'/}"
     [[ -z "$line" || "$line" == \#* ]] && continue
     [[ -f "$line" ]] || continue
-    is_liked "$line" || continue
-    paths+=("$line")
+    if (( total >= offset && ${#page[@]} < limit )); then
+      page+=("$line")
+    fi
+    total=$((total + 1))
   done <"$list"
-  total=${#paths[@]}
-  end=$((offset + limit))
   printf '{"total":%s,"offset":%s,"items":[' "$total" "$offset"
-  for ((i = offset; i < end && i < total; i++)); do
-    path="${paths[i]}"
+  for path in "${page[@]}"; do
     row="$(track_list_cached_json "$path")" || continue
-    is_liked "$path" && liked_json=true || liked_json=false
     [[ "$first" -eq 1 ]] || printf ','
     first=0
-    jq -c --argjson liked "$liked_json" '. + {liked:$liked}' <<<"$row"
+    printf '%s' "$row"
   done
   printf ']}\n'
 }
