@@ -22,6 +22,7 @@ usage:
   evo-player toggle|next|prev|seek <sec>|shuffle [toggle|on|off]
   evo-player volume set <0-100>|volume <delta>
   evo-player save|open|restore|resume|close|stop|status [--json]
+  evo-player meta <path> [--json]
   evo-player soundcloud [--json]
   evo-player sync [--json]
   evo-player import [--json]
@@ -59,31 +60,19 @@ EOF
 
 mpv_ipc() {
   local payload="$1"
-  if [[ ! -S "$MPV_SOCKET" ]]; then
-    return 1
-  fi
-  python3 - "$MPV_SOCKET" "$payload" <<'PY'
-import json, socket, sys
-sock_path, payload = sys.argv[1], sys.argv[2]
-with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
-    s.connect(sock_path)
-    s.sendall((payload + "\n").encode())
-    data = s.recv(65536)
-    if data:
-        sys.stdout.write(data.decode("utf-8", "replace"))
-PY
+  [[ -S "$MPV_SOCKET" ]] || return 1
+  printf '%s\n' "$payload" | curl -sf --max-time 2 --unix-socket "$MPV_SOCKET" -d @- "http://localhost/" 2>/dev/null
 }
 
 mpv_prop() {
   local name="$1"
   local raw
   raw="$(mpv_ipc "{\"command\":[\"get_property\",\"${name}\"]}")" || return 1
-  python3 -c 'import json,sys
-data = json.load(sys.stdin).get("data", "")
-if isinstance(data, bool):
-    print("true" if data else "false")
-else:
-    print(data)' <<<"$raw" 2>/dev/null
+  jq -r '
+    if .data == true then "true"
+    elif .data == false then "false"
+    else (.data // "") | tostring end
+  ' <<<"$raw" 2>/dev/null
 }
 
 mpv_wait_loaded() {
@@ -110,7 +99,7 @@ cmd_player_start() {
     mpris_script="--script=/usr/share/mpv-mpris/mpris.so"
   fi
   nohup mpv --no-video --idle=yes --keep-open=yes \
-    --audio-client-name="$EVOPLAYER_MPV_CLIENT_NAME" \
+    --audio-client-name="$EVO_PLAYER_MPV_CLIENT_NAME" \
     --input-ipc-server="$MPV_SOCKET" \
     $mpris_script \
     >/dev/null 2>&1 &
@@ -874,6 +863,53 @@ player_saved_status_json() {
     '{state:$state,path:$path,title:$title,artist:$artist,genre:$genre,album:$album,year:$year,label:$label,position:$position,duration:$duration,volume:$volume,liked:$liked,art:$art,waveform:$waveform,playlist:$playlist,shuffle:$shuffle,position_label:$position_label,duration_label:$duration_label}'
 }
 
+cmd_track_meta() {
+  local path="$1"
+  local json="${2:-}"
+  [[ -n "$path" && -f "$path" ]] || {
+    [[ "$json" == --json ]] && printf '{}\n'
+    return 1
+  }
+  ensure_dirs
+  local row playlist="" title artist genre album year label art wf liked="false" dur="0"
+  row="$(track_list_cached_json "$path")"
+  [[ -f "$PLAYER_STATE" ]] && playlist="$(jq -r '.playlist // ""' "$PLAYER_STATE" 2>/dev/null || true)"
+  title="$(jq -r '.title // ""' <<<"$row")"
+  artist="$(jq -r '.artist // ""' <<<"$row")"
+  genre="$(jq -r '.genre // ""' <<<"$row")"
+  album="$(jq -r '.album // ""' <<<"$row")"
+  year="$(jq -r '.year // ""' <<<"$row")"
+  label="$(jq -r '.label // ""' <<<"$row")"
+  dur="$(jq -r '.duration // 0' <<<"$row")"
+  art="$(jq -r '.art // ""' <<<"$row")"
+  wf="$(jq -r '.waveform // ""' <<<"$row")"
+  liked="$(jq -r '.liked // false' <<<"$row")"
+  [[ -z "$title" ]] && title="$(basename "$path")"
+  title="${title%.*}"
+  [[ -z "$art" ]] && art="$(art_path_cached "$path")"
+  [[ -z "$wf" ]] && wf="$(waveform_cache_path "$path")"
+  [[ "$liked" == "true" ]] || { is_liked "$path" && liked="true"; }
+  if [[ "$json" == --json ]]; then
+    jq -n \
+      --arg path "$path" \
+      --arg title "$title" \
+      --arg artist "$artist" \
+      --arg genre "$genre" \
+      --arg album "$album" \
+      --arg year "$year" \
+      --arg label "$label" \
+      --argjson duration "${dur:-0}" \
+      --arg art "$art" \
+      --arg waveform "$wf" \
+      --arg playlist "$playlist" \
+      --argjson liked "$([[ $liked == true ]] && echo true || echo false)" \
+      --arg duration_label "$(format_time "${dur:-0}")" \
+      '{path:$path,title:$title,artist:$artist,genre:$genre,album:$album,year:$year,label:$label,duration:$duration,art:$art,waveform:$waveform,playlist:$playlist,liked:$liked,duration_label:$duration_label}'
+  else
+    printf '%s — %s\n' "$artist" "$title"
+  fi
+}
+
 cmd_player_status() {
   local json="${1:-}"
   if ! mpv_running; then
@@ -1464,6 +1500,10 @@ cmd_build_impl() {
   cmd_warm --art --waveforms
   echo "evo-player: pruning duplicate art..." >&2
   art_prune_legacy >/dev/null
+  if declare -F library_rebuild >/dev/null 2>&1; then
+    echo "evo-player: rebuilding library index..." >&2
+    library_rebuild
+  fi
   echo "evo-player: build complete at $(date -Iseconds)" >&2
 }
 
@@ -1535,6 +1575,9 @@ cmd_cache() {
   else
     echo "evo-player: cached ${built} genre(s), ${skipped} already fresh (${total} total)" >&2
   fi
+  if declare -F library_rebuild >/dev/null 2>&1 && (( built > 0 )); then
+    library_rebuild
+  fi
 }
 
 cmd_genres() {
@@ -1604,8 +1647,13 @@ browse_track_json() {
 
 browse_track_art_json() {
   local line="$1"
-  local path art
+  local path art existing
   path="$(jq -r '.path // ""' <<<"$line")"
+  existing="$(jq -r '.art // ""' <<<"$line")"
+  if [[ -n "$existing" && -f "$existing" ]] && art_is_decodable "$existing"; then
+    browse_track_enrich_json "$line"
+    return 0
+  fi
   [[ -n "$path" && -f "$path" ]] || {
     browse_track_enrich_json "$line"
     return 0
@@ -1694,6 +1742,15 @@ browse_emit_tracks_parallel() {
 
 browse_emit_tracks_page() {
   local rel="$1" dir="$2" offset="${3:-0}" limit="${4:-50}"
+  if declare -F library_db_ready >/dev/null 2>&1; then
+  if ! library_db_ready; then
+    library_rebuild 2>/dev/null || true
+  fi
+  if library_db_ready; then
+    library_emit_tracks_page "$rel" "$dir" "$offset" "$limit"
+    return 0
+  fi
+  fi
   local genre cache cached=0
   local -a page_items=()
   local total=0 line path i end n batch=24 tmpdir j
@@ -3160,6 +3217,7 @@ main() {
     restore) cmd_player_restore "${1:---json}" ;;
     resume) cmd_player_resume "${1:---json}" ;;
     status) cmd_player_status "${1:---json}" ;;
+    meta) cmd_track_meta "$1" "${2:---json}" ;;
     soundcloud) cmd_soundcloud ;;
     sync) cmd_sync ;;
     import) cmd_import ;;

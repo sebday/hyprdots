@@ -107,6 +107,10 @@ music_paths_apply() {
 
 music_paths_apply ""
 
+EVO_PLAYER_LIB_DIR="${EVO_PLAYER_LIB_DIR:-$HOME/.local/lib/evoshell/player}"
+# shellcheck source=/dev/null
+[[ -f "${EVO_PLAYER_LIB_DIR}/library-sqlite.sh" ]] && source "${EVO_PLAYER_LIB_DIR}/library-sqlite.sh"
+
 ensure_dirs() {
   if [[ -d "${MUSIC_ROOT}/incoming" && ! -e "${MUSIC_ROOT}/.incoming" ]]; then
     mv "${MUSIC_ROOT}/incoming" "${MUSIC_ROOT}/.incoming"
@@ -771,6 +775,14 @@ genre_track_count() {
 
 genre_track_count_cached() {
   local genre="$1"
+  if declare -F library_db_ready >/dev/null 2>&1 && library_db_ready; then
+    local n
+    n="$(library_count_genre "$genre")"
+    if [[ "${n:-0}" =~ ^[0-9]+$ && "$n" -gt 0 ]]; then
+      printf '%d' "$n"
+      return
+    fi
+  fi
   local cache count count_file
   cache="$(tracks_cache_path "$genre")"
   count_file="${cache%.tags.json}.count"
@@ -1478,7 +1490,7 @@ genre_from_path() {
 }
 
 track_cache_slug() {
-  printf '%s' "$1" | sed 's/[^a-zA-Z0-9_-]/_/g'
+  printf '%s' "$1" | sed 's/[^a-zA-Z0-9&_-]/_/g'
 }
 
 track_cache_slug_legacy() {
@@ -1508,33 +1520,27 @@ tracks_cache_stale() {
 tracks_cache_prune_missing() {
   local cache="$1"
   [[ -f "$cache" ]] || return 0
-  local tmp removed=0
+  local tmp count_before count_after removed=0
+  count_before="$(jq 'length' "$cache" 2>/dev/null || echo 0)"
+  [[ "$count_before" =~ ^[0-9]+$ ]] || count_before=0
   tmp="$(mktemp "${cache}.XXXXXX")"
-  removed="$(python3 - "$cache" "$tmp" <<'PY'
-import json, os, sys
-
-in_path, out_path = sys.argv[1:3]
-with open(in_path, encoding="utf-8") as fh:
-    items = json.load(fh)
-if not isinstance(items, list):
-    sys.exit(1)
-kept = [item for item in items if item.get("path") and os.path.isfile(item["path"])]
-removed = len(items) - len(kept)
-with open(out_path, "w", encoding="utf-8") as fh:
-    json.dump(kept, fh, ensure_ascii=False)
-print(removed)
-PY
-)" || {
+  jq -c '.[]' "$cache" | while IFS= read -r line; do
+    local path
+    path="$(jq -r '.path // ""' <<<"$line")"
+    [[ -n "$path" && -f "$path" ]] && printf '%s\n' "$line"
+  done | jq -s '.' >"$tmp" || {
     rm -f "$tmp"
     return 1
   }
-  [[ "$removed" =~ ^[0-9]+$ ]] || removed=0
-  (( removed > 0 )) || {
+  count_after="$(jq 'length' "$tmp" 2>/dev/null || echo 0)"
+  [[ "$count_after" =~ ^[0-9]+$ ]] || count_after=0
+  removed=$((count_before - count_after))
+  if (( removed > 0 )); then
+    mv "$tmp" "$cache"
+    printf '%s\n' "$(jq 'length' "$cache" 2>/dev/null || echo 0)" >"${cache%.tags.json}.count"
+  else
     rm -f "$tmp"
-    return 0
-  }
-  mv "$tmp" "$cache"
-  printf '%s\n' "$(jq 'length' "$cache" 2>/dev/null || echo 0)" >"${cache%.tags.json}.count"
+  fi
   return 0
 }
 
@@ -1921,29 +1927,43 @@ cache_key_legacy() {
   track_cache_slug_legacy "$rel"
 }
 
+art_is_decodable() {
+  local path="$1"
+  [[ -f "$path" && -s "$path" ]] || return 1
+  local w
+  w="$(identify -format '%w' "$path" 2>/dev/null || true)"
+  [[ "$w" =~ ^[0-9]+$ && "$w" -gt 0 ]] && return 0
+  w="$(ffprobe -v error -select_streams v:0 -show_entries stream=width -of csv=p=0 "$path" 2>/dev/null || true)"
+  [[ "$w" =~ ^[0-9]+$ && "$w" -gt 0 ]]
+}
+
 art_cache_find() {
   local path="$1" candidate
   [[ -f "$path" ]] || return 1
   candidate="$(art_path_legacy "$path")"
-  [[ -f "$candidate" ]] && {
+  if [[ -f "$candidate" ]] && art_is_decodable "$candidate"; then
     printf '%s' "$candidate"
     return 0
-  }
+  fi
+  [[ -f "$candidate" ]] && rm -f "$candidate"
   candidate="$(art_path_folder "$path")"
-  [[ -f "$candidate" ]] && {
+  if [[ -f "$candidate" ]] && art_is_decodable "$candidate"; then
     printf '%s' "$candidate"
     return 0
-  }
+  fi
+  [[ -f "$candidate" ]] && rm -f "$candidate"
   candidate="${ART_DIR}/$(cache_key_legacy "$path").jpg"
-  [[ -f "$candidate" ]] && {
+  if [[ -f "$candidate" ]] && art_is_decodable "$candidate"; then
     printf '%s' "$candidate"
     return 0
-  }
+  fi
+  [[ -f "$candidate" ]] && rm -f "$candidate"
   candidate="${ART_DIR}/$(art_folder_key_legacy "$path").jpg"
-  [[ -f "$candidate" ]] && {
+  if [[ -f "$candidate" ]] && art_is_decodable "$candidate"; then
     printf '%s' "$candidate"
     return 0
-  }
+  fi
+  [[ -f "$candidate" ]] && rm -f "$candidate"
   return 1
 }
 
@@ -2164,16 +2184,26 @@ art_notify_cache() {
     art="$(art_path_cached "$path")"
   fi
   [[ -n "$art" && -f "$art" ]] || return 1
+  if ! art_is_decodable "$art"; then
+    rm -f "$art"
+    return 1
+  fi
   hash="$(art_image_hash "$art")"
   [[ -n "$hash" ]] || return 1
   dest="${XDG_CACHE_HOME:-$HOME/.cache}/evoshell/display-art/${hash}.jpg"
   mkdir -p "$(dirname "$dest")"
-  if [[ -f "$dest" ]] && cmp -s "$art" "$dest" 2>/dev/null; then
-    printf '%s' "$dest"
-    return 0
+  if [[ -f "$dest" ]]; then
+    if art_is_decodable "$dest" && cmp -s "$art" "$dest" 2>/dev/null; then
+      printf '%s' "$dest"
+      return 0
+    fi
+    rm -f "$dest"
   fi
   tmp="$(mktemp "${dest}.XXXXXX")"
-  cp "$art" "$tmp" && mv -f "$tmp" "$dest"
+  cp "$art" "$tmp" && art_is_decodable "$tmp" && mv -f "$tmp" "$dest" || {
+    rm -f "$tmp"
+    return 1
+  }
   printf '%s' "$dest"
 }
 

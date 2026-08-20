@@ -39,12 +39,14 @@ check_absent 'evo-sys-menu'
 for exe in \
   evo-ipc evo-system evo-player evo-player-lib.sh \
   evo-bar-weather evo-bar-weather-bar evo-bar-github evo-panel-player evo-panel-shopify \
-  evo-tasks evo-calculator evo-clipboard evo-wallpaper evo-theme evo-menu-list evo-menu-warm; do
+  evo-tasks evo-calculator evo-clipboard evo-wallpaper evo-theme evo-menu-list evo-menu-warm \
+  evo-bar-network-bar evo-bar-transmission-bar; do
   [[ -x "${bin}/${exe}" ]] || { echo "missing executable: ${exe}" >&2; fail=1; }
 done
 
 check_present 'evo-menu-list' "${root}/Evosys/Themes/CarouselOverlay.qml"
 check_present 'evo-bar-network-bar' "${root}/Evobar/widgets/NetworkWidget.qml"
+check_present 'evo-bar-transmission-bar' "${root}/Evobar/widgets/NetworkWidget.qml"
 
 # Manifest ids
 check_present 'evo\.bar\.popups\.weather' "${root}/pluginManifest.js"

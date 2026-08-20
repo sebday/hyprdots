@@ -17,6 +17,172 @@ Item {
     property int scrobbleStartedAt: 0
 
     readonly property string playerScript: (Quickshell.env("HOME") || "") + "/.local/bin/evo-player"
+    readonly property string mpvSocketPath: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/evo-player.sock"
+
+    property var mpvPendingProps: ({})
+    property int mpvNextReq: 100
+    property bool mpvObserveSent: false
+    property string enrichPath: ""
+    property string enrichQueuedPath: ""
+
+    function formatTime(sec) {
+        var total = Math.max(0, Math.floor(Number(sec) || 0))
+        var min = Math.floor(total / 60)
+        var s = total % 60
+        return min + ":" + (s < 10 ? "0" : "") + s
+    }
+
+    function mpvWrite(cmd) {
+        if (!mpvSocket.connected)
+            return -1
+        var id = mpvNextReq++
+        mpvSocket.write(JSON.stringify({ command: cmd, request_id: id }) + "\n")
+        mpvSocket.flush()
+        return id
+    }
+
+    function mpvGetProperty(name) {
+        var id = mpvWrite(["get_property", name])
+        if (id >= 0)
+            mpvPendingProps[id] = name
+    }
+
+    function observeMpv() {
+        if (mpvObserveSent)
+            return
+        mpvObserveSent = true
+        var props = ["path", "pause", "time-pos", "duration", "volume", "mute", "shuffle"]
+        for (var i = 0; i < props.length; i++)
+            mpvWrite(["observe_property", i + 1, props[i]])
+        for (i = 0; i < props.length; i++)
+            mpvGetProperty(props[i])
+    }
+
+    function applyMpvProperty(name, data) {
+        var patch = {}
+        if (name === "path") {
+            var p = String(data || "")
+            patch.path = p
+            if (p !== enrichPath) {
+                enrichPath = p
+                requestEnrich(p)
+            }
+            if (!p) {
+                lastNotifiedPath = ""
+                lastNotifiedHadArt = false
+                lastNotifiedArt = ""
+                resetScrobbleSession()
+            }
+        } else if (name === "pause") {
+            patch.state = data ? "paused" : "playing"
+        } else if (name === "time-pos") {
+            patch.position = Number(data) || 0
+            patch.position_label = formatTime(patch.position)
+        } else if (name === "duration") {
+            patch.duration = Number(data) || 0
+            patch.duration_label = formatTime(patch.duration)
+        } else if (name === "volume") {
+            patch.volume = Math.round(Number(data) || 0)
+        } else if (name === "mute") {
+            if (data)
+                patch.volume = 0
+        } else if (name === "shuffle") {
+            patch.shuffle = data === true || data === "yes"
+        } else {
+            return
+        }
+        mergePlayer(patch)
+    }
+
+    function handleMpvLine(line) {
+        var msg
+        try {
+            msg = JSON.parse(String(line || ""))
+        } catch (e) {
+            return
+        }
+        if (msg.event === "property-change" && msg.name)
+            applyMpvProperty(msg.name, msg.data)
+        else if (msg.request_id !== undefined && mpvPendingProps[msg.request_id] !== undefined) {
+            var prop = mpvPendingProps[msg.request_id]
+            delete mpvPendingProps[msg.request_id]
+            if (msg.error === "success" || msg.data !== undefined)
+                applyMpvProperty(prop, msg.data)
+        }
+    }
+
+    function mergePlayer(patch) {
+        var prevPath = String(player.path || "")
+        var prevState = String(player.state || "")
+        var next = Object.assign({}, player, patch)
+        var newPath = String(next.path || "")
+        if (prevPath && newPath !== prevPath
+                && scrobblePath === prevPath
+                && !scrobbleSubmitted
+                && prevState === "playing")
+            maybeSubmitScrobble()
+        player = next
+        var state = String(player.state || "")
+        if (newPath && state === "playing") {
+            notifyNowPlaying()
+            maybeSubmitScrobble()
+        }
+    }
+
+    function applyStatusPayload(text) {
+        var parsed
+        try {
+            parsed = JSON.parse(String(text || "{}"))
+        } catch (e) {
+            parsed = {}
+        }
+        var prevPath = String(player.path || "")
+        var prevState = String(player.state || "")
+        var newPath = String(parsed.path || "")
+        if (prevPath && newPath !== prevPath
+                && scrobblePath === prevPath
+                && !scrobbleSubmitted
+                && prevState === "playing")
+            maybeSubmitScrobble()
+        player = Object.assign({}, player, parsed)
+        enrichPath = newPath
+        var path = newPath
+        var state = String(player.state || "")
+        if (path && state === "playing") {
+            notifyNowPlaying()
+            maybeSubmitScrobble()
+        } else if (!path) {
+            lastNotifiedPath = ""
+            lastNotifiedHadArt = false
+            lastNotifiedArt = ""
+            resetScrobbleSession()
+        }
+    }
+
+    function requestEnrich(path) {
+        var p = String(path || "")
+        if (!p) {
+            enrichQueuedPath = ""
+            return
+        }
+        enrichQueuedPath = p
+        if (enrichProc.running)
+            return
+        pumpEnrich()
+    }
+
+    function pumpEnrich() {
+        var p = String(enrichQueuedPath || "")
+        enrichQueuedPath = ""
+        if (!p) {
+            if (enrichQueuedPath)
+                pumpEnrich()
+            return
+        }
+        enrichProc.path = p
+        enrichProc.command = [playerScript, "meta", p, "--json"]
+        enrichProc.running = true
+    }
 
     function beginScrobbleSession() {
         var path = String(player.path || "")
@@ -139,54 +305,96 @@ Item {
         scrobbleProc.running = true
     }
 
-    function applyStatus(text) {
-        var parsed
-        try {
-            parsed = JSON.parse(String(text || "{}"))
-        } catch (e) {
-            parsed = {}
-        }
-        var prevPath = String(player.path || "")
-        var prevState = String(player.state || "")
-        var newPath = String(parsed.path || "")
-        if (prevPath && newPath !== prevPath
-                && scrobblePath === prevPath
-                && !scrobbleSubmitted
-                && prevState === "playing")
-            maybeSubmitScrobble()
-        player = parsed
-        var path = newPath
-        var state = String(player.state || "")
-        if (path && state === "playing") {
-            notifyNowPlaying()
-            maybeSubmitScrobble()
-        } else if (!path) {
-            lastNotifiedPath = ""
-            lastNotifiedHadArt = false
-            lastNotifiedArt = ""
-            resetScrobbleSession()
-        }
+    function ensureMpvConnect() {
+        if (mpvSocket.connected)
+            return
+        if (!socketCheckProc.running)
+            socketCheckProc.running = true
+        else
+            connectRetryTimer.start()
     }
 
-    function pollStatus() {
-        if (statusProc.running)
+    function ensureMpv() {
+        if (mpvSocket.connected)
             return
-        statusProc.command = [playerScript, "status", "--json"]
-        statusProc.running = true
+        if (!startMpvProc.running)
+            startMpvProc.running = true
+        ensureMpvConnect()
+    }
+
+    Socket {
+        id: mpvSocket
+        path: root.mpvSocketPath
+        connected: false
+
+        parser: SplitParser {
+            onRead: line => root.handleMpvLine(line)
+        }
+
+        onConnectedChanged: {
+            if (connected) {
+                root.mpvObserveSent = false
+                Qt.callLater(root.observeMpv)
+            }
+        }
     }
 
     Timer {
-        id: statusTimer
-        interval: 500
+        id: connectRetryTimer
+        interval: 150
         repeat: true
-        running: true
-        onTriggered: root.pollStatus()
+        onTriggered: root.ensureMpvConnect()
     }
 
     Process {
-        id: statusProc
+        id: socketCheckProc
+        command: ["test", "-S", root.mpvSocketPath]
+        onExited: function(exitCode) {
+            if (exitCode === 0) {
+                mpvSocket.connected = true
+                connectRetryTimer.stop()
+            }
+        }
+    }
+
+    Process {
+        id: startMpvProc
+        command: [root.playerScript, "start"]
+        onExited: root.ensureMpvConnect()
+    }
+
+    Process {
+        id: bootstrapProc
+        command: [root.playerScript, "open", "--json"]
         stdout: StdioCollector {
-            onStreamFinished: root.applyStatus(text)
+            onStreamFinished: root.applyStatusPayload(text)
+        }
+    }
+
+    Process {
+        id: enrichProc
+        property string path: ""
+
+        stdout: StdioCollector {
+            onStreamFinished: {
+                var requested = String(enrichProc.path || "")
+                if (!requested || requested !== String(root.enrichPath || ""))
+                    return
+                var parsed
+                try {
+                    parsed = JSON.parse(String(text || "{}"))
+                } catch (e) {
+                    parsed = {}
+                }
+                root.mergePlayer(parsed)
+                if (String(root.enrichQueuedPath || ""))
+                    root.pumpEnrich()
+            }
+        }
+
+        onExited: {
+            if (String(root.enrichQueuedPath || ""))
+                root.pumpEnrich()
         }
     }
 
@@ -225,5 +433,8 @@ Item {
         id: warmProc
     }
 
-    Component.onCompleted: Qt.callLater(pollStatus)
+    Component.onCompleted: {
+        bootstrapProc.running = true
+        ensureMpv()
+    }
 }

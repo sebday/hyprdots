@@ -28,6 +28,9 @@ ShellRoot {
                 center: [{ id: "evo.bar.clock", format: "%a %d %H:%M" }],
                 right: [{ id: "evo.bar.media.audio" }, { id: "evo.bar.tray" }]
             }
+        },
+        dashboards: {
+            openOnStart: ["evo.panel.shopify", "evo.panel.player"]
         }
     })
 
@@ -250,6 +253,25 @@ ShellRoot {
         }
         pendingDashboardOpenIds = next
         item.open()
+    }
+
+    function startupDashboardIds() {
+        var cfg = shellConfig && shellConfig.dashboards
+        if (!Util.isPlainObject(cfg))
+            return []
+        var ids = cfg.openOnStart
+        if (!Array.isArray(ids))
+            return []
+        return ids
+    }
+
+    function openStartupDashboards() {
+        var ids = startupDashboardIds()
+        for (var i = 0; i < ids.length; i++) {
+            var id = canonicalPluginId(ids[i])
+            if (id)
+                requestDashboardOpen(id)
+        }
     }
 
     function summon(id, payloadJson) {
@@ -657,6 +679,7 @@ ShellRoot {
 
     Component.onCompleted: {
         applyShellConfig()
+        Qt.callLater(openStartupDashboards)
     }
 
     Connections {

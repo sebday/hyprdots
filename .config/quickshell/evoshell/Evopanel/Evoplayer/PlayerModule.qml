@@ -13,6 +13,7 @@ Item {
     readonly property bool active: host && host.opened === true
 
     readonly property string playerScript: (Quickshell.env("HOME") || "") + "/.local/bin/evo-player"
+    readonly property var playerMonitor: shell ? shell.serviceFor("evo.panel.player.monitor") : null
     readonly property int pad: Theme.hoverPopupMargin
     readonly property color fieldsetLegendBackground: Theme.background
     readonly property int bodyFont: Theme.fontSize3xl
@@ -178,11 +179,11 @@ Item {
         var p = String((player && player.path) || "")
         if (!p)
             return ""
+        if (resolvedArtPath === p && resolvedArt)
+            return resolvedArt
         var fromPlayer = String((player && player.art) || "")
         if (fromPlayer && fromPlayer.charAt(0) === "/")
             return fromPlayer
-        if (resolvedArtPath === p && resolvedArt)
-            return resolvedArt
         return artForTrackPath(p)
     }
     readonly property string displayedArt: {
@@ -1449,6 +1450,8 @@ Item {
         }))
             Qt.callLater(onActivated)
         statusTimer.start()
+        if (playerMonitor)
+            mergeMonitorStatus()
         saveStateTimer.start()
         jobStatusTimer.start()
         syncExternalJobStatus()
@@ -2735,6 +2738,13 @@ Item {
 
     function browseCrumbCount() {
         return browseCrumbs.length
+    }
+
+    function mergeMonitorStatus() {
+        var snap = playerMonitor && playerMonitor.player
+        if (!snap || typeof snap !== "object")
+            return
+        applyStatus(JSON.stringify(snap))
     }
 
     function refreshStatus() {
@@ -4159,7 +4169,17 @@ Item {
         id: statusTimer
         interval: 500
         repeat: true
+        running: root.active && !root.playerMonitor
         onTriggered: root.refreshStatus()
+    }
+
+    Connections {
+        target: root.playerMonitor
+        enabled: root.playerMonitor !== null
+        function onPlayerChanged() {
+            if (root.active)
+                root.mergeMonitorStatus()
+        }
     }
 
     Timer {
@@ -5189,6 +5209,14 @@ Item {
                 asynchronous: true
                 layer.enabled: true
                 layer.smooth: true
+                onStatusChanged: {
+                    if (status === Image.Error && thumbRoot.art !== "") {
+                        var p = String((root.player && root.player.path) || "")
+                        if (p)
+                            root.invalidateResolvedArt(p)
+                        root.bumpArtRevision()
+                    }
+                }
             }
 
             Text {

@@ -13,7 +13,7 @@ Item {
 
     readonly property string home: Quickshell.env("HOME") || ""
     readonly property string networkScript: home + "/.local/bin/evo-bar-network-bar"
-    readonly property string transmissionScript: home + "/.local/bin/evo-bar-transmission"
+    readonly property string transmissionScript: home + "/.local/bin/evo-bar-transmission-bar"
     readonly property string hoverPopupId: settings.onHover ? String(settings.onHover) : "evo.bar.network.stats"
     readonly property bool iconOnly: settings.iconOnly !== false
     readonly property bool trayMode: settings.trayMode === true
