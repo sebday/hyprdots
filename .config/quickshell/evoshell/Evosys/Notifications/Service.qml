@@ -4,6 +4,7 @@ import Quickshell.Io
 import Quickshell.Services.Notifications
 import Quickshell.Wayland
 import "../../Commons"
+import "../../Evobar/Popups/Notifications"
 
 Scope {
     id: root
@@ -36,6 +37,28 @@ Scope {
         return Math.max(500, parseInt(cfg && cfg.durationMs, 10) || 3000)
     }
 
+    readonly property int historyMax: 50
+    readonly property string historyPath: (Quickshell.env("XDG_STATE_HOME")
+        || ((Quickshell.env("HOME") || "") + "/.local/state")) + "/evoshell/notification-history.json"
+
+    property var historyEntries: []
+    property var hiddenSources: []
+    property var hiddenIdentities: []
+    property int unreadCount: 0
+
+    FileView {
+        id: historyFile
+        path: root.historyPath
+        watchChanges: false
+        printErrors: false
+        onLoaded: root.loadHistoryFromFile()
+        onLoadFailed: {
+            root.historyEntries = []
+            root.hiddenSources = []
+            root.hiddenIdentities = []
+        }
+    }
+
     NotificationServer {
         id: server
         keepOnReload: false
@@ -53,6 +76,14 @@ Scope {
         var entry = { notification: notification, key: Date.now() + Math.random() }
         if (isHyprshot(entry))
             entry.artRev = Date.now()
+
+        var source = classifyNotification(entry)
+        if (source)
+            pushHistory(snapshotHistoryEntry(entry, source))
+
+        if (entry.notification && isBraveNotification(entry.notification) && !source)
+            return
+
         activePopups = activePopups.concat([entry])
         scheduleDismiss(root.durationMs)
     }
@@ -65,14 +96,16 @@ Scope {
             if (item.local && !item.localMedia && String(item.title) === titleStr) continue
             next.push(item)
         }
-        next.push({
+        var briefEntry = {
             key: Date.now() + Math.random(),
             local: true,
             title: titleStr,
             body: String(body || ""),
             art: resolveNamedIcon(titleStr)
-        })
+        }
+        next.push(briefEntry)
         activePopups = next
+        pushHistory(snapshotHistoryEntry(briefEntry, "system"))
         scheduleDismiss(Math.max(500, parseInt(durationMs, 10) || root.durationMs))
     }
 
@@ -206,6 +239,464 @@ Scope {
         if (activePopups.length === 0)
             return
         dismissEntry(activePopups[0].key)
+        if (activePopups.length > 0)
+            scheduleDismiss(root.durationMs)
+    }
+
+    function loadHistoryFromFile() {
+        var text = historyFile.text() || ""
+        if (!text.trim()) {
+            historyEntries = []
+            hiddenSources = []
+            hiddenIdentities = []
+            unreadCount = 0
+            return
+        }
+        try {
+            var parsed = JSON.parse(text)
+            var list = Array.isArray(parsed) ? parsed : (Array.isArray(parsed.entries) ? parsed.entries : [])
+            historyEntries = list.slice(0, historyMax)
+            hiddenSources = Array.isArray(parsed.hiddenSources) ? parsed.hiddenSources.slice() : []
+            hiddenIdentities = Array.isArray(parsed.hiddenIdentities) ? parsed.hiddenIdentities.slice() : []
+            for (var i = 0; i < historyEntries.length; i++) {
+                var hiddenItem = historyEntries[i]
+                if (hiddenItem && hiddenItem.hidden === true)
+                    addHiddenIdentity(hiddenItem)
+            }
+            unreadCount = countUnread()
+        } catch (e) {
+            historyEntries = []
+            hiddenSources = []
+            hiddenIdentities = []
+            unreadCount = 0
+        }
+    }
+
+    function saveHistory() {
+        var payload = JSON.stringify({
+            version: 1,
+            entries: historyEntries,
+            hiddenSources: hiddenSources,
+            hiddenIdentities: hiddenIdentities
+        })
+        saveProc.command = [
+            "bash", "-lc",
+            "mkdir -p $(dirname " + Util.shellQuote(historyPath) + ") && printf '%s' "
+                + Util.shellQuote(payload) + " > " + Util.shellQuote(historyPath)
+        ]
+        saveProc.running = true
+    }
+
+    function countUnread() {
+        var n = 0
+        for (var i = 0; i < historyEntries.length; i++) {
+            var item = historyEntries[i]
+            if (!item || item.hidden === true || item.read === true)
+                continue
+            n++
+        }
+        return n
+    }
+
+    function pushHistory(item) {
+        if (!item)
+            return
+        if (!item.hidden && shouldHideHistoryItem(item, item.source))
+            item.hidden = true
+        var next = [item]
+        for (var i = 0; i < historyEntries.length; i++) {
+            var existing = historyEntries[i]
+            if (!existing || existing.key === item.key)
+                continue
+            next.push(existing)
+            if (next.length >= historyMax)
+                break
+        }
+        historyEntries = next
+        unreadCount = countUnread()
+        saveHistory()
+    }
+
+    function markAllRead() {
+        if (historyEntries.length === 0)
+            return
+        var next = []
+        for (var i = 0; i < historyEntries.length; i++) {
+            var item = historyEntries[i]
+            if (!item)
+                continue
+            var copy = ({})
+            for (var k in item)
+                copy[k] = item[k]
+            copy.read = true
+            next.push(copy)
+        }
+        historyEntries = next
+        unreadCount = 0
+        saveHistory()
+    }
+
+    function markEntryRead(key) {
+        var id = String(key || "")
+        if (!id)
+            return
+        var changed = false
+        var next = []
+        for (var i = 0; i < historyEntries.length; i++) {
+            var item = historyEntries[i]
+            if (!item) continue
+            if (String(item.key) === id && item.read !== true) {
+                var copy = ({})
+                for (var k in item)
+                    copy[k] = item[k]
+                copy.read = true
+                next.push(copy)
+                changed = true
+                continue
+            }
+            next.push(item)
+        }
+        if (!changed)
+            return
+        historyEntries = next
+        unreadCount = countUnread()
+        saveHistory()
+    }
+
+    function removeHistoryEntry(key) {
+        var id = String(key || "")
+        if (!id)
+            return
+        var next = []
+        for (var i = 0; i < historyEntries.length; i++) {
+            if (historyEntries[i] && String(historyEntries[i].key) !== id)
+                next.push(historyEntries[i])
+        }
+        historyEntries = next
+        unreadCount = countUnread()
+        saveHistory()
+    }
+
+    function setHistoryEntryHidden(key, hidden) {
+        var id = String(key || "")
+        if (!id)
+            return
+        var wantHidden = hidden === true
+        var changed = false
+        var next = []
+        for (var i = 0; i < historyEntries.length; i++) {
+            var item = historyEntries[i]
+            if (!item)
+                continue
+            if (String(item.key) !== id) {
+                next.push(item)
+                continue
+            }
+            if ((item.hidden === true) === wantHidden) {
+                next.push(item)
+                continue
+            }
+            var copy = ({})
+            for (var k in item)
+                copy[k] = item[k]
+            copy.hidden = wantHidden
+            if (wantHidden)
+                copy.read = true
+            next.push(copy)
+            changed = true
+        }
+        if (!changed)
+            return
+        historyEntries = next
+        unreadCount = countUnread()
+        saveHistory()
+    }
+
+    function historyEntryForKey(key) {
+        var id = String(key || "")
+        if (!id)
+            return null
+        for (var i = 0; i < historyEntries.length; i++) {
+            var item = historyEntries[i]
+            if (item && String(item.key) === id)
+                return item
+        }
+        return null
+    }
+
+    function historySourceForKey(key) {
+        var item = historyEntryForKey(key)
+        return item ? String(item.source || "") : ""
+    }
+
+    function entryIdentity(item) {
+        if (!item)
+            return ""
+        var title = String(item.title || "").trim().toLowerCase()
+        var app = String(item.appName || "").trim().toLowerCase()
+        var desktop = String(item.desktopEntry || "").trim().toLowerCase()
+        var appKey = app || desktop
+        if (title && appKey)
+            return title + "\x1f" + appKey
+        if (title)
+            return title
+        if (appKey)
+            return appKey
+        return ""
+    }
+
+    function isIdentityHidden(item) {
+        var id = entryIdentity(item)
+        if (!id)
+            return false
+        for (var i = 0; i < hiddenIdentities.length; i++) {
+            if (String(hiddenIdentities[i]) === id)
+                return true
+        }
+        return false
+    }
+
+    function addHiddenIdentity(item) {
+        var id = entryIdentity(item)
+        if (!id)
+            return false
+        for (var i = 0; i < hiddenIdentities.length; i++) {
+            if (String(hiddenIdentities[i]) === id)
+                return false
+        }
+        hiddenIdentities = hiddenIdentities.concat([id])
+        return true
+    }
+
+    function removeHiddenIdentity(item) {
+        var id = entryIdentity(item)
+        if (!id)
+            return false
+        var next = []
+        var changed = false
+        for (var i = 0; i < hiddenIdentities.length; i++) {
+            if (String(hiddenIdentities[i]) === id) {
+                changed = true
+                continue
+            }
+            next.push(hiddenIdentities[i])
+        }
+        if (!changed)
+            return false
+        hiddenIdentities = next
+        return true
+    }
+
+    function isSourceHidden(source) {
+        var id = String(source || "")
+        if (!id)
+            return false
+        for (var i = 0; i < hiddenSources.length; i++) {
+            if (String(hiddenSources[i]) === id)
+                return true
+        }
+        return false
+    }
+
+    function addHiddenSource(source) {
+        var id = String(source || "")
+        if (!id)
+            return false
+        for (var i = 0; i < hiddenSources.length; i++) {
+            if (String(hiddenSources[i]) === id)
+                return false
+        }
+        hiddenSources = hiddenSources.concat([id])
+        return true
+    }
+
+    function removeHiddenSource(source) {
+        var id = String(source || "")
+        if (!id)
+            return false
+        var next = []
+        var changed = false
+        for (var i = 0; i < hiddenSources.length; i++) {
+            if (String(hiddenSources[i]) === id) {
+                changed = true
+                continue
+            }
+            next.push(hiddenSources[i])
+        }
+        if (!changed)
+            return false
+        hiddenSources = next
+        return true
+    }
+
+    function shouldHideHistoryItem(item, source) {
+        if (isSourceHidden(source))
+            return true
+        return isIdentityHidden(item)
+    }
+
+    function hideHistoryEntry(key) {
+        var item = historyEntryForKey(key)
+        if (item) {
+            addHiddenIdentity(item)
+            var source = String(item.source || "")
+            if (source === "telegram" || source === "android")
+                addHiddenSource(source)
+        }
+        setHistoryEntryHidden(key, true)
+    }
+
+    function unhideHistoryEntry(key) {
+        var item = historyEntryForKey(key)
+        if (item) {
+            removeHiddenIdentity(item)
+            var source = String(item.source || "")
+            if (source === "telegram" || source === "android")
+                removeHiddenSource(source)
+        }
+        setHistoryEntryHidden(key, false)
+    }
+
+    function clearHistory() {
+        var next = []
+        for (var i = 0; i < historyEntries.length; i++) {
+            var item = historyEntries[i]
+            if (item && item.hidden === true)
+                next.push(item)
+        }
+        historyEntries = next
+        unreadCount = countUnread()
+        saveHistory()
+    }
+
+    function isBraveNotification(n) {
+        if (!n)
+            return false
+        var app = String(n.appName || "").toLowerCase()
+        var entry = String(n.desktopEntry || "").toLowerCase()
+        if (app.indexOf("brave") >= 0 || entry.indexOf("brave") >= 0)
+            return true
+        if (entry.indexOf("chrome-") === 0 || entry.indexOf("chromium") >= 0)
+            return true
+        return false
+    }
+
+    function originSourceFromText(text) {
+        var raw = String(text || "").toLowerCase()
+        if (raw.indexOf("web.telegram.org") >= 0)
+            return "telegram"
+        if (raw.indexOf("messages.google.com") >= 0)
+            return "android"
+        return ""
+    }
+
+    function classifyNotification(entry) {
+        if (!entry)
+            return ""
+        if (entry.localMedia)
+            return ""
+        if (entry.local)
+            return "system"
+        var n = entry.notification
+        if (!n)
+            return "system"
+
+        var fromBody = originSourceFromText(stripMarkup(String(n.body || "")))
+        if (fromBody)
+            return fromBody
+
+        var app = String(n.appName || "").toLowerCase()
+        var desktop = String(n.desktopEntry || "").toLowerCase()
+        if (app.indexOf("telegram") >= 0 || desktop.indexOf("telegram") >= 0)
+            return "telegram"
+
+        if (isBraveNotification(n))
+            return ""
+
+        return "system"
+    }
+
+    function historyArtPath(entry) {
+        var art = popupArt(entry)
+        if (!art || String(art).indexOf("data:image/") === 0)
+            return ""
+        var path = notifyIconPath(art)
+        return path || (String(art).charAt(0) === "/" ? String(art) : "")
+    }
+
+    function historyBodyText(entry, source) {
+        var raw = stripMarkup(popupBody(entry)).replace(/\r/g, "")
+        var parts = raw.split("\n")
+        var lines = []
+        for (var i = 0; i < parts.length; i++) {
+            var line = parts[i].trim()
+            if (line)
+                lines.push(line)
+        }
+        if ((source === "telegram" || source === "android") && lines.length > 1) {
+            if (originSourceFromText(lines[0]))
+                lines = lines.slice(1)
+        }
+        return lines.join("\n")
+    }
+
+    function snapshotHistoryEntry(entry, source) {
+        if (!entry || !source)
+            return null
+        var n = entry.notification
+        var openUrl = ""
+        if (source === "telegram")
+            openUrl = "https://web.telegram.org/"
+        else if (source === "android")
+            openUrl = "https://messages.google.com/web/"
+
+        return {
+            key: String(entry.key || (Date.now() + Math.random())),
+            at: new Date().toISOString(),
+            source: source,
+            title: popupTitle(entry),
+            body: historyBodyText(entry, source),
+            appName: n ? String(n.appName || "") : String(entry.app || entry.title || ""),
+            appIcon: n ? String(n.appIcon || "") : "",
+            desktopEntry: n ? String(n.desktopEntry || "") : "",
+            art: historyArtPath(entry),
+            read: false,
+            hidden: root.shouldHideHistoryItem({
+                title: popupTitle(entry),
+                appName: n ? String(n.appName || "") : String(entry.app || entry.title || ""),
+                desktopEntry: n ? String(n.desktopEntry || "") : ""
+            }, source),
+            openUrl: openUrl
+        }
+    }
+
+    function sourceLabel(source) {
+        if (source === "telegram")
+            return "Telegram"
+        if (source === "android")
+            return "Android"
+        return "System"
+    }
+
+    function sourceIcon(source) {
+        if (source === "telegram")
+            return "󰍉"
+        if (source === "android")
+            return "󰍳"
+        return "󰂚"
+    }
+
+    function openHistoryEntry(item) {
+        if (!item)
+            return
+        markEntryRead(item.key)
+        var url = String(item.openUrl || "")
+        if (!url)
+            return
+        var home = String(Quickshell.env("HOME") || "")
+        var wm = item.source === "telegram" ? "brave-telegram" : "brave-messages"
+        var script = home + "/.local/bin/evo-bar-brave"
+        Quickshell.execDetached(["bash", "-lc", script + " open " + wm + " " + Util.shellQuote(url)])
     }
 
     function popupTitle(entry) {
@@ -521,155 +1012,40 @@ Scope {
         id: logProc
     }
 
-    component NotificationArtworkCard: Item {
-        id: artworkRoot
-
-        property string coverArt: ""
-        property int artRev: 0
-        property string fallbackIcon: "󰎆"
-        property var fields: ({})
-        property int artSize: Theme.notificationArtSize
-        property int imageFillMode: Image.PreserveAspectCrop
-
-        readonly property string artSource: {
-            if (!artworkRoot.coverArt)
-                return ""
-            if (artworkRoot.coverArt.indexOf("data:image/") === 0)
-                return artworkRoot.coverArt
-            var base = Util.fileUrl(artworkRoot.coverArt)
-            if (!artworkRoot.artRev)
-                return base
-            var sep = base.indexOf("?") >= 0 ? "&" : "?"
-            return base + sep + "rev=" + artworkRoot.artRev
-        }
-
-        width: Theme.notificationWidth
-        implicitHeight: innerRow.height + Theme.notificationMediaPad * 2
-
-        Row {
-            id: innerRow
-            x: Theme.notificationPadding
-            y: Theme.notificationMediaPad
-            width: parent.width - Theme.notificationPadding * 2
-            height: Math.max(artworkRoot.artSize, textCol.height)
-            spacing: 16
-
-            Item {
-                width: artworkRoot.artSize
-                height: artworkRoot.artSize
-                anchors.verticalCenter: parent.verticalCenter
-                clip: true
-
-                Rectangle {
-                    anchors.fill: parent
-                    color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.16)
-                    radius: Theme.panelCornerRadius
-                }
-
-                Text {
-                    anchors.centerIn: parent
-                    visible: artworkRoot.artSource === "" || artImage.status !== Image.Ready
-                    text: artworkRoot.fallbackIcon
-                    color: Theme.accent
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Math.round(artworkRoot.artSize * 0.45)
-                    font.bold: Theme.fontBold
-                }
-
-                Image {
-                    id: artImage
-                    anchors.fill: parent
-                    visible: artworkRoot.artSource !== "" && status === Image.Ready
-                    source: artworkRoot.artSource
-                    fillMode: artworkRoot.imageFillMode
-                    asynchronous: true
-                    cache: false
-                    smooth: true
-                    mipmap: true
-                    sourceSize: Qt.size(artworkRoot.artSize, artworkRoot.artSize)
-                    onStatusChanged: {
-                        if (status === Image.Error)
-                            root.logEvent("artError", { source: artworkRoot.artSource })
-                        else if (status === Image.Ready)
-                            root.logEvent("artReady", { source: artworkRoot.artSource })
-                    }
-                }
-            }
-
-            Column {
-                id: textCol
-                width: parent.width - artworkRoot.artSize - parent.spacing
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: Theme.spacingS
-
-                Text {
-                    width: parent.width
-                    visible: artworkRoot.fields.kicker !== undefined && artworkRoot.fields.kicker !== ""
-                    text: artworkRoot.fields.kicker || ""
-                    color: Theme.accent
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSize4xl
-                    font.bold: Theme.fontBold
-                    font.letterSpacing: 1
-                    elide: Text.ElideRight
-                    maximumLineCount: 1
-                    opacity: Theme.opacityEmphasis
-                }
-
-                Text {
-                    width: parent.width
-                    text: artworkRoot.fields.title || ""
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSize2xl
-                    font.bold: Theme.fontBold
-                    elide: Text.ElideRight
-                    maximumLineCount: 1
-                }
-
-                Text {
-                    width: parent.width
-                    visible: artworkRoot.fields.subtitle !== undefined && artworkRoot.fields.subtitle !== ""
-                    text: artworkRoot.fields.subtitle || ""
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeL
-                    font.bold: Theme.fontBold
-                    elide: Text.ElideRight
-                    maximumLineCount: 1
-                    opacity: 0.82
-                }
-
-                Text {
-                    width: parent.width
-                    visible: artworkRoot.fields.footer !== undefined && artworkRoot.fields.footer !== ""
-                    text: artworkRoot.fields.footer || ""
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSize4xl
-                    font.bold: Theme.fontBold
-                    elide: Text.ElideRight
-                    maximumLineCount: 1
-                    opacity: Theme.opacityMuted
-                }
-            }
-        }
+    Process {
+        id: saveProc
     }
+
+    Component.onCompleted: historyFile.reload()
 
     Instantiator {
         model: root.activePopups
         active: true
 
-        delegate: PanelWindow {
+        delegate: NotificationsToast {
             required property var modelData
             required property int index
 
             readonly property var media: root.mediaFields(modelData)
             readonly property string art: root.popupArt(modelData)
 
-            Component.onCompleted: {
+            entry: modelData
+            stackIndex: index
+            fields: media
+            coverArt: art
+            artRev: modelData ? (modelData.artRev || 0) : 0
+            fallbackIcon: root.popupIcon(modelData)
+            imageFillMode: root.popupArtFillMode(modelData)
+            hyprshot: root.isHyprshot(modelData)
+            popupScreen: root.popupScreen
+            popupOnTop: root.popupOnTop
+            stackOffsets: root.stackOffsets
+            popupMarginFromEdge: root.popupMarginFromEdge
+            popupMarginLeft: root.popupMarginLeft(screen)
+
+            onOpened: {
                 if (modelData)
-                    root.setPopupHeight(modelData.key, card.height)
+                    root.setPopupHeight(modelData.key, implicitHeight)
                 var n = modelData && modelData.notification
                 root.logEvent("popupOpen", {
                     art: art.indexOf("data:image/") === 0 ? ("data-url:" + art.length) : art,
@@ -681,76 +1057,11 @@ Scope {
                 })
             }
 
-            screen: root.popupScreen
-            color: "transparent"
-            implicitWidth: Theme.notificationWidth
-            implicitHeight: card.height
-
-            anchors.top: root.popupOnTop
-            anchors.bottom: !root.popupOnTop
-            anchors.left: true
-            margins.top: root.popupOnTop
-                ? (index < root.stackOffsets.length
-                    ? root.stackOffsets[index]
-                    : root.popupMarginFromEdge)
-                : 0
-            margins.bottom: root.popupOnTop
-                ? 0
-                : (index < root.stackOffsets.length
-                    ? root.stackOffsets[index]
-                    : root.popupMarginFromEdge)
-            margins.left: root.popupMarginLeft(screen)
-
             onImplicitHeightChanged: if (modelData) root.setPopupHeight(modelData.key, implicitHeight)
-
-            WlrLayershell.namespace: "evo-sys-notifications"
-            WlrLayershell.layer: WlrLayer.Overlay
-            WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
-            exclusionMode: ExclusionMode.Ignore
-
-            Item {
-                id: card
-                width: Theme.notificationWidth
-                height: artworkCard.implicitHeight
-                clip: true
-
-                Rectangle {
-                    anchors.fill: parent
-                    radius: Theme.panelCornerRadius
-                    color: Theme.overlaySurface
-                }
-
-                Rectangle {
-                    anchors.fill: parent
-                    radius: Theme.panelCornerRadius
-                    color: "transparent"
-                    border.color: Theme.accent
-                    border.width: 2
-                }
-
-                NotificationArtworkCard {
-                    id: artworkCard
-                    coverArt: art
-                    artRev: modelData.artRev || 0
-                    fallbackIcon: root.popupIcon(modelData)
-                    fields: media
-                    imageFillMode: root.popupArtFillMode(modelData)
-                }
-            }
-
-            MouseArea {
-                anchors.fill: parent
-                acceptedButtons: Qt.LeftButton | Qt.RightButton
-                cursorShape: root.isHyprshot(modelData) ? Qt.PointingHandCursor : Qt.ArrowCursor
-                onClicked: function(mouse) {
-                    if (!modelData) return
-                    if (mouse.button === Qt.RightButton) {
-                        root.dismissEntry(modelData.key)
-                    } else if (mouse.button === Qt.LeftButton && root.isHyprshot(modelData)) {
-                        root.openScreenshotEditor(modelData)
-                    }
-                }
-            }
+            onDismissed: if (modelData) root.dismissEntry(modelData.key)
+            onOpenScreenshot: if (modelData) root.openScreenshotEditor(modelData)
+            onArtError: function(source) { root.logEvent("artError", { source: source }) }
+            onArtReady: function(source) { root.logEvent("artReady", { source: source }) }
         }
     }
 }

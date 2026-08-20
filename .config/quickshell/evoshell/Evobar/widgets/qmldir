@@ -16,4 +16,5 @@ ShopifyWidget 1.0 ShopifyWidget.qml
 SystemWidget 1.0 SystemWidget.qml
 NetworkWidget 1.0 NetworkWidget.qml
 TransmissionWidget 1.0 TransmissionWidget.qml
+NotificationsWidget 1.0 NotificationsWidget.qml
 BarSection 1.0 BarSection.qml

@@ -85,6 +85,11 @@ var plugins = {
         path: "Evobar/Popups/Insync/Insync.qml",
         keepLoaded: true
     },
+    "evo.bar.popups.notifications": {
+        kinds: ["menu"],
+        path: "Evobar/Popups/Notifications/Notifications.qml",
+        keepLoaded: true
+    },
     "evo.bar.steam": {
         kinds: ["menu"],
         path: "Evobar/Steam/Steam.qml",
@@ -162,6 +167,7 @@ var panelPluginIds = [
     "evo.bar.popups.cloudflare",
     "evo.bar.network.transmission",
     "evo.bar.popups.insync",
+    "evo.bar.popups.notifications",
     "evo.bar.steam",
     "evo.bar.media.library",
     "evo.sys.themes",

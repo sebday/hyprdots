@@ -20,6 +20,7 @@ required=(
   evo.panel.player.monitor
   evo.bar.media.now-playing
   evo.bar.media.library
+  evo.bar.popups.notifications
 )
 
 for id in "${required[@]}"; do

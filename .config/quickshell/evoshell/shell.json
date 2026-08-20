@@ -59,6 +59,9 @@
             "onClick": "ghostty --class=TUI.main -e alsamixer",
             "onClickRight": "ghostty --class=TUI.main -e wiremix"
           },
+          "notifications": {
+            "onHover": "evo.bar.popups.notifications"
+          },
           "network": {
             "interval": 2,
             "transmissionInterval": 3,

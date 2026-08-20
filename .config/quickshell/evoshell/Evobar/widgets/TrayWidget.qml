@@ -22,6 +22,7 @@ Item {
     readonly property bool showStocks: settings.stocks != null && settings.stocks !== false
     readonly property bool showCloudflare: settings.cloudflare != null && settings.cloudflare !== false
     readonly property bool showAudio: settings.audio !== false
+    readonly property bool showNotifications: settings.notifications !== false
     readonly property bool showNetwork: settings.network !== false
 
     implicitWidth: trayRow.implicitWidth + Theme.barSectionGap
@@ -85,6 +86,7 @@ Item {
         if (networkLoader.item) wireBarWidget(networkLoader.item, settings.network, "evo.bar.network.stats")
         if (mediaLoader.item) wireBarWidget(mediaLoader.item, settings.audio, "evo.bar.media.now-playing")
         if (volumeLoader.item) wireBarWidget(volumeLoader.item, settings.audio, "evo.bar.media.volume")
+        if (notificationsLoader.item) wireBarWidget(notificationsLoader.item, settings.notifications, "evo.bar.popups.notifications")
     }
 
     onSettingsChanged: rewireTrayWidgets()
@@ -102,6 +104,7 @@ Item {
     Component { id: cloudflareComp; CloudflareWidget {} }
     Component { id: mediaComp; MediaWidget {} }
     Component { id: volumeComp; VolumeWidget {} }
+    Component { id: notificationsComp; NotificationsWidget {} }
     Component { id: networkComp; NetworkWidget {} }
 
     Row {
@@ -123,6 +126,20 @@ Item {
                 active: root.showAudio
                 sourceComponent: volumeComp
                 onLoaded: root.wireBarWidget(item, root.settings.audio, "evo.bar.media.volume")
+            }
+        }
+
+        Item {
+            width: root.showNotifications ? root.trayCellWidth : 0
+            height: Theme.barHeight
+            visible: root.showNotifications
+
+            Loader {
+                id: notificationsLoader
+                anchors.fill: parent
+                active: root.showNotifications
+                sourceComponent: notificationsComp
+                onLoaded: root.wireBarWidget(item, root.settings.notifications, "evo.bar.popups.notifications")
             }
         }
 

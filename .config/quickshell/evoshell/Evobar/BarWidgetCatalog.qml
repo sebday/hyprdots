@@ -28,7 +28,10 @@ Item {
         registry.register("evo.bar.popups.github", githubComp, { displayName: "GitHub" })
         registry.register("evo.panel.shopify", shopifyComp, { displayName: "Shopify" })
         registry.register("evo.bar.popups.system-stats", systemComp, { displayName: "System" })
+        registry.register("evo.bar.popups.notifications", notificationsComp, { displayName: "Notifications" })
     }
+
+    Component { id: notificationsComp; NotificationsWidget {} }
 
     Component.onCompleted: registerAll()
 }
