@@ -17,8 +17,16 @@ Item {
     property bool labelProminent: false
     property bool labelClickable: false
     property bool fillHeight: false
+    property bool notchLegend: false
+    property string legendText: ""
+    property string legendIcon: ""
+    property bool legendClickable: false
 
     signal labelClicked()
+    signal legendClicked()
+
+    readonly property bool showNotchLegend: notchLegend
+        && (legendText !== "" || legendIcon !== "")
 
     Layout.fillWidth: true
     Layout.fillHeight: fillHeight
@@ -37,6 +45,13 @@ Item {
     }
 
     function adoptFieldsetLegend() {
+        if (root.showNotchLegend) {
+            syncLegendFill(notchLegendPill)
+            panel.legendOverlay = notchLegendPill
+            panel.labelBackground = root.legendBackground
+            Qt.callLater(panel.syncLegendOverlay)
+            return
+        }
         if (panel.legendOverlay && panel.legendOverlay.fieldsetLegend === true) {
             syncLegendFill(panel.legendOverlay)
             panel.labelBackground = root.legendBackground
@@ -57,7 +72,22 @@ Item {
     }
 
     onLegendBackgroundChanged: adoptFieldsetLegend()
+    onNotchLegendChanged: adoptFieldsetLegend()
+    onLegendTextChanged: adoptFieldsetLegend()
+    onLegendIconChanged: adoptFieldsetLegend()
     onVisibleChanged: if (visible) Qt.callLater(adoptFieldsetLegend)
+
+    HoverPopupLabelPill {
+        id: notchLegendPill
+        visible: root.showNotchLegend
+        text: root.legendText
+        icon: root.legendIcon
+        fieldsetLegend: true
+        fieldsetFill: root.legendBackground
+        fontSize: Theme.fontSizeS
+        clickable: root.legendClickable
+        onClicked: root.legendClicked()
+    }
 
     FramedPanel {
         id: panel

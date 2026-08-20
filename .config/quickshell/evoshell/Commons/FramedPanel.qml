@@ -21,25 +21,30 @@ Item {
     property int labelGap: Theme.spacingM
     property Item legendOverlay: null
     property Item legendOverlayParent: null
+    property bool insetLegend: false
 
     signal labelClicked()
 
     default property alias content: contentHost.data
 
     readonly property bool hasLabel: label !== ""
-    readonly property bool hasLegendOverlay: legendOverlay && legendOverlay.visible
+    readonly property bool hasLegendOverlay: !root.insetLegend
+        && legendOverlay
+        && legendOverlay.visible
     readonly property int legendOverlayHeight: hasLegendOverlay ? legendOverlay.implicitHeight : 0
     readonly property int legendTopInset: hasLegendOverlay ? 4 : 0
     readonly property int legendLineOverlap: 7
-    readonly property int legendOverlap: legendOverlayHeight > 0
-        ? legendOverlayHeight + legendTopInset - legendLineOverlap : 0
+    readonly property int legendOverlap: insetLegend ? 0
+        : (legendOverlayHeight > 0
+            ? legendOverlayHeight + legendTopInset - legendLineOverlap : 0)
     readonly property int cornerRadius: Theme.fieldsetCornerRadius
     readonly property int scaledPad: contentPad
     readonly property int resolvedLegendPad: legendPad >= 0 ? legendPad : scaledPad
     readonly property int contentWidth: Math.max(contentHost.childrenRect.width, 1)
     readonly property int contentHeight: Math.max(contentHost.childrenRect.height, 1)
     readonly property int labelRowHeight: hasLabel ? frameLabel.implicitHeight + labelGap : 0
-    readonly property int legendContentGap: hasLegendOverlay ? Theme.spacingS : 0
+    readonly property int legendContentGap: insetLegend ? 0
+        : (hasLegendOverlay ? Theme.spacingS : 0)
     readonly property int verticalChrome: scaledPad * 2 + labelRowHeight + legendContentGap
     readonly property int frameHeight: contentHeight + verticalChrome
 

@@ -14,8 +14,6 @@ Item {
     readonly property bool active: host && host.opened === true
     readonly property var notifService: shell ? shell.serviceFor("evo.sys.notifications") : null
     readonly property var historyEntries: notifService ? (notifService.historyEntries || []) : []
-    readonly property int unreadCount: notifService ? (notifService.unreadCount || 0) : 0
-    readonly property int hintFont: Theme.fontSizeL
     readonly property int titleFont: Theme.fontSizeXl
     readonly property int bodyFont: Theme.fontSizeM
     readonly property int maxListHeight: 420
@@ -189,30 +187,16 @@ Item {
 
                 Item { Layout.fillWidth: true }
 
-                Text {
-                    visible: root.unreadCount > 0
-                    text: root.unreadCount + " unread"
-                    color: Theme.accent
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.hintFont
-                    font.bold: Theme.fontBold
-                    opacity: Theme.opacitySecondary
-                }
-
-                Text {
+                HoverPopupLabelPill {
                     visible: root.hasClearableEntries
+                    clickable: root.hasClearableEntries
                     text: "Clear"
-                    color: Theme.urgent
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.hintFont
-                    font.bold: Theme.fontBold
-                    opacity: Theme.opacitySecondary
-
-                    MouseArea {
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.clearAll()
-                    }
+                    icon: "󰩺"
+                    fontSize: Theme.fontSizeXs
+                    textColor: Theme.urgent
+                    fill: Theme.withOpacity(Theme.foreground, 0.08)
+                    textOpacity: Theme.opacitySecondary
+                    onClicked: root.clearAll()
                 }
             }
         }

@@ -64,6 +64,8 @@ check_absent 'NotificationArtworkCard' "${root}/Evosys/Notifications/Service.qml
 # Manifest ids
 check_present 'evo\.bar\.popups\.weather' "${root}/pluginManifest.js"
 check_present 'evo\.bar\.popups\.home-assistant' "${root}/pluginManifest.js"
+check_present 'evo\.bar\.media\.evo-player' "${root}/pluginManifest.js"
+check_present 'evo\.bar\.media\.evo-player' "${root}/shell.json"
 check_present 'evo\.panel\.player' "${root}/pluginManifest.js"
 check_present 'evo\.sys\.settings' "${root}/pluginManifest.js"
 check_present '"exec": "~/.local/bin/evo-bar-weather-bar"' "${root}/shell.json"

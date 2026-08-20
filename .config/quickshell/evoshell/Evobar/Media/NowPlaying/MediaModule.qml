@@ -4,6 +4,7 @@ import Quickshell.Io
 import QtQuick
 import QtQuick.Layouts
 import "../../../Commons"
+import "../../Popups/Notifications"
 
 Item {
     id: root
@@ -11,6 +12,7 @@ Item {
     property var host: null
     property var shell: null
     property int hoverPopupWidth: 0
+    property string mediaTab: "now-playing"
 
     readonly property bool active: host && host.opened === true
     readonly property int bodyFont: Theme.fontSize3xl
@@ -374,16 +376,30 @@ Item {
 
         SectionPanel {
             label: ""
-            visible: root.hasPlayer
 
-            HoverPopupLabelPill {
-                text: "Now playing"
-                icon: "󰎈"
-                fontSize: Theme.fontSizeS
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: Theme.spacingS
+
+                Repeater {
+                    model: [
+                        { id: "now-playing", label: "Now playing" },
+                        { id: "fil-tv", label: "Fil/TV" }
+                    ]
+
+                    NotificationMetaPill {
+                        required property var modelData
+                        text: modelData.label
+                        active: root.mediaTab === modelData.id
+                        clickable: true
+                        onClicked: root.mediaTab = modelData.id
+                    }
+                }
             }
 
             Item {
                 Layout.fillWidth: true
+                visible: root.hasPlayer
                 implicitHeight: nowPlayingRow.implicitHeight
 
                 RowLayout {
@@ -486,7 +502,7 @@ Item {
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: Theme.spacingS
-                visible: root.trackLength > 0 || root.playerPlaying
+                visible: root.hasPlayer && (root.trackLength > 0 || root.playerPlaying)
 
                 Item {
                     Layout.fillWidth: true
@@ -617,7 +633,7 @@ Item {
 
         Text {
             Layout.fillWidth: true
-            visible: !root.hasPlayer
+            visible: root.mediaTab === "now-playing" && !root.hasPlayer
             text: "Nothing playing"
             color: Theme.foreground
             font.family: Theme.fontFamily
@@ -627,7 +643,7 @@ Item {
 
         SectionPanel {
             label: ""
-            visible: root.allPlayers.length > 1
+            visible: root.mediaTab === "now-playing" && root.allPlayers.length > 1
 
             HoverPopupLabelPill {
                 text: "Players"
@@ -821,13 +837,7 @@ Item {
 
         SectionPanel {
             label: ""
-            visible: !root.mediaLoading
-
-            HoverPopupLabelPill {
-                text: "Most popular"
-                icon: "󰕶"
-                fontSize: Theme.fontSizeS
-            }
+            visible: root.mediaTab === "fil-tv" && !root.mediaLoading
 
             MediaPosterGrid {
                 items: root.mostPopularItems

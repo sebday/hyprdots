@@ -18,6 +18,7 @@ usage:
   evo-player queue append-browse <path> [--json]
   evo-player queue play <start-path> <path> [<path>...]
   evo-player queue extend [--json]
+  evo-player queue up-next [--json] [--limit N]
   evo-player prioritize <path> [<path>...]
   evo-player toggle|next|prev|seek <sec>|shuffle [toggle|on|off]
   evo-player volume set <0-100>|volume <delta>
@@ -41,6 +42,11 @@ usage:
   evo-player playlist [--json]
   evo-player playlist <name> [--json] [--offset N] [--limit N]
   evo-player playlist star toggle <name> [--json]
+  evo-player playlist create <name> [--json]
+  evo-player playlist rename <old> <new> [--json]
+  evo-player playlist delete <name> [--json]
+  evo-player playlist add <name> <path> [--json]
+  evo-player playlist remove <name> <path> [--json]
   evo-player favorite toggle <path> [--json]
   evo-player tag set title <path> <value> [--json]
   evo-player mixes migrate [--dry-run] [--json]
@@ -53,6 +59,7 @@ usage:
   evo-player find [--artist|--genre|--year|--album|--label] <value> [--json]
   evo-player find <query> [--json]
   evo-player scrobble auth|token <token>|nowplaying|submit|recent|touch [--json]
+  evo-player history report [--week <unix>] [--limit N] [--json]
   evo-player stats [--json]
 EOF
   exit 1
@@ -484,6 +491,7 @@ cmd_player_queue() {
     append-browse) cmd_player_queue_append_browse "$@" ;;
     play) cmd_player_queue_play "$@" ;;
     extend) cmd_player_queue_extend "$@" ;;
+    up-next) cmd_queue_up_next "$@" ;;
     -h|--help|help|"") usage ;;
     *) echo "evo-player: unknown queue command: $sub" >&2; usage ;;
   esac
@@ -938,13 +946,15 @@ cmd_player_status() {
     fi
     return 0
   fi
-  local path paused pos dur vol title artist genre album year label art wf playlist shuffle state liked row muted
+  local path paused pos dur vol title artist genre album year label art wf playlist shuffle state liked row muted pl_pos pl_count
   path="$(mpv_prop path)" || path=""
   paused="$(mpv_prop pause)" || paused="true"
   pos="$(mpv_prop time-pos)" || pos="0"
   dur="$(mpv_prop duration)" || dur="0"
   vol="$(mpv_prop volume)" || vol="100"
   muted="$(mpv_prop mute)" || muted="false"
+  pl_pos="$(mpv_prop playlist-pos 2>/dev/null || echo 0)"
+  pl_count="$(mpv_prop playlist-count 2>/dev/null || echo 0)"
   [[ "$muted" == "true" ]] && vol="0"
   shuffle="$(mpv_prop shuffle)" || shuffle="false"
   playlist=""
@@ -994,9 +1004,11 @@ cmd_player_status() {
       --arg playlist "$playlist" \
       --argjson shuffle "$([[ $shuffle == yes || $shuffle == true ]] && echo true || echo false)" \
       --argjson liked "$([[ $liked == true ]] && echo true || echo false)" \
+      --argjson playlist_pos "${pl_pos:-0}" \
+      --argjson playlist_count "${pl_count:-0}" \
       --arg position_label "$(format_time "${pos:-0}")" \
       --arg duration_label "$(format_time "${dur:-0}")" \
-      '{state:$state,path:$path,title:$title,artist:$artist,genre:$genre,album:$album,year:$year,label:$label,position:$position,duration:$duration,volume:$volume,liked:$liked,art:$art,waveform:$waveform,playlist:$playlist,shuffle:$shuffle,position_label:$position_label,duration_label:$duration_label}'
+      '{state:$state,path:$path,title:$title,artist:$artist,genre:$genre,album:$album,year:$year,label:$label,position:$position,duration:$duration,volume:$volume,liked:$liked,art:$art,waveform:$waveform,playlist:$playlist,shuffle:$shuffle,playlist_pos:$playlist_pos,playlist_count:$playlist_count,position_label:$position_label,duration_label:$duration_label}'
   else
     printf '%s — %s (%s)\n' "$artist" "$title" "$state"
   fi
@@ -1929,6 +1941,155 @@ cmd_playlist_star() {
     -h|--help|help|"") usage ;;
     *) echo "evo-player: unknown playlist star command: $sub" >&2; usage ;;
   esac
+}
+
+cmd_playlist_create() {
+  local name="" json=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --json) json=1 ;;
+      *) name="$1" ;;
+    esac
+    shift
+  done
+  playlist_create_user "$name"
+  if [[ "$json" -eq 1 ]]; then
+    jq -n --arg name "$name" '{ok:true,name:$name,action:"create"}'
+  else
+    printf 'created playlist %s\n' "$name"
+  fi
+}
+
+cmd_playlist_rename() {
+  local old="" new="" json=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --json) json=1 ;;
+      *)
+        if [[ -z "$old" ]]; then old="$1"; else new="$1"; fi
+        ;;
+    esac
+    shift
+  done
+  playlist_rename_user "$old" "$new"
+  if [[ "$json" -eq 1 ]]; then
+    jq -n --arg old "$old" --arg new "$new" '{ok:true,old:$old,new:$new,action:"rename"}'
+  else
+    printf 'renamed playlist %s -> %s\n' "$old" "$new"
+  fi
+}
+
+cmd_playlist_delete() {
+  local name="" json=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --json) json=1 ;;
+      *) name="$1" ;;
+    esac
+    shift
+  done
+  playlist_delete_user "$name"
+  if [[ "$json" -eq 1 ]]; then
+    jq -n --arg name "$name" '{ok:true,name:$name,action:"delete"}'
+  else
+    printf 'deleted playlist %s\n' "$name"
+  fi
+}
+
+cmd_playlist_add() {
+  local name="" path="" json=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --json) json=1 ;;
+      *)
+        if [[ -z "$name" ]]; then name="$1"; else path="$1"; fi
+        ;;
+    esac
+    shift
+  done
+  playlist_add_track_user "$name" "$path"
+  if [[ "$json" -eq 1 ]]; then
+    jq -n --arg name "$name" --arg path "$path" '{ok:true,name:$name,path:$path,action:"add"}'
+  else
+    printf 'added to %s\n' "$name"
+  fi
+}
+
+cmd_playlist_remove() {
+  local name="" path="" json=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --json) json=1 ;;
+      *)
+        if [[ -z "$name" ]]; then name="$1"; else path="$1"; fi
+        ;;
+    esac
+    shift
+  done
+  playlist_remove_track_user "$name" "$path"
+  if [[ "$json" -eq 1 ]]; then
+    jq -n --arg name "$name" --arg path "$path" '{ok:true,name:$name,path:$path,action:"remove"}'
+  else
+    printf 'removed from %s\n' "$name"
+  fi
+}
+
+cmd_queue_up_next() {
+  local json=0 limit=5
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --json) json=1 ;;
+      --limit)
+        limit="${2:-5}"
+        shift
+        ;;
+      *) ;;
+    esac
+    shift
+  done
+  local out
+  out="$(queue_up_next_json "$limit")"
+  if [[ "$json" -eq 1 ]]; then
+    printf '%s\n' "$out"
+  else
+    jq -r '.[] | "\(.artist) — \(.title)"' <<<"$out"
+  fi
+}
+
+cmd_history() {
+  local sub="${1:-}"
+  shift || true
+  case "$sub" in
+    report) cmd_history_report "$@" ;;
+    -h|--help|help|"") usage ;;
+    *) echo "evo-player: unknown history command: $sub" >&2; usage ;;
+  esac
+}
+
+cmd_history_report() {
+  local json=0 week="" limit=12
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --json) json=1 ;;
+      --week)
+        week="$2"
+        shift
+        ;;
+      --limit)
+        limit="$2"
+        shift
+        ;;
+      *) ;;
+    esac
+    shift
+  done
+  local out
+  out="$(history_report_json "${week:-0}" "$limit")"
+  if [[ "$json" -eq 1 ]]; then
+    printf '%s\n' "$out"
+  else
+    jq -r '.totals | "scrobbles: \(.scrobbles) artists: \(.artists)"' <<<"$out"
+  fi
 }
 
 browse_subdirs() {
@@ -3231,12 +3392,35 @@ main() {
     tracks) cmd_tracks "$@" ;;
     browse) cmd_browse "$@" ;;
     playlist)
-      if [[ "${1:-}" == "star" ]]; then
-        shift
-        cmd_playlist_star "$@"
-      else
-        cmd_playlist "$@"
-      fi
+      case "${1:-}" in
+        star)
+          shift
+          cmd_playlist_star "$@"
+          ;;
+        create)
+          shift
+          cmd_playlist_create "$@"
+          ;;
+        rename)
+          shift
+          cmd_playlist_rename "$@"
+          ;;
+        delete)
+          shift
+          cmd_playlist_delete "$@"
+          ;;
+        add)
+          shift
+          cmd_playlist_add "$@"
+          ;;
+        remove)
+          shift
+          cmd_playlist_remove "$@"
+          ;;
+        *)
+          cmd_playlist "$@"
+          ;;
+      esac
       ;;
     mixes) cmd_mixes "$@" ;;
     favorite)
@@ -3249,6 +3433,7 @@ main() {
     art) cmd_art "$@" ;;
     find) cmd_find "$@" ;;
     scrobble) cmd_scrobble "$@" ;;
+    history) cmd_history "$@" ;;
     -h|--help|help|"") usage ;;
     *)
       echo "evo-player: unknown command: $cmd" >&2

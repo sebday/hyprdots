@@ -15,7 +15,11 @@ Item {
     readonly property string playerScript: (Quickshell.env("HOME") || "") + "/.local/bin/evo-player"
     readonly property var playerMonitor: shell ? shell.serviceFor("evo.panel.player.monitor") : null
     readonly property int pad: Theme.hoverPopupMargin
+    readonly property int menuBarPad: Theme.spacingS
+    readonly property int playerSectionGap: 15
+    readonly property int playerFieldsetPullUp: root.useFieldsetLegends ? 10 : 0
     readonly property color fieldsetLegendBackground: Theme.background
+    property bool useFieldsetLegends: true
     readonly property int bodyFont: Theme.fontSize3xl
     readonly property int hintFont: Theme.fontSizeL
     readonly property int listFont: hintFont
@@ -127,17 +131,20 @@ Item {
     property bool browsePanelOpen: false
     property bool playlistPanelOpen: false
     property bool settingsPanelOpen: false
+    property bool historyPanelOpen: false
     property string playlistPanelMode: "library"
 
     onSettingsPanelOpenChanged: {
         if (settingsPanelOpen)
             loadPlayerSettings()
     }
-    readonly property bool sidePanelOpen: browsePanelOpen || playlistPanelOpen || settingsPanelOpen
+    readonly property bool sidePanelOpen: browsePanelOpen || playlistPanelOpen || settingsPanelOpen || historyPanelOpen
     readonly property bool splitSidePanelMode: browsePanelOpen || playlistPanelOpen
-        || settingsPanelOpen || playerScreen === "filter"
+        || settingsPanelOpen || historyPanelOpen || playerScreen === "filter"
     readonly property int sideContentStackIndex: {
         if (playerScreen === "filter")
+            return 5
+        if (historyPanelOpen)
             return 4
         if (settingsPanelOpen)
             return 3
@@ -147,6 +154,28 @@ Item {
             return 2
         return 0
     }
+    readonly property var upNextTracks: {
+        var path = String(player.path || "")
+        if (!path || !currentPlaylistActive || !currentPlaylistTracks.length || player.shuffle === true)
+            return []
+        var idx = -1
+        for (var i = 0; i < currentPlaylistTracks.length; i++) {
+            if (String(currentPlaylistTracks[i].path || "") === path) {
+                idx = i
+                break
+            }
+        }
+        if (idx < 0)
+            return []
+        var out = []
+        for (var j = idx + 1; j < currentPlaylistTracks.length && out.length < 3; j++)
+            out.push(currentPlaylistTracks[j])
+        return out
+    }
+    property var historyReport: ({})
+    property bool historyLoading: false
+    property int historyWeekFrom: 0
+    property string selectedLibraryPlaylist: ""
     readonly property bool nowPlayingTabActive: !browsePanelOpen && !playlistPanelOpen
         && !settingsPanelOpen && playerScreen === "nowPlaying"
     readonly property bool artPreviewActive: (browsePanelOpen || playlistPanelOpen)
@@ -224,11 +253,13 @@ Item {
     }
     property string resolvedArt: ""
     property string resolvedArtPath: ""
-    property string sideArtHeldSource: ""
-    property string sideArtIncomingSource: ""
-    property string sideArtPendingSource: ""
-    property bool sideArtLayoutReady: false
-    property bool sideArtLoaded: false
+    readonly property string sideArtDisplayUrl: {
+        var path = nowPlayingArtPath
+        if (!path)
+            return ""
+        root.artRevision
+        return artUrl(path, true)
+    }
     property bool queueExtendBusy: false
     property string filterKind: ""
     property string filterLabel: ""
@@ -400,52 +431,6 @@ Item {
 
     function bumpArtRevision() {
         artRevision++
-        syncSideArtImageSource()
-    }
-
-    function syncSideArtImageSource() {
-        var path = nowPlayingArtPath
-        if (!path) {
-            sideArtHeldSource = ""
-            sideArtIncomingSource = ""
-            sideArtPendingSource = ""
-            sideArtLoaded = false
-            return
-        }
-        var next = artUrl(path, true)
-        if (!sideArtLayoutReady) {
-            sideArtPendingSource = next
-            return
-        }
-        sideArtPendingSource = ""
-        if (next === sideArtIncomingSource)
-            return
-        if (next === sideArtHeldSource && !sideArtIncomingSource)
-            return
-        if (!sideArtHeldSource || !sideArtLoaded) {
-            sideArtIncomingSource = ""
-            if (next !== sideArtHeldSource) {
-                sideArtHeldSource = next
-                sideArtLoaded = false
-            }
-            return
-        }
-        sideArtIncomingSource = next
-    }
-
-    function finishSideArtIncoming() {
-        if (!sideArtIncomingSource)
-            return
-        sideArtIncomingSource = ""
-        sideArtLoaded = true
-        sideArtKickTimer.stop()
-    }
-
-    function beginSideArtHeldPromote(incomingUrl) {
-        incomingUrl = String(incomingUrl || "")
-        if (!incomingUrl || sideArtHeldSource === incomingUrl)
-            return
-        sideArtHeldSource = incomingUrl
     }
 
     function onAlbumArtUpdated(scope) {
@@ -494,7 +479,7 @@ Item {
         if (trackPath === String(player.path || "") && art.charAt(0) === "/") {
             if (String(player.art || "") !== art)
                 player = Object.assign({}, player, { art: art })
-            syncSideArtImageSource()
+            bumpArtRevision()
         }
     }
 
@@ -626,10 +611,6 @@ Item {
     function toggleCompactMode() {
         compactMode = !compactMode
         menuBarHidden = compactMode
-        Qt.callLater(function() {
-            root.syncSideArtImageSource()
-            sideArtKickTimer.restart()
-        })
     }
 
     function copyTitleToClipboard() {
@@ -717,6 +698,7 @@ Item {
         browsePanelOpen = false
         playlistPanelOpen = false
         settingsPanelOpen = false
+        historyPanelOpen = false
         playerScreen = "nowPlaying"
     }
 
@@ -729,6 +711,7 @@ Item {
         savePlaylistView(selectedPlaylist)
         playlistPanelOpen = false
         settingsPanelOpen = false
+        historyPanelOpen = false
         browsePanelOpen = true
         playerScreen = "nowPlaying"
         kickSidePanels()
@@ -742,6 +725,7 @@ Item {
         }
         browsePanelOpen = false
         settingsPanelOpen = false
+        historyPanelOpen = false
         playlistPanelOpen = true
         playlistPanelMode = "library"
         playerScreen = "nowPlaying"
@@ -831,9 +815,110 @@ Item {
         savePlaylistView(selectedPlaylist)
         browsePanelOpen = false
         playlistPanelOpen = false
+        historyPanelOpen = false
         settingsPanelOpen = true
         playerScreen = "nowPlaying"
         loadPlayerSettings()
+    }
+
+    function toggleHistoryPanel() {
+        if (historyPanelOpen) {
+            historyPanelOpen = false
+            return
+        }
+        savePlaylistView(selectedPlaylist)
+        browsePanelOpen = false
+        playlistPanelOpen = false
+        settingsPanelOpen = false
+        historyPanelOpen = true
+        playerScreen = "nowPlaying"
+        loadHistoryReport()
+        kickSidePanels()
+    }
+
+    function loadHistoryReport(weekFrom) {
+        if (weekFrom !== undefined && weekFrom !== null)
+            historyWeekFrom = Number(weekFrom) || 0
+        historyLoading = true
+        var args = ["history", "report", "--json", "--limit", "12"]
+        if (historyWeekFrom > 0)
+            args = args.concat(["--week", String(historyWeekFrom)])
+        runQuery(args, function(text) {
+            historyLoading = false
+            try {
+                historyReport = JSON.parse(String(text || "{}"))
+                if (historyReport.week && historyReport.week.from)
+                    historyWeekFrom = Number(historyReport.week.from) || 0
+            } catch (e) {
+                historyReport = {}
+            }
+        })
+    }
+
+    function shiftHistoryWeek(delta) {
+        var weeks = historyReport.available_weeks || []
+        if (!weeks.length)
+            return
+        var idx = 0
+        for (var i = 0; i < weeks.length; i++) {
+            if (Number(weeks[i].from) === historyWeekFrom) {
+                idx = i
+                break
+            }
+        }
+        idx = Math.max(0, Math.min(weeks.length - 1, idx + Number(delta || 0)))
+        loadHistoryReport(weeks[idx].from)
+    }
+
+    function createUserPlaylist(name) {
+        name = String(name || "").trim()
+        if (!name)
+            return
+        runPlaylistQuery(["playlist", "create", name, "--json"], function() {
+            loadPlaylists(true)
+            notify("created playlist " + name, 2500)
+        })
+    }
+
+    function renameUserPlaylist(oldName, newName) {
+        oldName = String(oldName || "").trim()
+        newName = String(newName || "").trim()
+        if (!oldName || !newName)
+            return
+        runPlaylistQuery(["playlist", "rename", oldName, newName, "--json"], function() {
+            if (selectedLibraryPlaylist === oldName)
+                selectedLibraryPlaylist = newName
+            if (selectedPlaylist === oldName)
+                selectedPlaylist = newName
+            loadPlaylists(true)
+            notify("renamed playlist", 2500)
+        })
+    }
+
+    function deleteUserPlaylist(name) {
+        name = String(name || "").trim()
+        if (!name)
+            return
+        runPlaylistQuery(["playlist", "delete", name, "--json"], function() {
+            if (selectedLibraryPlaylist === name)
+                selectedLibraryPlaylist = ""
+            loadPlaylists(true)
+            notify("deleted playlist", 2500)
+        })
+    }
+
+    function seekBy(delta) {
+        var pos = Number(player.position) || 0
+        var dur = Number(player.duration) || 0
+        if (dur <= 0)
+            return
+        queueSeek(pos + Number(delta || 0))
+    }
+
+    function playUpNextTrack(entry) {
+        if (!entry || !entry.path)
+            return
+        playPath(entry.path, false)
     }
 
     function showPlaylistLibrary() {
@@ -1208,8 +1293,6 @@ Item {
             applyDisplayArtForPath(bootPath)
         refreshCurrentPlaylistView()
         ensureLibraryData()
-        syncSideArtImageSource()
-        sideArtKickTimer.restart()
     }
 
     function ensureLibraryData() {
@@ -1257,6 +1340,17 @@ Item {
     function playlistCanStar(name) {
         var n = String(name || "")
         return n !== "" && n !== currentPlaylistId
+    }
+
+    function playlistIsUserEditable(name) {
+        var n = String(name || "")
+        if (!n || n === currentPlaylistId || n === "all" || n === "favorites")
+            return false
+        for (var i = 0; i < libraryPlaylists.length; i++) {
+            if (libraryPlaylists[i].name === n)
+                return String(libraryPlaylists[i].kind || "") === "other"
+        }
+        return false
     }
 
     function refreshCurrentPlaylistView() {
@@ -1337,8 +1431,6 @@ Item {
                 player = Object.assign({}, player, { art: nextArt })
             if (nextArt !== prevArt)
                 bumpArtRevision()
-            else
-                syncSideArtImageSource()
         }
     }
 
@@ -1629,8 +1721,6 @@ Item {
         if (playerMonitor)
             mergeMonitorStatus()
         pollStatus(applyStatus)
-        syncSideArtImageSource()
-        sideArtKickTimer.restart()
         saveStateTimer.start()
         jobStatusTimer.start()
         syncExternalJobStatus()
@@ -1662,11 +1752,14 @@ Item {
             playbackSettleTimer.stop()
             finishPlaybackSettle()
         }
-        function runClose() {
-            if (!runPlayer(["close"], finishDeactivate, deactivateProc))
-                Qt.callLater(runClose)
-        }
-        runClose()
+        runPlayer(["save"], null, cmdProc)
+    }
+
+    function stopPlayback() {
+        runPlayer(["stop"], function() {
+            player = {}
+            waveformSamples = []
+        }, deactivateProc)
     }
 
     function loadGenres() {
@@ -1759,12 +1852,15 @@ Item {
         if (!name)
             return
         var next = normalizePlaylistName(name)
-        if (playlistPanelMode === "tracks" && selectedPlaylist && selectedPlaylist !== next)
-            savePlaylistView(selectedPlaylist)
-        selectedPlaylist = next
+        selectedLibraryPlaylist = next
+    }
+
+    function openSelectedLibraryPlaylist() {
+        if (!selectedLibraryPlaylist)
+            return
+        selectGenrePlaylist(selectedLibraryPlaylist)
         playlistPanelMode = "tracks"
-        syncPlaylistTabPosition()
-        loadPlaylistTracks(selectedPlaylist)
+        loadPlaylistTracks(selectedLibraryPlaylist)
     }
 
     function togglePlaylistStar(name) {
@@ -2976,7 +3072,6 @@ Item {
                 else
                     applyDisplayArtForPath(prevPath)
             }
-            syncSideArtImageSource()
             return
         }
         applyStatus(JSON.stringify(snap))
@@ -3346,7 +3441,6 @@ Item {
         }
         checkAutoExtendQueue()
         mergePlayerFromTrackList()
-        syncSideArtImageSource()
     }
 
     function applyWaveform(text) {
@@ -4455,24 +4549,7 @@ Item {
             root.player = Object.assign({}, root.player, { art: listArt })
             if (root.resolvedArtPath !== path || !root.resolvedArt)
                 root.applyPlayerArt(path, listArt)
-            else
-                root.syncSideArtImageSource()
         }
-    }
-
-    Timer {
-        id: sideArtKickTimer
-        interval: 100
-        repeat: true
-        property int tries: 0
-        onTriggered: {
-            root.syncSideArtImageSource()
-            tries++
-            if (tries >= 24 || root.sideArtLoaded)
-                stop()
-        }
-        onRunningChanged: if (!running)
-            tries = 0
     }
 
     Timer {
@@ -4629,13 +4706,14 @@ Item {
             id: rootLayout
             width: playerScroller.width
             height: Math.max(playerScroller.height, implicitHeight)
-            spacing: Theme.hoverPopupSectionSpacing
+            spacing: root.playerSectionGap
 
         // Tabs
         SectionPanel {
             label: ""
             visible: !root.menuBarHidden
             Layout.fillWidth: true
+            contentPad: root.menuBarPad
             fillHeight: false
 
             RowLayout {
@@ -4658,6 +4736,11 @@ Item {
                     icon: "󰲸"
                     active: root.playlistPanelOpen
                     onActivated: root.togglePlaylistPanel()
+                }
+                IconTab {
+                    icon: "󰋚"
+                    active: root.historyPanelOpen
+                    onActivated: root.toggleHistoryPanel()
                 }
                 IconTab {
                     icon: "󰒓"
@@ -4783,6 +4866,7 @@ Item {
                                 tabSearchDebounce.stop()
                                 root.tabSearchText = ""
                                 text = ""
+                                focus = false
                             }
                             Keys.onPressed: function(event) {
                                 if (event.modifiers !== Qt.NoModifier)
@@ -4837,7 +4921,7 @@ Item {
                                     tabSearchDebounce.stop()
                                     root.tabSearchText = ""
                                     tabSearchInput.text = ""
-                                    tabSearchInput.forceActiveFocus()
+                                    tabSearchInput.focus = false
                                 }
                             }
                         }
@@ -4852,11 +4936,7 @@ Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.minimumHeight: root.nowPlayingMinBodyHeight
-
-            onWidthChanged: if (width > 0 && height > 0)
-                root.syncSideArtImageSource()
-            onHeightChanged: if (width > 0 && height > 0)
-                root.syncSideArtImageSource()
+            Layout.topMargin: -root.playerFieldsetPullUp
 
             RowLayout {
                     anchors.fill: parent
@@ -4884,17 +4964,16 @@ Item {
 
                         SectionPanel {
                             label: ""
-                            legendBackground: root.fieldsetLegendBackground
+                            legendBackground: root.useFieldsetLegends
+                                ? root.fieldsetLegendBackground
+                                : Theme.background
+                            notchLegend: root.useFieldsetLegends
+                            legendText: "Now playing"
+                            legendIcon: "󰎈"
                             Layout.fillWidth: true
                             Layout.fillHeight: true
                             Layout.minimumHeight: root.nowPlayingFieldsetMinHeight
                             fillHeight: true
-
-                            HoverPopupLabelPill {
-                                text: "Now playing"
-                                icon: "󰎈"
-                                fontSize: Theme.fontSizeS
-                            }
 
                             ColumnLayout {
                                 Layout.fillWidth: true
@@ -4911,7 +4990,7 @@ Item {
                                         visible: root.nowPlayingCompact
                                         side: root.nowPlayingInlineArtSize
                                         showPickerOverlay: false
-                                        useRevision: false
+                                        useRevision: true
                                         art: root.nowPlayingArt
                                         Layout.alignment: Qt.AlignTop | Qt.AlignLeft
                                         Layout.rightMargin: Theme.hoverPopupContentPad
@@ -5342,6 +5421,42 @@ Item {
                                             if (mouse.button === Qt.LeftButton)
                                                 root.commitSeekFromX(mouse.x, width)
                                         }
+                                        onWheel: function(wheel) {
+                                            if (!wheel.angleDelta.y)
+                                                return
+                                            root.adjustVolume(wheel.angleDelta.y > 0 ? 5 : -5)
+                                            wheel.accepted = true
+                                        }
+                                    }
+                                }
+                            }
+
+                            Item {
+                                visible: root.upNextTracks.length > 0
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: upNextStrip.implicitHeight
+
+                                Text {
+                                    id: upNextStrip
+                                    width: parent.width
+                                    text: "Up next · " + root.upNextTracks.map(function(t) {
+                                        return String(t.title || "").trim()
+                                            || String(t.path || "").split("/").pop()
+                                    }).join(" · ")
+                                    color: Theme.foreground
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: root.libraryFont
+                                    opacity: 0.62
+                                    elide: Text.ElideRight
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        if (root.upNextTracks.length > 0)
+                                            root.playUpNextTrack(root.upNextTracks[0])
                                     }
                                 }
                             }
@@ -5382,6 +5497,11 @@ Item {
                             }
                         }
 
+                        PlayerSideHistoryPanel {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                        }
+
                         PlayerSideFilterPanel {
                             Layout.fillWidth: true
                             Layout.fillHeight: true
@@ -5406,121 +5526,57 @@ Item {
                     SectionPanel {
                         label: ""
                         visible: !root.nowPlayingCompact
-                        legendBackground: root.fieldsetLegendBackground
+                        legendBackground: root.useFieldsetLegends
+                            ? root.fieldsetLegendBackground
+                            : Theme.background
+                        notchLegend: root.useFieldsetLegends
+                        legendText: root.artworkLegendText
+                        legendIcon: "󰋩"
                         Layout.fillHeight: true
                         Layout.preferredWidth: root.nowPlayingArtWidth
                         Layout.maximumWidth: root.nowPlayingArtWidth
                         Layout.minimumWidth: root.nowPlayingArtWidth
                         fillHeight: true
 
-                        Component.onCompleted: Qt.callLater(function() {
-                            root.syncSideArtImageSource()
-                            sideArtKickTimer.restart()
-                        })
-
-                        onVisibleChanged: {
-                            if (visible) {
-                                root.syncSideArtImageSource()
-                                sideArtKickTimer.restart()
-                            }
-                        }
-
-                        HoverPopupLabelPill {
-                            text: root.artworkLegendText
-                            icon: "󰋩"
-                            fontSize: Theme.fontSizeS
-                        }
-
                         Item {
                             id: sideArtHost
                             Layout.fillWidth: true
                             Layout.fillHeight: true
 
-                            readonly property bool layoutReady: width > 8 && height > 8
-                            readonly property bool heldReady: sideArtHeldImage.status === Image.Ready
-                                && root.sideArtHeldSource !== ""
-                            readonly property bool incomingReady: sideArtIncomingImage.status === Image.Ready
-                                && root.sideArtIncomingSource !== ""
-                            readonly property bool artShowing: heldReady || incomingReady
-
-                            onLayoutReadyChanged: {
-                                root.sideArtLayoutReady = layoutReady
-                                if (layoutReady)
-                                    root.syncSideArtImageSource()
-                            }
+                            readonly property bool artShowing: sideArtImage.source !== ""
+                                && (sideArtImage.status === Image.Ready
+                                    || sideArtImage.status === Image.Loading)
 
                             Rectangle {
                                 anchors.fill: parent
                                 radius: Theme.fieldsetCornerRadius
                                 clip: true
-                                color: Theme.foregroundFaint
-                                visible: !sideArtHost.artShowing
+                                color: sideArtHost.artShowing
+                                    ? "transparent"
+                                    : Theme.foregroundFaint
 
                                 Text {
                                     anchors.centerIn: parent
+                                    visible: !sideArtHost.artShowing
                                     text: "󰎈"
                                     color: Theme.accent
                                     font.family: Theme.fontFamily
                                     font.pixelSize: Math.round(Math.min(sideArtHost.width, sideArtHost.height) * 0.22)
                                     opacity: 0.5
                                 }
-                            }
-
-                            Rectangle {
-                                anchors.fill: parent
-                                radius: Theme.fieldsetCornerRadius
-                                clip: true
-                                color: "transparent"
 
                                 Image {
-                                    id: sideArtHeldImage
+                                    id: sideArtImage
                                     anchors.fill: parent
-                                    z: 0
-                                    visible: heldReady
-                                    source: root.sideArtHeldSource
+                                    visible: sideArtHost.artShowing
+                                    source: root.nowPlayingCompact ? "" : root.sideArtDisplayUrl
                                     fillMode: Image.PreserveAspectCrop
                                     smooth: true
                                     asynchronous: true
+                                    cache: false
                                     onStatusChanged: {
-                                        if (status === Image.Ready) {
-                                            if (root.sideArtIncomingSource
-                                                    && root.sideArtHeldSource === root.sideArtIncomingSource)
-                                                root.finishSideArtIncoming()
-                                            else if (!root.sideArtIncomingSource && root.sideArtHeldSource) {
-                                                root.sideArtLoaded = true
-                                                sideArtKickTimer.stop()
-                                            }
-                                        }
                                         if (status === Image.Error
-                                                && root.sideArtHeldSource
-                                                && !sideArtHost.retryQueued) {
-                                            sideArtHost.retryQueued = true
-                                            root.applyDisplayArtForPath(String(player.path || ""), function() {
-                                                sideArtHost.retryQueued = false
-                                            })
-                                        }
-                                    }
-                                }
-
-                                Image {
-                                    id: sideArtIncomingImage
-                                    anchors.fill: parent
-                                    z: 1
-                                    visible: incomingReady
-                                    source: root.sideArtIncomingSource
-                                    fillMode: Image.PreserveAspectCrop
-                                    smooth: true
-                                    asynchronous: true
-                                    onStatusChanged: {
-                                        if (status === Image.Ready && root.sideArtIncomingSource) {
-                                            if (root.sideArtHeldSource === root.sideArtIncomingSource
-                                                    && sideArtHeldImage.status === Image.Ready)
-                                                root.finishSideArtIncoming()
-                                            else
-                                                root.beginSideArtHeldPromote(root.sideArtIncomingSource)
-                                        }
-                                        if (status === Image.Error
-                                                && root.sideArtIncomingSource
+                                                && source
                                                 && !sideArtHost.retryQueued) {
                                             sideArtHost.retryQueued = true
                                             root.applyDisplayArtForPath(String(player.path || ""), function() {
@@ -5746,15 +5802,15 @@ Item {
         width: fillPane ? undefined : side
         height: fillPane ? undefined : side
 
-        property string imageUrl: thumbRoot.art
-            ? root.artUrl(thumbRoot.art, thumbRoot.useRevision)
-            : ""
-
-        readonly property string displaySource: {
+        property string imageUrl: {
             if (!thumbRoot.art)
                 return ""
-            return thumbRoot.imageUrl
+            if (thumbRoot.useRevision)
+                root.artRevision // bind revision bumps
+            return root.artUrl(thumbRoot.art, thumbRoot.useRevision)
         }
+
+        readonly property string displaySource: thumbRoot.imageUrl
 
         Rectangle {
             id: coverFrame
@@ -5771,6 +5827,13 @@ Item {
                 fillMode: Image.PreserveAspectCrop
                 smooth: true
                 asynchronous: true
+                onVisibleChanged: {
+                    if (visible && thumbRoot.displaySource) {
+                        var next = thumbRoot.displaySource
+                        source = ""
+                        Qt.callLater(function() { coverImage.source = next })
+                    }
+                }
                 onStatusChanged: {
                     if (status === Image.Error && thumbRoot.art !== "" && !thumbRoot.artRetryQueued) {
                         thumbRoot.artRetryQueued = true
@@ -7279,7 +7342,17 @@ Item {
 
     component PlayerSideBrowsePanel: SectionPanel {
         label: ""
-        legendBackground: root.fieldsetLegendBackground
+        legendBackground: root.useFieldsetLegends ? root.fieldsetLegendBackground : Theme.background
+        notchLegend: root.useFieldsetLegends
+        legendText: {
+            var base = root.browseTreeLoading ? "Library…" : "Library"
+            var path = String(root.selectedBrowseFolderPath || "")
+            if (!path)
+                return base
+            return base + " / " + root.playlistTabLabel(path.split("/").pop())
+        }
+        legendIcon: "󰉋"
+        legendClickable: !root.browseTreeLoading
         fillHeight: true
 
         onVisibleChanged: {
@@ -7287,19 +7360,7 @@ Item {
                 root.kickSidePanels()
         }
 
-        HoverPopupLabelPill {
-            text: {
-                var base = root.browseTreeLoading ? "Library…" : "Library"
-                var path = String(root.selectedBrowseFolderPath || "")
-                if (!path)
-                    return base
-                return base + " / " + root.playlistTabLabel(path.split("/").pop())
-            }
-            icon: "󰉋"
-            fontSize: Theme.fontSizeS
-            clickable: !root.browseTreeLoading
-            onClicked: root.browseTreeHome()
-        }
+        onLegendClicked: root.browseTreeHome()
 
         ListView {
             id: browseTreeListRoot
@@ -7392,7 +7453,6 @@ Item {
                             BrowseTreeIcon {
                                 Layout.preferredWidth: 14
                                 icon: modelData.expanded ? "󰅃" : "󰅂"
-                                hint: "expand or collapse folder"
                                 glyphOpacity: 0.45
                                 hoverOpacity: 0.9
                                 onActivated: root.toggleBrowseTreeNode(modelData.path)
@@ -7494,7 +7554,15 @@ Item {
 
     component PlayerSidePlaylistPanel: SectionPanel {
         label: ""
-        legendBackground: root.fieldsetLegendBackground
+        legendBackground: root.useFieldsetLegends ? root.fieldsetLegendBackground : Theme.background
+        notchLegend: root.useFieldsetLegends
+        legendText: {
+            if (root.playlistPanelMode !== "tracks")
+                return "Playlists"
+            return "Playlists / " + root.playlistTabLabel(root.selectedPlaylist)
+        }
+        legendIcon: "󰲸"
+        legendClickable: root.playlistPanelMode === "tracks"
         fillHeight: true
 
         onVisibleChanged: {
@@ -7504,23 +7572,38 @@ Item {
             }
         }
 
-        HoverPopupLabelPill {
-            text: {
-                if (root.playlistPanelMode !== "tracks")
-                    return "Playlists"
-                return "Playlists / " + root.playlistTabLabel(root.selectedPlaylist)
-            }
-            icon: "󰲸"
-            fontSize: Theme.fontSizeS
-            clickable: root.playlistPanelMode === "tracks"
-            onClicked: root.showPlaylistLibrary()
-        }
+        onLegendClicked: root.showPlaylistLibrary()
 
         ColumnLayout {
             id: playlistPanelColumn
             Layout.fillWidth: true
             Layout.fillHeight: true
             spacing: Theme.spacingS
+
+            RowLayout {
+                Layout.fillWidth: true
+                visible: root.playlistPanelMode === "library"
+                spacing: Theme.spacingS
+
+                Item { Layout.fillWidth: true }
+
+                Text {
+                    text: "󰐕"
+                    color: Theme.accent
+                    opacity: playlistCreateMouse.containsMouse ? 1 : 0.65
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.listFont
+
+                    MouseArea {
+                        id: playlistCreateMouse
+                        anchors.fill: parent
+                        anchors.margins: -6
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.createUserPlaylist("playlist-" + Date.now())
+                    }
+                }
+            }
 
             ListView {
                 id: sidePlaylistLibraryList
@@ -7564,7 +7647,7 @@ Item {
                     width: sidePlaylistLibraryList.width
                     height: 38
                     radius: Theme.radiusL
-                    color: root.selectedPlaylist === (modelData.name || "")
+                    color: root.selectedLibraryPlaylist === (modelData.name || "")
                         ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.14)
                         : (sideLibPlaylistMouse.containsMouse
                             ? Theme.foregroundGhost
@@ -7579,13 +7662,60 @@ Item {
                         Text {
                             Layout.fillWidth: true
                             text: root.playlistTabLabel(modelData.name || "")
-                            color: root.selectedPlaylist === (modelData.name || "")
+                            color: root.selectedLibraryPlaylist === (modelData.name || "")
                                 ? Theme.accent
                                 : Theme.foreground
                             font.family: Theme.fontFamily
                             font.pixelSize: root.listFont
-                            font.bold: root.selectedPlaylist === (modelData.name || "") && Theme.fontBold
+                            font.bold: root.selectedLibraryPlaylist === (modelData.name || "") && Theme.fontBold
                             elide: Text.ElideRight
+                        }
+
+                        Text {
+                            visible: root.selectedLibraryPlaylist === (modelData.name || "")
+                                && root.playlistIsUserEditable(modelData.name || "")
+                            text: "󰐊"
+                            color: Theme.accent
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.listFont
+                            MouseArea {
+                                anchors.fill: parent
+                                anchors.margins: -6
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.openSelectedLibraryPlaylist()
+                            }
+                        }
+
+                        Text {
+                            visible: root.selectedLibraryPlaylist === (modelData.name || "")
+                                && root.playlistIsUserEditable(modelData.name || "")
+                            text: "󰑗"
+                            color: Theme.foreground
+                            opacity: 0.7
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.listFont
+                            MouseArea {
+                                anchors.fill: parent
+                                anchors.margins: -6
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.renameUserPlaylist(modelData.name, modelData.name + "-renamed")
+                            }
+                        }
+
+                        Text {
+                            visible: root.selectedLibraryPlaylist === (modelData.name || "")
+                                && root.playlistIsUserEditable(modelData.name || "")
+                            text: "󰆴"
+                            color: Theme.urgent
+                            opacity: 0.8
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.listFont
+                            MouseArea {
+                                anchors.fill: parent
+                                anchors.margins: -6
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.deleteUserPlaylist(modelData.name)
+                            }
                         }
 
                         Text {
@@ -7752,14 +7882,11 @@ Item {
 
     component PlayerSideImportPanel: SectionPanel {
         label: ""
-        legendBackground: root.fieldsetLegendBackground
+        legendBackground: root.useFieldsetLegends ? root.fieldsetLegendBackground : Theme.background
+        notchLegend: root.useFieldsetLegends
+        legendText: "Import"
+        legendIcon: "󰉍"
         fillHeight: false
-
-        HoverPopupLabelPill {
-            text: "Import"
-            icon: "󰉍"
-            fontSize: Theme.fontSizeS
-        }
 
         ColumnLayout {
             Layout.fillWidth: true
@@ -7873,14 +8000,11 @@ Item {
 
     component PlayerSideSettingsPanel: SectionPanel {
         label: ""
-        legendBackground: root.fieldsetLegendBackground
+        legendBackground: root.useFieldsetLegends ? root.fieldsetLegendBackground : Theme.background
+        notchLegend: root.useFieldsetLegends
+        legendText: "Settings"
+        legendIcon: "󰒓"
         fillHeight: true
-
-        HoverPopupLabelPill {
-            text: "Settings"
-            icon: "󰒓"
-            fontSize: Theme.fontSizeS
-        }
 
         ColumnLayout {
             Layout.fillWidth: true
@@ -8047,25 +8171,157 @@ Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
             }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: Theme.spacingS
+
+                Text {
+                    text: "Stop playback"
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.libraryFont
+                    Layout.fillWidth: true
+                }
+
+                BrowseTreeIcon {
+                    icon: "󰓛"
+                    hint: "stop mpv and quit playback"
+                    glyphColor: Theme.urgent
+                    onActivated: root.stopPlayback()
+                }
+            }
+        }
+    }
+
+    component PlayerSideHistoryPanel: SectionPanel {
+        label: ""
+        legendBackground: root.useFieldsetLegends ? root.fieldsetLegendBackground : Theme.background
+        notchLegend: root.useFieldsetLegends
+        legendText: {
+            var label = String((root.historyReport.week && root.historyReport.week.label) || "History")
+            return root.historyLoading ? "History…" : label
+        }
+        legendIcon: "󰋚"
+        fillHeight: true
+
+        onVisibleChanged: {
+            if (visible)
+                root.loadHistoryReport()
+        }
+
+        ColumnLayout {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            spacing: Theme.spacingS
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: Theme.spacingS
+
+                BrowseTreeIcon {
+                    icon: "󰅁"
+                    hint: "previous week"
+                    onActivated: root.shiftHistoryWeek(1)
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    horizontalAlignment: Text.AlignHCenter
+                    text: String((root.historyReport.totals && root.historyReport.totals.scrobbles) || 0)
+                        + " scrobbles · "
+                        + String((root.historyReport.totals && root.historyReport.totals.artists) || 0)
+                        + " artists · "
+                        + String((root.historyReport.totals && root.historyReport.totals.hours) || 0)
+                        + " h"
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.libraryFont
+                    opacity: 0.8
+                }
+
+                BrowseTreeIcon {
+                    icon: "󰅂"
+                    hint: "next week"
+                    onActivated: root.shiftHistoryWeek(-1)
+                }
+            }
+
+            SparklineChart {
+                Layout.fillWidth: true
+                chartHeight: 72
+                bars: {
+                    var daily = root.historyReport.daily || []
+                    var out = []
+                    for (var i = 0; i < daily.length; i++)
+                        out.push({ value: Number(daily[i].count) || 0 })
+                    return out
+                }
+            }
+
+            ListView {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
+                spacing: Theme.spacing2
+                model: (root.historyReport.top_tracks || []).slice(0, 12)
+
+                delegate: Rectangle {
+                    required property var modelData
+                    width: parent.width
+                    height: 34
+                    radius: Theme.radiusL
+                    color: historyRowMouse.containsMouse ? Theme.foregroundGhost : "transparent"
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: 10
+                        anchors.rightMargin: 10
+                        spacing: Theme.spacingS
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: String(modelData.artist || "") + " — " + String(modelData.title || "")
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.listFont
+                            elide: Text.ElideRight
+                        }
+
+                        Text {
+                            text: String(modelData.count || 0)
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.libraryFont
+                            opacity: Theme.opacityDisabled
+                        }
+                    }
+
+                    MouseArea {
+                        id: historyRowMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                    }
+                }
+            }
         }
     }
 
     component PlayerSideFilterPanel: SectionPanel {
         label: ""
-        legendBackground: root.fieldsetLegendBackground
+        legendBackground: root.useFieldsetLegends ? root.fieldsetLegendBackground : Theme.background
+        notchLegend: root.useFieldsetLegends
+        legendText: {
+            var base = root.filterKindTitle()
+            var label = String(root.filterLabel || "")
+            return label ? base + " / " + label : base
+        }
+        legendIcon: root.filterKindIcon()
+        legendClickable: true
         fillHeight: true
 
-        HoverPopupLabelPill {
-            text: {
-                var base = root.filterKindTitle()
-                var label = String(root.filterLabel || "")
-                return label ? base + " / " + label : base
-            }
-            icon: root.filterKindIcon()
-            fontSize: Theme.fontSizeS
-            clickable: true
-            onClicked: root.showNowPlaying()
-        }
+        onLegendClicked: root.showNowPlaying()
 
         ListView {
             id: sideFilterTrackList

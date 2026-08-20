@@ -19,6 +19,7 @@ required=(
   evo.panel.player
   evo.panel.player.monitor
   evo.bar.media.now-playing
+  evo.bar.media.evo-player
   evo.bar.media.library
   evo.bar.popups.notifications
 )

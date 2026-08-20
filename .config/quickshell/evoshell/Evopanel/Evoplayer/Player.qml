@@ -96,13 +96,47 @@ Item {
                     }
                     return
                 }
+                if (playerContent.keyShortcutsBlocked)
+                    return
                 if (event.key === Qt.Key_B && event.modifiers === Qt.NoModifier) {
                     playerContent.toggleMenuBar()
                     event.accepted = true
+                    return
                 }
                 if (event.key === Qt.Key_C && event.modifiers === Qt.NoModifier) {
                     playerContent.toggleCompactMode()
                     event.accepted = true
+                    return
+                }
+                if (event.key === Qt.Key_P && event.modifiers === Qt.NoModifier) {
+                    playerContent.togglePlaylistPanel()
+                    event.accepted = true
+                    return
+                }
+                if (event.key === Qt.Key_N && event.modifiers === Qt.NoModifier) {
+                    playerContent.showNowPlaying()
+                    event.accepted = true
+                    return
+                }
+                if (event.key === Qt.Key_F && event.modifiers === Qt.NoModifier) {
+                    playerContent.toggleBrowsePanel()
+                    event.accepted = true
+                    return
+                }
+                if (event.key === Qt.Key_Space && event.modifiers === Qt.NoModifier) {
+                    playerContent.togglePlayback()
+                    event.accepted = true
+                    return
+                }
+                if (event.key === Qt.Key_Left && event.modifiers === Qt.NoModifier) {
+                    playerContent.seekBy(-10)
+                    event.accepted = true
+                    return
+                }
+                if (event.key === Qt.Key_Right && event.modifiers === Qt.NoModifier) {
+                    playerContent.seekBy(10)
+                    event.accepted = true
+                    return
                 }
             }
 

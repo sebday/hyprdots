@@ -2437,3 +2437,179 @@ art_embed_folder() {
   printf '%d %d %d' "$embedded" "$failed" "$skipped"
 }
 
+HISTORY_CACHE="${EVO_PLAYER_CACHE}/history"
+
+playlist_is_reserved_name() {
+  local name="$1"
+  case "$name" in
+    all|favorites|current|"") return 0 ;;
+  esac
+  return 1
+}
+
+playlist_is_user_editable() {
+  local name="$1"
+  playlist_is_reserved_name "$name" && return 1
+  [[ -d "${MUSIC_ROOT}/${name}" ]] && return 1
+  [[ -f "${PLAYLIST_DIR}/${name}.m3u" ]] || return 1
+  return 0
+}
+
+playlist_validate_user_name() {
+  local name="$1" ch
+  [[ -n "$name" ]] || return 1
+  playlist_is_reserved_name "$name" && return 1
+  [[ "$name" != *"/"* && "$name" != *".."* ]] || return 1
+  case "${name:0:1}" in
+    [a-zA-Z0-9]) ;;
+    *) return 1 ;;
+  esac
+  local i
+  for ((i = 0; i < ${#name}; i++)); do
+    ch="${name:$i:1}"
+    case "$ch" in
+      [a-zA-Z0-9_-]) continue ;;
+      " ") continue ;;
+      *) return 1 ;;
+    esac
+  done
+  [[ -d "${MUSIC_ROOT}/${name}" ]] && return 1
+  return 0
+}
+
+playlist_create_user() {
+  local name="$1"
+  ensure_dirs
+  playlist_validate_user_name "$name" || {
+    echo "evo-player: invalid playlist name: $name" >&2
+    return 1
+  }
+  local list="${PLAYLIST_DIR}/${name}.m3u"
+  [[ -f "$list" ]] && {
+    echo "evo-player: playlist already exists: $name" >&2
+    return 1
+  }
+  printf '#EXTM3U\n' >"$list"
+}
+
+playlist_rename_user() {
+  local old="$1" new="$2"
+  ensure_dirs
+  playlist_is_user_editable "$old" || {
+    echo "evo-player: cannot rename playlist: $old" >&2
+    return 1
+  }
+  playlist_validate_user_name "$new" || {
+    echo "evo-player: invalid playlist name: $new" >&2
+    return 1
+  }
+  local from="${PLAYLIST_DIR}/${old}.m3u"
+  local to="${PLAYLIST_DIR}/${new}.m3u"
+  [[ -f "$from" ]] || return 1
+  [[ ! -e "$to" ]] || {
+    echo "evo-player: playlist already exists: $new" >&2
+    return 1
+  }
+  mv "$from" "$to"
+  if playlist_is_starred "$old"; then
+    local stars
+    stars="$(playlist_stars_load)"
+    stars="$(jq -c --arg o "$old" --arg n "$new" 'map(if . == $o then $n else . end)' <<<"$stars")"
+    playlist_stars_save "$stars"
+  fi
+}
+
+playlist_delete_user() {
+  local name="$1"
+  ensure_dirs
+  playlist_is_user_editable "$name" || {
+    echo "evo-player: cannot delete playlist: $name" >&2
+    return 1
+  }
+  rm -f "${PLAYLIST_DIR}/${name}.m3u"
+  if playlist_is_starred "$name"; then
+    local stars
+    stars="$(playlist_stars_load)"
+    stars="$(jq -c --arg n "$name" 'map(select(. != $n))' <<<"$stars")"
+    playlist_stars_save "$stars"
+  fi
+}
+
+playlist_add_track_user() {
+  local name="$1" path="$2"
+  ensure_dirs
+  playlist_is_user_editable "$name" || {
+    echo "evo-player: cannot edit playlist: $name" >&2
+    return 1
+  }
+  [[ -f "$path" ]] || {
+    echo "evo-player: missing track: $path" >&2
+    return 1
+  }
+  is_audio "$path" || return 1
+  local list="${PLAYLIST_DIR}/${name}.m3u"
+  grep -qxF "$path" "$list" 2>/dev/null && return 0
+  printf '%s\n' "$path" >>"$list"
+}
+
+playlist_remove_track_user() {
+  local name="$1" path="$2"
+  ensure_dirs
+  playlist_is_user_editable "$name" || {
+    echo "evo-player: cannot edit playlist: $name" >&2
+    return 1
+  }
+  local list="${PLAYLIST_DIR}/${name}.m3u"
+  [[ -f "$list" ]] || return 1
+  local tmp
+  tmp="$(mktemp)"
+  grep -vxF "$path" "$list" >"$tmp" || true
+  mv "$tmp" "$list"
+}
+
+queue_up_next_json() {
+  local limit="${1:-5}"
+  ensure_dirs
+  local path shuffle
+  path="$(mpv_prop path 2>/dev/null || true)"
+  [[ -n "$path" && -f "$path" ]] || {
+    printf '[]\n'
+    return 0
+  }
+  shuffle="$(mpv_prop shuffle 2>/dev/null || echo false)"
+  if [[ "$shuffle" == "yes" || "$shuffle" == "true" ]]; then
+    printf '[]\n'
+    return 0
+  fi
+  if [[ ! -f "$CURRENT_TRACKS_JSON" ]]; then
+    printf '[]\n'
+    return 0
+  fi
+  python3 - "$CURRENT_TRACKS_JSON" "$path" "$limit" <<'PY'
+import json, sys
+log, cur, limit = sys.argv[1], sys.argv[2], int(sys.argv[3])
+with open(log, encoding="utf-8") as fh:
+    tracks = json.load(fh)
+idx = -1
+for i, row in enumerate(tracks):
+    if str(row.get("path") or "") == cur:
+        idx = i
+        break
+if idx < 0:
+    print("[]")
+    raise SystemExit
+print(json.dumps(tracks[idx + 1:idx + 1 + limit], ensure_ascii=False))
+PY
+}
+
+history_report_json() {
+  local week_from="${1:-}" limit="${2:-12}"
+  ensure_dirs
+  load_evoshell_secrets
+  local user="${LASTFM_USER:-distortedmind}"
+  local api_key="${LASTFM_API_KEY:-}"
+  mkdir -p "$HISTORY_CACHE"
+  python3 "${EVO_PLAYER_LIB_DIR}/history-report.py" \
+    "$HISTORY_CACHE" "$user" "$api_key" "${week_from:-0}" "$SCROBBLE_LOG" "$limit"
+}
+

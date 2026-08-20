@@ -51,7 +51,7 @@ Item {
         if (mpvObserveSent)
             return
         mpvObserveSent = true
-        var props = ["path", "pause", "time-pos", "duration", "volume", "mute", "shuffle"]
+        var props = ["path", "pause", "time-pos", "duration", "volume", "mute", "shuffle", "playlist-pos", "playlist-count"]
         for (var i = 0; i < props.length; i++)
             mpvWrite(["observe_property", i + 1, props[i]])
         for (i = 0; i < props.length; i++)
@@ -88,6 +88,10 @@ Item {
                 patch.volume = 0
         } else if (name === "shuffle") {
             patch.shuffle = data === true || data === "yes"
+        } else if (name === "playlist-pos") {
+            patch.playlist_pos = Number(data) || 0
+        } else if (name === "playlist-count") {
+            patch.playlist_count = Number(data) || 0
         } else {
             return
         }
