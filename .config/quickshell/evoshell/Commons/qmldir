@@ -24,5 +24,8 @@ HoverPopupStatBox 1.0 HoverPopupStatBox.qml
 HoverPopupLabelPill 1.0 HoverPopupLabelPill.qml
 FieldsetLegendRow 1.0 FieldsetLegendRow.qml
 HoverPopupStatsGrid 1.0 HoverPopupStatsGrid.qml
+TempGaugeDial 1.0 TempGaugeDial.qml
+TempGradientSlider 1.0 TempGradientSlider.qml
+LightColorPicker 1.0 LightColorPicker.qml
 BarWidgetRegistry 1.0 BarWidgetRegistry.qml
 MonitorLayoutPicker 1.0 MonitorLayoutPicker.qml

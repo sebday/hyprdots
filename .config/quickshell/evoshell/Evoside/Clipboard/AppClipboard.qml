@@ -15,7 +15,7 @@ Item {
     property int previewTick: 0
     property string entryFilter: "all"
 
-    readonly property string script: Quickshell.env("HOME") + "/.local/bin/evo-side-clipboard"
+    readonly property string script: Quickshell.env("HOME") + "/.local/bin/evo-clipboard"
     readonly property string previewDir: Quickshell.env("HOME") + "/.local/state/evoshell/clipboard-previews"
     readonly property int listLimit: 30
     readonly property int historyFontSize: Theme.fontSizeM

@@ -3,12 +3,13 @@ import QtQuick.Layouts
 import "../../../Commons"
 import "."
 
-Rectangle {
+Item {
     id: root
 
     required property var entry
     property var host: null
     property bool showUnhide: false
+    property bool showDivider: true
 
     signal removeRequested(var entry)
     signal openRequested(var entry)
@@ -18,15 +19,7 @@ Rectangle {
     readonly property var notifService: host && host.notifService ? host.notifService : null
 
     Layout.fillWidth: true
-    implicitHeight: row.implicitHeight + 16
-    radius: Theme.fieldsetCornerRadius
-    color: entry.read === true
-        ? Theme.foregroundGhost
-        : Theme.withOpacity(Theme.accent, 0.08)
-    border.width: 1
-    border.color: entry.read === true
-        ? Theme.foregroundDivider
-        : Theme.withOpacity(Theme.accent, 0.28)
+    implicitHeight: row.implicitHeight + 16 + (showDivider ? 1 : 0)
 
     function markRead() {
         if (!notifService || !entry || entry.read === true)
@@ -37,14 +30,16 @@ Rectangle {
 
     RowLayout {
         id: row
-        anchors.fill: parent
-        anchors.margins: 8
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.topMargin: 8
         spacing: Theme.spacingM
 
         Item {
             Layout.preferredWidth: 34
             Layout.preferredHeight: 34
-            Layout.alignment: Qt.AlignTop
+            Layout.alignment: Qt.AlignVCenter
 
             Rectangle {
                 anchors.fill: parent
@@ -75,34 +70,16 @@ Rectangle {
             }
         }
 
-        ColumnLayout {
+        Text {
             Layout.fillWidth: true
-            spacing: 2
-
-            Text {
-                Layout.fillWidth: true
-                text: String(entry.title || "Notification")
-                color: Theme.foreground
-                font.family: Theme.fontFamily
-                font.pixelSize: host ? host.titleFont : Theme.fontSizeXl
-                font.bold: Theme.fontBold
-                elide: Text.ElideRight
-                maximumLineCount: 1
-            }
-
-            Text {
-                Layout.fillWidth: true
-                visible: String(entry.body || "") !== ""
-                text: String(entry.body || "")
-                color: Theme.foreground
-                font.family: Theme.fontFamily
-                font.pixelSize: host ? host.bodyFont : Theme.fontSizeM
-                font.bold: Theme.fontBold
-                opacity: Theme.opacitySecondary
-                wrapMode: Text.WordWrap
-                maximumLineCount: 3
-                elide: Text.ElideRight
-            }
+            Layout.alignment: Qt.AlignVCenter
+            text: String(entry.title || "Notification")
+            color: Theme.foreground
+            font.family: Theme.fontFamily
+            font.pixelSize: host ? host.titleFont : Theme.fontSizeM
+            font.bold: Theme.fontBold
+            elide: Text.ElideRight
+            maximumLineCount: 1
         }
 
         NotificationMetaPill {
@@ -162,6 +139,15 @@ Rectangle {
                 onClicked: root.removeRequested(entry)
             }
         }
+    }
+
+    Rectangle {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        visible: showDivider
+        height: 1
+        color: Theme.foregroundDivider
     }
 
     MouseArea {

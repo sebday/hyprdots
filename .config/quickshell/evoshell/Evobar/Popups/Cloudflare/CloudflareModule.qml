@@ -32,11 +32,8 @@ Item {
     readonly property int bodyFont: Theme.fontSize3xl
     readonly property int hintFont: Theme.fontSizeL
     readonly property int titleFont: Theme.fontSize2xl
-    readonly property int activityRowSpacing: 6
-    readonly property int activityTextBlockHeight: root.statFont + root.activityRowSpacing + root.hintFont
-    readonly property int activityRowIconSize: root.activityTextBlockHeight + 6
+    readonly property int rowTitleFont: Theme.fontSizeM
     readonly property int statFont: Theme.fontSizeXl
-    readonly property int recentTitleFont: Theme.fontSizeL
 
     property double nowMs: Date.now()
 
@@ -109,7 +106,11 @@ Item {
         return { title: "", rows: [] }
     }
 
-    readonly property bool contentReady: !cf || cf.lastRefreshMs > 0 || cf.lastError !== ""
+    readonly property bool hasDisplaySections:
+        root.usageSection.rows.length > 0
+        || root.resourcesSection.rows.length > 0
+        || root.attentionSection.rows.length > 0
+        || root.recentGroupedSection.rows.length > 0
 
     implicitHeight: column.implicitHeight
 
@@ -389,6 +390,14 @@ Item {
         return ""
     }
 
+    function activityTimeLabel(row) {
+        if (!row)
+            return ""
+        if (row.kind === "deploy")
+            return deployTimeLabel(row)
+        return ""
+    }
+
     function activityStatusColor(row) {
         if (!row)
             return Theme.foreground
@@ -404,131 +413,6 @@ Item {
         interval: 30000
         repeat: true
         onTriggered: root.nowMs = Date.now()
-    }
-
-    component ActivityLine: Item {
-        id: activityLine
-        property var row: ({})
-        property int titleFont: root.statFont
-
-        Layout.fillWidth: true
-        implicitHeight: content.implicitHeight
-
-        readonly property string statusLabel: root.activityStatusLabel(row)
-        readonly property string metaLine: root.activityMetaLine(row)
-        readonly property color statusColor: root.activityStatusColor(row)
-        readonly property bool showChevron: row && row.kind === "group"
-
-        RowLayout {
-            id: content
-            width: parent.width
-            spacing: Theme.spacingL
-
-            Item {
-                Layout.preferredWidth: root.activityRowIconSize
-                Layout.preferredHeight: root.activityRowIconSize
-                Layout.alignment: Qt.AlignVCenter
-                visible: root.rowGlyph(row) !== ""
-
-                Rectangle {
-                    anchors.fill: parent
-                    radius: Theme.fieldsetCornerRadius
-                    color: Qt.rgba(
-                        activityLine.statusColor.r,
-                        activityLine.statusColor.g,
-                        activityLine.statusColor.b,
-                        0.14
-                    )
-                }
-
-                Text {
-                    anchors.centerIn: parent
-                    text: root.rowGlyph(row)
-                    color: activityLine.statusColor
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Math.round(root.activityRowIconSize * 0.55)
-                    font.bold: Theme.fontBold
-                }
-            }
-
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: root.activityRowSpacing
-
-                Text {
-                    Layout.fillWidth: true
-                    text: root.rowTitle(row)
-                    color: row.alarming ? Theme.urgent : Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: activityLine.titleFont
-                    font.bold: Theme.fontBold
-                    lineHeight: activityLine.titleFont
-                    lineHeightMode: Text.FixedHeight
-                    elide: Text.ElideRight
-                    maximumLineCount: 1
-                }
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: Theme.spacingM
-                    visible: activityLine.statusLabel !== "" || activityLine.metaLine !== ""
-                        || activityLine.showChevron
-
-                    Rectangle {
-                        visible: activityLine.statusLabel !== ""
-                        radius: Theme.radiusL
-                        color: Qt.rgba(
-                            activityLine.statusColor.r,
-                            activityLine.statusColor.g,
-                            activityLine.statusColor.b,
-                            0.16
-                        )
-                        implicitWidth: statusPill.implicitWidth + 10
-                        implicitHeight: statusPill.implicitHeight + 4
-
-                        Text {
-                            id: statusPill
-                            anchors.centerIn: parent
-                            text: activityLine.statusLabel
-                            color: activityLine.statusColor
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontSizeS
-                            font.bold: Theme.fontBold
-                        }
-                    }
-
-                    Text {
-                        Layout.fillWidth: true
-                        visible: activityLine.metaLine !== ""
-                        text: activityLine.metaLine
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.hintFont
-                        opacity: Theme.opacityMuted
-                        elide: Text.ElideRight
-                        maximumLineCount: 1
-                    }
-
-                    Text {
-                        visible: activityLine.showChevron
-                        text: "›"
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.hintFont
-                        font.bold: Theme.fontBold
-                        opacity: Theme.opacityDisabled
-                    }
-                }
-            }
-        }
-
-        MouseArea {
-            anchors.fill: parent
-            enabled: root.rowClickable(row)
-            hoverEnabled: enabled
-            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-            onClicked: root.openRow(row)
-        }
     }
 
     ColumnLayout {
@@ -614,14 +498,17 @@ Item {
 
             ColumnLayout {
                 Layout.fillWidth: true
-                spacing: Theme.spacingM
+                spacing: 0
 
                 Repeater {
                     model: root.attentionSection.rows
 
-                    ActivityLine {
+                    CloudflareActivityEntry {
                         required property var modelData
+                        required property int index
                         row: modelData
+                        host: root
+                        showDivider: index < root.attentionSection.rows.length - 1
                     }
                 }
             }
@@ -643,15 +530,17 @@ Item {
 
             ColumnLayout {
                 Layout.fillWidth: true
-                spacing: Theme.spacingM
+                spacing: 0
 
                 Repeater {
                     model: root.recentGroupedSection.rows
 
-                    ActivityLine {
+                    CloudflareActivityEntry {
                         required property var modelData
+                        required property int index
                         row: modelData
-                        titleFont: root.recentTitleFont
+                        host: root
+                        showDivider: index < root.recentGroupedSection.rows.length - 1
                     }
                 }
             }
@@ -659,7 +548,7 @@ Item {
 
         Text {
             Layout.fillWidth: true
-            visible: cf && cf.lastError !== "" && root.rows.length === 0
+            visible: cf && cf.lastError !== "" && !root.hasDisplaySections
             text: cf.lastError
             color: Theme.urgent
             font.family: Theme.fontFamily
@@ -670,7 +559,7 @@ Item {
 
         Text {
             Layout.fillWidth: true
-            visible: cf && cf.lastError === "" && root.rows.length === 0
+            visible: cf && cf.lastError === "" && !root.hasDisplaySections
             text: cf && cf.busy ? "Loading…" : (cf && cf.loggedIn ? "No data" : "Not logged in")
             color: Theme.foreground
             opacity: Theme.opacityMuted

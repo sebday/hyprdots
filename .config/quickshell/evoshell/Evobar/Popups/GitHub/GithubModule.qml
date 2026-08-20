@@ -341,6 +341,7 @@ Item {
                         ? root.streak + (root.streak === 1 ? " day" : " days")
                         : "—"
                     label: "streak"
+                    special: true
                 }
 
                 HoverPopupStatBox {

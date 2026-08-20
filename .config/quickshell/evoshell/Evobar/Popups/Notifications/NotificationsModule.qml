@@ -14,8 +14,7 @@ Item {
     readonly property bool active: host && host.opened === true
     readonly property var notifService: shell ? shell.serviceFor("evo.sys.notifications") : null
     readonly property var historyEntries: notifService ? (notifService.historyEntries || []) : []
-    readonly property int titleFont: Theme.fontSizeXl
-    readonly property int bodyFont: Theme.fontSizeM
+    readonly property int titleFont: Theme.fontSizeM
     readonly property int maxListHeight: 420
 
     property string filterSource: "all"
@@ -58,6 +57,40 @@ Item {
         }
         return false
     }
+
+    function entryCount(filter) {
+        var id = String(filter || "all")
+        var n = 0
+        for (var i = 0; i < historyEntries.length; i++) {
+            var item = historyEntries[i]
+            if (!item)
+                continue
+            var hidden = item.hidden === true
+            if (id === "hidden") {
+                if (hidden)
+                    n++
+                continue
+            }
+            if (hidden)
+                continue
+            if (id === "messages") {
+                var src = String(item.source || "")
+                if (src === "telegram" || src === "android")
+                    n++
+            } else if (id === "system") {
+                if (String(item.source || "") === "system")
+                    n++
+            } else {
+                n++
+            }
+        }
+        return n
+    }
+
+    readonly property int countAll: entryCount("all")
+    readonly property int countSystem: entryCount("system")
+    readonly property int countMessages: entryCount("messages")
+    readonly property int countHidden: entryCount("hidden")
 
     implicitHeight: column.implicitHeight
 
@@ -157,6 +190,8 @@ Item {
         SectionPanel {
             label: ""
             Layout.fillWidth: true
+            contentPad: Theme.hoverPopupContentPad
+            legendBackground: Theme.background
 
             HoverPopupLabelPill {
                 text: "Notifications"
@@ -164,84 +199,103 @@ Item {
                 fontSize: Theme.fontSizeS
             }
 
-            RowLayout {
+            GridLayout {
                 Layout.fillWidth: true
-                spacing: Theme.spacingS
+                columns: 4
+                columnSpacing: Theme.spacingS
+                rowSpacing: Theme.spacingS
 
                 Repeater {
                     model: [
-                        { id: "all", label: "All" },
-                        { id: "system", label: "System" },
-                        { id: "messages", label: "Messages" },
-                        { id: "hidden", label: "Hidden" }
+                        { id: "all", label: "all", value: root.countAll },
+                        { id: "system", label: "system", value: root.countSystem },
+                        { id: "messages", label: "messages", value: root.countMessages },
+                        { id: "hidden", label: "hidden", value: root.countHidden }
                     ]
 
-                    NotificationMetaPill {
+                    HoverPopupStatBox {
                         required property var modelData
-                        text: modelData.label
-                        active: root.filterSource === modelData.id
+                        value: String(modelData.value)
+                        label: modelData.label
+                        valueFontSize: Theme.fontSizeXl
+                        special: root.filterSource === modelData.id
                         clickable: true
                         onClicked: root.filterSource = modelData.id
                     }
                 }
+            }
 
-                Item { Layout.fillWidth: true }
-
-                HoverPopupLabelPill {
-                    visible: root.hasClearableEntries
-                    clickable: root.hasClearableEntries
-                    text: "Clear"
-                    icon: "󰩺"
-                    fontSize: Theme.fontSizeXs
-                    textColor: Theme.urgent
-                    fill: Theme.withOpacity(Theme.foreground, 0.08)
-                    textOpacity: Theme.opacitySecondary
-                    onClicked: root.clearAll()
-                }
+            HoverPopupLabelPill {
+                Layout.alignment: Qt.AlignRight
+                visible: root.hasClearableEntries
+                clickable: root.hasClearableEntries
+                text: "Clear"
+                icon: "󰩺"
+                fontSize: Theme.fontSizeXs
+                textColor: Theme.urgent
+                fill: Theme.withOpacity(Theme.foreground, 0.08)
+                textOpacity: Theme.opacitySecondary
+                onClicked: root.clearAll()
             }
         }
 
-        Text {
+        SectionPanel {
             Layout.fillWidth: true
-            visible: root.filteredEntries.length === 0
-            text: root.emptyListText
-            color: Theme.foreground
-            font.family: Theme.fontFamily
-            font.pixelSize: root.bodyFont
-            font.bold: Theme.fontBold
-            opacity: Theme.opacityDisabled
-            horizontalAlignment: Text.AlignHCenter
-        }
+            label: ""
+            sectionSpacing: 8
+            contentPad: Theme.hoverPopupContentPad
+            legendBackground: Theme.background
 
-        Item {
-            Layout.fillWidth: true
-            Layout.preferredHeight: Math.min(root.maxListHeight, listColumn.implicitHeight)
-            visible: root.filteredEntries.length > 0
-            clip: true
+            HoverPopupLabelPill {
+                text: "Recent"
+                icon: "󰋚"
+                fontSize: Theme.fontSizeS
+            }
 
-            Flickable {
-                anchors.fill: parent
-                contentWidth: width
-                contentHeight: listColumn.implicitHeight
-                boundsBehavior: Flickable.StopAtBounds
+            Text {
+                Layout.fillWidth: true
+                visible: root.filteredEntries.length === 0
+                text: root.emptyListText
+                color: Theme.foreground
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSizeM
+                font.bold: Theme.fontBold
+                opacity: Theme.opacityDisabled
+                horizontalAlignment: Text.AlignHCenter
+            }
 
-                ColumnLayout {
-                    id: listColumn
-                    width: parent.width
-                    spacing: Theme.spacingS
+            Item {
+                Layout.fillWidth: true
+                Layout.preferredHeight: Math.min(root.maxListHeight, listColumn.implicitHeight)
+                visible: root.filteredEntries.length > 0
+                clip: true
 
-                    Repeater {
-                        model: root.filteredEntries
+                Flickable {
+                    anchors.fill: parent
+                    contentWidth: width
+                    contentHeight: listColumn.implicitHeight
+                    boundsBehavior: Flickable.StopAtBounds
 
-                        NotificationHistoryEntry {
-                            required property var modelData
-                            entry: modelData
-                            host: root
-                            showUnhide: root.filterSource === "hidden"
-                            onHideRequested: function(item) { root.hideEntry(item) }
-                            onUnhideRequested: function(item) { root.unhideEntry(item) }
-                            onRemoveRequested: function(item) { root.removeEntry(item) }
-                            onOpenRequested: function(item) { root.openEntry(item) }
+                    ColumnLayout {
+                        id: listColumn
+                        width: parent.width
+                        spacing: 0
+
+                        Repeater {
+                            model: root.filteredEntries
+
+                            NotificationHistoryEntry {
+                                required property var modelData
+                                required property int index
+                                entry: modelData
+                                host: root
+                                showDivider: index < root.filteredEntries.length - 1
+                                showUnhide: root.filterSource === "hidden"
+                                onHideRequested: function(item) { root.hideEntry(item) }
+                                onUnhideRequested: function(item) { root.unhideEntry(item) }
+                                onRemoveRequested: function(item) { root.removeEntry(item) }
+                                onOpenRequested: function(item) { root.openEntry(item) }
+                            }
                         }
                     }
                 }

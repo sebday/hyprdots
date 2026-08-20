@@ -385,9 +385,11 @@ Item {
 
                     HoverPopupStatBox {
                         required property var modelData
+                        required property int index
                         value: String(modelData.value)
                         label: modelData.label
                         valueFontSize: Theme.fontSizeXl
+                        special: index === 2
                     }
                 }
             }

@@ -133,20 +133,6 @@ Item {
         }
 
         Item {
-            width: root.showNotifications ? root.trayCellWidth : 0
-            height: Theme.barHeight
-            visible: root.showNotifications
-
-            Loader {
-                id: notificationsLoader
-                anchors.fill: parent
-                active: root.showNotifications
-                sourceComponent: notificationsComp
-                onLoaded: root.wireBarWidget(item, root.settings.notifications, "evo.bar.popups.notifications")
-            }
-        }
-
-        Item {
             width: root.showWeather ? root.trayCellWidth : 0
             height: Theme.barHeight
             visible: root.showWeather
@@ -185,6 +171,20 @@ Item {
                 active: root.showCursor
                 sourceComponent: commandComp
                 onLoaded: root.wireBarWidget(item, root.settings.cursor, "evo.bar.popups.cursor-usage")
+            }
+        }
+
+        Item {
+            width: root.showNotifications ? root.trayCellWidth : 0
+            height: Theme.barHeight
+            visible: root.showNotifications
+
+            Loader {
+                id: notificationsLoader
+                anchors.fill: parent
+                active: root.showNotifications
+                sourceComponent: notificationsComp
+                onLoaded: root.wireBarWidget(item, root.settings.notifications, "evo.bar.popups.notifications")
             }
         }
 

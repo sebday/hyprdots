@@ -188,6 +188,7 @@ Item {
                 HoverPopupStatBox {
                     value: root.loading ? "…" : root.formatTokens(root.detail.tokensTotal)
                     label: "tokens"
+                    special: true
                 }
 
                 HoverPopupStatBox {

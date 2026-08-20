@@ -15,7 +15,6 @@ Item {
     readonly property string fontScript: Quickshell.env("HOME") + "/.local/bin/evo-font"
     readonly property string mediaScript: Quickshell.env("HOME") + "/.local/bin/evo-bar-library"
     readonly property string tasksScript: Quickshell.env("HOME") + "/.local/bin/evo-tasks"
-    readonly property string weatherScript: Quickshell.env("HOME") + "/.local/bin/evo-bar-weather"
     readonly property string fontStatePath: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/evoshell/font.json"
     readonly property string themeNamePath: Quickshell.env("HOME") + "/.themes/current/.theme-name"
     readonly property string themeListScript: Quickshell.env("HOME") + "/.local/bin/evo-menu-list"
@@ -86,35 +85,12 @@ Item {
     property string detectedObsidianVault: ""
     property string tasksFile: ""
     property bool tasksReady: false
-    property string weatherLocation: ""
-    property bool weatherReady: false
     readonly property bool ready: hyprReady && barReady && fontReady
     readonly property bool fontBusy: fontSetProc.running
     readonly property bool mediaBusy: mediaTvSetProc.running || mediaFilmsSetProc.running
         || mediaTvPickProc.running || mediaFilmsPickProc.running
     readonly property bool tasksBusy: taskVaultSetProc.running || taskVaultPickProc.running
-    readonly property bool weatherBusy: weatherSetProc.running
-    readonly property var weatherLocationPresets: [
-        "Derby", "London", "Manchester", "Birmingham", "Leeds", "Bristol",
-        "Nottingham", "Sheffield", "Liverpool", "Glasgow", "Edinburgh", "Cardiff", "Belfast"
-    ]
-    readonly property var weatherLocationOptions: {
-        var options = weatherLocationPresets.slice()
-        var current = String(weatherLocation || "").trim()
-        if (!current)
-            return options
-        for (var i = 0; i < options.length; i++) {
-            if (String(options[i]) === current)
-                return options
-        }
-        options.unshift(current)
-        return options
-    }
-    readonly property string weatherLocationValue: {
-        var value = String(weatherLocation || "").trim()
-        return value !== "" ? value : "Derby"
-    }
-    readonly property bool settingsBusy: fontBusy || mediaBusy || tasksBusy || weatherBusy || hyprToggleProc.running || hyprSetProc.running
+    readonly property bool settingsBusy: fontBusy || mediaBusy || tasksBusy || hyprToggleProc.running || hyprSetProc.running
         || barSetProc.running || notificationsSetProc.running || uiToggleProc.running
     readonly property bool active: host && host.opened && host.activeModule === "settings"
 
@@ -130,7 +106,6 @@ Item {
         if (!loadUiProc.running) loadUiProc.running = true
         if (!loadMediaProc.running) loadMediaProc.running = true
         if (!loadTasksProc.running) loadTasksProc.running = true
-        if (!loadWeatherProc.running) loadWeatherProc.running = true
     }
 
     function toggleHypr(key) {
@@ -416,27 +391,6 @@ Item {
         taskVaultPickProc.running = true
     }
 
-    function parseWeatherSettings(raw) {
-        try {
-            var data = JSON.parse(String(raw || "{}"))
-            root.weatherLocation = String(data.name || "")
-            root.weatherReady = data.ok === true
-        } catch (e) {
-            root.weatherLocation = ""
-            root.weatherReady = false
-        }
-    }
-
-    function setWeatherLocation(location) {
-        if (!weatherReady || settingsBusy)
-            return
-        var trimmed = String(location || "").trim()
-        if (!trimmed || trimmed === root.weatherLocation)
-            return
-        weatherSetProc.location = trimmed
-        weatherSetProc.running = true
-    }
-
     Process {
         id: loadHyprProc
         command: ["bash", root.hyprScript, "get"]
@@ -678,26 +632,6 @@ Item {
         }
     }
 
-    Process {
-        id: loadWeatherProc
-        command: ["bash", root.weatherScript, "settings", "get"]
-        stdout: StdioCollector {
-            onStreamFinished: root.parseWeatherSettings(text)
-        }
-    }
-
-    Process {
-        id: weatherSetProc
-        property string location: ""
-        command: ["bash", root.weatherScript, "settings", "set", weatherSetProc.location]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                if (String(text || "").trim())
-                    root.parseWeatherSettings(text)
-            }
-        }
-    }
-
     implicitHeight: settingsColumn.implicitHeight
     implicitWidth: settingsColumn.implicitWidth
 
@@ -721,6 +655,7 @@ Item {
 
                     HoverPopupLabelPill {
                         text: "Evoshell"
+                        icon: "󰍳"
                         fontSize: Theme.fontSizeS
                     }
 
@@ -833,6 +768,7 @@ Item {
 
                         HoverPopupLabelPill {
                             text: "Theme"
+                            icon: "󰸌"
                             fontSize: Theme.fontSizeS
                         }
 
@@ -970,19 +906,8 @@ Item {
 
                         HoverPopupLabelPill {
                             text: "Locations"
+                            icon: "󰍎"
                             fontSize: Theme.fontSizeS
-                        }
-
-                        FontFamilyPicker {
-                            Layout.fillWidth: true
-                            label: "Weather"
-                            previewFont: false
-                            value: root.weatherLocationValue
-                            model: root.weatherLocationOptions
-                            enabled: root.weatherReady && !settingsBusy
-                            onActivated: function(location) {
-                                root.setWeatherLocation(location)
-                            }
                         }
 
                         ColumnLayout {

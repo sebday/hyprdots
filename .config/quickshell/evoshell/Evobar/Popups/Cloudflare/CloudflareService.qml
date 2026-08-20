@@ -176,12 +176,16 @@ Item {
   function noteCredentials(path, text) {
     var next = {}
     for (var key in root.credentialCandidates) next[key] = root.credentialCandidates[key]
-    next[path] = Api.parseWranglerConfig(text)
+    var parsed = Api.parseWranglerConfig(text)
+    next[path] = parsed
     root.credentialCandidates = next
     root.credentialsSeen++
-    // Wait for every watcher to report once before judging, so a missing file
-    // that happens to load first cannot declare the user logged out.
+    // Wait for every watcher before declaring logged out, so a missing file
+    // that happens to load first cannot clear a token that arrives next.
     if (root.credentialsSeen >= root.wranglerConfigPaths.length) root.configLoaded = true
+    // A usable token must not wait on a missing ~/.wrangler path that never
+    // reports — that livelocked refresh() behind ensureToken().
+    else if (parsed && parsed.token) root.configLoaded = true
     root.applyBestCredentials()
   }
 

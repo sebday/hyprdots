@@ -11,6 +11,7 @@ Item {
     property bool open: false
     property bool previewFont: true
     property bool labelBold: true
+    property bool externalTrigger: false
     property int labelFontSize: Theme.fontSizeM
     property int popupMaxHeight: 160
 
@@ -28,7 +29,7 @@ Item {
         ? Math.min(popupMaxHeight, Math.max(28, model.length * 28) + 8)
         : 0
 
-    implicitHeight: header.implicitHeight + (open ? (6 + listHeight) : 0)
+    implicitHeight: (root.externalTrigger ? 0 : header.implicitHeight) + (open ? ((root.externalTrigger ? 0 : 6) + listHeight) : 0)
     implicitWidth: 200
     opacity: root.enabled ? 1 : Theme.opacityDisabled
     z: root.open ? 100 : 0
@@ -54,6 +55,7 @@ Item {
         spacing: Theme.spacingS
 
         Text {
+            visible: !root.externalTrigger && root.label !== ""
             text: root.label
             color: Theme.foreground
             font.family: Theme.fontFamily
@@ -64,6 +66,7 @@ Item {
         }
 
         Item {
+            visible: !root.externalTrigger
             Layout.fillWidth: true
             Layout.preferredHeight: 30
 
@@ -117,8 +120,8 @@ Item {
     Item {
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.top: header.bottom
-        anchors.topMargin: Theme.spacingS
+        anchors.top: root.externalTrigger ? parent.top : header.bottom
+        anchors.topMargin: root.externalTrigger ? 0 : Theme.spacingS
         height: root.listHeight
         visible: root.open
         clip: true

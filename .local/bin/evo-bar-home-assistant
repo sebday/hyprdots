@@ -92,6 +92,184 @@ entity_cache_name() {
     printf '%s' "${1//./_}"
 }
 
+is_nest_placeholder() {
+    local file="$1"
+    [[ -f "$file" ]] || return 1
+    [[ "$(wc -c < "$file" | tr -d ' ')" -eq 2689 ]]
+}
+
+is_valid_snapshot() {
+    local file="$1"
+    [[ -f "$file" ]] || return 1
+    local size
+    size=$(wc -c < "$file" | tr -d ' ')
+    [[ "$size" -ge 4096 ]] && [[ "$size" -ne 2689 ]]
+}
+
+snapshot_cache_json() {
+    local entity_id="$1"
+    local cache_file="$2"
+    local mtime_ms
+    mtime_ms=$(($(stat -c %Y "$cache_file") * 1000))
+    jq -cn \
+        --arg entityId "$entity_id" \
+        --arg path "$cache_file" \
+        --argjson updatedAt "$mtime_ms" \
+        --argjson cached true \
+        '{ok: true, entityId: $entityId, path: $path, updatedAt: $updatedAt, cached: true}'
+}
+
+return_cached_snapshot() {
+    local entity_id="$1"
+    local cache_file="${HA_CACHE_DIR}/$(entity_cache_name "$entity_id").jpg"
+    if is_valid_snapshot "$cache_file"; then
+        snapshot_cache_json "$entity_id" "$cache_file"
+        return 0
+    fi
+    return 1
+}
+
+go2rtc_bin() {
+    if [[ -n "${GO2RTC_PATH:-}" && -x "$GO2RTC_PATH" ]]; then
+        printf '%s' "$GO2RTC_PATH"
+        return 0
+    fi
+    if [[ -x "${HOME}/.local/bin/go2rtc" ]]; then
+        printf '%s' "${HOME}/.local/bin/go2rtc"
+        return 0
+    fi
+    if command -v go2rtc >/dev/null 2>&1; then
+        command -v go2rtc
+        return 0
+    fi
+    return 1
+}
+
+go2rtc_runtime_dir() {
+    local dir="${XDG_RUNTIME_DIR:-/tmp}/evoshell"
+    mkdir -p "$dir"
+    printf '%s' "$dir"
+}
+
+ha_host_port() {
+    local url host port scheme
+    url="$(ha_base_url)"
+    scheme="${url%%://*}"
+    host="${url#*://}"
+    host="${host%%/*}"
+    port=""
+    if [[ "$host" == *:* ]]; then
+        port="${host##*:}"
+        host="${host%%:*}"
+    elif [[ "$scheme" == "https" ]]; then
+        port="443"
+    else
+        port="8123"
+    fi
+    printf '%s %s' "$host" "$port"
+}
+
+ensure_go2rtc_sidecar() {
+    local bin runtime_dir pid_file port_file config_file port
+    bin="$(go2rtc_bin)" || return 1
+    runtime_dir="$(go2rtc_runtime_dir)"
+    pid_file="${runtime_dir}/go2rtc.pid"
+    port_file="${runtime_dir}/go2rtc.port"
+    config_file="${runtime_dir}/go2rtc.yaml"
+    port="19840"
+
+    if [[ -f "$pid_file" ]]; then
+        local pid
+        pid="$(cat "$pid_file" 2>/dev/null || true)"
+        if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+            printf '%s' "$port"
+            return 0
+        fi
+        rm -f "$pid_file"
+    fi
+
+    cat >"$config_file" <<EOF
+api:
+  listen: "127.0.0.1:${port}"
+rtsp:
+  listen: ""
+webrtc:
+  listen: ":0"
+EOF
+
+    "$bin" -config "$config_file" >/dev/null 2>&1 &
+    local pid=$!
+    disown "$pid" 2>/dev/null || true
+    echo "$pid" >"$pid_file"
+    echo "$port" >"$port_file"
+
+    local attempt
+    for attempt in $(seq 1 20); do
+        if curl -sS -m 1 "http://127.0.0.1:${port}/api" >/dev/null 2>&1; then
+            printf '%s' "$port"
+            return 0
+        fi
+        sleep 0.1
+    done
+    kill "$pid" 2>/dev/null || true
+    rm -f "$pid_file" "$port_file"
+    return 1
+}
+
+snapshot_via_go2rtc() {
+    local entity_id="$1"
+    local output="$2"
+    local token host port hass_src encoded_src sidecar_port attempt
+    token="$(ha_token)"
+    read -r host port < <(ha_host_port)
+    sidecar_port="$(ensure_go2rtc_sidecar)" || return 1
+    hass_src="hass://${host}:${port}?entity_id=${entity_id}&token=${token}"
+    encoded_src="$(jq -rn --arg v "$hass_src" '$v|@uri')"
+
+    for attempt in 1 2; do
+        if curl -fsS -m 35 \
+            "http://127.0.0.1:${sidecar_port}/api/frame.jpeg?src=${encoded_src}&w=640" \
+            -o "$output" 2>/dev/null \
+            && is_valid_snapshot "$output"; then
+            return 0
+        fi
+        rm -f "$output"
+        sleep 0.5
+    done
+    return 1
+}
+
+hue_to_degrees() {
+    awk -v h="$1" 'BEGIN {
+        h = h + 0
+        if (h < 0) h = 0
+        if (h > 1) h = 1
+        printf "%d", int(h * 360 + 0.5)
+    }'
+}
+
+rgb_to_hs() {
+    awk -v r="$1" -v g="$2" -v b="$3" 'BEGIN {
+        r = r / 255; g = g / 255; b = b / 255
+        mx = (r > g ? r : g); if (b > mx) mx = b
+        mn = (r < g ? r : g); if (b < mn) mn = b
+        d = mx - mn
+        if (d == 0) { h = 0; s = 0 }
+        else {
+            s = d / mx
+            if (mx == r) h = (g - b) / d + (g < b ? 6 : 0)
+            else if (mx == g) h = (b - r) / d + 2
+            else h = (r - g) / d + 4
+            h = h / 6
+        }
+        printf "%d %d", int(h * 360 + 0.5), int(s * 100 + 0.5)
+    }'
+}
+
+invalidate_states_cache() {
+    rm -f "${EVO_BAR_CACHE_DIR}/home-assistant-states-"*.json 2>/dev/null || true
+}
+
 is_allowed_entity() {
     local entity_id="$1"
     local allow_json="$2"
@@ -132,18 +310,57 @@ temperature_unit() {
     '
 }
 
+fetch_outdoor_air_quality() {
+    local lat="52.9219" lon="-1.4746"
+    if settings=$(~/.local/bin/evo-bar-weather settings get 2>/dev/null); then
+        lat=$(jq -r '.lat // "52.9219"' <<<"$settings")
+        lon=$(jq -r '.lon // "-1.4746"' <<<"$settings")
+    fi
+
+    if cached=$(evo_bar_cache_read "home-assistant-outdoor-aqi" 1800 2>/dev/null); then
+        printf '%s\n' "$cached"
+        return 0
+    fi
+
+    local data
+    data=$(curl -sf --max-time 10 \
+        "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=european_aqi" \
+        2>/dev/null) || data=""
+
+    local output
+    if [[ -z "$data" ]]; then
+        output='{"ok":false,"value":null,"label":"AQI","available":false}'
+    else
+        output=$(jq -cn --argjson raw "$data" '
+            ($raw.current.european_aqi // null) as $v
+            | if $v == null then {ok:false, value:null, label:"AQI", available:false}
+              else {ok:true, value:($v | tonumber), label:"AQI", available:true}
+              end
+        ')
+    fi
+
+    printf '%s\n' "$output" | evo_bar_cache_write "home-assistant-outdoor-aqi"
+    printf '%s\n' "$output"
+}
+
 cmd_states() {
     local config_json="${1:-$HA_DEFAULT_CONFIG}"
+    local fresh="${2:-}"
     require_config
 
-    local camera_allow light_allow temp_allow
+    local camera_allow light_allow light_area_allow light_groups_only climate_allow temp_allow temp_exclude aqi_entity
     camera_allow=$(jq -c '.cameraEntities // []' <<<"$config_json")
     light_allow=$(jq -c '.lightEntities // []' <<<"$config_json")
+    light_area_allow=$(jq -c '.lightAreas // []' <<<"$config_json")
+    light_groups_only=$(jq -r '.lightGroupsOnly // false' <<<"$config_json")
+    climate_allow=$(jq -c '.climateEntities // []' <<<"$config_json")
     temp_allow=$(jq -c '.temperatureEntities // []' <<<"$config_json")
+    temp_exclude=$(jq -c '.temperatureExclude // []' <<<"$config_json")
+    aqi_entity=$(jq -r '.aqiEntity // ""' <<<"$config_json")
 
     local cache_key
     cache_key=$(printf '%s' "$config_json" | sha256sum | awk '{print $1}')
-    if cached=$(evo_bar_cache_read "home-assistant-states-${cache_key}" 20 2>/dev/null); then
+    if [[ "$fresh" != "fresh" ]] && cached=$(evo_bar_cache_read "home-assistant-states-${cache_key}" 20 2>/dev/null); then
         printf '%s\n' "$cached"
         exit 0
     fi
@@ -178,9 +395,10 @@ cmd_states() {
           })
     ' <<<"$body")
 
-    lights=$(jq -c --argjson allow "$light_allow" --argjson area_map "$(light_area_map)" '
+    lights=$(jq -c --argjson allow "$light_allow" --argjson area_allow "$light_area_allow" --argjson groups_only "$light_groups_only" --argjson area_map "$(light_area_map)" '
         [.[] | select(.entity_id | startswith("light."))]
         | if ($allow | length) == 0 then . else map(select(.entity_id as $id | any($allow[]; . == $id))) end
+        | if $groups_only then map(select(.attributes.is_hue_group == true)) else . end
         | map({
             entityId: .entity_id,
             name: (.attributes.friendly_name // .entity_id),
@@ -197,11 +415,42 @@ cmd_states() {
               else ((.attributes.brightness | tonumber) / 255 * 100 | round)
               end
             ),
+            rgbColor: (.attributes.rgb_color // null),
+            hsColor: (.attributes.hs_color // null),
+            colorTempKelvin: (.attributes.color_temp_kelvin // null),
+            minColorTempKelvin: (.attributes.min_color_temp_kelvin // null),
+            maxColorTempKelvin: (.attributes.max_color_temp_kelvin // null),
+            colorModes: (.attributes.supported_color_modes // []),
+            supportsColor: (
+              (.attributes.supported_color_modes // []) as $modes
+              | any($modes[]; . == "xy" or . == "rgb" or . == "hs" or . == "color_temp")
+            ),
+            available: ((.state // "") != "unavailable")
+          })
+        | if ($area_allow | length) == 0 then .
+          else map(select(.area as $area | any($area_allow[]; . == $area)))
+          end
+    ' <<<"$body")
+
+    climates=$(jq -c --argjson allow "$climate_allow" '
+        [.[] | select(.entity_id | startswith("climate."))]
+        | if ($allow | length) == 0 then . else map(select(.entity_id as $id | any($allow[]; . == $id))) end
+        | map({
+            entityId: .entity_id,
+            name: (.attributes.friendly_name // .entity_id),
+            mode: (.state // "off"),
+            target: (.attributes.temperature // null),
+            current: (.attributes.current_temperature // null),
+            min: ((.attributes.min_temp // 10) | tonumber),
+            max: ((.attributes.max_temp // 32) | tonumber),
+            unit: (.attributes.temperature_unit // "°C"),
+            modes: (.attributes.hvac_modes // []),
+            action: (.attributes.hvac_action // ""),
             available: ((.state // "") != "unavailable")
           })
     ' <<<"$body")
 
-    climates=$(jq -c --argjson allow "$temp_allow" '
+    climates_for_temps=$(jq -c --argjson allow "$temp_allow" '
         [.[] | select(.entity_id | startswith("climate."))]
         | if ($allow | length) == 0 then . else map(select(.entity_id as $id | any($allow[]; . == $id))) end
     ' <<<"$body")
@@ -214,7 +463,7 @@ cmd_states() {
     ' <<<"$body")
 
     temperatures=$(
-        jq -cn --argjson climates "$climates" --argjson sensors "$sensors" '
+        jq -cn --argjson climates "$climates_for_temps" --argjson sensors "$sensors" --argjson exclude "$temp_exclude" '
             def temp_row:
                 {
                     entityId: .entity_id,
@@ -233,6 +482,9 @@ cmd_states() {
                     available: ((.state // "") != "unavailable")
                 };
             [($climates + $sensors)[] | temp_row | select(.value != null)]
+            | if ($exclude | length) == 0 then .
+              else map(select(.entityId as $id | all($exclude[]; . != $id)))
+              end
         '
     )
 
@@ -243,6 +495,23 @@ cmd_states() {
     lights_total=$(jq 'length' <<<"$lights")
     lights_on=$(jq '[.[] | select(.on)] | length' <<<"$lights")
 
+    local air_quality
+    if [[ -n "$aqi_entity" ]]; then
+        air_quality=$(jq -cn --argjson row "$(jq -c --arg id "$aqi_entity" '.[] | select(.entity_id == $id)' <<<"$body")" '
+            if ($row | length) == 0 then {ok:false, value:null, label:"AQI", available:false}
+            elif ($row.state | test("^[0-9.]+$")) then {
+                ok: true,
+                value: ($row.state | tonumber),
+                label: ($row.attributes.friendly_name // "AQI"),
+                available: true
+            }
+            else {ok:false, value:null, label:"AQI", available:false}
+            end
+        ')
+    else
+        air_quality=$(fetch_outdoor_air_quality)
+    fi
+
     local now_ms
     now_ms=$(($(date +%s) * 1000))
 
@@ -252,7 +521,9 @@ cmd_states() {
         --argjson updatedAt "$now_ms" \
         --argjson cameras "$cameras" \
         --argjson lights "$lights" \
+        --argjson climates "$climates" \
         --argjson temperatures "$temperatures" \
+        --argjson airQuality "$air_quality" \
         --argjson camerasTotal "$cameras_total" \
         --argjson camerasOnline "$cameras_online" \
         --argjson lightsTotal "$lights_total" \
@@ -274,11 +545,56 @@ cmd_states() {
             },
             cameras: $cameras,
             lights: $lights,
-            temperatures: $temperatures
+            climates: $climates,
+            temperatures: $temperatures,
+            airQuality: $airQuality
         }')
 
     printf '%s\n' "$output" | evo_bar_cache_write "home-assistant-states-${cache_key}"
     printf '%s\n' "$output"
+}
+
+cmd_temperature() {
+    local entity_id="$1"
+    require_config
+    [[ -n "$entity_id" ]] || { json_error "missing entity"; exit 1; }
+
+    local body code
+    body=$(ha_request GET "/api/states/${entity_id}")
+    code="${body##*$'\n'}"
+    body="${body%$'\n'*}"
+
+    if [[ "$code" != "200" ]]; then
+        json_error "temperature failed" "HTTP ${code} for ${entity_id}"
+        exit 1
+    fi
+
+    local row
+    row=$(jq -c '
+        {
+            entityId: .entity_id,
+            name: (.attributes.friendly_name // .entity_id),
+            value: (
+                if .attributes.current_temperature != null then .attributes.current_temperature
+                elif .attributes.temperature != null then .attributes.temperature
+                elif (.state | test("^[0-9.+-]+$")) then (.state | tonumber)
+                else null end
+            ),
+            unit: (
+                if .attributes.unit_of_measurement != null then .attributes.unit_of_measurement
+                elif .attributes.temperature_unit != null then .attributes.temperature_unit
+                else "°C" end
+            ),
+            available: ((.state // "") != "unavailable")
+        }
+    ' <<<"$body")
+
+    if [[ "$(jq -r '.value // empty' <<<"$row")" == "" ]]; then
+        json_error "temperature unavailable" "No reading for ${entity_id}"
+        exit 1
+    fi
+
+    jq -cn --argjson row "$row" '{ok: true} + $row'
 }
 
 cmd_snapshot() {
@@ -300,8 +616,29 @@ cmd_snapshot() {
 
     if [[ "$code" != "200" ]]; then
         rm -f "$tmp"
+        return_cached_snapshot "$entity_id" && exit 0
         json_error "snapshot failed" "HTTP ${code} for ${entity_id}"
         exit 1
+    fi
+
+    if is_nest_placeholder "$tmp"; then
+        rm -f "$tmp"
+        tmp="$(mktemp "${cache_file}.XXXXXX")"
+        local attempt capture_ok=1
+        for attempt in 1 2; do
+            if snapshot_via_go2rtc "$entity_id" "$tmp"; then
+                capture_ok=0
+                break
+            fi
+            rm -f "$tmp"
+            tmp="$(mktemp "${cache_file}.XXXXXX")"
+        done
+        if [[ "$capture_ok" -ne 0 ]]; then
+            rm -f "$tmp"
+            return_cached_snapshot "$entity_id" && exit 0
+            json_error "snapshot failed" "WebRTC capture failed for ${entity_id}"
+            exit 1
+        fi
     fi
 
     mv "$tmp" "$cache_file"
@@ -317,16 +654,22 @@ cmd_snapshot() {
 cmd_light() {
     local entity_id="$1"
     local action="$2"
-    local brightness="${3:-}"
+    local arg3="${3:-}"
+    local arg4="${4:-}"
+    local arg5="${5:-}"
+    local arg6="${6:-}"
     require_config
-    [[ -n "$entity_id" && -n "$action" ]] || { json_error "usage: light <entity_id> on|off [brightness_pct]"; exit 1; }
+    [[ -n "$entity_id" && -n "$action" ]] || {
+        json_error "usage: light <entity_id> on|off|rgb [args...]"
+        exit 1
+    }
 
     local service body
     if [[ "$action" == "on" ]]; then
         service="light/turn_on"
-        if [[ -n "$brightness" ]]; then
+        if [[ -n "$arg3" ]]; then
             local raw
-            raw=$(awk -v pct="$brightness" 'BEGIN { printf "%d", int(pct * 255 / 100 + 0.5) }')
+            raw=$(awk -v pct="$arg3" 'BEGIN { printf "%d", int(pct * 255 / 100 + 0.5) }')
             body=$(jq -cn --arg entity_id "$entity_id" --argjson brightness "$raw" \
                 '{entity_id: $entity_id, brightness: $brightness}')
         else
@@ -335,8 +678,52 @@ cmd_light() {
     elif [[ "$action" == "off" ]]; then
         service="light/turn_off"
         body=$(jq -cn --arg entity_id "$entity_id" '{entity_id: $entity_id}')
+    elif [[ "$action" == "hue" ]]; then
+        service="light/turn_on"
+        [[ -n "$arg3" ]] || {
+            json_error "missing hue value" "Use light <entity_id> hue <0.0-1.0> [brightness_pct]"
+            exit 1
+        }
+        local hs_h hs_s=100
+        hs_h="$(hue_to_degrees "$arg3")"
+        if [[ -n "$arg4" ]]; then
+            local raw
+            raw=$(awk -v pct="$arg4" 'BEGIN { printf "%d", int(pct * 255 / 100 + 0.5) }')
+            body=$(jq -cn \
+                --arg entity_id "$entity_id" \
+                --argjson hs_h "$hs_h" --argjson hs_s "$hs_s" \
+                --argjson brightness "$raw" \
+                '{entity_id: $entity_id, hs_color: [$hs_h, $hs_s], brightness: $brightness, transition: 0}')
+        else
+            body=$(jq -cn \
+                --arg entity_id "$entity_id" \
+                --argjson hs_h "$hs_h" --argjson hs_s "$hs_s" \
+                '{entity_id: $entity_id, hs_color: [$hs_h, $hs_s], transition: 0}')
+        fi
+    elif [[ "$action" == "rgb" ]]; then
+        service="light/turn_on"
+        [[ -n "$arg3" && -n "$arg4" && -n "$arg5" ]] || {
+            json_error "missing rgb values" "Use light <entity_id> rgb <r> <g> <b> [brightness_pct]"
+            exit 1
+        }
+        local hs_h hs_s
+        read -r hs_h hs_s < <(rgb_to_hs "$arg3" "$arg4" "$arg5")
+        if [[ -n "$arg6" ]]; then
+            local raw
+            raw=$(awk -v pct="$arg6" 'BEGIN { printf "%d", int(pct * 255 / 100 + 0.5) }')
+            body=$(jq -cn \
+                --arg entity_id "$entity_id" \
+                --argjson hs_h "$hs_h" --argjson hs_s "$hs_s" \
+                --argjson brightness "$raw" \
+                '{entity_id: $entity_id, hs_color: [$hs_h, $hs_s], brightness: $brightness, transition: 0}')
+        else
+            body=$(jq -cn \
+                --arg entity_id "$entity_id" \
+                --argjson hs_h "$hs_h" --argjson hs_s "$hs_s" \
+                '{entity_id: $entity_id, hs_color: [$hs_h, $hs_s], transition: 0}')
+        fi
     else
-        json_error "invalid action" "Use on or off"
+        json_error "invalid action" "Use on, off, or rgb"
         exit 1
     fi
 
@@ -347,7 +734,81 @@ cmd_light() {
         json_error "light action failed" "HTTP ${code}"
         exit 1
     fi
+    invalidate_states_cache
     jq -cn --arg entityId "$entity_id" --arg action "$action" '{ok: true, entityId: $entityId, action: $action}'
+}
+
+cmd_climate() {
+    local entity_id="$1"
+    local action="$2"
+    local value="${3:-}"
+    require_config
+    [[ -n "$entity_id" && -n "$action" ]] || {
+        json_error "usage: climate <entity_id> set-temp <temperature>|set-mode <mode>"
+        exit 1
+    }
+
+    local service body
+    case "$action" in
+        set-temp)
+            [[ -n "$value" ]] || { json_error "missing temperature"; exit 1; }
+            service="climate/set_temperature"
+            body=$(jq -cn --arg entity_id "$entity_id" --argjson temperature "$value" \
+                '{entity_id: $entity_id, temperature: $temperature}')
+            ;;
+        set-mode)
+            [[ -n "$value" ]] || { json_error "missing mode"; exit 1; }
+            service="climate/set_hvac_mode"
+            body=$(jq -cn --arg entity_id "$entity_id" --arg hvac_mode "$value" \
+                '{entity_id: $entity_id, hvac_mode: $hvac_mode}')
+            ;;
+        *)
+            json_error "invalid action" "Use set-temp or set-mode"
+            exit 1
+            ;;
+    esac
+
+    local resp code
+    resp=$(ha_request POST "/api/services/${service}" "$body")
+    code="${resp##*$'\n'}"
+    if [[ "$code" != "200" ]]; then
+        json_error "climate action failed" "HTTP ${code}"
+        exit 1
+    fi
+    invalidate_states_cache
+    jq -cn --arg entityId "$entity_id" --arg action "$action" '{ok: true, entityId: $entityId, action: $action}'
+}
+
+cmd_snapshot_cache() {
+    local entity_id="$1"
+    require_config
+    [[ -n "$entity_id" ]] || { json_error "missing entity"; exit 1; }
+    return_cached_snapshot "$entity_id" || {
+        json_error "no cached snapshot" "No valid cache for ${entity_id}"
+        exit 1
+    }
+}
+
+cmd_snapshot_cache_batch() {
+    local ids_json="${1:-[]}"
+    require_config
+    local snapshots="[]"
+    local entity_id cache_file mtime_ms item
+    while IFS= read -r entity_id; do
+        [[ -n "$entity_id" ]] || continue
+        cache_file="${HA_CACHE_DIR}/$(entity_cache_name "$entity_id").jpg"
+        if ! is_valid_snapshot "$cache_file"; then
+            continue
+        fi
+        mtime_ms=$(($(stat -c %Y "$cache_file") * 1000))
+        item=$(jq -cn \
+            --arg entityId "$entity_id" \
+            --arg path "$cache_file" \
+            --argjson updatedAt "$mtime_ms" \
+            '{entityId: $entityId, path: $path, updatedAt: $updatedAt, cached: true}')
+        snapshots=$(jq -c --argjson item "$item" '. + [$item]' <<<"$snapshots")
+    done < <(jq -r '.[]?' <<<"$ids_json")
+    jq -cn --argjson snapshots "$snapshots" '{ok: true, snapshots: $snapshots}'
 }
 
 cmd_open() {
@@ -363,9 +824,15 @@ cmd_open() {
 usage() {
     cat <<'EOF'
 usage:
-  evo-bar-home-assistant states [config_json]
+  evo-bar-home-assistant states [config_json] [fresh]
   evo-bar-home-assistant snapshot <entity_id>
+  evo-bar-home-assistant snapshot-cache <entity_id>
+  evo-bar-home-assistant snapshot-cache-batch <entity_ids_json>
+  evo-bar-home-assistant temperature <entity_id>
+  evo-bar-home-assistant climate <entity_id> set-temp <temperature>
+  evo-bar-home-assistant climate <entity_id> set-mode <mode>
   evo-bar-home-assistant light <entity_id> on|off [brightness_pct]
+  evo-bar-home-assistant light <entity_id> rgb <r> <g> <b> [brightness_pct]
   evo-bar-home-assistant open
 EOF
     exit 1
@@ -375,13 +842,25 @@ load_secrets
 
 case "${1:-}" in
     states)
-        cmd_states "${2:-$HA_DEFAULT_CONFIG}"
+        cmd_states "${2:-$HA_DEFAULT_CONFIG}" "${3:-}"
         ;;
     snapshot)
         cmd_snapshot "${2:-}"
         ;;
+    snapshot-cache)
+        cmd_snapshot_cache "${2:-}"
+        ;;
+    snapshot-cache-batch)
+        cmd_snapshot_cache_batch "${2:-[]}"
+        ;;
+    temperature)
+        cmd_temperature "${2:-}"
+        ;;
+    climate)
+        cmd_climate "${2:-}" "${3:-}" "${4:-}"
+        ;;
     light)
-        cmd_light "${2:-}" "${3:-}" "${4:-}"
+        cmd_light "${2:-}" "${3:-}" "${4:-}" "${5:-}" "${6:-}" "${7:-}"
         ;;
     open)
         cmd_open

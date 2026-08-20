@@ -31,7 +31,6 @@ Item {
     property bool loading: false
 
     readonly property bool weatherOk: weather.ok === true
-    readonly property string location: String(weather.location || "Derby")
     readonly property string metOfficeUrl: String(weather.metOfficeUrl || "https://weather.metoffice.gov.uk/forecast/gcqvn6pq4")
     readonly property var current: weather.current || null
     readonly property var daily: Array.isArray(weather.daily) ? weather.daily : []
@@ -130,6 +129,9 @@ Item {
         syncFromBar()
     }
 
+    function onDeactivated() {
+    }
+
     function hasDisplayData() {
         return weatherOk || !!(weather && weather.error)
     }
@@ -175,7 +177,7 @@ Item {
         publishCache(json)
     }
 
-    onActiveChanged: if (active) syncFromBar()
+    onActiveChanged: if (root.active) root.syncFromBar()
     onBarSourceChanged: if (active) syncFromBar()
 
     Connections {
@@ -310,9 +312,12 @@ Item {
             label: ""
             Layout.fillWidth: true
             visible: root.weatherOk && !root.loading
+            sectionSpacing: Theme.spacingS
+            contentPad: Theme.hoverPopupContentPad
+            legendBackground: Theme.background
 
             HoverPopupLabelPill {
-                text: "Outlook"
+                text: "Derby"
                 icon: "󰖐"
                 fontSize: Theme.fontSizeS
             }
@@ -320,9 +325,11 @@ Item {
             GridLayout {
                 Layout.fillWidth: true
                 columns: 3
+                rowSpacing: Theme.spacingM
                 columnSpacing: Theme.spacingM
 
                 HoverPopupStatBox {
+                    Layout.fillWidth: true
                     visible: root.current !== null
                     clickable: root.metOfficeUrl !== ""
                     onClicked: root.openMetOffice()
@@ -330,10 +337,12 @@ Item {
                     iconColor: root.weatherStyle(root.currentCode).accent
                     value: root.loading ? "…" : root.currentTemp
                     label: "now"
+                    special: true
                     valueColor: root.weatherStyle(root.currentCode).accent
                 }
 
                 HoverPopupStatBox {
+                    Layout.fillWidth: true
                     visible: root.todayOutlook !== null
                     clickable: root.metOfficeUrl !== ""
                     onClicked: root.openMetOffice()
@@ -345,6 +354,7 @@ Item {
                 }
 
                 HoverPopupStatBox {
+                    Layout.fillWidth: true
                     visible: root.tomorrowOutlook !== null
                     icon: root.tomorrowOutlook ? root.tomorrowOutlook.icon : ""
                     iconColor: root.weatherStyle(root.tomorrowCode).accent

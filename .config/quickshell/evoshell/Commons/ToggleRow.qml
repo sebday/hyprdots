@@ -6,6 +6,7 @@ Item {
 
     property string label: ""
     property string detail: ""
+    property bool detailInline: false
     property bool checked: false
     property bool enabled: true
 
@@ -22,6 +23,7 @@ Item {
         spacing: Theme.spacingL
 
         ColumnLayout {
+            visible: !root.detailInline
             Layout.fillWidth: true
             spacing: Theme.spacing2
 
@@ -47,20 +49,47 @@ Item {
             }
         }
 
+        RowLayout {
+            visible: root.detailInline
+            Layout.fillWidth: true
+            spacing: Theme.spacingS
+
+            Text {
+                text: root.label
+                color: Theme.foreground
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSizeM
+                font.bold: Theme.fontBold
+                elide: Text.ElideRight
+            }
+
+            Text {
+                visible: root.detail !== ""
+                text: root.detail
+                color: Theme.foreground
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSizeM
+                opacity: Theme.opacityMuted
+                elide: Text.ElideRight
+            }
+
+            Item { Layout.fillWidth: true }
+        }
+
         Item {
             Layout.preferredWidth: 44
             Layout.preferredHeight: 24
 
             Rectangle {
                 anchors.fill: parent
-                radius: Theme.radiusToggleTrack
+                radius: 3
                 color: root.checked ? Theme.accent : Theme.foregroundSubtle
                 opacity: root.enabled ? 1 : Theme.opacityDisabled
 
                 Rectangle {
                     width: 18
                     height: 18
-                    radius: Theme.radiusToggleThumb
+                    radius: 2
                     y: 3
                     x: root.checked ? parent.width - width - 3 : 3
                     color: root.checked ? Theme.background : Theme.foreground

@@ -62,7 +62,7 @@ Item {
         var upnl = position.upnlPct
         var upnlColor = signedColor(upnl)
         return [
-            { label: "Price", value: priceValue },
+            { label: "Price", value: priceValue, special: true },
             { label: "Value", value: root.fmtPositionValue(position) },
             { label: quantityLabel, value: quantityValue },
             {
@@ -236,6 +236,7 @@ Item {
                         value: String(modelData.value)
                         label: modelData.label
                         valueFontSize: root.statFont
+                        special: modelData.special === true
                         valueColor: modelData.valueColor !== undefined ? modelData.valueColor : Theme.accent
                         customFill: modelData.customFill === true
                         customFillColor: modelData.customFillColor !== undefined

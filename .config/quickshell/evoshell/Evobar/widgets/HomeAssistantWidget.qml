@@ -26,8 +26,18 @@ Item {
     readonly property var ha: shell ? shell.serviceFor("evo.bar.popups.home-assistant") : null
     readonly property bool configured: ha && ha.configured
     readonly property bool warningState: ha && ha.warning
+    readonly property bool heatingActive: ha && ha.heatingActive
     readonly property bool busy: ha && ha.busy
     readonly property string trayIconText: "󰚡"
+    readonly property color trayIconColor: {
+        if (!root.configured)
+            return Theme.urgent
+        if (root.heatingActive)
+            return Theme.mixColors(Theme.urgent, "#ffaa00", 0.55)
+        if (root.warningState)
+            return Theme.urgent
+        return Theme.foreground
+    }
 
     implicitWidth: trayMode ? trayCellWidth : trayIconSize + Theme.barPaddingX * 2
     implicitHeight: Theme.barHeight
@@ -48,9 +58,7 @@ Item {
         anchors.centerIn: parent
         visible: root.trayMode
         text: root.trayIconText
-        color: root.configured
-            ? (root.warningState ? Theme.urgent : Theme.foreground)
-            : Theme.urgent
+        color: root.trayIconColor
         opacity: root.busy ? 0.55 : 1
         font.family: Theme.fontFamily
         font.pixelSize: root.trayIconSize

@@ -5,21 +5,33 @@ ColumnLayout {
     id: root
 
     property string label: ""
+    property bool showHeader: true
     property int value: 0
     property int minimum: 0
     property int maximum: 20
     property int step: 1
     property bool enabled: true
+    property bool dragging: false
 
     property string valueSuffix: ""
 
     signal valueEdited(int value)
     signal valueCommitted(int value)
 
+    readonly property int activeValue: dragging ? dragValue : value
+
+    property int dragValue: value
+
+    onValueChanged: {
+        if (!dragging)
+            dragValue = value
+    }
+
     spacing: Theme.spacingS
     opacity: root.enabled ? 1 : Theme.opacityDisabled
 
     RowLayout {
+        visible: root.showHeader
         Layout.fillWidth: true
         spacing: Theme.spacingM
 
@@ -34,7 +46,7 @@ ColumnLayout {
         }
 
         Text {
-            text: root.value + root.valueSuffix
+            text: root.activeValue + root.valueSuffix
             color: Theme.accent
             font.family: Theme.fontFamily
             font.pixelSize: Theme.fontSizeM
@@ -59,7 +71,7 @@ ColumnLayout {
 
         Rectangle {
             anchors.verticalCenter: parent.verticalCenter
-            width: root.maximum === root.minimum ? 0 : ((root.value - root.minimum) / (root.maximum - root.minimum)) * track.width
+            width: root.maximum === root.minimum ? 0 : ((root.activeValue - root.minimum) / (root.maximum - root.minimum)) * track.width
             height: 4
             radius: Theme.radiusS
             color: Theme.accent
@@ -68,7 +80,7 @@ ColumnLayout {
         Rectangle {
             id: handle
             anchors.verticalCenter: parent.verticalCenter
-            x: root.maximum === root.minimum ? 0 : ((root.value - root.minimum) / (root.maximum - root.minimum)) * (track.width - width)
+            x: root.maximum === root.minimum ? 0 : ((root.activeValue - root.minimum) / (root.maximum - root.minimum)) * (track.width - width)
             width: 12
             height: 12
             radius: 6
@@ -82,8 +94,11 @@ ColumnLayout {
             hoverEnabled: true
             enabled: root.enabled
             cursorShape: Qt.SizeHorCursor
+            preventStealing: true
+            z: 1
 
-            property int dragStartValue: root.value
+            property int dragStartValue: root.activeValue
+            property bool finishedPress: false
 
             function valueAt(mouseX) {
                 var ratio = Math.max(0, Math.min(1, mouseX / track.width))
@@ -92,22 +107,38 @@ ColumnLayout {
                 return Math.max(root.minimum, Math.min(root.maximum, stepped))
             }
 
+            function setDragValue(next) {
+                if (next === dragValue)
+                    return
+                dragValue = next
+                root.valueEdited(next)
+            }
+
             onPressed: function(mouse) {
-                dragStartValue = root.value
-                root.valueEdited(valueAt(mouse.x))
+                finishedPress = false
+                dragStartValue = root.activeValue
+                root.dragging = true
+                root.setDragValue(valueAt(mouse.x))
             }
 
             onPositionChanged: function(mouse) {
-                if (pressed)
-                    root.valueEdited(valueAt(mouse.x))
+                if (!pressed)
+                    return
+                root.setDragValue(valueAt(mouse.x))
             }
 
             onReleased: function(mouse) {
-                root.valueCommitted(valueAt(mouse.x))
+                finishedPress = true
+                root.setDragValue(valueAt(mouse.x))
+                root.dragging = false
+                root.valueCommitted(root.dragValue)
             }
 
             onCanceled: {
-                root.valueEdited(dragStartValue)
+                root.dragging = false
+                if (finishedPress)
+                    return
+                root.setDragValue(dragStartValue)
             }
         }
     }

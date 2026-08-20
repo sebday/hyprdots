@@ -268,6 +268,7 @@ Item {
                     value: root.totalPlayedDisplay
                     label: "played"
                     valueFontSize: Theme.fontSize5xl
+                    special: true
                 }
             }
 
