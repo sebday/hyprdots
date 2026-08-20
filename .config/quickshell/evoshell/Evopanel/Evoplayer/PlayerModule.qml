@@ -39,6 +39,11 @@ Item {
         || (nowPlayingPanel.width > 0
             && nowPlayingPanel.height > 0
             && nowPlayingArtWidth <= 0)
+
+    onNowPlayingCompactChanged: {
+        if (!nowPlayingCompact)
+            Qt.callLater(root.refreshNowPlayingArtDisplay)
+    }
     readonly property int nowPlayingControlsHeight: 52
     readonly property int nowPlayingWaveformMinHeight: 56
     readonly property int nowPlayingTitleFont: nowPlayingCompact
@@ -249,6 +254,11 @@ Item {
     }
     property string resolvedArt: ""
     property string resolvedArtPath: ""
+    property string sideArtHeldSource: ""
+    property string sideArtIncomingSource: ""
+    property string sideArtPendingSource: ""
+    property bool sideArtLayoutReady: false
+    property bool sideArtLoaded: false
     readonly property string sideArtDisplayUrl: {
         var path = nowPlayingArtPath
         if (!path)
@@ -427,6 +437,69 @@ Item {
 
     function bumpArtRevision() {
         artRevision++
+        syncSideArtImageSource()
+        kickSideArtUntilLoaded()
+    }
+
+    function kickSideArtUntilLoaded() {
+        if (!sideArtLoaded && nowPlayingArtPath && !nowPlayingCompact)
+            sideArtKickTimer.restart()
+    }
+
+    function refreshNowPlayingArtDisplay() {
+        sideArtLoaded = false
+        sideArtIncomingSource = ""
+        syncSideArtImageSource()
+        kickSideArtUntilLoaded()
+    }
+
+    function syncSideArtImageSource() {
+        var path = nowPlayingArtPath
+        if (!path || nowPlayingCompact) {
+            sideArtHeldSource = ""
+            sideArtIncomingSource = ""
+            sideArtPendingSource = ""
+            sideArtLoaded = false
+            return
+        }
+        var next = artUrl(path, true)
+        if (!sideArtLayoutReady) {
+            sideArtPendingSource = next
+            return
+        }
+        sideArtPendingSource = ""
+        if (next === sideArtIncomingSource)
+            return
+        if (next === sideArtHeldSource && !sideArtIncomingSource) {
+            if (!sideArtLoaded)
+                kickSideArtUntilLoaded()
+            return
+        }
+        if (!sideArtHeldSource || !sideArtLoaded) {
+            sideArtIncomingSource = ""
+            if (next !== sideArtHeldSource) {
+                sideArtHeldSource = next
+                sideArtLoaded = false
+            }
+            kickSideArtUntilLoaded()
+            return
+        }
+        sideArtIncomingSource = next
+    }
+
+    function finishSideArtIncoming() {
+        if (!sideArtIncomingSource)
+            return
+        sideArtIncomingSource = ""
+        sideArtLoaded = true
+        sideArtKickTimer.stop()
+    }
+
+    function beginSideArtHeldPromote(incomingUrl) {
+        incomingUrl = String(incomingUrl || "")
+        if (!incomingUrl || sideArtHeldSource === incomingUrl)
+            return
+        sideArtHeldSource = incomingUrl
     }
 
     function onAlbumArtUpdated(scope) {
@@ -607,6 +680,12 @@ Item {
     function toggleCompactMode() {
         compactMode = !compactMode
         menuBarHidden = compactMode
+        Qt.callLater(function() {
+            if (!root.nowPlayingCompact)
+                root.refreshNowPlayingArtDisplay()
+            else
+                root.syncSideArtImageSource()
+        })
     }
 
     function copyTitleToClipboard() {
@@ -934,6 +1013,16 @@ Item {
         if (!entry || !entry.path)
             return
         playPath(entry.path, false)
+    }
+
+    function upNextLineText(tracks) {
+        var list = tracks || root.upNextTracks
+        return list.map(function(t) {
+            var artist = String(t.artist || "").trim()
+            var title = String(t.title || "").trim()
+                || String(t.path || "").split("/").pop()
+            return artist ? artist + " — " + title : title
+        }).join("   ·   ")
     }
 
     function showPlaylistLibrary() {
@@ -1306,6 +1395,8 @@ Item {
         var bootPath = String(player.path || "")
         if (bootPath && (resolvedArtPath !== bootPath || !resolvedArt))
             applyDisplayArtForPath(bootPath)
+        syncSideArtImageSource()
+        kickSideArtUntilLoaded()
         refreshCurrentPlaylistView()
         ensureLibraryData()
     }
@@ -1444,8 +1535,10 @@ Item {
         if (String(player.path || "") === p) {
             if (String(player.art || "") !== nextArt)
                 player = Object.assign({}, player, { art: nextArt })
-            if (nextArt !== prevArt)
+            if (nextArt !== prevArt && prevArt !== "")
                 bumpArtRevision()
+            else
+                syncSideArtImageSource()
         }
     }
 
@@ -3091,6 +3184,7 @@ Item {
                 else
                     applyDisplayArtForPath(prevPath)
             }
+            syncSideArtImageSource()
             return
         }
         applyStatus(JSON.stringify(snap))
@@ -3443,16 +3537,19 @@ Item {
         if (parsed.waveform)
             rememberWaveformPath(parsed.path || player.path, parsed.waveform)
         var newPathBefore = String(parsed.path || player.path || "")
-        if (newPathBefore !== prevPath && prevPath) {
+        if (newPathBefore !== prevPath && prevPath && resolvedArtPath === prevPath) {
             resolvedArtPath = ""
             resolvedArt = ""
         }
         player = Object.assign({}, player, parsed)
         var newPath = String(player.path || "")
-        if (newPath && (newPath !== prevPath || resolvedArtPath !== newPath || !resolvedArt))
-            applyDisplayArtForPath(newPath)
-        if (newPath && String(player.art || "").charAt(0) === "/" && resolvedArtPath !== newPath)
-            applyPlayerArt(newPath, player.art)
+        if (newPath && (newPath !== prevPath || resolvedArtPath !== newPath || !resolvedArt)) {
+            var knownArt = String(player.art || "")
+            if (knownArt.charAt(0) === "/")
+                applyPlayerArt(newPath, knownArt)
+            else
+                applyDisplayArtForPath(newPath)
+        }
         if (newPath !== prevPath) {
             if (!applyCachedWaveform(newPath))
                 waveformSamples = []
@@ -3460,6 +3557,8 @@ Item {
         }
         checkAutoExtendQueue()
         mergePlayerFromTrackList()
+        syncSideArtImageSource()
+        kickSideArtUntilLoaded()
     }
 
     function applyWaveform(text) {
@@ -4502,6 +4601,21 @@ Item {
     }
 
     Timer {
+        id: sideArtKickTimer
+        interval: 100
+        repeat: true
+        property int tries: 0
+        onTriggered: {
+            root.syncSideArtImageSource()
+            tries++
+            if (tries >= 24 || root.sideArtLoaded)
+                stop()
+        }
+        onRunningChanged: if (!running)
+            tries = 0
+    }
+
+    Timer {
         id: tabSearchDebounce
         interval: 650
         repeat: false
@@ -5445,33 +5559,12 @@ Item {
                                 }
                             }
 
-                            Item {
-                                visible: root.upNextTracks.length > 0
+                            UpNextStrip {
                                 Layout.fillWidth: true
-                                Layout.preferredHeight: upNextStrip.implicitHeight
-
-                                Text {
-                                    id: upNextStrip
-                                    width: parent.width
-                                    text: "Up next · " + root.upNextTracks.map(function(t) {
-                                        return String(t.title || "").trim()
-                                            || String(t.path || "").split("/").pop()
-                                    }).join(" · ")
-                                    color: Theme.foreground
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: root.libraryFont
-                                    opacity: 0.62
-                                    elide: Text.ElideRight
-                                }
-
-                                MouseArea {
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: {
-                                        if (root.upNextTracks.length > 0)
-                                            root.playUpNextTrack(root.upNextTracks[0])
-                                    }
+                                tracks: root.upNextTracks
+                                onPlayFirst: {
+                                    if (root.upNextTracks.length > 0)
+                                        root.playUpNextTrack(root.upNextTracks[0])
                                 }
                             }
 
@@ -5564,45 +5657,104 @@ Item {
                         Layout.minimumWidth: root.nowPlayingArtWidth
                         fillHeight: true
 
+                        onVisibleChanged: {
+                            if (visible)
+                                Qt.callLater(root.refreshNowPlayingArtDisplay)
+                        }
+
                         Item {
                             id: sideArtHost
                             Layout.fillWidth: true
                             Layout.fillHeight: true
 
-                            readonly property bool artShowing: sideArtImage.source !== ""
-                                && (sideArtImage.status === Image.Ready
-                                    || sideArtImage.status === Image.Loading)
+                            readonly property bool layoutReady: width > 8 && height > 8
+                            readonly property bool heldReady: sideArtHeldImage.status === Image.Ready
+                                && root.sideArtHeldSource !== ""
+                            readonly property bool incomingReady: sideArtIncomingImage.status === Image.Ready
+                                && root.sideArtIncomingSource !== ""
+                            readonly property bool artShowing: heldReady || incomingReady
+                            property bool retryQueued: false
+
+                            onLayoutReadyChanged: {
+                                root.sideArtLayoutReady = layoutReady
+                                if (layoutReady)
+                                    root.syncSideArtImageSource()
+                            }
 
                             Rectangle {
                                 anchors.fill: parent
                                 radius: Theme.fieldsetCornerRadius
                                 clip: true
-                                color: sideArtHost.artShowing
-                                    ? "transparent"
-                                    : Theme.foregroundFaint
+                                color: Theme.foregroundFaint
+                                visible: !sideArtHost.artShowing
 
                                 Text {
                                     anchors.centerIn: parent
-                                    visible: !sideArtHost.artShowing
                                     text: "󰎈"
                                     color: Theme.accent
                                     font.family: Theme.fontFamily
                                     font.pixelSize: Math.round(Math.min(sideArtHost.width, sideArtHost.height) * 0.22)
                                     opacity: 0.5
                                 }
+                            }
+
+                            Rectangle {
+                                anchors.fill: parent
+                                radius: Theme.fieldsetCornerRadius
+                                clip: true
+                                color: "transparent"
 
                                 Image {
-                                    id: sideArtImage
+                                    id: sideArtHeldImage
                                     anchors.fill: parent
-                                    visible: sideArtHost.artShowing
-                                    source: root.nowPlayingCompact ? "" : root.sideArtDisplayUrl
+                                    z: 0
+                                    visible: heldReady
+                                    source: root.sideArtHeldSource
                                     fillMode: Image.PreserveAspectCrop
                                     smooth: true
                                     asynchronous: true
                                     cache: false
                                     onStatusChanged: {
+                                        if (status === Image.Ready) {
+                                            if (root.sideArtIncomingSource
+                                                    && root.sideArtHeldSource === root.sideArtIncomingSource)
+                                                root.finishSideArtIncoming()
+                                            else if (!root.sideArtIncomingSource && root.sideArtHeldSource) {
+                                                root.sideArtLoaded = true
+                                                sideArtKickTimer.stop()
+                                            }
+                                        }
                                         if (status === Image.Error
-                                                && source
+                                                && root.sideArtHeldSource
+                                                && !sideArtHost.retryQueued) {
+                                            sideArtHost.retryQueued = true
+                                            root.applyDisplayArtForPath(String(player.path || ""), function() {
+                                                sideArtHost.retryQueued = false
+                                            })
+                                        }
+                                    }
+                                }
+
+                                Image {
+                                    id: sideArtIncomingImage
+                                    anchors.fill: parent
+                                    z: 1
+                                    visible: incomingReady
+                                    source: root.sideArtIncomingSource
+                                    fillMode: Image.PreserveAspectCrop
+                                    smooth: true
+                                    asynchronous: true
+                                    cache: false
+                                    onStatusChanged: {
+                                        if (status === Image.Ready && root.sideArtIncomingSource) {
+                                            if (root.sideArtHeldSource === root.sideArtIncomingSource
+                                                    && sideArtHeldImage.status === Image.Ready)
+                                                root.finishSideArtIncoming()
+                                            else
+                                                root.beginSideArtHeldPromote(root.sideArtIncomingSource)
+                                        }
+                                        if (status === Image.Error
+                                                && root.sideArtIncomingSource
                                                 && !sideArtHost.retryQueued) {
                                             sideArtHost.retryQueued = true
                                             root.applyDisplayArtForPath(String(player.path || ""), function() {
@@ -5612,8 +5764,6 @@ Item {
                                     }
                                 }
                             }
-
-                            property bool retryQueued: false
 
                             DropArea {
                                 id: sideArtDrop
@@ -6421,7 +6571,7 @@ Item {
                     btnSize: transportBar.fitBtnSize
                     iconScale: transportBar.fitIconScale
                     icon: "󰋑"
-                    iconOffsetY: 1
+                    iconOffsetY: 2
                     smallGlyph: true
                     liked: root.favoriteApplyPending && root.favoriteApplyPath === String(root.player.path || "")
                         ? root.favoriteApplyLiked
@@ -8594,6 +8744,110 @@ Item {
         BriefTooltip {
             show: iconMouse.containsMouse && treeIcon.hint !== ""
             text: treeIcon.hint
+        }
+    }
+
+    component UpNextStrip: Item {
+        id: upNext
+        property var tracks: []
+        signal playFirst()
+
+        readonly property string lineText: root.upNextLineText(upNext.tracks)
+
+        visible: upNext.tracks.length > 0
+        implicitHeight: 26
+
+        RowLayout {
+            anchors.fill: parent
+            spacing: Theme.spacingS
+
+            Text {
+                text: "Up next"
+                color: Theme.accent
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSizeXs
+                font.bold: Theme.fontBold
+                opacity: upNextMouse.containsMouse ? 1 : 0.9
+            }
+
+            Rectangle {
+                Layout.preferredWidth: 1
+                Layout.preferredHeight: 12
+                color: Theme.foregroundDivider
+            }
+
+            Item {
+                id: scrollClip
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
+
+                Text {
+                    id: lineMeasure
+                    visible: false
+                    text: upNext.lineText
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.libraryFont
+                }
+
+                readonly property bool needsScroll: lineMeasure.width > scrollClip.width + 6
+                readonly property real loopWidth: lineMeasure.width + 24
+
+                Text {
+                    id: scrollLine
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: scrollClip.needsScroll
+                        ? (upNext.lineText + "   ·   " + upNext.lineText)
+                        : upNext.lineText
+                    x: scrollClip.needsScroll ? scrollClip.scrollX : 0
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.libraryFont
+                    opacity: upNextMouse.containsMouse ? 0.92 : 0.78
+                }
+
+                property real scrollX: 0
+
+                SequentialAnimation {
+                    id: marqueeAnim
+                    running: scrollClip.needsScroll && scrollClip.width > 0
+                    loops: Animation.Infinite
+                    NumberAnimation {
+                        target: scrollClip
+                        property: "scrollX"
+                        from: 0
+                        to: -scrollClip.loopWidth
+                        duration: Math.max(9000, scrollClip.loopWidth * 28)
+                        easing.type: Easing.Linear
+                    }
+                    PauseAnimation { duration: 600 }
+                }
+
+                onLoopWidthChanged: scrollX = 0
+                onNeedsScrollChanged: scrollX = 0
+
+                Rectangle {
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    width: 16
+                    z: 1
+                    visible: scrollClip.needsScroll
+                    gradient: Gradient {
+                        orientation: Gradient.Horizontal
+                        GradientStop { position: 0.0; color: "transparent" }
+                        GradientStop { position: 1.0; color: Theme.background }
+                    }
+                }
+            }
+        }
+
+        MouseArea {
+            id: upNextMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: upNext.playFirst()
         }
     }
 

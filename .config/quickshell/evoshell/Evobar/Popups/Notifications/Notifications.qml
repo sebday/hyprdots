@@ -6,7 +6,6 @@ BarHoverPopup {
     pluginId: "evo.bar.popups.notifications"
     layerNamespace: "evo-bar-popups-notifications"
     contentWidth: Theme.hoverPopupWidthStandard
-    minContentHeight: 220
 
     NotificationsModule {}
 }
