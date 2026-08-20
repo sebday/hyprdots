@@ -38,7 +38,7 @@ check_absent 'evo-sys-menu'
 # Canonical executables must exist
 for exe in \
   evo-ipc evo-system evo-player evo-player-lib.sh \
-  evo-bar-weather evo-bar-weather-bar evo-bar-github evo-panel-player evo-panel-shopify \
+  evo-bar-weather evo-bar-weather-bar evo-bar-github evo-bar-home-assistant evo-panel-player evo-panel-shopify \
   evo-tasks evo-calculator evo-clipboard evo-wallpaper evo-theme evo-menu-list evo-menu-warm \
   evo-bar-network-bar evo-bar-transmission-bar; do
   [[ -x "${bin}/${exe}" ]] || { echo "missing executable: ${exe}" >&2; fail=1; }
@@ -63,10 +63,15 @@ check_absent 'NotificationArtworkCard' "${root}/Evosys/Notifications/Service.qml
 
 # Manifest ids
 check_present 'evo\.bar\.popups\.weather' "${root}/pluginManifest.js"
+check_present 'evo\.bar\.popups\.home-assistant' "${root}/pluginManifest.js"
 check_present 'evo\.panel\.player' "${root}/pluginManifest.js"
 check_present 'evo\.sys\.settings' "${root}/pluginManifest.js"
 check_present '"exec": "~/.local/bin/evo-bar-weather-bar"' "${root}/shell.json"
 check_present 'return requestDashboardOpen\(pluginId\)' "${root}/shell.qml"
+check_present 'HomeAssistantWidget' "${root}/Evobar/widgets/TrayWidget.qml"
+check_present 'homeAssistant' "${root}/shell.json"
+check_present 'HOME_ASSISTANT_URL' "${bin}/evo-bar-home-assistant"
+check_present 'HOME_ASSISTANT_TOKEN' "${bin}/evo-bar-home-assistant"
 
 # Design tokens
 if rg -q 'opacityEmphasis2' "${root}/Commons/Theme.qml"; then

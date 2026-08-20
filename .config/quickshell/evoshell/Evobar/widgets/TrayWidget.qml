@@ -21,6 +21,7 @@ Item {
     readonly property bool showGithub: settings.github != null && settings.github !== false
     readonly property bool showStocks: settings.stocks != null && settings.stocks !== false
     readonly property bool showCloudflare: settings.cloudflare != null && settings.cloudflare !== false
+    readonly property bool showHomeAssistant: settings.homeAssistant != null && settings.homeAssistant !== false
     readonly property bool showAudio: settings.audio !== false
     readonly property bool showNotifications: settings.notifications !== false
     readonly property bool showNetwork: settings.network !== false
@@ -83,6 +84,7 @@ Item {
         if (cursorLoader.item) wireBarWidget(cursorLoader.item, settings.cursor, "evo.bar.popups.cursor-usage")
         if (stocksLoader.item) wireBarWidget(stocksLoader.item, settings.stocks, "evo.bar.popups.stocks")
         if (cloudflareLoader.item) wireBarWidget(cloudflareLoader.item, settings.cloudflare, "evo.bar.popups.cloudflare")
+        if (homeAssistantLoader.item) wireBarWidget(homeAssistantLoader.item, settings.homeAssistant, "evo.bar.popups.home-assistant")
         if (networkLoader.item) wireBarWidget(networkLoader.item, settings.network, "evo.bar.network.stats")
         if (mediaLoader.item) wireBarWidget(mediaLoader.item, settings.audio, "evo.bar.media.now-playing")
         if (volumeLoader.item) wireBarWidget(volumeLoader.item, settings.audio, "evo.bar.media.volume")
@@ -102,6 +104,7 @@ Item {
     Component { id: githubComp; GithubWidget {} }
     Component { id: stocksComp; StocksWidget {} }
     Component { id: cloudflareComp; CloudflareWidget {} }
+    Component { id: homeAssistantComp; HomeAssistantWidget {} }
     Component { id: mediaComp; MediaWidget {} }
     Component { id: volumeComp; VolumeWidget {} }
     Component { id: notificationsComp; NotificationsWidget {} }
@@ -210,6 +213,20 @@ Item {
                 active: root.showCloudflare
                 sourceComponent: cloudflareComp
                 onLoaded: root.wireBarWidget(item, root.settings.cloudflare, "evo.bar.popups.cloudflare")
+            }
+        }
+
+        Item {
+            width: root.showHomeAssistant ? root.trayCellWidth : 0
+            height: Theme.barHeight
+            visible: root.showHomeAssistant
+
+            Loader {
+                id: homeAssistantLoader
+                anchors.fill: parent
+                active: root.showHomeAssistant
+                sourceComponent: homeAssistantComp
+                onLoaded: root.wireBarWidget(item, root.settings.homeAssistant, "evo.bar.popups.home-assistant")
             }
         }
 

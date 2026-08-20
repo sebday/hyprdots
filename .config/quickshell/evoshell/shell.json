@@ -53,6 +53,15 @@
             "refreshIntervalSec": 60,
             "analyticsIntervalSec": 900
           },
+          "homeAssistant": {
+            "interval": 30,
+            "onHover": "evo.bar.popups.home-assistant",
+            "refreshIntervalSec": 30,
+            "snapshotIntervalSec": 20,
+            "cameraEntities": [],
+            "lightEntities": [],
+            "temperatureEntities": []
+          },
           "audio": {
             "onHover": "evo.bar.media.volume",
             "mediaOnHover": "evo.bar.media.now-playing",

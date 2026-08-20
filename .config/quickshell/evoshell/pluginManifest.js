@@ -106,6 +106,12 @@ var plugins = {
         servicePath: "Evobar/Popups/Cloudflare/CloudflareService.qml",
         keepLoaded: true
     },
+    "evo.bar.popups.home-assistant": {
+        kinds: ["menu", "service"],
+        path: "Evobar/Popups/HomeAssistant/HomeAssistant.qml",
+        servicePath: "Evobar/Popups/HomeAssistant/HomeAssistantService.qml",
+        keepLoaded: true
+    },
     "evo.bar.media.library": {
         kinds: ["menu"],
         path: "Evobar/Media/Library/Library.qml",
@@ -165,6 +171,7 @@ var panelPluginIds = [
     "evo.bar.popups.system-stats",
     "evo.bar.popups.stocks",
     "evo.bar.popups.cloudflare",
+    "evo.bar.popups.home-assistant",
     "evo.bar.network.transmission",
     "evo.bar.popups.insync",
     "evo.bar.popups.notifications",

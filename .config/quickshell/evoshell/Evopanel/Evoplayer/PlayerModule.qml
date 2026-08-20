@@ -98,6 +98,7 @@ Item {
     property bool browseTreeReflowHidden: false
     property var browseTreeScrollByKey: ({})
     property var browseTreeListView: null
+    property var playlistLibraryListView: null
     property var browseTreeFolderMeta: ({})
     property bool browseTreeLoadingMore: false
     property string selectedTrackPath: ""
@@ -135,6 +136,17 @@ Item {
     readonly property bool sidePanelOpen: browsePanelOpen || playlistPanelOpen || settingsPanelOpen
     readonly property bool splitSidePanelMode: browsePanelOpen || playlistPanelOpen
         || settingsPanelOpen || playerScreen === "filter"
+    readonly property int sideContentStackIndex: {
+        if (playerScreen === "filter")
+            return 4
+        if (settingsPanelOpen)
+            return 3
+        if (browsePanelOpen)
+            return 1
+        if (playlistPanelOpen)
+            return 2
+        return 0
+    }
     readonly property bool nowPlayingTabActive: !browsePanelOpen && !playlistPanelOpen
         && !settingsPanelOpen && playerScreen === "nowPlaying"
     readonly property bool artPreviewActive: (browsePanelOpen || playlistPanelOpen)
@@ -719,9 +731,7 @@ Item {
         settingsPanelOpen = false
         browsePanelOpen = true
         playerScreen = "nowPlaying"
-        Qt.callLater(root.ensureLibraryData)
-        if (browseTreeRows.length)
-            restoreBrowseTreeScroll()
+        kickSidePanels()
     }
 
     function togglePlaylistPanel() {
@@ -735,7 +745,82 @@ Item {
         playlistPanelOpen = true
         playlistPanelMode = "library"
         playerScreen = "nowPlaying"
-        Qt.callLater(root.ensureLibraryData)
+        refreshPlaylistPanelView()
+        kickSidePanels()
+    }
+
+    function kickSidePanels() {
+        sidePanelKickTimer.restart()
+    }
+
+    function refreshBrowseListView() {
+        if (!browsePanelOpen)
+            return true
+        if (!browseTreeRows.length && !browseTreeLoading)
+            loadBrowseTreeRoot()
+        if (!browseTreeListView)
+            return false
+        var list = browseTreeListView
+        if (list.width <= 8 || list.height <= 8)
+            return false
+        syncBrowseTreePanel()
+        if (browseTreeLoading)
+            return false
+        return browseTreeRows.length > 0
+    }
+
+    function refreshPlaylistListView() {
+        if (!playlistPanelOpen)
+            return true
+        if (playlistPanelMode !== "library")
+            return true
+        if (!libraryPlaylists.length && !playlistsLoading)
+            loadPlaylists(true)
+        if (!playlistLibraryListView)
+            return false
+        var list = playlistLibraryListView
+        if (list.width <= 8 || list.height <= 8)
+            return false
+        if (playlistsLoading)
+            return false
+        return libraryPlaylists.length > 0
+    }
+
+    function refreshBrowsePanelView() {
+        syncBrowseTreePanel()
+    }
+
+    function syncBrowseTreePanel() {
+        browseTreeReflowHidden = false
+        browseTreeHoldY = -1
+        if (!browseTreeRows.length && !browseTreeLoading)
+            loadBrowseTreeRoot()
+        if (!browseTreeListView)
+            return
+        rebuildBrowseTreeRows(false)
+        restoreBrowseTreeScroll()
+        if (browseTreeRestoreY >= 0)
+            browseTreeKickScrollTimer.restart()
+    }
+
+    function attachBrowseTreeList(listView) {
+        browseTreeListView = listView
+        kickSidePanels()
+    }
+
+    function detachBrowseTreeList() {
+        browseTreeListView = null
+    }
+
+    function refreshPlaylistPanelView() {
+        if (!libraryPlaylists.length && !playlistsLoading)
+            loadPlaylists(true)
+        else
+            Qt.callLater(root.ensureLibraryData)
+        if (playlistPanelMode === "tracks" && selectedPlaylist)
+            loadPlaylistTracks(selectedPlaylist, true)
+        else if (selectedPlaylist === currentPlaylistId)
+            refreshCurrentPlaylistView()
     }
 
     function toggleSettingsPanel() {
@@ -1088,6 +1173,7 @@ Item {
     }
 
     property var _playlistQueryQueue: []
+    property var _browseQueryQueue: []
     property bool _startupBootstrapOpenDone: false
     property bool _startupBootstrapCurrentDone: false
 
@@ -1129,7 +1215,7 @@ Item {
     function ensureLibraryData() {
         if (!libraryPlaylists.length && !playlistsLoading)
             loadPlaylists()
-        if (!browseTreeRows.length && !browseTreeLoading)
+        if (browsePanelOpen && !browseTreeRows.length && !browseTreeLoading)
             loadBrowseTreeRoot()
     }
 
@@ -1523,7 +1609,6 @@ Item {
         _startupBootstrapCurrentDone = false
         loadGenres()
         loadPlaylists()
-        loadBrowseTreeRoot()
         loadCurrentPlaylist(function() {
             _startupBootstrapCurrentDone = true
             finishStartupBootstrap()
@@ -1705,12 +1790,26 @@ Item {
     }
 
     function runBrowseQuery(args, onDone) {
-        if (browseProc.running) {
-            Qt.callLater(function() { runBrowseQuery(args, onDone) })
+        _browseQueryQueue.push({
+            args: (args || []).slice(),
+            onDone: onDone || null
+        })
+        pumpBrowseQuery()
+    }
+
+    function pumpBrowseQuery() {
+        if (browseProc.running)
             return
+        var job = _browseQueryQueue[0]
+        if (!job)
+            return
+        browseProc.command = ["bash", playerScript].concat(job.args || [])
+        browseProc._onDone = function(text) {
+            _browseQueryQueue.shift()
+            if (job.onDone)
+                job.onDone(text)
+            Qt.callLater(pumpBrowseQuery)
         }
-        browseProc.command = ["bash", playerScript].concat(args || [])
-        browseProc._onDone = onDone || null
         browseProc.running = true
     }
 
@@ -2065,26 +2164,15 @@ Item {
 
     function restoreBrowseTreeViewport(contentY, anchorIndex) {
         browseTreeRestoreY = -1
-        if (contentY < 0 || !browseTreeListView) {
-            browseTreeHoldY = -1
-            browseTreeReflowHidden = false
-            restoreListViewport(browseTreeListView, contentY, anchorIndex)
-            return
-        }
-        browseTreeHoldY = contentY
-        browseTreeReflowHidden = true
-        browseTreeListView.contentY = contentY
-        restoreListViewport(browseTreeListView, contentY, anchorIndex, function() {
-            browseTreeHoldY = -1
-            browseTreeReflowHidden = false
-        })
+        browseTreeHoldY = -1
+        browseTreeReflowHidden = false
+        restoreListViewport(browseTreeListView, contentY, anchorIndex)
     }
 
     function beginBrowseTreeReflowHold(contentY) {
         if (contentY < 0)
             return
         browseTreeHoldY = contentY
-        browseTreeReflowHidden = true
     }
 
     function toggleBrowseTreeNode(path) {
@@ -2114,6 +2202,7 @@ Item {
             beginBrowseTreeReflowHold(anchorY)
             applyBrowseTreeEntries(path, entries, meta, false)
             restoreBrowseTreeViewport(anchorY, anchorIndex)
+            browseTreeHoldY = -1
         })
     }
 
@@ -4033,10 +4122,14 @@ Item {
         property var _onDone: null
         stdout: StdioCollector {
             onStreamFinished: {
-                if (browseProc._onDone)
-                    browseProc._onDone(text)
+                if (browseProc._onDone) {
+                    var done = browseProc._onDone
+                    browseProc._onDone = null
+                    done(text)
+                }
             }
         }
+        onExited: Qt.callLater(pumpBrowseQuery)
     }
 
     Process {
@@ -4383,6 +4476,73 @@ Item {
     }
 
     Timer {
+        id: sidePanelKickTimer
+        interval: 32
+        repeat: true
+        property int tries: 0
+        onTriggered: {
+            var browseDone = refreshBrowseListView()
+            var playlistDone = refreshPlaylistListView()
+            tries++
+            if ((browseDone && playlistDone) || tries >= 60)
+                stop()
+        }
+        onRunningChanged: if (!running)
+            tries = 0
+    }
+
+    Timer {
+        id: browseTreeKickScrollTimer
+        interval: 0
+        repeat: true
+        property int attempts: 0
+        onTriggered: {
+            if (root.browseTreeRestoreY < 0 || !root.browseTreeListView) {
+                stop()
+                attempts = 0
+                return
+            }
+            root.browseTreeListView.contentY = root.browseTreeRestoreY
+            attempts++
+            if (root.browseTreeListView.contentHeight > 0 || attempts >= 8) {
+                root.browseTreeRestoreY = -1
+                stop()
+                attempts = 0
+            }
+        }
+        onRunningChanged: if (!running)
+            attempts = 0
+    }
+
+    Connections {
+        target: root
+        function onBrowseTreeRowsChanged() {
+            if (root.browsePanelOpen && root.browseTreeRows.length > 0)
+                root.kickSidePanels()
+            if (root.browseTreeRestoreY < 0)
+                return
+            browseTreeKickScrollTimer.attempts = 0
+            browseTreeKickScrollTimer.restart()
+        }
+        function onBrowsePanelOpenChanged() {
+            if (root.browsePanelOpen)
+                root.kickSidePanels()
+        }
+        function onPlaylistPanelOpenChanged() {
+            if (root.playlistPanelOpen)
+                root.kickSidePanels()
+        }
+        function onLibraryPlaylistsChanged() {
+            if (root.playlistPanelOpen && root.playlistPanelMode === "library")
+                root.kickSidePanels()
+        }
+        function onSplitSidePanelModeChanged() {
+            if (root.splitSidePanelMode)
+                root.kickSidePanels()
+        }
+    }
+
+    Timer {
         id: favoriteSettleTimer
         interval: 4000
         repeat: false
@@ -4711,9 +4871,19 @@ Item {
                             : Math.max(1, nowPlayingPanel.width - root.nowPlayingArtWidth - pad)
                         spacing: pad
 
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+
+                            StackLayout {
+                                id: sideContentStack
+                                anchors.fill: parent
+                                currentIndex: root.sideContentStackIndex
+
+                                onCurrentIndexChanged: Qt.callLater(root.kickSidePanels)
+
                         SectionPanel {
                             label: ""
-                            visible: !root.splitSidePanelMode
                             legendBackground: root.fieldsetLegendBackground
                             Layout.fillWidth: true
                             Layout.fillHeight: true
@@ -5187,19 +5357,16 @@ Item {
                         }
 
                         PlayerSideBrowsePanel {
-                            visible: root.browsePanelOpen
                             Layout.fillWidth: true
                             Layout.fillHeight: true
                         }
 
                         PlayerSidePlaylistPanel {
-                            visible: root.playlistPanelOpen
                             Layout.fillWidth: true
                             Layout.fillHeight: true
                         }
 
                         ColumnLayout {
-                            visible: root.settingsPanelOpen
                             Layout.fillWidth: true
                             Layout.fillHeight: true
                             spacing: pad
@@ -5216,9 +5383,10 @@ Item {
                         }
 
                         PlayerSideFilterPanel {
-                            visible: root.playerScreen === "filter"
                             Layout.fillWidth: true
                             Layout.fillHeight: true
+                        }
+                            }
                         }
 
                         SectionPanel {
@@ -7114,6 +7282,11 @@ Item {
         legendBackground: root.fieldsetLegendBackground
         fillHeight: true
 
+        onVisibleChanged: {
+            if (visible)
+                root.kickSidePanels()
+        }
+
         HoverPopupLabelPill {
             text: {
                 var base = root.browseTreeLoading ? "Library…" : "Library"
@@ -7129,101 +7302,75 @@ Item {
         }
 
         ListView {
-            id: sideBrowseTree
+            id: browseTreeListRoot
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
             spacing: Theme.spacing2
             model: root.browseTreeRows
-            reuseItems: true
+            reuseItems: false
             cacheBuffer: Math.max(240, height * 2)
-            opacity: root.browseTreeReflowHidden ? 0 : 1
 
-                Component.onCompleted: root.browseTreeListView = sideBrowseTree
-                Component.onDestruction: {
-                    if (root.browseTreeListView === sideBrowseTree)
-                        root.browseTreeListView = null
-                }
+            Component.onCompleted: root.attachBrowseTreeList(browseTreeListRoot)
 
-                onContentYChanged: {
-                    if (root.browseTreeHoldY >= 0)
-                        return
-                    if (root.browseTreeRestoreY < 0)
-                        root.saveBrowseTreeScroll()
-                }
+            onHeightChanged: {
+                if (height > 8 && width > 8 && root.browsePanelOpen)
+                    root.kickSidePanels()
+            }
 
-                onContentHeightChanged: {
-                    if (root.browseTreeHoldY < 0)
-                        return
-                    var maxY = Math.max(0, contentHeight - height)
-                    contentY = Math.min(root.browseTreeHoldY, maxY)
-                }
+            onWidthChanged: {
+                if (height > 8 && width > 8 && root.browsePanelOpen)
+                    root.kickSidePanels()
+            }
 
-                onMovementEnded: {
-                    if (atYEnd)
-                        root.loadMoreBrowseTreeTracks()
-                }
+            onContentYChanged: {
+                if (root.browseTreeHoldY >= 0)
+                    return
+                if (root.browseTreeRestoreY < 0)
+                    root.saveBrowseTreeScroll()
+            }
 
-                Timer {
-                    id: browseTreeScrollRestoreTimer
-                    interval: 0
-                    repeat: true
-                    property int attempts: 0
-                    onTriggered: {
-                        if (root.browseTreeRestoreY < 0) {
-                            stop()
-                            attempts = 0
-                            return
-                        }
-                        sideBrowseTree.contentY = root.browseTreeRestoreY
-                        attempts++
-                        if (sideBrowseTree.contentHeight > 0 || attempts > 8) {
-                            root.browseTreeRestoreY = -1
-                            stop()
-                            attempts = 0
-                        }
-                    }
-                }
+            onContentHeightChanged: {
+                if (root.browseTreeHoldY < 0)
+                    return
+                var maxY = Math.max(0, contentHeight - height)
+                contentY = Math.min(root.browseTreeHoldY, maxY)
+            }
 
-                Connections {
-                    target: root
-                    function onBrowseTreeRowsChanged() {
-                        if (root.browseTreeRestoreY < 0)
-                            return
-                        browseTreeScrollRestoreTimer.attempts = 0
-                        browseTreeScrollRestoreTimer.restart()
-                    }
-                }
+            onMovementEnded: {
+                if (atYEnd)
+                    root.loadMoreBrowseTreeTracks()
+            }
 
-                Text {
-                    anchors.centerIn: parent
-                    visible: root.browseTreeLoading && root.browseTreeRows.length === 0
-                    text: "loading…"
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.listFont
-                    opacity: Theme.opacityDisabled
-                }
+            Text {
+                anchors.centerIn: parent
+                visible: root.browseTreeLoading && root.browseTreeRows.length === 0
+                text: "loading…"
+                color: Theme.foreground
+                font.family: Theme.fontFamily
+                font.pixelSize: root.listFont
+                opacity: Theme.opacityDisabled
+            }
 
-                footer: Text {
-                    width: sideBrowseTree.width
-                    visible: root.browseTreeLoadingMore
-                    horizontalAlignment: Text.AlignHCenter
-                    text: "loading more…"
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.listFont
-                    opacity: Theme.opacityDisabled
-                }
+            footer: Text {
+                width: browseTreeListRoot.width
+                visible: root.browseTreeLoadingMore
+                horizontalAlignment: Text.AlignHCenter
+                text: "loading more…"
+                color: Theme.foreground
+                font.family: Theme.fontFamily
+                font.pixelSize: root.listFont
+                opacity: Theme.opacityDisabled
+            }
 
-                delegate: Item {
+            delegate: Item {
                     required property var modelData
                     required property int index
                     readonly property bool isDir: modelData.type === "dir"
                     readonly property bool folderSelected: isDir
                         && String(root.selectedBrowseFolderPath) === String(modelData.path || "")
                     readonly property int indent: 8 + (Number(modelData.depth || 0) * 14)
-                    width: sideBrowseTree.width
+                    width: browseTreeListRoot.width
                     height: isDir ? 34 : 40
 
                     Rectangle {
@@ -7312,6 +7459,7 @@ Item {
 
                         MouseArea {
                             id: treeRowMouse
+                            z: -1
                             anchors.fill: parent
                             anchors.rightMargin: folderSelected ? 108 : 56
                             hoverEnabled: true
@@ -7341,13 +7489,20 @@ Item {
                         onAddRequested: root.appendTrackToCurrent(modelData.track || modelData)
                     }
                 }
-            }
+        }
     }
 
     component PlayerSidePlaylistPanel: SectionPanel {
         label: ""
         legendBackground: root.fieldsetLegendBackground
         fillHeight: true
+
+        onVisibleChanged: {
+            if (visible) {
+                root.refreshPlaylistPanelView()
+                root.kickSidePanels()
+            }
+        }
 
         HoverPopupLabelPill {
             text: {
@@ -7363,7 +7518,8 @@ Item {
 
         ColumnLayout {
             id: playlistPanelColumn
-            anchors.fill: parent
+            Layout.fillWidth: true
+            Layout.fillHeight: true
             spacing: Theme.spacingS
 
             ListView {
@@ -7375,6 +7531,23 @@ Item {
                 spacing: Theme.spacing2
                 model: root.libraryPlaylists
                 boundsBehavior: Flickable.StopAtBounds
+
+                Component.onCompleted: root.playlistLibraryListView = sidePlaylistLibraryList
+
+                onHeightChanged: {
+                    if (height > 8 && width > 8 && root.playlistPanelOpen)
+                        root.kickSidePanels()
+                }
+
+                onWidthChanged: {
+                    if (height > 8 && width > 8 && root.playlistPanelOpen)
+                        root.kickSidePanels()
+                }
+
+                onVisibleChanged: {
+                    if (visible && root.libraryPlaylists.length === 0 && !root.playlistsLoading)
+                        root.loadPlaylists(true)
+                }
 
                 Text {
                     anchors.centerIn: parent
