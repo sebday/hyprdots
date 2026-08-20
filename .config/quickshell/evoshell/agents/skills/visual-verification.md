@@ -86,10 +86,11 @@ evo-ipc shell toggle evo.sys.settings ""
 
 Manual checks when touching those areas:
 
-- Evoside calculator and tasks focus correctly
-- Notifications appear, dismiss, and history behaves (`evo.bar.popups.notifications`)
+- Evoside calculator opens on Super+C; tasks focus opens on Super+N (`{"module":"calc","focus":"tasks"}`)
+- Desktop toasts appear on the configured monitor (`shell.json` → `notifications.output`, `notifications.position`)
+- Notification history hover popup works (`evo.bar.popups.notifications`); unread count updates in the tray
 - Lock screen engages and releases via `evo-system lock` / unlock flow
-- Idle timers from `shell.json` still match expected behavior
+- Idle timers from `shell.json` → `idle` still match expected behavior
 
 ## Multi-monitor
 

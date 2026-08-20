@@ -41,11 +41,11 @@ journalctl -t evoshell -f
 | Area | Location |
 |------|----------|
 | Shell QML and manifest | `$EVOSHELL_CONFIG` |
-| Bar layout and intervals | `$EVOSHELL_CONFIG/shell.json` |
+| Bar layout, idle, notification placement | `$EVOSHELL_CONFIG/shell.json` |
 | Theme tokens | `$EVOSHELL_CONFIG/theme.json` → `Commons/Theme.qml` |
 | Hyprland bindings and window rules | `~/.config/hypr/*.lua` |
 | Feature CLIs | `$EVOSHELL_BIN/evo-*` |
-| Durable state | `$EVOSHELL_STATE` |
+| Durable state | `$EVOSHELL_STATE` (player, notification history, font, wallpaper) |
 | Regenerable cache | `$EVOSHELL_CACHE` |
 | Secrets | `$EVOSHELL_DATA/secrets.env` |
 

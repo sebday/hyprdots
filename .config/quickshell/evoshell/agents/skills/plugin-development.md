@@ -157,7 +157,29 @@ Dashboards use `FloatingWindow` with `open()`, `close()`, `toggle()`, and `opene
 
 ## Panel plugins
 
-`evo.side` is the docked side panel. Other panel-like UIs (`evo.sys.menu`, `evo.sys.settings`) are `menu` kind with centered or hover presentation.
+`evo.side` is the docked side panel. Open with a JSON payload:
+
+```bash
+evo-ipc shell toggle evo.side '{"module":"calc"}'
+evo-ipc shell toggle evo.side '{"module":"calc","focus":"tasks"}'
+```
+
+Only `calc` is a dock module id. Tasks is a focus target inside `AppCalc`, not a separate module.
+
+`evo.side.clipboard` is its own `menu` plugin, not part of the dock host.
+
+Other panel-like UIs (`evo.sys.menu`, `evo.sys.settings`, `evo.sys.themes`, `evo.sys.wallpaper`) are `menu` kind with centered or hover presentation.
+
+## Notifications split
+
+Notification work spans two plugins:
+
+| Plugin | Location | Responsibility |
+|--------|----------|----------------|
+| `evo.sys.notifications` | `Evosys/Notifications/Service.qml` | `NotificationServer`, toast overlay, history file, unread count, `showBrief()` |
+| `evo.bar.popups.notifications` | `Evobar/Popups/Notifications/` | Bar hover popup and history UI |
+
+Changing toast placement edits `shell.json` → `notifications` and `Evosys/Notifications/Service.qml`. Changing history UI edits the Evobar popup files and `NotificationsWidget`.
 
 ## Design tokens
 
