@@ -7,8 +7,10 @@ export PYTHONDONTWRITEBYTECODE=1
 PATH="${HOME}/.local/bin:${PATH}"
 
 EVOSHELL_BIN="${EVOSHELL_BIN:-$HOME/.local/bin}"
-EVOSHELL_CONFIG="${EVOSHELL_CONFIG:-$HOME/.config/evoshell}"
+EVOSHELL_CONFIG="${EVOSHELL_CONFIG:-$HOME/.config/quickshell/evoshell}"
 EVOSHELL_STATE="${EVOSHELL_STATE:-${XDG_STATE_HOME:-$HOME/.local/state}/evoshell}"
+EVO_PLAYER_STATE="${EVO_PLAYER_STATE:-${EVOSHELL_STATE}/panel/player}"
+EVO_PLAYER_CACHE="${EVO_PLAYER_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/evoshell/panel/player}"
 
 MUSIC_ROOT_DEFAULT="/mnt/external/music"
 MUSIC_ROOT=""
@@ -35,14 +37,14 @@ PLAYER_SOCKET_DEFAULT="${XDG_RUNTIME_DIR:-/tmp}/evo-player.sock"
 LEGACY_MPV_SOCKET="${XDG_RUNTIME_DIR:-/tmp}/evo-music.sock"
 if [[ -n "${EVO_PLAYER_SOCKET:-}" ]]; then
   MPV_SOCKET="$EVO_PLAYER_SOCKET"
-elif [[ -n "${EVO_MUSIC_SOCKET:-}" ]]; then
-  MPV_SOCKET="$EVO_MUSIC_SOCKET"
+elif [[ -n "${EVO_PLAYER_MUSIC_SOCKET:-}" ]]; then
+  MPV_SOCKET="$EVO_PLAYER_MUSIC_SOCKET"
 elif [[ -S "$LEGACY_MPV_SOCKET" ]] && [[ ! -S "$PLAYER_SOCKET_DEFAULT" ]]; then
   MPV_SOCKET="$LEGACY_MPV_SOCKET"
 else
   MPV_SOCKET="$PLAYER_SOCKET_DEFAULT"
 fi
-EVO_PLAYER_MPV_CLIENT_NAME="${EVO_PLAYER_MPV_CLIENT_NAME:-evo.player}"
+EVO_PLAYER_MPV_CLIENT_NAME="${EVO_PLAYER_MPV_CLIENT_NAME:-evo.panel.player}"
 AUDIO_EXTS="mp3 flac ogg m4a opus wav"
 
 music_config_read_root() {
@@ -74,8 +76,8 @@ PY
 music_paths_apply() {
   local root="${1:-}"
   if [[ -z "$root" ]]; then
-    if [[ -n "${EVO_MUSIC_ROOT:-}" ]]; then
-      root="$EVO_MUSIC_ROOT"
+    if [[ -n "${EVO_PLAYER_MUSIC_ROOT:-}" ]]; then
+      root="$EVO_PLAYER_MUSIC_ROOT"
     else
       root="$(music_config_read_root "${MUSIC_ROOT_DEFAULT}/.cache/music.toml" "$LEGACY_MUSIC_CONFIG" || true)"
       [[ -z "$root" ]] && root="$MUSIC_ROOT_DEFAULT"
@@ -83,15 +85,15 @@ music_paths_apply() {
   fi
   root="${root%/}"
   MUSIC_ROOT="$root"
-  MUSIC_CACHE="${EVO_MUSIC_CACHE:-${MUSIC_ROOT}/.cache}"
-  MUSIC_STATE="${EVO_MUSIC_STATE:-${MUSIC_CACHE}}"
-  MUSIC_CONFIG="${EVO_MUSIC_CONFIG:-${MUSIC_CACHE}/music.toml}"
+  MUSIC_CACHE="${EVO_PLAYER_MUSIC_CACHE:-$EVO_PLAYER_CACHE}"
+  MUSIC_STATE="${EVO_PLAYER_MUSIC_STATE:-$EVO_PLAYER_STATE}"
+  MUSIC_CONFIG="${EVO_PLAYER_MUSIC_CONFIG:-${MUSIC_STATE}/music.toml}"
   SYNC_ARCHIVE="${MUSIC_STATE}/sync-archive.txt"
   PLAYLIST_DIR="${MUSIC_STATE}/playlists"
-  WAVEFORM_DIR="${MUSIC_STATE}/waveforms"
-  ART_DIR="${MUSIC_STATE}/art"
-  ART_DIRTY="${MUSIC_STATE}/art-dirty.json"
-  TRACKS_CACHE_DIR="${MUSIC_STATE}/tracks"
+  WAVEFORM_DIR="${MUSIC_CACHE}/waveforms"
+  ART_DIR="${MUSIC_CACHE}/art"
+  ART_DIRTY="${MUSIC_CACHE}/art-dirty.json"
+  TRACKS_CACHE_DIR="${MUSIC_CACHE}/tracks"
   PLAYER_STATE="${MUSIC_STATE}/player.json"
   CURRENT_M3U="${PLAYLIST_DIR}/current.m3u"
   CURRENT_TRACKS_JSON="${PLAYLIST_DIR}/current.tracks.json"
@@ -109,7 +111,7 @@ ensure_dirs() {
   if [[ -d "${MUSIC_ROOT}/incoming" && ! -e "${MUSIC_ROOT}/.incoming" ]]; then
     mv "${MUSIC_ROOT}/incoming" "${MUSIC_ROOT}/.incoming"
   fi
-  mkdir -p "$MUSIC_STATE" "${MUSIC_ROOT}/.incoming"
+  mkdir -p "$MUSIC_STATE" "$MUSIC_CACHE" "${MUSIC_ROOT}/.incoming"
   migrate_cache
   mkdir -p "$PLAYLIST_DIR" "$WAVEFORM_DIR" "$ART_DIR" "$TRACKS_CACHE_DIR"
 }
@@ -286,26 +288,82 @@ is_liked() {
   jq -e --arg p "$path" 'has($p)' "$LIKES_FILE" >/dev/null 2>&1
 }
 
-migrate_cache() {
-  local old="$LEGACY_STATE"
-  [[ -f "$MUSIC_CONFIG" ]] || [[ ! -f "$LEGACY_MUSIC_CONFIG" ]] || cp "$LEGACY_MUSIC_CONFIG" "$MUSIC_CONFIG"
-  [[ -d "$old" ]] || return 0
-  local name
-  for name in sync-archive.txt player.json; do
-    [[ -f "$MUSIC_STATE/$name" ]] || [[ ! -f "$old/$name" ]] || cp "$old/$name" "$MUSIC_STATE/$name"
+migrate_intermediate_player_paths() {
+  local src
+  for src in \
+    "${EVOSHELL_STATE}/evopanel/evoplayer" \
+    "${EVOSHELL_STATE}/evopanel/evo-player"; do
+    [[ -d "$src" ]] || continue
+    mkdir -p "$MUSIC_STATE"
+    cp -an "$src/." "$MUSIC_STATE/" 2>/dev/null || true
   done
-  if [[ -d "$old/playlists" ]] && [[ -z "$(find "$MUSIC_STATE/playlists" -maxdepth 1 -name '*.m3u' -print -quit 2>/dev/null)" ]]; then
+
+  for src in \
+    "${XDG_CACHE_HOME:-$HOME/.cache}/evoshell/evopanel/evoplayer" \
+    "${XDG_CACHE_HOME:-$HOME/.cache}/evoshell/evopanel/evo-player"; do
+    [[ -d "$src" ]] || continue
+    mkdir -p "$MUSIC_CACHE"
+    cp -an "$src/." "$MUSIC_CACHE/" 2>/dev/null || true
+  done
+}
+
+migrate_cache() {
+  migrate_intermediate_player_paths
+  local old="$LEGACY_STATE"
+  local legacy_music_cache="${MUSIC_ROOT}/.cache"
+  [[ -f "$MUSIC_CONFIG" ]] || [[ ! -f "$LEGACY_MUSIC_CONFIG" ]] || cp "$LEGACY_MUSIC_CONFIG" "$MUSIC_CONFIG"
+  [[ -f "$MUSIC_CONFIG" ]] || [[ ! -f "${legacy_music_cache}/music.toml" ]] || cp "${legacy_music_cache}/music.toml" "$MUSIC_CONFIG"
+  [[ -d "$old" ]] || old=""
+  local name
+  for name in sync-archive.txt player.json likes.json playlist-stars.json scrobble.jsonl placement.jsonl job.json; do
+    if [[ -f "$MUSIC_STATE/$name" ]]; then
+      continue
+    fi
+    if [[ -n "$old" && -f "$old/$name" ]]; then
+      cp "$old/$name" "$MUSIC_STATE/$name"
+      continue
+    fi
+    if [[ -f "${legacy_music_cache}/$name" ]]; then
+      cp "${legacy_music_cache}/$name" "$MUSIC_STATE/$name"
+    fi
+  done
+  if [[ -z "$(find "$MUSIC_STATE/playlists" -maxdepth 1 -name '*.m3u' -print -quit 2>/dev/null)" ]]; then
     mkdir -p "$MUSIC_STATE/playlists"
-    cp -an "$old/playlists/." "$MUSIC_STATE/playlists/" 2>/dev/null || true
+    if [[ -n "$old" && -d "$old/playlists" ]]; then
+      cp -an "$old/playlists/." "$MUSIC_STATE/playlists/" 2>/dev/null || true
+    fi
+    if [[ -d "${legacy_music_cache}/playlists" ]]; then
+      cp -an "${legacy_music_cache}/playlists/." "$MUSIC_STATE/playlists/" 2>/dev/null || true
+    fi
   fi
-  if [[ -d "$old/waveforms" ]]; then
-    mkdir -p "$MUSIC_STATE/waveforms"
-    cp -an "$old/waveforms/." "$MUSIC_STATE/waveforms/" 2>/dev/null || true
+  if [[ -z "$(find "$WAVEFORM_DIR" -maxdepth 1 -type f -print -quit 2>/dev/null)" ]]; then
+    mkdir -p "$WAVEFORM_DIR"
+    if [[ -n "$old" && -d "$old/waveforms" ]]; then
+      cp -an "$old/waveforms/." "$WAVEFORM_DIR/" 2>/dev/null || true
+    fi
+    if [[ -d "${legacy_music_cache}/waveforms" ]]; then
+      cp -an "${legacy_music_cache}/waveforms/." "$WAVEFORM_DIR/" 2>/dev/null || true
+    fi
   fi
-  if [[ -d "$old/art" ]]; then
-    mkdir -p "$MUSIC_STATE/art"
-    cp -an "$old/art/." "$MUSIC_STATE/art/" 2>/dev/null || true
+  if [[ -z "$(find "$ART_DIR" -maxdepth 1 -type f -print -quit 2>/dev/null)" ]]; then
+    mkdir -p "$ART_DIR"
+    if [[ -n "$old" && -d "$old/art" ]]; then
+      cp -an "$old/art/." "$ART_DIR/" 2>/dev/null || true
+    fi
+    if [[ -d "${legacy_music_cache}/art" ]]; then
+      cp -an "${legacy_music_cache}/art/." "$ART_DIR/" 2>/dev/null || true
+    fi
   fi
+  if [[ -z "$(find "$TRACKS_CACHE_DIR" -maxdepth 1 -name '*.tags.json' -print -quit 2>/dev/null)" ]]; then
+    mkdir -p "$TRACKS_CACHE_DIR"
+    if [[ -n "$old" && -d "$old/tracks" ]]; then
+      cp -an "$old/tracks/." "$TRACKS_CACHE_DIR/" 2>/dev/null || true
+    fi
+    if [[ -d "${legacy_music_cache}/tracks" ]]; then
+      cp -an "${legacy_music_cache}/tracks/." "$TRACKS_CACHE_DIR/" 2>/dev/null || true
+    fi
+  fi
+  [[ -f "$ART_DIRTY" ]] || [[ ! -f "${legacy_music_cache}/art-dirty.json" ]] || cp "${legacy_music_cache}/art-dirty.json" "$ART_DIRTY"
   likes_migrate_from_m3u
 }
 
@@ -2098,7 +2156,7 @@ art_dirty_clear_if() {
 }
 
 art_notify_cache() {
-  local path="$1" art dest hash
+  local path="$1" art dest hash tmp
   [[ -f "$path" ]] || return 1
   art="$(art_path_cached "$path")"
   if [[ -z "$art" ]]; then
@@ -2106,14 +2164,16 @@ art_notify_cache() {
     art="$(art_path_cached "$path")"
   fi
   [[ -n "$art" && -f "$art" ]] || return 1
-  hash="$(printf '%s' "$path" | md5sum | awk '{print $1}')"
-  dest="${XDG_CACHE_HOME:-$HOME/.cache}/evoshell/notification-art-${hash}.jpg"
+  hash="$(art_image_hash "$art")"
+  [[ -n "$hash" ]] || return 1
+  dest="${XDG_CACHE_HOME:-$HOME/.cache}/evoshell/display-art/${hash}.jpg"
   mkdir -p "$(dirname "$dest")"
   if [[ -f "$dest" ]] && cmp -s "$art" "$dest" 2>/dev/null; then
     printf '%s' "$dest"
     return 0
   fi
-  cp -f "$art" "$dest"
+  tmp="$(mktemp "${dest}.XXXXXX")"
+  cp "$art" "$tmp" && mv -f "$tmp" "$dest"
   printf '%s' "$dest"
 }
 

@@ -15,62 +15,62 @@
     "layout": {
       "left": [
         {
-          "id": "evo.system",
+          "id": "evo.bar.popups.system-stats",
           "interval": 5,
-          "onHover": "evo.system",
+          "onHover": "evo.bar.popups.system-stats",
           "onClick": "ghostty --class=TUI.main -e btop"
         }
       ],
       "center": [
         {
-          "id": "evo.tray",
+          "id": "evo.bar.tray",
           "weather": {
             "type": "command",
-            "exec": "~/.local/bin/evo-bar-weather",
+            "exec": "~/.local/bin/evo-bar-weather-bar",
             "interval": 1800,
-            "onHover": "evo.weather",
-            "onClick": "~/.local/bin/evo-weather open",
-            "onClickRight": "~/.local/bin/evo-weather open"
+            "onHover": "evo.bar.popups.weather",
+            "onClick": "~/.local/bin/evo-bar-weather open",
+            "onClickRight": "~/.local/bin/evo-bar-weather open"
           },
           "cursor": {
             "type": "command",
-            "exec": "~/.local/bin/evo-bar-cursor",
+            "exec": "~/.local/bin/evo-bar-cursor-usage-bar",
             "interval": 300,
-            "onHover": "evo.cursor",
-            "onClick": "~/.local/bin/evo-cursor open"
+            "onHover": "evo.bar.popups.cursor-usage",
+            "onClick": "~/.local/bin/evo-bar-cursor-usage open"
           },
           "github": {
             "interval": 300,
-            "onHover": "evo.github",
-            "onClick": "~/.local/bin/evo-brave open brave-github https://github.com/sebday"
+            "onHover": "evo.bar.popups.github",
+            "onClick": "~/.local/bin/evo-bar-brave open brave-github https://github.com/sebday"
           },
           "stocks": {
-            "onHover": "evo.stocks"
+            "onHover": "evo.bar.popups.stocks"
           },
           "cloudflare": {
             "interval": 60,
-            "onHover": "evo.cloudflare",
+            "onHover": "evo.bar.popups.cloudflare",
             "refreshIntervalSec": 60,
             "analyticsIntervalSec": 900
           },
           "audio": {
-            "onHover": "evo.volume",
-            "mediaOnHover": "evo.media",
+            "onHover": "evo.bar.media.volume",
+            "mediaOnHover": "evo.bar.media.now-playing",
             "onClick": "ghostty --class=TUI.main -e alsamixer",
             "onClickRight": "ghostty --class=TUI.main -e wiremix"
           },
           "network": {
             "interval": 2,
             "transmissionInterval": 3,
-            "onHover": "evo.network",
-            "onClick": "~/.local/bin/evo-ipc shell summon evo.transmission.add \"\"",
+            "onHover": "evo.bar.network.stats",
+            "onClick": "~/.local/bin/evo-ipc shell summon evo.bar.network.transmission \"\"",
             "iconOnly": true
           }
         }
       ],
       "right": [
         {
-          "id": "evo.clock",
+          "id": "evo.bar.clock",
           "format": "%a %d %H:%M"
         }
       ]

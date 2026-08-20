@@ -3,9 +3,9 @@ set -euo pipefail
 # Generate Papirus-Dark icon themes recoloured from colors.toml (icon_text, icon_highlight).
 #
 # USAGE:
-#   evo-theme-icons ensure-base
-#   evo-theme-icons build <theme-slug>
-#   evo-theme-icons activate <theme-slug>
+#   evo-sys-themes-icons ensure-base
+#   evo-sys-themes-icons build <theme-slug>
+#   evo-sys-themes-icons activate <theme-slug>
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
@@ -15,6 +15,7 @@ ICON_THEME_NAME="evo-current"
 PAPIRUS_BASE="/usr/share/icons/Papirus-Dark"
 CACHE_ROOT="${XDG_CACHE_HOME:-$HOME/.cache}/evo-icons"
 ICON_LINK="${XDG_DATA_HOME:-$HOME/.local/share}/icons/$ICON_THEME_NAME"
+ICON_ACTIVATE_LOCK="${CACHE_ROOT}/.activate.lock"
 
 DEFAULT_ICON_HIGHLIGHT="#5294e2"
 DEFAULT_ICON_BUTTON_BG="#d3dae3"
@@ -30,7 +31,7 @@ hex_strip() {
 
 ensure_base() {
     if [[ ! -f "$PAPIRUS_BASE/index.theme" ]]; then
-        echo "evo-theme-icons: install papirus-icon-theme (sudo pacman -S papirus-icon-theme)" >&2
+        echo "evo-sys-themes-icons: install papirus-icon-theme (sudo pacman -S papirus-icon-theme)" >&2
         return 1
     fi
 }
@@ -42,7 +43,7 @@ read_icon_colors() {
     ICON_BUTTON_BG=$(toml_val icon_button_background "$toml" || true)
 
     [[ -n "$ICON_TEXT" ]] || {
-        echo "evo-theme-icons: missing icon_text in $toml" >&2
+        echo "evo-sys-themes-icons: missing icon_text in $toml" >&2
         return 1
     }
 
@@ -69,6 +70,14 @@ cache_dir_for() {
     printf '%s/%s' "$CACHE_ROOT" "$1"
 }
 
+is_current_theme_slug() {
+    local slug="$1"
+    local current
+
+    current=$(current_theme_name) || return 1
+    [[ "$current" == "$slug" ]]
+}
+
 recolor_svgs() {
     local target_dir="$1"
     local sed_script hex
@@ -92,7 +101,7 @@ build_theme_icons() {
 
     ensure_base
     [[ -f "$toml" ]] || {
-        echo "evo-theme-icons: theme not found: $slug" >&2
+        echo "evo-sys-themes-icons: theme not found: $slug" >&2
         return 1
     }
 
@@ -130,18 +139,28 @@ link_active_theme() {
 activate_theme_icons() {
     local slug="$1"
     [[ -n "$slug" ]] || {
-        echo "evo-theme-icons: theme slug required" >&2
+        echo "evo-sys-themes-icons: theme slug required" >&2
         return 1
     }
+
     build_theme_icons "$slug"
+
+    mkdir -p "$CACHE_ROOT"
+    exec 7>"$ICON_ACTIVATE_LOCK"
+    flock 7
+
+    if ! is_current_theme_slug "$slug"; then
+        return 0
+    fi
+
     link_active_theme "$slug"
 }
 
 usage() {
     cat >&2 <<EOF
-usage: evo-theme-icons ensure-base
-       evo-theme-icons build <theme-slug>
-       evo-theme-icons activate <theme-slug>
+usage: evo-sys-themes-icons ensure-base
+       evo-sys-themes-icons build <theme-slug>
+       evo-sys-themes-icons activate <theme-slug>
 EOF
 }
 

@@ -5,7 +5,7 @@ PRESET_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/cava/presets"
 PRESET_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/cava/cava.v"
 RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp}"
 # PipeWire application.name for evo-player's mpv (--audio-client-name).
-EVO_PLAYER_CAVA_SOURCE="${EVO_PLAYER_CAVA_SOURCE:-${EVO_PLAYER_MPV_CLIENT_NAME:-evo.player}}"
+EVOPLAYER_CAVA_SOURCE="${EVOPLAYER_CAVA_SOURCE:-${EVOPLAYER_MPV_CLIENT_NAME:-evo.panel.player}}"
 
 preset_names() {
     local names=()
@@ -68,7 +68,7 @@ cmd_config() {
     [[ -f "$preset_path" ]] || return 1
     mkdir -p "$RUNTIME_DIR"
     out="$RUNTIME_DIR/evo-cava-${name}.conf"
-    write_player_config "$name" "$preset_path" "$out" "$EVO_PLAYER_CAVA_SOURCE"
+    write_player_config "$name" "$preset_path" "$out" "$EVOPLAYER_CAVA_SOURCE"
     printf '%s\n' "$out"
 }
 

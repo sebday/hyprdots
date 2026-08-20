@@ -465,7 +465,7 @@ delete) delete_entry "${2:-}" ;;
 pins) read_pins ;;
 clear) clear_history ;;
 *)
-    echo "usage: evo-clipboard watch|list [n]|copy <id>|delete <id>|preview <id>|cache-previews [n]|toggle-pin <id>|pins|clear" >&2
+    echo "usage: evo-side-clipboard watch|list [n]|copy <id>|delete <id>|preview <id>|cache-previews [n]|toggle-pin <id>|pins|clear" >&2
     exit 1
     ;;
 esac

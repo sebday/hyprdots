@@ -22,5 +22,7 @@ BarHoverPinArea 1.0 BarHoverPinArea.qml
 HoverPopupHeader 1.0 HoverPopupHeader.qml
 HoverPopupStatBox 1.0 HoverPopupStatBox.qml
 HoverPopupLabelPill 1.0 HoverPopupLabelPill.qml
+FieldsetLegendRow 1.0 FieldsetLegendRow.qml
+HoverPopupStatsGrid 1.0 HoverPopupStatsGrid.qml
 BarWidgetRegistry 1.0 BarWidgetRegistry.qml
 MonitorLayoutPicker 1.0 MonitorLayoutPicker.qml

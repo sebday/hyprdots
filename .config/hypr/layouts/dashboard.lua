@@ -6,9 +6,9 @@ hl.layout.register("dashboard_2x2", {
 		for _, target in ipairs(ctx.targets) do
 			local title = target.window and target.window.title or ""
 			local slot
-			if title:match("^evo%.shopify") then
+			if title:match("^evo.panel.shopify") then
 				slot = 3
-			elseif title == "evo.player" then
+			elseif title == "evo.panel.player" then
 				slot = 4
 			else
 				slot = next_free

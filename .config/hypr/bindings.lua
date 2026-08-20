@@ -16,8 +16,8 @@ end
 
 bindd("SUPER + Return", "Terminal", hl.dsp.exec_cmd(terminal))
 bindd("SUPER + Space", "System menu", hl.dsp.global("evoshell:systemMenu"))
-bindd("SUPER + Home", "Wallpaper switcher", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.wallpaper"))
-bindd("SUPER + ALT + Home", "Theme picker", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.theme"))
+bindd("SUPER + Home", "Wallpaper switcher", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.sys.wallpaper"))
+bindd("SUPER + ALT + Home", "Theme picker", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.sys.themes"))
 bindd("SUPER + W", "Close Active Window", hl.dsp.window.close())
 bindd("SUPER + E", "Editor", hl.dsp.exec_cmd(editor))
 bindd("SUPER + T", "GUI File Manager", hl.dsp.exec_cmd("thunar"))
@@ -26,15 +26,15 @@ bindd("SUPER + J", "Toggle Split Direction", hl.dsp.layout("togglesplit"))
 bindd("SUPER + K", "Toggle Floating Window", hl.dsp.window.float({ action = "toggle" }))
 bindd("SUPER + L", "Lock Screen", hl.dsp.exec_cmd(bin .. "/evo-system lock"))
 bindd("SUPER + R", "Restart evoshell", hl.dsp.exec_cmd(bin .. "/evo-system restart"))
-bindd("SUPER + C", "Calc panel", hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.panel \'{"module":"calc"}\''))
-bindd("SUPER + B", "Settings", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.settings"))
+bindd("SUPER + C", "Calc panel", hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.side \'{"module":"calc"}\''))
+bindd("SUPER + B", "Settings", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.sys.settings"))
 bindd(
 	"SUPER + N",
 	"Tasks panel",
-	hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.panel \'{"module":"calc","focus":"tasks"}\'')
+	hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.side \'{"module":"calc","focus":"tasks"}\'')
 )
-bindd("SUPER + M", "Library", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.library"))
-bindd("SUPER + V", "Clipboard history", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.clipboard"))
+bindd("SUPER + M", "Library", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.bar.media.library"))
+bindd("SUPER + V", "Clipboard history", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.side.clipboard"))
 bindd("SUPER + P", "Colour Picker", hl.dsp.exec_cmd("hyprpicker -al"))
 bindd("SUPER + H", "Toggle window transparency", function()
 	local window = hl.get_active_window()
@@ -132,19 +132,19 @@ bindd(
 bindd(
 	"XF86AudioRaiseVolume",
 	"Volume up",
-	hl.dsp.exec_cmd(shell_ipc .. " evo.audio stepUp"),
+	hl.dsp.exec_cmd(shell_ipc .. " evo.bar.media.audio stepUp"),
 	{ locked = true, repeating = true }
 )
 bindd(
 	"XF86AudioLowerVolume",
 	"Volume down",
-	hl.dsp.exec_cmd(shell_ipc .. " evo.audio stepDown"),
+	hl.dsp.exec_cmd(shell_ipc .. " evo.bar.media.audio stepDown"),
 	{ locked = true, repeating = true }
 )
 bindd(
 	"XF86AudioMute",
 	"Mute volume",
-	hl.dsp.exec_cmd(shell_ipc .. " evo.audio toggleMute"),
+	hl.dsp.exec_cmd(shell_ipc .. " evo.bar.media.audio toggleMute"),
 	{ locked = true, repeating = true }
 )
 bindd("XF86AudioPlay", "Play/Pause media", hl.dsp.exec_cmd(bin .. "/evo-media-keys play-pause"), { locked = true })

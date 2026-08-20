@@ -1,6 +1,6 @@
 #!/bin/bash
 # Generate Neovim theme from colors.toml (Modular palette)
-# Usage: evo-theme-nvim <theme_dir>
+# Usage: evo-sys-themes-nvim <theme_dir>
 # Output: theme_dir/neovim.lua
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

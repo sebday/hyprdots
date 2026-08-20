@@ -295,10 +295,10 @@ def related_files_for_binding(dispatcher: str, bindings_path: str) -> list[str]:
             files.append(IPC_BIN)
             files.append(os.path.join(EVOSHELL, "shell.qml"))
             if "toggleAppLauncher" in cmd or "toggleSystemMenu" in cmd:
-                files.extend(plugin_file_paths("evo.menu"))
+                files.extend(plugin_file_paths("evo.sys.menu"))
             toggle_m = re.search(r"shell toggle evo\.panel", cmd)
             if toggle_m:
-                files.extend(plugin_file_paths("evo.panel"))
+                files.extend(plugin_file_paths("evo.side"))
             plugin_m = re.search(r"shell toggle (evo\.[^\s]+)", cmd)
             if plugin_m:
                 files.extend(plugin_file_paths(plugin_m.group(1)))
@@ -359,28 +359,28 @@ home, script_dir = sys.argv[1], sys.argv[2]
 ipc = "evo-ipc"
 
 plugins = [
-    "evo.menu",
-    "evo.panel",
-    "evo.settings",
-    "evo.calendar",
-    "evo.cursor",
-    "evo.weather",
-    "evo.network",
-    "evo.volume",
-    "evo.media",
-    "evo.github",
-    "evo.system",
-    "evo.stocks",
-    "evo.cloudflare",
-    "evo.transmission",
-    "evo.insync",
-    "evo.steam",
-    "evo.library",
-    "evo.theme",
-    "evo.wallpaper",
-    "evo.clipboard",
+    "evo.sys.menu",
+    "evo.side",
+    "evo.sys.settings",
+    "evo.bar.popups.calendar",
+    "evo.bar.popups.cursor-usage",
+    "evo.bar.popups.weather",
+    "evo.bar.network.stats",
+    "evo.bar.media.volume",
+    "evo.bar.media.now-playing",
+    "evo.bar.popups.github",
+    "evo.bar.popups.system-stats",
+    "evo.bar.popups.stocks",
+    "evo.bar.popups.cloudflare",
+    "evo.bar.network.transmission",
+    "evo.bar.popups.insync",
+    "evo.bar.steam",
+    "evo.bar.media.library",
+    "evo.sys.themes",
+    "evo.sys.wallpaper",
+    "evo.side.clipboard",
 ]
-dashboards = ["evo.shopify", "evo.player"]
+dashboards = ["evo.panel.shopify", "evo.panel.player"]
 
 
 def read_text(path: str) -> str:
@@ -394,9 +394,9 @@ def read_text(path: str) -> str:
 def build_corpus() -> str:
     chunks = [
         read_text(os.path.join(home, ".config/hypr/bindings.lua")),
-        read_text(os.path.join(home, ".config/quickshell/evoshell/plugins/menu/MenuEntries.js")),
+        read_text(os.path.join(home, ".config/quickshell/evoshell/Evosys/Menu/MenuEntries.js")),
     ]
-    for path in sorted(glob.glob(os.path.join(home, ".config/quickshell/evoshell/plugins/bar/widgets/*.qml"))):
+    for path in sorted(glob.glob(os.path.join(home, ".config/quickshell/evoshell/Evobar/widgets/*.qml"))):
         chunks.append(read_text(path))
     for path in sorted(glob.glob(os.path.join(script_dir, "evo-*"))):
         if os.path.basename(path) in {"evo-menu-list", "evo-ipc"}:
@@ -407,8 +407,8 @@ def build_corpus() -> str:
     for marker in (
         "toggleSystemMenu",
         "toggleAppLauncher",
-        'openDashboardOnly("evo.shopify"',
-        'openDashboardOnly("evo.player"',
+        'openDashboardOnly("evo.panel.shopify"',
+        'openDashboardOnly("evo.panel.player"',
     ):
         if marker in shell_qml:
             chunks.append(marker)
@@ -477,9 +477,9 @@ def related_files_for_shell(command: str) -> list[str]:
         files.append(os.path.join(EVOSHELL, "shell.qml"))
 
     if "toggleSystemMenu" in cmd or "toggleAppLauncher" in cmd:
-        files.extend(plugin_file_paths("evo.menu"))
+        files.extend(plugin_file_paths("evo.sys.menu"))
     elif re.search(r"shell toggle evo\.panel", cmd):
-        files.extend(plugin_file_paths("evo.panel"))
+        files.extend(plugin_file_paths("evo.side"))
     else:
         for pattern in (
             r"shell toggle\s+(\S+)",
@@ -501,8 +501,8 @@ def used(*needles: str) -> bool:
 
 
 def plugin_used(plugin: str) -> bool:
-    if plugin == "evo.menu":
-        return used("toggleSystemMenu", 'toggle("evo.menu"', "toggle evo.menu")
+    if plugin == "evo.sys.menu":
+        return used("toggleSystemMenu", 'toggle("evo.sys.menu"', "toggle evo.sys.menu")
     return used(
         f"shell toggle {plugin}",
         f"toggle {plugin}",
@@ -523,31 +523,31 @@ def emit(name: str, command: str, internal: bool, detail: str = "") -> None:
 
 
 PLUGIN_DETAILS = {
-    "evo.menu": "Shows or hides the system menu overlay.",
-    "evo.panel": "Shows or hides a side panel (calc, tasks).",
-    "evo.settings": "Shows or hides the evoshell settings overlay.",
-    "evo.calendar": "Shows or hides the calendar overlay.",
-    "evo.cursor": "Shows or hides the Cursor agent overlay.",
-    "evo.weather": "Shows or hides the weather overlay.",
-    "evo.network": "Shows or hides the network status overlay.",
-    "evo.volume": "Shows or hides the volume overlay.",
-    "evo.media": "Shows or hides the media player overlay.",
-    "evo.github": "Shows or hides the GitHub activity overlay.",
-    "evo.system": "Shows or hides the system status overlay.",
-    "evo.stocks": "Shows or hides the stocks overlay.",
-    "evo.cloudflare": "Shows or hides the Cloudflare overlay.",
-    "evo.transmission": "Shows or hides the Transmission overlay.",
-    "evo.insync": "Shows or hides the Insync overlay.",
-    "evo.steam": "Shows or hides the Steam overlay.",
-    "evo.library": "Shows or hides the music library overlay.",
-    "evo.theme": "Shows or hides the theme switcher overlay.",
-    "evo.wallpaper": "Shows or hides the wallpaper switcher overlay.",
-    "evo.clipboard": "Shows or hides the clipboard history overlay.",
+    "evo.sys.menu": "Shows or hides the system menu overlay.",
+    "evo.side": "Shows or hides a side panel (calc, tasks).",
+    "evo.sys.settings": "Shows or hides the evoshell settings overlay.",
+    "evo.bar.popups.calendar": "Shows or hides the calendar overlay.",
+    "evo.bar.popups.cursor-usage": "Shows or hides the Cursor agent overlay.",
+    "evo.bar.popups.weather": "Shows or hides the weather overlay.",
+    "evo.bar.network.stats": "Shows or hides the network status overlay.",
+    "evo.bar.media.volume": "Shows or hides the volume overlay.",
+    "evo.bar.media.now-playing": "Shows or hides the media player overlay.",
+    "evo.bar.popups.github": "Shows or hides the GitHub activity overlay.",
+    "evo.bar.popups.system-stats": "Shows or hides the system status overlay.",
+    "evo.bar.popups.stocks": "Shows or hides the stocks overlay.",
+    "evo.bar.popups.cloudflare": "Shows or hides the Cloudflare overlay.",
+    "evo.bar.network.transmission": "Shows or hides the Transmission overlay.",
+    "evo.bar.popups.insync": "Shows or hides the Insync overlay.",
+    "evo.bar.steam": "Shows or hides the Steam overlay.",
+    "evo.bar.media.library": "Shows or hides the music library overlay.",
+    "evo.sys.themes": "Shows or hides the theme switcher overlay.",
+    "evo.sys.wallpaper": "Shows or hides the wallpaper switcher overlay.",
+    "evo.side.clipboard": "Shows or hides the clipboard history overlay.",
 }
 
 DASHBOARD_DETAILS = {
-    "evo.shopify": "Opens the Shopify dashboard in full-screen dashboard mode.",
-    "evo.player": "Opens the music player dashboard in full-screen dashboard mode.",
+    "evo.panel.shopify": "Opens the Shopify dashboard in full-screen dashboard mode.",
+    "evo.panel.player": "Opens the music player dashboard in full-screen dashboard mode.",
 }
 
 
@@ -621,56 +621,56 @@ emit(
 )
 emit(
     "Volume up",
-    f"{ipc} evo.audio stepUp",
-    used("evo.audio stepUp", ".stepUp()"),
+    f"{ipc} evo.bar.media.audio stepUp",
+    used("evo.bar.media.audio stepUp", ".stepUp()"),
     "Increases system volume by one step via PipeWire.",
 )
 emit(
     "Volume down",
-    f"{ipc} evo.audio stepDown",
-    used("evo.audio stepDown", ".stepDown()"),
+    f"{ipc} evo.bar.media.audio stepDown",
+    used("evo.bar.media.audio stepDown", ".stepDown()"),
     "Decreases system volume by one step via PipeWire.",
 )
 emit(
     "Toggle mute",
-    f"{ipc} evo.audio toggleMute",
-    used("evo.audio toggleMute", ".toggleMute()"),
+    f"{ipc} evo.bar.media.audio toggleMute",
+    used("evo.bar.media.audio toggleMute", ".toggleMute()"),
     "Toggles system audio mute state.",
 )
 emit(
     "Lock screen",
-    f"{ipc} evo.lock lock",
-    used("evo.lock lock", "evo-system lock"),
+    f"{ipc} evo.sys.lock-screen.lock lock",
+    used("evo.sys.lock-screen.lock lock", "evo-system lock"),
     "Locks the screen immediately.",
 )
 emit(
     "Lock status",
-    f"{ipc} evo.lock isLocked",
-    used("evo.lock isLocked"),
+    f"{ipc} evo.sys.lock-screen.lock isLocked",
+    used("evo.sys.lock-screen.lock isLocked"),
     "Reports whether the screen is currently locked.",
 )
 emit(
     "Idle status",
-    f"{ipc} evo.idle status",
-    used("evo.idle status"),
+    f"{ipc} evo.sys.lock-screen.idle status",
+    used("evo.sys.lock-screen.idle status"),
     "Reports idle inhibitor and screensaver state.",
 )
 emit(
     "Next wallpaper",
-    f"{ipc} evo.wallpaper next",
-    used("evo.wallpaper next", 'evo.wallpaper "$cmd"'),
+    f"{ipc} evo.sys.wallpaper next",
+    used("evo.sys.wallpaper next", 'evo.sys.wallpaper "$cmd"'),
     "Advances to the next wallpaper in the current theme rotation.",
 )
 emit(
     "Previous wallpaper",
-    f"{ipc} evo.wallpaper prev",
-    used("evo.wallpaper prev", 'evo.wallpaper "$cmd"'),
+    f"{ipc} evo.sys.wallpaper prev",
+    used("evo.sys.wallpaper prev", 'evo.sys.wallpaper "$cmd"'),
     "Goes back to the previous wallpaper in the current theme rotation.",
 )
 emit(
     "Refresh wallpaper",
-    f"{ipc} evo.wallpaper refresh",
-    used("evo.wallpaper refresh"),
+    f"{ipc} evo.sys.wallpaper refresh",
+    used("evo.sys.wallpaper refresh"),
     "Re-applies the current wallpaper (useful after theme or monitor changes).",
 )
 

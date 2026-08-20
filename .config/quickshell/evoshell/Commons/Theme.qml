@@ -172,7 +172,19 @@ Singleton {
     readonly property real opacityMuted: 0.55
     readonly property real opacityHover: 0.65
     readonly property real opacitySecondary: 0.72
-    readonly property real opacityEmphasis: 0.9
+    readonly property real opacityEmphasis2: 0.82
+
+    // Fieldset tokens
+    readonly property color fieldsetBorderColor: foregroundBorder
+    readonly property int fieldsetBorderWidth: 1
+    readonly property int fieldsetLegendInset: spacingS
+    readonly property int fieldsetLegendMinHeight: fontSizeS + spacingS
+
+    // Hover popup stat grid tokens
+    readonly property int hoverPopupStatColumnSpacing: spacingM
+    readonly property int hoverPopupStatRowSpacing: spacingS
+    readonly property int hoverPopupStatValueFont: fontSizeL
+    readonly property int hoverPopupStatLabelFont: fontSizeS
 
     // Foreground alpha colours
     readonly property color foregroundGhost: withOpacity(foreground, 0.05)

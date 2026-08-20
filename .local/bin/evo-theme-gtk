@@ -1,6 +1,6 @@
 #!/bin/bash
 # Generate GTK theme from shared base + colors.toml (build-only)
-# Uses THEME_PATH for build dir (default: current). GTK activation is done by evo-theme after swap.
+# Uses THEME_PATH for build dir (default: current). GTK activation is done by evo-sys-themes after swap.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null

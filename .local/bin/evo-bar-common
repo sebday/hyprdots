@@ -1,22 +1,22 @@
 #!/bin/bash
 # Shared helpers for evo bar JSON modules.
-# Heatmap colours come from ~/.themes/current/evo-bar.css (generated from colors.toml).
+# Heatmap colours optionally come from the generated bar theme CSS.
 
 EVO_BAR_THEME_CSS="${EVO_BAR_THEME_CSS:-$HOME/.themes/current/evo-bar.css}"
 EVO_SECRETS_FILE="${EVO_SECRETS_FILE:-${XDG_DATA_HOME:-$HOME/.local/share}/evoshell/secrets.env}"
 EVO_BAR_CACHE_DIR="${EVO_BAR_CACHE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/evoshell/bar}"
 
-# Fill global GITHUB_COLORS[0..4] from @define-color github-N in theme evo-bar.css.
+# Fill global GITHUB_COLORS[0..4], with safe defaults when CSS is absent.
 evo_bar_load_heatmap_colors() {
     declare -gA GITHUB_COLORS=()
 
-    [[ -f "$EVO_BAR_THEME_CSS" ]] || return 1
-
     local i color
-    for i in {0..4}; do
-        color=$(grep "@define-color github-$i" "$EVO_BAR_THEME_CSS" | awk '{print $3}' | tr -d ';' || true)
-        [[ -n "$color" ]] && GITHUB_COLORS[$i]="$color"
-    done
+    if [[ -f "$EVO_BAR_THEME_CSS" ]]; then
+        for i in {0..4}; do
+            color=$(grep "@define-color github-$i" "$EVO_BAR_THEME_CSS" | awk '{print $3}' | tr -d ';' || true)
+            [[ -n "$color" ]] && GITHUB_COLORS[$i]="$color"
+        done
+    fi
 
     # Fallbacks if theme CSS missing colors.
     : "${GITHUB_COLORS[0]:=#45475a}"

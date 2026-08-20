@@ -1,6 +1,6 @@
 # Agent guide
 
-Quickshell desktop shell for Hyprland — bar, panel, launcher, hover popups, overlays, services. One instance: `quickshell -c evoshell`, controlled via `evo-ipc`.
+Quickshell desktop shell for Hyprland — Evobar, Evopanel, Evoside, Evosys. One instance: `quickshell -c evoshell`, controlled via `evo-ipc`.
 
 ## Paths
 
@@ -17,37 +17,40 @@ Hyprland: `~/.config/hypr/{autostart,bindings,evoshell,windows}.lua`. Secrets: `
 ## Layout
 
 - `shell.json` — bar widgets, intervals, `onHover` plugin ids
-- `shell.qml` — `pluginTable`, services, summon/toggle IPC
-- `theme.json` → `Theme.qml` (live colours)
-- Bar widgets run `evo-bar-*` scripts → one JSON line stdout → `CommandWidget.lastPayload` → hover `*Module.qml`
-- Hover popups: `Commons/BarHoverPopup.qml`; bar `onHover: "evo.weather"` etc.
+- `shell.qml` — loads `pluginManifest.js`, services, summon/toggle IPC
+- `pluginManifest.js` — canonical plugin ids, QML paths, namespaces, load policy
+- `theme.json` → `Commons/Theme.qml` (live colours)
 
-Plugin ids: `evo.<feature>`. Directory: `plugins/<feature>/` with `<Feature>.qml`, `<Feature>Module.qml`, or `Service.qml`. Hypr layer: id with `.` → `-`, `_` → `-` (`evo.shopify` → `evo-shopify`); register in `evoshell.lua`. Tray exceptions: `bar-volume`, `bar-media`.
+Product tree:
 
-Kinds: **service** (`Service.qml`), **bar** (`evo.bar` + `shell.json`), **hover popup** (`BarHoverPopup` + module), **overlay** (`evo.library`, `evo.theme`), **panel/menu**, **dashboard** (`FloatingWindow` title = plugin id, e.g. `evo.player`).
+- `Evobar/` — bar, icons, popups, network, media, steam
+- `Evopanel/` — Shopify, Evoplayer dashboards
+- `Evoside/` — calculator, tasks, clipboard
+- `Evosys/` — menu, settings, wallpaper, themes, notifications, lock screen
 
-Feature CLIs: `evo-player` → `evo.player`, `evo-film` → `evo.library`, `evo-network` → `evo.network`. `evo-bar-player` toggles the player dashboard (not the music CLI). No `evo-media` (use `evo-film` for film/TV).
+Plugin ids are product-prefixed (`evo.bar.popups.weather`, `evo.panel.player`, `evo.sys.settings`). Bar pollers use `evo.bar-*` scripts. Dashboards load on demand.
+
+Kinds: **service**, **bar** (`evo.bar`), **hover popup** (`BarHoverPopup` + module), **overlay**, **panel** (`evo.side`), **dashboard** (`FloatingWindow` title = plugin id).
+
+Feature CLIs: `evo-player`, `evo-bar-library`, `evo-bar-network`, `evo-calculator`, `evo-tasks`, `evo-clipboard`.
 
 ## Scripts
 
-- `evo-*` only; 2-space indent, `#!/bin/bash`, `[[ ]]` / `(( ))`
-- `evo-bar-*` — bar pollers (one JSON line) and Hypr helpers (`evo-bar-hypr`, `evo-bar-player`, `evo-bar-btop`)
-- `evo-theme-*`, `evo-system-*`, `evo-menu-*` — theme, maintenance, launcher
-- Prefer `evo-ipc`, `evo-bar-common`, `evo-theme-lib` over raw equivalents
-- New bar widget: thin `evo-bar-*` → feature CLI `bar` subcommand when one exists (`evo-network bar`)
+- Product-prefixed kebab-case: `evo-bar-weather`, `evo-player`, `evo-system`, `evo-ipc`
+- `#!/bin/bash`, 2-space indent, `[[ ]]` / `(( ))`
+- Shared libs: `evo-player-lib.sh`, `evo-bar-common`, `evo-theme-lib`
 
 ## QML
 
-- 4-space indent; new bar widgets → `widgets/qmldir` + `BarWidgetCatalog.qml` (`Item` root)
-- Panel module ids: `calc`, `clipboard` (legacy `"tools"` → `calc` only). Settings: `evo.settings` overlay.
+- 4-space indent; bar widgets in `Evobar/widgets/` + `BarWidgetCatalog.qml`
+- Evoside module ids: `calc`, `tasks` (via calc focus). Settings: `evo.sys.settings` centered overlay (Super+B).
 
 ## IPC & reload
 
 ```bash
 evo-ipc shell ping|reloadConfig|summon|hide|toggle <pluginId>
-evo-ipc evo.audio stepUp          # service calls
-evo-bar-hypr pin-all|restore-dashboards
-evo-system-restart
+evo-ipc evo.bar.media.audio stepUp
+evo-system restart
 journalctl -t evoshell -f
 ```
 
@@ -55,28 +58,28 @@ journalctl -t evoshell -f
 |--------|--------|
 | `shell.json` | `evo-ipc shell reloadConfig` |
 | `theme.json`, `hypr-looks.json`, `ui.json` | live |
-| `Theme.qml`, new plugin in `shell.qml`, new widget type | `evo-system-restart` |
+| `Theme.qml`, `pluginManifest.js`, new widget type | `evo-system restart` |
 | `evoshell.lua` | Hypr reload; often shell restart too |
+
+## State and cache
+
+- Evoplayer durable state: `$EVOSHELL_STATE/panel/player` (playlists, likes, queue, `player.json`)
+- Evoplayer regenerable cache: `$EVOSHELL_CACHE/panel/player` (art, waveforms, track tags)
+- Display art copies: `$EVOSHELL_CACHE/display-art/<content-hash>.jpg` (atomic write)
 
 ## Design tokens
 
-All colours, fonts, spacing, opacity, radius via `Theme.*` — no hardcoded values in QML. Add a token when a value repeats 3+ times or is semantic; layout ratios OK, not font sizes. Token scales and sources: `Commons/Theme.qml` (`theme.json`, `hypr-looks.json`, `ui.json`).
+All colours, fonts, spacing, opacity, radius via `Theme.*` — no hardcoded values in QML. Token scales: `Commons/Theme.qml`.
 
-`HoverPopupStatBox` with `icon` set: icon inline before the value on the top line; label centred below. The icon+value row is centred in the box. Without `icon`, value and label are centred as usual.
+Shared components: `FramedPanel`, `SectionPanel`, `HoverPopupStatBox`, `HoverPopupStatsGrid`, `FieldsetLegendRow`, `BarHoverPopup`.
 
 ## Testing
 
 ```bash
+bash tests/test-plugin-manifest.sh
+bash tests/test-evoplayer-art.sh
+bash tests/test-static-contracts.sh
 evo-ipc shell ping
-.local/bin/evo-bar-weather    # → valid JSON line
 ```
 
-Manual check after visual/QML changes: bar popups, panel, player dashboard, overlays, notifications.
-
-### Player now-playing notifications
-
-`plugins/player/Service.qml` polls `evo-player status --json`, runs `evo-player art notify-cache <path>` (copies art to `~/.cache/evoshell/notification-art-<md5>.jpg`), then `evo.notifications.showMedia()` as `localMedia`. Notifies once per track; dedupes path+art; resets dismiss timer on each show.
-
-Debug log: `~/.local/state/evoshell/notification-log.jsonl` (`showMedia`, `popupOpen`, `artReady`, `artError`). Tail during playback to confirm one `showMedia` per track change.
-
-`NotificationArtworkCard` uses `coverArt` (not `art`) — a property named `art` inside a QML `component` shadows the delegate binding.
+Manual: bar popups, Evoside calculator/tasks, Evoplayer dashboard art, Evobar now playing, Super+B settings, notifications, lock screen.

@@ -14,12 +14,12 @@ arg1="${3:-}"
 arg2="${4:-}"
 
 case "$target" in
-background|wallpaper) target="evo.wallpaper" ;;
-idle) target="evo.idle" ;;
-lock) target="evo.lock" ;;
+background|wallpaper) target="evo.sys.wallpaper" ;;
+idle) target="evo.sys.lock-screen.idle" ;;
+lock) target="evo.sys.lock-screen.lock" ;;
 esac
 
-# Direct plugin IPC (e.g. evo.audio stepUp)
+# Direct plugin IPC (e.g. evo.bar.media.audio stepUp)
 if [[ "$target" != "shell" ]]; then
     if [[ -n "$arg2" ]]; then
         quickshell ipc -c evoshell call "$target" "$method" "$arg1" "$arg2"

@@ -6,13 +6,7 @@ Item {
 
     property var shell: null
     property string pluginId: ""
-    readonly property string effectivePluginId: {
-        if (pluginId)
-            return pluginId
-        if (layerNamespace)
-            return layerNamespace.replace("-", ".")
-        return ""
-    }
+    readonly property string effectivePluginId: String(pluginId || "")
     property bool opened: false
     property bool revealed: false
     property bool pinned: false

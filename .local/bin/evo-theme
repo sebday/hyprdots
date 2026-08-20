@@ -3,9 +3,9 @@ set -e
 # Apply a theme: build into staging, promote, activate live consumers, notify apps
 #
 # USAGE:
-#   evo-theme [select]  - Open the theme picker popup
-#   evo-theme refresh   - Regenerate configs for current theme
-#   evo-theme <name>    - Apply theme by name
+#   evo-sys-themes [select]  - Open the theme picker popup
+#   evo-sys-themes refresh   - Regenerate configs for current theme
+#   evo-sys-themes <name>    - Apply theme by name
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
@@ -124,7 +124,7 @@ activate_theme() {
         wallpaper=$(themes_default_wallpaper || true)
     fi
     if [ -n "$wallpaper" ]; then
-        "$HOME/.local/bin/evo-ipc" evo.wallpaper set "$wallpaper"
+        "$HOME/.local/bin/evo-ipc" evo.sys.wallpaper set "$wallpaper"
     fi
 
     themes_sync_obsidian_modular
@@ -134,7 +134,9 @@ activate_theme() {
     if [[ -n "$theme_slug" ]]; then
         (
             "$HOME/.local/bin/evo-theme-icons" activate "$theme_slug"
-            themes_sync_icon_theme_gsettings
+            if [[ "$(get_current_theme)" == "$theme_slug" ]]; then
+                themes_sync_icon_theme_gsettings
+            fi
         ) &
     fi
 }
@@ -208,14 +210,14 @@ apply_theme() {
 COMMAND="${1:-}"
 
 if [[ -z "$COMMAND" ]]; then
-    echo "usage: evo-theme <name>|refresh|wallpaper" >&2
+    echo "usage: evo-sys-themes <name>|refresh|wallpaper" >&2
     exit 1
 fi
 
 case "$COMMAND" in
     wallpaper)
         trap - EXIT
-        exec "$HOME/.local/bin/evo-ipc" shell toggle evo.wallpaper
+        exec "$HOME/.local/bin/evo-ipc" shell toggle evo.sys.wallpaper
         ;;
 
     refresh)

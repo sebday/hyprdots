@@ -6,6 +6,7 @@ import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
 import "./Commons"
+import "pluginManifest.js" as PluginManifest
 
 ShellRoot {
     id: shell
@@ -23,45 +24,17 @@ ShellRoot {
             id: "evo.bar",
             position: "bottom",
             layout: {
-                left: [{ id: "evo.menu" }],
-                center: [{ id: "evo.clock", format: "%a %d %H:%M" }],
-                right: [{ id: "evo.audio" }, { id: "evo.tray" }]
+                left: [{ id: "evo.sys.menu" }],
+                center: [{ id: "evo.bar.clock", format: "%a %d %H:%M" }],
+                right: [{ id: "evo.bar.media.audio" }, { id: "evo.bar.tray" }]
             }
         }
     })
 
-    readonly property var pluginTable: ({
-        "evo.wallpaper": { kinds: ["menu", "service"], path: "plugins/wallpaper/Picker.qml", servicePath: "plugins/wallpaper/Service.qml", keepLoaded: true },
-        "evo.audio": { kinds: ["service"], path: "plugins/audio/Service.qml", keepLoaded: true },
-        "evo.idle": { kinds: ["service"], path: "plugins/idle/Service.qml" },
-        "evo.lock": { kinds: ["service"], path: "plugins/lock/Service.qml", keepLoaded: true },
-        "evo.notifications": { kinds: ["service"], path: "plugins/notifications/Service.qml", keepLoaded: true },
-        "evo.menu": { kinds: ["menu"], path: "plugins/menu/Menu.qml", keepLoaded: true },
-        "evo.calendar": { kinds: ["menu"], path: "plugins/calendar/Calendar.qml", keepLoaded: true },
-        "evo.cursor": { kinds: ["menu"], path: "plugins/cursor/Cursor.qml", keepLoaded: true },
-        "evo.weather": { kinds: ["menu"], path: "plugins/weather/Weather.qml", keepLoaded: true },
-        "evo.network": { kinds: ["menu"], path: "plugins/network/Network.qml", keepLoaded: true },
-        "evo.volume": { kinds: ["menu"], path: "plugins/volume/Volume.qml", keepLoaded: true },
-        "evo.media": { kinds: ["menu"], path: "plugins/media/Media.qml", keepLoaded: true },
-        "evo.github": { kinds: ["menu"], path: "plugins/github/Github.qml", keepLoaded: true },
-        "evo.system": { kinds: ["menu"], path: "plugins/system/System.qml", keepLoaded: true },
-        "evo.transmission": { kinds: ["menu"], path: "plugins/transmission/Transmission.qml", keepLoaded: true },
-        "evo.insync": { kinds: ["menu"], path: "plugins/insync/Insync.qml", keepLoaded: true },
-        "evo.steam": { kinds: ["menu"], path: "plugins/steam/Steam.qml", keepLoaded: true },
-        "evo.stocks": { kinds: ["menu"], path: "plugins/stocks/Stocks.qml", keepLoaded: true },
-        "evo.cloudflare": { kinds: ["menu", "service"], path: "plugins/cloudflare/Cloudflare.qml", servicePath: "plugins/cloudflare/CloudflareService.qml", keepLoaded: true },
-        "evo.library": { kinds: ["menu"], path: "plugins/library/Library.qml", keepLoaded: true },
-        "evo.theme": { kinds: ["menu"], path: "plugins/theme/Theme.qml", keepLoaded: true },
-        "evo.clipboard": { kinds: ["menu", "service"], path: "plugins/clipboard/Clipboard.qml", servicePath: "plugins/clipboard/Service.qml", keepLoaded: true },
-        "evo.settings": { kinds: ["menu"], path: "plugins/settings/Settings.qml", keepLoaded: true },
-        "evo.panel": { kinds: ["panel"], path: "plugins/panel/Panel.qml", keepLoaded: true },
-        "evo.bar": { kinds: ["bar"], path: "plugins/bar/Bar.qml" },
-        "evo.shopify": { kinds: ["dashboard"], path: "plugins/shopify/Shopify.qml", keepLoaded: true },
-        "evo.player": { kinds: ["dashboard"], path: "plugins/player/Player.qml", keepLoaded: true },
-        "evo.player.monitor": { kinds: ["service"], path: "plugins/player/Service.qml", keepLoaded: true }
-    })
+    readonly property var pluginTable: PluginManifest.plugins
 
     property var shellConfig: builtinShellConfig
+    property var _lastGoodShellConfig: builtinShellConfig
     property var barConfig: builtinShellConfig.bar
     property string _barLoaderKey: ""
     property bool _barReloadPending: false
@@ -69,6 +42,7 @@ ShellRoot {
     property var openPanelIds: ({})
     property var panelLoaders: ({})
     property var pendingPayloads: ({})
+    property var pendingDashboardOpenIds: ({})
     property var popupAnchorItem: null
     property var popupAnchorWindow: null
     property string hoverPopupId: ""
@@ -149,14 +123,18 @@ ShellRoot {
     function applyShellConfig() {
         var text = userConfigFile.text() || ""
         if (!text.trim()) {
-            shellConfig = builtinShellConfig
+            shellConfig = _lastGoodShellConfig || builtinShellConfig
         } else {
             try {
                 var parsed = JSON.parse(text)
-                if (Util.isPlainObject(parsed) && parsed.version === 1) shellConfig = parsed
-                else shellConfig = builtinShellConfig
+                if (Util.isPlainObject(parsed) && parsed.version === 1) {
+                    shellConfig = parsed
+                    _lastGoodShellConfig = parsed
+                } else {
+                    shellConfig = _lastGoodShellConfig || builtinShellConfig
+                }
             } catch (e) {
-                shellConfig = builtinShellConfig
+                shellConfig = _lastGoodShellConfig || builtinShellConfig
             }
         }
         barConfig = Util.isPlainObject(shellConfig.bar) ? shellConfig.bar : builtinShellConfig.bar
@@ -210,41 +188,75 @@ ShellRoot {
 
     function dashboardLoaderFor(id) {
         var pluginId = canonicalPluginId(id)
-        if (pluginId === "evo.shopify") return shopifyLoader
-        if (pluginId === "evo.player") return playerLoader
+        if (pluginId === "evo.panel.shopify") return shopifyLoader
+        if (pluginId === "evo.panel.player") return playerLoader
         return null
     }
 
+    function ensureDashboardLoader(pluginId) {
+        var loader = dashboardLoaderFor(pluginId)
+        if (!loader)
+            return false
+        var meta = pluginTable[pluginId]
+        if (!meta)
+            return false
+        if (!loader.active || loader.source === "") {
+            loader.source = shell.pluginUrl(meta.path)
+            loader.active = true
+        }
+        return true
+    }
+
     function pinKindForDashboard(id) {
-        var pluginId = canonicalPluginId(id)
-        if (pluginId === "evo.shopify") return "shopify"
-        if (pluginId === "evo.player") return "player"
-        return ""
+        return PluginManifest.dashboardPinKind(canonicalPluginId(id))
     }
 
     function openDashboardOnly(pluginId) {
-        var dash = dashboardLoaderFor(pluginId)
-        if (!dash || !dash.item || typeof dash.item.open !== "function")
-            return false
-        dash.item.open()
-        return true
+        return requestDashboardOpen(pluginId)
     }
 
     function revealDashboard(pluginId) {
-        var dash = dashboardLoaderFor(pluginId)
-        if (!dash || !dash.item || typeof dash.item.open !== "function")
+        return requestDashboardOpen(pluginId)
+    }
+
+    function requestDashboardOpen(pluginId) {
+        var meta = pluginTable[pluginId]
+        if (!meta || meta.kinds.indexOf("dashboard") === -1)
             return false
-        dash.item.open()
+
+        var next = ({})
+        for (var k in pendingDashboardOpenIds)
+            next[k] = pendingDashboardOpenIds[k]
+        next[pluginId] = true
+        pendingDashboardOpenIds = next
+
+        if (!ensureDashboardLoader(pluginId))
+            return false
+        var dash = dashboardLoaderFor(pluginId)
+        if (dash && dash.item)
+            fulfillDashboardOpen(pluginId, dash.item)
         return true
+    }
+
+    function fulfillDashboardOpen(pluginId, item) {
+        if (!pendingDashboardOpenIds[pluginId] || !item
+                || typeof item.open !== "function")
+            return
+
+        var next = ({})
+        for (var k in pendingDashboardOpenIds) {
+            if (k !== pluginId)
+                next[k] = pendingDashboardOpenIds[k]
+        }
+        pendingDashboardOpenIds = next
+        item.open()
     }
 
     function summon(id, payloadJson) {
         var pluginId = canonicalPluginId(id)
         var dash = dashboardLoaderFor(pluginId)
-        if (dash && dash.item && typeof dash.item.open === "function") {
-            revealDashboard(pluginId)
-            return true
-        }
+        if (dash)
+            return requestDashboardOpen(pluginId)
         var meta = pluginTable[pluginId]
         if (!meta) return false
         if (meta.kinds.indexOf("menu") !== -1 || meta.kinds.indexOf("panel") !== -1) {
@@ -531,11 +543,10 @@ ShellRoot {
 
     Loader {
         id: shopifyLoader
-        active: true
-        source: shell.pluginUrl(shell.pluginTable["evo.shopify"].path)
+        active: false
         onLoaded: {
             if (item && "shell" in item) item.shell = shell
-            shell.openStartupDashboard("evo.shopify")
+            shell.fulfillDashboardOpen("evo.panel.shopify", item)
         }
         onStatusChanged: {
             if (status === Loader.Error) console.warn("shopify load error:", String(shopifyLoader.errorString))
@@ -544,18 +555,17 @@ ShellRoot {
 
     Loader {
         id: playerLoader
-        active: true
-        source: shell.pluginUrl(shell.pluginTable["evo.player"].path)
+        active: false
         onLoaded: {
             if (item && "shell" in item) item.shell = shell
-            shell.openStartupDashboard("evo.player")
+            shell.fulfillDashboardOpen("evo.panel.player", item)
         }
         onStatusChanged: {
             if (status === Loader.Error) console.warn("player load error:", String(playerLoader.errorString))
         }
     }
 
-    readonly property var panelPluginIds: ["evo.menu", "evo.panel", "evo.settings", "evo.calendar", "evo.cursor", "evo.weather", "evo.network", "evo.volume", "evo.media", "evo.github", "evo.system", "evo.stocks", "evo.cloudflare", "evo.transmission", "evo.insync", "evo.steam", "evo.library", "evo.theme", "evo.wallpaper", "evo.clipboard"]
+    readonly property var panelPluginIds: PluginManifest.panelPluginIds
 
     Instantiator {
         model: shell.panelPluginIds
@@ -573,36 +583,12 @@ ShellRoot {
         }
     }
 
-    property bool _shopifyDashOpened: false
-    property bool _playerDashOpened: false
-
-    function openStartupDashboard(pluginId) {
-        if (pluginId === "evo.shopify") {
-            if (_shopifyDashOpened || !shopifyLoader.item)
-                return
-            _shopifyDashOpened = true
-            Qt.callLater(function() { shell.openDashboardOnly("evo.shopify") })
-            return
-        }
-        if (pluginId === "evo.player") {
-            if (_playerDashOpened || !playerLoader.item)
-                return
-            _playerDashOpened = true
-            Qt.callLater(function() { shell.openDashboardOnly("evo.player") })
-        }
-    }
-
-    function ensureStartupDashboards() {
-        openStartupDashboard("evo.shopify")
-        openStartupDashboard("evo.player")
-    }
-
     function toggleSystemMenu() {
-        return toggle("evo.menu", '{"mode":"power"}')
+        return toggle("evo.sys.menu", '{"mode":"power"}')
     }
 
     function toggleAppLauncher() {
-        return toggle("evo.menu", '{"mode":"power"}')
+        return toggle("evo.sys.menu", '{"mode":"apps"}')
     }
 
     GlobalShortcut {
@@ -678,14 +664,14 @@ ShellRoot {
 
         function onReloadCompleted() {
             Quickshell.inhibitReloadPopup()
-            var notif = shell.serviceFor("evo.notifications")
+            var notif = shell.serviceFor("evo.sys.notifications")
             if (notif && typeof notif.showBrief === "function")
                 notif.showBrief("evoshell", "reloaded")
         }
 
         function onReloadFailed() {
             Quickshell.inhibitReloadPopup()
-            var notif = shell.serviceFor("evo.notifications")
+            var notif = shell.serviceFor("evo.sys.notifications")
             if (notif && typeof notif.showBrief === "function")
                 notif.showBrief("evoshell", "reload failed")
         }

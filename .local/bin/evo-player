@@ -1,5 +1,5 @@
 #!/bin/bash
-# Music library + mpv playback for evo.player panel.
+# Music library + mpv playback for evo.panel.player panel.
 
 set -euo pipefail
 
@@ -110,7 +110,7 @@ cmd_player_start() {
     mpris_script="--script=/usr/share/mpv-mpris/mpris.so"
   fi
   nohup mpv --no-video --idle=yes --keep-open=yes \
-    --audio-client-name="$EVO_PLAYER_MPV_CLIENT_NAME" \
+    --audio-client-name="$EVOPLAYER_MPV_CLIENT_NAME" \
     --input-ipc-server="$MPV_SOCKET" \
     $mpris_script \
     >/dev/null 2>&1 &

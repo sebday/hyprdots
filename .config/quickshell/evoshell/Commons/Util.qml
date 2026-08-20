@@ -11,6 +11,8 @@ Singleton {
             return ""
         if (value.indexOf("file://") === 0)
             return value
+        if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(value))
+            return value
         var parts = value.split("/")
         var encoded = []
         for (var i = 0; i < parts.length; i++) {
@@ -122,16 +124,19 @@ Singleton {
         return value.indexOf("file://") === 0 ? value : fileUrl(value)
     }
 
+    function themedAppIconSource(iconName) {
+        var name = String(iconName || "").trim()
+        if (!name)
+            return ""
+        var path = Quickshell.iconPath(name, true)
+        return path ? normalizeIconSource(path) : ""
+    }
+
     function themedDesktopIconSource(iconName) {
         var themed = steamThemedIconName(iconName)
         if (!themed)
             return ""
-        var home = Quickshell.env("HOME") || ""
-        var theme = Theme.iconThemeName
-        if (home && theme)
-            return fileUrl(home + "/.local/share/icons/" + theme + "/apps/64/" + themed + ".svg")
-        var path = Quickshell.iconPath(themed, true)
-        return path ? normalizeIconSource(path) : ""
+        return themedAppIconSource(themed)
     }
 
     function iconSourceForName(iconName) {

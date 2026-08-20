@@ -1,27 +1,4 @@
 hl.window_rule({
-	name = "floating-window-float",
-	match = { tag = "floating-window" },
-	float = true,
-})
-
-hl.window_rule({
-	name = "floating-window-center",
-	match = { tag = "floating-window" },
-	center = true,
-})
-
-hl.window_rule({
-	name = "floating-window-size",
-	match = { tag = "floating-window" },
-	size = { 1600, 900 },
-})
-
-hl.window_rule({
-	name = "floating-window-monitor",
-	match = { tag = "floating-window" },
-})
-
-hl.window_rule({
 	name = "tag-floating-window-class",
 	match = {
 		class = "(TUI.float|floating-window)",
@@ -50,6 +27,35 @@ hl.window_rule({
 		title = "^File Operation Progress$",
 	},
 	tag = "+floating-window",
+})
+
+hl.window_rule({
+	name = "tag-floating-window-satty",
+	match = { initial_title = "^satty$" },
+	tag = "+floating-window",
+})
+
+hl.window_rule({
+	name = "floating-window-float",
+	match = { tag = "floating-window" },
+	float = true,
+})
+
+hl.window_rule({
+	name = "floating-window-center",
+	match = { tag = "floating-window" },
+	center = true,
+})
+
+hl.window_rule({
+	name = "floating-window-size",
+	match = { tag = "floating-window" },
+	size = { 1600, 900 },
+})
+
+hl.window_rule({
+	name = "floating-window-monitor",
+	match = { tag = "floating-window" },
 })
 
 hl.window_rule({
@@ -92,15 +98,6 @@ hl.window_rule({
 })
 
 hl.window_rule({
-	name = "satty",
-	match = { initial_title = "^satty$" },
-	float = true,
-	center = true,
-	monitor = "DP-1",
-	size = { 1280, 720 },
-})
-
-hl.window_rule({
 	name = "opacity-media-players",
 	match = { class = "^(mpv|imv|imv-dir)$" },
 	opacity = "1 override 1 override",
@@ -110,7 +107,7 @@ hl.window_rule({
 	name = "dashboard-no-initial-focus-shopify",
 	match = {
 		class = "^(org%.quickshell)$",
-		title = "^evo%.shopify",
+		title = "^evo.panel.shopify",
 	},
 	no_initial_focus = true,
 })
@@ -119,44 +116,25 @@ hl.window_rule({
 	name = "dashboard-no-initial-focus-player",
 	match = {
 		class = "^(org%.quickshell)$",
-		title = "^evo%.player$",
+		title = "^evo.panel.player$",
 	},
 	no_initial_focus = true,
 })
 
-local FLOAT_WIDTH = 1600
-local FLOAT_HEIGHT = 900
-
-local function layout_floating_window(win)
-	if not win then
+local function brave_app_to_floating(win)
+	if not win or not win.class or not win.class:match("^brave%-.-__") then
 		return
 	end
-
 	hl.timer(function()
 		hl.dispatch(hl.dsp.window.tag({ tag = "+floating-window", window = win }))
 		hl.dispatch(hl.dsp.window.float({ action = "set", window = win }))
-		hl.dispatch(hl.dsp.window.resize({ window = win, x = FLOAT_WIDTH, y = FLOAT_HEIGHT }))
-		local mon = win.monitor
-		if mon then
-			local at_x = mon.x + math.floor((mon.width - FLOAT_WIDTH) / 2)
-			local at_y = mon.y + math.floor((mon.height - FLOAT_HEIGHT) / 2)
-			hl.dispatch(hl.dsp.window.move({ window = win, x = at_x, y = at_y, relative = false }))
-		end
+		hl.dispatch(hl.dsp.window.resize({ window = win, x = 1600, y = 900 }))
 	end, { timeout = 1, type = "oneshot" })
-end
-
-local function brave_app_to_floating(win)
-	if not win or not win.class then
-		return
-	end
-	if win.class:match("^brave%-.-__") then
-		layout_floating_window(win)
-	end
 end
 
 local function dashboard_to_ws10(win)
 	local title = win and win.title or ""
-	if win and win.class == "org.quickshell" and (title:match("^evo%.shopify") or title == "evo.player") then
+	if win and win.class == "org.quickshell" and (title:match("^evo.panel.shopify") or title == "evo.panel.player") then
 		hl.dispatch(hl.dsp.window.move({ workspace = "10", window = win, follow = false }))
 	end
 end

@@ -263,7 +263,7 @@ cmd_start() {
 }
 
 cmd_lock() {
-    exec "$IPC" evo.lock lock
+    exec "$IPC" evo.sys.lock-screen.lock lock
 }
 
 cmd_restart() {
@@ -279,7 +279,7 @@ cmd_restart() {
 
     touch "$STOPPING_FILE"
 
-    if status="$(timeout 2 "$IPC" evo.lock status 2>/dev/null || true)"; then
+    if status="$(timeout 2 "$IPC" evo.sys.lock-screen.lock status 2>/dev/null || true)"; then
         was_locked="$(printf '%s' "$status" | jq -r '.locked // false' 2>/dev/null || echo false)"
     fi
 
@@ -302,7 +302,7 @@ cmd_restart() {
     for _ in {1..200}; do
         if "$IPC" shell ping >/dev/null 2>&1; then
             if [[ "$was_locked" == "true" ]]; then
-                "$IPC" evo.lock lock >/dev/null 2>&1 || true
+                "$IPC" evo.sys.lock-screen.lock lock >/dev/null 2>&1 || true
             fi
             flock -u 9
             return 0

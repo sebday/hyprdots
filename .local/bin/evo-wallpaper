@@ -12,7 +12,7 @@ cmd="${1:-next}"
 
 case "$cmd" in
     next|prev)
-        exec "$IPC" evo.wallpaper "$cmd"
+        exec "$IPC" evo.sys.wallpaper "$cmd"
         ;;
     set)
         path="${2:-}"
@@ -22,7 +22,7 @@ case "$cmd" in
         if [[ -n "$theme_name" && "$theme_name" != "$current_theme" ]]; then
             exec "${SCRIPT_DIR}/evo-theme" "$theme_name" "$path"
         fi
-        exec "$IPC" evo.wallpaper set "$path"
+        exec "$IPC" evo.sys.wallpaper set "$path"
         ;;
     *)
         echo "Usage: $0 [next|prev|set <path>]" >&2

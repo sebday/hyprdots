@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# Open evo dashboard windows on workspace 10 (HDMI-A-1).
+
+set -euo pipefail
+
+IPC="${HOME}/.local/bin/evo-ipc"
+
+usage() {
+  cat >&2 <<'EOF'
+usage: evo-panel-hypr restore-dashboards
+EOF
+  exit 1
+}
+
+find_dashboard_address() {
+  local title_re="$1"
+  hyprctl clients -j 2>/dev/null | jq -r --arg re "$title_re" '
+    .[] | select(.class == "org.quickshell" and (.title | test($re))) | .address' | head -1
+}
+
+open_shopify_if_needed() {
+  if [[ -n "$(find_dashboard_address '^evo\.shopify')" ]]; then
+    return 0
+  fi
+  "$IPC" shell openDashboard evo.panel.shopify >/dev/null 2>&1 || true
+  local tries=0
+  while (( tries < 30 )); do
+    [[ -n "$(find_dashboard_address '^evo\.shopify')" ]] && return 0
+    sleep 0.05
+    tries=$((tries + 1))
+  done
+  return 1
+}
+
+open_player_if_needed() {
+  if [[ -n "$(find_dashboard_address '^evo\.player$')" ]]; then
+    return 0
+  fi
+  "$IPC" shell openDashboard evo.panel.player >/dev/null 2>&1 || true
+  local tries=0
+  while (( tries < 30 )); do
+    [[ -n "$(find_dashboard_address '^evo\.player$')" ]] && return 0
+    sleep 0.05
+    tries=$((tries + 1))
+  done
+  return 1
+}
+
+restore_dashboards() {
+  open_shopify_if_needed || true
+  open_player_if_needed || true
+}
+
+cmd="${1:-}"
+case "$cmd" in
+restore-dashboards) restore_dashboards ;;
+-h | --help | help | "") usage ;;
+*)
+  echo "evo-panel-hypr: unknown command: $cmd" >&2
+  usage
+  ;;
+esac
