@@ -11,78 +11,23 @@ Thank you to [DHH](https://world.hey.com/dhh) for Omarchy with loads of cool ide
 Thank you to [Bjarne](https://github.com/bjarneo) for some gorgeous themes.
   
 ## Features
- 
-- Master `colors.toml`
-- Generated themes for Obsidian and Neovim
-- Generated icons based on Papirus
-- Themed websites (Soundcloud, Grok, X etc)
-  
-## Quickshell
 
-Evoshell lives in a separate repo: `~/projects/evoshell`. After cloning hyprdots, run:
+**hyprdots**
 
-```bash
-bash ~/projects/evoshell/scripts/install
-```
+- Hyprland config
+- Bootstrap installer
+- App dotfiles — Neovim, GTK, btop, Brave flags, and related configs
+- Evoshell Shopify plugin
 
-Evoshell uses canonical `evo.*` plugin ids and `evo-*` executables:
+**evoshell**
 
-| Kind | Example id | Namespace | Executable |
-|------|------------|-----------|------------|
-| Bar popup | `evo.bar.popups.weather` | `evo-bar-popups-weather` | `evo-bar-weather` |
-| Bar widget | `evo.bar.tray` | `evo-bar-tray` | — |
-| Dashboard | `evo.panel.player` | — (window title) | `evo-panel-player` |
-| Side panel | `evo.side` | `evo-side` | `evo-calculator`, `evo-tasks` |
-| System | `evo.sys.settings` | `evo-sys-settings` | `evo-system`, `evo-ipc` |
-| Player backend | `evo.panel.player.monitor` | — | `evoplayer` |
+- Quickshell desktop shell
+- Theme packs
 
-State: `$XDG_STATE_HOME/evoshell/panel/player` · Cache: `$XDG_CACHE_HOME/evoshell/panel/player`
+**evoplayer** (`~/projects/evoplayer`)
 
-- Evoshell
-	- Evobar
-		- Icons
-		- Popups
-			- Weather
-			- GitHub
-			- Cursor usage
-			- Stocks
-			- Cloudflare
-			- Calendar
-			- Insync
-			- System stats
-		- Network
-			- Stats
-			- Transmission
-		- Media
-			- Now playing
-			- Library
-			- Audio
-		- Steam
-	- Evopanel
-		- Shopify
-		- Evoplayer
-	- Evoside
-		- Calculator
-		- Tasks
-		- Clipboard
-	- Evosys
-		- Menu
-		- Settings
-		- Wallpaper
-		- Themes
-		- Notifications
-		- Lock screen
-  
-### Design tokens
- 
-- fieldset
-	- legend
-- stat box
-	- stat
-	- label
-  
-All colours, fonts, spacing, opacity, radius via `Theme.*` — no hardcoded values in QML.
-  
+- Music player & library
+
 ## Install
  
 `wget -qO- sebday.dev/installer | bash`
@@ -102,6 +47,9 @@ Auto loaded through my Brave sync [OrangeMonkey](https://chromewebstore.google.c
   
 ### Media library
 [![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/shared/screenshots/media-library.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/shared/screenshots/media-library.png)
+
+### Evoplayer
+[![screenshot](https://raw.githubusercontent.com/sebday/evoplayer/refs/heads/go/docs/screenshots/player.png)](https://raw.githubusercontent.com/sebday/evoplayer/refs/heads/go/docs/screenshots/player.png)
   
 ### Screenshot editor
 [![screenshot](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/shared/screenshots/screenshot-editor.png)](https://raw.githubusercontent.com/sebday/hyprdots/refs/heads/master/.themes/shared/screenshots/screenshot-editor.png)
