@@ -55,120 +55,12 @@ return {
       },
     },
     init = function()
-      local skip = {
-        snacks_dashboard = true,
-        snacks_picker_input = true,
-        snacks_picker_list = true,
-        snacks_picker_preview = true,
-        snacks_layout_box = true,
-        dashboard = true,
-        alpha = true,
-        ministarter = true,
-        lazy = true,
-        mason = true,
-        editor_chrome = true,
-      }
-
-      local function has_file_buffer()
-        for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-          if vim.api.nvim_buf_is_valid(buf) and vim.bo[buf].buflisted and not skip[vim.bo[buf].filetype] then
-            if vim.api.nvim_buf_get_name(buf) ~= "" then
-              return true
-            end
-          end
-        end
-        return false
-      end
-
-      local opening = false
-      local session_loading = false
-
-      local function has_explorer_win()
-        for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-          local ft = vim.bo[vim.api.nvim_win_get_buf(win)].filetype
-          if ft:find("snacks_picker", 1, true) or ft == "snacks_layout_box" then
-            return true
-          end
-        end
-        return false
-      end
-
-      local function explorer_open()
-        local ok, Snacks = pcall(require, "snacks")
-        if not ok then
-          return false
-        end
-        return #Snacks.picker.get({ source = "explorer" }) > 0 or has_explorer_win()
-      end
-
-      local function open_explorer()
-        if opening or explorer_open() or not has_file_buffer() then
-          return
-        end
-        local ok, Snacks = pcall(require, "snacks")
-        if not ok then
-          return
-        end
-        opening = true
-        local prev = vim.api.nvim_get_current_win()
-        pcall(Snacks.explorer.open)
-        vim.schedule(function()
-          opening = false
-          if vim.api.nvim_win_is_valid(prev) then
-            pcall(vim.api.nvim_set_current_win, prev)
-          end
-          vim.defer_fn(function()
-            pcall(require("config.editor-chrome").refresh)
-          end, 50)
-        end)
-      end
-
-      vim.api.nvim_create_autocmd("User", {
-        pattern = "PersistenceLoadPre",
-        callback = function()
-          session_loading = true
-        end,
-      })
-
-      vim.api.nvim_create_autocmd("User", {
-        pattern = "PersistenceLoadPost",
-        callback = function()
-          vim.defer_fn(function()
-            session_loading = false
-            local mode = vim.api.nvim_get_mode().mode
-            if mode == "v" or mode == "V" or mode == "\22" then
-              vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Esc>", true, false, true), "n", true)
-            end
-            if not explorer_open() then
-              open_explorer()
-            else
-              pcall(require("config.editor-chrome").refresh)
-            end
-          end, 80)
-        end,
-      })
-
-      vim.api.nvim_create_autocmd("BufReadPost", {
-        callback = function(ev)
-          if session_loading then
-            return
-          end
-          if skip[vim.bo[ev.buf].filetype] or vim.api.nvim_buf_get_name(ev.buf) == "" then
-            return
-          end
-          vim.defer_fn(open_explorer, 50)
-        end,
-      })
-
       vim.api.nvim_create_autocmd("User", {
         pattern = "VeryLazy",
         once = true,
         callback = function()
           vim.defer_fn(function()
             if vim.fn.argc() > 0 then
-              if vim.fn.isdirectory(vim.fn.argv(0)) ~= 1 then
-                open_explorer()
-              end
               return
             end
             local ok, Snacks = pcall(require, "snacks")

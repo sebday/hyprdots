@@ -1,7 +1,7 @@
 *
 !.gitignore
-!.config/evoshell/
-!.config/evoshell/shell.local.json
+!.config/evoshell-local/
+!.config/evoshell-local/shell.local.json
 .themes/current/
 **/__pycache__/
 *.pyc
