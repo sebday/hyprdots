@@ -1,0 +1,1032 @@
+{
+  "STORE_A": {
+    "bars": [
+      {
+        "date": "2026-07-23",
+        "value": 38796.14,
+        "orders": 116,
+        "level": 5,
+        "colorLevel": 4,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-07-24",
+        "value": 26020.6,
+        "orders": 82,
+        "level": 3,
+        "colorLevel": 3,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-07-25",
+        "value": 20866.96,
+        "orders": 84,
+        "level": 3,
+        "colorLevel": 2,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-07-26",
+        "value": 33853.5,
+        "orders": 124,
+        "level": 4,
+        "colorLevel": 3,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-07-27",
+        "value": 47981.8,
+        "orders": 150,
+        "level": 7,
+        "colorLevel": 4,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-07-28",
+        "value": 47724.82,
+        "orders": 94,
+        "level": 6,
+        "colorLevel": 4,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-07-29",
+        "value": 37533.24,
+        "orders": 148,
+        "level": 5,
+        "colorLevel": 4,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-07-30",
+        "value": 24975.12,
+        "orders": 82,
+        "level": 3,
+        "colorLevel": 3,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-07-31",
+        "value": 25323.7,
+        "orders": 100,
+        "level": 3,
+        "colorLevel": 3,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-01",
+        "value": 18343.06,
+        "orders": 92,
+        "level": 2,
+        "colorLevel": 2,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-02",
+        "value": 33464.5,
+        "orders": 126,
+        "level": 4,
+        "colorLevel": 3,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-03",
+        "value": 45276.58,
+        "orders": 154,
+        "level": 6,
+        "colorLevel": 4,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-08-04",
+        "value": 35205.16,
+        "orders": 140,
+        "level": 5,
+        "colorLevel": 3,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-05",
+        "value": 46614.62,
+        "orders": 116,
+        "level": 6,
+        "colorLevel": 4,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-08-06",
+        "value": 41822.5,
+        "orders": 106,
+        "level": 6,
+        "colorLevel": 4,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-08-07",
+        "value": 29859.42,
+        "orders": 84,
+        "level": 4,
+        "colorLevel": 3,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-08",
+        "value": 28805.26,
+        "orders": 98,
+        "level": 4,
+        "colorLevel": 3,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-09",
+        "value": 35305.86,
+        "orders": 122,
+        "level": 5,
+        "colorLevel": 3,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-10",
+        "value": 39120.36,
+        "orders": 130,
+        "level": 5,
+        "colorLevel": 4,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-08-11",
+        "value": 31075.44,
+        "orders": 116,
+        "level": 4,
+        "colorLevel": 3,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-12",
+        "value": 43228.56,
+        "orders": 120,
+        "level": 6,
+        "colorLevel": 4,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-08-13",
+        "value": 23537.06,
+        "orders": 78,
+        "level": 3,
+        "colorLevel": 2,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-14",
+        "value": 17250.1,
+        "orders": 76,
+        "level": 2,
+        "colorLevel": 2,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-15",
+        "value": 12051.62,
+        "orders": 58,
+        "level": 1,
+        "colorLevel": 2,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-16",
+        "value": 30296.32,
+        "orders": 92,
+        "level": 4,
+        "colorLevel": 3,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-17",
+        "value": 32768.42,
+        "orders": 116,
+        "level": 4,
+        "colorLevel": 3,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-18",
+        "value": 31830.02,
+        "orders": 108,
+        "level": 4,
+        "colorLevel": 3,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-19",
+        "value": 42956.1,
+        "orders": 112,
+        "level": 6,
+        "colorLevel": 4,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-08-20",
+        "value": 16919.7,
+        "orders": 58,
+        "level": 2,
+        "colorLevel": 2,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-21",
+        "value": 23116.56,
+        "orders": 80,
+        "level": 3,
+        "colorLevel": 2,
+        "color": "#83c092"
+      }
+    ],
+    "store": "A ",
+    "symbol": "£",
+    "orders": 80,
+    "cos": "6.8%",
+    "revenue": "23116.56",
+    "todayDetail": {
+      "revenue": 23116.56,
+      "orders": 80,
+      "sessions": 3508,
+      "cos": "6.8%",
+      "spend": 1579.32,
+      "cvr": 0.022800,
+      "marginPct": 0.083200,
+      "margin": 59.04
+    },
+    "period": {
+      "days": 30,
+      "revenue": 961923.1,
+      "orders": 3162,
+      "sessions": 140230,
+      "spend": 77117.72
+    },
+    "channels": {
+      "paid": 477777.68,
+      "organic": 240307.86,
+      "direct": 128218.74,
+      "email": 29144.44
+    },
+    "orderBars": [
+      {
+        "date": "2026-07-23",
+        "value": 116,
+        "orders": 0,
+        "level": 5,
+        "colorLevel": 4,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-07-24",
+        "value": 82,
+        "orders": 0,
+        "level": 3,
+        "colorLevel": 3,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-07-25",
+        "value": 84,
+        "orders": 0,
+        "level": 3,
+        "colorLevel": 3,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-07-26",
+        "value": 124,
+        "orders": 0,
+        "level": 5,
+        "colorLevel": 4,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-07-27",
+        "value": 150,
+        "orders": 0,
+        "level": 6,
+        "colorLevel": 4,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-07-28",
+        "value": 94,
+        "orders": 0,
+        "level": 4,
+        "colorLevel": 3,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-07-29",
+        "value": 148,
+        "orders": 0,
+        "level": 6,
+        "colorLevel": 4,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-07-30",
+        "value": 82,
+        "orders": 0,
+        "level": 3,
+        "colorLevel": 3,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-07-31",
+        "value": 100,
+        "orders": 0,
+        "level": 4,
+        "colorLevel": 3,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-01",
+        "value": 92,
+        "orders": 0,
+        "level": 4,
+        "colorLevel": 3,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-02",
+        "value": 126,
+        "orders": 0,
+        "level": 5,
+        "colorLevel": 4,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-08-03",
+        "value": 154,
+        "orders": 0,
+        "level": 7,
+        "colorLevel": 4,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-08-04",
+        "value": 140,
+        "orders": 0,
+        "level": 6,
+        "colorLevel": 4,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-08-05",
+        "value": 116,
+        "orders": 0,
+        "level": 5,
+        "colorLevel": 4,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-08-06",
+        "value": 106,
+        "orders": 0,
+        "level": 4,
+        "colorLevel": 3,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-07",
+        "value": 84,
+        "orders": 0,
+        "level": 3,
+        "colorLevel": 3,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-08",
+        "value": 98,
+        "orders": 0,
+        "level": 4,
+        "colorLevel": 3,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-09",
+        "value": 122,
+        "orders": 0,
+        "level": 5,
+        "colorLevel": 4,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-08-10",
+        "value": 130,
+        "orders": 0,
+        "level": 5,
+        "colorLevel": 4,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-08-11",
+        "value": 116,
+        "orders": 0,
+        "level": 5,
+        "colorLevel": 4,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-08-12",
+        "value": 120,
+        "orders": 0,
+        "level": 5,
+        "colorLevel": 4,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-08-13",
+        "value": 78,
+        "orders": 0,
+        "level": 3,
+        "colorLevel": 3,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-14",
+        "value": 76,
+        "orders": 0,
+        "level": 3,
+        "colorLevel": 2,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-15",
+        "value": 58,
+        "orders": 0,
+        "level": 2,
+        "colorLevel": 2,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-16",
+        "value": 92,
+        "orders": 0,
+        "level": 4,
+        "colorLevel": 3,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-17",
+        "value": 116,
+        "orders": 0,
+        "level": 5,
+        "colorLevel": 4,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-08-18",
+        "value": 108,
+        "orders": 0,
+        "level": 4,
+        "colorLevel": 3,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-19",
+        "value": 112,
+        "orders": 0,
+        "level": 5,
+        "colorLevel": 3,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-20",
+        "value": 58,
+        "orders": 0,
+        "level": 2,
+        "colorLevel": 2,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-21",
+        "value": 80,
+        "orders": 0,
+        "level": 3,
+        "colorLevel": 3,
+        "color": "#83c092"
+      }
+    ],
+    "title": "Store A"
+  },
+  "STORE_B": {
+    "bars": [
+      {
+        "date": "2026-07-23",
+        "value": 22804.48,
+        "orders": 68,
+        "level": 4,
+        "colorLevel": 3,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-07-24",
+        "value": 10799.42,
+        "orders": 64,
+        "level": 2,
+        "colorLevel": 2,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-07-25",
+        "value": 2817.54,
+        "orders": 18,
+        "level": 1,
+        "colorLevel": 1,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-07-26",
+        "value": 2727.3,
+        "orders": 24,
+        "level": 1,
+        "colorLevel": 1,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-07-27",
+        "value": 16539.7,
+        "orders": 82,
+        "level": 3,
+        "colorLevel": 3,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-07-28",
+        "value": 15284.5,
+        "orders": 50,
+        "level": 3,
+        "colorLevel": 2,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-07-29",
+        "value": 9864.48,
+        "orders": 52,
+        "level": 2,
+        "colorLevel": 2,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-07-30",
+        "value": 7561.36,
+        "orders": 54,
+        "level": 1,
+        "colorLevel": 1,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-07-31",
+        "value": 15843,
+        "orders": 56,
+        "level": 3,
+        "colorLevel": 2,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-01",
+        "value": 2972.88,
+        "orders": 12,
+        "level": 1,
+        "colorLevel": 1,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-08-02",
+        "value": 6520.46,
+        "orders": 32,
+        "level": 1,
+        "colorLevel": 1,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-08-03",
+        "value": 16200.9,
+        "orders": 82,
+        "level": 3,
+        "colorLevel": 2,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-04",
+        "value": 32830.6,
+        "orders": 56,
+        "level": 7,
+        "colorLevel": 4,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-08-05",
+        "value": 11731.22,
+        "orders": 62,
+        "level": 2,
+        "colorLevel": 2,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-06",
+        "value": 15413.3,
+        "orders": 64,
+        "level": 3,
+        "colorLevel": 2,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-07",
+        "value": 13916.24,
+        "orders": 54,
+        "level": 2,
+        "colorLevel": 2,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-08",
+        "value": 6918.52,
+        "orders": 16,
+        "level": 1,
+        "colorLevel": 1,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-08-09",
+        "value": 5713.34,
+        "orders": 28,
+        "level": 1,
+        "colorLevel": 1,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-08-10",
+        "value": 17786.78,
+        "orders": 106,
+        "level": 3,
+        "colorLevel": 3,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-11",
+        "value": 11447.06,
+        "orders": 94,
+        "level": 2,
+        "colorLevel": 2,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-12",
+        "value": 18225.96,
+        "orders": 80,
+        "level": 3,
+        "colorLevel": 3,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-13",
+        "value": 12137.24,
+        "orders": 64,
+        "level": 2,
+        "colorLevel": 2,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-14",
+        "value": 26075.9,
+        "orders": 112,
+        "level": 5,
+        "colorLevel": 4,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-08-15",
+        "value": 2716.18,
+        "orders": 16,
+        "level": 1,
+        "colorLevel": 1,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-08-16",
+        "value": 8438.84,
+        "orders": 24,
+        "level": 1,
+        "colorLevel": 2,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-17",
+        "value": 26130.88,
+        "orders": 88,
+        "level": 5,
+        "colorLevel": 4,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-08-18",
+        "value": 18029.74,
+        "orders": 72,
+        "level": 3,
+        "colorLevel": 3,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-19",
+        "value": 15662.84,
+        "orders": 74,
+        "level": 3,
+        "colorLevel": 2,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-20",
+        "value": 17422.9,
+        "orders": 64,
+        "level": 3,
+        "colorLevel": 3,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-21",
+        "value": 10953.52,
+        "orders": 64,
+        "level": 2,
+        "colorLevel": 2,
+        "color": "#83c092"
+      }
+    ],
+    "store": "B ",
+    "symbol": "£",
+    "orders": 64,
+    "cos": "11.4%",
+    "revenue": "10953.52",
+    "todayDetail": {
+      "revenue": 10953.52,
+      "orders": 64,
+      "sessions": 1286,
+      "cos": "11.4%",
+      "spend": 1252.2,
+      "cvr": 0.049800,
+      "marginPct": null,
+      "margin": null
+    },
+    "period": {
+      "days": 30,
+      "revenue": 401487.08,
+      "orders": 1732,
+      "sessions": 41342,
+      "spend": 36193.18
+    },
+    "channels": {
+      "paid": 98458.8,
+      "organic": 64527.76,
+      "direct": 65745.24,
+      "email": 6287.92
+    },
+    "orderBars": [
+      {
+        "date": "2026-07-23",
+        "value": 68,
+        "orders": 0,
+        "level": 4,
+        "colorLevel": 3,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-07-24",
+        "value": 64,
+        "orders": 0,
+        "level": 4,
+        "colorLevel": 3,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-07-25",
+        "value": 18,
+        "orders": 0,
+        "level": 1,
+        "colorLevel": 1,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-07-26",
+        "value": 24,
+        "orders": 0,
+        "level": 1,
+        "colorLevel": 1,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-07-27",
+        "value": 82,
+        "orders": 0,
+        "level": 5,
+        "colorLevel": 3,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-07-28",
+        "value": 50,
+        "orders": 0,
+        "level": 3,
+        "colorLevel": 2,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-07-29",
+        "value": 52,
+        "orders": 0,
+        "level": 3,
+        "colorLevel": 2,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-07-30",
+        "value": 54,
+        "orders": 0,
+        "level": 3,
+        "colorLevel": 2,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-07-31",
+        "value": 56,
+        "orders": 0,
+        "level": 3,
+        "colorLevel": 2,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-01",
+        "value": 12,
+        "orders": 0,
+        "level": 1,
+        "colorLevel": 1,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-08-02",
+        "value": 32,
+        "orders": 0,
+        "level": 2,
+        "colorLevel": 2,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-03",
+        "value": 82,
+        "orders": 0,
+        "level": 5,
+        "colorLevel": 3,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-04",
+        "value": 56,
+        "orders": 0,
+        "level": 3,
+        "colorLevel": 2,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-05",
+        "value": 62,
+        "orders": 0,
+        "level": 3,
+        "colorLevel": 3,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-06",
+        "value": 64,
+        "orders": 0,
+        "level": 4,
+        "colorLevel": 3,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-07",
+        "value": 54,
+        "orders": 0,
+        "level": 3,
+        "colorLevel": 2,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-08",
+        "value": 16,
+        "orders": 0,
+        "level": 1,
+        "colorLevel": 1,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-08-09",
+        "value": 28,
+        "orders": 0,
+        "level": 1,
+        "colorLevel": 1,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-08-10",
+        "value": 106,
+        "orders": 0,
+        "level": 6,
+        "colorLevel": 4,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-08-11",
+        "value": 94,
+        "orders": 0,
+        "level": 5,
+        "colorLevel": 4,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-08-12",
+        "value": 80,
+        "orders": 0,
+        "level": 5,
+        "colorLevel": 3,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-13",
+        "value": 64,
+        "orders": 0,
+        "level": 4,
+        "colorLevel": 3,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-14",
+        "value": 112,
+        "orders": 0,
+        "level": 7,
+        "colorLevel": 4,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-08-15",
+        "value": 16,
+        "orders": 0,
+        "level": 1,
+        "colorLevel": 1,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-08-16",
+        "value": 24,
+        "orders": 0,
+        "level": 1,
+        "colorLevel": 1,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-08-17",
+        "value": 88,
+        "orders": 0,
+        "level": 5,
+        "colorLevel": 4,
+        "color": "#7fbbb3"
+      },
+      {
+        "date": "2026-08-18",
+        "value": 72,
+        "orders": 0,
+        "level": 4,
+        "colorLevel": 3,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-19",
+        "value": 74,
+        "orders": 0,
+        "level": 4,
+        "colorLevel": 3,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-20",
+        "value": 64,
+        "orders": 0,
+        "level": 4,
+        "colorLevel": 3,
+        "color": "#83c092"
+      },
+      {
+        "date": "2026-08-21",
+        "value": 64,
+        "orders": 0,
+        "level": 4,
+        "colorLevel": 3,
+        "color": "#83c092"
+      }
+    ],
+    "title": "Store B"
+  }
+}

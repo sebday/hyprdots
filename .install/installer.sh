@@ -61,7 +61,7 @@ configure_greetd() {
     log "Configuring greetd for autologin..."
     local user greet_cmd
     user=$(whoami) || { echo "Failed to get username"; exit 1; }
-    greet_cmd="$HOME/.local/bin/hypr-greetd"
+    greet_cmd="$HOME/.config/hypr/bin/hypr-greetd"
     cat <<EOT | sudo tee /etc/greetd/config.toml > /dev/null
 [terminal]
 vt = 1
@@ -119,6 +119,18 @@ configure_networking() {
 configure_timesync() {
     log "Enabling systemd-timesyncd..."
     sudo systemctl enable systemd-timesyncd
+}
+
+link_hypr_bin() {
+    log "Linking hypr bin scripts..."
+    local hypr_bin="${HOME}/.config/hypr/bin"
+    local local_bin="${HOME}/.local/bin"
+    mkdir -p "$local_bin"
+    for script in hypr-greetd hypr-launch; do
+        if [[ -x "${hypr_bin}/${script}" ]]; then
+            ln -sfn "${hypr_bin}/${script}" "${local_bin}/${script}"
+        fi
+    done
 }
 
 link_evoshell() {
@@ -272,6 +284,7 @@ main() {
     install_dependencies
     clone_dotfiles
     cd "$HOME"
+    link_hypr_bin
     link_evoshell
     link_evoplayer
     install_pacman_packages
