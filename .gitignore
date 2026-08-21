@@ -8,8 +8,6 @@
 !.config/
 !.config/bash/
 !.config/bash/**
-!.config/btop/
-!.config/btop/**
 !.config/fastfetch/
 !.config/fastfetch/**
 !.config/ghostty/
