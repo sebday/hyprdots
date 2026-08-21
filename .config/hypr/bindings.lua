@@ -113,18 +113,7 @@ bindd(
 	{ repeating = true }
 )
 
--- Screenshot
-bindd("PRINT", "Screenshot Region", hl.dsp.exec_cmd('bash -c "hyprshot -m region -o /tmp/ -f hyprshot.png;"'))
-bindd(
-	"ALT + PRINT",
-	"Screenshot Active Monitor",
-	hl.dsp.exec_cmd('bash -c "hyprshot -m output -m active -o /tmp/ -f hyprshot.png;"')
-)
-bindd(
-	"SUPER + ALT + PRINT",
-	"Screenshot Active Window",
-	hl.dsp.exec_cmd('bash -c "hyprshot -m window -m active -o /tmp/ -f hyprshot.png;"')
-)
+-- Satty annotation (PRINT = region, SUPER+PRINT = satty, ALT+PRINT = all monitors)
 bindd("q", "Close satty", function()
 	local win = hl.get_active_window()
 	if not win then
