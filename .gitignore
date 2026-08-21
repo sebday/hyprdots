@@ -16,6 +16,7 @@
 !.config/ghostty/**
 !.config/hypr/
 !.config/hypr/**
+.config/hypr/bin/
 !.config/imv/
 !.config/imv/**
 !.config/mise/
@@ -27,6 +28,7 @@
 !.config/evoshell/plugins/**
 .config/evoshell/plugins/commons
 !.config/brave-flags.conf
+.local/
 **/__pycache__/
 *.pyc
 **/secrets.env
