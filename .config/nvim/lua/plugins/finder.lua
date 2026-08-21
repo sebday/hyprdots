@@ -50,11 +50,16 @@ return {
             dev = {}, -- fd scan misses .git (ignored); use explicit list below
             projects = list_projects(),
             recent = true,
+            confirm = function(picker, item)
+              require("config.project-open").load(picker, item)
+            end,
           },
         },
       },
     },
     init = function()
+      require("config.project-open").setup_autocmds()
+
       vim.api.nvim_create_autocmd("User", {
         pattern = "VeryLazy",
         once = true,

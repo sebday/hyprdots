@@ -1,3 +1,5 @@
+-- md-render: terminal preview, manual toggle only (<leader>mp).
+
 local function preview_opts()
   local win = vim.api.nvim_get_current_win()
   local total = vim.api.nvim_win_get_width(win)
@@ -12,25 +14,12 @@ local function in_render_mode(win)
   return ok and type(state) == "table" and state.mode == "render"
 end
 
-local function open_markdown_preview()
-  if vim.bo.filetype ~= "markdown" or vim.bo.buftype ~= "" or vim.b.md_preview_dismissed then
-    return
-  end
-  if in_render_mode() then
-    return
-  end
-  require("md-render.preview").toggle(preview_opts())
-end
-
 local function toggle_markdown_preview()
   local preview = require("md-render.preview")
   if in_render_mode() then
-    vim.b.md_preview_dismissed = true
     preview.toggle()
     return
   end
-
-  vim.b.md_preview_dismissed = nil
   preview.toggle(preview_opts())
 end
 
@@ -57,6 +46,9 @@ local function setup_render_edit_redirect(buf)
 end
 
 return {
+  { "MeanderingProgrammer/render-markdown.nvim", enabled = false },
+  { "iamcco/markdown-preview.nvim", enabled = false },
+
   {
     "delphinus/md-render.nvim",
     version = "*",
@@ -66,7 +58,7 @@ return {
         "<leader>mp",
         toggle_markdown_preview,
         desc = "Markdown preview (toggle)",
-        ft = "markdown",
+        ft = { "markdown", "md-render" },
       },
     },
     config = function()
@@ -84,19 +76,13 @@ return {
         pattern = "md-render",
         callback = function(ev)
           setup_render_edit_redirect(ev.buf)
+          vim.keymap.set("n", { "q", "<Esc>" }, toggle_markdown_preview, {
+            buffer = ev.buf,
+            desc = "Markdown preview (back to source)",
+            silent = true,
+          })
         end,
       })
-
-      vim.api.nvim_create_autocmd({ "BufReadPost", "BufNewFile" }, {
-        group = vim.api.nvim_create_augroup("md_render_auto_preview", { clear = true }),
-        pattern = "*.md",
-        callback = function()
-          vim.b.md_preview_dismissed = nil
-          vim.schedule(open_markdown_preview)
-        end,
-      })
-
-      vim.schedule(open_markdown_preview)
     end,
   },
 }

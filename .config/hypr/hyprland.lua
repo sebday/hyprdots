@@ -11,4 +11,3 @@ dofile(evoshell_root .. "/hypr/bootstrap.lua")
 require("hypr.init")
 
 require("autostart")
-require("bindings")
