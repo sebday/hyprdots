@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Print quickshell and evoplayer RSS/CPU for soak tests and monitoring.
+
+set -euo pipefail
+
+qs_pid="$(pgrep -n quickshell 2>/dev/null || true)"
+evo_pid="$(pgrep -f 'evoplayer serve' 2>/dev/null | head -1 || true)"
+
+read_stat() {
+    local pid="$1"
+    if [[ -z "$pid" ]] || ! kill -0 "$pid" 2>/dev/null; then
+        printf 'na na'
+        return
+    fi
+    ps -p "$pid" -o %cpu=,rss= 2>/dev/null | awk '{printf "%s %s", $1, $2}'
+}
+
+qs_stat="$(read_stat "$qs_pid")"
+evo_stat="$(read_stat "$evo_pid")"
+
+qs_cpu="${qs_stat%% *}"
+qs_rss="${qs_stat##* }"
+evo_cpu="${evo_stat%% *}"
+evo_rss="${evo_stat##* }"
+
+printf '%s quickshell_pid=%s quickshell_cpu=%s quickshell_rss_kb=%s evoplayer_pid=%s evoplayer_cpu=%s evoplayer_rss_kb=%s\n' \
+    "$(date -Iseconds)" \
+    "${qs_pid:-}" "${qs_cpu:-na}" "${qs_rss:-na}" \
+    "${evo_pid:-}" "${evo_cpu:-na}" "${evo_rss:-na}"

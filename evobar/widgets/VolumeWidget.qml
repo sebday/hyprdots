@@ -240,13 +240,6 @@ Item {
         onPeakChanged: root.applyPeak(peakMonitor.peak)
     }
 
-    Timer {
-        interval: 40
-        running: root.audioActive
-        repeat: true
-        onTriggered: root.applyPeak(peakMonitor.peak)
-    }
-
     onAudioActiveChanged: if (!audioActive) zeroHistory()
 
     Row {

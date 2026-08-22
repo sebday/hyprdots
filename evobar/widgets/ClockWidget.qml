@@ -24,6 +24,17 @@ Item {
             return "󰖙"
         return "󰖔"
     }
+    readonly property bool formatShowsSeconds: {
+        var raw = settings.format ? String(settings.format) : "%a %d %H:%M"
+        return raw.indexOf("%S") >= 0 || raw.indexOf("%s") >= 0
+    }
+    readonly property int tickIntervalMs: {
+        if (root.showEffect && root.formatShowsSeconds)
+            return 80
+        if (root.showEffect)
+            return 250
+        return 1000
+    }
 
     implicitWidth: clockRow.implicitWidth + Theme.barSectionGap * 2
     implicitHeight: Theme.barHeight
@@ -154,7 +165,8 @@ Item {
     }
 
     Timer {
-        interval: 80
+        id: tickTimer
+        interval: root.tickIntervalMs
         running: true
         repeat: true
         onTriggered: {
@@ -162,6 +174,8 @@ Item {
             root.updateText()
         }
     }
+
+    onTickIntervalMsChanged: tickTimer.restart()
 
     Component.onCompleted: updateText()
 }
