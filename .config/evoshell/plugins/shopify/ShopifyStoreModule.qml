@@ -231,16 +231,11 @@ Item {
     onActiveChanged: if (active && !demoMode) syncFromBar()
     onBarSourceChanged: if (active && !demoMode) syncFromBar()
 
-    Connections {
-        target: root.barSource
-        enabled: root.barSource !== null && !root.demoMode
-        function onLastPayloadChanged() {
-            if (root.active) root.syncFromBar()
-        }
-        function onStoreChanged() {
-            if (root.active) root.syncFromBar()
-        }
-    }
+    readonly property var barLastPayload: root.barSource ? root.barSource.lastPayload : null
+    readonly property var barStore: root.barSource ? root.barSource.store : null
+
+    onBarLastPayloadChanged: if (root.active && !root.demoMode) root.syncFromBar()
+    onBarStoreChanged: if (root.active && !root.demoMode) root.syncFromBar()
 
     FileView {
         id: demoFile
