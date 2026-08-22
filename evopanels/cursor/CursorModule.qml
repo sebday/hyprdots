@@ -139,16 +139,11 @@ Item {
     onActiveChanged: if (active) syncFromBar()
     onBarSourceChanged: if (active) syncFromBar()
 
-    Connections {
-        target: root.barSource
-        enabled: root.barSource !== null
-        function onLastPayloadChanged() {
-            if (root.active) root.syncFromBar()
-        }
-        function onPollingChanged() {
-            if (root.active) root.syncFromBar()
-        }
-    }
+    readonly property var barLastPayload: root.barSource ? root.barSource.lastPayload : null
+    readonly property bool barPolling: root.barSource ? !!root.barSource.polling : false
+
+    onBarLastPayloadChanged: if (root.active) root.syncFromBar()
+    onBarPollingChanged: if (root.active) root.syncFromBar()
 
     implicitHeight: contentColumn.implicitHeight
 

@@ -7,6 +7,7 @@ Item {
     id: root
 
     property var host: null
+    property var shell: null
     property int hoverPanelWidth: 0
 
     property date today: new Date()

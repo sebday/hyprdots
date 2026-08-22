@@ -4,6 +4,7 @@ set -euo pipefail
 PRESET_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/cava/presets"
 PRESET_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/cava/cava.v"
 RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp}"
+DEFAULT_PRESET="${EVOPLAYER_CAVA_PRESET:-punchy}"
 
 cava_source_default() {
     if [[ -n "${EVOPLAYER_CAVA_SOURCE:-}" ]]; then
@@ -36,7 +37,15 @@ preset_names() {
 
 current_preset() {
     if [[ -f "$PRESET_FILE" ]]; then
-        tr -d '[:space:]' <"$PRESET_FILE" | head -c 64
+        local name
+        name=$(tr -d '[:space:]' <"$PRESET_FILE" | head -c 64)
+        if [[ -n "$name" ]]; then
+            printf '%s' "$name"
+            return
+        fi
+    fi
+    if [[ -f "$PRESET_DIR/$DEFAULT_PRESET.conf" ]]; then
+        printf '%s' "$DEFAULT_PRESET"
         return
     fi
     preset_names | head -n1

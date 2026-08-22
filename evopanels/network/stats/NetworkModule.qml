@@ -338,26 +338,20 @@ Item {
         bootstrapFromCache()
     }
 
-    Connections {
-        target: root.barSource
-        enabled: root.barSource !== null
-        function onNetworkDownloadRateChanged() {
-            if (root.active)
-                root.syncFromBar()
-        }
-        function onNetworkUploadRateChanged() {
-            if (root.active)
-                root.syncFromBar()
-        }
-        function onDownHistoryChanged() {
-            if (root.active)
-                root.syncFromBar()
-        }
-        function onUpHistoryChanged() {
-            if (root.active)
-                root.syncFromBar()
-        }
+    readonly property real barNetworkDownloadRate: root.barSource ? (root.barSource.networkDownloadRate || 0) : 0
+    readonly property real barNetworkUploadRate: root.barSource ? (root.barSource.networkUploadRate || 0) : 0
+    readonly property var barDownHistory: root.barSource ? root.barSource.downHistory : null
+    readonly property var barUpHistory: root.barSource ? root.barSource.upHistory : null
+
+    function syncFromBarRates() {
+        if (root.active)
+            root.syncFromBar()
     }
+
+    onBarNetworkDownloadRateChanged: syncFromBarRates()
+    onBarNetworkUploadRateChanged: syncFromBarRates()
+    onBarDownHistoryChanged: syncFromBarRates()
+    onBarUpHistoryChanged: syncFromBarRates()
 
     ColumnLayout {
         id: column
@@ -367,7 +361,7 @@ Item {
         SectionPanel {
             label: ""
             Layout.fillWidth: true
-            visible: !root.loading || root.info.iface
+            visible: !root.loading || !!(root.info && root.info.iface)
 
             HoverPanelLabelPill {
                 text: "Network"

@@ -180,16 +180,11 @@ Item {
     onActiveChanged: if (root.active) root.syncFromBar()
     onBarSourceChanged: if (active) syncFromBar()
 
-    Connections {
-        target: root.barSource
-        enabled: root.barSource !== null
-        function onLastPayloadChanged() {
-            if (root.active) root.syncFromBar()
-        }
-        function onPollingChanged() {
-            if (root.active) root.syncFromBar()
-        }
-    }
+    readonly property var barLastPayload: root.barSource ? root.barSource.lastPayload : null
+    readonly property bool barPolling: root.barSource ? !!root.barSource.polling : false
+
+    onBarLastPayloadChanged: if (root.active) root.syncFromBar()
+    onBarPollingChanged: if (root.active) root.syncFromBar()
 
     readonly property int todayCode: root.daily.length > 0 ? (Number(root.daily[0].code) || 0) : 0
     readonly property int tomorrowCode: root.daily.length > 1 ? (Number(root.daily[1].code) || 0) : 0

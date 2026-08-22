@@ -138,17 +138,16 @@ Item {
             Qt.callLater(function() { keySurface.forceActiveFocus() })
     }
 
-    Connections {
-        target: root.module
-        enabled: root.module !== null
-        function onLoadingChanged() {
-            if (root.opened && !root.revealed)
-                Qt.callLater(root.tryReveal)
-        }
-        function onMediaLoadingChanged() {
-            if (root.opened && !root.revealed)
-                Qt.callLater(root.tryReveal)
-        }
+    readonly property bool moduleLoading: !!(root.module && root.module.loading)
+    readonly property bool moduleMediaLoading: !!(root.module && root.module.mediaLoading)
+
+    onModuleLoadingChanged: {
+        if (root.opened && !root.revealed)
+            Qt.callLater(root.tryReveal)
+    }
+    onModuleMediaLoadingChanged: {
+        if (root.opened && !root.revealed)
+            Qt.callLater(root.tryReveal)
     }
 
     Timer {

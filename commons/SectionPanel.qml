@@ -45,37 +45,69 @@ Item {
     }
 
     function adoptFieldsetLegend() {
+        if (!root.parent)
+            return
         if (root.showNotchLegend) {
-            root.syncLegendFill(notchLegendPill)
+            syncLegendFill(notchLegendPill)
             panel.legendOverlay = notchLegendPill
             panel.labelBackground = root.legendBackground
-            Qt.callLater(panel.syncLegendOverlay)
+            scheduleLegendOverlaySync()
             return
         }
         if (panel.legendOverlay && panel.legendOverlay.fieldsetLegend === true) {
-            root.syncLegendFill(panel.legendOverlay)
+            syncLegendFill(panel.legendOverlay)
             panel.labelBackground = root.legendBackground
-            Qt.callLater(panel.syncLegendOverlay)
+            scheduleLegendOverlaySync()
             return
         }
         for (var i = 0; i < innerCol.children.length; i++) {
             var child = innerCol.children[i]
             if (!child || child.fieldsetLegend !== true)
                 continue
-            root.syncLegendFill(child)
+            syncLegendFill(child)
             panel.legendOverlay = child
             panel.labelBackground = root.legendBackground
-            Qt.callLater(panel.syncLegendOverlay)
+            scheduleLegendOverlaySync()
             return
         }
         panel.legendOverlay = null
     }
 
-    onLegendBackgroundChanged: adoptFieldsetLegend()
-    onNotchLegendChanged: adoptFieldsetLegend()
-    onLegendTextChanged: adoptFieldsetLegend()
-    onLegendIconChanged: adoptFieldsetLegend()
-    onVisibleChanged: if (visible) Qt.callLater(adoptFieldsetLegend)
+    Timer {
+        id: legendOverlayDefer
+        interval: 0
+        repeat: false
+        onTriggered: {
+            if (!root.parent || !panel || typeof panel.syncLegendOverlay !== "function")
+                return
+            panel.syncLegendOverlay()
+        }
+    }
+
+    Timer {
+        id: adoptLegendDefer
+        interval: 0
+        repeat: false
+        onTriggered: {
+            if (!root.parent || typeof adoptFieldsetLegend !== "function")
+                return
+            adoptFieldsetLegend()
+        }
+    }
+
+    function scheduleLegendOverlaySync() {
+        legendOverlayDefer.restart()
+    }
+
+    function scheduleAdoptFieldsetLegend() {
+        adoptLegendDefer.restart()
+    }
+
+    onLegendBackgroundChanged: scheduleAdoptFieldsetLegend()
+    onNotchLegendChanged: scheduleAdoptFieldsetLegend()
+    onLegendTextChanged: scheduleAdoptFieldsetLegend()
+    onLegendIconChanged: scheduleAdoptFieldsetLegend()
+    onVisibleChanged: if (visible) scheduleAdoptFieldsetLegend()
 
     HoverPanelLabelPill {
         id: notchLegendPill
@@ -114,7 +146,7 @@ Item {
             height: root.fillHeight ? parent.height : undefined
             spacing: root.sectionSpacing
 
-            onChildrenChanged: Qt.callLater(root.adoptFieldsetLegend)
+            onChildrenChanged: scheduleAdoptFieldsetLegend()
         }
     }
 

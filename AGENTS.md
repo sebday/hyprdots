@@ -111,7 +111,7 @@ System services, launcher, and centered overlays. No bar widgets live here.
 
 Notification **history UI** is not in Evosys. It lives in `evopanels/notifications/` as `evo.panels.notifications`. The Evosys service owns capture, toasts, unread count, and `$EVOSHELL_STATE/notification-history.json`.
 
-Shell warnings/errors from `journalctl --user -t evoshell` are polled by `evo-shell-log-watch` and stored as history entries with source `shell` (notifications panel **logs** filter). User journal warnings/errors (`journalctl --user -p warning`) are polled in the same watcher with source `journal`. Config: `notifications.shellLogs` (`enabled`, `pollIntervalMs`, `dedupeWindowSec`, `userJournal`). History only — no popup toasts for shell logs.
+Shell warnings/errors from `journalctl --user -t evoshell` are polled by `evo-shell-log-watch` and stored as history entries with source `shell` (notifications panel **system** filter). User journal warnings/errors (`journalctl --user -p warning`) are polled in the same watcher with source `journal`. Config: `notifications.shellLogs` (`enabled`, `pollIntervalMs`, `dedupeWindowSec`, `userJournal`). History only — no popup toasts for shell logs.
 
 ### Commons
 

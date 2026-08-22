@@ -53,8 +53,11 @@ assert_eq "journal title" "evoshell.service" "$(jq -r '.title' <<< "$journal_jso
 exit_json="$(jq -nc \
   --arg msg "evoshell.service: Failed with result 'exit-code'." \
   '{PRIORITY:"4",SYSLOG_IDENTIFIER:"systemd",_SYSTEMD_USER_UNIT:"evoshell.service",MESSAGE:$msg}')"
-exit_journal="$("$watch" format-journal "$exit_json")"
-assert_eq "exit-code level" "warning" "$(jq -r '.level' <<< "$exit_journal")"
+exit_journal="$("$watch" format-journal "$exit_json" || true)"
+if [[ -n "$exit_journal" ]]; then
+  echo "FAIL: restart exit-code noise should be filtered" >&2
+  fail=1
+fi
 
 fp4="$(jq -r '.fingerprint' <<< "$journal_json")"
 fp5="$(jq -r '.fingerprint' <<< "$("$watch" format-journal "$exec_json")")"

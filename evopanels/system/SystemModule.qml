@@ -153,18 +153,11 @@ Item {
     onActiveChanged: if (active) syncFromBar()
     onBarSourceChanged: if (active) syncFromBar()
 
-    Connections {
-        target: root.barSource
-        enabled: root.barSource !== null
-        function onLastPayloadChanged() {
-            if (root.active)
-                root.syncFromBar()
-        }
-        function onLoadingChanged() {
-            if (root.active)
-                root.syncFromBar()
-        }
-    }
+    readonly property var barLastPayload: root.barSource ? root.barSource.lastPayload : null
+    readonly property bool barLoading: root.barSource ? !!root.barSource.loading : false
+
+    onBarLastPayloadChanged: if (root.active) root.syncFromBar()
+    onBarLoadingChanged: if (root.active) root.syncFromBar()
 
     ColumnLayout {
         id: column

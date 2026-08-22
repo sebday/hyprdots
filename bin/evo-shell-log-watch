@@ -58,9 +58,31 @@ fingerprint_journal() {
     printf '%s\x1f%s' "$identifier" "$(normalize_message "$message")" | sha256sum | awk '{print $1}'
 }
 
+is_shell_noise_message() {
+    local text="$1"
+    case "$text" in
+        *"/.cache/evoshell/"*" failed: File does not exist."*) return 0 ;;
+        *"Detected function \""*" in Connections element."*) return 0 ;;
+    esac
+    return 1
+}
+
+is_journal_noise_message() {
+    local message="$1"
+    case "$message" in
+        *"left-over process"*) return 0 ;;
+        *"implementation deficiencies"*) return 0 ;;
+        *"evoshell.service: Failed with result 'exit-code'."*) return 0 ;;
+    esac
+    return 1
+}
+
 is_shell_warning_message() {
     local text="$1"
     [[ -n "$text" ]] || return 1
+    if is_shell_noise_message "$text"; then
+        return 1
+    fi
     if [[ "$text" =~ (^|[[:space:]])WARN[[:space:]:] ]]; then
         return 0
     fi
@@ -163,6 +185,20 @@ parse_shell_log() {
             title="${title:0:72}"
         fi
         body="${file_part}:${line_no}"$'\n'"${qml_type}"$'\n'"${issue}"
+    elif [[ "$text" =~ WARN[[:space:]]scene:[[:space:]]+qs:([^[]+)\[([0-9]+):-?([0-9]+)\]:[[:space:]]*(.+) ]]; then
+        file_part="${BASH_REMATCH[1]}"
+        local line_no="${BASH_REMATCH[2]}"
+        issue="${BASH_REMATCH[4]}"
+        file_part="${file_part##*/}"
+        if [[ "$issue" =~ ^TypeError: ]]; then
+            title="TypeError"
+        elif [[ "$issue" =~ ^Unable[[:space:]]to[[:space:]]assign ]]; then
+            title="QML assign error"
+        else
+            title="${issue%%:*}"
+            title="${title:0:72}"
+        fi
+        body="${file_part}:${line_no}"$'\n'"${issue}"
     elif [[ "$text" =~ console\.warn:[[:space:]]*(.+) ]]; then
         title="console.warn"
         body="${BASH_REMATCH[1]}"
@@ -192,6 +228,9 @@ parse_journal_entry() {
     message="$(journal_message_text "$line")"
     message="$(normalize_message "$message")"
     [[ -n "$message" ]] || return 1
+    if is_journal_noise_message "$message"; then
+        return 1
+    fi
 
     identifier="$(journal_identifier "$line")"
     syslog_id="$(jq -r '.SYSLOG_IDENTIFIER // ""' <<< "$line" 2>/dev/null || true)"

@@ -41,12 +41,12 @@ Item {
             } else if (filter === "web") {
                 if (String(item.source || "") !== "web")
                     continue
-            } else if (filter !== "all" && filter !== "logs" && String(item.source || "") !== filter) {
-                continue
-            } else if (filter === "logs") {
-                var logSrc = String(item.source || "")
-                if (logSrc !== "shell" && logSrc !== "journal")
+            } else if (filter === "system") {
+                var systemSrc = String(item.source || "")
+                if (systemSrc !== "system" && systemSrc !== "shell" && systemSrc !== "journal")
                     continue
+            } else if (filter !== "all" && String(item.source || "") !== filter) {
+                continue
             }
             out.push(item)
         }
@@ -56,8 +56,8 @@ Item {
     readonly property string emptyListText: {
         if (filterSource === "hidden")
             return "No hidden notifications"
-        if (filterSource === "logs")
-            return "No shell or system warnings"
+        if (filterSource === "system")
+            return "No system notifications or warnings"
         return "No notifications"
     }
 
@@ -91,12 +91,9 @@ Item {
             } else if (id === "web") {
                 if (String(item.source || "") === "web")
                     n++
-            } else if (id === "logs") {
-                var logSrc = String(item.source || "")
-                if (logSrc === "shell" || logSrc === "journal")
-                    n++
             } else if (id === "system") {
-                if (String(item.source || "") === "system")
+                var systemSrc = String(item.source || "")
+                if (systemSrc === "system" || systemSrc === "shell" || systemSrc === "journal")
                     n++
             } else {
                 n++
@@ -107,7 +104,6 @@ Item {
 
     readonly property int countAll: entryCount("all")
     readonly property int countSystem: entryCount("system")
-    readonly property int countLogs: entryCount("logs")
     readonly property int countMessages: entryCount("messages")
     readonly property int countWeb: entryCount("web")
     readonly property int countHidden: entryCount("hidden")
@@ -148,7 +144,10 @@ Item {
             return ""
         if (art.indexOf("data:image/") === 0)
             return art
-        return Util.fileUrl(art)
+        if (art.indexOf("/") !== -1 || art.indexOf("://") !== -1)
+            return Util.fileUrl(art)
+        var path = Quickshell.iconPath(art, true)
+        return path ? Util.normalizeIconSource(path) : ""
     }
 
     function openEntry(item) {
@@ -215,7 +214,7 @@ Item {
 
             GridLayout {
                 Layout.fillWidth: true
-                columns: 6
+                columns: 5
                 columnSpacing: Theme.spacingS
                 rowSpacing: Theme.spacingS
 
@@ -224,7 +223,6 @@ Item {
                         { id: "all", label: "all", value: root.countAll },
                         { id: "system", label: "system", value: root.countSystem },
                         { id: "web", label: "web", value: root.countWeb },
-                        { id: "logs", label: "logs", value: root.countLogs },
                         { id: "messages", label: "messages", value: root.countMessages },
                         { id: "hidden", label: "hidden", value: root.countHidden }
                     ]

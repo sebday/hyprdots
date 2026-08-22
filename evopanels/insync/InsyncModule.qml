@@ -258,6 +258,8 @@ Item {
         id: accountCacheFile
         path: root.accountCachePath
         watchChanges: false
+        printErrors: false
+        onLoadFailed: {}
     }
 
     Process {
