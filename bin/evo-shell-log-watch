@@ -180,11 +180,18 @@ parse_shell_log() {
             title="Binding loop: ${BASH_REMATCH[1]}"
         elif [[ "$issue" =~ Detected[[:space:]]function[[:space:]]\"([^\"]+)\" ]]; then
             title="QML handler: ${BASH_REMATCH[1]}"
+        elif [[ "$issue" =~ ^Cannot[[:space:]]open:[[:space:]]*(.+) ]]; then
+            local icon_path="${BASH_REMATCH[1]}"
+            title="missing icon"
+            body="${icon_path##*/}"
         else
             title="${issue%%:*}"
             title="${title:0:72}"
+            body="${file_part}:${line_no}"$'\n'"${qml_type}"$'\n'"${issue}"
         fi
-        body="${file_part}:${line_no}"$'\n'"${qml_type}"$'\n'"${issue}"
+        if [[ -z "${body:-}" ]]; then
+            body="${file_part}:${line_no}"$'\n'"${qml_type}"$'\n'"${issue}"
+        fi
     elif [[ "$text" =~ WARN[[:space:]]scene:[[:space:]]+qs:([^[]+)\[([0-9]+):-?([0-9]+)\]:[[:space:]]*(.+) ]]; then
         file_part="${BASH_REMATCH[1]}"
         local line_no="${BASH_REMATCH[2]}"
@@ -192,16 +199,32 @@ parse_shell_log() {
         file_part="${file_part##*/}"
         if [[ "$issue" =~ ^TypeError: ]]; then
             title="TypeError"
+            local detail="${issue#TypeError:}"
+            detail="${detail# }"
+            body="${file_part}:${line_no} — ${detail}"
         elif [[ "$issue" =~ ^Unable[[:space:]]to[[:space:]]assign ]]; then
             title="QML assign error"
+            body="${file_part}:${line_no}"$'\n'"${issue}"
         else
             title="${issue%%:*}"
             title="${title:0:72}"
+            body="${file_part}:${line_no}"$'\n'"${issue}"
         fi
-        body="${file_part}:${line_no}"$'\n'"${issue}"
+    elif [[ "$text" =~ ^WARN:[[:space:]]*Could[[:space:]]not[[:space:]]load[[:space:]]icon[[:space:]]+\"([^\"]+)\" ]]; then
+        local icon_path="${BASH_REMATCH[1]}"
+        icon_path="${icon_path%%\?*}"
+        title="icon load failed"
+        body="${icon_path##*/}"
     elif [[ "$text" =~ console\.warn:[[:space:]]*(.+) ]]; then
         title="console.warn"
         body="${BASH_REMATCH[1]}"
+    elif [[ "$text" =~ ^(WARN|ERROR):[[:space:]]*(.+) ]]; then
+        local rest="${BASH_REMATCH[2]}"
+        title="${rest%% at *}"
+        title="${title%%.*}"
+        title="${title:0:40}"
+        [[ -n "$title" ]] || title="${BASH_REMATCH[1]}"
+        body="$rest"
     else
         title="${text%%:*}"
         title="${title:0:72}"

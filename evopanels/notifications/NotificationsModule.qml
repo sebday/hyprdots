@@ -146,6 +146,8 @@ Item {
             return Util.iconSourceForName("evo.panels.player")
         if (art.indexOf("data:image/") === 0)
             return art
+        if (art.indexOf("?") !== -1 && art.indexOf("://") === -1)
+            art = art.split("?")[0]
         if (art.indexOf("/") !== -1 || art.indexOf("://") !== -1)
             return Util.fileUrl(art)
         var path = Quickshell.iconPath(art, true)

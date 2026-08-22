@@ -96,6 +96,20 @@ Item {
         return "Stopped"
     }
 
+    function mprisIsEvoplayer(player) {
+        if (!player)
+            return false
+        var identity = String(player.identity || "").toLowerCase()
+        if (identity === "evoplayer")
+            return true
+        var name = ""
+        if (player.dbusName !== undefined)
+            name = String(player.dbusName || "").toLowerCase()
+        else if (player.name !== undefined)
+            name = String(player.name || "").toLowerCase()
+        return name.indexOf("evoplayer") !== -1
+    }
+
     readonly property var activeMediaFeeds: {
         var _ = root.positionTick
         var feeds = []
@@ -103,6 +117,8 @@ Item {
         var i
         for (i = 0; i < list.length; i++) {
             var player = list[i]
+            if (root.evoPlayerHasTrack && root.mprisIsEvoplayer(player))
+                continue
             if (root.mprisPlayerActive(player))
                 feeds.push({ kind: "mpris", player: player })
         }

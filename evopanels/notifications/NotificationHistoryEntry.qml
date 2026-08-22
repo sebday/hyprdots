@@ -17,6 +17,18 @@ Item {
     signal unhideRequested(var entry)
 
     readonly property var notifService: host && host.notifService ? host.notifService : null
+    readonly property bool logEntry: {
+        var src = entry && entry.source ? String(entry.source) : ""
+        return src === "shell" || src === "journal"
+    }
+    readonly property string entrySubtitle: {
+        if (!logEntry)
+            return ""
+        var raw = String(entry.body || "").trim()
+        if (!raw)
+            return ""
+        return raw.split("\n")[0]
+    }
 
     Layout.fillWidth: true
     implicitHeight: row.implicitHeight + 16 + (showDivider ? 1 : 0)
@@ -70,16 +82,34 @@ Item {
             }
         }
 
-        Text {
+        ColumnLayout {
             Layout.fillWidth: true
             Layout.alignment: Qt.AlignVCenter
-            text: String(entry.title || "Notification")
-            color: Theme.foreground
-            font.family: Theme.fontFamily
-            font.pixelSize: host ? host.titleFont : Theme.fontSizeM
-            font.bold: Theme.fontBold
-            elide: Text.ElideRight
-            maximumLineCount: 1
+            spacing: 2
+
+            Text {
+                Layout.fillWidth: true
+                text: String(entry.title || "Notification")
+                color: Theme.foreground
+                font.family: Theme.fontFamily
+                font.pixelSize: host ? host.titleFont : Theme.fontSizeM
+                font.bold: Theme.fontBold
+                elide: Text.ElideRight
+                maximumLineCount: 1
+            }
+
+            Text {
+                Layout.fillWidth: true
+                visible: root.logEntry && root.entrySubtitle !== ""
+                text: root.entrySubtitle
+                color: Theme.foreground
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSizeS
+                font.bold: Theme.fontBold
+                opacity: Theme.opacityMuted
+                elide: Text.ElideRight
+                maximumLineCount: 1
+            }
         }
 
         NotificationMetaPill {

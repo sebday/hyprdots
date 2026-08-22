@@ -63,4 +63,9 @@ fp4="$(jq -r '.fingerprint' <<< "$journal_json")"
 fp5="$(jq -r '.fingerprint' <<< "$("$watch" format-journal "$exec_json")")"
 assert_eq "journal fingerprint stable" "$fp4" "$fp5"
 
+icon_msg='WARN: Could not load icon "/tmp/hyprshot.png?rev=123" at size QSize(102, 102) from request'
+icon_json="$("$watch" format "$icon_msg")"
+assert_eq "icon load title" "icon load failed" "$(jq -r '.title' <<< "$icon_json")"
+assert_eq "icon load body" "hyprshot.png" "$(jq -r '.body' <<< "$icon_json")"
+
 exit "$fail"
