@@ -17,3 +17,4 @@ themes/next/
 .config/evoshell/environment
 .local/state/evoshell/
 .local/cache/evoshell/
+bin/evo-panel-shopify
