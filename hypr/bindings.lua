@@ -17,12 +17,13 @@ end
 
 -- Evoshell panels and system
 bindd("SUPER + Space", "System menu", hl.dsp.global("evoshell:systemMenu"))
+bindd("SUPER + D", "Program runner", hl.dsp.global("evoshell:appLauncher"))
 bindd("SUPER + Home", "Wallpaper switcher", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.sys.wallpaper"))
 bindd("SUPER + ALT + Home", "Theme picker", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.sys.themes"))
 bindd("SUPER + L", "Lock Screen", hl.dsp.exec_cmd(evo .. " system lock"))
 bindd("SUPER + R", "Restart evoshell", hl.dsp.exec_cmd(evo .. " system restart"))
 bindd("SUPER + C", "Calc panel", hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.side \'{"module":"calc"}\''))
-bindd("SUPER + B", "Settings", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.sys.settings"))
+bindd("SUPER + B", "Settings", hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.sys.menu \'{"mode":"power","tab":"settings"}\''))
 bindd(
 	"SUPER + N",
 	"Tasks panel",

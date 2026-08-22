@@ -405,6 +405,33 @@ function extensionStartupDashboards(base, overlay) {
     return out
 }
 
+function evoBin(home) {
+    return String(home || "") + "/.local/bin/evo"
+}
+
+function systemMenuPanelEntries(home, overlay) {
+    var panels = overlayObject(overlay).systemMenuPanels
+    if (!panels || typeof panels !== "object")
+        return []
+    var out = []
+    var id
+    for (id in panels) {
+        if (!Object.prototype.hasOwnProperty.call(panels, id))
+            continue
+        var entry = panels[id] || {}
+        var name = entry.name ? String(entry.name) : startupDashboardLabel(id, overlay)
+        var icon = entry.icon ? String(entry.icon) : "󰐒"
+        var keywords = Array.isArray(entry.keywords) ? entry.keywords.slice() : []
+        out.push({
+            name: name,
+            icon: icon,
+            keywords: keywords,
+            command: evoBin(home) + " ipc shell toggle " + id
+        })
+    }
+    return out
+}
+
 function dashboardPinKind(id, overlay) {
     if (id === "evo.panels.player") return "player"
     var pins = overlayObject(overlay).dashboardPinKinds

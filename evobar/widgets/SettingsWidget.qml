@@ -24,7 +24,7 @@ Item {
         anchors.fill: parent
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onClicked: if (shell) shell.toggle("evo.sys.settings")
+        onClicked: if (shell) shell.toggle("evo.sys.menu", '{"mode":"power","tab":"settings"}')
     }
 
 }

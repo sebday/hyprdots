@@ -61,6 +61,7 @@ ShellRoot {
     readonly property var allDashboardIds: PluginManifest.mergeDashboardIds(PluginManifest.dashboardIds, pluginOverlay)
     readonly property var extensionDashboardIds: PluginManifest.extensionDashboardIds(PluginManifest.dashboardIds, pluginOverlay)
     readonly property var extensionStartupDashboards: PluginManifest.extensionStartupDashboards(PluginManifest.dashboardIds, pluginOverlay)
+    readonly property var extensionSystemMenuPanels: PluginManifest.systemMenuPanelEntries(home, pluginOverlay)
     readonly property var extensionTrayWidgets: PluginManifest.extensionTrayWidgets(pluginOverlay)
     readonly property var trayWidgetOrder: PluginManifest.resolveTrayWidgetOrder(
         pluginOverlay,
@@ -419,6 +420,11 @@ ShellRoot {
 
     function summon(id, payloadJson) {
         var pluginId = canonicalPluginId(id)
+        if (pluginId === "evo.sys.settings") {
+            pluginId = "evo.sys.menu"
+            if (!payloadJson)
+                payloadJson = '{"mode":"power","tab":"settings"}'
+        }
         var dash = dashboardLoaderFor(pluginId)
         if (dash)
             return requestDashboardOpen(pluginId)
@@ -592,6 +598,11 @@ ShellRoot {
 
     function toggle(id, payloadJson) {
         var pluginId = canonicalPluginId(id)
+        if (pluginId === "evo.sys.settings") {
+            pluginId = "evo.sys.menu"
+            if (!payloadJson)
+                payloadJson = '{"mode":"power","tab":"settings"}'
+        }
         var dash = dashboardLoaderFor(pluginId)
         if (dash && dash.item) {
             if (dash.item.opened) {
@@ -782,7 +793,11 @@ ShellRoot {
     }
 
     function toggleAppLauncher() {
-        return toggle("evo.sys.menu", '{"mode":"apps"}')
+        return toggle("evo.sys.menu", '{"mode":"runner"}')
+    }
+
+    function toggleRunner() {
+        return toggleAppLauncher()
     }
 
     GlobalShortcut {
@@ -795,8 +810,8 @@ ShellRoot {
     GlobalShortcut {
         appid: "evoshell"
         name: "appLauncher"
-        description: "App launcher"
-        onPressed: shell.toggleAppLauncher()
+        description: "Program runner"
+        onPressed: shell.toggleRunner()
     }
 
     IpcHandler {
@@ -825,6 +840,11 @@ ShellRoot {
 
         function toggleAppLauncher(): string {
             shell.toggleAppLauncher()
+            return "ok"
+        }
+
+        function toggleRunner(): string {
+            shell.toggleRunner()
             return "ok"
         }
 

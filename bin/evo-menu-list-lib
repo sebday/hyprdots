@@ -646,8 +646,8 @@ local bin="${EVOSHELL_BIN:-${EVOSHELL_ROOT:-$HOME/projects/evoshell}/bin}"
         "Lists registered evoshell plugin ids available over IPC."
     _menu_list_emit "Toggle system menu" "$ipc shell toggleSystemMenu" "$(_menu_list_used toggleSystemMenu && echo true || echo false)" \
         "Opens or closes this system menu overlay."
-    _menu_list_emit "Toggle app launcher" "$ipc shell toggleAppLauncher" "$(_menu_list_used toggleAppLauncher && echo true || echo false)" \
-        "Opens or closes the application launcher overlay."
+    _menu_list_emit "Toggle program runner" "$ipc shell toggleRunner" "$(_menu_list_used toggleAppLauncher && echo true || echo false)" \
+        "Opens or closes the program runner overlay."
     _menu_list_emit "Summon overlay" "$ipc shell summon <plugin> [json]" false \
         "Shows a plugin overlay without toggling it off if already visible."
     _menu_list_emit "Toggle overlay" "$ipc shell toggle <plugin> [json]" false \

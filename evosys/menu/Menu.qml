@@ -4,6 +4,7 @@ import Quickshell.Wayland
 import QtQuick
 import QtQuick.Layouts
 import "../../commons"
+import "../settings"
 import "MenuEntries.js" as MenuEntries
 
 Item {
@@ -14,6 +15,7 @@ Item {
     property string filterText: ""
     property string mode: "power"
     property string submenu: ""
+    property int menuTabIndex: 0
     property var commandEntries: []
     property var dynamicEntries: []
     property string dynamicEntryKind: ""
@@ -27,11 +29,20 @@ Item {
     property real previewAreaMaxHeight: 900
 
     readonly property bool powerMenuMode: mode === "power" && !submenu
+    readonly property bool runnerMenuMode: mode === "runner" && !submenu
     readonly property bool previewTileMode: submenu === "themes" || submenu === "wallpaper"
     readonly property bool boxTileMode: previewTileMode
     readonly property bool framedMode: !previewTileMode
-    readonly property bool sectionMenuMode: powerMenuMode
+    readonly property bool sectionMenuMode: powerMenuMode && menuTabIndex === 0
+    readonly property bool showMainMenuTabs: powerMenuMode
+    readonly property bool showSettingsTab: powerMenuMode && menuTabIndex > 0
     readonly property var sectionColumnOrder: ["programs", "games", "panels", "right"]
+    readonly property var mainTabModel: [
+        { label: "Evoshell", icon: "󰣇" },
+        { label: "Settings", icon: "󰒠" },
+        { label: "Integrations", icon: "󰒓" },
+        { label: "Home Assistant", icon: "󰠵" }
+    ]
     property var sectionLayoutPrograms: []
     property var sectionLayoutGames: []
     property var sectionLayoutPanels: []
@@ -52,6 +63,7 @@ Item {
     readonly property int previewImageHeight: 192
     readonly property real previewDpr: 2
     readonly property int listIconSize: 40
+    readonly property int programEntryFontSize: Theme.fontSizeS
     readonly property int listFontSize: Theme.fontSize6xl
     readonly property int listRowHeight: 72
     readonly property int listFilterHeight: 38
@@ -136,19 +148,15 @@ Item {
     readonly property string placeholderText: {
         if (submenu === "bindings") return "Search bindings…"
         if (submenu === "shell") return "Search shell commands…"
+        if (runnerMenuMode) return "Launch a program…"
         if (mode === "power") return "Search programs and system…"
         return "Search…"
     }
-    readonly property string framedLegendTitle: {
-        if (powerMenuMode) return "Evo shell"
-        if (submenu === "bindings") return "Bindings"
-        if (submenu === "shell") return "Shell commands"
-        return "Menu"
-    }
-    readonly property int sectionLegendChrome: menuLegendChrome
 
     readonly property bool infoListMode: submenu === "bindings" || submenu === "shell"
-    readonly property int framedMenuWidth: Theme.systemPanelWidth
+    readonly property int framedMenuWidth: root.runnerMenuMode
+        ? Theme.clipboardPanelWidth
+        : Theme.systemPanelWidth
     readonly property int infoListFontSize: Theme.fontSizeS
     readonly property int infoListRowHeight: 40
     readonly property int powerLinkRowHeight: 36
@@ -177,22 +185,32 @@ Item {
     }
     readonly property bool infoDetailVisible: infoListMode
         && (selectedDetail.length > 0 || selectedFiles.length > 0)
-    readonly property int framedChromeHeight: menuFieldsetPad * 2 + menuLegendChrome
+    readonly property int framedHeaderChromeHeight: menuFieldsetPad * 2 + menuLegendChrome
         + framedFilterChromeHeight + framedColumnSpacing
+    readonly property int framedChromeHeight: framedHeaderChromeHeight
         + (infoDetailVisible ? infoDetailHeight + framedColumnSpacing : 0)
     readonly property int framedListMaxHeight: Math.max(
         120,
         previewAreaMaxHeight - menuOuterTopInset - menuOuterInset - framedChromeHeight)
+    readonly property int screenHeight: panel.height > 0 ? panel.height : 1080
+    readonly property bool fixedFramedMenuHeight: powerMenuMode || runnerMenuMode
+    readonly property int framedMenuPanelHeight: Math.round(screenHeight * 0.4)
+    readonly property int framedMenuColumnHeight: framedMenuPanelHeight - menuOuterTopInset - menuOuterInset
+    readonly property int powerMenuTabBarHeight: Theme.fontSizeS + 8
+    readonly property int powerMenuViewportHeight: Math.max(
+        160,
+        framedMenuColumnHeight - powerMenuTabBarHeight - framedColumnSpacing)
+    readonly property int runnerFieldsetChromeHeight: menuFieldsetPad * 2 + menuLegendChrome + framedColumnSpacing
+    readonly property int runnerViewportHeight: Math.max(
+        160,
+        framedMenuColumnHeight - runnerFieldsetChromeHeight)
     readonly property int framedListHeight: {
-        var maxH = framedListMaxHeight
-        if (sectionMenuMode)
-            return Math.min(powerMenuContentHeight(), maxH)
         if (infoListMode) {
             var infoRows = Math.max(visibleEntries.length, 1)
-            return Math.min(infoRows * infoListRowHeight, maxH)
+            return Math.min(infoRows * infoListRowHeight, framedListMaxHeight)
         }
         var rows = Math.max(visibleEntries.length, 1)
-        return Math.min(rows * listRowHeight, maxH)
+        return Math.min(rows * listRowHeight, framedListMaxHeight)
     }
 
     function shortenMenuPath(path) {
@@ -204,7 +222,7 @@ Item {
 
     function focusSearchField() {
         if (root.framedMode)
-            filterField.forceActiveFocus()
+            menuHost.forceActiveFocus()
         else if (root.previewTileMode)
             menuHost.forceActiveFocus()
     }
@@ -213,9 +231,59 @@ Item {
         if (!text)
             return
         root.filterText = root.filterText + text
-        if (root.framedMode) {
+        if (filterField.text !== root.filterText)
             filterField.text = root.filterText
-            filterField.forceActiveFocus()
+    }
+
+    function trimFilterText() {
+        if (root.filterText.length === 0)
+            return
+        root.filterText = root.filterText.slice(0, -1)
+        if (filterField.text !== root.filterText)
+            filterField.text = root.filterText
+    }
+
+    function activateMainMenuTab(index) {
+        var tab = Math.max(0, Math.min(root.mainTabModel.length - 1, index))
+        if (tab === root.menuTabIndex)
+            return
+        root.menuTabIndex = tab
+        root.onMainMenuTabActivated(tab)
+    }
+
+    function cycleMainMenuTab(backward) {
+        if (!root.showMainMenuTabs)
+            return
+        var count = root.mainTabModel.length
+        var next = backward
+            ? (root.menuTabIndex + count - 1) % count
+            : (root.menuTabIndex + 1) % count
+        root.activateMainMenuTab(next)
+    }
+
+    function parseMenuTabIndex(payload) {
+        if (!payload || payload.tab === undefined || payload.tab === null)
+            return 0
+        var tab = payload.tab
+        if (typeof tab === "number")
+            return Math.max(0, Math.min(3, tab))
+        var name = String(tab).toLowerCase()
+        if (name === "settings" || name === "1")
+            return 1
+        if (name === "integrations" || name === "2")
+            return 2
+        if (name === "homeassistant" || name === "ha" || name === "3")
+            return 3
+        return 0
+    }
+
+    function onMainMenuTabActivated(index) {
+        if (index > 0) {
+            embeddedSettings.onActivated()
+            if (index === 3)
+                embeddedSettings.loadHaDiscovery()
+        } else if (powerMenuMode) {
+            focusSearchField()
         }
     }
 
@@ -223,12 +291,12 @@ Item {
         try {
             var payload = JSON.parse(payloadJson || "{}")
             mode = String(payload.mode || "power")
-            if (mode === "apps")
-                mode = "power"
             submenu = String(payload.submenu || "")
+            menuTabIndex = mode === "runner" ? 0 : parseMenuTabIndex(payload)
         } catch (e) {
             mode = "power"
             submenu = ""
+            menuTabIndex = 0
         }
         filterText = ""
         if (filterField.text !== "")
@@ -237,7 +305,7 @@ Item {
         refreshCommandEntries()
         if (submenu) loadDynamicEntries(submenu)
         else dynamicEntries = []
-        if (mode === "power") {
+        if (mode === "power" || mode === "runner") {
             rebuildAppCache()
             syncVisibleEntries()
         } else {
@@ -247,7 +315,10 @@ Item {
         Qt.callLater(function() {
             root.previewAreaMaxWidth = panel.previewAreaMaxWidth
             root.previewAreaMaxHeight = panel.previewAreaMaxHeight
-            root.focusSearchField()
+            if (menuTabIndex > 0)
+                onMainMenuTabActivated(menuTabIndex)
+            else
+                root.focusSearchField()
         })
     }
 
@@ -259,13 +330,14 @@ Item {
     function reopen(payloadJson) {
         if (!opened)
             return false
-        var parsed = { mode: mode, submenu: submenu }
+        var parsed = { mode: mode, submenu: submenu, tab: menuTabIndex }
         try {
             parsed = JSON.parse(payloadJson || "{}")
         } catch (e) {}
         var nextMode = String(parsed.mode || mode)
         var nextSubmenu = String(parsed.submenu || "")
-        if (nextMode === mode && nextSubmenu === submenu)
+        var nextTab = nextMode === "runner" ? 0 : parseMenuTabIndex(parsed)
+        if (nextMode === mode && nextSubmenu === submenu && nextTab === menuTabIndex)
             return false
         open(payloadJson)
         return true
@@ -276,6 +348,7 @@ Item {
         opened = false
         filterText = ""
         submenu = ""
+        menuTabIndex = 0
         dynamicEntries = []
         dynamicEntryKind = ""
         selectedIndex = 0
@@ -378,7 +451,7 @@ Item {
     }
 
     function rebuildSectionMenuLayout() {
-        if (!powerMenuMode) {
+        if (!sectionMenuMode) {
             sectionLayoutPrograms = []
             sectionLayoutGames = []
             sectionLayoutPanels = []
@@ -386,7 +459,8 @@ Item {
             rebuildSizingEntryCount()
             return
         }
-        var raw = MenuEntries.systemSectionLayout(home, evoshellBin)
+        var extensionPanels = shell ? shell.extensionSystemMenuPanels : []
+        var raw = MenuEntries.systemSectionLayout(home, evoshellBin, extensionPanels)
         var globalIndex = 0
         var programsResult = stampAppSection({
             title: "Programs",
@@ -485,32 +559,6 @@ Item {
         if (!section || !section.entries)
             return powerSectionChrome
         return powerSectionChrome + section.entries.length * powerLinkRowHeight + 8
-    }
-
-    function columnSectionsHeight(sections) {
-        if (!sections || sections.length === 0)
-            return 0
-        var height = 0
-        for (var s = 0; s < sections.length; s++) {
-            if (s > 0)
-                height += powerSectionSpacing
-            height += sectionHeight(sections[s])
-        }
-        return height
-    }
-
-    function powerMenuContentHeight() {
-        if (!sectionMenuMode)
-            return 0
-        var layout = sectionMenuLayout()
-        var maxHeight = 0
-        for (var c = 0; c < sectionColumnOrder.length; c++) {
-            var column = sectionColumnOrder[c]
-            var columnHeight = columnSectionsHeight(layoutColumnSections(layout, column))
-            if (columnHeight > maxHeight)
-                maxHeight = columnHeight
-        }
-        return maxHeight
     }
 
     function columnEntryY(sections, sectionIndex, entryIndex) {
@@ -718,9 +766,11 @@ Item {
             dynamicEntryKind = ""
             filterText = ""
             selectedIndex = 0
-        } else if (powerMenuMode && filterText.trim() !== "") {
+        } else if (filterText.trim() !== "" && (root.powerMenuMode || root.runnerMenuMode)) {
             filterText = ""
             selectedIndex = 0
+        } else if (showSettingsTab && embeddedSettings.weatherLocationPickerOpen) {
+            embeddedSettings.weatherLocationPickerOpen = false
         } else {
             dismiss()
         }
@@ -898,6 +948,8 @@ Item {
             count = q === ""
                 ? Math.max(cachedApps.length, commandEntries.length)
                 : commandEntries.length
+        } else if (mode === "runner") {
+            count = visibleEntries.length
         } else {
             count = visibleEntries.length
         }
@@ -938,6 +990,17 @@ Item {
             })
         }
         var out = []
+        if (mode === "runner") {
+            var apps = sortedApps()
+            var query = filterText.trim()
+            var runnerOut = []
+            for (var r = 0; r < apps.length; r++) {
+                if (query && !MenuEntries.matchesQuery(apps[r], query))
+                    continue
+                runnerOut.push(apps[r])
+            }
+            return runnerOut
+        }
         if (mode === "power") {
             var sections = powerSectionEntries()
             var out = []
@@ -991,14 +1054,12 @@ Item {
         }
         if (entry.kind === "mode" && entry.mode) {
             mode = String(entry.mode)
-            if (mode === "apps")
-                mode = "power"
             submenu = ""
             filterText = ""
             selectedIndex = 0
             refreshCommandEntries()
             dynamicEntries = []
-            if (mode === "power")
+            if (mode === "power" || mode === "runner")
                 rebuildAppCache()
             refreshVisibleEntries()
             Qt.callLater(function() {
@@ -1161,7 +1222,7 @@ Item {
                             text: modelData.name
                             color: Theme.foreground
                             font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontSizeS
+                            font.pixelSize: root.programEntryFontSize
                             font.bold: Theme.fontBold
                             elide: Text.ElideRight
                         }
@@ -1245,9 +1306,21 @@ Item {
                 ? root.framedMenuWidth
                 : root.boxRowWidth
             height: root.framedMode
-                ? root.menuOuterTopInset + framedColumn.implicitHeight + root.menuOuterInset
+                ? (root.fixedFramedMenuHeight
+                    ? root.framedMenuPanelHeight
+                    : root.menuOuterTopInset + framedColumn.implicitHeight + root.menuOuterInset)
                 : root.boxRowHeight
             focus: root.opened && (root.previewTileMode || root.framedMode)
+
+            TextInput {
+                id: filterField
+                visible: false
+                width: 0
+                height: 0
+                opacity: 0
+                text: root.filterText
+                onTextEdited: root.filterText = text
+            }
 
             Keys.onEscapePressed: root.handleEscapeKey()
             Keys.onLeftPressed: root.handlePreviewLeft()
@@ -1258,6 +1331,19 @@ Item {
             Keys.onPressed: function(event) {
                 if (!root.framedMode)
                     return
+                if (event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab) {
+                    if (!root.showMainMenuTabs)
+                        return
+                    root.cycleMainMenuTab(event.modifiers & Qt.ShiftModifier
+                        || event.key === Qt.Key_Backtab)
+                    event.accepted = true
+                    return
+                }
+                if (event.key === Qt.Key_Backspace) {
+                    root.trimFilterText()
+                    event.accepted = true
+                    return
+                }
                 if (event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier))
                     return
                 var text = event.text
@@ -1287,193 +1373,168 @@ Item {
                 spacing: root.framedColumnSpacing
                 clip: false
 
-                SectionPanel {
-                    visible: root.framedMode
+                SettingsTabBar {
+                    id: mainMenuTabs
+                    visible: root.showMainMenuTabs
                     Layout.fillWidth: true
-                    Layout.fillHeight: false
-                    fillHeight: false
-                    notchLegend: true
-                    legendText: root.framedLegendTitle
-                    legendIcon: root.powerMenuMode ? "󰣇"
-                        : (root.submenu === "bindings" ? "󰌌" : "󰆍")
-                    legendBackground: Theme.background
-                    label: ""
-                    sectionSpacing: root.framedColumnSpacing
+                    tabs: root.mainTabModel
+                    currentIndex: root.menuTabIndex
+                    onTabActivated: function(index) {
+                        root.activateMainMenuTab(index)
+                    }
+                }
+
+                SettingsModule {
+                    id: embeddedSettings
+                    visible: root.showSettingsTab
+                    showTabBar: false
+                    tabIndex: root.menuTabIndex - 1
+                    menuFilterText: root.filterText
+                    Layout.fillWidth: true
+                    Layout.alignment: Qt.AlignTop | Qt.AlignLeft
+                    Layout.preferredHeight: root.powerMenuViewportHeight
+                    Layout.maximumHeight: root.powerMenuViewportHeight
+                    host: settingsHost
+                    shell: root.shell
+                }
+
+                Text {
+                    visible: root.framedMode && !root.showSettingsTab && root.dynamicLoading
+                    text: "Loading…"
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: root.listFontSize
+                    font.bold: Theme.fontBold
+                }
+
+                Text {
+                    visible: (root.runnerMenuMode || root.sectionMenuMode) && !root.dynamicLoading && root.visibleEntries.length === 0
+                    Layout.alignment: Qt.AlignHCenter
+                    text: root.filterText.trim() === "" ? "No entries" : "No matches"
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.fontSizeS
+                    font.bold: Theme.fontBold
+                    opacity: Theme.opacityMuted
+                }
+
+                Flickable {
+                    id: sectionListFlickable
+                    visible: root.sectionMenuMode && root.visibleEntries.length > 0
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: root.powerMenuViewportHeight
+                    clip: true
+                    boundsBehavior: Flickable.StopAtBounds
+                    contentWidth: width
+                    contentHeight: sectionColumn.height
 
                     Item {
-                        id: filterChrome
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: root.framedFilterChromeHeight
+                        id: sectionColumn
+                        width: parent.width
+                        height: Math.max(
+                            programsSectionsColumn.implicitHeight,
+                            gamesSectionsColumn.implicitHeight,
+                            panelsSectionsColumn.implicitHeight,
+                            rightSectionsColumn.implicitHeight)
 
-                        Rectangle {
-                            id: filterBg
-                            anchors.fill: parent
-                            color: Theme.panelMantle
-                            radius: Theme.fieldsetCornerRadius
-                        }
-
-                        Text {
-                            visible: filterField.text.length === 0 && !filterField.activeFocus
-                            anchors.left: parent.left
-                            anchors.leftMargin: 12
-                            anchors.verticalCenter: parent.verticalCenter
-                            anchors.right: parent.right
-                            anchors.rightMargin: 12
-                            text: root.placeholderText
-                            color: Theme.foreground
-                            opacity: Theme.opacityDisabled
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.listFilterFontSize
-                            font.bold: Theme.fontBold
-                            elide: Text.ElideRight
-                        }
-
-                        TextInput {
-                            id: filterField
+                        RowLayout {
                             anchors.top: parent.top
-                            anchors.bottom: parent.bottom
                             anchors.left: parent.left
                             anchors.right: parent.right
-                            anchors.leftMargin: 12
-                            anchors.rightMargin: 12
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.listFilterFontSize
-                            font.bold: Theme.fontBold
-                            text: root.filterText
-                            selectByMouse: true
-                            verticalAlignment: TextInput.AlignVCenter
-                            onTextEdited: root.filterText = text
-                            Keys.onEscapePressed: root.handleEscapeKey()
-                            Keys.onLeftPressed: root.handlePreviewLeft()
-                            Keys.onRightPressed: root.handlePreviewRight()
-                            Keys.onUpPressed: root.handlePreviewUp()
-                            Keys.onDownPressed: root.handlePreviewDown()
-                            Keys.onReturnPressed: root.handleActivateKey()
-                        }
-                    }
+                            spacing: root.powerSectionSpacing
 
-                    Text {
-                        visible: root.dynamicLoading
-                        text: "Loading…"
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: root.listFontSize
-                        font.bold: Theme.fontBold
-                    }
-
-                    Text {
-                        visible: root.sectionMenuMode && !root.dynamicLoading && root.visibleEntries.length === 0
-                        Layout.alignment: Qt.AlignHCenter
-                        text: root.filterText.trim() === "" ? "No entries" : ""
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSizeS
-                        font.bold: Theme.fontBold
-                        opacity: Theme.opacityMuted
-                    }
-
-                    Flickable {
-                        id: sectionListFlickable
-                        visible: root.sectionMenuMode && root.visibleEntries.length > 0
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: root.framedListHeight
-                        clip: true
-                        boundsBehavior: Flickable.StopAtBounds
-                        contentWidth: width
-                        contentHeight: sectionColumn.height
-
-                        Item {
-                            id: sectionColumn
-                            width: parent.width
-                            height: Math.max(
-                                programsSectionsColumn.implicitHeight,
-                                gamesSectionsColumn.implicitHeight,
-                                panelsSectionsColumn.implicitHeight,
-                                rightSectionsColumn.implicitHeight)
-
-                            RowLayout {
-                                anchors.top: parent.top
-                                anchors.left: parent.left
-                                anchors.right: parent.right
+                            ColumnLayout {
+                                id: programsSectionsColumn
+                                Layout.fillWidth: true
+                                Layout.preferredWidth: 1
+                                Layout.alignment: Qt.AlignTop
                                 spacing: root.powerSectionSpacing
 
-                                ColumnLayout {
-                                    id: programsSectionsColumn
-                                    Layout.fillWidth: true
-                                    Layout.preferredWidth: 1
-                                    Layout.alignment: Qt.AlignTop
-                                    spacing: root.powerSectionSpacing
+                                Repeater {
+                                    model: root.sectionLayoutPrograms
 
-                                    Repeater {
-                                        model: root.sectionLayoutPrograms
-
-                                        PowerMenuSection {
-                                            required property var modelData
-                                            sectionData: modelData
-                                        }
+                                    PowerMenuSection {
+                                        required property var modelData
+                                        sectionData: modelData
                                     }
                                 }
+                            }
 
-                                ColumnLayout {
-                                    id: gamesSectionsColumn
-                                    Layout.fillWidth: true
-                                    Layout.preferredWidth: 1
-                                    Layout.alignment: Qt.AlignTop
-                                    spacing: root.powerSectionSpacing
+                            ColumnLayout {
+                                id: gamesSectionsColumn
+                                Layout.fillWidth: true
+                                Layout.preferredWidth: 1
+                                Layout.alignment: Qt.AlignTop
+                                spacing: root.powerSectionSpacing
 
-                                    Repeater {
-                                        model: root.sectionLayoutGames
+                                Repeater {
+                                    model: root.sectionLayoutGames
 
-                                        PowerMenuSection {
-                                            required property var modelData
-                                            sectionData: modelData
-                                        }
+                                    PowerMenuSection {
+                                        required property var modelData
+                                        sectionData: modelData
                                     }
                                 }
+                            }
 
-                                ColumnLayout {
-                                    id: panelsSectionsColumn
-                                    Layout.fillWidth: true
-                                    Layout.preferredWidth: 1
-                                    Layout.alignment: Qt.AlignTop
-                                    spacing: root.powerSectionSpacing
+                            ColumnLayout {
+                                id: panelsSectionsColumn
+                                Layout.fillWidth: true
+                                Layout.preferredWidth: 1
+                                Layout.alignment: Qt.AlignTop
+                                spacing: root.powerSectionSpacing
 
-                                    Repeater {
-                                        model: root.sectionLayoutPanels
+                                Repeater {
+                                    model: root.sectionLayoutPanels
 
-                                        PowerMenuSection {
-                                            required property var modelData
-                                            sectionData: modelData
-                                        }
+                                    PowerMenuSection {
+                                        required property var modelData
+                                        sectionData: modelData
                                     }
                                 }
+                            }
 
-                                ColumnLayout {
-                                    id: rightSectionsColumn
-                                    Layout.fillWidth: true
-                                    Layout.preferredWidth: 1
-                                    Layout.alignment: Qt.AlignTop
-                                    spacing: root.powerSectionSpacing
+                            ColumnLayout {
+                                id: rightSectionsColumn
+                                Layout.fillWidth: true
+                                Layout.preferredWidth: 1
+                                Layout.alignment: Qt.AlignTop
+                                spacing: root.powerSectionSpacing
 
-                                    Repeater {
-                                        model: root.sectionLayoutRight
+                                Repeater {
+                                    model: root.sectionLayoutRight
 
-                                        PowerMenuSection {
-                                            required property var modelData
-                                            sectionData: modelData
-                                        }
+                                    PowerMenuSection {
+                                        required property var modelData
+                                        sectionData: modelData
                                     }
                                 }
                             }
                         }
                     }
+                }
+
+                SectionPanel {
+                    visible: root.framedMode && !root.showSettingsTab && !root.sectionMenuMode
+                    Layout.fillWidth: true
+                    Layout.fillHeight: false
+                    fillHeight: false
+                    notchLegend: true
+                    legendText: root.runnerMenuMode ? "Run"
+                        : (root.submenu === "bindings" ? "Bindings" : "Shell commands")
+                    legendIcon: root.runnerMenuMode ? "󰜎"
+                        : (root.submenu === "bindings" ? "󰌌" : "󰆍")
+                    legendBackground: Theme.background
+                    label: ""
+                    sectionSpacing: root.framedColumnSpacing
 
                     ListView {
                         id: entryList
-                        visible: root.framedMode && !root.sectionMenuMode
+                        visible: root.framedMode && !root.sectionMenuMode && !root.showSettingsTab
                         Layout.fillWidth: true
-                        Layout.preferredHeight: root.framedListHeight
+                        Layout.preferredHeight: root.runnerMenuMode
+                            ? root.runnerViewportHeight
+                            : root.framedListHeight
                         clip: true
                         model: root.visibleEntries
                         currentIndex: root.selectedIndex
@@ -1500,7 +1561,7 @@ Item {
                             readonly property string keysLabel: String(modelData.keys || "")
                             readonly property int rowFontSize: entryRow.infoRow
                                 ? root.infoListFontSize
-                                : root.listFontSize
+                                : (root.runnerMenuMode ? root.programEntryFontSize : root.listFontSize)
 
                             RowLayout {
                                 anchors.fill: parent
@@ -1718,12 +1779,27 @@ Item {
         }
     }
 
+    QtObject {
+        id: settingsHost
+        property bool opened: root.opened
+        property string activeModule: "settings"
+        property bool settingsEmbedded: root.showSettingsTab
+        function dismiss() { root.dismiss() }
+    }
+
     Connections {
         target: DesktopEntries
         function onApplicationsChanged() {
             rebuildAppCache()
-            if (powerMenuMode)
+            if (sectionMenuMode || runnerMenuMode)
                 syncVisibleEntries()
+        }
+    }
+
+    Connections {
+        target: shell
+        function onPluginOverlayChanged() {
+            rebuildSectionMenuLayout()
         }
     }
 

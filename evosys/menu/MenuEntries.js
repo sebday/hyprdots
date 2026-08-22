@@ -21,7 +21,7 @@ function panelToggle(home, module, focus) {
     return ipc(home, "toggle evo.side '" + JSON.stringify(payload) + "'")
 }
 
-function systemSectionLayout(home, binOverride) {
+function systemSectionLayout(home, binOverride, extensionPanels) {
     var entries = systemEntries(home, binOverride)
     var byName = {}
     for (var i = 0; i < entries.length; i++)
@@ -36,14 +36,20 @@ function systemSectionLayout(home, binOverride) {
         return out
     }
 
+    var panelEntries = pick([
+        "Themes", "Wallpaper", "Music", "Library",
+        "Calculator", "Tasks", "Clipboard"
+    ])
+    if (extensionPanels && extensionPanels.length) {
+        for (var k = 0; k < extensionPanels.length; k++)
+            panelEntries.push(extensionPanels[k])
+    }
+
     return {
         panels: {
             title: "Panels",
             icon: "󰐒",
-            entries: pick([
-                "Settings", "Themes", "Wallpaper", "Music", "Library",
-                "Calculator", "Tasks", "Clipboard"
-            ])
+            entries: panelEntries
         },
         right: [
             { title: "Reference", icon: "󰋗", entries: pick(["Bindings", "Shell commands"]) },
@@ -66,7 +72,6 @@ function systemEntries(home, binOverride) {
     var lib = evoshellLib(home, binOverride)
     var evo = evoBin(home)
     return [
-        { name: "Settings", icon: "󰒓", keywords: ["settings", "panel", "hypr", "bar"], command: ipc(home, "toggle evo.sys.settings") },
         { name: "Themes", icon: "󰸌", keywords: ["theme", "colours", "gtk"], command: ipc(home, "toggle evo.sys.themes") },
         { name: "Wallpaper", icon: "󰏘", keywords: ["wallpaper", "background"], command: ipc(home, "toggle evo.sys.wallpaper") },
         { name: "Music", icon: "󰎈", keywords: ["music", "player", "mpv"], command: ipc(home, "toggle evo.panels.player") },

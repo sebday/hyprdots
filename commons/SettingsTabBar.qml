@@ -7,6 +7,8 @@ RowLayout {
     property int currentIndex: 0
     property var tabs: []
 
+    signal tabActivated(int index)
+
     spacing: Theme.spacingS
     implicitHeight: tabRow.implicitHeight
     implicitWidth: tabRow.implicitWidth
@@ -70,7 +72,7 @@ RowLayout {
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: root.currentIndex = tabItem.index
+                    onClicked: root.tabActivated(tabItem.index)
                 }
             }
         }

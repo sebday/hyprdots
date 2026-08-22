@@ -76,6 +76,7 @@ Machine-local plugins live under `$EVOSHELL_CONFIG/plugins/` and merge at runtim
 - Symlink `$EVOSHELL_CONFIG/plugins/commons` → `$EVOSHELL_ROOT/commons` for shared imports
 - Register optional tray widgets under `trayWidgets` in the overlay manifest
 - Register extension dashboards under `dashboardIds`; optional labels for **Settings → Integrations → Startup** under `startupDashboards`
+- Register **system menu → Panels** entries under `systemMenuPanels` (name, icon, keywords; command is `toggle <dashboard id>`)
 - Extension CLIs can symlink into `$EVOSHELL_BIN/` (e.g. `evo-panel-shopify`)
 
 Built-in manifest ids win on conflict; overlay ids only add new plugins.
@@ -91,6 +92,7 @@ Adding a new extension dashboard today requires:
 1. Manifest entry with kind `dashboard` and `dashboardIds` in the overlay manifest
 2. `extensionDashboardInstantiator` in `shell.qml` loads it automatically
 3. Optional `startupDashboards` label in the overlay manifest for **Settings → Integrations → Startup**
+4. Optional `systemMenuPanels` entry in the overlay manifest for **system menu → Panels** (Super+Space)
 4. Optional `dashboards.openOnStart` entry in overrides (or toggle in Settings)
 
 ## Bar widgets

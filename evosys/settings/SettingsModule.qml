@@ -11,6 +11,9 @@ Item {
 
     property var host: null
     property var shell: null
+    property bool showTabBar: true
+    property alias tabIndex: settingsTabs.currentIndex
+    property string menuFilterText: ""
 
     readonly property string hyprScript: Util.evoshellScript(Quickshell.env("HOME"), shell, "evo-hyprland")
     readonly property string barScript: Util.evoshellScript(Quickshell.env("HOME"), shell, "evo-layout")
@@ -129,7 +132,8 @@ Item {
         || wallpaperPersonalDirSetProc.running
         || haSaveProc.running || idleSetProc.running
         || trayToggleProc.running || trayOrderSetProc.running
-    readonly property bool active: host && host.opened && host.activeModule === "settings"
+    readonly property bool active: host && host.opened
+        && (host.activeModule === "settings" || host.settingsEmbedded === true)
 
     Keys.onEscapePressed: {
         if (root.weatherLocationPickerOpen) {
@@ -140,6 +144,8 @@ Item {
             host.dismiss()
     }
     Keys.onPressed: function(event) {
+        if (!root.showTabBar)
+            return
         if (event.key !== Qt.Key_Tab && event.key !== Qt.Key_Backtab)
             return
         if (!(event.modifiers & Qt.ControlModifier) && focusInTextInput())
@@ -159,6 +165,13 @@ Item {
             item = item.parent
         }
         return false
+    }
+
+    function sectionFilterVisible(label) {
+        var q = String(menuFilterText || "").trim().toLowerCase()
+        if (!q)
+            return true
+        return String(label || "").toLowerCase().indexOf(q) >= 0
     }
 
     function refresh() {
@@ -1270,12 +1283,16 @@ Item {
     ColumnLayout {
         id: settingsLayout
         anchors.fill: parent
-        spacing: Theme.hoverPanelSectionSpacing
+        spacing: root.showTabBar ? Theme.hoverPanelSectionSpacing : 0
 
         SettingsTabBar {
             id: settingsTabs
+            visible: root.showTabBar
             Layout.fillWidth: true
             tabs: root.settingsTabModel
+            onTabActivated: function(index) {
+                settingsTabs.currentIndex = index
+            }
         }
 
         Connections {
@@ -1291,15 +1308,16 @@ Item {
         StackLayout {
             id: settingsStack
             Layout.fillWidth: true
-            Layout.fillHeight: parent.height > 0
+            Layout.fillHeight: true
+            Layout.alignment: Qt.AlignTop
             currentIndex: settingsTabs.currentIndex
 
             Flickable {
                 id: settingsScroll
+                Layout.fillWidth: true
+                Layout.fillHeight: true
                 clip: true
                 boundsBehavior: Flickable.StopAtBounds
-                width: parent.width
-                height: parent.height > 0 ? parent.height : contentHeight
                 contentWidth: width
                 contentHeight: settingsColumn.implicitHeight
 
@@ -1326,6 +1344,7 @@ Item {
                             spacing: settingsColumn.columnSpacing
 
                             SectionPanel {
+                                visible: root.sectionFilterVisible("Shell")
                                 Layout.fillWidth: true
                                 Layout.preferredWidth: settingsColumn.leftColumnWidth
                                 Layout.maximumWidth: settingsColumn.leftColumnWidth
@@ -1445,6 +1464,7 @@ Item {
                             spacing: settingsColumn.columnSpacing
 
                             SectionPanel {
+                                visible: root.sectionFilterVisible("Theme")
                                 Layout.fillWidth: true
                                 Layout.preferredWidth: settingsColumn.rightColumnWidth
                                 Layout.maximumWidth: settingsColumn.rightColumnWidth
@@ -1587,6 +1607,7 @@ Item {
                             }
 
                             SectionPanel {
+                                visible: root.sectionFilterVisible("Font")
                                 Layout.fillWidth: true
                                 Layout.preferredWidth: settingsColumn.rightColumnWidth
                                 Layout.maximumWidth: settingsColumn.rightColumnWidth
@@ -1631,10 +1652,10 @@ Item {
 
             Flickable {
                 id: integrationsTabScroll
+                Layout.fillWidth: true
+                Layout.fillHeight: true
                 clip: true
                 boundsBehavior: Flickable.StopAtBounds
-                width: parent.width
-                height: parent.height > 0 ? parent.height : contentHeight
                 contentWidth: width
                 contentHeight: integrationsTabContent.implicitHeight
 
@@ -1664,6 +1685,7 @@ Item {
                             spacing: integrationsTabContent.columnSpacing
 
                             SectionPanel {
+                                visible: root.sectionFilterVisible("Bar widgets")
                                 Layout.fillWidth: true
                                 Layout.preferredWidth: integrationsTabContent.leftColumnWidth
                                 Layout.maximumWidth: integrationsTabContent.leftColumnWidth
@@ -1815,6 +1837,7 @@ Item {
                             }
 
                             SectionPanel {
+                                visible: root.sectionFilterVisible("Startup")
                                 Layout.fillWidth: true
                                 Layout.preferredWidth: integrationsTabContent.leftColumnWidth
                                 Layout.maximumWidth: integrationsTabContent.leftColumnWidth
@@ -1861,6 +1884,7 @@ Item {
                             spacing: integrationsTabContent.columnSpacing
 
                             SectionPanel {
+                                visible: root.sectionFilterVisible("Locations")
                                 Layout.fillWidth: true
                                 Layout.preferredWidth: integrationsTabContent.rightColumnWidth
                                 Layout.maximumWidth: integrationsTabContent.rightColumnWidth
@@ -2156,10 +2180,10 @@ Item {
 
             Flickable {
                 id: haTabScroll
+                Layout.fillWidth: true
+                Layout.fillHeight: true
                 clip: true
                 boundsBehavior: Flickable.StopAtBounds
-                width: parent.width
-                height: parent.height > 0 ? parent.height : contentHeight
                 contentWidth: width
                 contentHeight: haTabContent.implicitHeight
 
@@ -2186,6 +2210,7 @@ Item {
                             spacing: haTabContent.columnSpacing
 
                             SectionPanel {
+                                visible: root.sectionFilterVisible("Areas")
                                 Layout.fillWidth: true
                                 Layout.preferredWidth: haTabContent.leftColumnWidth
                                 Layout.maximumWidth: haTabContent.leftColumnWidth
@@ -2233,6 +2258,7 @@ Item {
                             spacing: haTabContent.columnSpacing
 
                             SectionPanel {
+                                visible: root.sectionFilterVisible("Climate")
                                 Layout.fillWidth: true
                                 Layout.preferredWidth: haTabContent.rightColumnWidth
                                 Layout.maximumWidth: haTabContent.rightColumnWidth

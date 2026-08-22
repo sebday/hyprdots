@@ -141,10 +141,11 @@ Evoshell overlays close with **Esc** (system menu and media library step back or
 
 | Binding | Action |
 |---------|--------|
-| Super+Space | System menu (`evo.sys.menu`) |
+| Super+Space | System menu (`evo.sys.menu`) — Evoshell, Settings, Integrations, Home Assistant tabs |
+| Super+D | Program runner (`evo.sys.menu`, mode `runner`) |
 | Super+Return | Terminal |
 | Super+W | Close active window |
-| Super+B | Settings (`evo.sys.settings`) |
+| Super+B | Settings tab in system menu (`evo.sys.menu`, tab `settings`) |
 | Super+C | Calculator (`evo.side` → `calc`) |
 | Super+N | Tasks (`evo.side` → `calc`, focus `tasks`) |
 | Super+V | Clipboard (`evo.side.clipboard`) |

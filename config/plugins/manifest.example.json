@@ -16,5 +16,12 @@
     "evo.panels.shopify": {
       "label": "Shopify"
     }
+  },
+  "systemMenuPanels": {
+    "evo.panels.shopify": {
+      "name": "Shopify",
+      "icon": "󰝗",
+      "keywords": ["shopify", "store", "ecommerce", "revenue"]
+    }
   }
 }
