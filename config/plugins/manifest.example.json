@@ -1,0 +1,20 @@
+{
+  "plugins": {
+    "evo.panels.shopify": {
+      "kinds": ["dashboard"],
+      "path": "shopify/Shopify.qml",
+      "root": "plugins"
+    }
+  },
+  "dashboardIds": [
+    "evo.panels.shopify"
+  ],
+  "dashboardPinKinds": {
+    "evo.panels.shopify": "shopify"
+  },
+  "startupDashboards": {
+    "evo.panels.shopify": {
+      "label": "Shopify"
+    }
+  }
+}

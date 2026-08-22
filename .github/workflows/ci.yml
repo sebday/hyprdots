@@ -1,0 +1,33 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: install jq
+        run: sudo apt-get update && sudo apt-get install -y jq ripgrep
+      - name: static contracts
+        env:
+          EVOSHELL_ROOT: ${{ github.workspace }}
+          EVOSHELL_BIN: ${{ github.workspace }}/bin
+          EVO_SKIP_EVOPLAYER: "1"
+        run: bash tests/test-static-contracts.sh
+      - name: plugin manifest
+        env:
+          EVOSHELL_ROOT: ${{ github.workspace }}
+        run: bash tests/test-plugin-manifest.sh
+      - name: menu list
+        env:
+          EVOSHELL_ROOT: ${{ github.workspace }}
+          EVOSHELL_BIN: ${{ github.workspace }}/bin
+        run: bash tests/test-menu-list.sh
+      - name: layout side
+        env:
+          EVOSHELL_ROOT: ${{ github.workspace }}
+          EVOSHELL_BIN: ${{ github.workspace }}/bin
+        run: bash tests/test-evo-layout-side.sh

@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Create or refresh a menu preview thumbnail and print its path.
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "$script_dir/evo-storage-lib"
+
+src="${1:-}"
+key="${2:-}"
+
+[[ -n "$src" && -n "$key" ]] || exit 1
+[[ -f "$src" ]] || exit 1
+
+cache_root="${MENU_CACHE_DIR}"
+dst="$cache_root/$key"
+thumb_w=1152
+thumb_h=713
+
+mkdir -p "$(dirname "$dst")"
+
+needs_refresh() {
+    [[ ! -f "$dst" ]] && return 0
+    [[ "$src" -nt "$dst" ]] && return 0
+    if command -v identify >/dev/null 2>&1; then
+        read -r w h < <(identify -format '%w %h' "$dst" 2>/dev/null || echo "0 0")
+        [[ "${w:-0}" -lt "$thumb_w" || "${h:-0}" -lt "$thumb_h" ]] && return 0
+    fi
+    return 1
+}
+
+if needs_refresh; then
+    if command -v magick >/dev/null 2>&1; then
+        magick "$src" -thumbnail "${thumb_w}x${thumb_h}^" -gravity center -extent "${thumb_w}x${thumb_h}" PNG:"$dst" 2>/dev/null || cp -f "$src" "$dst"
+    else
+        cp -f "$src" "$dst"
+    fi
+fi
+
+printf '%s' "$dst"

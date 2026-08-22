@@ -1,0 +1,32 @@
+:root {
+    --background: var(--bg-primary);
+}
+
+.bg-surface, .bg-surface-base {
+    background: var(--bg-primary) !important;
+    color: var(--text-primary);
+}
+
+.from-surface, 
+.from-surface-base {
+    --tw-gradient-from: none;
+    --tw-gradient-to: none;
+    --tw-gradient-stops: none;
+}
+
+.via-background {
+  --tw-gradient-stops: var(--bg-secondary),var(--bg-primary) var(--tw-gradient-via-position),var(--tw-gradient-to);
+}
+
+.bg-background ,
+.bg-surface-l1 {
+  background: var(--bg-primary) !important;
+}
+
+.bg-surface-l2 {
+  background: var(--bg-secondary) !important;
+}
+
+.border-border, .border-border-l1 {
+  border-color: var(--bg-primary) !important;
+}

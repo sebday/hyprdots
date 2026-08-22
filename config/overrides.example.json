@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "notifications": {
+    "output": "DP-1",
+    "position": "top"
+  },
+  "bar": {
+    "output": "HDMI-A-1",
+    "position": "bottom",
+    "layout": {
+      "center": [
+        {
+          "id": "evo.bar.tray",
+          "weather": {
+            "onHover": "evo.panels.weather"
+          },
+          "github": {
+            "onClick": "xdg-open https://github.com/"
+          }
+        }
+      ]
+    }
+  },
+  "homeAssistant": {
+    "onHover": "evo.panels.homeassistant",
+    "lightEntities": [],
+    "lightAreas": ["Living Room"],
+    "lightGroupsOnly": false,
+    "lightBrightnessEntities": ["light.living_room"],
+    "lightColorEntities": ["light.living_room"],
+    "climateEntities": ["climate.living_room"]
+  },
+  "panel": {
+    "side": "left"
+  },
+  "dashboards": {
+    "openOnStart": ["evo.panels.player"]
+  },
+  "wallpaper": {
+    "personalDir": ""
+  }
+}

@@ -1,0 +1,147 @@
+#!/usr/bin/env bash
+# Insync status parsing helpers (bash + jq, no python).
+
+_insync_lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "${_insync_lib_dir}/evo-storage-lib"
+
+insync_to_bytes() {
+    local n="$1" unit="${2,,}"
+    case "$unit" in
+    bytes|b) printf '%.0f' "$n" ;;
+    kb) awk -v n="$n" 'BEGIN{printf "%.0f", n * 1024}' ;;
+    mb) awk -v n="$n" 'BEGIN{printf "%.0f", n * 1048576}' ;;
+    gb) awk -v n="$n" 'BEGIN{printf "%.0f", n * 1073741824}' ;;
+    *) printf '%.0f' "$n" ;;
+    esac
+}
+
+insync_parse_popup() {
+    local status_text="$1" errors_text="$2"
+    local cache_path="$INSYNC_ACCOUNTS_JSON"
+    local sync_status="" paused=false ok=true error=""
+    local section="" line
+    local -a account_lines=() file_lines=() error_lines=()
+
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        line="${line%"${line##*[![:space:]]}"}"
+        if [[ "$line" == "Accounts:" ]]; then
+            section="accounts"
+            continue
+        fi
+        if [[ "$line" == Sync\ status:* ]]; then
+            sync_status="${line#Sync status:}"
+            sync_status="${sync_status#"${sync_status%%[![:space:]]*}"}"
+            section=""
+            continue
+        fi
+        if [[ "$line" == "Syncing files:" ]]; then
+            section="files"
+            continue
+        fi
+        [[ -z "${line//[[:space:]]/}" ]] && section="" && continue
+
+        case "$section" in
+        accounts)
+            if [[ "$line" =~ ^(.+)[[:space:]]+\((.+)\)[[:space:]]*$ ]]; then
+                local email="${BASH_REMATCH[1]}"
+                local provider="${BASH_REMATCH[2]}"
+                email="${email#"${email%%[![:space:]]*}"}"
+                email="${email%"${email##*[![:space:]]}"}"
+                provider="${provider#"${provider%%[![:space:]]*}"}"
+                provider="${provider%"${provider##*[![:space:]]}"}"
+                account_lines+=("$(
+                    jq -nc --arg email "$email" --arg provider "$provider" '{email:$email,provider:$provider}'
+                )")
+            fi
+            ;;
+        files)
+            if [[ "$line" =~ ^(.+)[[:space:]]+-[[:space:]]+([[:alnum:]_]+)[[:space:]]+(.+)$ ]]; then
+                local path="${BASH_REMATCH[1]}"
+                local action="${BASH_REMATCH[2],,}"
+                local detail="${BASH_REMATCH[3]}"
+                path="${path#"${path%%[![:space:]]*}"}"
+                path="${path%"${path##*[![:space:]]}"}"
+                detail="${detail#"${detail%%[![:space:]]*}"}"
+                detail="${detail%"${detail##*[![:space:]]}"}"
+                local done=0 total=0 percent=0
+                if [[ "$detail" =~ ([0-9]+(\.[0-9]+)?)[[:space:]]*(bytes|kb|mb|gb)[[:space:]]+of[[:space:]]+([0-9]+(\.[0-9]+)?)[[:space:]]*(bytes|kb|mb|gb)[[:space:]]+\(([0-9.]+)%\) ]]; then
+                    done="$(insync_to_bytes "${BASH_REMATCH[1]}" "${BASH_REMATCH[3]}")"
+                    total="$(insync_to_bytes "${BASH_REMATCH[4]}" "${BASH_REMATCH[6]}")"
+                    percent="${BASH_REMATCH[7]}"
+                fi
+                file_lines+=("$(
+                    jq -nc \
+                        --arg path "$path" \
+                        --arg action "$action" \
+                        --argjson done "$done" \
+                        --argjson total "$total" \
+                        --argjson percent "$percent" \
+                        --arg detail "$detail" \
+                        '{path:$path,action:$action,done:$done,total:$total,percent:$percent,detail:$detail}'
+                )")
+            fi
+            ;;
+        esac
+    done <<<"$status_text"
+
+    local status_upper="${sync_status^^}"
+    [[ "$status_upper" == *PAUSED* ]] && paused=true
+    [[ "$status_upper" == *ERROR* ]] && ok=false
+
+    local err_clean="${errors_text#"${errors_text%%[![:space:]]*}"}"
+    err_clean="${err_clean%"${err_clean##*[![:space:]]}"}"
+    if [[ -n "$err_clean" && "${err_clean,,}" != "no errors or actions required." ]]; then
+        while IFS= read -r line || [[ -n "$line" ]]; do
+            line="${line#"${line%%[![:space:]]*}"}"
+            line="${line%"${line##*[![:space:]]}"}"
+            [[ -n "$line" ]] && error_lines+=("$line")
+        done <<<"$err_clean"
+    fi
+
+    if [[ "${status_text,,}" == *"not running"* || "${status_text,,}" == *"cannot connect"* ]]; then
+        ok=false
+        error="$(printf '%s\n' "$status_text" | head -1)"
+        error="${error#"${error%%[![:space:]]*}"}"
+        error="${error%"${error##*[![:space:]]}"}"
+    fi
+
+    local accounts_json files_json errors_json account_cache_json
+    if ((${#account_lines[@]} > 0)); then
+        accounts_json="$(printf '%s\n' "${account_lines[@]}" | jq -s '.')"
+    else
+        accounts_json='[]'
+    fi
+    if ((${#file_lines[@]} > 0)); then
+        files_json="$(printf '%s\n' "${file_lines[@]}" | jq -s '.')"
+    else
+        files_json='[]'
+    fi
+    if ((${#error_lines[@]} > 0)); then
+        errors_json="$(printf '%s\n' "${error_lines[@]}" | jq -R . | jq -s '.')"
+    else
+        errors_json='[]'
+    fi
+
+    account_cache_json="$(jq -nc \
+        --argjson ok "$ok" \
+        --arg error "$error" \
+        --arg status "$sync_status" \
+        --argjson paused "$paused" \
+        --argjson accounts "$accounts_json" \
+        --argjson errors "$errors_json" \
+        '{ok:$ok,error:$error,status:$status,paused:$paused,accounts:$accounts,errors:$errors}')"
+
+    mkdir -p "$(dirname "$cache_path")"
+    printf '%s\n' "$account_cache_json" >"$cache_path"
+
+    jq -nc \
+        --argjson ok "$ok" \
+        --arg error "$error" \
+        --arg status "$sync_status" \
+        --argjson paused "$paused" \
+        --argjson accounts "$accounts_json" \
+        --argjson files "$files_json" \
+        --argjson errors "$errors_json" \
+        '{ok:$ok,error:$error,status:$status,paused:$paused,accounts:$accounts,files:$files,errors:$errors}'
+}

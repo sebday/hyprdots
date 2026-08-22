@@ -1,0 +1,28 @@
+# Evoshell Arch packages (official repos only).
+# Install: sudo pacman -S --needed $(grep -vE '^#|^$' packages.txt)
+# See docs/packages.md for optional AUR packages and per-feature notes.
+
+# Required ##################
+hyprland
+quickshell
+jq
+pass
+libnotify
+pipewire
+pipewire-pulse
+darkhttpd
+wl-clipboard
+cliphist
+
+# Recommended #############
+imagemagick
+grim
+slurp
+hyprshot
+satty
+papirus-icon-theme
+curl
+playerctl
+glib2
+noto-fonts
+noto-fonts-emoji

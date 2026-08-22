@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+# Open evo dashboard windows on workspace 10 (HDMI-A-1).
+
+set -euo pipefail
+
+_bin_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "${_bin_dir}/evo-paths-lib"
+# shellcheck source=/dev/null
+source "${_bin_dir}/evo-config-lib"
+
+IPC="${EVOSHELL_BIN}/_ipc"
+
+usage() {
+  cat >&2 <<'EOF'
+usage: evo-panel-hypr restore-dashboards
+EOF
+  exit 1
+}
+
+find_dashboard_address() {
+  local title="$1"
+  hyprctl clients -j 2>/dev/null | jq -r --arg t "$title" '
+    .[] | select(.class == "org.quickshell" and .title == $t) | .address' | head -1
+}
+
+open_dashboard_if_needed() {
+  local id="$1"
+  [[ -n "$id" ]] || return 0
+  if [[ -n "$(find_dashboard_address "$id")" ]]; then
+    return 0
+  fi
+  "$IPC" shell openDashboard "$id" >/dev/null 2>&1 || true
+  local tries=0
+  while (( tries < 30 )); do
+    [[ -n "$(find_dashboard_address "$id")" ]] && return 0
+    sleep 0.05
+    tries=$((tries + 1))
+  done
+  return 1
+}
+
+restore_dashboards() {
+  local ids others player
+  others=()
+  player=""
+  while IFS= read -r id; do
+    [[ -n "$id" ]] || continue
+    if [[ "$id" == "evo.panels.player" ]]; then
+      player="$id"
+    else
+      others+=("$id")
+    fi
+  done < <(merged_config | jq -r '.dashboards.openOnStart[]? // empty')
+  local ordered=("${others[@]}")
+  [[ -n "$player" ]] && ordered+=("$player")
+  for id in "${ordered[@]}"; do
+    open_dashboard_if_needed "$id" || true
+  done
+}
+
+cmd="${1:-}"
+case "$cmd" in
+restore-dashboards) restore_dashboards ;;
+-h | --help | help | "") usage ;;
+*)
+  echo "evo-panel-hypr: unknown command: $cmd" >&2
+  usage
+  ;;
+esac

@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# Toggle evo.panels.player dashboard.
+
+set -euo pipefail
+
+_bin_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "${_bin_dir}/evo-paths-lib"
+
+IPC="${EVOSHELL_BIN}/_ipc shell"
+
+usage() {
+	cat >&2 <<'EOF'
+usage: evo.panels.player show|hide|toggle|visible
+EOF
+	exit 1
+}
+
+find_windows() {
+	hyprctl clients -j 2>/dev/null | jq -r '.[] | select(.title == "evo.panels.player") | .address'
+}
+
+has_window() {
+	[[ -n "$(find_windows | head -1)" ]]
+}
+
+cmd_show() {
+	$IPC summon evo.panels.player >/dev/null 2>&1 || true
+}
+
+cmd_hide() {
+	$IPC hide evo.panels.player >/dev/null 2>&1 || true
+}
+
+cmd_toggle() {
+	$IPC toggle evo.panels.player >/dev/null 2>&1 || true
+}
+
+cmd_visible() {
+	if has_window; then
+		exit 0
+	fi
+	exit 1
+}
+
+cmd="${1:-}"
+case "$cmd" in
+show) cmd_show ;;
+hide) cmd_hide ;;
+toggle) cmd_toggle ;;
+visible) cmd_visible ;;
+-h | --help | help | "") usage ;;
+*)
+	echo "evo.panels.player: unknown command: $cmd" >&2
+	usage
+	;;
+esac

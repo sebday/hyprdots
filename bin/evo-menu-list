@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+# Fast TSV listing for Evo menu theme/wallpaper previews.
+set -euo pipefail
+
+mode="${1:-}"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "$script_dir/evo-storage-lib"
+cache_root="${MENU_CACHE_DIR}"
+home="${HOME:?}"
+thumb="${script_dir}/evo-menu-thumb"
+# shellcheck source=/dev/null
+source "$script_dir/evo-theme-lib"
+# shellcheck source=/dev/null
+source "$script_dir/evo-menu-list-lib"
+
+preview_path() {
+    local src="$1" key="$2"
+    local cached="$cache_root/$key"
+    if [[ -f "$cached" ]]; then
+        printf '%s' "$cached"
+        return
+    fi
+    if [[ -x "$thumb" ]]; then
+        "$thumb" "$src" "$key"
+        return
+    fi
+    printf '%s' "$src"
+}
+
+# shellcheck source=/dev/null
+source "$script_dir/evo-config-lib"
+
+list_wallpaper_files() {
+    find "$1" -maxdepth 1 -type f \
+        \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) \
+        2>/dev/null | sort
+}
+
+emit_wallpaper_entry() {
+    local label="$1" file="$2" cache_key="$3"
+    local p
+    p=$(preview_path "$file" "$cache_key")
+    printf '%s\t%s/evo-wallpaper set %q\t%s\n' "$label" "$EVOSHELL_BIN" "$file" "$p"
+}
+
+case "$mode" in
+themes)
+    find "$THEME_DIR" -mindepth 1 -maxdepth 1 -type d \
+        ! -name current ! -name shared ! -name next -printf '%f\n' 2>/dev/null | sort |
+        while IFS= read -r name; do
+            [[ -n "$name" ]] || continue
+            src="$THEME_DIR/$name/preview.png"
+            [[ -f "$src" ]] || continue
+            p=$(preview_path "$src" "themes/${name}.png")
+            printf '%s\t%s/evo-theme %s\t%s\n' "$name" "$EVOSHELL_BIN" "$name" "$p"
+        done
+    ;;
+wallpapers)
+    find "$THEME_DIR" -mindepth 1 -maxdepth 1 -type d \
+        ! -name current ! -name shared ! -name next -printf '%f\n' 2>/dev/null | sort |
+        while IFS= read -r theme_name; do
+            [[ -n "$theme_name" ]] || continue
+            wp_dir="$THEME_DIR/$theme_name/wallpapers"
+            [[ -d "$wp_dir" ]] || continue
+            list_wallpaper_files "$wp_dir" |
+                while IFS= read -r file; do
+                    [[ -n "$file" ]] || continue
+                    bn="${file##*/}"
+                    emit_wallpaper_entry "${theme_name}/${bn}" "$file" "wallpapers/${theme_name}/${bn}"
+                done
+        done
+    personal_dir="$(wallpaper_personal_dir)"
+    if [[ -n "$personal_dir" ]]; then
+        [[ "$personal_dir" == ~* ]] && personal_dir="${HOME}${personal_dir#\~}"
+        if [[ -d "$personal_dir" ]]; then
+            list_wallpaper_files "$personal_dir" |
+                while IFS= read -r file; do
+                    [[ -n "$file" ]] || continue
+                    bn="${file##*/}"
+                    emit_wallpaper_entry "personal/${bn}" "$file" "wallpapers/personal/${bn}"
+                done
+        fi
+    fi
+    ;;
+bindings)
+    bindings_file="$home/.config/hypr/bindings.lua"
+    evoshell_root="${EVOSHELL_ROOT:-$home/projects/evoshell}"
+    [[ -f "$bindings_file" || -f "$evoshell_root/hypr/bindings.lua" ]] || exit 0
+    menu_list_bindings "$bindings_file" "$home"
+    ;;
+shell)
+    menu_list_shell "$home" "$script_dir"
+    ;;
+icons)
+    menu_list_icons "$home" "${EVO_ICON_THEME:-evo-current}"
+    ;;
+*)
+    echo "usage: $0 themes|wallpapers|bindings|shell|icons" >&2
+    exit 1
+    ;;
+esac

@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+# Public evo CLI — dispatches to private player/system/ipc backends.
+
+set -euo pipefail
+
+_evo_script="$(readlink -f "${BASH_SOURCE[0]}")"
+_bin_dir="$(cd "$(dirname "$_evo_script")" && pwd)"
+# shellcheck source=/dev/null
+source "${_bin_dir}/evo-paths-lib"
+
+_resolve_lib() {
+    if [[ -x "${EVOSHELL_BIN}/$1" ]]; then
+        printf '%s/%s' "${EVOSHELL_BIN%/}" "$1"
+        return 0
+    fi
+    if [[ -x "${EVOSHELL_LIB}/$1" ]]; then
+        printf '%s/%s' "${EVOSHELL_LIB%/}" "$1"
+        return 0
+    fi
+    return 1
+}
+
+_resolve_player() {
+    if [[ -x "${EVOPLAYER_LIB}/evoplayer" ]]; then
+        printf '%s/evoplayer' "${EVOPLAYER_LIB%/}"
+        return 0
+    fi
+    if [[ -x "${EVOSHELL_BIN}/../evoplayer/evoplayer" ]]; then
+        printf '%s/../evoplayer/evoplayer' "${EVOSHELL_BIN%/}"
+        return 0
+    fi
+    return 1
+}
+
+usage() {
+    cat <<'EOF'
+usage: evo <group> <command> [args...]
+
+groups:
+  player    music library and playback
+  system    shell supervisor, lock, restart, power
+  ipc       quickshell IPC wrapper
+  nvim-open send files to a running neovim instance
+EOF
+}
+
+if [[ $# -lt 1 ]]; then
+    usage >&2
+    exit 1
+fi
+
+group="$1"
+shift
+
+case "$group" in
+    player)
+        player="$(_resolve_player)" || {
+            echo "evo: player binary not found" >&2
+            exit 1
+        }
+        exec "$player" "$@"
+        ;;
+    system)
+        system="$(_resolve_lib _system)" || {
+            echo "evo: system backend not found" >&2
+            exit 1
+        }
+        exec "$system" "$@"
+        ;;
+    ipc)
+        ipc="$(_resolve_lib _ipc)" || {
+            echo "evo: ipc backend not found" >&2
+            exit 1
+        }
+        exec "$ipc" "$@"
+        ;;
+    nvim-open)
+        nvim_open="$(_resolve_lib evo-nvim-open)" || {
+            echo "evo: nvim-open backend not found" >&2
+            exit 1
+        }
+        exec "$nvim_open" "$@"
+        ;;
+    -h|--help|help)
+        usage
+        ;;
+    *)
+        echo "evo: unknown group: $group" >&2
+        usage >&2
+        exit 1
+        ;;
+esac

@@ -1,0 +1,18 @@
+[Unit]
+Description=evoshell quickshell desktop shell
+After=pipewire-pulse.service
+
+[Service]
+Type=simple
+EnvironmentFile=-%h/.config/evoshell/environment
+ExecStart=%h/.local/bin/evo system start
+Environment=QS_NO_RELOAD_POPUP=1
+OOMScoreAdjust=-300
+KillMode=process
+KillSignal=SIGTERM
+TimeoutStopSec=5
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target

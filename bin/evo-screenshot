@@ -1,0 +1,345 @@
+#!/usr/bin/env bash
+# Screenshots for evoshell: stacked multi-monitor capture and satty annotation.
+
+set -euo pipefail
+
+TOP_MONITOR="${EVO_SCREENSHOT_TOP:-}"
+read -r -a BOTTOM_MONITORS <<< "${EVO_SCREENSHOT_BOTTOM:-}"
+
+DEFAULT_SHOT="/tmp/hyprshot.png"
+OUT_DIR="${EVO_SCREENSHOT_OUT_DIR:-${XDG_PICTURES_DIR:-${HOME}/Pictures}/Screenshots}"
+
+usage() {
+	cat <<'EOF'
+usage: evo-screenshot <command> [options]
+
+commands:
+  stacked             capture all monitors and stitch into one image
+  region              capture a screen region to /tmp/hyprshot.png
+  edit [path]           annotate a screenshot with satty
+
+stacked options:
+  -o, --output PATH   output file (default: /tmp/hyprshot.png)
+  -s, --silent        suppress notifications
+
+edit options:
+  [path]              image to annotate (default: /tmp/hyprshot.png)
+  --capture MODE      capture first: region, monitor, output, or stacked
+
+environment:
+  EVO_SCREENSHOT_TOP      top-row monitor (required for stacked unless auto-detected)
+  EVO_SCREENSHOT_BOTTOM   bottom-row monitors (space-separated)
+  EVO_SCREENSHOT_OUT      default stacked output path
+  EVO_SCREENSHOT_OUT_DIR  satty annotation output directory
+EOF
+}
+
+magick() {
+	if command -v magick >/dev/null; then
+		command magick "$@"
+	else
+		command convert "$@"
+	fi
+}
+
+cleanup_gdk_temps() {
+	rm -f /tmp/gdk-pixbuf-glycin-tmp.* 2>/dev/null || true
+}
+
+notify_saved() {
+	local path="$1"
+	[[ "${SILENT:-0}" -eq 1 ]] && return 0
+	[[ -f "$path" ]] || return 0
+
+	local abs
+	abs="$(readlink -f "$path" 2>/dev/null || printf '%s' "$path")"
+
+	notify-send -a evoshell \
+		-t 5000 \
+		-h "string:image-path:$abs" \
+		-i "$abs" \
+		"Screenshot saved" \
+		"$abs" 2>/dev/null || true
+}
+
+capture_region() {
+	local out="$1"
+	command -v grim >/dev/null && command -v slurp >/dev/null || {
+		echo "evo-screenshot: grim and slurp required" >&2
+		return 1
+	}
+
+	local geometry
+	geometry="$(slurp)" || return 2
+	[[ -n "$geometry" ]] || return 2
+
+	grim -g "$geometry" "$out"
+	wl-copy --type image/png < "$out" 2>/dev/null || true
+}
+
+image_size() {
+	identify -format '%w %h' "$1"
+}
+
+monitor_scale() {
+	local name="$1"
+	jq -r --arg name "$name" '.[] | select(.name == $name) | .scale' <<<"$MONITORS_JSON"
+}
+
+capture_monitor() {
+	local name="$1"
+	local file="$tmpdir/${name}.png"
+
+	if command -v grim >/dev/null; then
+		if grim -o "$name" "$file" 2>/dev/null \
+			&& [[ -s "$file" ]] && identify "$file" >/dev/null 2>&1; then
+			printf '%s' "$file"
+			return 0
+		fi
+	fi
+
+	local attempt
+	for attempt in 1 2 3; do
+		rm -f "$file"
+		if command -v hyprshot >/dev/null; then
+			hyprshot -m output -m "$name" -o "$tmpdir" -f "${name}.png" -s >/dev/null 2>&1 || true
+		fi
+		if [[ -s "$file" ]] && identify "$file" >/dev/null 2>&1; then
+			printf '%s' "$file"
+			return 0
+		fi
+		sleep 1
+	done
+
+	echo "evo-screenshot: failed to capture $name" >&2
+	return 1
+}
+
+normalize_shot() {
+	local name="$1"
+	local file="$2"
+	local scale
+	scale="$(monitor_scale "$name")"
+	if [[ -z "$scale" || "$scale" == "null" ]]; then
+		scale=1
+	fi
+	if awk -v s="$scale" 'BEGIN { exit !(s > 1.001) }'; then
+		local out="$tmpdir/${name}-norm.png"
+		read -r w h <<<"$(image_size "$file")"
+		local new_w new_h
+		new_w="$(awk -v w="$w" -v s="$scale" 'BEGIN { printf "%d", w / s }')"
+		new_h="$(awk -v h="$h" -v s="$scale" 'BEGIN { printf "%d", h / s }')"
+		magick "$file" -colorspace sRGB -resize "${new_w}x${new_h}!" "$out"
+		printf '%s' "$out"
+	else
+		printf '%s' "$file"
+	fi
+}
+
+cmd_stacked() {
+	local out="${EVO_SCREENSHOT_OUT:-$DEFAULT_SHOT}"
+	SILENT=0
+
+	while [[ $# -gt 0 ]]; do
+		case "$1" in
+		-o | --output)
+			out="$2"
+			shift 2
+			;;
+		-s | --silent)
+			SILENT=1
+			shift
+			;;
+		*)
+			echo "evo-screenshot stacked: unknown argument: $1" >&2
+			usage >&2
+			exit 2
+			;;
+		esac
+	done
+
+	command -v grim >/dev/null || command -v hyprshot >/dev/null || {
+		echo "evo-screenshot: grim or hyprshot required" >&2
+		exit 1
+	}
+	command -v magick >/dev/null || command -v convert >/dev/null || {
+		echo "evo-screenshot: imagemagick required" >&2
+		exit 1
+	}
+	command -v jq >/dev/null || {
+		echo "evo-screenshot: jq required" >&2
+		exit 1
+	}
+
+	tmpdir="$(mktemp -d)"
+	cleanup() {
+		cleanup_gdk_temps
+		rm -rf "$tmpdir"
+	}
+	trap cleanup EXIT
+
+	MONITORS_JSON="$(hyprctl monitors -j)"
+
+	local top_monitor="$TOP_MONITOR"
+	local bottom_monitors=("${BOTTOM_MONITORS[@]}")
+	if [[ -z "$top_monitor" ]]; then
+		top_monitor="$(jq -r '(.[] | select(.focused)) // .[0] | .name' <<<"$MONITORS_JSON")"
+	fi
+	if [[ -z "$top_monitor" || "$top_monitor" == "null" ]]; then
+		echo "evo-screenshot: set EVO_SCREENSHOT_TOP or focus a monitor" >&2
+		exit 1
+	fi
+	if ((${#bottom_monitors[@]} == 0)) || [[ -z "${bottom_monitors[0]}" ]]; then
+		mapfile -t bottom_monitors < <(jq -r --arg top "$top_monitor" '.[] | select(.name != $top) | .name' <<<"$MONITORS_JSON")
+	fi
+
+	local all_monitors=("$top_monitor" "${bottom_monitors[@]}")
+	declare -A shots=()
+
+	local monitor
+	for monitor in "${all_monitors[@]}"; do
+		[[ -n "$monitor" ]] || continue
+		shots["$monitor"]="$(normalize_shot "$monitor" "$(capture_monitor "$monitor")")"
+	done
+
+	local top_w top_h bottom_w=0 bottom_h=0
+	read -r top_w top_h <<<"$(image_size "${shots[$top_monitor]}")"
+
+	local bottom_files=()
+	for monitor in "${bottom_monitors[@]}"; do
+		[[ -n "$monitor" ]] || continue
+		local file="${shots[$monitor]}"
+		local w h
+		read -r w h <<<"$(image_size "$file")"
+		bottom_files+=("$file")
+		bottom_w=$((bottom_w + w))
+		((h > bottom_h)) && bottom_h=$h
+	done
+
+	local canvas_w=$bottom_w
+	local canvas_h=$((top_h + bottom_h))
+	local top_x=$(((canvas_w - top_w) / 2))
+
+	local merge_cmd=( magick )
+	merge_cmd+=( "(" "${shots[$top_monitor]}" -repage "${canvas_w}x${canvas_h}+${top_x}+0" ")" )
+
+	local x=0 y=$top_h file w
+	for file in "${bottom_files[@]}"; do
+		merge_cmd+=( "(" "$file" -repage "${canvas_w}x${canvas_h}+${x}+${y}" ")" )
+		read -r w _ <<<"$(image_size "$file")"
+		x=$((x + w))
+	done
+
+	merge_cmd+=( -background black -layers merge "$out" )
+	"${merge_cmd[@]}"
+
+	notify_saved "$out"
+	printf '%s\n' "$out"
+}
+
+cmd_region() {
+	local rc=0
+	capture_region "$DEFAULT_SHOT" || rc=$?
+	[[ "$rc" -eq 2 ]] && exit 0
+	[[ "$rc" -ne 0 ]] && exit "$rc"
+
+	cleanup_gdk_temps
+	notify_saved "$DEFAULT_SHOT"
+	printf '%s\n' "$DEFAULT_SHOT"
+}
+
+cmd_edit() {
+	local shot="$DEFAULT_SHOT"
+	local capture=""
+
+	while [[ $# -gt 0 ]]; do
+		case "$1" in
+		--capture)
+			capture="${2:-region}"
+			shift 2
+			;;
+		-*)
+			echo "evo-screenshot edit: unknown option: $1" >&2
+			exit 2
+			;;
+		*)
+			shot="$1"
+			shift
+			;;
+		esac
+	done
+
+		if [[ -n "$capture" ]]; then
+		case "$capture" in
+		region)
+			local rc=0
+			capture_region "$DEFAULT_SHOT" || rc=$?
+			[[ "$rc" -eq 2 ]] && exit 0
+			[[ "$rc" -ne 0 ]] && exit "$rc"
+			shot="$DEFAULT_SHOT"
+			;;
+		output | monitor)
+			hyprshot -m output -m active -o /tmp -f hyprshot.png -s
+			shot="$DEFAULT_SHOT"
+			;;
+		stacked)
+			cmd_stacked -o "$DEFAULT_SHOT" -s
+			shot="$DEFAULT_SHOT"
+			;;
+		*)
+			echo "evo-screenshot edit: unknown capture mode: $capture" >&2
+			exit 2
+			;;
+		esac
+		cleanup_gdk_temps
+	fi
+
+	shot="${shot#file://}"
+
+	if [[ ! -f "$shot" ]]; then
+		notify-send -a evoshell "No capture — press Print first" 2>/dev/null || true
+		exit 1
+	fi
+
+	cleanup() {
+		cleanup_gdk_temps
+	}
+	trap cleanup EXIT
+
+	local win_w win_h
+	read -r win_w win_h <<<"$(hyprctl monitors -j | jq -r '
+		((.[] | select(.focused)) // .[0]) | "\(.width) \(.height)"
+	')"
+
+	mkdir -p "$OUT_DIR"
+	satty -f "$shot" \
+		--app-id org.satty.satty \
+		--floating-hack \
+		--resize "${win_w}x${win_h}" \
+		-o "$OUT_DIR/satty-%Y%m%d-%H%M%S.png"
+}
+
+case "${1:-}" in
+stacked)
+	shift
+	cmd_stacked "$@"
+	;;
+region)
+	shift
+	cmd_region "$@"
+	;;
+edit)
+	shift
+	cmd_edit "$@"
+	;;
+-h | --help | help | "")
+	usage
+	[[ -n "${1:-}" ]] || exit 0
+	exit 0
+	;;
+*)
+	echo "evo-screenshot: unknown command: $1" >&2
+	usage >&2
+	exit 2
+	;;
+esac

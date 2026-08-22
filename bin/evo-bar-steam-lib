@@ -1,0 +1,252 @@
+#!/usr/bin/env bash
+# Steam popup data helpers for evo-bar-steam (bash + jq, no python).
+
+steam_read_kv_file() {
+    local path="$1"
+    [[ -f "$path" ]] || return 1
+    awk '
+    match($0, /^[[:space:]]*"([^"]+)"[[:space:]]+"([^"]*)"[[:space:]]*$/, m) {
+        gsub(/\\"/, "\"", m[2])
+        printf "%s\t%s\n", m[1], m[2]
+    }' "$path"
+}
+
+steam_int_field() {
+    local data="$1" key="$2"
+    local val
+    val="$(printf '%s\n' "$data" | awk -F'\t' -v k="$key" '$1 == k { print $2; exit }')"
+    [[ "$val" =~ ^[0-9]+$ ]] && printf '%s' "$val" || printf '0'
+}
+
+steam_find_localconfig() {
+    local steam_dir="$1"
+    local best="" best_mtime=0 path mtime
+    shopt -s nullglob
+    for path in "$steam_dir"/userdata/*/config/localconfig.vdf; do
+        [[ -f "$path" ]] || continue
+        mtime="$(stat -c '%Y' "$path" 2>/dev/null || echo 0)"
+        if (( mtime >= best_mtime )); then
+            best="$path"
+            best_mtime="$mtime"
+        fi
+    done
+    shopt -u nullglob
+    printf '%s' "$best"
+}
+
+steam_parse_played_apps() {
+    local path="$1"
+    [[ -f "$path" ]] || return 0
+    awk '
+    BEGIN { in_apps=0; depth=0; app="" }
+    !in_apps {
+        if ($0 ~ /"apps"[[:space:]]*$/) in_apps=1
+        next
+    }
+    {
+        depth += gsub(/{/, "{")
+        depth -= gsub(/}/, "}")
+        if (depth <= 0) exit
+        if (depth == 1 && match($0, /^[[:space:]]*"([0-9]+)"[[:space:]]*$/, m)) {
+            app = m[1]
+            last[app] = last[app] + 0
+            play[app] = play[app] + 0
+            next
+        }
+        if (depth >= 2 && app != "") {
+            if (match($0, /"LastPlayed"[[:space:]]+"([0-9]+)"/, m)) last[app] = m[1]
+            if (match($0, /"Playtime"[[:space:]]+"([0-9]+)"/, m)) play[app] = m[1]
+        }
+    }
+    END {
+        for (a in last) {
+            if (last[a] == "" && play[a] == "") continue
+            printf "%s\t%s\t%s\n", a, (last[a] == "" ? "0" : last[a]), (play[a] == "" ? "0" : play[a])
+        }
+    }' "$path"
+}
+
+steam_parse_all_apps() {
+    local path="$1"
+    [[ -f "$path" ]] || return 0
+    awk '
+    BEGIN { in_apps=0; depth=0 }
+    !in_apps {
+        if ($0 ~ /"apps"[[:space:]]*$/) in_apps=1
+        next
+    }
+    {
+        depth += gsub(/{/, "{")
+        depth -= gsub(/}/, "}")
+        if (depth <= 0) exit
+        if (depth == 1 && match($0, /^[[:space:]]*"([0-9]+)"[[:space:]]*$/, m)) print m[1]
+    }' "$path"
+}
+
+steam_parse_private_apps() {
+    local path="$1"
+    [[ -f "$path" ]] || return 0
+    local uid
+    uid="$(sed -n 's|.*/userdata/\([0-9]*\)/.*|\1|p' <<<"$path" | head -1)"
+    [[ -n "$uid" ]] || return 0
+    awk -v key="PrivateApps_${uid}" '
+    index($0, key) {
+        if (match($0, /"PrivateApps_[0-9]+"[[:space:]]+"([^"]+)"/, m)) {
+            print m[1]
+            exit
+        }
+    }' "$path" | jq -r '.[]? // empty' 2>/dev/null || true
+}
+
+steam_library_paths() {
+    local steam_dir="$1"
+    local -a paths=()
+    local seen="|"
+    local steamapps vdf line p lib norm
+    steamapps="$steam_dir/steamapps"
+    if [[ -d "$steamapps" ]]; then
+        paths+=("$steamapps")
+        seen="${seen}$(readlink -f "$steamapps" 2>/dev/null || realpath "$steamapps")|"
+    fi
+    vdf="$steamapps/libraryfolders.vdf"
+    if [[ -f "$vdf" ]]; then
+        while IFS= read -r line; do
+            if [[ "$line" =~ \"path\"[[:space:]]+\"([^\"]+)\" ]]; then
+                p="${BASH_REMATCH[1]}"
+                p="${p//\\\\/\\}"
+                lib="$(readlink -f "${p}/steamapps" 2>/dev/null || realpath "${p}/steamapps" 2>/dev/null || true)"
+                [[ -n "$lib" && -d "$lib" ]] || continue
+                norm="$lib"
+                if [[ "$seen" != *"|${norm}|"* ]]; then
+                    paths+=("${p}/steamapps")
+                    seen="${seen}${norm}|"
+                fi
+            fi
+        done <"$vdf"
+    fi
+    printf '%s\n' "${paths[@]}"
+}
+
+steam_icon_path_for_app() {
+    local steam_dir="$1" appid="$2"
+    local icon_dir="$steam_dir/appcache/librarycache/$appid"
+    [[ -d "$icon_dir" ]] || return 0
+    local name path
+    for name in library_600x900.jpg library_capsule.jpg; do
+        while IFS= read -r path; do
+            [[ -f "$path" ]] || continue
+            printf '%s' "$path"
+            return 0
+        done < <(find "$icon_dir" -type f -iname "$name" 2>/dev/null | LC_ALL=C sort | head -1)
+    done
+}
+
+steam_running_process() {
+    pgrep -af "$1" >/dev/null 2>&1
+}
+
+steam_popup_json() {
+    local steam_dir="$1" steam_bin="$2"
+    local ok=true error="" running=false download_bps=0
+    local installed_count=0 library_total=0 total_playtime_min=0
+    local localconfig private_apps played played_lines names running_games played_games
+    local -A app_names seen_installed private_map
+    local -a running_games=() played_games=()
+
+    if [[ ! -d "$steam_dir" ]]; then
+        jq -n '{ok:false,error:"Steam directory not found",running:false,download_bps:0,installed_count:0,library_total:0,library_count:0,played_games:[],running_games:[],total_playtime_min:0}'
+        return 0
+    fi
+
+    localconfig="$(steam_find_localconfig "$steam_dir")"
+    if [[ -n "$localconfig" ]]; then
+        while IFS= read -r appid; do
+            [[ -n "$appid" ]] && private_map["$appid"]=1
+        done < <(steam_parse_private_apps "$localconfig")
+        library_total="$(steam_parse_all_apps "$localconfig" | wc -l | tr -d ' ')"
+        played_lines="$(steam_parse_played_apps "$localconfig")"
+    fi
+
+    local lib path data appid flags name last_played playtime icon
+    while IFS= read -r lib; do
+        [[ -n "$lib" ]] || continue
+        shopt -s nullglob
+        for path in "$lib"/appmanifest_*.acf; do
+            [[ -f "$path" ]] || continue
+            data="$(steam_read_kv_file "$path")"
+            appid="$(printf '%s\n' "$data" | awk -F'\t' '$1 == "appid" { print $2; exit }')"
+            [[ -n "$appid" ]] || continue
+            [[ -n "${seen_installed[$appid]:-}" ]] && continue
+            seen_installed["$appid"]=1
+            installed_count=$((installed_count + 1))
+            name="$(printf '%s\n' "$data" | awk -F'\t' '$1 == "name" { print $2; exit }')"
+            [[ -n "$name" ]] || name="App ${appid}"
+            app_names["$appid"]="$name"
+            flags="$(steam_int_field "$data" "StateFlags")"
+            if (( (flags & 32) != 0 )) && [[ -z "${private_map[$appid]:-}" ]]; then
+                running_games+=("$(
+                    jq -nc --arg appid "$appid" --arg name "$name" '{appid:$appid,name:$name}'
+                )")
+            fi
+        done
+        shopt -u nullglob
+    done < <(steam_library_paths "$steam_dir")
+
+    if [[ -n "$played_lines" ]]; then
+        while IFS=$'\t' read -r appid last_played playtime; do
+            [[ -n "$appid" ]] || continue
+            [[ -n "${private_map[$appid]:-}" ]] && continue
+            name="${app_names[$appid]:-}"
+            [[ -n "$name" ]] || continue
+            (( last_played > 0 )) || continue
+            icon="$(steam_icon_path_for_app "$steam_dir" "$appid")"
+            played_games+=("$(
+                jq -nc \
+                    --arg appid "$appid" \
+                    --arg name "$name" \
+                    --argjson last_played "$last_played" \
+                    --argjson playtime_min "$playtime" \
+                    --arg icon_path "$icon" \
+                    '{appid:$appid,name:$name,last_played:$last_played,playtime_min:$playtime_min,icon_path:$icon_path}'
+            )")
+            total_playtime_min=$((total_playtime_min + playtime))
+        done <<<"$played_lines"
+    fi
+
+    local log_path="$steam_dir/logs/content_log.txt"
+    if [[ -f "$log_path" ]]; then
+        download_bps="$(tail -400 "$log_path" | sed -nE 's/.*Current download rate:[[:space:]]*([0-9.]+)[[:space:]]*Mbps.*/\1/p' | tail -1)"
+        if [[ -n "$download_bps" ]]; then
+            download_bps="$(awk -v m="$download_bps" 'BEGIN{printf "%d", m * 125000}')"
+        else
+            download_bps=0
+        fi
+    fi
+
+    steam_running_process 'steam.*-srt-logger-opened|/Steam/ubuntu12_32/steam' && running=true
+
+    local played_json running_json
+    if ((${#played_games[@]} > 0)); then
+        played_json="$(printf '%s\n' "${played_games[@]}" | jq -s 'sort_by(-.last_played) | .[0:3]')"
+    else
+        played_json='[]'
+    fi
+    if ((${#running_games[@]} > 0)); then
+        running_json="$(printf '%s\n' "${running_games[@]}" | jq -s '.')"
+    else
+        running_json='[]'
+    fi
+
+    jq -n \
+        --argjson ok true \
+        --arg error "" \
+        --argjson running "$running" \
+        --argjson download_bps "$download_bps" \
+        --argjson installed_count "$installed_count" \
+        --argjson library_total "$library_total" \
+        --argjson library_count "$installed_count" \
+        --argjson played_games "$played_json" \
+        --argjson running_games "$running_json" \
+        --argjson total_playtime_min "$total_playtime_min" \
+        '{ok:$ok,error:$error,running:$running,download_bps:$download_bps,installed_count:$installed_count,library_total:$library_total,library_count:$library_count,played_games:$played_games,running_games:$running_games,total_playtime_min:$total_playtime_min}'
+}

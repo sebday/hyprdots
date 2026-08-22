@@ -1,0 +1,13 @@
+.AppHeader {
+    --AppHeader-bg: var(--bg-primary);
+}
+
+@media (prefers-color-scheme: dark) {
+    [data-color-mode][data-color-mode="auto"][data-dark-theme="dark"],
+    [data-color-mode][data-color-mode="auto"][data-dark-theme="dark"] ::backdrop {
+        --bgColor-default: var(--bg-primary);
+        --selection-bgColor: var(--bg-primary);
+        --bgColor-inset: var(--bg-primary);
+        --bgColor-muted: var(--bg-secondary);
+    }
+}
