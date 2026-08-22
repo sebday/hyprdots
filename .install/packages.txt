@@ -20,11 +20,14 @@ noto-fonts
 noto-fonts-emoji
 ttf-cascadia-mono-nerd
 vimix-cursors
+papirus-icon-theme
 
 # Tools ######################
 ghostty
 satty
 git
+pass
+libnotify
 eza
 fzf
 bat

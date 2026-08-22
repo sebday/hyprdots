@@ -8,7 +8,7 @@ hl.window_rule({
 
 hl.window_rule({
 	name = "tag-floating-window-title-signin",
-	match = { title = "^(.*Sign in.*|Untitled.*)" },
+	match = { title = "^(.*Sign in.*)" },
 	tag = "+floating-window",
 })
 
@@ -103,8 +103,74 @@ hl.window_rule({
 	opacity = "1 override 1 override",
 })
 
+local function window_size(win)
+	if not win then
+		return 0, 0
+	end
+	local w = win.width or (win.size and win.size.w) or 0
+	local h = win.height or (win.size and win.size.h) or 0
+	return w, h
+end
+
+local function is_preserved_tui(win)
+	local class = win and win.class or ""
+	local title = win and win.title or ""
+	if class:match("^TUI%.") then
+		return true
+	end
+	if class == "com.mitchellh.ghostty" and title:match("^btop") then
+		return true
+	end
+	return false
+end
+
+local function is_brave_window(win)
+	if not win or not win.class then
+		return false
+	end
+	local class = win.class
+	return class == "brave-browser" or class:match("^brave%-.-__") ~= nil
+end
+
+local function is_brave_notification_popup(win)
+	if is_preserved_tui(win) or not is_brave_window(win) then
+		return false
+	end
+	local class = win.class
+	local w, h = window_size(win)
+	if w <= 0 or h <= 0 then
+		return false
+	end
+
+	if class == "brave-browser" and w <= 900 and h <= 500 then
+		return true
+	end
+
+	if class:match("^brave%-.-__") and w <= 700 and h <= 500 then
+		return true
+	end
+
+	return false
+end
+
+local function close_brave_notification_popup(win)
+	if is_preserved_tui(win) or not is_brave_notification_popup(win) then
+		return
+	end
+	hl.timer(function()
+		hl.dispatch(hl.dsp.window.close({ window = win }))
+	end, { timeout = 1, type = "oneshot" })
+end
+
 local function brave_app_to_floating(win)
-	if not win or not win.class or not win.class:match("^brave%-.-__") then
+	if is_preserved_tui(win) then
+		return
+	end
+	if is_brave_notification_popup(win) then
+		close_brave_notification_popup(win)
+		return
+	end
+	if not is_brave_window(win) or not win.class:match("^brave%-.-__") then
 		return
 	end
 	hl.timer(function()

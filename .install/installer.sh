@@ -24,7 +24,19 @@ clone_dotfiles() {
     git clone https://github.com/sebday/hyprdots.git "$temp_clone_dir"
     rsync -av "$temp_clone_dir/" "$HOME/"
     rm -rf "$temp_clone_dir"
-    (cd "$HOME" && git submodule update --init --recursive)
+}
+
+clone_companion_repo() {
+    local name="$1"
+    local url="$2"
+    local dest="${3:-${HOME}/projects/${name}}"
+    if [[ -d "${dest}/.git" ]]; then
+        log "${name} already present at ${dest}"
+        return 0
+    fi
+    log "Cloning ${name} into ${dest}..."
+    mkdir -p "$(dirname "$dest")"
+    git clone "$url" "$dest"
 }
 
 # Install yay, an AUR helper.
@@ -135,20 +147,14 @@ install_hypr_bin() {
 link_evoshell() {
     log "Linking evoshell..."
     local evoshell_root="${EVOSHELL_ROOT:-${HOME}/projects/evoshell}"
-    if [[ ! -f "${evoshell_root}/scripts/install" ]]; then
-        log "WARNING: evoshell repo missing at ${evoshell_root}; clone it before using the shell" >&2
-        return 0
-    fi
+    clone_companion_repo evoshell https://github.com/sebday/evoshell.git "$evoshell_root"
     bash "${evoshell_root}/scripts/install"
 }
 
 link_evoplayer() {
     log "Linking evoplayer into evoshell..."
     local evoplayer_root="${EVOPLAYER_ROOT:-${HOME}/projects/evoplayer}"
-    if [[ ! -f "${evoplayer_root}/scripts/install" ]]; then
-        log "WARNING: evoplayer repo missing at ${evoplayer_root}; clone it before using the player" >&2
-        return 0
-    fi
+    clone_companion_repo evoplayer https://github.com/sebday/evoplayer.git "$evoplayer_root"
     bash "${evoplayer_root}/scripts/install"
 }
 

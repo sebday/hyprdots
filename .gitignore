@@ -15,12 +15,14 @@
 !.config/hypr/
 !.config/hypr/**
 .config/hypr/bin/
+.config/hypr/theme.lua
 !.config/imv/
 !.config/imv/**
 !.config/mise/
 !.config/mise/**
 !.config/nvim/
 !.config/nvim/**
+.config/nvim/lua/theme-icons.lua
 !.config/evoshell/
 !.config/evoshell/plugins/
 !.config/evoshell/plugins/**

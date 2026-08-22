@@ -1,4 +1,4 @@
 [binds]
-<Return> = exec sh -c '~/.local/bin/evo-ipc evo.wallpaper set "$imv_current_file"'; quit
+<Return> = exec sh -c '~/.local/bin/evo ipc evo.sys.wallpaper set "$imv_current_file"'; quit
 # Delete and then close an open image by pressing 'del'
 <Delete> = exec rm "$imv_current_file"; close

@@ -47,7 +47,7 @@ Configured in `lua/plugins/finder.lua` (snacks.nvim).
 
 ## Cursor
 
-Say **"open in nvim"** to push files via `~/.local/bin/evo-nvim-open`. See `skills/nvim-open/SKILL.md`.
+Say **"open in nvim"** to push files via `evo nvim-open`. See `skills/nvim-open/SKILL.md`.
 
 ## When editing
 

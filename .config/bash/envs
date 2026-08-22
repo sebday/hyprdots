@@ -9,3 +9,11 @@ fi
 
 # Add local bin to PATH
 export PATH="$HOME/.local/bin:$PATH"
+
+# Personal evoshell topology and cleanup (hyprdots overrides)
+export EVO_CLEANUP_TRASH=1
+export EVO_CLEANUP_SECURE_MOUNT=/mnt/secure
+export EVO_SCREENSHOT_TOP=HDMI-A-1
+export EVO_SCREENSHOT_BOTTOM="HDMI-A-2 DP-1 DP-2"
+export EVO_SCREENSHOT_OUT_DIR="$HOME/onedrive/pictures/Screenshots"
+export OBSIDIAN_VAULT_DIR="$HOME/onedrive/notes"
