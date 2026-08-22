@@ -80,9 +80,13 @@ Item {
   // under Workers or Pages.
   readonly property int overviewDeployRows: intSetting("overviewDeployRows", 3, 1, 10)
   readonly property int errorRatePercent: intSetting("errorRatePercent", 1, 1, 100)
-  readonly property string projectsRoot: {
-    var configured = String(setting("projectsRoot", "") || "").trim()
-    return configured !== "" ? configured : Quickshell.env("HOME") + "/Projects"
+  readonly property string projectsRootOverride: String(setting("projectsRoot", "") || "").trim()
+  readonly property var projectScanRoots: {
+    if (projectsRootOverride !== "")
+      return [projectsRootOverride]
+    var home = Quickshell.env("HOME") || ""
+    var evoshellRoot = Quickshell.env("EVOSHELL_ROOT") || ""
+    return Api.defaultLinuxProjectRoots(home, evoshellRoot)
   }
   // Zero means "no allowance configured", which renders the figure without a
   // percentage. Free-tier numbers were the original defaults and they lied on
@@ -503,7 +507,12 @@ Item {
 
   function scanProjects() {
     if (projectScan.running) return
-    projectScan.command = ["bash", "-c", Api.projectScanScript, root.projectsRoot]
+    var roots = root.projectScanRoots
+    if (!roots || roots.length === 0) return
+    var cmd = ["bash", "-c", Api.projectScanScript, "_"]
+    for (var i = 0; i < roots.length; i++)
+      cmd.push(String(roots[i]))
+    projectScan.command = cmd
     projectScan.running = true
   }
 

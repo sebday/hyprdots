@@ -172,16 +172,45 @@ function tokenShortcuts() {
 
 // ---------------------------------------------------------------- scanning
 
-// Emits `name<TAB>directory` for every wrangler config under $0. Run through
-// `bash -c script "$root"` with the root as a positional argument — never
+// Linux dev dirs scanned when projectsRoot is unset. Wrangler has no global
+// project registry — only auth/logs live under ~/.config/.wrangler/.
+function defaultLinuxProjectRoots(home, evoshellRoot) {
+  home = String(home || "").trim()
+  evoshellRoot = String(evoshellRoot || "").trim()
+  var roots = []
+  var seen = {}
+  function add(path) {
+    path = String(path || "").replace(/\/+$/, "")
+    if (!path || seen[path])
+      return
+    seen[path] = true
+    roots.push(path)
+  }
+  if (home) {
+    add(home + "/projects")
+    add(home + "/src")
+    add(home + "/dev")
+    add(home + "/code")
+  }
+  if (evoshellRoot) {
+    var slash = evoshellRoot.lastIndexOf("/")
+    if (slash > 0)
+      add(evoshellRoot.slice(0, slash))
+  }
+  return roots
+}
+
+// Emits `name<TAB>directory` for every wrangler config under each root in "$@".
+// Run through `bash -c script _ root1 root2 …` — roots are positional args, never
 // interpolated into the script text.
 var projectScanScript =
-  'root="$0"\n' +
-  '[ -d "$root" ] || exit 0\n' +
-  'find "$root" -maxdepth 3 -type f \\( -name wrangler.toml -o -name wrangler.jsonc -o -name wrangler.json \\) \\\n' +
-  '  -not -path "*/node_modules/*" -not -path "*/.git/*" 2>/dev/null | while IFS= read -r f; do\n' +
-  '  n=$(sed -n \'s/^[[:space:]]*"\\?name"\\?[[:space:]]*[:=][[:space:]]*"\\([^"]*\\)".*/\\1/p\' "$f" | head -1)\n' +
-  '  [ -n "$n" ] && printf "%s\\t%s\\n" "$n" "$(dirname "$f")"\n' +
+  'for root in "$@"; do\n' +
+  '  [ -d "$root" ] || continue\n' +
+  '  find "$root" -maxdepth 4 -type f \\( -name wrangler.toml -o -name wrangler.jsonc -o -name wrangler.json \\) \\\n' +
+  '    -not -path "*/node_modules/*" -not -path "*/.git/*" 2>/dev/null | while IFS= read -r f; do\n' +
+  '    n=$(sed -n \'s/^[[:space:]]*"\\?name"\\?[[:space:]]*[:=][[:space:]]*"\\([^"]*\\)".*/\\1/p\' "$f" | head -1)\n' +
+  '    [ -n "$n" ] && printf "%s\\t%s\\n" "$n" "$(dirname "$f")"\n' +
+  '  done\n' +
   'done\n'
 
 function parseProjectScan(text) {

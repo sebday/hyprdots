@@ -23,7 +23,7 @@ EVOSHELL_PASS_PREFIX="${EVOSHELL_PASS_PREFIX:-evoshell}"
 
 Hyprland integration: `hypr/` module loaded via `package.path` (see [`hypr/README.md`](hypr/README.md)). Set `EVOSHELL_ROOT` if the repo is not at `~/projects/evoshell`.
 
-Secrets: `pass` entries under `evoshell/` (e.g. `pass show evoshell/github/token`, `pass show evoshell/cloudflare/token`). Initialize with `pass init <gpg-id>` and insert entries manually. Cloudflare panel API calls require `pass insert evoshell/cloudflare/token`; deploy/tail still run `wrangler` in a terminal with wrangler's own project credentials.
+Secrets: `pass` entries under `evoshell/` (e.g. `pass show evoshell/github/token`, `pass show evoshell/cloudflare/token`). Initialize with `pass init <gpg-id>` and insert entries manually. Cloudflare panel API calls require `pass insert evoshell/cloudflare/token`; deploy/tail still run `wrangler` in a terminal with wrangler's own project credentials. Local deploy/rollback discovers Wrangler projects by scanning `~/projects`, `~/src`, `~/dev`, and `~/code` (plus the parent of `EVOSHELL_ROOT` when set); override with `evo-config tray set-field cloudflare projectsRoot /path`.
 
 Effective layout config is deep-merged at runtime: built-in defaults → `$EVOSHELL_ROOT/config/shell.json` → `$EVOSHELL_CONFIG/overrides.json`. `evo-layout` and `evo-config` mutate overrides only; see `config/overrides.example.json`.
 
