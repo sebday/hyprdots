@@ -205,9 +205,14 @@ cmd_start() {
     }
 
     run_shell() {
+        discover_wayland_display || true
         # shellcheck source=/dev/null
         source "${BIN}/evo-theme-lib" 2>/dev/null || true
-        systemd-cat -t evoshell -- env QS_NO_RELOAD_POPUP=1 QS_ICON_THEME="${EVO_ICON_THEME:-evo-current}" quickshell -n -p "$EVOSHELL_ROOT" &
+        systemd-cat -t evoshell -- env \
+            QS_NO_RELOAD_POPUP=1 \
+            QS_ICON_THEME="${EVO_ICON_THEME:-evo-current}" \
+            QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-wayland}" \
+            quickshell -n -p "$EVOSHELL_ROOT" &
         shell_pid=$!
         printf '%s\n' "$shell_pid" >"$SHELL_PID_FILE"
 
@@ -232,6 +237,40 @@ cmd_start() {
         return 1
     }
 
+    discover_wayland_display() {
+        if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
+            return 0
+        fi
+
+        local runtime="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+        local sock
+        for sock in "$runtime"/wayland-*; do
+            [[ -S "$sock" ]] || continue
+            WAYLAND_DISPLAY="${sock##*/}"
+            export WAYLAND_DISPLAY
+            return 0
+        done
+
+        return 1
+    }
+
+    wait_for_compositor() {
+        local attempt
+
+        for attempt in $(seq 1 120); do
+            (( terminating )) && return 1
+            [[ -f "$STOPPING_FILE" ]] && return 1
+
+            discover_wayland_display || true
+            compositor_alive && return 0
+
+            sleep 0.5
+        done
+
+        echo "evo system: compositor not ready after 60s" >&2
+        return 1
+    }
+
     stop() {
         terminating=1
         if [[ -n "${shell_pid:-}" ]]; then
@@ -242,6 +281,8 @@ cmd_start() {
         return 0
     }
     trap stop HUP INT TERM EXIT
+
+    wait_for_compositor || exit 1
 
     while true; do
         (( terminating )) && exit 0
