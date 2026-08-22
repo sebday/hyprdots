@@ -154,6 +154,7 @@ Evoshell overlays close with **Esc** (system menu and media library step back or
 | Super+L | Lock (`evo system lock`) |
 | Super+R | Restart shell (`evo system restart`) |
 | Super+Tab | Cycle workspace |
+| Super+Alt+K | Toggle workspace float mode (per-workspace) |
 | Print | Screenshot region (`evo-screenshot region`) |
 | Super+Print | Annotate screenshot (`evo-screenshot edit`) |
 | Alt+Print | Screenshot all monitors (`evo-screenshot stacked`) |

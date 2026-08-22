@@ -10,4 +10,5 @@ if user_bindings_file then
 end
 require("hypr.autostart")
 require("hypr.windows")
+require("hypr.float-workspace")
 require("hypr.looks")
