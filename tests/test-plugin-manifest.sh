@@ -49,7 +49,7 @@ done < <(rg -o 'servicePath: "[^"]+"' "$manifest" | sed 's/servicePath: "//;s/"$
 [[ -f "${root}/config/plugins/manifest.example.json" ]] || { echo "missing plugin overlay example" >&2; fail=1; }
 
 if [[ "$skip_evoplayer" != "1" ]]; then
-  [[ -f "${root}/evoplayer/Player.qml" ]] || { echo "missing Evoplayer Player.qml" >&2; fail=1; }
+  [[ -f "${root}/vendor/evoplayer/qml/panel/Player.qml" ]] || { echo "missing Evoplayer Player.qml" >&2; fail=1; }
 fi
 
 exit "$fail"

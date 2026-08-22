@@ -212,6 +212,8 @@ Singleton {
         var lower = name.toLowerCase()
         if (lower === "cursor" || lower === "co.anysphere.cursor")
             return ["co.anysphere.cursor", "cursor", "Cursor"]
+        if (lower === "evo.panels.player" || lower === "evoplayer")
+            return ["audio-player", "multimedia-player", "spotify"]
         var names = [name]
         if (name !== lower)
             names.push(lower)
@@ -221,6 +223,9 @@ Singleton {
     function papirusAppIconSource(iconName) {
         var name = String(iconName || "").trim()
         if (!name || name.indexOf("/") !== -1 || name.indexOf(" ") !== -1)
+            return ""
+        // Plugin ids (evo.panels.*) are not papirus filenames.
+        if (name.indexOf(".") !== -1)
             return ""
         return fileUrl("/usr/share/icons/Papirus-Dark/64x64/apps/" + name + ".svg")
     }

@@ -142,6 +142,8 @@ Item {
         var art = item && item.art ? String(item.art) : ""
         if (!art)
             return ""
+        if (art.indexOf("evo.panels.player") !== -1)
+            return Util.iconSourceForName("evo.panels.player")
         if (art.indexOf("data:image/") === 0)
             return art
         if (art.indexOf("/") !== -1 || art.indexOf("://") !== -1)

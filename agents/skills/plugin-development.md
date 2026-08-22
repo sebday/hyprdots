@@ -164,7 +164,7 @@ Call via `evo ipc evo.bar.example doThing "arg"`.
 
 ## Dashboard plugins
 
-Dashboards use `FloatingWindow` with `open()`, `close()`, `toggle()`, and `opened` (see `evoplayer/Player.qml`). The window title should match the plugin id.
+Dashboards use `FloatingWindow` with `open()`, `close()`, `toggle()`, and `opened` (see `vendor/evoplayer/qml/panel/Player.qml`). The window title should match the plugin id.
 
 `shell.qml` calls `open()` after lazy load when `requestDashboardOpen()` is used.
 

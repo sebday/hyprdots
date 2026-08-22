@@ -144,11 +144,11 @@ var plugins = {
     },
     "evo.panels.player": {
         kinds: ["dashboard"],
-        path: "evoplayer/Player.qml"
+        path: "vendor/evoplayer/qml/panel/Player.qml"
     },
     "evo.panels.player.monitor": {
         kinds: ["service"],
-        path: "evoplayer/Service.qml",
+        path: "vendor/evoplayer/qml/panel/Service.qml",
         keepLoaded: true
     }
 }

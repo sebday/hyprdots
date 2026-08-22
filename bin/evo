@@ -25,8 +25,8 @@ _resolve_player() {
         printf '%s/evoplayer' "${EVOPLAYER_LIB%/}"
         return 0
     fi
-    if [[ -x "${EVOSHELL_BIN}/../evoplayer/evoplayer" ]]; then
-        printf '%s/../evoplayer/evoplayer' "${EVOSHELL_BIN%/}"
+    if [[ -x "${EVOSHELL_ROOT}/vendor/evoplayer/.build/evoplayer" ]]; then
+        printf '%s/vendor/evoplayer/.build/evoplayer' "${EVOSHELL_ROOT%/}"
         return 0
     fi
     return 1

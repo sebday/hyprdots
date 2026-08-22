@@ -108,8 +108,9 @@ done
 
 if [[ "$skip_evoplayer" != "1" ]]; then
   [[ -x "${evo_bin}/evoplayer" ]] || { echo "missing executable: evoplayer (${evo_bin}/evoplayer)" >&2; fail=1; }
-  player_lib="${HOME}/.local/lib/evoshell/player/evoplayer-lib"
+  player_lib="${HOME}/.local/lib/evoplayer/evoplayer-lib"
   [[ -x "${player_lib}" ]] || { echo "missing executable: evoplayer-lib (${player_lib})" >&2; fail=1; }
+  [[ -e "${root}/vendor/evoplayer/qml/panel/Player.qml" ]] || { echo "missing vendor/evoplayer link (${root}/vendor/evoplayer)" >&2; fail=1; }
 fi
 
 check_present 'evo-menu-list' "${root}/evosys/themes/CarouselOverlay.qml"
@@ -132,11 +133,11 @@ check_absent 'NotificationArtworkCard' "${root}/evosys/notifications/Service.qml
 check_present 'evo\.panels\.weather' "${root}/pluginManifest.js"
 check_present 'evo\.panels\.homeassistant' "${root}/pluginManifest.js"
 if [[ "$skip_evoplayer" != "1" ]]; then
-  check_present 'DashboardModule' "${root}/evoplayer/qmldir"
-  check_present 'FiletreePanel' "${root}/evoplayer/panels/qmldir"
-  check_present 'Controls' "${root}/evoplayer/panels/qmldir"
-  check_present 'toggleFiletreePanel' "${root}/evoplayer/DashboardModule.qml"
-  check_present 'statsPanelOpen' "${root}/evoplayer/DashboardModule.qml"
+  check_present 'DashboardModule' "${root}/vendor/evoplayer/qml/panel/qmldir"
+  check_present 'FiletreePanel' "${root}/vendor/evoplayer/qml/panel/panels/qmldir"
+  check_present 'Controls' "${root}/vendor/evoplayer/qml/panel/panels/qmldir"
+  check_present 'toggleFiletreePanel' "${root}/vendor/evoplayer/qml/panel/DashboardModule.qml"
+  check_present 'statsPanelOpen' "${root}/vendor/evoplayer/qml/panel/DashboardModule.qml"
 fi
 check_present 'evo\.panels\.player' "${root}/pluginManifest.js"
 check_present 'evo\.sys\.settings' "${root}/pluginManifest.js"

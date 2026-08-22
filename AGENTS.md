@@ -81,7 +81,7 @@ Panel UIs opened from bar icons (hover popups).
 
 ### Evoplayer (`evo.panels.player.*`)
 
-- `evoplayer/` — player dashboard (`evo.panels.player`) and monitor service (`evo.panels.player.monitor`)
+- `vendor/evoplayer/qml/panel/` — player dashboard (`evo.panels.player`) and monitor service (`evo.panels.player.monitor`)
 
 Dashboards load on demand via `Loader`s in `shell.qml` (built-in player + optional `$EVOSHELL_CONFIG/plugins/` overlays).
 
@@ -252,7 +252,7 @@ Use `type: imperative lowercase subject` — see [CONTRIB.md](CONTRIB.md) for co
 | Layer | Canonical |
 |-------|-----------|
 | Product / UI brand | **Evoplayer** |
-| Panel path | `evoplayer/` |
+| Panel path | `vendor/evoplayer/qml/panel/` |
 | Dashboard plugin ids | `evo.panels.player`, `evo.panels.player.monitor` |
 | CLI | `evoplayer` |
 | Repo | `~/projects/evoplayer` (symlink: `vendor/evoplayer`) |
