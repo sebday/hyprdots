@@ -194,16 +194,21 @@ Item {
         previewAreaMaxHeight - menuOuterTopInset - menuOuterInset - framedChromeHeight)
     readonly property int screenHeight: panel.height > 0 ? panel.height : 1080
     readonly property bool fixedFramedMenuHeight: powerMenuMode || runnerMenuMode
-    readonly property int framedMenuPanelHeight: Math.round(screenHeight * 0.4)
-    readonly property int framedMenuColumnHeight: framedMenuPanelHeight - menuOuterTopInset - menuOuterInset
+    readonly property int fixedMenuPanelHeight: Math.min(
+        Theme.systemMenuPanelHeight,
+        screenHeight - Theme.overlayMargin * 2)
+    readonly property int powerMenuPanelHeight: fixedMenuPanelHeight
+    readonly property int runnerPanelHeight: fixedMenuPanelHeight
+    readonly property int powerMenuColumnHeight: powerMenuPanelHeight - menuOuterTopInset - menuOuterInset
+    readonly property int runnerColumnHeight: runnerPanelHeight - menuOuterTopInset - menuOuterInset
     readonly property int powerMenuTabBarHeight: Theme.fontSizeS + 8
     readonly property int powerMenuViewportHeight: Math.max(
         160,
-        framedMenuColumnHeight - powerMenuTabBarHeight - framedColumnSpacing)
+        powerMenuColumnHeight - powerMenuTabBarHeight - framedColumnSpacing)
     readonly property int runnerFieldsetChromeHeight: menuFieldsetPad * 2 + menuLegendChrome + framedColumnSpacing
     readonly property int runnerViewportHeight: Math.max(
         160,
-        framedMenuColumnHeight - runnerFieldsetChromeHeight)
+        runnerColumnHeight - runnerFieldsetChromeHeight)
     readonly property int framedListHeight: {
         if (infoListMode) {
             var infoRows = Math.max(visibleEntries.length, 1)
@@ -1307,7 +1312,7 @@ Item {
                 : root.boxRowWidth
             height: root.framedMode
                 ? (root.fixedFramedMenuHeight
-                    ? root.framedMenuPanelHeight
+                    ? (root.powerMenuMode ? root.powerMenuPanelHeight : root.runnerPanelHeight)
                     : root.menuOuterTopInset + framedColumn.implicitHeight + root.menuOuterInset)
                 : root.boxRowHeight
             focus: root.opened && (root.previewTileMode || root.framedMode)

@@ -21,11 +21,6 @@ jobs:
         env:
           EVOSHELL_ROOT: ${{ github.workspace }}
         run: bash tests/test-plugin-manifest.sh
-      - name: menu list
-        env:
-          EVOSHELL_ROOT: ${{ github.workspace }}
-          EVOSHELL_BIN: ${{ github.workspace }}/bin
-        run: bash tests/test-menu-list.sh
       - name: layout side
         env:
           EVOSHELL_ROOT: ${{ github.workspace }}

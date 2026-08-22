@@ -145,7 +145,6 @@ Evoshell overlays close with **Esc** (system menu and media library step back or
 | Super+D | Program runner (`evo.sys.menu`, mode `runner`) |
 | Super+Return | Terminal |
 | Super+W | Close active window |
-| Super+B | Settings tab in system menu (`evo.sys.menu`, tab `settings`) |
 | Super+C | Calculator (`evo.side` → `calc`) |
 | Super+N | Tasks (`evo.side` → `calc`, focus `tasks`) |
 | Super+V | Clipboard (`evo.side.clipboard`) |
@@ -153,7 +152,7 @@ Evoshell overlays close with **Esc** (system menu and media library step back or
 | Super+Home | Wallpaper (`evo.sys.wallpaper`) |
 | Super+Alt+Home | Themes (`evo.sys.themes`) |
 | Super+L | Lock (`evo system lock`) |
-| Super+R | Restart shell (`evo system restart`) |
+| Super+F5 | Restart shell (`evo system restart`) |
 | Super+Tab | Cycle workspace |
 | Super+Alt+K | Toggle workspace float mode (per-workspace) |
 | Print | Screenshot region (`evo-screenshot region`) |
@@ -219,7 +218,7 @@ journalctl --user -t evoshell -f
 | `Theme.qml`, `pluginManifest.js`, new widget type, new dashboard loader | `evo system restart` |
 | `hypr/` module | Hypr reload; often shell restart too |
 
-`reloadConfig` IPC restarts the shell (same as Super+R), not an in-process config reload.
+`reloadConfig` IPC restarts the shell (same as Super+F5), not an in-process config reload.
 
 ## State and cache
 

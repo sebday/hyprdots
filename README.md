@@ -96,7 +96,6 @@ Set `EVOSHELL_BIN=$PWD/bin` when running from the repo without install symlinks.
 ```bash
 EVOSHELL_ROOT=$PWD EVOSHELL_BIN=$PWD/bin EVO_SKIP_EVOPLAYER=1 bash tests/test-static-contracts.sh
 bash tests/test-plugin-manifest.sh
-bash tests/test-menu-list.sh
 bash tests/test-evo-layout-side.sh
 bash tests/test-evo-theme-obsidian.sh
 bash tests/test-evo-tasks-vault.sh

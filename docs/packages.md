@@ -61,7 +61,6 @@ Configured in [`hypr/bindings.lua`](../hypr/bindings.lua). Change the launcher v
 |---------|---------|
 | `transmission-cli` | Transmission download panel |
 | `btop` | System panel theme files |
-| `cava` | Audio visualiser (Evoplayer panel) |
 | `steam` | Steam library panel |
 | `insync` (AUR) | Insync sync status panel |
 | `mpv` | Film/TV playback (`evo-bar-library`) |

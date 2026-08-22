@@ -66,7 +66,7 @@ A feature often spans multiple roots: QML in `$EVOSHELL_ROOT`, layout in `config
 | `Theme.qml`, `pluginManifest.js`, new bar widget type, new dashboard loader in `shell.qml` | `evo system restart` |
 | `hypr/*.lua` in evoshell repo | `hyprctl reload` |
 
-`reloadConfig` IPC restarts the shell (same as Super+R), not an in-process config reload.
+`reloadConfig` IPC restarts the shell (same as Super+F5), not an in-process config reload.
 
 `shell.json` parse failures fall back to the last good config in `shell.qml`; invalid JSON does not crash the shell.
 
