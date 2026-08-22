@@ -5,23 +5,54 @@ Agents welcome :)
 ## Commit messages
 
 ```
-type(scope): imperative lowercase subject
+type: imperative lowercase subject
 ```
 
 | Part | Rule |
 |------|------|
 | type | `fix`, `feat`, `chore`, `docs`, `refactor`, or `test` |
-| scope | `wallpaper`, `menu`, `settings`, `bar`, `themes`, `config`, `hypr`, `install`, `test`, `docs` |
 | subject | imperative, lowercase, no trailing period |
 
 ### Examples
 
 ```
-fix(wallpaper): carousel cli paths use EVOSHELL_BIN
-feat(wallpaper): personal directory in settings and config
-fix(menu): system menu fieldsets use notch legend
-chore(themes): add catppuccin wallpaper pack
-docs(contrib): document commit message convention
+fix: carousel cli paths use EVOSHELL_BIN
+feat: personal directory in settings and config
+fix: system menu fieldsets use notch legend
+chore: add catppuccin wallpaper pack
+docs: commit message convention
 ```
 
 Add a body only when the reason or breaking change is not obvious.
+
+## Branching
+
+Default branch: `master`. All pull requests target `master`.
+
+Topic branches use GitHub Flow — one focused change per branch, deleted after merge.
+
+```
+<type>/<subject>
+```
+
+| Part | Rule |
+|------|------|
+| type | same as commits: `fix`, `feat`, `chore`, `docs`, `refactor`, or `test` |
+| subject | lowercase kebab-case |
+
+### Examples
+
+```
+feat/personal-directory
+fix/menu-fieldset-notch
+feat/bar-tray-widget-toggle
+chore/ci-static-contracts
+docs/commit-message-convention
+```
+
+### Workflow
+
+- Branch from `master`
+- Keep one concern per branch
+- First commit on the branch should match `type: subject`
+- Delete the topic branch after merge

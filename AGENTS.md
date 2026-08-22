@@ -243,9 +243,9 @@ journalctl --user -t evoshell -f
 - Do not commit pass secrets or machine-specific monitor names in tracked hyprdots config by mistake
 - Visual changes are not done until [`agents/skills/visual-verification.md`](agents/skills/visual-verification.md) passes
 
-## Commit messages
+## Commit messages and branching
 
-Use `type(scope): imperative lowercase subject` — see [CONTRIB.md](CONTRIB.md).
+Use `type: imperative lowercase subject` — see [CONTRIB.md](CONTRIB.md) for commit format and branch naming (`master` + `<type>/<subject>` topic branches).
 
 ## Evoplayer naming
 

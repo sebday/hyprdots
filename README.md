@@ -105,4 +105,4 @@ journalctl --user -t evoshell -f
 
 See `AGENTS.md` for plugin ids, IPC, and development workflow.
 
-See [CONTRIBUTING.md](docs/evoshell/CONTRIB.md)t message format.
+See [CONTRIB.md](CONTRIB.md) for commit message and branching conventions.
