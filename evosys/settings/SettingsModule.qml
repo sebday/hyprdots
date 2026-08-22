@@ -86,8 +86,6 @@ Item {
     property bool notificationsReady: false
     property bool uiReady: false
     property bool fontReady: false
-    property string obsidianVault: ""
-    property string detectedObsidianVault: ""
     property string tasksFile: ""
     property bool tasksReady: false
     property string panelSide: "left"
@@ -125,8 +123,7 @@ Item {
     readonly property bool fontBusy: fontSetProc.running
     readonly property bool mediaBusy: mediaTvSetProc.running || mediaFilmsSetProc.running
         || mediaTvPickProc.running || mediaFilmsPickProc.running
-    readonly property bool tasksBusy: taskVaultSetProc.running || taskVaultPickProc.running
-    readonly property bool settingsBusy: fontBusy || mediaBusy || tasksBusy || hyprToggleProc.running || hyprSetProc.running
+    readonly property bool settingsBusy: fontBusy || mediaBusy || hyprToggleProc.running || hyprSetProc.running
         || barSetProc.running || notificationsSetProc.running || uiToggleProc.running
         || panelSetProc.running || dashboardToggleProc.running || weatherSetProc.running
         || wallpaperPersonalDirSetProc.running
@@ -443,29 +440,12 @@ Item {
     function parseTasksSettings(raw) {
         try {
             var data = JSON.parse(String(raw || "{}"))
-            root.obsidianVault = String(data.obsidianVault || "")
-            root.detectedObsidianVault = String(data.detectedVault || "")
             root.tasksFile = String(data.tasksFile || "")
             root.tasksReady = data.ok === true
         } catch (e) {
-            root.obsidianVault = ""
-            root.detectedObsidianVault = ""
             root.tasksFile = ""
             root.tasksReady = false
         }
-    }
-
-    function setObsidianVault(path) {
-        if (!tasksReady || settingsBusy)
-            return
-        taskVaultSetProc.path = String(path || "")
-        taskVaultSetProc.running = true
-    }
-
-    function pickObsidianVault() {
-        if (!tasksReady || settingsBusy)
-            return
-        taskVaultPickProc.running = true
     }
 
     function togglePanelSide() {
@@ -1105,29 +1085,6 @@ Item {
         command: ["bash", root.tasksScript, "settings", "get"]
         stdout: StdioCollector {
             onStreamFinished: root.parseTasksSettings(text)
-        }
-    }
-
-    Process {
-        id: taskVaultSetProc
-        property string path: ""
-        command: ["bash", root.tasksScript, "settings", "set", "vault", taskVaultSetProc.path]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                if (String(text || "").trim())
-                    root.parseTasksSettings(text)
-            }
-        }
-    }
-
-    Process {
-        id: taskVaultPickProc
-        command: ["bash", root.tasksScript, "settings", "pick"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                if (String(text || "").trim())
-                    root.parseTasksSettings(text)
-            }
         }
     }
 
@@ -2047,75 +2004,6 @@ Item {
                                         font.pixelSize: Theme.fontSizeXs
                                         opacity: Theme.opacityMuted
                                         wrapMode: Text.WordWrap
-                                    }
-                                }
-
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 4
-
-                                    Text {
-                                        text: "Obsidian vault"
-                                        color: Theme.foreground
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: Theme.fontSizeS
-                                        opacity: Theme.opacityMuted
-                                    }
-
-                                    RowLayout {
-                                        Layout.fillWidth: true
-                                        spacing: Theme.spacingS
-
-                                        Rectangle {
-                                            Layout.fillWidth: true
-                                            implicitHeight: 34
-                                            radius: 6
-                                            color: Theme.foregroundWash
-                                            border.color: Theme.foregroundDivider
-                                            border.width: 1
-
-                                            TextInput {
-                                                id: obsidianVaultInput
-                                                anchors.fill: parent
-                                                anchors.leftMargin: 8
-                                                anchors.rightMargin: 8
-                                                color: Theme.foreground
-                                                font.family: Theme.fontFamily
-                                                font.pixelSize: Theme.fontSizeS
-                                                selectionColor: Theme.accent
-                                                selectedTextColor: Theme.mantle
-                                                verticalAlignment: TextInput.AlignVCenter
-                                                clip: true
-                                                text: root.obsidianVault
-                                                enabled: root.tasksReady && !settingsBusy
-                                                onEditingFinished: root.setObsidianVault(text)
-                                            }
-                                        }
-
-                                        Item {
-                                            Layout.preferredWidth: 34
-                                            Layout.preferredHeight: 34
-
-                                            Text {
-                                                anchors.centerIn: parent
-                                                text: "󰉖"
-                                                color: Theme.foreground
-                                                font.family: Theme.fontFamily
-                                                font.pixelSize: Theme.fontSizeXl
-                                                opacity: obsidianVaultPickMouse.enabled
-                                                    ? (obsidianVaultPickMouse.containsMouse ? 1 : 0.72)
-                                                    : 0.35
-                                            }
-
-                                            MouseArea {
-                                                id: obsidianVaultPickMouse
-                                                anchors.fill: parent
-                                                hoverEnabled: true
-                                                cursorShape: Qt.PointingHandCursor
-                                                enabled: root.tasksReady && !settingsBusy
-                                                onClicked: root.pickObsidianVault()
-                                            }
-                                        }
                                     }
                                 }
 

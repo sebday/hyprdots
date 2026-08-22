@@ -261,17 +261,17 @@ themes_sync_icon_theme_gsettings() {
     gsettings set org.gnome.desktop.interface icon-theme "$EVO_ICON_THEME" 2>/dev/null || true
 }
 
-# Override with OBSIDIAN_VAULT_DIR if your vault moves.
-themes_sync_obsidian_modular() {
-    local vault="${OBSIDIAN_VAULT_DIR:-}"
-    local theme_css="${THEME_DIR}/current/obsidian.css"
-    [ -f "$theme_css" ] || return 0
+_themes_sync_obsidian_modular_vault() {
+    local vault="$1"
+    local theme_css="$2"
+    local shared_css="$3"
+    local shared_manifest="$4"
+    local modular_dir appearance updated_json
 
-    local modular_dir="$vault/.obsidian/themes/Modular"
-    local shared_css="${THEME_DIR}/shared/css/obsidian.css"
-    local shared_manifest="${THEME_DIR}/shared/obsidian.conf"
-    local appearance="$vault/.obsidian/appearance.json"
-    local updated_json
+    [ -n "$vault" ] && [ -d "$vault" ] || return 0
+
+    modular_dir="$vault/.obsidian/themes/Modular"
+    appearance="$vault/.obsidian/appearance.json"
 
     mkdir -p "$modular_dir"
     if [ ! -f "$modular_dir/manifest.json" ] && [ -f "$shared_manifest" ]; then
@@ -289,5 +289,18 @@ themes_sync_obsidian_modular() {
     fi
     updated_json=$(echo "$updated_json" | jq --arg theme "obsidian" '.theme = $theme' | jq --arg cssTheme "Modular" '.cssTheme = $cssTheme')
     echo "$updated_json" > "$appearance"
+}
+
+themes_sync_obsidian_modular() {
+    local theme_css="${THEME_DIR}/current/obsidian.css"
+    local shared_css="${THEME_DIR}/shared/css/obsidian.css"
+    local shared_manifest="${THEME_DIR}/shared/obsidian.conf"
+    local vault
+
+    [ -f "$theme_css" ] || return 0
+
+    while IFS= read -r vault; do
+        _themes_sync_obsidian_modular_vault "$vault" "$theme_css" "$shared_css" "$shared_manifest"
+    done < <(obsidian_vault_paths)
 }
 

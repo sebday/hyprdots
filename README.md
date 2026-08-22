@@ -57,7 +57,7 @@ Settings panel also covers idle lock timer and bar tray widget toggles or poll i
 | File | Contents |
 |------|----------|
 | `overrides.json` | Bar/notifications layout, panel side, HA, idle, tray, dashboards, Shopify |
-| `ui.json` | Fieldset rounding, Obsidian vault path |
+| `ui.json` | Fieldset rounding |
 | `weather.json` | Weather city / coordinates |
 | `media.json` | TV/films folder paths |
 | `font.json` | Font family |
@@ -98,6 +98,8 @@ EVOSHELL_ROOT=$PWD EVOSHELL_BIN=$PWD/bin EVO_SKIP_EVOPLAYER=1 bash tests/test-st
 bash tests/test-plugin-manifest.sh
 bash tests/test-menu-list.sh
 bash tests/test-evo-layout-side.sh
+bash tests/test-evo-theme-obsidian.sh
+bash tests/test-evo-tasks-vault.sh
 bash tests/test-evo-config.sh
 evo system restart
 journalctl --user -t evoshell -f

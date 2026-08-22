@@ -8,14 +8,11 @@ _bin_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${_bin_dir}/evo-storage-lib"
 
 TASKS_JSON="${EVOSHELL_STATE}/apps/tasks.json"
-OBSIDIAN_CONFIG="${HOME}/.config/obsidian/obsidian.json"
 
 usage() {
     cat >&2 <<'EOF'
 usage:
   evo-tasks settings get
-  evo-tasks settings set vault <dir>
-  evo-tasks settings pick
   evo-tasks load
   evo-tasks save <json>
   evo-tasks copy <json-text>
@@ -27,24 +24,21 @@ ensure_state_dir() {
     mkdir -p "${EVOSHELL_STATE}/apps"
 }
 
-read_vault() {
-    jq -r '.obsidianVault // ""' <<<"$(read_ui_config_json)"
-}
-
-detect_obsidian_vault() {
-    [[ -f "$OBSIDIAN_CONFIG" ]] || return 0
-    jq -r '
-        [.vaults[]? | select((.path // "") != "") | .path]
-        | sort_by(.)
-        | .[0] // ""
-    ' "$OBSIDIAN_CONFIG" 2>/dev/null || true
+tasks_vault() {
+    local path
+    while IFS= read -r path; do
+        [[ -n "$path" && -d "$path" && -f "${path%/}/tasks.md" ]] || continue
+        printf '%s' "${path%/}"
+        return 0
+    done < <(obsidian_vault_paths)
+    return 1
 }
 
 tasks_file() {
     local vault
-    vault="$(read_vault)"
-    if [[ -n "$vault" && -d "$vault" ]]; then
-        printf '%s/tasks.md' "${vault%/}"
+    vault="$(tasks_vault || true)"
+    if [[ -n "$vault" ]]; then
+        printf '%s/tasks.md' "$vault"
     else
         printf '%s' "$TASKS_JSON"
     fi
@@ -166,54 +160,16 @@ save_markdown_tasks() {
 }
 
 cmd_settings_get() {
-    local vault detected file
-    vault="$(read_vault)"
-    detected="$(detect_obsidian_vault)"
+    local file
     file="$(tasks_file)"
     jq -n \
-        --arg obsidianVault "$vault" \
-        --arg detectedVault "$detected" \
         --arg tasksFile "$file" \
         --arg format "$(tasks_format)" \
         '{
             ok: true,
-            obsidianVault: $obsidianVault,
-            detectedVault: $detectedVault,
             tasksFile: $tasksFile,
             format: $format
         }'
-}
-
-cmd_settings_set_vault() {
-    local path="${1:-}"
-    path="${path%/}"
-    if [[ -z "$path" ]]; then
-        merge_ui_config_json 'del(.obsidianVault)'
-        cmd_settings_get
-        return 0
-    fi
-    [[ -d "$path" ]] || {
-        echo '{"ok":false,"error":"vault directory not found"}' >&2
-        exit 1
-    }
-    merge_ui_config_json '.obsidianVault = $vault' --arg vault "$path"
-    cmd_settings_get
-}
-
-cmd_settings_pick() {
-    local current detected start_dir selected
-    current="$(read_vault)"
-    detected="$(detect_obsidian_vault)"
-    start_dir="$current"
-    if [[ -z "$start_dir" ]]; then
-        start_dir="$detected"
-    fi
-    if [[ -z "$start_dir" || ! -d "$start_dir" ]]; then
-        start_dir="$HOME"
-    fi
-    selected="$(zenity --file-selection --directory --title="Select Obsidian vault" --filename="${start_dir}/" 2>/dev/null || true)"
-    [[ -n "$selected" ]] || exit 0
-    cmd_settings_set_vault "$selected"
 }
 
 cmd_load() {
@@ -266,22 +222,6 @@ settings)
     case "$action" in
     get)
         cmd_settings_get
-        ;;
-    set)
-        key="${3:-}"
-        case "$key" in
-        vault)
-            path="${4:-}"
-            [[ -n "$path" ]] || usage
-            cmd_settings_set_vault "$path"
-            ;;
-        *)
-            usage
-            ;;
-        esac
-        ;;
-    pick)
-        cmd_settings_pick
         ;;
     *)
         usage

@@ -31,3 +31,11 @@ jobs:
           EVOSHELL_ROOT: ${{ github.workspace }}
           EVOSHELL_BIN: ${{ github.workspace }}/bin
         run: bash tests/test-evo-layout-side.sh
+      - name: obsidian theme sync
+        env:
+          EVOSHELL_ROOT: ${{ github.workspace }}
+        run: bash tests/test-evo-theme-obsidian.sh
+      - name: tasks vault detection
+        env:
+          EVOSHELL_ROOT: ${{ github.workspace }}
+        run: bash tests/test-evo-tasks-vault.sh

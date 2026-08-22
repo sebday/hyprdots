@@ -30,7 +30,7 @@ Effective layout config is deep-merged at runtime: built-in defaults → `$EVOSH
 | Store | Examples | Set via |
 |-------|----------|---------|
 | Overrides | monitors, `dashboards.openOnStart`, HA entity lists, idle timers, bar tray widgets, startup dashboard toggles (Integrations) | Settings panel, `evo-config`, `evo-layout` |
-| State | Obsidian vault, TV/films paths, weather location, side panel open | Settings panel, `evo-tasks`, `evo-bar-library`, `evo-bar-weather` |
+| State | TV/films paths, weather location, side panel open | Settings panel, `evo-tasks`, `evo-bar-library`, `evo-bar-weather` |
 | pass | GitHub, Home Assistant, Cloudflare tokens | `pass insert evoshell/...` (Settings shows status only) |
 
 Feature scripts live in `$EVOSHELL_LIB` (`_system`, `_ipc`, `evo-bar-*`, etc.). Public CLI: `~/.local/bin/evo`. Path defaults in [`bin/evo-paths-lib`](bin/evo-paths-lib). Player binary: `~/.local/lib/evoplayer/evoplayer`.
@@ -95,7 +95,7 @@ Docked side panel and clipboard.
 
 Only `calc` is a dock module id. Tasks is a focus target inside the calculator panel, not a separate dock module.
 
-Side position (`left`/`right`) persists in `$EVOSHELL_CONFIG/overrides.json` (`panel.side`) via Settings or `evo-config panel set`. Open state, module, and focus persist in `$EVOSHELL_STATE/session.json` (`sidePanel`) and restore on evoshell startup. UI prefs (fieldset rounding, Obsidian vault) live in `$EVOSHELL_CONFIG/ui.json`.
+Side position (`left`/`right`) persists in `$EVOSHELL_CONFIG/overrides.json` (`panel.side`) via Settings or `evo-config panel set`. Open state, module, and focus persist in `$EVOSHELL_STATE/session.json` (`sidePanel`) and restore on evoshell startup. UI prefs (fieldset rounding) live in `$EVOSHELL_CONFIG/ui.json`. Obsidian themes sync to all vaults in `~/.config/obsidian/obsidian.json` on theme switch; tasks use `tasks.md` in a registered vault when present.
 
 ### Evosys (`evo.sys.*`)
 
@@ -281,6 +281,8 @@ bash ~/projects/evoplayer/scripts/install
 ```bash
 bash tests/test-plugin-manifest.sh
 bash tests/test-evo-layout-side.sh
+bash tests/test-evo-theme-obsidian.sh
+bash tests/test-evo-tasks-vault.sh
 bash ~/projects/evoplayer/tests/test-evoplayer-art
 bash ~/projects/evoplayer/tests/test-evoplayer-cli
 bash tests/test-static-contracts.sh
