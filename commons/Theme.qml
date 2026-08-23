@@ -319,9 +319,9 @@ Singleton {
     readonly property int sparklineExpandedBarSpacing: 3
     readonly property int notificationWidth: 440
     readonly property int notificationPadding: 14
-    readonly property int notificationArtSize: 68
+    readonly property int notificationArtSize: 84
     readonly property int notificationMediaPad: 16
-    readonly property int notificationStackSlot: 88
+    readonly property int notificationStackSlot: 104
 
     Component.onCompleted: {
         applyThemeFile()

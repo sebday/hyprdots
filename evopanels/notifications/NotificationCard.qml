@@ -1,5 +1,6 @@
 import QtQuick
 import "../../commons"
+import "."
 
 Item {
     id: root
@@ -25,6 +26,10 @@ Item {
         var sep = base.indexOf("?") >= 0 ? "&" : "?"
         return base + sep + "rev=" + root.artRev
     }
+
+    readonly property bool showHeart: root.fields.showHeart
+    readonly property int heartSize: Math.round(root.artSize * 0.62)
+    readonly property int heartReserve: root.showHeart ? heartSize + 8 : 0
 
     width: Theme.notificationWidth
     implicitHeight: innerRow.height + Theme.notificationMediaPad * 2
@@ -81,7 +86,8 @@ Item {
 
         Column {
             id: textCol
-            width: parent.width - root.artSize - parent.spacing
+            width: parent.width - root.artSize - parent.spacing - root.heartReserve
+                - (root.heartReserve > 0 ? parent.spacing : 0)
             anchors.verticalCenter: parent.verticalCenter
             spacing: Theme.spacingS
 
@@ -128,6 +134,30 @@ Item {
                     : 0.82
             }
 
+            Row {
+                width: parent.width
+                spacing: Theme.spacingS
+                visible: String(root.fields.genre || "").trim() !== ""
+                    || String(root.fields.year || "").trim() !== ""
+
+                NotificationMetaPill {
+                    text: String(root.fields.genre || "").trim()
+                    active: true
+                    activeFill: Theme.withOpacity(Theme.accent, 0.18)
+                    activeText: Theme.accent
+                    fontSize: Theme.fontSizeS
+                }
+
+                NotificationMetaPill {
+                    text: String(root.fields.year || "").trim()
+                    active: false
+                    inactiveFill: Theme.foregroundGhost
+                    inactiveText: Theme.foreground
+                    inactiveOpacity: Theme.opacityMuted
+                    fontSize: Theme.fontSizeS
+                }
+            }
+
             Text {
                 width: parent.width
                 visible: root.fields.footer !== undefined && root.fields.footer !== ""
@@ -139,6 +169,22 @@ Item {
                 elide: Text.ElideRight
                 maximumLineCount: 1
                 opacity: Theme.opacityMuted
+            }
+        }
+
+        Item {
+            width: root.heartReserve
+            height: parent.height
+            visible: root.showHeart
+
+            Text {
+                anchors.centerIn: parent
+                text: "󰋑"
+                color: root.fields.liked ? Theme.urgent : Theme.foreground
+                opacity: root.fields.liked ? 1 : 0.28
+                font.family: Theme.fontFamily
+                font.pixelSize: root.heartSize
+                font.bold: Theme.fontBold
             }
         }
     }

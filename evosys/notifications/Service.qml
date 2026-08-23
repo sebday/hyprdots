@@ -166,6 +166,9 @@ Scope {
         var timeout = Math.max(1000, parseInt(o.durationMs, 10) || root.durationMs)
         var appStr = String(o.app || "evo.panels.player")
         var trackPath = String(o.path || "")
+        var genreStr = String(o.genre || "").trim()
+        var yearStr = String(o.year || "").trim()
+        var likedVal = !!o.liked
 
         for (var j = 0; j < activePopups.length; j++) {
             var existing = activePopups[j]
@@ -174,7 +177,10 @@ Scope {
             if (String(existing.path || "") === trackPath
                     && String(existing.title || "") === titleStr
                     && String(existing.body || "") === artistStr
-                    && String(existing.art || "") === artPath)
+                    && String(existing.art || "") === artPath
+                    && String(existing.genre || "").trim() === genreStr
+                    && String(existing.year || "").trim() === yearStr
+                    && !!existing.liked === likedVal)
                 return false
         }
 
@@ -192,7 +198,10 @@ Scope {
                     body: artistStr,
                     art: artPath,
                     artRev: Date.now(),
-                    path: trackPath
+                    path: trackPath,
+                    genre: genreStr,
+                    year: yearStr,
+                    liked: likedVal
                 })
                 continue
             }
@@ -207,7 +216,10 @@ Scope {
                 body: artistStr,
                 art: artPath,
                 artRev: Date.now(),
-                path: trackPath
+                path: trackPath,
+                genre: genreStr,
+                year: yearStr,
+                liked: likedVal
             })
         }
         activePopups = next
@@ -218,6 +230,9 @@ Scope {
             artist: artistStr,
             art: artPath.indexOf("data:image/") === 0 ? ("data-url:" + artPath.length) : artPath,
             path: trackPath,
+            genre: genreStr,
+            year: yearStr,
+            liked: likedVal,
             updated: updated
         })
         return true
@@ -1126,7 +1141,11 @@ Scope {
                 kicker: "",
                 title: String(entry.title || ""),
                 subtitle: String(entry.body || ""),
-                footer: ""
+                footer: "",
+                showHeart: true,
+                liked: !!entry.liked,
+                genre: String(entry.genre || "").trim(),
+                year: String(entry.year || "").trim()
             }
         }
         var lines = bodyLines(entry)
@@ -1203,7 +1222,10 @@ Scope {
     }
 
     function estimatedHeight(entry) {
-        return Theme.notificationArtSize + Theme.notificationMediaPad * 2
+        var base = Theme.notificationArtSize + Theme.notificationMediaPad * 2
+        if (entry && entry.localMedia)
+            return base + 28
+        return base
     }
 
     function measuredHeight(entry) {
