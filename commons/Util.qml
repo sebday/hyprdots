@@ -166,6 +166,12 @@ Singleton {
         return shell.toggleHoverPanelPinFromBar(id)
     }
 
+    function openEvoplayerDashboardIfClosed(shell) {
+        if (!shell || shell.isPluginOpen("evo.panels.player"))
+            return
+        shell.summon("evo.panels.player", "")
+    }
+
     function dismissHoverPanelFromBar(shell, popupId) {
         if (!shell || !popupId)
             return

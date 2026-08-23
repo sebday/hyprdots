@@ -44,6 +44,21 @@ Item {
                         module.setNotifications(output, position)
                 }
             }
+
+            SliderSetting {
+                Layout.fillWidth: true
+                label: "Lock after"
+                value: module ? module.idleLockMin : 15
+                minimum: 0
+                maximum: 120
+                step: 5
+                valueSuffix: "m"
+                enabled: module && module.idleReady && !module.settingsBusy
+                onValueCommitted: function(value) {
+                    if (module)
+                        module.setIdleLockMin(value)
+                }
+            }
         }
     }
 }

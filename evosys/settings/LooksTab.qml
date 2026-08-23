@@ -264,18 +264,6 @@ Item {
                 step: 10
                 enabled: false
             }
-
-            SliderSetting {
-                Layout.fillWidth: true
-                label: "Lock after"
-                value: module.idleLockMin
-                minimum: 0
-                maximum: 120
-                step: 5
-                valueSuffix: "m"
-                enabled: module.idleReady && !module.settingsBusy
-                onValueCommitted: module.setIdleLockMin(value)
-            }
         }
     }
 }

@@ -142,7 +142,7 @@ Item {
     readonly property bool settingsBusy: fontBusy || mediaBusy || hyprToggleProc.running || hyprSetProc.running
         || barSetProc.running || notificationsSetProc.running || uiToggleProc.running
         || panelSetProc.running || weatherSetProc.running
-        || wallpaperPersonalDirSetProc.running
+        || wallpaperPersonalDirSetProc.running || wallpaperPersonalDirPickProc.running
         || haSaveProc.running || idleSetProc.running
         || trayToggleProc.running || trayOrderSetProc.running
     readonly property bool active: host && host.opened
@@ -432,18 +432,34 @@ Item {
             parseMediaSettings(raw)
     }
 
+    function dismissHostForExternalDialog() {
+        if (host && typeof host.dismiss === "function")
+            host.dismiss()
+        else if (shell)
+            shell.hide("evo.sys.menu")
+    }
+
+    function startExternalPicker(pickProc) {
+        if (!pickProc)
+            return
+        dismissHostForExternalDialog()
+        Qt.callLater(function() {
+            pickProc.running = true
+        })
+    }
+
     function pickMediaTv() {
         if (!mediaReady || settingsBusy)
             return
         suppressMediaPathCommit = true
-        mediaTvPickProc.running = true
+        startExternalPicker(mediaTvPickProc)
     }
 
     function pickMediaFilms() {
         if (!mediaReady || settingsBusy)
             return
         suppressMediaPathCommit = true
-        mediaFilmsPickProc.running = true
+        startExternalPicker(mediaFilmsPickProc)
     }
 
     function openThemePicker() {
@@ -654,6 +670,12 @@ Item {
             return
         wallpaperPersonalDirSetProc.path = next
         wallpaperPersonalDirSetProc.running = true
+    }
+
+    function pickPersonalWallpaperDir() {
+        if (!personalWallpaperReady || settingsBusy)
+            return
+        startExternalPicker(wallpaperPersonalDirPickProc)
     }
 
     function trayWidgetLabel(name) {
@@ -1422,6 +1444,18 @@ Item {
     }
 
     Process {
+        id: wallpaperPersonalDirPickProc
+        command: ["bash", root.configScript, "wallpaper", "pick-personal-dir"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                root.parseWallpaperConfig(text)
+                if (!loadWallpaperListProc.running)
+                    loadWallpaperListProc.running = true
+            }
+        }
+    }
+
+    Process {
         id: weatherSearchProc
         property string query: ""
         command: ["bash", root.weatherScript, "settings", "search", weatherSearchProc.query]
@@ -1891,31 +1925,61 @@ Item {
                                         opacity: Theme.opacityMuted
                                     }
 
-                                    Rectangle {
+                                    RowLayout {
                                         Layout.fillWidth: true
-                                        implicitHeight: 34
-                                        radius: 6
-                                        property bool keyboardSelected: false
-                                        property alias settingsNavInput: personalWallpaperInput
-                                        color: keyboardSelected ? Theme.foregroundHoverWash : Theme.foregroundWash
-                                        border.color: Theme.foregroundDivider
-                                        border.width: 1
+                                        spacing: Theme.spacingS
 
-                                        TextInput {
-                                            id: personalWallpaperInput
-                                            anchors.fill: parent
-                                            anchors.leftMargin: 8
-                                            anchors.rightMargin: 8
-                                            color: Theme.foreground
-                                            font.family: Theme.fontFamily
-                                            font.pixelSize: Theme.fontSizeS
-                                            selectionColor: Theme.accent
-                                            selectedTextColor: Theme.mantle
-                                            verticalAlignment: TextInput.AlignVCenter
-                                            clip: true
-                                            text: root.personalWallpaperDir
-                                            enabled: root.personalWallpaperReady && !settingsBusy
-                                            onEditingFinished: root.setPersonalWallpaperDir(text)
+                                        Rectangle {
+                                            Layout.fillWidth: true
+                                            implicitHeight: 34
+                                            radius: 6
+                                            property bool keyboardSelected: false
+                                            property alias settingsNavInput: personalWallpaperInput
+                                            color: keyboardSelected ? Theme.foregroundHoverWash : Theme.foregroundWash
+                                            border.color: Theme.foregroundDivider
+                                            border.width: 1
+
+                                            TextInput {
+                                                id: personalWallpaperInput
+                                                anchors.fill: parent
+                                                anchors.leftMargin: 8
+                                                anchors.rightMargin: 8
+                                                color: Theme.foreground
+                                                font.family: Theme.fontFamily
+                                                font.pixelSize: Theme.fontSizeS
+                                                selectionColor: Theme.accent
+                                                selectedTextColor: Theme.mantle
+                                                verticalAlignment: TextInput.AlignVCenter
+                                                clip: true
+                                                text: root.personalWallpaperDir
+                                                enabled: root.personalWallpaperReady && !settingsBusy
+                                                onEditingFinished: root.setPersonalWallpaperDir(text)
+                                            }
+                                        }
+
+                                        Item {
+                                            Layout.preferredWidth: 34
+                                            Layout.preferredHeight: 34
+
+                                            Text {
+                                                anchors.centerIn: parent
+                                                text: "󰉖"
+                                                color: Theme.foreground
+                                                font.family: Theme.fontFamily
+                                                font.pixelSize: Theme.fontSizeXl
+                                                opacity: personalWallpaperPickMouse.enabled
+                                                    ? (personalWallpaperPickMouse.containsMouse ? 1 : 0.72)
+                                                    : 0.35
+                                            }
+
+                                            MouseArea {
+                                                id: personalWallpaperPickMouse
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                enabled: root.personalWallpaperReady && !settingsBusy
+                                                onClicked: root.pickPersonalWallpaperDir()
+                                            }
                                         }
                                     }
 

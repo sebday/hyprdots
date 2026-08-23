@@ -10,10 +10,8 @@ Item {
     property bool opened: false
     readonly property string activeModule: "settings"
 
-    readonly property int viewportMaxHeight: {
-        var screenH = Quickshell.screens.length > 0 ? Quickshell.screens[0].height : 1080
-        return Math.max(320, screenH - Theme.overlayMargin * 2)
-    }
+    readonly property int viewportMaxHeight: Theme.menuPanelHeight(
+        Quickshell.screens.length > 0 ? Quickshell.screens[0].height : 1080)
 
     function open(payloadJson) {
         opened = true
@@ -35,7 +33,8 @@ Item {
         opened: root.opened
         layerNamespace: "evo-sys-settings"
         contentWidth: Theme.settingsPanelWidth
-        fitContentHeight: true
+        contentHeight: root.viewportMaxHeight
+        fitContentHeight: false
         maxContentHeight: root.viewportMaxHeight
         framed: true
         borderWidth: 2

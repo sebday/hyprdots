@@ -29,16 +29,18 @@ Item {
     property real previewAreaMaxHeight: 900
 
     readonly property bool powerMenuMode: mode === "power" && !submenu
-    readonly property bool runnerMenuMode: mode === "runner" && !submenu
     readonly property bool previewTileMode: submenu === "themes" || submenu === "wallpaper"
     readonly property bool boxTileMode: previewTileMode
     readonly property bool framedMode: !previewTileMode
     readonly property bool sectionMenuMode: false
     readonly property bool powerSearchMode: powerMenuMode && filterText.trim() !== ""
+    readonly property bool programsTabActive: powerMenuMode && menuTabIndex === 0 && !powerSearchMode
+    readonly property bool programsListMode: programsTabActive || powerSearchMode
     readonly property bool showMainMenuTabs: powerMenuMode
-    readonly property bool showSettingsTab: powerMenuMode && !powerSearchMode
+    readonly property bool showSettingsTab: powerMenuMode && menuTabIndex > 0 && !powerSearchMode
     readonly property var sectionColumnOrder: ["programs", "games", "panels", "right"]
     readonly property var mainTabModel: [
+        { label: "Programs", icon: "󰀻" },
         { label: "Looks", icon: "󰒠" },
         { label: "Displays", icon: "󰍹" },
         { label: "Widgets", icon: "󰒓" },
@@ -73,7 +75,7 @@ Item {
     readonly property int appIconSourceSize: 128
     readonly property string menuHeaderIcon: "󰣇"
     readonly property string menuHeaderTitle: "Evo shell"
-    readonly property string menuHeaderSubtitle: "Looks · displays · widgets"
+    readonly property string menuHeaderSubtitle: "Programs · looks · displays · widgets"
 
     readonly property int previewGridColumns: 5
     readonly property int previewColumnCount: gridColumnCount
@@ -149,15 +151,15 @@ Item {
     readonly property string placeholderText: {
         if (submenu === "bindings") return "Search bindings…"
         if (submenu === "shell") return "Search shell commands…"
-        if (runnerMenuMode) return "Launch a program or panel…"
+        if (programsListMode) return "Launch a program or panel…"
         if (mode === "power") return "Search settings…"
         return "Search…"
     }
 
     readonly property bool infoListMode: submenu === "bindings" || submenu === "shell"
-    readonly property int framedMenuWidth: root.runnerMenuMode
-        ? Theme.clipboardPanelWidth
-        : (root.powerMenuMode ? Theme.systemMenuPanelWidth : Theme.systemPanelWidth)
+    readonly property int framedMenuWidth: root.powerMenuMode
+        ? Theme.systemMenuPanelWidth
+        : Theme.systemPanelWidth
     readonly property int infoListFontSize: Theme.fontSizeS
     readonly property int infoListRowHeight: 40
     readonly property int powerLinkRowHeight: 36
@@ -194,32 +196,22 @@ Item {
         120,
         previewAreaMaxHeight - menuOuterTopInset - menuOuterInset - framedChromeHeight)
     readonly property int screenHeight: panel.height > 0 ? panel.height : 1080
-    property int lockedPowerMenuPanelHeight: 0
-    readonly property bool fixedFramedMenuHeight: powerMenuMode || runnerMenuMode
-    readonly property int fixedMenuPanelHeight: Math.min(
-        Theme.systemMenuPanelHeight,
-        screenHeight - Theme.overlayMargin * 2)
+    readonly property bool fixedFramedMenuHeight: powerMenuMode
+    readonly property int fixedMenuPanelHeight: Theme.menuPanelHeight(screenHeight)
     readonly property int powerMenuSettingsChromeHeight: powerMenuTabBarTopPad
         + mainMenuTabs.implicitHeight + framedColumnSpacing
-    readonly property int powerMenuPanelHeight: {
-        if (!powerMenuMode)
-            return fixedMenuPanelHeight
-        if (lockedPowerMenuPanelHeight > 0)
-            return lockedPowerMenuPanelHeight
-        return fixedMenuPanelHeight
-    }
-    readonly property int runnerPanelHeight: fixedMenuPanelHeight
-    readonly property int powerMenuColumnHeight: powerMenuPanelHeight - menuOuterTopInset - menuOuterInset
-    readonly property int runnerColumnHeight: runnerPanelHeight - menuOuterTopInset - menuOuterInset
+    readonly property int powerMenuPanelHeight: fixedMenuPanelHeight
+    readonly property int programsColumnHeight: powerMenuPanelHeight - menuOuterTopInset - menuOuterInset
+    readonly property int powerMenuColumnHeight: programsColumnHeight
     readonly property int powerMenuTabBarTopPad: Theme.spacingM
     readonly property int powerMenuTabBarHeight: Theme.fontSizeS + 8
     readonly property int powerMenuViewportHeight: Math.max(
         160,
         powerMenuColumnHeight - powerMenuSettingsChromeHeight)
-    readonly property int runnerFieldsetChromeHeight: menuFieldsetPad * 2 + menuLegendChrome + framedColumnSpacing
-    readonly property int runnerViewportHeight: Math.max(
+    readonly property int programsFieldsetChromeHeight: menuFieldsetPad * 2 + menuLegendChrome + framedColumnSpacing
+    readonly property int programsViewportHeight: Math.max(
         160,
-        runnerColumnHeight - runnerFieldsetChromeHeight)
+        powerMenuViewportHeight - programsFieldsetChromeHeight)
     readonly property int framedListHeight: {
         if (infoListMode) {
             var infoRows = Math.max(visibleEntries.length, 1)
@@ -284,49 +276,47 @@ Item {
         if (typeof tab === "number") {
             if (tab >= 1)
                 tab = tab - 1
-            return Math.max(0, Math.min(3, tab))
+            return Math.max(0, Math.min(4, tab))
         }
         var name = String(tab).toLowerCase()
-        if (name === "evoshell" || name === "0")
+        if (name === "programs" || name === "runner" || name === "apps" || name === "0")
             return 0
         if (name === "looks" || name === "settings" || name === "1")
-            return 0
-        if (name === "displays" || name === "display" || name === "2")
             return 1
-        if (name === "widgets" || name === "integrations" || name === "homeassistant" || name === "ha" || name === "3" || name === "4")
+        if (name === "displays" || name === "display" || name === "2")
             return 2
-        if (name === "packages" || name === "system-packages" || name === "systempackages" || name === "5")
+        if (name === "widgets" || name === "integrations" || name === "homeassistant" || name === "ha" || name === "3" || name === "4")
             return 3
+        if (name === "packages" || name === "system-packages" || name === "systempackages" || name === "5")
+            return 4
         return 0
     }
 
     function onMainMenuTabActivated(index) {
+        if (index === 0) {
+            syncVisibleEntries()
+            focusSearchField()
+            return
+        }
         embeddedSettings.onActivated()
-        if (index === 2)
-            embeddedSettings.loadHaDiscovery()
         if (index === 3)
+            embeddedSettings.loadHaDiscovery()
+        if (index === 4)
             embeddedSettings.loadPackagesBreakdown()
-    }
-
-    function lockPowerMenuHeightFromLooks() {
-        if (!root.opened || !root.powerMenuMode || root.lockedPowerMenuPanelHeight > 0)
-            return
-        var content = embeddedSettings.looksTabContentHeight
-        if (content <= 0)
-            return
-        var total = root.menuOuterTopInset + root.menuOuterInset
-            + root.powerMenuSettingsChromeHeight + content
-        root.lockedPowerMenuPanelHeight = Math.min(
-            Math.max(total, 200),
-            root.screenHeight - Theme.overlayMargin * 2)
     }
 
     function open(payloadJson) {
         try {
             var payload = JSON.parse(payloadJson || "{}")
-            mode = String(payload.mode || "power")
+            var rawMode = String(payload.mode || "power")
             submenu = String(payload.submenu || "")
-            menuTabIndex = mode === "runner" ? 0 : parseMenuTabIndex(payload)
+            if (rawMode === "runner") {
+                mode = "power"
+                menuTabIndex = 0
+            } else {
+                mode = rawMode
+                menuTabIndex = parseMenuTabIndex(payload)
+            }
         } catch (e) {
             mode = "power"
             submenu = ""
@@ -336,12 +326,10 @@ Item {
         if (filterField.text !== "")
             filterField.text = ""
         selectedIndex = 0
-        if (mode === "power")
-            lockedPowerMenuPanelHeight = 0
         refreshCommandEntries()
         if (submenu) loadDynamicEntries(submenu)
         else dynamicEntries = []
-        if (mode === "power" || mode === "runner") {
+        if (mode === "power") {
             rebuildAppCache()
             syncVisibleEntries()
         } else {
@@ -353,9 +341,6 @@ Item {
             root.previewAreaMaxHeight = panel.previewAreaMaxHeight
             if (powerMenuMode) {
                 onMainMenuTabActivated(menuTabIndex)
-                Qt.callLater(root.lockPowerMenuHeightFromLooks)
-            } else {
-                root.focusSearchField()
             }
         })
     }
@@ -373,8 +358,10 @@ Item {
             parsed = JSON.parse(payloadJson || "{}")
         } catch (e) {}
         var nextMode = String(parsed.mode || mode)
+        if (nextMode === "runner")
+            nextMode = "power"
         var nextSubmenu = String(parsed.submenu || "")
-        var nextTab = nextMode === "runner" ? 0 : parseMenuTabIndex(parsed)
+        var nextTab = String(parsed.mode || "") === "runner" ? 0 : parseMenuTabIndex(parsed)
         if (nextMode === mode && nextSubmenu === submenu && nextTab === menuTabIndex)
             return false
         open(payloadJson)
@@ -384,7 +371,6 @@ Item {
     function close() {
         if (!opened) return
         opened = false
-        lockedPowerMenuPanelHeight = 0
         filterText = ""
         submenu = ""
         menuTabIndex = 0
@@ -825,7 +811,7 @@ Item {
             dynamicEntryKind = ""
             filterText = ""
             selectedIndex = 0
-        } else if (filterText.trim() !== "" && (root.powerMenuMode || root.runnerMenuMode)) {
+        } else if (filterText.trim() !== "" && root.powerMenuMode) {
             filterText = ""
             selectedIndex = 0
         } else if (showSettingsTab && embeddedSettings.focusInTextInput()) {
@@ -1010,9 +996,7 @@ Item {
         if (submenu) {
             count = dynamicEntries.length
         } else if (mode === "power") {
-            count = powerSearchMode ? visibleEntries.length : 0
-        } else if (mode === "runner") {
-            count = visibleEntries.length
+            count = (powerSearchMode || menuTabIndex === 0) ? visibleEntries.length : 0
         } else {
             count = visibleEntries.length
         }
@@ -1084,9 +1068,7 @@ Item {
             })
         }
         var out = []
-        if (mode === "runner")
-            return runnerStyleEntries()
-        if (mode === "power" && filterText.trim() !== "")
+        if (mode === "power" && (filterText.trim() !== "" || menuTabIndex === 0))
             return runnerStyleEntries()
         if (mode === "power")
             return []
@@ -1139,7 +1121,7 @@ Item {
             selectedIndex = 0
             refreshCommandEntries()
             dynamicEntries = []
-            if (mode === "power" || mode === "runner")
+            if (mode === "power")
                 rebuildAppCache()
             refreshVisibleEntries()
             Qt.callLater(function() {
@@ -1387,7 +1369,7 @@ Item {
                 : root.boxRowWidth
             height: root.framedMode
                 ? (root.fixedFramedMenuHeight
-                    ? (root.powerMenuMode ? root.powerMenuPanelHeight : root.runnerPanelHeight)
+                    ? root.powerMenuPanelHeight
                     : root.menuOuterTopInset + framedColumn.implicitHeight + root.menuOuterInset)
                 : root.boxRowHeight
             focus: root.opened && (root.previewTileMode || root.framedMode)
@@ -1478,7 +1460,7 @@ Item {
                     id: embeddedSettings
                     visible: root.showSettingsTab
                     showTabBar: false
-                    tabIndex: root.menuTabIndex
+                    tabIndex: root.menuTabIndex > 0 ? root.menuTabIndex - 1 : 0
                     menuFilterText: root.filterText
                     Layout.fillWidth: true
                     Layout.alignment: Qt.AlignTop | Qt.AlignLeft
@@ -1486,8 +1468,6 @@ Item {
                     Layout.maximumHeight: root.powerMenuViewportHeight
                     host: settingsHost
                     shell: root.shell
-
-                    onLooksTabContentHeightChanged: root.lockPowerMenuHeightFromLooks()
                 }
 
                 Text {
@@ -1500,7 +1480,7 @@ Item {
                 }
 
                 Text {
-                    visible: (root.runnerMenuMode || root.powerSearchMode || root.sectionMenuMode) && !root.dynamicLoading && root.visibleEntries.length === 0
+                    visible: (root.programsListMode || root.sectionMenuMode) && !root.dynamicLoading && root.visibleEntries.length === 0
                     Layout.alignment: Qt.AlignHCenter
                     text: root.filterText.trim() === "" ? "No entries" : "No matches"
                     color: Theme.foreground
@@ -1612,10 +1592,12 @@ Item {
                     Layout.fillHeight: false
                     fillHeight: false
                     notchLegend: true
-                    legendText: (root.runnerMenuMode || root.powerSearchMode) ? "Run"
-                        : (root.submenu === "bindings" ? "Bindings" : "Shell commands")
-                    legendIcon: (root.runnerMenuMode || root.powerSearchMode) ? "󰜎"
-                        : (root.submenu === "bindings" ? "󰌌" : "󰆍")
+                    legendText: root.powerSearchMode ? "Run"
+                        : (root.programsTabActive ? "Programs"
+                        : (root.submenu === "bindings" ? "Bindings" : "Shell commands"))
+                    legendIcon: root.powerSearchMode ? "󰜎"
+                        : (root.programsTabActive ? "󰀻"
+                        : (root.submenu === "bindings" ? "󰌌" : "󰆍"))
                     legendBackground: Theme.background
                     label: ""
                     sectionSpacing: root.framedColumnSpacing
@@ -1624,8 +1606,8 @@ Item {
                         id: entryList
                         visible: root.framedMode && !root.sectionMenuMode && !root.showSettingsTab
                         Layout.fillWidth: true
-                        Layout.preferredHeight: (root.runnerMenuMode || root.powerSearchMode)
-                            ? root.runnerViewportHeight
+                        Layout.preferredHeight: root.programsListMode
+                            ? root.programsViewportHeight
                             : root.framedListHeight
                         clip: true
                         model: root.visibleEntries
@@ -1653,7 +1635,7 @@ Item {
                             readonly property string keysLabel: String(modelData.keys || "")
                             readonly property int rowFontSize: entryRow.infoRow
                                 ? root.infoListFontSize
-                                : ((root.runnerMenuMode || root.powerSearchMode) ? root.programEntryFontSize : root.listFontSize)
+                                : (root.programsListMode ? root.programEntryFontSize : root.listFontSize)
 
                             RowLayout {
                                 anchors.fill: parent
@@ -1883,7 +1865,7 @@ Item {
         target: DesktopEntries
         function onApplicationsChanged() {
             rebuildAppCache()
-            if (sectionMenuMode || runnerMenuMode || powerSearchMode)
+            if (sectionMenuMode || programsListMode)
                 syncVisibleEntries()
         }
     }

@@ -17,7 +17,6 @@ end
 
 -- Evoshell panels and system
 bindd("SUPER + Space", "System menu", hl.dsp.global("evoshell:systemMenu"))
-bindd("SUPER + D", "Program runner", hl.dsp.global("evoshell:appLauncher"))
 bindd("SUPER + Home", "Wallpaper switcher", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.sys.wallpaper"))
 bindd("SUPER + ALT + Home", "Theme picker", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.sys.themes"))
 bindd("SUPER + L", "Lock Screen", hl.dsp.exec_cmd(evo .. " system lock"))

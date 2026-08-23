@@ -300,7 +300,13 @@ Singleton {
     readonly property int overlayPanelWidth: 600
     readonly property int systemPanelWidth: 800
     readonly property int systemMenuPanelWidth: 480
+    readonly property real menuPanelHeightRatio: 0.5
     readonly property int systemMenuPanelHeight: 600
+
+    function menuPanelHeight(screenHeight) {
+        var h = screenHeight > 0 ? screenHeight : 1080
+        return Math.max(320, Math.round(h * menuPanelHeightRatio))
+    }
     readonly property int settingsPanelWidth: systemPanelWidth
     readonly property int systemMenuWidth: systemMenuPanelWidth
     readonly property int clipboardPanelWidth: Math.round(systemPanelWidth / 2)

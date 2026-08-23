@@ -267,7 +267,7 @@ Item {
                 onContainsMouseChanged: root.setMediaHoverPanel(containsMouse)
                 onClicked: function(mouse) {
                     if (mouse.button === Qt.RightButton) {
-                        Util.pinHoverPanelFromBarIfActive(root.shell, root.mediaHoverPanelId)
+                        Util.openEvoplayerDashboardIfClosed(root.shell)
                         return
                     }
                     root.openMediaLibrary()

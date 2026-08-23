@@ -18,7 +18,7 @@ usage:
   evo-config homeassistant get|set '<json>'|set-fields <light-areas-csv> <climate-entities-csv>|areas
   evo-config shopify get|set '<json>'|set-paths <sqliteDir> <remote> <timezone>
   evo-config idle get|set-fields <lock-min>
-  evo-config wallpaper get|set-personal-dir <path>
+  evo-config wallpaper get|set-personal-dir <path>|pick-personal-dir
   evo-config tray get|set <widget> enabled on|off|set <widget> interval <seconds>|set <widget> field <name> <value>|order set '<json-array>'
   evo-config secrets status [--json]
 EOF
@@ -206,6 +206,23 @@ cmd_wallpaper_set_personal_dir() {
     cmd_wallpaper_get
 }
 
+cmd_wallpaper_pick_personal_dir() {
+    local start_dir selected
+    start_dir="$(merged_config | jq -r '.wallpaper.personalDir // ""')"
+    start_dir="$(expand_config_path "$start_dir")"
+    if [[ -z "$start_dir" || ! -d "$start_dir" ]]; then
+        start_dir="$HOME"
+    fi
+    selected="$(
+        zenity --file-selection --directory --title="Select personal wallpapers folder" --filename="${start_dir}/" 2>/dev/null || true
+    )"
+    [[ -n "$selected" ]] || {
+        cmd_wallpaper_get
+        return 0
+    }
+    cmd_wallpaper_set_personal_dir "$selected"
+}
+
 cmd_tray_get() {
     local widget payload order bar_order bar_chrome bar_chrome_order
     payload='{}'
@@ -379,6 +396,7 @@ wallpaper)
     case "$action" in
     get) cmd_wallpaper_get ;;
     set-personal-dir) cmd_wallpaper_set_personal_dir "${1:-}" ;;
+    pick-personal-dir) cmd_wallpaper_pick_personal_dir ;;
     *) usage ;;
     esac
     ;;

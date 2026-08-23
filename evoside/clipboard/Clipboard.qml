@@ -25,11 +25,14 @@ Item {
             close()
     }
 
+    readonly property int panelHeight: Theme.menuPanelHeight(
+        Quickshell.screens.length > 0 ? Quickshell.screens[0].height : 1080)
+
     CenteredOverlay {
         opened: root.opened
         layerNamespace: "evo-side-clipboard"
         contentWidth: Theme.clipboardPanelWidth
-        contentHeight: 640
+        contentHeight: root.panelHeight
         framed: true
         borderWidth: 2
         keysTarget: clipboardContent

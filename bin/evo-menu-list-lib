@@ -348,7 +348,7 @@ function related_files_for_binding(dispatcher, source_path,    files, n, d, m, e
         if (index(expanded, "evo ipc") || index(cmd, "evo ipc")) {
             files[++n] = bin "/_ipc"
             files[++n] = evoshell "/shell.qml"
-            if (index(cmd, "toggleAppLauncher") || index(cmd, "toggleSystemMenu")) {
+            if (index(cmd, "toggleSystemMenu")) {
                 split(plugin_paths("evo.sys.menu"), pp, "|")
                 for (i in pp)
                     if (pp[i] != "")
@@ -505,7 +505,7 @@ local bin="${EVOSHELL_BIN:-${EVOSHELL_ROOT:-$HOME/projects/evoshell}/bin}"
     done < <(find "$script_dir" -maxdepth 1 -name 'evo-*' 2>/dev/null | sort)
 
     local shell_qml="$(_menu_list_read_text "$evoshell/shell.qml")"
-    for marker in toggleSystemMenu toggleAppLauncher \
+    for marker in toggleSystemMenu \
         'openDashboardOnly("evo.panels.player"'; do
         [[ "$shell_qml" == *"$marker"* ]] && corpus+=$'\n'"$marker"
     done
@@ -554,7 +554,7 @@ local bin="${EVOSHELL_BIN:-${EVOSHELL_ROOT:-$HOME/projects/evoshell}/bin}"
             files+=("$evoshell/shell.qml")
         fi
 
-        if [[ "$cmd" == *toggleSystemMenu* || "$cmd" == *toggleAppLauncher* ]]; then
+        if [[ "$cmd" == *toggleSystemMenu* ]]; then
             while IFS= read -r p; do
                 [[ -n "$p" ]] && files+=("$p")
             done < <(_menu_list_plugin_paths "$evoshell" "evo.sys.menu")
@@ -646,8 +646,6 @@ local bin="${EVOSHELL_BIN:-${EVOSHELL_ROOT:-$HOME/projects/evoshell}/bin}"
         "Lists registered evoshell plugin ids available over IPC."
     _menu_list_emit "Toggle system menu" "$ipc shell toggleSystemMenu" "$(_menu_list_used toggleSystemMenu && echo true || echo false)" \
         "Opens or closes this system menu overlay."
-    _menu_list_emit "Toggle program runner" "$ipc shell toggleRunner" "$(_menu_list_used toggleAppLauncher && echo true || echo false)" \
-        "Opens or closes the program runner overlay."
     _menu_list_emit "Summon overlay" "$ipc shell summon <plugin> [json]" false \
         "Shows a plugin overlay without toggling it off if already visible."
     _menu_list_emit "Toggle overlay" "$ipc shell toggle <plugin> [json]" false \

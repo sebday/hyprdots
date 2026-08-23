@@ -148,8 +148,7 @@ Evoshell overlays close with **Esc** (system menu and media library step back or
 | Binding | Action |
 |---------|--------|
 | Super+B | Settings (`evo.sys.settings`) — Looks tab |
-| Super+Space | System menu (`evo.sys.menu`) — Looks, Displays, Widgets, Packages |
-| Super+D | Program runner (`evo.sys.menu`, mode `runner`) — apps, panels, bindings, session |
+| Super+Space | System menu (`evo.sys.menu`) — Programs, Looks, Displays, Widgets, Packages |
 | Super+Return | Terminal |
 | Super+Alt+Return | Quake console (`special:qconsole`) |
 | Super+W | Close active window |

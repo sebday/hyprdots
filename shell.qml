@@ -795,26 +795,11 @@ ShellRoot {
         return toggle("evo.sys.menu", '{"mode":"power"}')
     }
 
-    function toggleAppLauncher() {
-        return toggle("evo.sys.menu", '{"mode":"runner"}')
-    }
-
-    function toggleRunner() {
-        return toggleAppLauncher()
-    }
-
     GlobalShortcut {
         appid: "evoshell"
         name: "systemMenu"
         description: "System menu"
         onPressed: shell.toggleSystemMenu()
-    }
-
-    GlobalShortcut {
-        appid: "evoshell"
-        name: "appLauncher"
-        description: "Program runner"
-        onPressed: shell.toggleRunner()
     }
 
     IpcHandler {
@@ -838,16 +823,6 @@ ShellRoot {
 
         function toggleSystemMenu(): string {
             shell.toggleSystemMenu()
-            return "ok"
-        }
-
-        function toggleAppLauncher(): string {
-            shell.toggleAppLauncher()
-            return "ok"
-        }
-
-        function toggleRunner(): string {
-            shell.toggleRunner()
             return "ok"
         }
 
