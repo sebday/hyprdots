@@ -1,6 +1,6 @@
 # Evoshell Arch packages (official repos only).
 # Install: sudo pacman -S --needed $(grep -vE '^#|^$' packages.txt)
-# See docs/packages.md for optional AUR packages and per-feature notes.
+# See hyprdots .install/packages.txt for the full desktop list and optional AUR packages.
 
 # Required ##################
 hyprland

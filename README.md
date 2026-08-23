@@ -5,7 +5,7 @@ A Quickshell desktop shell for Hyprland - thank you Vaxry.
 
 Evoshell targets **Hyprland** and requires **quickshell**, **jq**, and **pass** at minimum. Clipboard, screenshots, themes, and bar integrations need additional packages.
 
-See [docs/packages.md](docs/packages.md) for the full list (required, recommended, and optional). Install from the repo with:
+For the full desktop package list (boot, greetd, apps, dev tools), see [hyprdots `.install/packages.txt`](https://github.com/sebday/hyprdots/blob/master/.install/packages.txt). Evoshell-only packages are in [`packages.txt`](packages.txt). Install from the repo with:
 
 ```bash
 sudo pacman -S --needed $(grep -vE '^#|^$' packages.txt)

@@ -32,7 +32,7 @@ journalctl -t evoshell -f
 
 ## Prerequisites
 
-See [`docs/packages.md`](../../docs/packages.md) for Arch package tiers (required, recommended, optional).
+See [hyprdots `.install/packages.txt`](https://github.com/sebday/hyprdots/blob/master/.install/packages.txt) for the full desktop package list; [`packages.txt`](../../packages.txt) covers evoshell-only deps.
 
 Minimum runtime:
 
