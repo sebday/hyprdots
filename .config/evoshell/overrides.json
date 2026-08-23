@@ -1,0 +1,97 @@
+{
+  "version": 1,
+  "bar": {
+    "output": "HDMI-A-1",
+    "position": "bottom",
+    "trayWidgets": {
+      "github": {},
+      "weather": {},
+      "cursor": {},
+      "cloudflare": {},
+      "homeAssistant": {},
+      "audio": {}
+    },
+    "trayWidgetOrder": [
+      "volume",
+      "media",
+      "weather",
+      "homeAssistant",
+      "github",
+      "workspaces",
+      "notifications",
+      "stocks",
+      "cursor",
+      "cloudflare",
+      "network"
+    ],
+    "barWidgets": {
+      "workspaces": {
+        "enabled": true
+      }
+    },
+    "barWidgetOrder": [
+      "volume",
+      "media",
+      "weather",
+      "homeAssistant",
+      "github",
+      "workspaces",
+      "notifications",
+      "stocks",
+      "cursor",
+      "cloudflare",
+      "network"
+    ],
+    "barChromeOrder": [
+      "workspaces"
+    ]
+  },
+  "notifications": {
+    "output": "DP-1",
+    "position": "top"
+  },
+  "dashboards": {
+    "openOnStart": [
+      "evo.panels.shopify",
+      "evo.panels.player"
+    ]
+  },
+  "shopify": {
+    "timezone": "Europe/London",
+    "sqliteDir": "/home/seb/projects/ecommerce-data/data",
+    "remote": "seb@zotac:~/projects/ecommerce-data/data",
+    "stores": [
+      {
+        "key": "DIY",
+        "title": "DIY",
+        "adminSlug": "diy-buildingsupplies",
+        "barPrefix": "D ",
+        "sqliteKey": "diy"
+      },
+      {
+        "key": "TGS",
+        "title": "TGS",
+        "adminSlug": "thegoodsheet-uk",
+        "barPrefix": "T ",
+        "sqliteKey": "tgs"
+      }
+    ]
+  },
+  "idle": {
+    "lock": 900
+  },
+  "homeAssistant": {
+    "lightAreas": [
+      "Shed"
+    ],
+    "climateEntities": [
+      "climate.downstairs_downstairs"
+    ]
+  },
+  "panel": {
+    "side": "right"
+  },
+  "wallpaper": {
+    "activeDefault": "active://yuruyurau-marine"
+  }
+}

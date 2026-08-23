@@ -103,6 +103,41 @@ hl.window_rule({
 	opacity = "1 override 1 override",
 })
 
+-- Dashboard windows on workspace 10 (HDMI-A-1).
+
+local DASHBOARD_WS = "10"
+local EVICT_WS = "5"
+local DASHBOARD_LAYOUT = "lua:dashboard_2x2"
+
+hl.window_rule({
+	name = "dashboard-no-initial-focus",
+	match = {
+		class = "^(org%.quickshell)$",
+		title = "^evo%.panels%.[^%.]+$",
+	},
+	no_initial_focus = true,
+})
+
+hl.window_rule({
+	name = "dashboard-pinned-shopify-ws10",
+	match = {
+		class = "^(org%.quickshell)$",
+		title = "^evo%.panels%.shopify",
+	},
+	workspace = DASHBOARD_WS,
+})
+
+hl.window_rule({
+	name = "dashboard-pinned-player-ws10",
+	match = {
+		class = "^(org%.quickshell)$",
+		title = "^evo%.panels%.player$",
+	},
+	workspace = DASHBOARD_WS,
+})
+
+local dashboard_reflow_pending = false
+
 local function window_size(win)
 	if not win then
 		return 0, 0
@@ -110,6 +145,51 @@ local function window_size(win)
 	local w = win.width or (win.size and win.size.w) or 0
 	local h = win.height or (win.size and win.size.h) or 0
 	return w, h
+end
+
+local function is_dashboard_window(win)
+	if not win or win.class ~= "org.quickshell" then
+		return false
+	end
+	local title = win.title or ""
+	return title:match("^evo%.panels%.[^%.]+$") ~= nil
+		or title:match("^evo%.panels%.shopify") ~= nil
+end
+
+local function reflow_dashboard_workspace()
+	if dashboard_reflow_pending then
+		return
+	end
+	dashboard_reflow_pending = true
+	hl.timer(function()
+		dashboard_reflow_pending = false
+		hl.dispatch(hl.dsp.focus({ workspace = DASHBOARD_WS }))
+		hl.dispatch(hl.dsp.layout("name " .. DASHBOARD_LAYOUT))
+	end, { timeout = 200, type = "oneshot" })
+end
+
+local function evict_non_dashboard_from_ws10(win)
+	if not win or not win.workspace or win.workspace.name ~= DASHBOARD_WS then
+		return
+	end
+	if is_dashboard_window(win) then
+		return
+	end
+	hl.dispatch(hl.dsp.window.move({ workspace = EVICT_WS, window = win, follow = false }))
+end
+
+local function route_dashboard_window(win)
+	if not is_dashboard_window(win) then
+		return
+	end
+
+	if win.workspace and win.workspace.name == DASHBOARD_WS then
+		reflow_dashboard_workspace()
+		return
+	end
+
+	hl.dispatch(hl.dsp.window.move({ workspace = DASHBOARD_WS, window = win, follow = false }))
+	reflow_dashboard_workspace()
 end
 
 local function is_preserved_tui(win)
@@ -182,6 +262,12 @@ end
 
 local function on_window_open(win)
 	brave_app_to_floating(win)
+	evict_non_dashboard_from_ws10(win)
+	route_dashboard_window(win)
 end
 
 hl.on("window.open", on_window_open)
+hl.on("window.title", function(win)
+	evict_non_dashboard_from_ws10(win)
+	route_dashboard_window(win)
+end)

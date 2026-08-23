@@ -26,6 +26,8 @@
 !.config/evoshell/
 !.config/evoshell/plugins/
 !.config/evoshell/plugins/**
+!.config/evoshell/wallpapers/
+!.config/evoshell/wallpapers/**
 .config/evoshell/plugins/commons
 !.config/brave-flags.conf
 .local/
