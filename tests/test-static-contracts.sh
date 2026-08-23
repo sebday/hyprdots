@@ -102,8 +102,15 @@ for exe in \
   evo-bar-weather evo-bar-weather-bar evo-bar-github evo-bar-home-assistant \
   evo-panel-player \
   evo-tasks evo-calculator evo-clipboard evo-wallpaper evo-theme evo-menu-list evo-menu-warm \
-  evo-brave-launch evo-bar-network-bar evo-bar-transmission-bar evo-bar-steam; do
+  evo-notification-send evo-brave-launch evo-bar-network-bar evo-bar-transmission-bar evo-bar-steam; do
   [[ -x "${bin}/${exe}" ]] || { echo "missing executable: ${exe}" >&2; fail=1; }
+done
+
+check_present 'evoshell_notify' "${bin}/evo-paths-lib"
+for script in "${bin}"/evo-*; do
+  [[ -f "$script" ]] || continue
+  [[ "$(basename "$script")" == "evo-notification-send" ]] && continue
+  check_absent 'notify-send' "$script"
 done
 
 if [[ "$skip_evoplayer" != "1" ]]; then
@@ -127,6 +134,11 @@ check_present 'hiddenIdentities' "${root}/evosys/notifications/Service.qml"
 check_present 'web\.telegram\.org' "${root}/evosys/notifications/Service.qml"
 check_present 'telegram\.org' "${root}/evosys/notifications/Service.qml"
 check_present 'messages\.google\.com' "${root}/evosys/notifications/Service.qml"
+check_present 'evoshell-glyph' "${root}/evosys/notifications/Service.qml"
+check_present 'evoshell-exec' "${root}/evosys/notifications/Service.qml"
+check_present 'IpcHandler' "${root}/evosys/notifications/Service.qml"
+check_present 'evo\.sys\.notifications' "${root}/evosys/notifications/Service.qml"
+check_present 'evo notify send' "${bin}/evo"
 check_present 'evo-brave-launch' "${bin}/evo-brave-launch"
 check_present 'NativeNotifications' "${root}/../hyprdots/.config/brave-flags.conf"
 check_present '"notifications":' "${shell_json}"

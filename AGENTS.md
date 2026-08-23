@@ -27,6 +27,8 @@ Secrets: `pass` entries under `evoshell/` (e.g. `pass show evoshell/github/token
 
 Brave `web.telegram.org` notifications route through evoshell when Brave uses **native dbus notifications** (`NativeNotifications` in `brave-flags.conf`) and starts via `evo-brave-launch` so it probes dbus after evoshell owns `org.freedesktop.Notifications` — otherwise Chromium falls back to in-browser popup windows for the session.
 
+Feature bash scripts should toast via `evoshell_notify` from [`bin/evo-paths-lib`](bin/evo-paths-lib) (wraps `evo-notification-send`; also `evo notify send`). QML plugins use `showBrief()` on `evo.sys.notifications`. Shell IPC: `evo ipc evo.sys.notifications send "Title" "Body"` or `sendJson` with `{title, body, glyph?, exec?, durationMs?}`.
+
 Effective layout config is deep-merged at runtime: built-in defaults → `$EVOSHELL_ROOT/config/shell.json` → `$EVOSHELL_CONFIG/overrides.json`. `evo-layout` and `evo-config` mutate overrides only; see `config/overrides.example.json`.
 
 | Store | Examples | Set via |
@@ -199,6 +201,7 @@ Common feature scripts:
 | `evo-layout` | Bar/monitor layout helpers |
 | `evo-hyprland` | Hyprland config helpers |
 | `evo-screenshot` | Region/stacked capture (grim + slurp) and satty annotation |
+| `evo-notification-send` | Canonical dbus toast sender (`--glyph`, `--image`, `--exec`) |
 | `evo-brave-launch` | Start Brave after the session notification server is ready |
 | `evo-bar-*` | Bar pollers and popup data sources |
 

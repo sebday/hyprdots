@@ -104,6 +104,8 @@ Scope {
 
     function enqueuePopup(notification) {
         var entry = { notification: notification, key: Date.now() + Math.random() }
+        entry.glyph = hintString(notification, "evoshell-glyph")
+        entry.execCommand = hintString(notification, "evoshell-exec")
         if (isHyprshot(entry) || isEvoScreenshot(entry))
             entry.artRev = Date.now()
 
@@ -115,7 +117,8 @@ Scope {
         scheduleDismiss(root.durationMs)
     }
 
-    function showBrief(title, body, durationMs) {
+    function showBrief(title, body, durationMs, opts) {
+        var o = typeof opts === "object" && opts ? opts : {}
         var titleStr = String(title || "")
         var next = []
         for (var i = 0; i < activePopups.length; i++) {
@@ -128,7 +131,9 @@ Scope {
             local: true,
             title: titleStr,
             body: String(body || ""),
-            art: resolveNamedIcon(titleStr)
+            glyph: String(o.glyph || ""),
+            execCommand: String(o.exec || o.execCommand || ""),
+            art: o.glyph ? "" : resolveNamedIcon(titleStr)
         }
         next.push(briefEntry)
         activePopups = next
@@ -939,6 +944,67 @@ Scope {
             .replace(/&#39;/g, "'")
     }
 
+    function hintString(notification, key) {
+        if (!notification || !notification.hints)
+            return ""
+        var hints = notification.hints
+        var val = hints[key]
+        if (val === undefined || val === null)
+            val = hints[String(key).replace(/-/g, "_")]
+        if (val === undefined || val === null)
+            return ""
+        return String(val)
+    }
+
+    function entryGlyph(entry) {
+        if (!entry)
+            return ""
+        if (entry.glyph)
+            return String(entry.glyph)
+        var n = entry.notification
+        if (!n)
+            return ""
+        return hintString(n, "evoshell-glyph")
+    }
+
+    function entryExecCommand(entry) {
+        if (!entry)
+            return ""
+        if (entry.execCommand)
+            return String(entry.execCommand)
+        var n = entry.notification
+        if (!n)
+            return ""
+        return hintString(n, "evoshell-exec")
+    }
+
+    function toastClickable(entry) {
+        if (!entry)
+            return false
+        if (isHyprshot(entry) || isEvoScreenshot(entry))
+            return true
+        return entryExecCommand(entry) !== ""
+    }
+
+    function runEntryExec(entry) {
+        if (!entry)
+            return
+        var cmd = entryExecCommand(entry)
+        if (!cmd)
+            return
+        Quickshell.execDetached(["bash", "-lc", cmd])
+        dismissEntry(entry.key)
+    }
+
+    function handleToastActivate(entry) {
+        if (!entry)
+            return
+        if (isHyprshot(entry) || isEvoScreenshot(entry))
+            openScreenshotEditor(entry)
+        else
+            runEntryExec(entry)
+    }
+
     function bodyLines(entry) {
         var raw = stripMarkup(popupBody(entry)).replace(/\r/g, "")
         var parts = raw.split("\n")
@@ -1027,6 +1093,9 @@ Scope {
     }
 
     function popupIcon(entry) {
+        var glyph = entryGlyph(entry)
+        if (glyph)
+            return glyph
         var title = popupTitle(entry).trim().toLowerCase()
         var body = popupBody(entry).trim().toLowerCase()
         if (title.indexOf("error") !== -1 || body.indexOf("error") !== -1)
@@ -1312,7 +1381,7 @@ Scope {
             artRev: modelData ? (modelData.artRev || 0) : 0
             fallbackIcon: root.popupIcon(modelData)
             imageFillMode: root.popupArtFillMode(modelData)
-            hyprshot: root.isHyprshot(modelData) || root.isEvoScreenshot(modelData)
+            clickable: root.toastClickable(modelData)
             popupScreen: root.popupScreen
             popupOnTop: root.popupOnTop
             stackOffsets: root.stackOffsets
@@ -1335,9 +1404,37 @@ Scope {
 
             onImplicitHeightChanged: if (modelData) root.setPopupHeight(modelData.key, implicitHeight)
             onDismissed: if (modelData) root.dismissEntry(modelData.key)
-            onOpenScreenshot: if (modelData) root.openScreenshotEditor(modelData)
+            onActivated: if (modelData) root.handleToastActivate(modelData)
             onArtError: function(source) { root.logEvent("artError", { source: source }) }
             onArtReady: function(source) { root.logEvent("artReady", { source: source }) }
+        }
+    }
+
+    IpcHandler {
+        target: "evo.sys.notifications"
+
+        function send(title: string, body: string): string {
+            root.showBrief(title, body)
+            return "ok"
+        }
+
+        function sendJson(payloadJson: string): string {
+            var payload = {}
+            try {
+                payload = JSON.parse(String(payloadJson || "{}"))
+            } catch (e) {
+                return "error: invalid json"
+            }
+            root.showBrief(
+                String(payload.title || ""),
+                String(payload.body || ""),
+                payload.durationMs,
+                {
+                    glyph: payload.glyph,
+                    exec: payload.exec || payload.execCommand
+                }
+            )
+            return "ok"
         }
     }
 }

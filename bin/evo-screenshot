@@ -3,6 +3,10 @@
 
 set -euo pipefail
 
+_bin_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "${_bin_dir}/evo-paths-lib"
+
 TOP_MONITOR="${EVO_SCREENSHOT_TOP:-}"
 read -r -a BOTTOM_MONITORS <<< "${EVO_SCREENSHOT_BOTTOM:-}"
 
@@ -55,12 +59,7 @@ notify_saved() {
 	local abs
 	abs="$(readlink -f "$path" 2>/dev/null || printf '%s' "$path")"
 
-	notify-send -a evoshell \
-		-t 5000 \
-		-h "string:image-path:$abs" \
-		-i "$abs" \
-		"Screenshot saved" \
-		"$abs" 2>/dev/null || true
+	evoshell_notify --image "$abs" -t 5000 "Screenshot saved" "$abs" 2>/dev/null || true
 }
 
 capture_region() {
@@ -324,7 +323,7 @@ cmd_edit() {
 	shot="${shot#file://}"
 
 	if [[ ! -f "$shot" ]]; then
-		notify-send -a evoshell "No capture — press Print first" 2>/dev/null || true
+		evoshell_notify "No capture — press Print first" 2>/dev/null || true
 		exit 1
 	fi
 

@@ -183,7 +183,7 @@ notify_theme_switch() {
     "$SCRIPT_DIR/evo-menu-warm" 2>/dev/null &
     pkill -SIGUSR2 btop 2>/dev/null || true
 
-    notify-send "Theme switched to $theme_name" 2>/dev/null || true
+    evoshell_notify -g "󰸌" "Theme switched to $theme_name" 2>/dev/null || true
 }
 
 apply_theme() {
@@ -196,7 +196,7 @@ apply_theme() {
     mkdir -p "$(dirname "$theme_lock")"
     exec 9>"$theme_lock"
     if ! flock -n 9; then
-        notify-send "Theme" "Theme switch already in progress" 2>/dev/null || true
+        evoshell_notify -g "󰸌" "Theme" "Theme switch already in progress" 2>/dev/null || true
         return 1
     fi
 
@@ -223,7 +223,7 @@ case "$COMMAND" in
     refresh)
         current_theme=$(get_current_theme)
         if [ -z "$current_theme" ]; then
-            notify-send "Theme Refresh" "No current theme." 2>/dev/null || true
+            evoshell_notify -g "󰸌" "Theme Refresh" "No current theme." 2>/dev/null || true
             exit 1
         fi
         apply_theme "$current_theme" || exit 1

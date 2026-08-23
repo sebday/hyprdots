@@ -14,3 +14,7 @@ EVOSHELL_CACHE="${EVOSHELL_CACHE:-${XDG_CACHE_HOME:-${HOME}/.cache}/evoshell}"
 evoshell_script() {
     printf '%s/%s' "${EVOSHELL_BIN%/}" "$1"
 }
+
+evoshell_notify() {
+    "$(evoshell_script evo-notification-send)" "$@"
+}

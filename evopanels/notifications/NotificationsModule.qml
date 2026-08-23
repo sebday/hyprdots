@@ -142,6 +142,8 @@ Item {
         var art = item && item.art ? String(item.art) : ""
         if (!art)
             return ""
+        if (art.toLowerCase() === "evoshell" || art.indexOf("evoshell.svg") !== -1)
+            return ""
         if (art.indexOf("evo.panels.player") !== -1)
             return Util.iconSourceForName("evo.panels.player")
         if (art.indexOf("data:image/") === 0)
@@ -150,8 +152,7 @@ Item {
             art = art.split("?")[0]
         if (art.indexOf("/") !== -1 || art.indexOf("://") !== -1)
             return Util.fileUrl(art)
-        var path = Quickshell.iconPath(art, true)
-        return path ? Util.normalizeIconSource(path) : ""
+        return Util.iconSourceForName(art)
     }
 
     function openEntry(item) {

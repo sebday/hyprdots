@@ -15,7 +15,7 @@ PanelWindow {
     property int artRev: 0
     property string fallbackIcon: "󰎆"
     property int imageFillMode: Image.PreserveAspectCrop
-    property bool hyprshot: false
+    property bool clickable: false
     property var popupScreen: null
     property bool popupOnTop: false
     property var stackOffsets: []
@@ -23,7 +23,7 @@ PanelWindow {
     property int popupMarginLeft: 0
 
     signal dismissed()
-    signal openScreenshot()
+    signal activated()
     signal artError(string source)
     signal artReady(string source)
     signal opened()
@@ -86,14 +86,14 @@ PanelWindow {
     MouseArea {
         anchors.fill: parent
         acceptedButtons: Qt.LeftButton | Qt.RightButton
-        cursorShape: root.hyprshot ? Qt.PointingHandCursor : Qt.ArrowCursor
+        cursorShape: root.clickable ? Qt.PointingHandCursor : Qt.ArrowCursor
         onClicked: function(mouse) {
             if (!entry)
                 return
             if (mouse.button === Qt.RightButton)
                 root.dismissed()
-            else if (mouse.button === Qt.LeftButton && root.hyprshot)
-                root.openScreenshot()
+            else if (mouse.button === Qt.LeftButton && root.clickable)
+                root.activated()
         }
     }
 }

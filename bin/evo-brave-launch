@@ -25,9 +25,7 @@ wait_for_notification_server() {
     if busctl --user status org.freedesktop.Notifications &>/dev/null; then
       owner="$(busctl --user get-name-owner org.freedesktop.Notifications 2>/dev/null || true)"
       if [[ -n "$owner" ]]; then
-        if command -v notify-send &>/dev/null; then
-          notify-send -e -a evoshell "ok" >/dev/null 2>&1 || true
-        fi
+        evoshell_notify --probe >/dev/null 2>&1 || true
         return 0
       fi
     fi

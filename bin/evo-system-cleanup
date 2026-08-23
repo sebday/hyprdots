@@ -62,4 +62,4 @@ fi
 summary=$(printf '%s, ' "${cleared[@]}")
 summary=${summary%, }
 
-notify-send "Cache Cleared" "${summary:-nothing to clear}."
+evoshell_notify -g "󰃢" "Cache Cleared" "${summary:-nothing to clear}."

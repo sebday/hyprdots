@@ -40,6 +40,7 @@ groups:
   player    music library and playback
   system    shell supervisor, lock, restart, power
   ipc       quickshell IPC wrapper
+  notify    desktop notifications (send)
   nvim-open send files to a running neovim instance
 EOF
 }
@@ -73,6 +74,30 @@ case "$group" in
             exit 1
         }
         exec "$ipc" "$@"
+        ;;
+    notify)
+        notify_backend="$(_resolve_lib evo-notification-send)" || {
+            echo "evo: notify backend not found" >&2
+            exit 1
+        }
+        sub="${1:-}"
+        shift || true
+        case "$sub" in
+            send)
+                exec "$notify_backend" "$@"
+                ;;
+            ""|-h|--help|help)
+                cat <<'EOF'
+usage: evo notify send [evo-notification-send options] HEADLINE [BODY]
+
+See: evo-notification-send --help
+EOF
+                ;;
+            *)
+                echo "evo: unknown notify command: $sub" >&2
+                exit 1
+                ;;
+        esac
         ;;
     nvim-open)
         nvim_open="$(_resolve_lib evo-nvim-open)" || {
