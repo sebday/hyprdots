@@ -264,6 +264,12 @@
       "sessions": 140230,
       "spend": 77117.72
     },
+    "month": {
+      "mtdRevenue": 1850000.42,
+      "forecastRevenue": 2606250.59,
+      "day": 22,
+      "daysInMonth": 31
+    },
     "channels": {
       "paid": 477777.68,
       "organic": 240307.86,
@@ -778,6 +784,12 @@
       "orders": 1732,
       "sessions": 41342,
       "spend": 36193.18
+    },
+    "month": {
+      "mtdRevenue": 312450.18,
+      "forecastRevenue": 440456.51,
+      "day": 22,
+      "daysInMonth": 31
     },
     "channels": {
       "paid": 98458.8,

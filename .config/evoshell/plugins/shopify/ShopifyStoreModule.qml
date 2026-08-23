@@ -2,6 +2,7 @@ import Quickshell
 import Quickshell.Io
 import QtQuick
 import QtQuick.Layouts
+import "."
 import "../commons"
 
 Item {
@@ -22,6 +23,9 @@ Item {
     readonly property string storeCacheKey: "shopify-" + storeKey + "-30"
 
     readonly property string home: Quickshell.env("HOME")
+    readonly property string shopifyScript: (shell && shell.configDir)
+        ? shell.configDir + "/plugins/shopify/bin/evo-panel-shopify"
+        : home + "/.config/evoshell/plugins/shopify/bin/evo-panel-shopify"
     readonly property string demoJsonPath: (shell && shell.configDir)
         ? shell.configDir + "/plugins/shopify/demo.json"
         : home + "/.config/evoshell/plugins/shopify/demo.json"
@@ -46,6 +50,7 @@ Item {
 
     readonly property var todayDetail: storeData.todayDetail || {}
     readonly property var period: storeData.period || {}
+    readonly property var month: storeData.month || {}
     readonly property var channels: storeData.channels || {}
     readonly property string currency: storeData.symbol || "£"
     readonly property int chartDays: period.days || (storeData.bars ? storeData.bars.length : 30)
@@ -186,11 +191,20 @@ Item {
         return Format.formatRevenue(revenue / orders, currency)
     }
 
+    function fmtMonthForecast() {
+        var val = parseFloat(root.month.forecastRevenue)
+        if (isNaN(val) || val <= 0)
+            return "—"
+        return Format.formatRevenue(val, currency)
+    }
+
     function applyPayload(json) {
-        if (!json || typeof json !== "object") {
-            storeData = ({})
+        if (!json || typeof json !== "object")
             return
-        }
+        if (Object.keys(json).length === 0)
+            return
+        if (!Array.isArray(json.bars) && !json.todayDetail && json.revenue === undefined)
+            return
         if (demoMode && Array.isArray(json.bars)) {
             var themed = Object.assign({}, json)
             var bars = []
@@ -253,7 +267,7 @@ Item {
         cacheKey: root.storeCacheKey
         active: root.active && !root.demoMode
         defaultIntervalSec: 300
-        command: ["bash", Util.evoshellScript(root.home, root.shell, "evo-panel-shopify"), root.storeKey, "30"]
+        command: ["bash", root.shopifyScript, root.storeKey, "30"]
         onPolled: function(json) { root.applyPayload(json) }
     }
 
@@ -281,7 +295,7 @@ Item {
 
                 GridLayout {
                     Layout.fillWidth: true
-                    columns: 4
+                    columns: 5
                     columnSpacing: 8
                     rowSpacing: 8
 
@@ -307,6 +321,11 @@ Item {
                         label: "CVR"
                         value: root.fmtPct(root.todayDetail.cvr)
                     }
+
+                    HoverPanelStatBox {
+                        label: "AoV"
+                        value: root.fmtAov()
+                    }
                 }
 
                 GridLayout {
@@ -314,11 +333,6 @@ Item {
                     columns: 4
                     columnSpacing: 8
                     rowSpacing: 8
-
-                    HoverPanelStatBox {
-                        label: "AoV"
-                        value: root.fmtAov()
-                    }
 
                     HoverPanelStatBox {
                         label: "CoS"
@@ -337,56 +351,35 @@ Item {
                             : "—"
                         valueColor: Theme.foreground
                     }
+
+                    HoverPanelStatBox {
+                        label: "Forecast"
+                        value: root.fmtMonthForecast()
+                    }
                 }
             }
         }
 
         SectionPanel {
             fillHeight: root.chartFillHeight
-            label: ""
+            label: revenueChart.hasTooltip
+                ? revenueChart.tooltipLabel
+                : root.chartDays + " day revenue"
+            labelProminent: true
             legendBackground: root.sectionLegendBackground
             visible: (root.storeData.bars || []).length > 0
             Layout.minimumHeight: root.chartFillHeight ? 120 : implicitHeight
 
-            HoverPanelLabelPill {
-                text: root.chartDays + " day revenue"
-                icon: "󰄔"
-                fontSize: Theme.fontSizeS
-            }
-
-            ColumnLayout {
+            Item {
                 Layout.fillWidth: true
-                Layout.fillHeight: root.chartFillHeight
-                spacing: Theme.spacingS
+                Layout.fillHeight: true
+                Layout.minimumHeight: 120
 
-                Item {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: root.chartFillHeight
-                    Layout.minimumHeight: 64
-                    Layout.preferredHeight: root.chartFillHeight ? -1 : 100
-
-                    SparklineChart {
-                        anchors.fill: parent
-                        chartHeight: root.chartFillHeight ? Math.max(64, Math.round(height)) : 100
-                        style: "bars"
-                        bars: root.storeData.bars || []
-                    }
-
-                    Text {
-                        anchors.centerIn: parent
-                        width: parent.width
-                        text: "demo mode"
-                        visible: root.demoMode
-                        z: -1
-                        enabled: false
-                        color: Theme.foreground
-                        opacity: 0.12
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Math.max(Theme.fontSize9xl, Math.round(parent.height * 0.22))
-                        font.bold: Theme.fontBold
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
+                RevenueBarChart {
+                    id: revenueChart
+                    anchors.fill: parent
+                    bars: root.storeData.bars || []
+                    currency: root.currency
                 }
             }
         }

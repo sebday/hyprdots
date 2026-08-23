@@ -75,6 +75,7 @@ json_shopify() {
         --argjson period "${10}" \
         --argjson channels "${11}" \
         --argjson orderBars "${12}" \
+        --argjson month "${13}" \
         '{
             text: $text,
             label: $label,
@@ -87,7 +88,8 @@ json_shopify() {
             todayDetail: $todayDetail,
             period: $period,
             channels: $channels,
-            orderBars: $orderBars
+            orderBars: $orderBars,
+            month: $month
         }'
 }
 
@@ -168,6 +170,13 @@ get_day_kpi() {
     sqlite3 -readonly -separator '|' "$db" \
         "SELECT COALESCE(revenue,0), COALESCE(orders,0), COALESCE(sessions,0), ${spend_col}, gross_margin_pct, cvr, COALESCE(paid_revenue,0), COALESCE(organic_revenue,0), COALESCE(direct_revenue,0), COALESCE(email_revenue,0), gross_margin FROM fact_kpi_daily WHERE dt = '${dt}';" 2>/dev/null \
         || printf '0|0|0|||0|0|0|0|'
+}
+
+get_month_mtd_revenue() {
+    local db=$1 month_start=$2 today=$3
+    sqlite3 -readonly "$db" \
+        "SELECT COALESCE(SUM(revenue), 0) FROM fact_kpi_daily WHERE dt >= '${month_start}' AND dt <= '${today}';" 2>/dev/null \
+        || printf '0'
 }
 
 get_day_stats() {
@@ -366,7 +375,8 @@ main() {
     local rev orders cos sym sales_chart today_sales_val cos_str output_text
     local spend cvr gmp gm paid_rev org_rev dir_rev email_rev
     local period_rev period_orders period_sessions
-    local today_detail_json period_json channels_json order_bars_json
+    local month_start day_of_month days_in_month mtd_revenue forecast_revenue
+    local today_detail_json period_json channels_json order_bars_json month_json
     local -a chart_sales=()
     local -a chart_days=()
     local -a chart_order_days=()
@@ -526,8 +536,31 @@ main() {
         --argjson email "$(awk -v v="$period_email" 'BEGIN { printf "%.2f", v + 0 }')" \
         '{paid: $paid, organic: $organic, direct: $direct, email: $email}')
 
+    month_start=$(TZ="$tz_name" date -d "${today_s}" +%Y-%m-01)
+    day_of_month=$(TZ="$tz_name" date -d "${today_s}" +%d)
+    days_in_month=$(TZ="$tz_name" date -d "${month_start} +1 month -1 day" +%d)
+    mtd_revenue=$(get_month_mtd_revenue "$db_path" "$month_start" "$today_s")
+    mtd_revenue=${mtd_revenue:-0}
+    forecast_revenue=$(awk -v mtd="$mtd_revenue" -v day="$day_of_month" -v dim="$days_in_month" 'BEGIN {
+        d = day + 0
+        if (d <= 0) { print "0"; exit }
+        printf "%.2f", (mtd + 0) / d * (dim + 0)
+    }')
+
+    month_json=$(jq -cn \
+        --argjson mtdRevenue "$(awk -v r="$mtd_revenue" 'BEGIN { printf "%.2f", r + 0 }')" \
+        --argjson forecastRevenue "$forecast_revenue" \
+        --argjson day "$day_of_month" \
+        --argjson daysInMonth "$days_in_month" \
+        '{
+            mtdRevenue: $mtdRevenue,
+            forecastRevenue: $forecastRevenue,
+            day: $day,
+            daysInMonth: $daysInMonth
+        }')
+
     output=$(json_shopify "$output_text" "$label_text" "$sparkline_json" "${STORE_DISPLAY}" "$sym" \
-        "$orders_n" "$cos_str" "$revenue_n" "$today_detail_json" "$period_json" "$channels_json" "$order_bars_json")
+        "$orders_n" "$cos_str" "$revenue_n" "$today_detail_json" "$period_json" "$channels_json" "$order_bars_json" "$month_json")
     printf '%s\n' "$output" | evo_bar_cache_write "$cache_key"
     printf '%s\n' "$output"
 }

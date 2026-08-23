@@ -31,10 +31,9 @@ Item {
 
     onDemoModeChanged: if (!demoMode) bootstrapStoreDefs()
 
-    readonly property string shopifyScript: Util.evoshellScript(
-        Quickshell.env("HOME") || "",
-        shell,
-        "evo-panel-shopify")
+    readonly property string shopifyScript: (shell && shell.configDir)
+        ? shell.configDir + "/plugins/shopify/bin/evo-panel-shopify"
+        : (Quickshell.env("HOME") || "") + "/.config/evoshell/plugins/shopify/bin/evo-panel-shopify"
 
     function storesFromShellConfig() {
         var cfg = shell && shell.shellConfig && shell.shellConfig.shopify
@@ -94,7 +93,21 @@ Item {
         contentHeight: root.scrollStores ? storeGrid.implicitHeight : height
         clip: true
         boundsBehavior: Flickable.StopAtBounds
-        interactive: root.scrollStores && contentHeight > height
+        interactive: false
+
+        WheelHandler {
+            onWheel: function(event) {
+                if (!root.scrollStores)
+                    return
+                var delta = event.angleDelta.y
+                if (delta === 0)
+                    return
+                var next = storeScroller.contentY - delta / 2
+                var maxY = Math.max(0, storeScroller.contentHeight - storeScroller.height)
+                storeScroller.contentY = Math.max(0, Math.min(maxY, next))
+                event.accepted = true
+            }
+        }
 
         GridLayout {
             id: storeGrid
