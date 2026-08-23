@@ -164,7 +164,7 @@ check_present 'extensionTrayWidgets' "${root}/shell.qml"
 check_present 'pluginOverlayPath' "${root}/shell.qml"
 [[ -f "${root}/config/plugins/manifest.example.json" ]] || { echo "missing plugin overlay example" >&2; fail=1; }
 check_present 'Home Assistant' "${root}/evosys/settings/SettingsModule.qml"
-check_present 'System packages' "${root}/evosys/settings/SettingsModule.qml"
+check_present 'Packages' "${root}/evosys/settings/SettingsModule.qml"
 check_present 'DisplaysTab' "${root}/evosys/settings/qmldir"
 check_present 'LooksTab' "${root}/evosys/settings/qmldir"
 check_present 'evo-system-packages' "${root}/bin"
@@ -208,7 +208,13 @@ if ! rg -Fq 'settingsPanelWidth: systemPanelWidth' "${root}/commons/Theme.qml" 2
   fail=1
 fi
 check_absent 'settingsPanelWidth: systemPanelWidth * 2'
-check_present 'evo-storage-lib' "${root}/bin/evo-config-lib"
+check_present 'runnerEntries' "${root}/evosys/menu/MenuEntries.js"
+check_present 'MenuEntries\.runnerEntries' "${root}/evosys/menu/Menu.qml"
+check_absent 'label: "Evoshell"' "${root}/evosys/menu/Menu.qml"
+check_absent 'legendText: "Startup"' "${root}/evosys/settings/SettingsModule.qml"
+check_absent 'openStartupDashboards' "${root}/shell.qml"
+check_absent 'startupDashboardTimer' "${root}/shell.qml"
+check_present 'restore-dashboards evo\.panels\.shopify' "${root}/hypr/autostart.lua"
 check_absent 'evo-system-backup'
 if [[ -e "${bin}/evo-shell" ]]; then
   echo "forbidden executable present: ${bin}/evo-shell" >&2

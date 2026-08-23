@@ -33,7 +33,7 @@ Effective layout config is deep-merged at runtime: built-in defaults → `$EVOSH
 
 | Store | Examples | Set via |
 |-------|----------|---------|
-| Overrides | monitors, `dashboards.openOnStart`, HA entity lists, idle timers, bar tray widgets, startup dashboard toggles (Integrations) | Settings panel, `evo-config`, `evo-layout` |
+| Overrides | monitors, `dashboards.openOnStart`, HA entity lists, idle timers, bar tray widgets | Settings panel, `evo-config`, `evo-layout` |
 | State | TV/films paths, weather location, side panel open | Settings panel, `evo-tasks`, `evo-bar-library`, `evo-bar-weather` |
 | pass | GitHub, Home Assistant, Cloudflare tokens | `pass insert evoshell/...` (Settings shows status only) |
 
@@ -54,7 +54,7 @@ Optional config plugins (e.g. Shopify under `$EVOSHELL_CONFIG/plugins/`) may bri
 |------|------|
 | `config/shell.json` | Tracked public defaults (bar layout, tray, integrations) |
 | `config/overrides.example.json` | Template for local `overrides.json` |
-| `$EVOSHELL_CONFIG/overrides.json` | Machine-specific overrides (monitors, HA, startup dashboards, idle, bar.trayWidgets) |
+| `$EVOSHELL_CONFIG/overrides.json` | Machine-specific overrides (monitors, HA, idle, bar.trayWidgets) |
 | `$EVOSHELL_CONFIG/plugins/manifest.json` | Optional local plugin overlay (dashboards, tray widgets, hover panels) |
 | `$EVOSHELL_STATE/theme.json` | Generated colour tokens for `commons/Theme.qml` |
 | `shell.qml` | Plugin loading, summon/toggle/hide IPC, dashboard loaders, panel instantiator |
@@ -72,7 +72,7 @@ Bar host and registered widgets only.
 
 Bar pollers use `evo.bar-*` scripts. The tray widget (`evo.bar.tray`) hosts nested command entries from `shell.json` (weather, cursor, github, stocks, cloudflare, audio, notifications, network).
 
-`evo.bar.workspaces` shows a monitor icon with the focused workspace number in a badge on the tray; position follows **Settings → Integrations → Bar widgets** order. Hover opens `evo.panels.workspaces` with workspace switching below the monitor layout picker. Toggle visibility in the same list.
+`evo.bar.workspaces` shows a monitor icon with the focused workspace number in a badge on the tray; position follows **Settings → Widgets → Bar widgets** order. Hover opens `evo.panels.workspaces` with workspace switching below the monitor layout picker. Toggle visibility in the same list.
 
 Plain bar glyphs use `Theme.barIconColor` with `Theme.barIconOpacity` at rest; `BarIconPulse` signals attention (traffic, errors, warnings) with `Theme.barIconColorActive` and an opacity pulse. Dials and workspace focus may keep semantic colors.
 
@@ -141,15 +141,15 @@ Hyprland loads evoshell integration via `hypr/init.lua`, which includes [`hypr/b
 
 Additional shortcuts may be declared in `shell.qml` (`GlobalShortcut`).
 
-The system menu **Reference → Bindings** list is auto-generated from `hypr/bindings.lua` and any optional `~/.config/hypr/bindings.lua` via `evo-menu-list bindings`.
+The runner **Reference** list (bindings, shell commands) is auto-generated from `hypr/bindings.lua` and any optional `~/.config/hypr/bindings.lua` via `evo-menu-list bindings`.
 
 Evoshell overlays close with **Esc** (system menu and media library step back or clear filters first).
 
 | Binding | Action |
 |---------|--------|
 | Super+B | Settings (`evo.sys.settings`) — Looks tab |
-| Super+Space | System menu (`evo.sys.menu`) — Evoshell, Looks, Displays, Integrations, Home Assistant tabs |
-| Super+D | Program runner (`evo.sys.menu`, mode `runner`) |
+| Super+Space | System menu (`evo.sys.menu`) — Looks, Displays, Widgets, Packages |
+| Super+D | Program runner (`evo.sys.menu`, mode `runner`) — apps, panels, bindings, session |
 | Super+Return | Terminal |
 | Super+W | Close active window |
 | Super+C | Calculator (`evo.side` → `calc`) |
@@ -176,7 +176,7 @@ Volume keys call `evo ipc evo.sys.media.audio` (`stepUp`, `stepDown`, `toggleMut
 - `notifications` — toast `output`, `position` (`top`/`bottom`), optional `durationMs`, optional `shellLogs` (`enabled`, `pollIntervalMs`, `dedupeWindowSec`, `userJournal`)
 - `bar` — `output`, `position`, `layout.left|center|right` widget entries
 - `panel.side` — dock side (`left`/`right`)
-- `dashboards.openOnStart` — plugin ids to open at startup
+- `dashboards.openOnStart` — optional fallback list for `evo-panel-hypr restore-dashboards` (Hypr autostart usually passes explicit ids)
 
 Bar entries are either catalog widget ids (`evo.bar.clock`) or `type: "command"` pollers with `exec`, `interval`, `onHover`, `onClick`.
 

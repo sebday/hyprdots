@@ -13,7 +13,7 @@ IPC="${EVOSHELL_BIN}/_ipc"
 
 usage() {
   cat >&2 <<'EOF'
-usage: evo-panel-hypr restore-dashboards
+usage: evo-panel-hypr restore-dashboards [dashboard-id ...]
 EOF
   exit 1
 }
@@ -41,17 +41,30 @@ open_dashboard_if_needed() {
 }
 
 restore_dashboards() {
-  local ids others player
+  local ids others player id
   others=()
   player=""
-  while IFS= read -r id; do
-    [[ -n "$id" ]] || continue
-    if [[ "$id" == "evo.panels.player" ]]; then
-      player="$id"
-    else
-      others+=("$id")
-    fi
-  done < <(merged_config | jq -r '.dashboards.openOnStart[]? // empty')
+  if (($# > 0)); then
+    while (($# > 0)); do
+      id="$1"
+      shift
+      [[ -n "$id" ]] || continue
+      if [[ "$id" == "evo.panels.player" ]]; then
+        player="$id"
+      else
+        others+=("$id")
+      fi
+    done
+  else
+    while IFS= read -r id; do
+      [[ -n "$id" ]] || continue
+      if [[ "$id" == "evo.panels.player" ]]; then
+        player="$id"
+      else
+        others+=("$id")
+      fi
+    done < <(merged_config | jq -r '.dashboards.openOnStart[]? // empty')
+  fi
   local ordered=("${others[@]}")
   [[ -n "$player" ]] && ordered+=("$player")
   for id in "${ordered[@]}"; do
@@ -61,7 +74,10 @@ restore_dashboards() {
 
 cmd="${1:-}"
 case "$cmd" in
-restore-dashboards) restore_dashboards ;;
+restore-dashboards)
+  shift
+  restore_dashboards "$@"
+  ;;
 -h | --help | help | "") usage ;;
 *)
   echo "evo-panel-hypr: unknown command: $cmd" >&2

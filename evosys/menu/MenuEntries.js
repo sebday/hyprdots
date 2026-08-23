@@ -147,6 +147,18 @@ function bestMatchIndex(list, query) {
     return bestIdx
 }
 
+function runnerEntries(home, binOverride, extensionPanels) {
+    var layout = systemSectionLayout(home, binOverride, extensionPanels)
+    var raw = []
+    if (layout.panels && layout.panels.entries)
+        raw = raw.concat(layout.panels.entries)
+    if (layout.right) {
+        for (var i = 0; i < layout.right.length; i++)
+            raw = raw.concat(layout.right[i].entries || [])
+    }
+    return raw.map(mapEntry)
+}
+
 function systemMenuEntries(home, binOverride) {
     return systemEntries(home, binOverride).map(mapEntry)
 }

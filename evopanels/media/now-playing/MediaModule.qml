@@ -129,8 +129,7 @@ Item {
                 return aPlaying - bPlaying
             return String(a.player.identity || "").localeCompare(String(b.player.identity || ""))
         })
-        if (root.evoPlayerHasTrack)
-            feeds.push({ kind: "evo" })
+        feeds.push({ kind: "evo" })
         return feeds
     }
 

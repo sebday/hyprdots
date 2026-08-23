@@ -299,9 +299,10 @@ Singleton {
     readonly property int hoverPanelWidthWide: 580
     readonly property int overlayPanelWidth: 600
     readonly property int systemPanelWidth: 800
+    readonly property int systemMenuPanelWidth: 480
     readonly property int systemMenuPanelHeight: 600
     readonly property int settingsPanelWidth: systemPanelWidth
-    readonly property int systemMenuWidth: systemPanelWidth
+    readonly property int systemMenuWidth: systemMenuPanelWidth
     readonly property int clipboardPanelWidth: Math.round(systemPanelWidth / 2)
     readonly property int barHeight: 32
     readonly property int barPaddingX: 16

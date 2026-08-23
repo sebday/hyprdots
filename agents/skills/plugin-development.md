@@ -34,7 +34,7 @@ Every new plugin must be wired into every row that applies:
 | 3 | `shell.qml` | Built-in dashboards use `playerLoader`; extension dashboards load from `$EVOSHELL_CONFIG/plugins/manifest.json` |
 | 4 | `evobar/BarWidgetCatalog.qml` | Register `Component` when the plugin has a bar widget |
 | 5 | `evobar/widgets/qmldir` | Export new widget type when adding a bar widget QML file |
-| 6 | `shell.json` | Add bar layout entry, `onHover`, intervals, or `openOnStart` as needed |
+| 6 | `shell.json` | Add bar layout entry, `onHover`, intervals as needed |
 | 7 | `$EVOSHELL_LIB/evo-*` | Add poller/CLI when the bar uses `type: "command"` or `exec` |
 | 8 | `tests/test-plugin-manifest.sh` | Add required id when the plugin is core infrastructure |
 | 9 | `tests/test-static-contracts.sh` | Add contract checks when introducing new canonical names or paths |
@@ -75,8 +75,8 @@ Machine-local plugins live under `$EVOSHELL_CONFIG/plugins/` and merge at runtim
 - Set `"root": "plugins"` on manifest entries so QML loads from the config dir
 - Symlink `$EVOSHELL_CONFIG/plugins/commons` → `$EVOSHELL_ROOT/commons` for shared imports
 - Register optional tray widgets under `trayWidgets` in the overlay manifest
-- Register extension dashboards under `dashboardIds`; optional labels for **Settings → Integrations → Startup** under `startupDashboards`
-- Register **system menu → Panels** entries under `systemMenuPanels` (name, icon, keywords; command is `toggle <dashboard id>`)
+- Register extension dashboards under `dashboardIds`
+- Register **runner / system menu → Panels** entries under `systemMenuPanels` (name, icon, keywords; command is `toggle <dashboard id>`)
 - Extension CLIs can symlink into `$EVOSHELL_BIN/` (e.g. `evo-panel-shopify`)
 
 Built-in manifest ids win on conflict; overlay ids only add new plugins.
@@ -91,9 +91,9 @@ Adding a new extension dashboard today requires:
 
 1. Manifest entry with kind `dashboard` and `dashboardIds` in the overlay manifest
 2. `extensionDashboardInstantiator` in `shell.qml` loads it automatically
-3. Optional `startupDashboards` label in the overlay manifest for **Settings → Integrations → Startup**
-4. Optional `systemMenuPanels` entry in the overlay manifest for **system menu → Panels** (Super+Space)
-4. Optional `dashboards.openOnStart` entry in overrides (or toggle in Settings)
+3. Optional `systemMenuPanels` entry in the overlay manifest for **runner panels** (Super+D)
+4. Optional Hypr autostart via `evo-panel-hypr restore-dashboards <id> …` (see `hypr/autostart.lua`)
+5. Optional `dashboards.openOnStart` in overrides for `evo-panel-hypr restore-dashboards` without args
 
 ## Bar widgets
 

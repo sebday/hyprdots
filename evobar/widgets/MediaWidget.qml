@@ -47,7 +47,7 @@ Item {
     Text {
         id: iconLabel
         anchors.centerIn: parent
-        text: "󰍹"
+        text: "󰐊"
         color: Theme.foreground
         font.family: Theme.fontFamily
         font.pixelSize: root.trayMode ? root.trayIconSize : Theme.fontSizeM

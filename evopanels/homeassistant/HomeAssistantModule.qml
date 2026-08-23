@@ -489,7 +489,7 @@ Item {
                         Text {
                             Layout.fillWidth: true
                             visible: !root.lightsConfigured
-                            text: "Choose light areas in Settings → Home Assistant"
+                            text: "Choose light areas in Settings → Widgets"
                             color: Theme.foreground
                             opacity: Theme.opacityMuted
                             font.family: Theme.fontFamily

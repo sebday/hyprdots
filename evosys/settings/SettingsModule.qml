@@ -14,8 +14,11 @@ Item {
     property var host: null
     property var shell: null
     property bool showTabBar: true
+    readonly property bool compactLayout: !showTabBar
     property alias tabIndex: settingsTabs.currentIndex
     property string menuFilterText: ""
+    property int settingsKeyIndex: 0
+    property var settingsNavToggles: []
 
     readonly property string hyprScript: Util.evoshellScript(Quickshell.env("HOME"), shell, "evo-hyprland")
     readonly property string barScript: Util.evoshellScript(Quickshell.env("HOME"), shell, "evo-layout")
@@ -96,8 +99,6 @@ Item {
     property bool tasksReady: false
     property string panelSide: "left"
     property bool panelSideReady: false
-    property var startupOpenIds: []
-    property bool dashboardsReady: false
     property string weatherLocation: ""
     property string personalWallpaperDir: ""
     property bool weatherReady: false
@@ -140,7 +141,7 @@ Item {
         || mediaTvPickProc.running || mediaFilmsPickProc.running
     readonly property bool settingsBusy: fontBusy || mediaBusy || hyprToggleProc.running || hyprSetProc.running
         || barSetProc.running || notificationsSetProc.running || uiToggleProc.running
-        || panelSetProc.running || dashboardToggleProc.running || weatherSetProc.running
+        || panelSetProc.running || weatherSetProc.running
         || wallpaperPersonalDirSetProc.running
         || haSaveProc.running || idleSetProc.running
         || trayToggleProc.running || trayOrderSetProc.running
@@ -179,6 +180,105 @@ Item {
         return false
     }
 
+    function isEffectivelyVisible(item) {
+        var node = item
+        while (node) {
+            if (node.visible === false || node.opacity === 0)
+                return false
+            node = node.parent
+        }
+        return true
+    }
+
+    function collectSettingsNavToggles(item, out) {
+        if (!item)
+            return
+        if (item.keyboardSelected !== undefined && typeof item.toggled === "function"
+                && item.enabled !== false && root.isEffectivelyVisible(item))
+            out.push(item)
+        var kids = item.children
+        if (!kids)
+            return
+        for (var i = 0; i < kids.length; i++)
+            root.collectSettingsNavToggles(kids[i], out)
+    }
+
+    function activeTabContent() {
+        switch (settingsTabs.currentIndex) {
+        case 0: return looksTab
+        case 1: return displaysTab
+        case 2: return integrationsColumn
+        case 3: return packagesTabColumn
+        case 4: return playerSettingsHost
+        default: return null
+        }
+    }
+
+    function activeTabFlickable() {
+        switch (settingsTabs.currentIndex) {
+        case 0: return looksTabScroll
+        case 1: return displaysTabScroll
+        case 2: return integrationsTabScroll
+        case 3: return packagesTabScroll
+        case 4: return playerTabScroll
+        default: return null
+        }
+    }
+
+    function rebuildSettingsNav() {
+        if (!root.compactLayout)
+            return
+        var out = []
+        root.collectSettingsNavToggles(root.activeTabContent(), out)
+        root.settingsNavToggles = out
+        if (root.settingsKeyIndex >= out.length)
+            root.settingsKeyIndex = Math.max(0, out.length - 1)
+        root.applySettingsKeyFocus()
+    }
+
+    function applySettingsKeyFocus() {
+        var list = root.settingsNavToggles
+        for (var i = 0; i < list.length; i++)
+            list[i].keyboardSelected = i === root.settingsKeyIndex
+        if (list.length > 0)
+            root.ensureSettingsNavVisible(list[root.settingsKeyIndex])
+    }
+
+    function ensureSettingsNavVisible(toggle) {
+        var flick = root.activeTabFlickable()
+        if (!flick || !toggle)
+            return
+        var pos = toggle.mapToItem(flick.contentItem, 0, 0)
+        var y = pos.y
+        var bottom = y + toggle.height
+        if (y < flick.contentY)
+            flick.contentY = Math.max(0, y)
+        else if (bottom > flick.contentY + flick.height)
+            flick.contentY = Math.max(0, bottom - flick.height)
+    }
+
+    function moveSettingsFocus(delta) {
+        if (!root.compactLayout)
+            return
+        root.rebuildSettingsNav()
+        var count = root.settingsNavToggles.length
+        if (count <= 0)
+            return
+        root.settingsKeyIndex = (root.settingsKeyIndex + delta + count) % count
+        root.applySettingsKeyFocus()
+    }
+
+    function activateSettingsFocus() {
+        if (!root.compactLayout)
+            return
+        root.rebuildSettingsNav()
+        var item = root.settingsNavToggles[root.settingsKeyIndex]
+        if (item && item.enabled !== false)
+            item.toggled()
+    }
+
+    onMenuFilterTextChanged: Qt.callLater(root.rebuildSettingsNav)
+
     function sectionFilterVisible(label) {
         var q = String(menuFilterText || "").trim().toLowerCase()
         if (!q)
@@ -197,7 +297,6 @@ Item {
         if (!loadMediaProc.running) loadMediaProc.running = true
         if (!loadTasksProc.running) loadTasksProc.running = true
         if (!loadPanelProc.running) loadPanelProc.running = true
-        if (!loadDashboardsProc.running) loadDashboardsProc.running = true
         if (!loadWeatherProc.running) loadWeatherProc.running = true
         if (!loadWallpaperConfigProc.running) loadWallpaperConfigProc.running = true
         if (!loadSecretsProc.running) loadSecretsProc.running = true
@@ -372,7 +471,10 @@ Item {
         if (!loadWallpaperListProc.running)
             loadWallpaperListProc.running = true
         refresh()
-        Qt.callLater(function() { root.forceActiveFocus() })
+        Qt.callLater(function() {
+            root.forceActiveFocus()
+            root.rebuildSettingsNav()
+        })
     }
 
     onCurrentThemeNameChanged: syncThemePreview()
@@ -478,18 +580,6 @@ Item {
             return
         panelSetProc.side = root.panelSide === "right" ? "left" : "right"
         panelSetProc.running = true
-    }
-
-    function toggleStartupDashboard(id, enabled) {
-        if (!dashboardsReady || settingsBusy)
-            return
-        dashboardToggleProc.id = id
-        dashboardToggleProc.enabled = enabled
-        dashboardToggleProc.running = true
-    }
-
-    function startupDashboardEnabled(id) {
-        return root.startupOpenIds.indexOf(String(id || "")) >= 0
     }
 
     function setWeatherLocation(query) {
@@ -806,18 +896,6 @@ Item {
         }
     }
 
-    function parseDashboardsState(raw) {
-        try {
-            var data = JSON.parse(String(raw || "{}"))
-            var ids = Array.isArray(data.openOnStart) ? data.openOnStart : []
-            root.startupOpenIds = ids.slice()
-            root.dashboardsReady = true
-        } catch (e) {
-            root.startupOpenIds = []
-            root.dashboardsReady = false
-        }
-    }
-
     function parseWeatherSettings(raw) {
         try {
             var data = JSON.parse(String(raw || "{}"))
@@ -935,6 +1013,8 @@ Item {
             haClimateOptions = []
             haDiscoveryReady = false
         }
+        if (root.compactLayout)
+            Qt.callLater(root.rebuildSettingsNav)
     }
 
     function parseIdleState(raw) {
@@ -1003,6 +1083,8 @@ Item {
             root.barWidgetOrderIds = []
             root.trayReady = false
         }
+        if (root.compactLayout)
+            Qt.callLater(root.rebuildSettingsNav)
     }
 
     function splitCsv(text) {
@@ -1245,24 +1327,6 @@ Item {
     }
 
     Process {
-        id: loadDashboardsProc
-        command: ["bash", root.configScript, "dashboards", "get"]
-        stdout: StdioCollector {
-            onStreamFinished: root.parseDashboardsState(text)
-        }
-    }
-
-    Process {
-        id: dashboardToggleProc
-        property string id: ""
-        property bool enabled: true
-        command: ["bash", root.configScript, "dashboards", "set", dashboardToggleProc.id, dashboardToggleProc.enabled ? "on" : "off"]
-        stdout: StdioCollector {
-            onStreamFinished: root.parseDashboardsState(text)
-        }
-    }
-
-    Process {
         id: loadWeatherProc
         command: ["bash", root.weatherScript, "settings", "get"]
         stdout: StdioCollector {
@@ -1408,14 +1472,13 @@ Item {
     readonly property var looksTabModel: PluginManifest.extensionSettingsTabs([
         { label: "Looks", icon: "󰒠" },
         { label: "Displays", icon: "󰍹" },
-        { label: "Integrations", icon: "󰒓" },
-        { label: "Home Assistant", icon: "󰠵" },
-        { label: "System packages", icon: "󰏖" },
+        { label: "Widgets", icon: "󰒓" },
+        { label: "Packages", icon: "󰏖" },
         { label: "Player", icon: "󰎆" }
     ], shell ? shell.pluginOverlay : null)
 
     implicitHeight: parent && parent.height > 0 ? parent.height : settingsLayout.implicitHeight
-    implicitWidth: Theme.settingsPanelWidth
+    implicitWidth: root.compactLayout ? Theme.systemMenuPanelWidth : Theme.settingsPanelWidth
 
     ColumnLayout {
         id: settingsLayout
@@ -1437,17 +1500,19 @@ Item {
             function onCurrentIndexChanged() {
                 if (settingsTabs.currentIndex !== 2)
                     root.closeWeatherLocationPicker()
+                root.settingsKeyIndex = 0
+                Qt.callLater(root.rebuildSettingsNav)
                 if (settingsTabs.currentIndex === 1) {
                     if (!loadBarProc.running)
                         loadBarProc.running = true
                     if (!loadNotificationsProc.running)
                         loadNotificationsProc.running = true
                 }
-                if (settingsTabs.currentIndex === 3)
+                if (settingsTabs.currentIndex === 2)
                     root.loadHaDiscovery()
-                if (settingsTabs.currentIndex === 4)
+                if (settingsTabs.currentIndex === 3)
                     root.loadPackagesBreakdown()
-                if (settingsTabs.currentIndex === 5)
+                if (settingsTabs.currentIndex === 4)
                     playerSettingsHost.loadPlayerSettings()
             }
         }
@@ -1498,45 +1563,24 @@ Item {
                 clip: true
                 boundsBehavior: Flickable.StopAtBounds
                 contentWidth: width
-                contentHeight: integrationsTabContent.implicitHeight
+                contentHeight: integrationsColumn.implicitHeight
 
                 onContentYChanged: root.repositionWeatherLocationPopup()
                 onWidthChanged: root.repositionWeatherLocationPopup()
 
-                Item {
-                    id: integrationsTabContent
+                ColumnLayout {
+                    id: integrationsColumn
                     width: parent.width
-                    implicitHeight: integrationsRow.implicitHeight
-                    clip: true
+                    spacing: Theme.hoverPanelSectionSpacing
 
-                    readonly property int columnSpacing: Theme.hoverPanelSectionSpacing
-                    readonly property int leftColumnWidth: Math.max(1, Math.floor((width - columnSpacing) * 0.66))
-                    readonly property int rightColumnWidth: Math.max(1, width - columnSpacing - leftColumnWidth)
-
-                    RowLayout {
-                        id: integrationsRow
-                        width: parent.width
-                        spacing: integrationsTabContent.columnSpacing
-
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            Layout.preferredWidth: integrationsTabContent.leftColumnWidth
-                            Layout.maximumWidth: integrationsTabContent.leftColumnWidth
-                            Layout.alignment: Qt.AlignTop
-                            spacing: integrationsTabContent.columnSpacing
-
-                            SectionPanel {
-                                visible: root.sectionFilterVisible("Bar widgets")
-                                Layout.fillWidth: true
-                                Layout.preferredWidth: integrationsTabContent.leftColumnWidth
-                                Layout.maximumWidth: integrationsTabContent.leftColumnWidth
-                                Layout.alignment: Qt.AlignTop
-                                width: integrationsTabContent.leftColumnWidth
-                                notchLegend: true
-                                legendText: "Bar widgets"
-                                legendIcon: "󰝲"
-                                legendBackground: Theme.background
-                                label: ""
+                    SectionPanel {
+                        visible: root.sectionFilterVisible("Bar widgets")
+                        Layout.fillWidth: true
+                        notchLegend: true
+                        legendText: "Bar widgets"
+                        legendIcon: "󰝲"
+                        legendBackground: Theme.background
+                        label: ""
 
                                 Text {
                                     Layout.fillWidth: true
@@ -1676,28 +1720,16 @@ Item {
                                         }
                                     }
                                 }
-                            }
-                        }
+                    }
 
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            Layout.preferredWidth: integrationsTabContent.rightColumnWidth
-                            Layout.maximumWidth: integrationsTabContent.rightColumnWidth
-                            Layout.alignment: Qt.AlignTop
-                            spacing: integrationsTabContent.columnSpacing
-
-                            SectionPanel {
-                                visible: root.sectionFilterVisible("Locations")
-                                Layout.fillWidth: true
-                                Layout.preferredWidth: integrationsTabContent.rightColumnWidth
-                                Layout.maximumWidth: integrationsTabContent.rightColumnWidth
-                                Layout.alignment: Qt.AlignTop
-                                width: integrationsTabContent.rightColumnWidth
-                                notchLegend: true
-                                legendText: "Locations"
-                                legendIcon: "󰍎"
-                                legendBackground: Theme.background
-                                label: ""
+                    SectionPanel {
+                        visible: root.sectionFilterVisible("Location")
+                        Layout.fillWidth: true
+                        notchLegend: true
+                        legendText: "Location"
+                        legendIcon: "󰍎"
+                        legendBackground: Theme.background
+                        label: ""
 
                                 ColumnLayout {
                                     Layout.fillWidth: true
@@ -1833,6 +1865,16 @@ Item {
                                         wrapMode: Text.WordWrap
                                     }
                                 }
+                    }
+
+                    SectionPanel {
+                        visible: root.sectionFilterVisible("Media")
+                        Layout.fillWidth: true
+                        notchLegend: true
+                        legendText: "Media"
+                        legendIcon: "󰿯"
+                        legendBackground: Theme.background
+                        label: ""
 
                                 ColumnLayout {
                                     Layout.fillWidth: true
@@ -1974,157 +2016,65 @@ Item {
                                             }
                                         }
                                     }
-                                }
-                            }
+                        }
+                    }
 
-                            SectionPanel {
-                                visible: root.sectionFilterVisible("Startup")
+                    SectionPanel {
+                        visible: root.sectionFilterVisible("Areas")
+                        Layout.fillWidth: true
+                        notchLegend: true
+                        legendText: "Areas"
+                        legendIcon: "󰠵"
+                        legendBackground: Theme.background
+                        label: ""
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: root.haDiscoveryError !== ""
+                                ? root.haDiscoveryError
+                                : "Choose light areas from your Home Assistant instance."
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeXs
+                            opacity: Theme.opacityMuted
+                            wrapMode: Text.WordWrap
+                        }
+
+                        Repeater {
+                            model: root.haAreaOptions.length
+
+                            ToggleRow {
                                 Layout.fillWidth: true
-                                Layout.preferredWidth: integrationsTabContent.rightColumnWidth
-                                Layout.maximumWidth: integrationsTabContent.rightColumnWidth
-                                Layout.alignment: Qt.AlignTop
-                                width: integrationsTabContent.rightColumnWidth
-                                notchLegend: true
-                                legendText: "Startup"
-                                legendIcon: "󰄖"
-                                legendBackground: Theme.background
-                                label: ""
-
-                                ToggleRow {
-                                    Layout.fillWidth: true
-                                    label: "Player"
-                                    checked: root.startupDashboardEnabled("evo.panels.player")
-                                    enabled: root.dashboardsReady && !settingsBusy
-                                    onToggled: root.toggleStartupDashboard(
-                                        "evo.panels.player",
-                                        !root.startupDashboardEnabled("evo.panels.player"))
-                                }
-
-                                Repeater {
-                                    model: root.shell ? root.shell.extensionStartupDashboards : []
-
-                                    delegate: ToggleRow {
-                                        required property var modelData
-                                        Layout.fillWidth: true
-                                        label: modelData.label
-                                        checked: root.startupDashboardEnabled(modelData.id)
-                                        enabled: root.dashboardsReady && !settingsBusy
-                                        onToggled: root.toggleStartupDashboard(
-                                            modelData.id,
-                                            !root.startupDashboardEnabled(modelData.id))
-                                    }
-                                }
+                                property int rowIndex: index
+                                property var rowData: root.haAreaOptions[rowIndex]
+                                label: rowData ? rowData.name : ""
+                                checked: rowData ? rowData.enabled === true : false
+                                enabled: root.haDiscoveryReady && !settingsBusy
+                                onToggled: root.setHaAreaEnabled(rowIndex, !checked)
                             }
                         }
                     }
-                }
-            }
 
-            Flickable {
-                id: haTabScroll
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                clip: true
-                boundsBehavior: Flickable.StopAtBounds
-                contentWidth: width
-                contentHeight: haTabContent.implicitHeight
+                    SectionPanel {
+                        visible: root.sectionFilterVisible("Climate")
+                        Layout.fillWidth: true
+                        notchLegend: true
+                        legendText: "Climate"
+                        legendIcon: "󱤖"
+                        legendBackground: Theme.background
+                        label: ""
 
-                Item {
-                    id: haTabContent
-                    width: parent.width
-                    implicitHeight: haTabRow.implicitHeight
-                    clip: true
+                        Repeater {
+                            model: root.haClimateOptions.length
 
-                    readonly property int columnSpacing: Theme.hoverPanelSectionSpacing
-                    readonly property int leftColumnWidth: Math.max(1, Math.floor((width - columnSpacing) * 0.66))
-                    readonly property int rightColumnWidth: Math.max(1, width - columnSpacing - leftColumnWidth)
-
-                    RowLayout {
-                        id: haTabRow
-                        width: parent.width
-                        spacing: haTabContent.columnSpacing
-
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            Layout.preferredWidth: haTabContent.leftColumnWidth
-                            Layout.maximumWidth: haTabContent.leftColumnWidth
-                            Layout.alignment: Qt.AlignTop
-                            spacing: haTabContent.columnSpacing
-
-                            SectionPanel {
-                                visible: root.sectionFilterVisible("Areas")
+                            ToggleRow {
                                 Layout.fillWidth: true
-                                Layout.preferredWidth: haTabContent.leftColumnWidth
-                                Layout.maximumWidth: haTabContent.leftColumnWidth
-                                Layout.alignment: Qt.AlignTop
-                                width: haTabContent.leftColumnWidth
-                                notchLegend: true
-                                legendText: "Areas"
-                                legendIcon: "󰠵"
-                                legendBackground: Theme.background
-                                label: ""
-
-                                Text {
-                                    Layout.fillWidth: true
-                                    text: root.haDiscoveryError !== ""
-                                        ? root.haDiscoveryError
-                                        : "Choose light areas from your Home Assistant instance."
-                                    color: Theme.foreground
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.fontSizeXs
-                                    opacity: Theme.opacityMuted
-                                    wrapMode: Text.WordWrap
-                                }
-
-                                Repeater {
-                                    model: root.haAreaOptions.length
-
-                                    ToggleRow {
-                                        Layout.fillWidth: true
-                                        property int rowIndex: index
-                                        property var rowData: root.haAreaOptions[rowIndex]
-                                        label: rowData ? rowData.name : ""
-                                        checked: rowData ? rowData.enabled === true : false
-                                        enabled: root.haDiscoveryReady && !settingsBusy
-                                        onToggled: root.setHaAreaEnabled(rowIndex, !checked)
-                                    }
-                                }
-                            }
-                        }
-
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            Layout.preferredWidth: haTabContent.rightColumnWidth
-                            Layout.maximumWidth: haTabContent.rightColumnWidth
-                            Layout.alignment: Qt.AlignTop
-                            spacing: haTabContent.columnSpacing
-
-                            SectionPanel {
-                                visible: root.sectionFilterVisible("Climate")
-                                Layout.fillWidth: true
-                                Layout.preferredWidth: haTabContent.rightColumnWidth
-                                Layout.maximumWidth: haTabContent.rightColumnWidth
-                                Layout.alignment: Qt.AlignTop
-                                width: haTabContent.rightColumnWidth
-                                notchLegend: true
-                                legendText: "Climate"
-                                legendIcon: "󱤖"
-                                legendBackground: Theme.background
-                                label: ""
-
-                                Repeater {
-                                    model: root.haClimateOptions.length
-
-                                    ToggleRow {
-                                        Layout.fillWidth: true
-                                        property int rowIndex: index
-                                        property var rowData: root.haClimateOptions[rowIndex]
-                                        label: rowData ? rowData.name : ""
-                                        checked: rowData ? rowData.enabled === true : false
-                                        enabled: root.haDiscoveryReady && !settingsBusy
-                                        onToggled: root.setHaClimateEnabled(rowIndex, !checked)
-                                    }
-                                }
+                                property int rowIndex: index
+                                property var rowData: root.haClimateOptions[rowIndex]
+                                label: rowData ? rowData.name : ""
+                                checked: rowData ? rowData.enabled === true : false
+                                enabled: root.haDiscoveryReady && !settingsBusy
+                                onToggled: root.setHaClimateEnabled(rowIndex, !checked)
                             }
                         }
                     }

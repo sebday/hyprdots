@@ -34,7 +34,7 @@
     "side": "left"
   },
   "dashboards": {
-    "openOnStart": ["evo.panels.player"]
+    "openOnStart": []
   },
   "wallpaper": {
     "personalDir": ""

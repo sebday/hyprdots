@@ -11,6 +11,7 @@ Item {
     property bool checked: false
     property bool enabled: true
     property bool labelWrap: false
+    property bool keyboardSelected: false
     property int labelFontSize: Theme.fontSizeM
     property int detailFontSize: Theme.fontSizeM
 
@@ -18,6 +19,16 @@ Item {
 
     implicitHeight: row.implicitHeight
     implicitWidth: 200
+
+    Rectangle {
+        anchors.fill: parent
+        visible: root.keyboardSelected
+        radius: 4
+        color: Theme.foregroundWash
+        border.color: Theme.accent
+        border.width: 1
+        opacity: 0.85
+    }
 
     RowLayout {
         id: row

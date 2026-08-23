@@ -33,17 +33,16 @@ Item {
     readonly property bool previewTileMode: submenu === "themes" || submenu === "wallpaper"
     readonly property bool boxTileMode: previewTileMode
     readonly property bool framedMode: !previewTileMode
-    readonly property bool sectionMenuMode: powerMenuMode && menuTabIndex === 0
+    readonly property bool sectionMenuMode: false
+    readonly property bool powerSearchMode: powerMenuMode && filterText.trim() !== ""
     readonly property bool showMainMenuTabs: powerMenuMode
-    readonly property bool showSettingsTab: powerMenuMode && menuTabIndex > 0
+    readonly property bool showSettingsTab: powerMenuMode && !powerSearchMode
     readonly property var sectionColumnOrder: ["programs", "games", "panels", "right"]
     readonly property var mainTabModel: [
-        { label: "Evoshell", icon: "󰣇" },
         { label: "Looks", icon: "󰒠" },
         { label: "Displays", icon: "󰍹" },
-        { label: "Integrations", icon: "󰒓" },
-        { label: "Home Assistant", icon: "󰠵" },
-        { label: "System packages", icon: "󰏖" }
+        { label: "Widgets", icon: "󰒓" },
+        { label: "Packages", icon: "󰏖" }
     ]
     property var sectionLayoutPrograms: []
     property var sectionLayoutGames: []
@@ -74,7 +73,7 @@ Item {
     readonly property int appIconSourceSize: 128
     readonly property string menuHeaderIcon: "󰣇"
     readonly property string menuHeaderTitle: "Evo shell"
-    readonly property string menuHeaderSubtitle: "Programs · games · panels · session"
+    readonly property string menuHeaderSubtitle: "Looks · displays · widgets"
 
     readonly property int previewGridColumns: 5
     readonly property int previewColumnCount: gridColumnCount
@@ -150,15 +149,15 @@ Item {
     readonly property string placeholderText: {
         if (submenu === "bindings") return "Search bindings…"
         if (submenu === "shell") return "Search shell commands…"
-        if (runnerMenuMode) return "Launch a program…"
-        if (mode === "power") return "Search programs and system…"
+        if (runnerMenuMode) return "Launch a program or panel…"
+        if (mode === "power") return "Search settings…"
         return "Search…"
     }
 
     readonly property bool infoListMode: submenu === "bindings" || submenu === "shell"
     readonly property int framedMenuWidth: root.runnerMenuMode
         ? Theme.clipboardPanelWidth
-        : Theme.systemPanelWidth
+        : (root.powerMenuMode ? Theme.systemMenuPanelWidth : Theme.systemPanelWidth)
     readonly property int infoListFontSize: Theme.fontSizeS
     readonly property int infoListRowHeight: 40
     readonly property int powerLinkRowHeight: 36
@@ -273,32 +272,31 @@ Item {
         if (!payload || payload.tab === undefined || payload.tab === null)
             return 0
         var tab = payload.tab
-        if (typeof tab === "number")
-            return Math.max(0, Math.min(5, tab))
+        if (typeof tab === "number") {
+            if (tab >= 1)
+                tab = tab - 1
+            return Math.max(0, Math.min(3, tab))
+        }
         var name = String(tab).toLowerCase()
+        if (name === "evoshell" || name === "0")
+            return 0
         if (name === "looks" || name === "settings" || name === "1")
-            return 1
+            return 0
         if (name === "displays" || name === "display" || name === "2")
+            return 1
+        if (name === "widgets" || name === "integrations" || name === "homeassistant" || name === "ha" || name === "3" || name === "4")
             return 2
-        if (name === "integrations" || name === "3")
-            return 3
-        if (name === "homeassistant" || name === "ha" || name === "4")
-            return 4
         if (name === "packages" || name === "system-packages" || name === "systempackages" || name === "5")
-            return 5
+            return 3
         return 0
     }
 
     function onMainMenuTabActivated(index) {
-        if (index > 0) {
-            embeddedSettings.onActivated()
-            if (index === 4)
-                embeddedSettings.loadHaDiscovery()
-            if (index === 5)
-                embeddedSettings.loadPackagesBreakdown()
-        } else if (powerMenuMode) {
-            focusSearchField()
-        }
+        embeddedSettings.onActivated()
+        if (index === 2)
+            embeddedSettings.loadHaDiscovery()
+        if (index === 3)
+            embeddedSettings.loadPackagesBreakdown()
     }
 
     function open(payloadJson) {
@@ -329,7 +327,7 @@ Item {
         Qt.callLater(function() {
             root.previewAreaMaxWidth = panel.previewAreaMaxWidth
             root.previewAreaMaxHeight = panel.previewAreaMaxHeight
-            if (menuTabIndex > 0)
+            if (powerMenuMode)
                 onMainMenuTabActivated(menuTabIndex)
             else
                 root.focusSearchField()
@@ -747,12 +745,20 @@ Item {
     }
 
     function handlePreviewUp() {
+        if (showSettingsTab) {
+            embeddedSettings.moveSettingsFocus(-1)
+            return
+        }
         if (previewTileMode) moveGridSelection(0, -1)
         else if (sectionMenuMode) moveSectionSelection(0, -1)
         else if (framedMode) moveSelection(-1)
     }
 
     function handlePreviewDown() {
+        if (showSettingsTab) {
+            embeddedSettings.moveSettingsFocus(1)
+            return
+        }
         if (previewTileMode) moveGridSelection(0, 1)
         else if (sectionMenuMode) moveSectionSelection(0, 1)
         else if (framedMode) moveSelection(1)
@@ -806,11 +812,15 @@ Item {
         selectedIndex = MenuEntries.bestMatchIndex(visibleEntries, q)
         if (sectionMenuMode)
             Qt.callLater(root.ensureSectionSelectionVisible)
-        else if (framedMode && infoListMode && entryList)
+        else if (framedMode && entryList && (infoListMode || powerSearchMode))
             entryList.positionViewAtIndex(selectedIndex, ListView.Contain)
     }
 
     function handleActivateKey() {
+        if (showSettingsTab) {
+            embeddedSettings.activateSettingsFocus()
+            return
+        }
         activateSelection()
     }
 
@@ -822,7 +832,7 @@ Item {
     onSelectedIndexChanged: {
         if (sectionMenuMode)
             Qt.callLater(root.ensureSectionSelectionVisible)
-        else if (framedMode && infoListMode && entryList)
+        else if (framedMode && entryList && (infoListMode || powerSearchMode))
             entryList.positionViewAtIndex(selectedIndex, ListView.Contain)
     }
     onSubmenuChanged: {
@@ -959,9 +969,7 @@ Item {
         if (submenu) {
             count = dynamicEntries.length
         } else if (mode === "power") {
-            count = q === ""
-                ? Math.max(cachedApps.length, commandEntries.length)
-                : commandEntries.length
+            count = powerSearchMode ? visibleEntries.length : 0
         } else if (mode === "runner") {
             count = visibleEntries.length
         } else {
@@ -977,6 +985,37 @@ Item {
 
     function refreshVisibleEntries() {
         syncVisibleEntries()
+    }
+
+    function runnerStyleEntries() {
+        var apps = sortedApps()
+        var commands = MenuEntries.runnerEntries(
+            home,
+            evoshellBin,
+            shell ? shell.extensionSystemMenuPanels : [])
+        var query = filterText.trim()
+        var combined = []
+        var r
+        for (r = 0; r < apps.length; r++) {
+            if (query && !MenuEntries.matchesQuery(apps[r], query))
+                continue
+            combined.push(apps[r])
+        }
+        for (r = 0; r < commands.length; r++) {
+            if (query && !MenuEntries.matchesQuery(commands[r], query))
+                continue
+            combined.push(commands[r])
+        }
+        if (!query)
+            return combined
+        combined.sort(function(a, b) {
+            var sa = MenuEntries.entryMatchScore(a, query)
+            var sb = MenuEntries.entryMatchScore(b, query)
+            if (sa !== sb)
+                return sb - sa
+            return String(a.name || "").localeCompare(String(b.name || ""))
+        })
+        return combined
     }
 
     function filteredEntries() {
@@ -1004,26 +1043,12 @@ Item {
             })
         }
         var out = []
-        if (mode === "runner") {
-            var apps = sortedApps()
-            var query = filterText.trim()
-            var runnerOut = []
-            for (var r = 0; r < apps.length; r++) {
-                if (query && !MenuEntries.matchesQuery(apps[r], query))
-                    continue
-                runnerOut.push(apps[r])
-            }
-            return runnerOut
-        }
-        if (mode === "power") {
-            var sections = powerSectionEntries()
-            var out = []
-            for (var i = 0; i < sections.length; i++) {
-                for (var j = 0; j < sections[i].entries.length; j++)
-                    out.push(sections[i].entries[j])
-            }
-            return out
-        }
+        if (mode === "runner")
+            return runnerStyleEntries()
+        if (mode === "power" && filterText.trim() !== "")
+            return runnerStyleEntries()
+        if (mode === "power")
+            return []
         return []
     }
 
@@ -1345,6 +1370,11 @@ Item {
             Keys.onPressed: function(event) {
                 if (!root.framedMode)
                     return
+                if (root.showSettingsTab && event.key === Qt.Key_Space) {
+                    embeddedSettings.activateSettingsFocus()
+                    event.accepted = true
+                    return
+                }
                 if (event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab) {
                     if (!root.showMainMenuTabs)
                         return
@@ -1403,7 +1433,7 @@ Item {
                     id: embeddedSettings
                     visible: root.showSettingsTab
                     showTabBar: false
-                    tabIndex: root.menuTabIndex - 1
+                    tabIndex: root.menuTabIndex
                     menuFilterText: root.filterText
                     Layout.fillWidth: true
                     Layout.alignment: Qt.AlignTop | Qt.AlignLeft
@@ -1423,7 +1453,7 @@ Item {
                 }
 
                 Text {
-                    visible: (root.runnerMenuMode || root.sectionMenuMode) && !root.dynamicLoading && root.visibleEntries.length === 0
+                    visible: (root.runnerMenuMode || root.powerSearchMode || root.sectionMenuMode) && !root.dynamicLoading && root.visibleEntries.length === 0
                     Layout.alignment: Qt.AlignHCenter
                     text: root.filterText.trim() === "" ? "No entries" : "No matches"
                     color: Theme.foreground
@@ -1535,9 +1565,9 @@ Item {
                     Layout.fillHeight: false
                     fillHeight: false
                     notchLegend: true
-                    legendText: root.runnerMenuMode ? "Run"
+                    legendText: (root.runnerMenuMode || root.powerSearchMode) ? "Run"
                         : (root.submenu === "bindings" ? "Bindings" : "Shell commands")
-                    legendIcon: root.runnerMenuMode ? "󰜎"
+                    legendIcon: (root.runnerMenuMode || root.powerSearchMode) ? "󰜎"
                         : (root.submenu === "bindings" ? "󰌌" : "󰆍")
                     legendBackground: Theme.background
                     label: ""
@@ -1547,7 +1577,7 @@ Item {
                         id: entryList
                         visible: root.framedMode && !root.sectionMenuMode && !root.showSettingsTab
                         Layout.fillWidth: true
-                        Layout.preferredHeight: root.runnerMenuMode
+                        Layout.preferredHeight: (root.runnerMenuMode || root.powerSearchMode)
                             ? root.runnerViewportHeight
                             : root.framedListHeight
                         clip: true
@@ -1576,7 +1606,7 @@ Item {
                             readonly property string keysLabel: String(modelData.keys || "")
                             readonly property int rowFontSize: entryRow.infoRow
                                 ? root.infoListFontSize
-                                : (root.runnerMenuMode ? root.programEntryFontSize : root.listFontSize)
+                                : ((root.runnerMenuMode || root.powerSearchMode) ? root.programEntryFontSize : root.listFontSize)
 
                             RowLayout {
                                 anchors.fill: parent
@@ -1806,7 +1836,7 @@ Item {
         target: DesktopEntries
         function onApplicationsChanged() {
             rebuildAppCache()
-            if (sectionMenuMode || runnerMenuMode)
+            if (sectionMenuMode || runnerMenuMode || powerSearchMode)
                 syncVisibleEntries()
         }
     }
