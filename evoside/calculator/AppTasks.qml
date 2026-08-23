@@ -12,7 +12,6 @@ Item {
     readonly property string tasksScript: Util.evoshellScript(Quickshell.env("HOME"), shell, "evo-tasks")
     readonly property string fallbackTaskPath: Util.statePath(Quickshell.env("HOME"), "apps/tasks.json")
     property string tasksFilePath: root.fallbackTaskPath
-    property string tasksFormat: "json"
     readonly property int taskFontSize: Theme.fontSizeL
     readonly property int taskRowMin: 28
     readonly property int taskBottomPad: 8
@@ -315,10 +314,8 @@ Item {
                 try {
                     var data = JSON.parse(String(text || "{}"))
                     var nextPath = String(data.tasksFile || root.fallbackTaskPath)
-                    var nextFormat = String(data.format || "json")
                     var pathChanged = nextPath !== root.tasksFilePath
                     root.tasksFilePath = nextPath
-                    root.tasksFormat = nextFormat
                     if (pathChanged)
                         taskFileWatch.reload()
                     root.loadTask()
@@ -338,8 +335,6 @@ Item {
                     var data = JSON.parse(String(text || "{}"))
                     if (data.tasksFile)
                         root.tasksFilePath = String(data.tasksFile)
-                    if (data.format)
-                        root.tasksFormat = String(data.format)
                     root.applyLoadedTasks(data.tasks)
                 } catch (e) {
                     root.applyLoadedTasks([])

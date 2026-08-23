@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Tasks storage for evoshell — JSON fallback or Obsidian vault tasks.md.
+# Tasks storage for evoshell — JSON in $EVOSHELL_STATE/apps/tasks.json.
 
 set -euo pipefail
 
@@ -24,53 +24,8 @@ ensure_state_dir() {
     mkdir -p "${EVOSHELL_STATE}/apps"
 }
 
-tasks_vault() {
-    local path
-    while IFS= read -r path; do
-        [[ -n "$path" && -d "$path" && -f "${path%/}/tasks.md" ]] || continue
-        printf '%s' "${path%/}"
-        return 0
-    done < <(obsidian_vault_paths)
-    return 1
-}
-
 tasks_file() {
-    local vault
-    vault="$(tasks_vault || true)"
-    if [[ -n "$vault" ]]; then
-        printf '%s/tasks.md' "$vault"
-    else
-        printf '%s' "$TASKS_JSON"
-    fi
-}
-
-tasks_format() {
-    local file
-    file="$(tasks_file)"
-    if [[ "$file" == *.md ]]; then
-        printf 'markdown'
-    else
-        printf 'json'
-    fi
-}
-
-is_task_line() {
-    local line="$1"
-    [[ "$line" =~ ^-[[:space:]]*\[[[:space:]]*[xX]?[[:space:]]*\][[:space:]] ]]
-}
-
-parse_task_line() {
-    local line="$1"
-    local text done=false
-    if [[ "$line" =~ ^-[[:space:]]*\[[[:space:]]*([xX])[[:space:]]*\][[:space:]]*(.*)$ ]]; then
-        done=true
-        text="${BASH_REMATCH[2]}"
-    elif [[ "$line" =~ ^-[[:space:]]*\[[[:space:]]*\][[:space:]]*(.*)$ ]]; then
-        text="${BASH_REMATCH[1]}"
-    else
-        return 1
-    fi
-    jq -n --arg text "$text" --argjson done "$done" '{text: $text, done: $done}'
+    printf '%s' "$TASKS_JSON"
 }
 
 load_json_tasks() {
@@ -88,41 +43,6 @@ load_json_tasks() {
     ' "$file" 2>/dev/null || echo '[]'
 }
 
-load_markdown_tasks() {
-    local file="$1"
-    local -a tasks=()
-    local line task_json
-    [[ -f "$file" ]] || {
-        echo '[]'
-        return 0
-    }
-    while IFS= read -r line || [[ -n "$line" ]]; do
-        if is_task_line "$line"; then
-            task_json="$(parse_task_line "$line")"
-            tasks+=("$task_json")
-        fi
-    done <"$file"
-    if ((${#tasks[@]} == 0)); then
-        echo '[]'
-        return 0
-    fi
-    printf '%s\n' "${tasks[@]}" | jq -s '.'
-}
-
-count_markdown_tasks() {
-    local file="$1" count=0 line
-    [[ -f "$file" ]] || {
-        echo 0
-        return 0
-    }
-    while IFS= read -r line || [[ -n "$line" ]]; do
-        if is_task_line "$line"; then
-            count=$((count + 1))
-        fi
-    done <"$file"
-    echo "$count"
-}
-
 save_json_tasks() {
     local file="$1" tasks_json="$2"
     local tmp
@@ -131,40 +51,12 @@ save_json_tasks() {
     mv "$tmp" "$file"
 }
 
-save_markdown_tasks() {
-    local file="$1" tasks_json="$2"
-    local tmp preamble_tmp
-    tmp="$(mktemp)"
-    preamble_tmp="$(mktemp)"
-
-    if [[ -f "$file" ]]; then
-        while IFS= read -r line || [[ -n "$line" ]]; do
-            if is_task_line "$line"; then
-                break
-            fi
-            printf '%s\n' "$line"
-        done <"$file" >"$preamble_tmp"
-    fi
-
-    if [[ ! -s "$preamble_tmp" ]]; then
-        printf '# Tasks\n\n' >"$preamble_tmp"
-    else
-        sed -i -E '${/^[[:space:]]*$/d;}' "$preamble_tmp" 2>/dev/null || true
-        printf '\n' >>"$preamble_tmp"
-    fi
-
-    cat "$preamble_tmp" >"$tmp"
-    jq -r '.[] | if .done then "- [x] " + (.text // "") else "- [ ] " + (.text // "") end' <<<"$tasks_json" >>"$tmp"
-    mv "$tmp" "$file"
-    rm -f "$preamble_tmp"
-}
-
 cmd_settings_get() {
     local file
     file="$(tasks_file)"
     jq -n \
         --arg tasksFile "$file" \
-        --arg format "$(tasks_format)" \
+        --arg format "json" \
         '{
             ok: true,
             tasksFile: $tasksFile,
@@ -173,17 +65,12 @@ cmd_settings_get() {
 }
 
 cmd_load() {
-    local file format tasks
+    local file tasks
     file="$(tasks_file)"
-    format="$(tasks_format)"
-    if [[ "$format" == "markdown" ]]; then
-        tasks="$(load_markdown_tasks "$file")"
-    else
-        tasks="$(load_json_tasks "$file")"
-    fi
+    tasks="$(load_json_tasks "$file")"
     jq -n \
         --arg tasksFile "$file" \
-        --arg format "$format" \
+        --arg format "json" \
         --argjson tasks "$tasks" \
         '{tasksFile: $tasksFile, format: $format, tasks: $tasks}'
 }
@@ -192,17 +79,12 @@ cmd_save() {
     local payload="${1:-}"
     [[ -n "$payload" ]] || payload="$(cat)"
     jq -e '.tasks | type == "array"' <<<"$payload" >/dev/null 2>&1 || usage
-    local file format tasks
+    local file tasks
     file="$(tasks_file)"
-    format="$(tasks_format)"
     tasks="$(jq -c '.tasks' <<<"$payload")"
     ensure_state_dir
-    if [[ "$format" == "markdown" ]]; then
-        save_markdown_tasks "$file" "$tasks"
-    else
-        save_json_tasks "$file" "$tasks"
-    fi
-    jq -n --arg tasksFile "$file" --arg format "$format" '{ok: true, tasksFile: $tasksFile, format: $format}'
+    save_json_tasks "$file" "$tasks"
+    jq -n --arg tasksFile "$file" --arg format "json" '{ok: true, tasksFile: $tasksFile, format: $format}'
 }
 
 cmd_copy() {

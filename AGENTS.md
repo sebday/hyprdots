@@ -95,7 +95,7 @@ Docked side panel and clipboard.
 
 Only `calc` is a dock module id. Tasks is a focus target inside the calculator panel, not a separate dock module.
 
-Side position (`left`/`right`) persists in `$EVOSHELL_CONFIG/overrides.json` (`panel.side`) via Settings or `evo-config panel set`. Open state, module, and focus persist in `$EVOSHELL_STATE/session.json` (`sidePanel`) and restore on evoshell startup. UI prefs (fieldset rounding) live in `$EVOSHELL_CONFIG/ui.json`. Obsidian themes sync to all vaults in `~/.config/obsidian/obsidian.json` on theme switch; tasks use `tasks.md` in a registered vault when present.
+Side position (`left`/`right`) persists in `$EVOSHELL_CONFIG/overrides.json` (`panel.side`) via Settings or `evo-config panel set`. Open state, module, and focus persist in `$EVOSHELL_STATE/session.json` (`sidePanel`) and restore on evoshell startup. UI prefs (fieldset rounding) live in `$EVOSHELL_CONFIG/ui.json`. Obsidian themes sync to all vaults in `~/.config/obsidian/obsidian.json` on theme switch. Tasks persist in `$EVOSHELL_STATE/apps/tasks.json`.
 
 ### Evosys (`evo.sys.*`)
 
