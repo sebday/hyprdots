@@ -80,7 +80,7 @@ evo ipc shell toggle evo.sys.settings ""
 1. `evo ipc shell toggle evo.panels.player ""` opens and closes the player dashboard
 2. Dashboard appears on the expected monitor (`barConfig.output` fallback)
 3. Focus lands inside the dashboard after open
-4. Settings overlay (`evo.sys.settings`) centers and dismisses on escape/outside click
+4. Settings overlay (`evo.sys.settings`) centers and dismisses on escape/outside click; **Looks** and **Displays** tabs split appearance vs monitor layout
 
 ## Evoside, notifications, lock screen
 

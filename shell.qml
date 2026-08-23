@@ -65,8 +65,11 @@ ShellRoot {
     readonly property var extensionTrayWidgets: PluginManifest.extensionTrayWidgets(pluginOverlay)
     readonly property var trayWidgetOrder: PluginManifest.resolveTrayWidgetOrder(
         pluginOverlay,
-        shellConfig && shellConfig.bar && Array.isArray(shellConfig.bar.trayWidgetOrder)
-            ? shellConfig.bar.trayWidgetOrder : null)
+        shellConfig && shellConfig.bar && Array.isArray(shellConfig.bar.barWidgetOrder)
+            && shellConfig.bar.barWidgetOrder.length > 0
+            ? shellConfig.bar.barWidgetOrder
+            : shellConfig && shellConfig.bar && Array.isArray(shellConfig.bar.trayWidgetOrder)
+                ? shellConfig.bar.trayWidgetOrder : null)
     readonly property var trayWidgetSettingsOrder: trayWidgetOrder
 
     property var shellConfig: builtinShellConfig
@@ -423,7 +426,7 @@ ShellRoot {
         if (pluginId === "evo.sys.settings") {
             pluginId = "evo.sys.menu"
             if (!payloadJson)
-                payloadJson = '{"mode":"power","tab":"settings"}'
+                payloadJson = '{"mode":"power","tab":"looks"}'
         }
         var dash = dashboardLoaderFor(pluginId)
         if (dash)
@@ -601,7 +604,7 @@ ShellRoot {
         if (pluginId === "evo.sys.settings") {
             pluginId = "evo.sys.menu"
             if (!payloadJson)
-                payloadJson = '{"mode":"power","tab":"settings"}'
+                payloadJson = '{"mode":"power","tab":"looks"}'
         }
         var dash = dashboardLoaderFor(pluginId)
         if (dash && dash.item) {

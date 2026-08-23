@@ -39,7 +39,8 @@ Item {
     readonly property var sectionColumnOrder: ["programs", "games", "panels", "right"]
     readonly property var mainTabModel: [
         { label: "Evoshell", icon: "󰣇" },
-        { label: "Settings", icon: "󰒠" },
+        { label: "Looks", icon: "󰒠" },
+        { label: "Displays", icon: "󰍹" },
         { label: "Integrations", icon: "󰒓" },
         { label: "Home Assistant", icon: "󰠵" },
         { label: "System packages", icon: "󰏖" }
@@ -202,10 +203,11 @@ Item {
     readonly property int runnerPanelHeight: fixedMenuPanelHeight
     readonly property int powerMenuColumnHeight: powerMenuPanelHeight - menuOuterTopInset - menuOuterInset
     readonly property int runnerColumnHeight: runnerPanelHeight - menuOuterTopInset - menuOuterInset
+    readonly property int powerMenuTabBarTopPad: Theme.spacingM
     readonly property int powerMenuTabBarHeight: Theme.fontSizeS + 8
     readonly property int powerMenuViewportHeight: Math.max(
         160,
-        powerMenuColumnHeight - powerMenuTabBarHeight - framedColumnSpacing)
+        powerMenuColumnHeight - powerMenuTabBarHeight - powerMenuTabBarTopPad - framedColumnSpacing)
     readonly property int runnerFieldsetChromeHeight: menuFieldsetPad * 2 + menuLegendChrome + framedColumnSpacing
     readonly property int runnerViewportHeight: Math.max(
         160,
@@ -272,25 +274,27 @@ Item {
             return 0
         var tab = payload.tab
         if (typeof tab === "number")
-            return Math.max(0, Math.min(4, tab))
+            return Math.max(0, Math.min(5, tab))
         var name = String(tab).toLowerCase()
-        if (name === "settings" || name === "1")
+        if (name === "looks" || name === "settings" || name === "1")
             return 1
-        if (name === "integrations" || name === "2")
+        if (name === "displays" || name === "display" || name === "2")
             return 2
-        if (name === "homeassistant" || name === "ha" || name === "3")
+        if (name === "integrations" || name === "3")
             return 3
-        if (name === "packages" || name === "system-packages" || name === "systempackages" || name === "4")
+        if (name === "homeassistant" || name === "ha" || name === "4")
             return 4
+        if (name === "packages" || name === "system-packages" || name === "systempackages" || name === "5")
+            return 5
         return 0
     }
 
     function onMainMenuTabActivated(index) {
         if (index > 0) {
             embeddedSettings.onActivated()
-            if (index === 3)
-                embeddedSettings.loadHaDiscovery()
             if (index === 4)
+                embeddedSettings.loadHaDiscovery()
+            if (index === 5)
                 embeddedSettings.loadPackagesBreakdown()
         } else if (powerMenuMode) {
             focusSearchField()
@@ -1387,6 +1391,7 @@ Item {
                     id: mainMenuTabs
                     visible: root.showMainMenuTabs
                     Layout.fillWidth: true
+                    Layout.topMargin: root.showMainMenuTabs ? root.powerMenuTabBarTopPad : 0
                     tabs: root.mainTabModel
                     currentIndex: root.menuTabIndex
                     onTabActivated: function(index) {

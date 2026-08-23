@@ -16,7 +16,7 @@ assert_eq() {
   fi
 }
 
-binding_msg='  WARN scene: QML MonitorLayoutPicker at qs:/home/seb/projects/evoshell/evosys/settings/SettingsModule.qml[1340:49]: Binding loop detected for property "implicitWidth":'
+binding_msg='  WARN scene: QML MonitorLayoutPicker at qs:/home/seb/projects/evoshell/evosys/settings/DisplaysTab.qml[31:13]: Binding loop detected for property "implicitWidth":'
 stack_msg='  WARN scene: qs:/home/seb/projects/evoshell/evosys/menu/Menu.qml[1541888288:-1]: RangeError: Maximum call stack size exceeded.'
 
 json="$("$watch" format "$binding_msg")"

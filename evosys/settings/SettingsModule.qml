@@ -5,6 +5,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import "../../commons"
 import "../../pluginManifest.js" as PluginManifest
+import "."
 
 Item {
     id: root
@@ -128,6 +129,9 @@ Item {
     property bool idleReady: false
     property var trayWidgets: ({})
     property var trayWidgetOrderIds: []
+    property var barChromeWidgets: ({})
+    property var barChromeOrderIds: []
+    property var barWidgetOrderIds: []
     property bool trayReady: false
     readonly property bool ready: hyprReady && barReady && fontReady
     readonly property bool fontBusy: fontSetProc.running
@@ -158,9 +162,9 @@ Item {
         if (!(event.modifiers & Qt.ControlModifier) && focusInTextInput())
             return
         if (event.modifiers & Qt.ShiftModifier || event.key === Qt.Key_Backtab)
-            settingsTabs.currentIndex = (settingsTabs.currentIndex + settingsTabModel.length - 1) % settingsTabModel.length
+            settingsTabs.currentIndex = (settingsTabs.currentIndex + looksTabModel.length - 1) % looksTabModel.length
         else
-            settingsTabs.currentIndex = (settingsTabs.currentIndex + 1) % settingsTabModel.length
+            settingsTabs.currentIndex = (settingsTabs.currentIndex + 1) % looksTabModel.length
         event.accepted = true
     }
 
@@ -516,6 +520,40 @@ Item {
         return PluginManifest.trayWidgetHasSecret(name)
     }
 
+    function isBarChromeWidget(name) {
+        return PluginManifest.isBarChromeWidgetId(name)
+    }
+
+    function barWidgetLabel(name) {
+        if (isBarChromeWidget(name))
+            return PluginManifest.barChromeWidgetSettingsLabel(name)
+        return trayWidgetLabel(name)
+    }
+
+    function barWidgetIcon(name) {
+        if (isBarChromeWidget(name))
+            return PluginManifest.barChromeWidgetSettingsIcon(name)
+        return trayWidgetIcon(name)
+    }
+
+    function barWidgetEnabled(name) {
+        if (isBarChromeWidget(name)) {
+            var chrome = root.barChromeWidgets[name]
+            return !chrome || chrome.enabled !== false
+        }
+        return trayWidgetEnabled(name)
+    }
+
+    function toggleBarWidget(name, enabled) {
+        if (!trayReady || settingsBusy)
+            return
+        trayToggleProc.widget = isBarChromeWidget(name)
+            ? String(name)
+            : PluginManifest.normalizeTrayWidgetId(name)
+        trayToggleProc.enabled = enabled
+        trayToggleProc.running = true
+    }
+
     function openWeatherLocationPicker() {
         if (!weatherReady || settingsBusy)
             return
@@ -708,15 +746,15 @@ Item {
         return !w || w.enabled !== false
     }
 
-    function moveTrayWidget(from, to) {
+    function moveBarWidget(from, to) {
         if (settingsBusy || from === to)
             return
-        if (from < 0 || to < 0 || from >= trayWidgetOrderIds.length || to >= trayWidgetOrderIds.length)
+        if (from < 0 || to < 0 || from >= barWidgetOrderIds.length || to >= barWidgetOrderIds.length)
             return
-        var next = trayWidgetOrderIds.slice()
+        var next = barWidgetOrderIds.slice()
         var item = next.splice(from, 1)[0]
         next.splice(to, 0, item)
-        trayWidgetOrderIds = next
+        barWidgetOrderIds = next
         trayOrderSetProc.orderJson = JSON.stringify(next)
         trayOrderSetProc.running = true
     }
@@ -726,6 +764,27 @@ Item {
             return
         if (shell && shell.trayWidgetOrder)
             trayWidgetOrderIds = shell.trayWidgetOrder.slice()
+    }
+
+    function syncBarChromeOrderFallback() {
+        if (barChromeOrderIds.length > 0)
+            return
+        barChromeOrderIds = PluginManifest.defaultBarChromeWidgetOrder()
+    }
+
+    function syncBarWidgetOrderFallback() {
+        if (barWidgetOrderIds.length > 0)
+            return
+        if (trayWidgetOrderIds.length > 0) {
+            barWidgetOrderIds = trayWidgetOrderIds.slice()
+            return
+        }
+        if (shell && shell.trayWidgetOrder && shell.trayWidgetOrder.length > 0) {
+            barWidgetOrderIds = shell.trayWidgetOrder.slice()
+            return
+        }
+        barWidgetOrderIds = PluginManifest.defaultTrayWidgetOrder(
+            shell ? shell.pluginOverlay : ({}))
     }
 
     function toggleTrayWidget(name, enabled) {
@@ -895,6 +954,16 @@ Item {
                 throw new Error("invalid tray state")
             if (Array.isArray(data.order))
                 root.trayWidgetOrderIds = data.order.slice()
+            if (data.barChrome && typeof data.barChrome === "object")
+                root.barChromeWidgets = data.barChrome
+            if (Array.isArray(data.barChromeOrder))
+                root.barChromeOrderIds = data.barChromeOrder.slice()
+            if (Array.isArray(data.barWidgetOrder))
+                root.barWidgetOrderIds = data.barWidgetOrder.slice()
+            else if (Array.isArray(data.order))
+                root.barWidgetOrderIds = data.order.slice()
+            else
+                root.barWidgetOrderIds = []
             var widgets = data.widgets && typeof data.widgets === "object" ? data.widgets : data
             var keys = Object.keys(widgets)
             var looksLikeSingleWidget = keys.length > 0
@@ -903,20 +972,34 @@ Item {
                 && keys.indexOf("github") < 0
                 && keys.indexOf("order") < 0
             if (looksLikeSingleWidget && trayToggleProc.widget) {
-                var next = {}
-                var existingKey
-                for (existingKey in root.trayWidgets)
-                    next[existingKey] = root.trayWidgets[existingKey]
-                next[trayToggleProc.widget] = widgets
-                root.trayWidgets = next
+                if (root.isBarChromeWidget(trayToggleProc.widget)) {
+                    var chromeNext = {}
+                    var chromeKey
+                    for (chromeKey in root.barChromeWidgets)
+                        chromeNext[chromeKey] = root.barChromeWidgets[chromeKey]
+                    chromeNext[trayToggleProc.widget] = widgets
+                    root.barChromeWidgets = chromeNext
+                } else {
+                    var next = {}
+                    var existingKey
+                    for (existingKey in root.trayWidgets)
+                        next[existingKey] = root.trayWidgets[existingKey]
+                    next[trayToggleProc.widget] = widgets
+                    root.trayWidgets = next
+                }
             } else {
                 root.trayWidgets = widgets
             }
             root.syncTrayWidgetOrderFallback()
+            root.syncBarChromeOrderFallback()
+            root.syncBarWidgetOrderFallback()
             root.trayReady = true
         } catch (e) {
             root.trayWidgets = ({})
             root.trayWidgetOrderIds = []
+            root.barChromeWidgets = ({})
+            root.barChromeOrderIds = []
+            root.barWidgetOrderIds = []
             root.trayReady = false
         }
     }
@@ -1314,15 +1397,16 @@ Item {
 
     Process {
         id: trayOrderSetProc
-        property string orderJson: JSON.stringify(root.trayWidgetOrderIds)
+        property string orderJson: JSON.stringify(root.barWidgetOrderIds)
         command: ["bash", root.configScript, "tray", "order", "set", trayOrderSetProc.orderJson]
         stdout: StdioCollector {
             onStreamFinished: root.parseTrayState(text)
         }
     }
 
-    readonly property var settingsTabModel: [
-        { label: "Settings", icon: "󰒠" },
+    readonly property var looksTabModel: [
+        { label: "Looks", icon: "󰒠" },
+        { label: "Displays", icon: "󰍹" },
         { label: "Integrations", icon: "󰒓" },
         { label: "Home Assistant", icon: "󰠵" },
         { label: "System packages", icon: "󰏖" }
@@ -1340,7 +1424,7 @@ Item {
             id: settingsTabs
             visible: root.showTabBar
             Layout.fillWidth: true
-            tabs: root.settingsTabModel
+            tabs: root.looksTabModel
             onTabActivated: function(index) {
                 settingsTabs.currentIndex = index
             }
@@ -1349,11 +1433,17 @@ Item {
         Connections {
             target: settingsTabs
             function onCurrentIndexChanged() {
-                if (settingsTabs.currentIndex !== 1)
+                if (settingsTabs.currentIndex !== 2)
                     root.closeWeatherLocationPicker()
-                if (settingsTabs.currentIndex === 2)
-                    root.loadHaDiscovery()
+                if (settingsTabs.currentIndex === 1) {
+                    if (!loadBarProc.running)
+                        loadBarProc.running = true
+                    if (!loadNotificationsProc.running)
+                        loadNotificationsProc.running = true
+                }
                 if (settingsTabs.currentIndex === 3)
+                    root.loadHaDiscovery()
+                if (settingsTabs.currentIndex === 4)
                     root.loadPackagesBreakdown()
             }
         }
@@ -1366,340 +1456,34 @@ Item {
             currentIndex: settingsTabs.currentIndex
 
             Flickable {
-                id: settingsScroll
+                id: looksTabScroll
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 clip: true
                 boundsBehavior: Flickable.StopAtBounds
                 contentWidth: width
-                contentHeight: settingsColumn.implicitHeight
+                contentHeight: looksTab.implicitHeight
 
-                Item {
-                    id: settingsColumn
+                LooksTab {
+                    id: looksTab
                     width: parent.width
-                    implicitHeight: settingsRow.implicitHeight
-                    clip: true
+                    module: root
+                }
+            }
 
-                    readonly property int columnSpacing: Theme.hoverPanelSectionSpacing
-                    readonly property int leftColumnWidth: Math.max(1, Math.floor((width - columnSpacing) * 0.66))
-                    readonly property int rightColumnWidth: Math.max(1, width - columnSpacing - leftColumnWidth)
+            Flickable {
+                id: displaysTabScroll
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
+                boundsBehavior: Flickable.StopAtBounds
+                contentWidth: width
+                contentHeight: displaysTab.implicitHeight
 
-                    RowLayout {
-                        id: settingsRow
-                        width: parent.width
-                        spacing: settingsColumn.columnSpacing
-
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            Layout.preferredWidth: settingsColumn.leftColumnWidth
-                            Layout.maximumWidth: settingsColumn.leftColumnWidth
-                            Layout.alignment: Qt.AlignTop
-                            spacing: settingsColumn.columnSpacing
-
-                            SectionPanel {
-                                visible: root.sectionFilterVisible("Shell")
-                                Layout.fillWidth: true
-                                Layout.preferredWidth: settingsColumn.leftColumnWidth
-                                Layout.maximumWidth: settingsColumn.leftColumnWidth
-                                Layout.alignment: Qt.AlignTop
-                                width: settingsColumn.leftColumnWidth
-                                legendBackground: Theme.background
-                                label: ""
-
-                                HoverPanelLabelPill {
-                                    text: "Shell"
-                                    icon: "󰍳"
-                                    fontSize: Theme.fontSizeS
-                                }
-
-                                                MonitorLayoutPicker {
-                                                    Layout.fillWidth: true
-                                                    barOutput: root.barOutput
-                                                    barPosition: root.barPosition
-                                                    notificationsOutput: root.notificationsOutput
-                                                    notificationsPosition: root.notificationsPosition
-                                                    enabled: root.barReady && root.notificationsReady && !settingsBusy
-                                                    onBarChosen: function(output, position) {
-                                                        root.setBar(output, position)
-                                                    }
-                                                    onNotificationsChosen: function(output, position) {
-                                                        root.setNotifications(output, position)
-                                                    }
-                                                }
-
-                                                ToggleRow {
-                                                    Layout.fillWidth: true
-                                                    label: "Border radius"
-                                                    checked: root.roundingOn
-                                                    enabled: root.hyprReady && !settingsBusy
-                                                    onToggled: root.toggleHypr("rounding")
-                                                }
-
-                                                ToggleRow {
-                                                    Layout.fillWidth: true
-                                                    label: "Fieldset radius"
-                                                    checked: root.fieldsetRoundingOn
-                                                    enabled: root.uiReady && !settingsBusy
-                                                    onToggled: root.toggleFieldsetRounding()
-                                                }
-
-                                                ToggleRow {
-                                                    Layout.fillWidth: true
-                                                    label: "Window gaps"
-                                                    checked: root.gapsOn
-                                                    enabled: root.hyprReady && !settingsBusy
-                                                    onToggled: root.toggleHypr("gaps")
-                                                }
-
-                                                ToggleRow {
-                                                    Layout.fillWidth: true
-                                                    label: "Animations"
-                                                    checked: root.animationsOn
-                                                    enabled: root.hyprReady && !settingsBusy
-                                                    onToggled: root.toggleHypr("animations")
-                                                }
-
-                                                SliderSetting {
-                                                    Layout.fillWidth: true
-                                                    label: "Active opacity"
-                                                    value: root.activeOpacityPercent
-                                                    valueSuffix: "%"
-                                                    minimum: 0
-                                                    maximum: 100
-                                                    step: 1
-                                                    enabled: root.hyprReady && !settingsBusy
-                                                    onValueEdited: function(v) {
-                                                        root.activeOpacityPercent = v
-                                                    }
-                                                    onValueCommitted: function(v) {
-                                                        root.activeOpacityPercent = v
-                                                        root.setHyprOpacity("active", v)
-                                                    }
-                                                }
-
-                                                SliderSetting {
-                                                    Layout.fillWidth: true
-                                                    label: "Inactive opacity"
-                                                    value: root.inactiveOpacityPercent
-                                                    valueSuffix: "%"
-                                                    minimum: 0
-                                                    maximum: 100
-                                                    step: 1
-                                                    enabled: root.hyprReady && !settingsBusy
-                                                    onValueEdited: function(v) {
-                                                        root.inactiveOpacityPercent = v
-                                                    }
-                                                    onValueCommitted: function(v) {
-                                                        root.inactiveOpacityPercent = v
-                                                        root.setHyprOpacity("inactive", v)
-                                                    }
-                                                }
-
-                                                SliderSetting {
-                                                    Layout.fillWidth: true
-                                                    label: "Lock after"
-                                                    value: root.idleLockMin
-                                                    minimum: 0
-                                                    maximum: 120
-                                                    step: 5
-                                                    valueSuffix: "m"
-                                                    enabled: root.idleReady && !settingsBusy
-                                                    onValueCommitted: root.setIdleLockMin(value)
-                                                }
-                            }
-                        }
-
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            Layout.preferredWidth: settingsColumn.rightColumnWidth
-                            Layout.maximumWidth: settingsColumn.rightColumnWidth
-                            Layout.alignment: Qt.AlignTop
-                            spacing: settingsColumn.columnSpacing
-
-                            SectionPanel {
-                                visible: root.sectionFilterVisible("Theme")
-                                Layout.fillWidth: true
-                                Layout.preferredWidth: settingsColumn.rightColumnWidth
-                                Layout.maximumWidth: settingsColumn.rightColumnWidth
-                                Layout.alignment: Qt.AlignTop
-                                width: settingsColumn.rightColumnWidth
-                                legendBackground: Theme.background
-                                label: ""
-
-                                HoverPanelLabelPill {
-                                    text: "Theme"
-                                    icon: "󰸌"
-                                    fontSize: Theme.fontSizeS
-                                }
-
-                                                Rectangle {
-                                                    Layout.fillWidth: true
-                                                    implicitHeight: themeCard.implicitHeight + 16
-                                                    radius: 6
-                                                    color: themePickMouse.containsMouse ? Theme.foregroundHoverWash : Theme.foregroundWash
-                                                    border.color: Theme.foregroundDivider
-                                                    border.width: 1
-
-                                                    ColumnLayout {
-                                                        id: themeCard
-                                                        anchors.fill: parent
-                                                        anchors.margins: 8
-                                                        spacing: Theme.spacingS
-
-                                                        Rectangle {
-                                                            Layout.fillWidth: true
-                                                            Layout.preferredHeight: 80
-                                                            radius: 4
-                                                            color: Theme.overlaySurface
-                                                            clip: true
-
-                                                            Image {
-                                                                id: themePreviewImage
-                                                                anchors.fill: parent
-                                                                source: root.themePreviewSource ? Util.fileUrl(root.themePreviewSource) : ""
-                                                                fillMode: Image.PreserveAspectCrop
-                                                                smooth: true
-                                                                asynchronous: true
-                                                                cache: true
-                                                                visible: root.themePreviewSource !== "" && status !== Image.Error
-                                                            }
-
-                                                            Text {
-                                                                anchors.centerIn: parent
-                                                                visible: root.themePreviewSource === "" || themePreviewImage.status === Image.Error
-                                                                text: "󰸌"
-                                                                color: Theme.accent
-                                                                font.family: Theme.fontFamily
-                                                                font.pixelSize: Theme.fontSize5xl
-                                                            }
-                                                        }
-
-                                                        Text {
-                                                            Layout.fillWidth: true
-                                                            horizontalAlignment: Text.AlignHCenter
-                                                            text: root.themeDisplayName
-                                                            color: Theme.foreground
-                                                            font.family: Theme.fontFamily
-                                                            font.pixelSize: Theme.fontSizeS
-                                                            font.bold: Theme.fontBold
-                                                            elide: Text.ElideRight
-                                                        }
-                                                    }
-
-                                                    MouseArea {
-                                                        id: themePickMouse
-                                                        anchors.fill: parent
-                                                        hoverEnabled: true
-                                                        cursorShape: Qt.PointingHandCursor
-                                                        onClicked: root.openThemePicker()
-                                                    }
-                                                }
-
-                                                Rectangle {
-                                                    Layout.fillWidth: true
-                                                    implicitHeight: wallpaperCard.implicitHeight + 16
-                                                    radius: 6
-                                                    color: wallpaperPickMouse.containsMouse ? Theme.foregroundHoverWash : Theme.foregroundWash
-                                                    border.color: Theme.foregroundDivider
-                                                    border.width: 1
-
-                                                    ColumnLayout {
-                                                        id: wallpaperCard
-                                                        anchors.fill: parent
-                                                        anchors.margins: 8
-                                                        spacing: Theme.spacingS
-
-                                                        Rectangle {
-                                                            Layout.fillWidth: true
-                                                            Layout.preferredHeight: 80
-                                                            radius: 4
-                                                            color: Theme.overlaySurface
-                                                            clip: true
-
-                                                            Image {
-                                                                id: wallpaperPreviewImage
-                                                                anchors.fill: parent
-                                                                source: root.wallpaperPreviewSource ? Util.fileUrl(root.wallpaperPreviewSource) : ""
-                                                                fillMode: Image.PreserveAspectCrop
-                                                                smooth: true
-                                                                asynchronous: true
-                                                                cache: true
-                                                                visible: root.wallpaperPreviewSource !== "" && status !== Image.Error
-                                                            }
-
-                                                            Text {
-                                                                anchors.centerIn: parent
-                                                                visible: root.wallpaperPreviewSource === "" || wallpaperPreviewImage.status === Image.Error
-                                                                text: "󰏘"
-                                                                color: Theme.accent
-                                                                font.family: Theme.fontFamily
-                                                                font.pixelSize: Theme.fontSize5xl
-                                                            }
-                                                        }
-
-                                                        Text {
-                                                            Layout.fillWidth: true
-                                                            horizontalAlignment: Text.AlignHCenter
-                                                            text: root.wallpaperDisplayName
-                                                            color: Theme.foreground
-                                                            font.family: Theme.fontFamily
-                                                            font.pixelSize: Theme.fontSizeS
-                                                            font.bold: Theme.fontBold
-                                                            elide: Text.ElideRight
-                                                        }
-                                                    }
-
-                                                    MouseArea {
-                                                        id: wallpaperPickMouse
-                                                        anchors.fill: parent
-                                                        hoverEnabled: true
-                                                        cursorShape: Qt.PointingHandCursor
-                                                        onClicked: root.openWallpaperPicker()
-                                                    }
-                                                }
-                            }
-
-                            SectionPanel {
-                                visible: root.sectionFilterVisible("Font")
-                                Layout.fillWidth: true
-                                Layout.preferredWidth: settingsColumn.rightColumnWidth
-                                Layout.maximumWidth: settingsColumn.rightColumnWidth
-                                Layout.alignment: Qt.AlignTop
-                                width: settingsColumn.rightColumnWidth
-                                legendBackground: Theme.background
-                                label: ""
-
-                                HoverPanelLabelPill {
-                                    text: "Font"
-                                    icon: "󰛖"
-                                    fontSize: Theme.fontSizeS
-                                }
-
-                                                FontFamilyPicker {
-                                                    Layout.fillWidth: true
-                                                    label: "Family"
-                                                    value: root.fontFamily
-                                                    model: root.fontFamilies
-                                                    enabled: root.fontReady && !settingsBusy
-                                                    onActivated: function(family) {
-                                                        root.fontFamily = family
-                                                        root.setFont("family", family)
-                                                    }
-                                                }
-
-                                                SliderSetting {
-                                                    Layout.fillWidth: true
-                                                    label: "UI scale"
-                                                    value: root.fontScalePercent
-                                                    valueSuffix: "%"
-                                                    minimum: 50
-                                                    maximum: 150
-                                                    step: 10
-                                                    enabled: false
-                                                }
-                            }
-                        }
-                    }
+                DisplaysTab {
+                    id: displaysTab
+                    width: parent.width
+                    module: root
                 }
             }
 
@@ -1768,7 +1552,7 @@ Item {
                                     spacing: Theme.spacing2
                                     boundsBehavior: Flickable.StopAtBounds
                                     interactive: dragIndex < 0
-                                    model: root.trayWidgetOrderIds
+                                    model: root.barWidgetOrderIds
 
                                     property int dragIndex: -1
                                     property int dropIndex: -1
@@ -1779,6 +1563,7 @@ Item {
                                         required property string modelData
 
                                         readonly property string widgetId: String(modelData || "")
+                                        readonly property bool isChromeWidget: root.isBarChromeWidget(trayWidgetRow.widgetId)
                                         readonly property bool rowEnabled: root.trayReady && !settingsBusy
 
                                         width: trayWidgetList.width
@@ -1855,7 +1640,7 @@ Item {
                                                         if (trayWidgetList.dragIndex >= 0
                                                                 && trayWidgetList.dropIndex >= 0
                                                                 && trayWidgetList.dropIndex !== trayWidgetList.dragIndex)
-                                                            root.moveTrayWidget(
+                                                            root.moveBarWidget(
                                                                 trayWidgetList.dragIndex,
                                                                 trayWidgetList.dropIndex)
                                                         trayDragLift.y = 0
@@ -1873,57 +1658,18 @@ Item {
 
                                             ToggleRow {
                                                 Layout.fillWidth: true
-                                                icon: root.trayWidgetIcon(trayWidgetRow.widgetId)
-                                                label: root.trayWidgetLabel(trayWidgetRow.widgetId)
-                                                detail: root.trayWidgetShowSecret(trayWidgetRow.widgetId)
+                                                icon: root.barWidgetIcon(trayWidgetRow.widgetId)
+                                                label: root.barWidgetLabel(trayWidgetRow.widgetId)
+                                                detail: !trayWidgetRow.isChromeWidget && root.trayWidgetShowSecret(trayWidgetRow.widgetId)
                                                     ? root.secretDetail(trayWidgetRow.widgetId) : ""
-                                                detailInline: root.trayWidgetShowSecret(trayWidgetRow.widgetId)
-                                                checked: root.trayWidgetEnabled(trayWidgetRow.widgetId)
+                                                detailInline: !trayWidgetRow.isChromeWidget && root.trayWidgetShowSecret(trayWidgetRow.widgetId)
+                                                checked: root.barWidgetEnabled(trayWidgetRow.widgetId)
                                                 enabled: trayWidgetRow.rowEnabled
-                                                onToggled: root.toggleTrayWidget(
+                                                onToggled: root.toggleBarWidget(
                                                     trayWidgetRow.widgetId,
-                                                    !root.trayWidgetEnabled(trayWidgetRow.widgetId))
+                                                    !root.barWidgetEnabled(trayWidgetRow.widgetId))
                                             }
                                         }
-                                    }
-                                }
-                            }
-
-                            SectionPanel {
-                                visible: root.sectionFilterVisible("Startup")
-                                Layout.fillWidth: true
-                                Layout.preferredWidth: integrationsTabContent.leftColumnWidth
-                                Layout.maximumWidth: integrationsTabContent.leftColumnWidth
-                                Layout.alignment: Qt.AlignTop
-                                width: integrationsTabContent.leftColumnWidth
-                                notchLegend: true
-                                legendText: "Startup"
-                                legendIcon: "󰄖"
-                                legendBackground: Theme.background
-                                label: ""
-
-                                ToggleRow {
-                                    Layout.fillWidth: true
-                                    label: "Player"
-                                    checked: root.startupDashboardEnabled("evo.panels.player")
-                                    enabled: root.dashboardsReady && !settingsBusy
-                                    onToggled: root.toggleStartupDashboard(
-                                        "evo.panels.player",
-                                        !root.startupDashboardEnabled("evo.panels.player"))
-                                }
-
-                                Repeater {
-                                    model: root.shell ? root.shell.extensionStartupDashboards : []
-
-                                    delegate: ToggleRow {
-                                        required property var modelData
-                                        Layout.fillWidth: true
-                                        label: modelData.label
-                                        checked: root.startupDashboardEnabled(modelData.id)
-                                        enabled: root.dashboardsReady && !settingsBusy
-                                        onToggled: root.toggleStartupDashboard(
-                                            modelData.id,
-                                            !root.startupDashboardEnabled(modelData.id))
                                     }
                                 }
                             }
@@ -2223,6 +1969,45 @@ Item {
                                                 onClicked: root.pickMediaFilms()
                                             }
                                         }
+                                    }
+                                }
+                            }
+
+                            SectionPanel {
+                                visible: root.sectionFilterVisible("Startup")
+                                Layout.fillWidth: true
+                                Layout.preferredWidth: integrationsTabContent.rightColumnWidth
+                                Layout.maximumWidth: integrationsTabContent.rightColumnWidth
+                                Layout.alignment: Qt.AlignTop
+                                width: integrationsTabContent.rightColumnWidth
+                                notchLegend: true
+                                legendText: "Startup"
+                                legendIcon: "󰄖"
+                                legendBackground: Theme.background
+                                label: ""
+
+                                ToggleRow {
+                                    Layout.fillWidth: true
+                                    label: "Player"
+                                    checked: root.startupDashboardEnabled("evo.panels.player")
+                                    enabled: root.dashboardsReady && !settingsBusy
+                                    onToggled: root.toggleStartupDashboard(
+                                        "evo.panels.player",
+                                        !root.startupDashboardEnabled("evo.panels.player"))
+                                }
+
+                                Repeater {
+                                    model: root.shell ? root.shell.extensionStartupDashboards : []
+
+                                    delegate: ToggleRow {
+                                        required property var modelData
+                                        Layout.fillWidth: true
+                                        label: modelData.label
+                                        checked: root.startupDashboardEnabled(modelData.id)
+                                        enabled: root.dashboardsReady && !settingsBusy
+                                        onToggled: root.toggleStartupDashboard(
+                                            modelData.id,
+                                            !root.startupDashboardEnabled(modelData.id))
                                     }
                                 }
                             }

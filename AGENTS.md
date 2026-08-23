@@ -68,6 +68,8 @@ Bar host and registered widgets only.
 
 Bar pollers use `evo.bar-*` scripts. The tray widget (`evo.bar.tray`) hosts nested command entries from `shell.json` (weather, cursor, github, stocks, cloudflare, audio, notifications, network).
 
+`evo.bar.workspaces` shows a monitor icon with the focused workspace number in a badge on the tray; position follows **Settings → Integrations → Bar widgets** order. Hover opens `evo.panels.workspaces` with workspace switching below the monitor layout picker. Toggle visibility in the same list.
+
 Plain bar glyphs use `Theme.barIconColor` with `Theme.barIconOpacity` at rest; `BarIconPulse` signals attention (traffic, errors, warnings) with `Theme.barIconColorActive` and an opacity pulse. Dials and workspace focus may keep semantic colors.
 
 ### Evopanels (`evo.panels.*`, `evo.bar.media.*`, `evo.bar.network.*`)
@@ -141,7 +143,8 @@ Evoshell overlays close with **Esc** (system menu and media library step back or
 
 | Binding | Action |
 |---------|--------|
-| Super+Space | System menu (`evo.sys.menu`) — Evoshell, Settings, Integrations, Home Assistant tabs |
+| Super+B | Settings (`evo.sys.settings`) — Looks tab |
+| Super+Space | System menu (`evo.sys.menu`) — Evoshell, Looks, Displays, Integrations, Home Assistant tabs |
 | Super+D | Program runner (`evo.sys.menu`, mode `runner`) |
 | Super+Return | Terminal |
 | Super+W | Close active window |

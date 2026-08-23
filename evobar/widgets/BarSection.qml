@@ -25,10 +25,31 @@ Row {
         return widgetRegistry.componentFor(String(entry.id || ""))
     }
 
+    function entryVisible(entry) {
+        if (!entry || entry.enabled === false)
+            return false
+        if (String(entry.id || "") === "evo.bar.workspaces") {
+            var chrome = barConfig && barConfig.barWidgets ? barConfig.barWidgets.workspaces : null
+            if (chrome && chrome.enabled === false)
+                return false
+        }
+        return true
+    }
+
+    readonly property var visibleEntries: {
+        var out = []
+        var i
+        for (i = 0; i < entries.length; i++) {
+            if (entryVisible(entries[i]))
+                out.push(entries[i])
+        }
+        return out
+    }
+
     Component { id: commandComp; CommandWidget {} }
 
     Repeater {
-        model: root.entries
+        model: root.visibleEntries
         delegate: Loader {
             required property var modelData
             property var entry: modelData

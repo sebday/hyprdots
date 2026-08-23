@@ -75,6 +75,11 @@ var plugins = {
         path: "evopanels/system/System.qml",
         keepLoaded: true
     },
+    "evo.panels.workspaces": {
+        kinds: ["menu"],
+        path: "evopanels/workspaces/Workspaces.qml",
+        keepLoaded: true
+    },
     "evo.panels.network.transmission": {
         kinds: ["menu"],
         path: "evopanels/network/transmission/Transmission.qml",
@@ -165,6 +170,7 @@ var panelPluginIds = [
     "evo.panels.media.now-playing",
     "evo.panels.github",
     "evo.panels.system",
+    "evo.panels.workspaces",
     "evo.panels.stocks",
     "evo.panels.cloudflare",
     "evo.panels.homeassistant",
@@ -260,6 +266,7 @@ function extensionTrayWidgets(overlay) {
 var builtinTrayWidgetOrder = [
     "volume",
     "media",
+    "workspaces",
     "weather",
     "homeAssistant",
     "github",
@@ -271,6 +278,7 @@ var builtinTrayWidgetOrder = [
 ]
 
 var builtinTrayWidgetLabels = {
+    workspaces: "Workspace",
     volume: "Volume",
     media: "Media",
     audio: "Volume",
@@ -285,6 +293,7 @@ var builtinTrayWidgetLabels = {
 }
 
 var builtinTrayWidgetIcons = {
+    workspaces: "󰍹",
     volume: "󰕾",
     media: "󰍹",
     weather: "󰖕",
@@ -295,6 +304,40 @@ var builtinTrayWidgetIcons = {
     cloudflare: "󰑐",
     homeAssistant: "󰠵",
     network: "󰛖"
+}
+
+var builtinBarChromeWidgetOrder = [
+    "workspaces"
+]
+
+var builtinBarChromeWidgetLabels = {
+    workspaces: "Workspace"
+}
+
+var builtinBarChromeWidgetIcons = {
+    workspaces: "󰍹"
+}
+
+function isBarChromeWidgetId(id) {
+    return builtinBarChromeWidgetOrder.indexOf(String(id || "")) >= 0
+}
+
+function barChromeWidgetSettingsLabel(id) {
+    var key = String(id || "")
+    if (builtinBarChromeWidgetLabels[key])
+        return builtinBarChromeWidgetLabels[key]
+    return key
+}
+
+function barChromeWidgetSettingsIcon(id) {
+    var key = String(id || "")
+    if (builtinBarChromeWidgetIcons[key])
+        return builtinBarChromeWidgetIcons[key]
+    return ""
+}
+
+function defaultBarChromeWidgetOrder() {
+    return builtinBarChromeWidgetOrder.slice()
 }
 
 function normalizeTrayWidgetId(id) {

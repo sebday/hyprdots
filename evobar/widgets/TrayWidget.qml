@@ -86,6 +86,10 @@ Item {
     readonly property bool showMedia: effectiveSettings.media !== false
     readonly property bool showNotifications: effectiveSettings.notifications !== false
     readonly property bool showNetwork: effectiveSettings.network !== false
+    readonly property bool showWorkspaces: {
+        var chrome = bar && bar.barConfig && bar.barConfig.barWidgets ? bar.barConfig.barWidgets.workspaces : null
+        return !chrome || chrome.enabled !== false
+    }
 
     implicitWidth: trayRow.implicitWidth + Theme.barSectionGap
     implicitHeight: Theme.barHeight
@@ -165,6 +169,7 @@ Item {
 
     function slotComponent(widgetId) {
         switch (widgetId) {
+        case "workspaces": return workspacesSlotComp
         case "volume": return volumeSlotComp
         case "media": return mediaSlotComp
         case "weather": return weatherSlotComp
@@ -186,6 +191,10 @@ Item {
         if (!slot)
             return
         switch (widgetId) {
+        case "workspaces":
+            if (slot.loader && slot.loader.item)
+                wireBarWidget(slot.loader.item, effectiveSettings.workspaces, "evo.panels.workspaces")
+            break
         case "volume":
             if (slot.loader && slot.loader.item)
                 wireBarWidget(slot.loader.item, effectiveSettings.volume, "evo.panels.media.volume")
@@ -263,6 +272,29 @@ Item {
     Component { id: volumeComp; VolumeWidget {} }
     Component { id: notificationsComp; NotificationsWidget {} }
     Component { id: networkComp; NetworkWidget {} }
+    Component { id: workspacesComp; WorkspacesWidget {} }
+
+    Component {
+        id: workspacesSlotComp
+        Item {
+            property alias loader: workspacesLoader
+            readonly property bool slotActive: root.traySlotActive(root.showWorkspaces, workspacesLoader)
+            implicitWidth: slotActive && workspacesLoader.item ? workspacesLoader.item.implicitWidth : 0
+            height: Theme.barHeight
+            visible: implicitWidth > 0
+
+            Loader {
+                id: workspacesLoader
+                anchors.verticalCenter: parent.verticalCenter
+                active: root.showWorkspaces
+                sourceComponent: workspacesComp
+                onLoaded: root.wireBarWidget(
+                    item,
+                    root.effectiveSettings.workspaces,
+                    "evo.panels.workspaces")
+            }
+        }
+    }
 
     Component {
         id: volumeSlotComp

@@ -7,7 +7,6 @@ Item {
     property var registry: null
     visible: false
 
-    Component { id: menuWidgetComp; SettingsWidget {} }
     Component { id: workspacesComp; WorkspacesWidget {} }
     Component { id: clockComp; ClockWidget {} }
     Component { id: volumeComp; VolumeWidget {} }
@@ -18,7 +17,6 @@ Item {
 
     function registerAll() {
         if (!registry) return
-        registry.register("evo.sys.settings", menuWidgetComp, { displayName: "Settings" })
         registry.register("evo.bar.workspaces", workspacesComp, { displayName: "Workspaces" })
         registry.register("evo.bar.clock", clockComp, { displayName: "Clock" })
         registry.register("evo.bar.volume", volumeComp, { displayName: "Volume" })

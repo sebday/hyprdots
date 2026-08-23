@@ -1,2 +1,4 @@
 module settings
 SettingsModule 1.0 SettingsModule.qml
+LooksTab 1.0 LooksTab.qml
+DisplaysTab 1.0 DisplaysTab.qml

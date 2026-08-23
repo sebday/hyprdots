@@ -73,7 +73,14 @@ assert_json '.widgets.exampleExt.enabled == true and .widgets.stocks.enabled == 
 "$config" tray order set '["weather","volume","github","cursor","notifications","stocks","cloudflare","homeAssistant","exampleExt","network","media"]' >/dev/null
 ordered="$("$config" tray get)"
 assert_json '.order[0] == "weather" and .order[1] == "volume"' <<<"$ordered"
+assert_json '(.barWidgetOrder | type) == "array" and (.barWidgetOrder | index("workspaces")) != null' <<<"$ordered"
+assert_json '(.order | index("workspaces")) != null' <<<"$ordered"
 assert_json '(.bar.trayWidgetOrder | type) == "array"' <<<"$(jq -c . "${EVOSHELL_CONFIG}/overrides.json")"
+
+"$config" tray order set '["volume","workspaces","weather","github","cursor","notifications","stocks","cloudflare","homeAssistant","exampleExt","network","media"]' >/dev/null
+workspace_moved="$("$config" tray get)"
+assert_json '.barWidgetOrder[1] == "workspaces" and .order[1] == "workspaces"' <<<"$workspace_moved"
+assert_json '(.bar.barWidgetOrder | index("workspaces")) == 1 and (.bar.trayWidgetOrder | index("workspaces")) == 1' <<<"$(jq -c . "${EVOSHELL_CONFIG}/overrides.json")"
 
 [[ -f "${EVOSHELL_CONFIG}/overrides.json" ]] || {
     echo "missing overrides.json" >&2

@@ -178,16 +178,22 @@ tray_widget_resolved_order_json() {
     merged_config | jq -c --argjson overlay "$(overlay_tray_widgets_json)" '
         def normalize($id):
             if $id == "audio" then "volume" else $id end;
-        def defaults:
-            ["volume","media","weather","homeAssistant","github","notifications","stocks","cursor","cloudflare","network"]
-            + ($overlay | keys | map(select(. as $w | ["volume","media","weather","homeAssistant","github","notifications","stocks","cursor","cloudflare","network"] | index($w) | not)));
-        if (.bar.trayWidgetOrder | type) == "array" and (.bar.trayWidgetOrder | length) > 0 then
-            .bar.trayWidgetOrder as $custom
-            | [ $custom[] | normalize(.) | select(. as $w | defaults | index($w)) ] as $picked
-            | $picked + [ defaults[] | select(. as $w | $picked | index($w) | not) ]
-        else
-            defaults
-        end
+        def builtin:
+            ["volume","media","workspaces","weather","homeAssistant","github","notifications","stocks","cursor","cloudflare","network"]
+            + ($overlay | keys | map(select(. as $w |
+                ["volume","media","workspaces","weather","homeAssistant","github","notifications","stocks","cursor","cloudflare","network"]
+                | index($w) | not)));
+        def source:
+            if (.bar.barWidgetOrder | type) == "array" and (.bar.barWidgetOrder | length) > 0 then
+                .bar.barWidgetOrder
+            elif (.bar.trayWidgetOrder | type) == "array" and (.bar.trayWidgetOrder | length) > 0 then
+                .bar.trayWidgetOrder
+            else
+                builtin
+            end;
+        source as $custom
+        | [ $custom[] | normalize(.) | select(. as $w | (builtin | index($w)) != null) ] as $picked
+        | $picked + [ builtin[] | select(. as $w | ($picked | index($w)) == null) ]
     '
 }
 
@@ -205,10 +211,83 @@ patch_tray_widget_field() {
     '
 }
 
+bar_chrome_widget_ids_json() {
+    printf '%s' '["workspaces"]'
+}
+
+bar_chrome_resolved_order_json() {
+    local widget_order chrome_ids
+    widget_order="$(bar_widget_resolved_order_json)"
+    chrome_ids="$(bar_chrome_widget_ids_json)"
+    jq -nc --argjson order "$widget_order" --argjson chrome "$chrome_ids" \
+        '[ $order[] | select(. as $w | ($chrome | index($w)) != null) ]'
+}
+
+bar_widget_resolved_order_json() {
+    tray_widget_resolved_order_json
+}
+
+patch_bar_widget_order() {
+    local order_json="$1"
+    local chrome_order
+    chrome_order="$(jq -c '[.[] | select(. == "workspaces")]' <<<"$order_json")"
+    patch_overrides_reload \
+        --argjson order "$order_json" \
+        --argjson chrome "$chrome_order" '
+        .bar //= {}
+        | .bar.barWidgetOrder = $order
+        | .bar.trayWidgetOrder = $order
+        | .bar.barChromeOrder = $chrome
+    '
+}
+
 patch_tray_widget_order() {
     local order_json="$1"
+    if jq -e 'index("workspaces") != null' <<<"$order_json" >/dev/null 2>&1; then
+        patch_bar_widget_order "$order_json"
+        return
+    fi
     patch_overrides_reload --argjson order "$order_json" '
         .bar //= {}
         | .bar.trayWidgetOrder = $order
     '
+}
+
+bar_chrome_widget_names() {
+    printf '%s\n' workspaces
+}
+
+bar_chrome_widget_settings_json() {
+    local widget="$1"
+    merged_config | jq -c --arg w "$widget" '
+        (.bar.barWidgets[$w] // {}) as $over
+        | if $over.enabled == false then {enabled: false}
+          else {enabled: true} end
+    '
+}
+
+patch_bar_chrome_widget_enabled() {
+    local widget="$1"
+    local enabled="$2"
+    if [[ "$enabled" == "true" ]]; then
+        patch_overrides_reload --arg w "$widget" '
+            .bar.barWidgets //= {}
+            | .bar.barWidgets[$w] = ((.bar.barWidgets[$w] // {}) + {enabled: true})
+        '
+    else
+        patch_overrides_reload --arg w "$widget" '
+            .bar.barWidgets //= {}
+            | .bar.barWidgets[$w] = {enabled: false}
+        '
+    fi
+}
+
+bar_chrome_widgets_payload_json() {
+    local widget payload='{}'
+    while IFS= read -r widget; do
+        [[ -n "$widget" ]] || continue
+        payload="$(jq -c --arg w "$widget" --argjson cfg "$(bar_chrome_widget_settings_json "$widget")" \
+            '. + {($w): $cfg}' <<<"$payload")"
+    done < <(bar_chrome_widget_names)
+    printf '%s' "$payload"
 }

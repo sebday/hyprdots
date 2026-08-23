@@ -207,7 +207,7 @@ cmd_wallpaper_set_personal_dir() {
 }
 
 cmd_tray_get() {
-    local widget payload order
+    local widget payload order bar_order bar_chrome bar_chrome_order
     payload='{}'
     while IFS= read -r widget; do
         [[ -n "$widget" ]] || continue
@@ -215,7 +215,16 @@ cmd_tray_get() {
             '. + {($w): $cfg}' <<<"$payload")"
     done < <(tray_widget_names)
     order="$(tray_widget_resolved_order_json)"
-    jq -cn --argjson widgets "$payload" --argjson order "$order" '{widgets: $widgets, order: $order}'
+    bar_order="$(bar_widget_resolved_order_json)"
+    bar_chrome="$(bar_chrome_widgets_payload_json)"
+    bar_chrome_order="$(bar_chrome_resolved_order_json)"
+    jq -cn \
+        --argjson widgets "$payload" \
+        --argjson order "$order" \
+        --argjson barWidgetOrder "$bar_order" \
+        --argjson barChrome "$bar_chrome" \
+        --argjson barChromeOrder "$bar_chrome_order" \
+        '{widgets: $widgets, order: $order, barWidgetOrder: $barWidgetOrder, barChrome: $barChrome, barChromeOrder: $barChromeOrder}'
 }
 
 cmd_tray_order_set() {
@@ -233,6 +242,11 @@ cmd_tray_set_enabled() {
     local widget="${1:-}"
     local enabled="${2:-on}"
     [[ -n "$widget" ]] || usage
+    if [[ "$widget" == "workspaces" ]]; then
+        patch_bar_chrome_widget_enabled "$widget" "$([[ "$enabled" == off || "$enabled" == false ]] && echo false || echo true)"
+        cmd_tray_get
+        return
+    fi
     patch_tray_widget_enabled "$widget" "$([[ "$enabled" == off || "$enabled" == false ]] && echo false || echo true)"
     cmd_tray_get
 }

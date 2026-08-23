@@ -11,7 +11,6 @@ TraySniWidget 1.0 TraySniWidget.qml
 TrayUsageDial 1.0 TrayUsageDial.qml
 TrayContextMenu 1.0 TrayContextMenu.qml
 CommandWidget 1.0 CommandWidget.qml
-SettingsWidget 1.0 SettingsWidget.qml
 GitHubWidget 1.0 GitHubWidget.qml
 SystemWidget 1.0 SystemWidget.qml
 NetworkWidget 1.0 NetworkWidget.qml

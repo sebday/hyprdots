@@ -12,6 +12,7 @@
     "trayWidgetOrder": [
       "volume",
       "media",
+      "workspaces",
       "weather",
       "homeAssistant",
       "github",
@@ -32,6 +33,9 @@
       "center": [
         {
           "id": "evo.bar.tray",
+          "workspaces": {
+            "onHover": "evo.panels.workspaces"
+          },
           "weather": {
             "onHover": "evo.panels.weather"
           },

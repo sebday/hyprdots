@@ -116,7 +116,7 @@ Item {
         if (!shell)
             return
         dismissHost()
-        shell.summon("evo.sys.menu", '{"mode":"power","tab":"settings"}')
+        shell.summon("evo.sys.menu", '{"mode":"power","tab":"looks"}')
     }
 
     function runPowerAction(action) {
