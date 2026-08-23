@@ -9,6 +9,8 @@ if user_bindings_file then
 	dofile(user_bindings)
 end
 require("hypr.autostart")
-require("hypr.windows")
+require("hypr.dashboard-layout")
+require("hypr.dashboard-top-layout")
+require("hypr.qconsole")
 require("hypr.float-workspace")
 require("hypr.looks")

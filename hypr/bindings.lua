@@ -61,6 +61,9 @@ bindd("SUPER + ALT + PRINT", "Screenshot all monitors", hl.dsp.exec_cmd(lib .. "
 
 -- Desktop: programs and window management
 bindd("SUPER + Return", "Terminal", hl.dsp.exec_cmd(terminal))
+bindd("SUPER + ALT + Return", "Toggle quake console", function()
+	require("hypr.qconsole").toggle()
+end)
 bindd("SUPER + W", "Close Active Window", hl.dsp.window.close())
 bindd("SUPER + E", "Editor", hl.dsp.exec_cmd(editor))
 bindd("SUPER + T", "GUI File Manager", hl.dsp.exec_cmd("thunar"))

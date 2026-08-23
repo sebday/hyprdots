@@ -24,7 +24,7 @@ local function evoshell_bin()
 	return (os.getenv("HOME") or "") .. "/.local/lib/evoshell/bin"
 end
 
-do
+local function apply_saved_looks()
 	local json_path = evoshell_config_dir() .. "/hypr-looks.json"
 	local f = io.open(json_path, "r")
 	if not f then
@@ -33,5 +33,10 @@ do
 	f:close()
 
 	local cmd = shell_quote(evoshell_bin()) .. "/evo-hyprland apply-saved >/dev/null 2>&1"
-	os.execute(cmd)
+	-- Defer until after config load: calling hyprctl during reload deadlocks IPC.
+	hl.timer(function()
+		os.execute(cmd)
+	end, { timeout = 1, type = "oneshot" })
 end
+
+apply_saved_looks()
