@@ -76,6 +76,11 @@ json_shopify() {
         --argjson channels "${11}" \
         --argjson orderBars "${12}" \
         --argjson month "${13}" \
+        --argjson sessionBars "${14}" \
+        --argjson spendBars "${15}" \
+        --argjson cvrBars "${16}" \
+        --argjson aovBars "${17}" \
+        --argjson cosBars "${18}" \
         '{
             text: $text,
             label: $label,
@@ -89,7 +94,12 @@ json_shopify() {
             period: $period,
             channels: $channels,
             orderBars: $orderBars,
-            month: $month
+            month: $month,
+            sessionBars: $sessionBars,
+            spendBars: $spendBars,
+            cvrBars: $cvrBars,
+            aovBars: $aovBars,
+            cosBars: $cosBars
         }'
 }
 
@@ -377,9 +387,15 @@ main() {
     local period_rev period_orders period_sessions
     local month_start day_of_month days_in_month mtd_revenue forecast_revenue
     local today_detail_json period_json channels_json order_bars_json month_json
+    local session_bars_json spend_bars_json cvr_bars_json aov_bars_json cos_bars_json
     local -a chart_sales=()
     local -a chart_days=()
     local -a chart_order_days=()
+    local -a chart_session_days=()
+    local -a chart_spend_days=()
+    local -a chart_cvr_days=()
+    local -a chart_aov_days=()
+    local -a chart_cos_days=()
 
     today_s=$(TZ="$tz_name" date +%Y-%m-%d)
     base=$(sqlite_base || true)
@@ -435,6 +451,37 @@ main() {
         chart_sales+=("$rev")
         chart_days+=("${day_iso}|${rev}|${orders}")
         chart_order_days+=("${day_iso}|${orders}|0")
+        chart_session_days+=("${day_iso}|${sessions}|0")
+        chart_spend_days+=("${day_iso}|$(
+            if [[ -n "$spend" && "$spend" != "NULL" && "$spend" != "" ]]; then
+                awk -v s="$spend" 'BEGIN { printf "%.2f", s + 0 }'
+            else
+                printf '0'
+            fi
+        )|0")
+        chart_cvr_days+=("${day_iso}|$(
+            if [[ -n "$cvr" && "$cvr" != "NULL" && "$cvr" != "" ]]; then
+                awk -v v="$cvr" 'BEGIN { printf "%.6f", v + 0 }'
+            else
+                printf '0'
+            fi
+        )|0")
+        chart_aov_days+=("${day_iso}|$(
+            awk -v r="$rev" -v o="$orders" 'BEGIN {
+                if (o + 0 > 0) printf "%.2f", r / o
+                else print "0"
+            }'
+        )|0")
+        chart_cos_days+=("${day_iso}|$(
+            if [[ -n "$spend" && "$spend" != "NULL" && "$spend" != "" ]]; then
+                awk -v s="$spend" -v r="$rev" 'BEGIN {
+                    if (r + 0 > 0) printf "%.6f", s / r
+                    else print "0"
+                }'
+            else
+                printf '0'
+            fi
+        )|0")
         period_rev=$(awk -v a="$period_rev" -v b="$rev" 'BEGIN { printf "%.2f", a + b }')
         period_orders=$((period_orders + $(awk -v o="$orders" 'BEGIN { print int(o + 0) }')))
         period_sessions=$((period_sessions + $(awk -v s="$sessions" 'BEGIN { print int(s + 0) }')))
@@ -466,6 +513,11 @@ main() {
     sales_chart=$(generate_sales_chart "${chart_sales[@]}")
     sparkline_json=$(build_sparkline_json "${chart_days[@]}")
     order_bars_json=$(build_sparkline_json "${chart_order_days[@]}")
+    session_bars_json=$(build_sparkline_json "${chart_session_days[@]}")
+    spend_bars_json=$(build_sparkline_json "${chart_spend_days[@]}")
+    cvr_bars_json=$(build_sparkline_json "${chart_cvr_days[@]}")
+    aov_bars_json=$(build_sparkline_json "${chart_aov_days[@]}")
+    cos_bars_json=$(build_sparkline_json "${chart_cos_days[@]}")
     today_sales_val=$(format_int_commas "$(awk -v r="$rev" 'BEGIN { print int(r + 0) }')")
 
     if [[ -n "$cos" ]]; then
@@ -560,7 +612,8 @@ main() {
         }')
 
     output=$(json_shopify "$output_text" "$label_text" "$sparkline_json" "${STORE_DISPLAY}" "$sym" \
-        "$orders_n" "$cos_str" "$revenue_n" "$today_detail_json" "$period_json" "$channels_json" "$order_bars_json" "$month_json")
+        "$orders_n" "$cos_str" "$revenue_n" "$today_detail_json" "$period_json" "$channels_json" "$order_bars_json" "$month_json" \
+        "$session_bars_json" "$spend_bars_json" "$cvr_bars_json" "$aov_bars_json" "$cos_bars_json")
     printf '%s\n' "$output" | evo_bar_cache_write "$cache_key"
     printf '%s\n' "$output"
 }

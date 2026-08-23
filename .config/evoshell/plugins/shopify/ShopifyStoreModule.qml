@@ -47,6 +47,32 @@ Item {
     readonly property bool hasLiveAnalyticsLink: liveAnalyticsUrl !== ""
 
     property var storeData: ({})
+    property string activeChartMetric: "revenue"
+
+    readonly property var chartMetricCatalog: ({
+        revenue: { id: "revenue", label: "revenue", barsKey: "bars", valueKind: "currency", showOrders: true, chartStyle: "bar" },
+        orders: { id: "orders", label: "orders", barsKey: "orderBars", valueKind: "integer", showOrders: false, chartStyle: "bar" },
+        sessions: { id: "sessions", label: "sessions", barsKey: "sessionBars", valueKind: "integer", showOrders: false, chartStyle: "line" },
+        cvr: { id: "cvr", label: "CVR", barsKey: "cvrBars", valueKind: "percent", showOrders: false, chartStyle: "line" },
+        aov: { id: "aov", label: "AoV", barsKey: "aovBars", valueKind: "currency", showOrders: false, chartStyle: "line" },
+        cos: { id: "cos", label: "CoS", barsKey: "cosBars", valueKind: "percent", showOrders: false, chartStyle: "line" },
+        spend: { id: "spend", label: "ad spend", barsKey: "spendBars", valueKind: "currency", showOrders: false, chartStyle: "line" },
+        periodRevenue: { id: "periodRevenue", label: "revenue", barsKey: "bars", valueKind: "currency", showOrders: true, chartStyle: "bar" }
+    })
+
+    readonly property string activeChartColorMode: {
+        if (activeChartMetric === "revenue" || activeChartMetric === "periodRevenue")
+            return "revenue"
+        if (activeChartMetric === "cos")
+            return "cos"
+        return "default"
+    }
+
+    readonly property var activeChartMetricDef: root.chartMetricDef(root.activeChartMetric)
+        || root.chartMetricDef("revenue")
+
+    readonly property string chartSectionTitle: root.chartDays + " day "
+        + (root.activeChartMetricDef ? root.activeChartMetricDef.label : "revenue")
 
     readonly property var todayDetail: storeData.todayDetail || {}
     readonly property var period: storeData.period || {}
@@ -117,6 +143,57 @@ Item {
         if (!fromFile || !Array.isArray(fromFile.bars) || fromFile.bars.length === 0)
             return
         applyPayload(fromFile)
+    }
+
+    function chartMetricDef(id) {
+        return root.chartMetricCatalog[id] || null
+    }
+
+    function chartBarsForMetric(id) {
+        var def = chartMetricDef(id)
+        if (!def)
+            return []
+        var bars = storeData[def.barsKey]
+        return Array.isArray(bars) ? bars : []
+    }
+
+    function chartMetricClickable(id) {
+        return chartBarsForMetric(id).length > 0
+    }
+
+    function setChartMetric(id) {
+        if (!chartMetricClickable(id))
+            return
+        activeChartMetric = id
+    }
+
+    function activeChartBars() {
+        return chartBarsForMetric(activeChartMetric)
+    }
+
+    function themeBarArray(bars) {
+        if (!Array.isArray(bars))
+            return []
+        var out = []
+        for (var i = 0; i < bars.length; i++) {
+            var bar = Object.assign({}, bars[i])
+            var level = parseInt(bar.colorLevel, 10)
+            if (!isNaN(level) && level >= 0 && level < Theme.heatmapColors.length)
+                bar.color = Theme.heatmapColors[level]
+            out.push(bar)
+        }
+        return out
+    }
+
+    function applyDemoTheming(json) {
+        var themed = Object.assign({}, json)
+        var barKeys = ["bars", "orderBars", "sessionBars", "spendBars", "cvrBars", "aovBars", "cosBars"]
+        for (var k = 0; k < barKeys.length; k++) {
+            var key = barKeys[k]
+            if (Array.isArray(json[key]))
+                themed[key] = themeBarArray(json[key])
+        }
+        return themed
     }
 
     function statTodayRevenue() {
@@ -206,17 +283,7 @@ Item {
         if (!Array.isArray(json.bars) && !json.todayDetail && json.revenue === undefined)
             return
         if (demoMode && Array.isArray(json.bars)) {
-            var themed = Object.assign({}, json)
-            var bars = []
-            for (var i = 0; i < json.bars.length; i++) {
-                var bar = Object.assign({}, json.bars[i])
-                var level = parseInt(bar.colorLevel, 10)
-                if (!isNaN(level) && level >= 0 && level < Theme.heatmapColors.length)
-                    bar.color = Theme.heatmapColors[level]
-                bars.push(bar)
-            }
-            themed.bars = bars
-            storeData = themed
+            storeData = applyDemoTheming(json)
             return
         }
         storeData = json
@@ -240,7 +307,11 @@ Item {
 
     onShellChanged: if (shell && active && !demoMode) Qt.callLater(onActivated)
 
-    onStoreKeyChanged: if (active && !demoMode) onActivated()
+    onStoreKeyChanged: {
+        activeChartMetric = "revenue"
+        if (active && !demoMode)
+            onActivated()
+    }
 
     onActiveChanged: if (active && !demoMode) syncFromBar()
     onBarSourceChanged: if (active && !demoMode) syncFromBar()
@@ -287,6 +358,8 @@ Item {
                 text: root.legendDisplayTitle
                 icon: "󰒚"
                 fontSize: Theme.fontSizeS
+                clickable: root.hasLiveAnalyticsLink
+                onClicked: root.openAdmin()
             }
 
             ColumnLayout {
@@ -302,29 +375,46 @@ Item {
                     HoverPanelStatBox {
                         label: "Revenue"
                         value: root.statTodayRevenue()
-                        special: true
-                        clickable: root.hasLiveAnalyticsLink
-                        onClicked: root.openAdmin()
+                        clickable: root.chartMetricClickable("revenue")
+                        customFill: root.activeChartMetric === "revenue"
+                        customFillColor: Theme.fillAccentSubtle
+                        onClicked: root.setChartMetric("revenue")
                     }
 
                     HoverPanelStatBox {
                         label: "Orders"
                         value: root.statOrders()
+                        clickable: root.chartMetricClickable("orders")
+                        customFill: root.activeChartMetric === "orders"
+                        customFillColor: Theme.fillAccentSubtle
+                        onClicked: root.setChartMetric("orders")
                     }
 
                     HoverPanelStatBox {
                         label: "Sessions"
                         value: String(root.todayDetail.sessions || "—")
+                        clickable: root.chartMetricClickable("sessions")
+                        customFill: root.activeChartMetric === "sessions"
+                        customFillColor: Theme.fillAccentSubtle
+                        onClicked: root.setChartMetric("sessions")
                     }
 
                     HoverPanelStatBox {
                         label: "CVR"
                         value: root.fmtPct(root.todayDetail.cvr)
+                        clickable: root.chartMetricClickable("cvr")
+                        customFill: root.activeChartMetric === "cvr"
+                        customFillColor: Theme.fillAccentSubtle
+                        onClicked: root.setChartMetric("cvr")
                     }
 
                     HoverPanelStatBox {
                         label: "AoV"
                         value: root.fmtAov()
+                        clickable: root.chartMetricClickable("aov")
+                        customFill: root.activeChartMetric === "aov"
+                        customFillColor: Theme.fillAccentSubtle
+                        onClicked: root.setChartMetric("aov")
                     }
                 }
 
@@ -337,11 +427,19 @@ Item {
                     HoverPanelStatBox {
                         label: "CoS"
                         value: String(root.todayDetail.cos || root.storeData.cos || "—")
+                        clickable: root.chartMetricClickable("cos")
+                        customFill: root.activeChartMetric === "cos"
+                        customFillColor: Theme.fillAccentSubtle
+                        onClicked: root.setChartMetric("cos")
                     }
 
                     HoverPanelStatBox {
                         label: "Ad spend"
                         value: root.fmtMoney(root.todayDetail.spend)
+                        clickable: root.chartMetricClickable("spend")
+                        customFill: root.activeChartMetric === "spend"
+                        customFillColor: Theme.fillAccentSubtle
+                        onClicked: root.setChartMetric("spend")
                     }
 
                     HoverPanelStatBox {
@@ -350,6 +448,10 @@ Item {
                             ? Format.formatRevenue(root.period.revenue, root.currency)
                             : "—"
                         valueColor: Theme.foreground
+                        clickable: root.chartMetricClickable("periodRevenue")
+                        customFill: root.activeChartMetric === "periodRevenue"
+                        customFillColor: Theme.fillAccentSubtle
+                        onClicked: root.setChartMetric("periodRevenue")
                     }
 
                     HoverPanelStatBox {
@@ -364,10 +466,10 @@ Item {
             fillHeight: root.chartFillHeight
             label: revenueChart.hasTooltip
                 ? revenueChart.tooltipLabel
-                : root.chartDays + " day revenue"
+                : root.chartSectionTitle
             labelProminent: true
             legendBackground: root.sectionLegendBackground
-            visible: (root.storeData.bars || []).length > 0
+            visible: root.activeChartBars().length > 0
             Layout.minimumHeight: root.chartFillHeight ? 120 : implicitHeight
 
             Item {
@@ -378,8 +480,18 @@ Item {
                 RevenueBarChart {
                     id: revenueChart
                     anchors.fill: parent
-                    bars: root.storeData.bars || []
+                    bars: root.activeChartBars()
                     currency: root.currency
+                    valueKind: root.activeChartMetricDef
+                        ? root.activeChartMetricDef.valueKind
+                        : "currency"
+                    showOrdersInTooltip: root.activeChartMetricDef
+                        ? root.activeChartMetricDef.showOrders
+                        : true
+                    colorMode: root.activeChartColorMode
+                    chartStyle: root.activeChartMetricDef
+                        ? root.activeChartMetricDef.chartStyle
+                        : "bar"
                 }
             }
         }
