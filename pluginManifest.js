@@ -245,6 +245,19 @@ function mergeDashboardIds(base, overlay) {
     return out
 }
 
+function extensionSettingsTabs(base, overlay) {
+    var out = base.slice()
+    var extra = overlayObject(overlay).settingsTabs
+    if (!Array.isArray(extra))
+        return out
+    var i
+    for (i = 0; i < extra.length; i++) {
+        if (extra[i])
+            out.push(extra[i])
+    }
+    return out
+}
+
 function extensionDashboardIds(base, overlay) {
     var all = mergeDashboardIds(base, overlay)
     var out = []

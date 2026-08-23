@@ -27,7 +27,7 @@ Item {
         return base + sep + "rev=" + root.artRev
     }
 
-    readonly property bool showHeart: root.fields.showHeart
+    readonly property bool showHeart: root.fields.showHeart === true
     readonly property int heartSize: Math.round(root.artSize * 0.62)
     readonly property int heartReserve: root.showHeart ? heartSize + 8 : 0
 

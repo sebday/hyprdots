@@ -5,6 +5,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import "../../commons"
 import "../../pluginManifest.js" as PluginManifest
+import "../../vendor/evoplayer/qml/panel/settings"
 import "."
 
 Item {
@@ -1404,13 +1405,14 @@ Item {
         }
     }
 
-    readonly property var looksTabModel: [
+    readonly property var looksTabModel: PluginManifest.extensionSettingsTabs([
         { label: "Looks", icon: "󰒠" },
         { label: "Displays", icon: "󰍹" },
         { label: "Integrations", icon: "󰒓" },
         { label: "Home Assistant", icon: "󰠵" },
-        { label: "System packages", icon: "󰏖" }
-    ]
+        { label: "System packages", icon: "󰏖" },
+        { label: "Player", icon: "󰎆" }
+    ], shell ? shell.pluginOverlay : null)
 
     implicitHeight: parent && parent.height > 0 ? parent.height : settingsLayout.implicitHeight
     implicitWidth: Theme.settingsPanelWidth
@@ -1445,6 +1447,8 @@ Item {
                     root.loadHaDiscovery()
                 if (settingsTabs.currentIndex === 4)
                     root.loadPackagesBreakdown()
+                if (settingsTabs.currentIndex === 5)
+                    playerSettingsHost.loadPlayerSettings()
             }
         }
 
@@ -2299,6 +2303,21 @@ Item {
                             }
                         }
                     }
+                }
+            }
+
+            Flickable {
+                id: playerTabScroll
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
+                boundsBehavior: Flickable.StopAtBounds
+                contentWidth: width
+                contentHeight: Math.max(height, playerSettingsHost.implicitHeight)
+
+                PlayerSettingsModule {
+                    id: playerSettingsHost
+                    width: parent.width
                 }
             }
         }
