@@ -116,11 +116,16 @@ Item {
                 text: root.fields.subtitle || ""
                 color: Theme.foreground
                 font.family: Theme.fontFamily
-                font.pixelSize: Theme.fontSizeL
+                font.pixelSize: root.fields.subtitleFontSize !== undefined
+                    ? root.fields.subtitleFontSize
+                    : Theme.fontSizeL
                 font.bold: Theme.fontBold
                 elide: Text.ElideRight
-                maximumLineCount: 1
-                opacity: 0.82
+                maximumLineCount: 2
+                wrapMode: Text.WordWrap
+                opacity: root.fields.subtitleOpacity !== undefined
+                    ? root.fields.subtitleOpacity
+                    : 0.82
             }
 
             Text {

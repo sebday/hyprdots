@@ -696,6 +696,12 @@ Scope {
         if (fromBody)
             return fromBody
 
+        var host = webHostnameFromDesktopEntry(n.desktopEntry)
+        if (host.indexOf("telegram.org") >= 0)
+            return "telegram"
+        if (host.indexOf("messages.google.com") >= 0)
+            return "android"
+
         var app = String(n.appName || "").toLowerCase()
         var desktop = String(n.desktopEntry || "").toLowerCase()
         if (app.indexOf("telegram") >= 0 || desktop.indexOf("telegram") >= 0)
@@ -724,7 +730,7 @@ Scope {
             if (line)
                 lines.push(line)
         }
-        if ((source === "telegram" || source === "android") && lines.length > 1) {
+        if (isMessageSource(source) && lines.length > 1) {
             if (originSourceFromText(lines[0]))
                 lines = lines.slice(1)
         }
@@ -1156,6 +1162,20 @@ Scope {
                 title: lines[0] || popupTitle(entry),
                 subtitle: "",
                 footer: ""
+            }
+        }
+        var source = classifyNotification(entry)
+        if (isMessageSource(source)) {
+            var msgLines = bodyLines(entry)
+            if (msgLines.length > 1 && originSourceFromText(msgLines[0]))
+                msgLines = msgLines.slice(1)
+            return {
+                kicker: "",
+                title: popupTitle(entry),
+                subtitle: msgLines[0] || "",
+                footer: "",
+                subtitleFontSize: Theme.fontSizeM,
+                subtitleOpacity: Theme.opacitySecondary
             }
         }
         var appName = String(entry && entry.notification && entry.notification.appName || "")

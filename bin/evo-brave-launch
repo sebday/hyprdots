@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# Launch Brave after the session notification server (evoshell/quickshell) is up.
+# Chromium probes org.freedesktop.Notifications at startup; if missing, it uses
+# in-browser popup windows for the whole session instead of dbus toasts.
+
+set -euo pipefail
+
+_bin_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "${_bin_dir}/evo-paths-lib"
+
+usage() {
+  cat <<'EOF'
+usage: evo-brave-launch [brave args...]
+
+Waits for org.freedesktop.Notifications, then execs brave.
+Use in Hyprland autostart instead of bare brave.
+EOF
+}
+
+wait_for_notification_server() {
+  local attempt owner
+
+  for attempt in $(seq 1 120); do
+    if busctl --user status org.freedesktop.Notifications &>/dev/null; then
+      owner="$(busctl --user get-name-owner org.freedesktop.Notifications 2>/dev/null || true)"
+      if [[ -n "$owner" ]]; then
+        if command -v notify-send &>/dev/null; then
+          notify-send -e -a evoshell "ok" >/dev/null 2>&1 || true
+        fi
+        return 0
+      fi
+    fi
+    sleep 0.25
+  done
+
+  echo "evo-brave-launch: org.freedesktop.Notifications not ready after 30s" >&2
+  return 1
+}
+
+case "${1:-}" in
+  ""|-h|--help|help)
+    usage
+    exit 0
+    ;;
+esac
+
+wait_for_notification_server || true
+exec brave "$@"

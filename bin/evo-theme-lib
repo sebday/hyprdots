@@ -5,8 +5,14 @@
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/evo-storage-lib"
 
 THEME_DIR="${THEME_DIR:-$HOME/.themes}"
+if [[ -e "$THEME_DIR" ]]; then
+    THEME_DIR="$(cd "$THEME_DIR" && pwd -P)"
+fi
 TEMPLATES_DIR="${TEMPLATES_DIR:-$THEME_DIR/shared/templates}"
 CURRENT_THEME="${CURRENT_THEME:-$THEME_DIR/current}"
+if [[ -e "$CURRENT_THEME" ]]; then
+    CURRENT_THEME="$(cd "$CURRENT_THEME" && pwd -P)"
+fi
 EVO_ICON_THEME="${EVO_ICON_THEME:-evo-current}"
 
 theme_wallpapers_dir() {

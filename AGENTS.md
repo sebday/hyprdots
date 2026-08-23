@@ -25,6 +25,8 @@ Hyprland integration: `hypr/` module loaded via `package.path` (see [`hypr/READM
 
 Secrets: `pass` entries under `evoshell/` (e.g. `pass show evoshell/github/token`, `pass show evoshell/cloudflare/token`). Initialize with `pass init <gpg-id>` and insert entries manually. Cloudflare panel API calls require `pass insert evoshell/cloudflare/token`; deploy/tail still run `wrangler` in a terminal with wrangler's own project credentials. Local deploy/rollback discovers Wrangler projects by scanning `~/projects`, `~/src`, `~/dev`, and `~/code` (plus the parent of `EVOSHELL_ROOT` when set); override with `evo-config tray set-field cloudflare projectsRoot /path`.
 
+Brave `web.telegram.org` notifications route through evoshell when Brave uses **native dbus notifications** (`NativeNotifications` in `brave-flags.conf`) and starts via `evo-brave-launch` so it probes dbus after evoshell owns `org.freedesktop.Notifications` — otherwise Chromium falls back to in-browser popup windows for the session.
+
 Effective layout config is deep-merged at runtime: built-in defaults → `$EVOSHELL_ROOT/config/shell.json` → `$EVOSHELL_CONFIG/overrides.json`. `evo-layout` and `evo-config` mutate overrides only; see `config/overrides.example.json`.
 
 | Store | Examples | Set via |
@@ -197,6 +199,7 @@ Common feature scripts:
 | `evo-layout` | Bar/monitor layout helpers |
 | `evo-hyprland` | Hyprland config helpers |
 | `evo-screenshot` | Region/stacked capture (grim + slurp) and satty annotation |
+| `evo-brave-launch` | Start Brave after the session notification server is ready |
 | `evo-bar-*` | Bar pollers and popup data sources |
 
 ## QML conventions
