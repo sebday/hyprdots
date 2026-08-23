@@ -977,7 +977,7 @@ Scope {
         if (entry && entry.localMedia && entry.art)
             return entry.art
 
-        if (isHyprshot(entry))
+        if (isHyprshot(entry) || isEvoScreenshot(entry))
             return screenshotPath(entry)
 
         var n = entry && entry.notification
@@ -1014,7 +1014,7 @@ Scope {
             return "󰎆"
         if (isPlayerNotification(entry) || isScrobbler(entry))
             return "󰎆"
-        if (isHyprshot(entry))
+        if (isHyprshot(entry) || isEvoScreenshot(entry))
             return "󰹑"
         return "󰂚"
     }
@@ -1065,19 +1065,26 @@ Scope {
 
     function screenshotPath(entry) {
         var n = entry && entry.notification
-        if (!n) return "/tmp/hyprshot.png"
+        if (!n) return "/tmp/evo-screenshot.png"
 
         var candidates = []
+        var body = stripMarkup(String(n.body || "")).trim()
         var match = String(n.body || "").match(/<i>([^<]+)<\/i>/)
         if (match) candidates.push(match[1])
-        if (n.appIcon) candidates.push(n.appIcon)
+        if (body.charAt(0) === "/") candidates.push(body)
         if (n.image) candidates.push(n.image)
+        if (n.appIcon) candidates.push(n.appIcon)
+        var hints = n.hints
+        if (hints) {
+            var hintPath = hints["image-path"] || hints.imagePath
+            if (hintPath) candidates.push(hintPath)
+        }
 
         for (var i = 0; i < candidates.length; i++) {
             var p = normalizeLocalPath(candidates[i])
             if (p) return p
         }
-        return "/tmp/hyprshot.png"
+        return "/tmp/evo-screenshot.png"
     }
 
     function openScreenshotEditor(entry) {

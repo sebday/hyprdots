@@ -56,7 +56,8 @@ bindd("XF86AudioPrev", "Previous media track", hl.dsp.exec_cmd(lib .. "/evo-medi
 
 bindd("PRINT", "Screenshot region", hl.dsp.exec_cmd(lib .. "/evo-screenshot region"))
 bindd("SUPER + PRINT", "Annotate screenshot", hl.dsp.exec_cmd(lib .. "/evo-screenshot edit"))
-bindd("ALT + PRINT", "Screenshot all monitors", hl.dsp.exec_cmd(lib .. "/evo-screenshot stacked"))
+bindd("ALT + PRINT", "Screenshot monitor", hl.dsp.exec_cmd(lib .. "/evo-screenshot monitor"))
+bindd("SUPER + ALT + PRINT", "Screenshot all monitors", hl.dsp.exec_cmd(lib .. "/evo-screenshot stacked"))
 
 -- Desktop: programs and window management
 bindd("SUPER + Return", "Terminal", hl.dsp.exec_cmd(terminal))

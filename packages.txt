@@ -18,7 +18,6 @@ cliphist
 imagemagick
 grim
 slurp
-hyprshot
 satty
 papirus-icon-theme
 curl

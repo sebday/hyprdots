@@ -35,7 +35,7 @@ journalctl -t evoshell -n 50 --no-pager
 
 ## Screenshots
 
-EvoShell ships `evo-screenshot` for capture and annotation.
+EvoShell ships `evo-screenshot` for capture and annotation (grim, slurp, satty).
 
 Full stacked multi-monitor capture:
 

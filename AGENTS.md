@@ -157,10 +157,12 @@ Evoshell overlays close with **Esc** (system menu and media library step back or
 | Super+L | Lock (`evo system lock`) |
 | Super+F5 | Restart shell (`evo system restart`) |
 | Super+Tab | Cycle workspace |
+| Super+P | Colour picker (`hyprpicker`) |
 | Super+Alt+K | Toggle workspace float mode (per-workspace) |
 | Print | Screenshot region (`evo-screenshot region`) |
 | Super+Print | Annotate screenshot (`evo-screenshot edit`) |
-| Alt+Print | Screenshot all monitors (`evo-screenshot stacked`) |
+| Alt+Print | Screenshot focused monitor (`evo-screenshot monitor`) |
+| Super+Alt+Print | Screenshot all monitors (`evo-screenshot stacked`) |
 
 Volume keys call `evo ipc evo.sys.media.audio` (`stepUp`, `stepDown`, `toggleMute`).
 
@@ -194,7 +196,7 @@ Common feature scripts:
 | `evo-theme` / `evo-theme-lib` | GTK/Nvim/icon theming |
 | `evo-layout` | Bar/monitor layout helpers |
 | `evo-hyprland` | Hyprland config helpers |
-| `evo-screenshot` | Capture and satty annotation |
+| `evo-screenshot` | Region/stacked capture (grim + slurp) and satty annotation |
 | `evo-bar-*` | Bar pollers and popup data sources |
 
 ## QML conventions

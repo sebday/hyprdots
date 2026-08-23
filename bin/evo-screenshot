@@ -6,7 +6,7 @@ set -euo pipefail
 TOP_MONITOR="${EVO_SCREENSHOT_TOP:-}"
 read -r -a BOTTOM_MONITORS <<< "${EVO_SCREENSHOT_BOTTOM:-}"
 
-DEFAULT_SHOT="/tmp/hyprshot.png"
+DEFAULT_SHOT="/tmp/evo-screenshot.png"
 OUT_DIR="${EVO_SCREENSHOT_OUT_DIR:-${XDG_PICTURES_DIR:-${HOME}/Pictures}/Screenshots}"
 
 usage() {
@@ -14,16 +14,17 @@ usage() {
 usage: evo-screenshot <command> [options]
 
 commands:
+  monitor             capture the focused monitor to /tmp/evo-screenshot.png
   stacked             capture all monitors and stitch into one image
-  region              capture a screen region to /tmp/hyprshot.png
+  region              capture a screen region to /tmp/evo-screenshot.png
   edit [path]           annotate a screenshot with satty
 
 stacked options:
-  -o, --output PATH   output file (default: /tmp/hyprshot.png)
+  -o, --output PATH   output file (default: /tmp/evo-screenshot.png)
   -s, --silent        suppress notifications
 
 edit options:
-  [path]              image to annotate (default: /tmp/hyprshot.png)
+  [path]              image to annotate (default: /tmp/evo-screenshot.png)
   --capture MODE      capture first: region, monitor, output, or stacked
 
 environment:
@@ -89,21 +90,16 @@ monitor_scale() {
 capture_monitor() {
 	local name="$1"
 	local file="$tmpdir/${name}.png"
-
-	if command -v grim >/dev/null; then
-		if grim -o "$name" "$file" 2>/dev/null \
-			&& [[ -s "$file" ]] && identify "$file" >/dev/null 2>&1; then
-			printf '%s' "$file"
-			return 0
-		fi
-	fi
-
 	local attempt
+
+	command -v grim >/dev/null || {
+		echo "evo-screenshot: grim required" >&2
+		return 1
+	}
+
 	for attempt in 1 2 3; do
 		rm -f "$file"
-		if command -v hyprshot >/dev/null; then
-			hyprshot -m output -m "$name" -o "$tmpdir" -f "${name}.png" -s >/dev/null 2>&1 || true
-		fi
+		grim -o "$name" "$file" 2>/dev/null || true
 		if [[ -s "$file" ]] && identify "$file" >/dev/null 2>&1; then
 			printf '%s' "$file"
 			return 0
@@ -113,6 +109,27 @@ capture_monitor() {
 
 	echo "evo-screenshot: failed to capture $name" >&2
 	return 1
+}
+
+capture_active_monitor() {
+	local out="$1"
+	local active
+
+	command -v grim >/dev/null || {
+		echo "evo-screenshot: grim required" >&2
+		return 1
+	}
+	command -v hyprctl >/dev/null && command -v jq >/dev/null || {
+		echo "evo-screenshot: hyprctl and jq required" >&2
+		return 1
+	}
+
+	active="$(hyprctl monitors -j | jq -r '(.[] | select(.focused)) // .[0] | .name')"
+	[[ -n "$active" && "$active" != "null" ]] || {
+		echo "evo-screenshot: no active monitor" >&2
+		return 1
+	}
+	grim -o "$active" "$out"
 }
 
 normalize_shot() {
@@ -158,8 +175,8 @@ cmd_stacked() {
 		esac
 	done
 
-	command -v grim >/dev/null || command -v hyprshot >/dev/null || {
-		echo "evo-screenshot: grim or hyprshot required" >&2
+	command -v grim >/dev/null || {
+		echo "evo-screenshot: grim required" >&2
 		exit 1
 	}
 	command -v magick >/dev/null || command -v convert >/dev/null || {
@@ -248,6 +265,16 @@ cmd_region() {
 	printf '%s\n' "$DEFAULT_SHOT"
 }
 
+cmd_monitor() {
+	local out="$DEFAULT_SHOT"
+
+	capture_active_monitor "$out"
+	wl-copy --type image/png < "$out" 2>/dev/null || true
+	cleanup_gdk_temps
+	notify_saved "$out"
+	printf '%s\n' "$out"
+}
+
 cmd_edit() {
 	local shot="$DEFAULT_SHOT"
 	local capture=""
@@ -279,7 +306,7 @@ cmd_edit() {
 			shot="$DEFAULT_SHOT"
 			;;
 		output | monitor)
-			hyprshot -m output -m active -o /tmp -f hyprshot.png -s
+			capture_active_monitor "$DEFAULT_SHOT"
 			shot="$DEFAULT_SHOT"
 			;;
 		stacked)
@@ -327,6 +354,10 @@ stacked)
 region)
 	shift
 	cmd_region "$@"
+	;;
+monitor | screen)
+	shift
+	cmd_monitor "$@"
 	;;
 edit)
 	shift
