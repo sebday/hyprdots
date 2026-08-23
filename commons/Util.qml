@@ -119,7 +119,11 @@ Singleton {
     }
 
     function evoshellScript(home, shell, name) {
-        return evoshellBinPath(home, shell) + "/" + String(name || "")
+        var script = String(name || "")
+        var root = Quickshell.env("EVOSHELL_ROOT") || ""
+        if (root && String(root).trim() !== "")
+            return String(root).trim() + "/bin/" + script
+        return evoshellBinPath(home, shell) + "/" + script
     }
 
     function evoshellIpcCommand(home, shell, args) {

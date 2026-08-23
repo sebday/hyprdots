@@ -22,6 +22,7 @@ Item {
     readonly property string tasksScript: Util.evoshellScript(Quickshell.env("HOME"), shell, "evo-tasks")
     readonly property string configScript: Util.evoshellScript(Quickshell.env("HOME"), shell, "evo-config")
     readonly property string weatherScript: Util.evoshellScript(Quickshell.env("HOME"), shell, "evo-bar-weather")
+    readonly property string packagesScript: Util.evoshellScript(Quickshell.env("HOME"), shell, "evo-system-packages")
     readonly property string fontStatePath: Util.configPath(home, "font.json")
     readonly property string themeNamePath: Quickshell.env("HOME") + "/.themes/current/.theme-name"
     readonly property string themeListScript: Util.evoshellScript(Quickshell.env("HOME"), shell, "evo-menu-list")
@@ -117,6 +118,12 @@ Item {
     property var haClimateOptions: []
     property string haDiscoveryError: ""
     property bool haDiscoveryReady: false
+    property bool packagesLoading: false
+    property bool packagesReady: false
+    property string packagesError: ""
+    property var packagesSummary: ({})
+    property var packagesCategories: []
+    property var packagesOrphans: []
     property int idleLockMin: 15
     property bool idleReady: false
     property var trayWidgets: ({})
@@ -624,6 +631,41 @@ Item {
         if (settingsBusy)
             return
         loadHaAreasProc.running = true
+    }
+
+    function loadPackagesBreakdown() {
+        if (packagesLoading)
+            return
+        packagesLoading = true
+        packagesReady = false
+        packagesError = ""
+        loadPackagesProc.running = true
+    }
+
+    function parsePackagesBreakdown(raw) {
+        packagesLoading = false
+        try {
+            var data = JSON.parse(String(raw || "{}"))
+            if (data.ok !== true) {
+                packagesError = String(data.error || "Could not load packages")
+                packagesSummary = ({})
+                packagesCategories = []
+                packagesOrphans = []
+                packagesReady = false
+                return
+            }
+            packagesError = ""
+            packagesSummary = data.summary && typeof data.summary === "object" ? data.summary : ({})
+            packagesCategories = Array.isArray(data.categories) ? data.categories : []
+            packagesOrphans = Array.isArray(data.orphans) ? data.orphans : []
+            packagesReady = true
+        } catch (e) {
+            packagesError = "Could not load packages"
+            packagesSummary = ({})
+            packagesCategories = []
+            packagesOrphans = []
+            packagesReady = false
+        }
     }
 
     function setHaAreaEnabled(index, enabled) {
@@ -1228,6 +1270,14 @@ Item {
     }
 
     Process {
+        id: loadPackagesProc
+        command: ["bash", root.packagesScript, "breakdown"]
+        stdout: StdioCollector {
+            onStreamFinished: root.parsePackagesBreakdown(text)
+        }
+    }
+
+    Process {
         id: loadIdleProc
         command: ["bash", root.configScript, "idle", "get"]
         stdout: StdioCollector {
@@ -1274,7 +1324,8 @@ Item {
     readonly property var settingsTabModel: [
         { label: "Settings", icon: "󰒠" },
         { label: "Integrations", icon: "󰒓" },
-        { label: "Home Assistant", icon: "󰠵" }
+        { label: "Home Assistant", icon: "󰠵" },
+        { label: "System packages", icon: "󰏖" }
     ]
 
     implicitHeight: parent && parent.height > 0 ? parent.height : settingsLayout.implicitHeight
@@ -1302,6 +1353,8 @@ Item {
                     root.closeWeatherLocationPicker()
                 if (settingsTabs.currentIndex === 2)
                     root.loadHaDiscovery()
+                if (settingsTabs.currentIndex === 3)
+                    root.loadPackagesBreakdown()
             }
         }
 
@@ -2281,6 +2334,181 @@ Item {
                                         checked: rowData ? rowData.enabled === true : false
                                         enabled: root.haDiscoveryReady && !settingsBusy
                                         onToggled: root.setHaClimateEnabled(rowIndex, !checked)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Flickable {
+                id: packagesTabScroll
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
+                boundsBehavior: Flickable.StopAtBounds
+                contentWidth: width
+                contentHeight: packagesTabContent.implicitHeight
+
+                Item {
+                    id: packagesTabContent
+                    width: parent.width
+                    implicitHeight: packagesTabColumn.implicitHeight
+                    clip: true
+
+                    ColumnLayout {
+                        id: packagesTabColumn
+                        width: parent.width
+                        spacing: Theme.hoverPanelSectionSpacing
+
+                        Text {
+                            Layout.fillWidth: true
+                            visible: root.packagesLoading
+                            text: "Loading packages…"
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeS
+                            opacity: Theme.opacityMuted
+                        }
+
+                        Text {
+                            Layout.fillWidth: true
+                            visible: !root.packagesLoading && root.packagesError !== ""
+                            text: root.packagesError
+                            color: Theme.urgent
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSizeS
+                            wrapMode: Text.WordWrap
+                        }
+
+                        SectionPanel {
+                            visible: !root.packagesLoading && root.packagesReady
+                                && root.sectionFilterVisible("Summary")
+                            Layout.fillWidth: true
+                            notchLegend: true
+                            legendText: "Summary"
+                            legendIcon: "󰋼"
+                            legendBackground: Theme.background
+                            label: ""
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: Theme.spacingS
+
+                                Repeater {
+                                    model: [
+                                        { label: "total", text: String(root.packagesSummary.total || 0) + " total" },
+                                        { label: "explicit", text: String(root.packagesSummary.explicit || 0) + " explicit" },
+                                        { label: "foreign", text: String(root.packagesSummary.foreign || 0) + " AUR" },
+                                        { label: "orphans", text: String(root.packagesSummary.orphans || 0) + " orphans" },
+                                        { label: "mise", text: String(root.packagesSummary.mise || 0) + " mise" }
+                                    ]
+
+                                    HoverPanelLabelPill {
+                                        required property var modelData
+                                        text: modelData.text
+                                        fontSize: Theme.fontSizeS
+                                        fieldsetLegend: false
+                                    }
+                                }
+
+                                Item { Layout.fillWidth: true }
+                            }
+                        }
+
+                        Repeater {
+                            model: root.packagesCategories
+
+                            SectionPanel {
+                                required property var modelData
+                                visible: !root.packagesLoading && root.packagesReady
+                                    && root.sectionFilterVisible(modelData.name)
+                                Layout.fillWidth: true
+                                notchLegend: true
+                                legendText: modelData.name + " (" + (modelData.packages ? modelData.packages.length : 0) + ")"
+                                legendIcon: "󰏖"
+                                legendBackground: Theme.background
+                                label: ""
+
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 4
+
+                                    Repeater {
+                                        model: modelData.packages || []
+
+                                        RowLayout {
+                                            required property var modelData
+                                            Layout.fillWidth: true
+                                            spacing: Theme.spacingM
+
+                                            Text {
+                                                Layout.fillWidth: true
+                                                text: String(modelData.name || "")
+                                                color: Theme.foreground
+                                                font.family: Theme.fontFamily
+                                                font.pixelSize: Theme.fontSizeS
+                                                elide: Text.ElideRight
+                                            }
+
+                                            Text {
+                                                visible: modelData.source === "aur"
+                                                text: "AUR"
+                                                color: Theme.accent
+                                                font.family: Theme.fontFamily
+                                                font.pixelSize: Theme.fontSizeXs
+                                                font.bold: Theme.fontBold
+                                            }
+
+                                            Text {
+                                                Layout.preferredWidth: Math.min(180, implicitWidth)
+                                                text: String(modelData.version || "")
+                                                color: Theme.foreground
+                                                font.family: Theme.fontFamily
+                                                font.pixelSize: Theme.fontSizeXs
+                                                opacity: Theme.opacityMuted
+                                                horizontalAlignment: Text.AlignRight
+                                                elide: Text.ElideLeft
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        SectionPanel {
+                            visible: !root.packagesLoading && root.packagesReady && root.packagesOrphans.length > 0
+                                && root.sectionFilterVisible("Orphans")
+                            Layout.fillWidth: true
+                            notchLegend: true
+                            legendText: "Orphans"
+                            legendIcon: "󰀨"
+                            legendBackground: Theme.background
+                            label: ""
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: "Unused dependencies (pacman -Qdt)"
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSizeXs
+                                opacity: Theme.opacityMuted
+                                wrapMode: Text.WordWrap
+                            }
+
+                            Flow {
+                                Layout.fillWidth: true
+                                spacing: Theme.spacingS
+
+                                Repeater {
+                                    model: root.packagesOrphans
+
+                                    HoverPanelLabelPill {
+                                        required property string modelData
+                                        text: modelData
+                                        fontSize: Theme.fontSizeXs
+                                        fieldsetLegend: false
                                     }
                                 }
                             }

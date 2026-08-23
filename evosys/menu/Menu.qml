@@ -41,7 +41,8 @@ Item {
         { label: "Evoshell", icon: "󰣇" },
         { label: "Settings", icon: "󰒠" },
         { label: "Integrations", icon: "󰒓" },
-        { label: "Home Assistant", icon: "󰠵" }
+        { label: "Home Assistant", icon: "󰠵" },
+        { label: "System packages", icon: "󰏖" }
     ]
     property var sectionLayoutPrograms: []
     property var sectionLayoutGames: []
@@ -271,7 +272,7 @@ Item {
             return 0
         var tab = payload.tab
         if (typeof tab === "number")
-            return Math.max(0, Math.min(3, tab))
+            return Math.max(0, Math.min(4, tab))
         var name = String(tab).toLowerCase()
         if (name === "settings" || name === "1")
             return 1
@@ -279,6 +280,8 @@ Item {
             return 2
         if (name === "homeassistant" || name === "ha" || name === "3")
             return 3
+        if (name === "packages" || name === "system-packages" || name === "systempackages" || name === "4")
+            return 4
         return 0
     }
 
@@ -287,6 +290,8 @@ Item {
             embeddedSettings.onActivated()
             if (index === 3)
                 embeddedSettings.loadHaDiscovery()
+            if (index === 4)
+                embeddedSettings.loadPackagesBreakdown()
         } else if (powerMenuMode) {
             focusSearchField()
         }

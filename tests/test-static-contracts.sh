@@ -149,6 +149,8 @@ check_present 'extensionTrayWidgets' "${root}/shell.qml"
 check_present 'pluginOverlayPath' "${root}/shell.qml"
 [[ -f "${root}/config/plugins/manifest.example.json" ]] || { echo "missing plugin overlay example" >&2; fail=1; }
 check_present 'Home Assistant' "${root}/evosys/settings/SettingsModule.qml"
+check_present 'System packages' "${root}/evosys/settings/SettingsModule.qml"
+check_present 'evo-system-packages' "${root}/bin"
 check_present 'homeAssistant' "${root}/config/overrides.example.json"
 check_present 'HOME_ASSISTANT_URL' "${bin}/evo-bar-home-assistant"
 check_present 'HOME_ASSISTANT_TOKEN' "${bin}/evo-bar-home-assistant"
