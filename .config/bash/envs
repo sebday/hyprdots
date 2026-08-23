@@ -16,4 +16,3 @@ export EVO_CLEANUP_SECURE_MOUNT=/mnt/secure
 export EVO_SCREENSHOT_TOP=HDMI-A-1
 export EVO_SCREENSHOT_BOTTOM="HDMI-A-2 DP-1 DP-2"
 export EVO_SCREENSHOT_OUT_DIR="$HOME/onedrive/pictures/Screenshots"
-export OBSIDIAN_VAULT_DIR="$HOME/onedrive/notes"

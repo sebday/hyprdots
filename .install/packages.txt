@@ -9,7 +9,6 @@ xorg-xwayland
 
 # Desktop ###################
 quickshell
-hyprshot
 hyprpicker
 wl-clipboard
 cliphist
