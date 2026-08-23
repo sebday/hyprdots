@@ -25,8 +25,6 @@ Item {
         visible: root.keyboardSelected
         radius: 4
         color: Theme.foregroundWash
-        border.color: Theme.accent
-        border.width: 1
         opacity: 0.85
     }
 

@@ -18,7 +18,7 @@ Item {
     property alias tabIndex: settingsTabs.currentIndex
     property string menuFilterText: ""
     property int settingsKeyIndex: 0
-    property var settingsNavToggles: []
+    property var settingsNavItems: []
 
     readonly property string hyprScript: Util.evoshellScript(Quickshell.env("HOME"), shell, "evo-hyprland")
     readonly property string barScript: Util.evoshellScript(Quickshell.env("HOME"), shell, "evo-layout")
@@ -190,17 +190,48 @@ Item {
         return true
     }
 
-    function collectSettingsNavToggles(item, out) {
+    function collectSettingsNavItems(item, out) {
         if (!item)
             return
-        if (item.keyboardSelected !== undefined && typeof item.toggled === "function"
-                && item.enabled !== false && root.isEffectivelyVisible(item))
-            out.push(item)
+        if (item.enabled !== false && root.isEffectivelyVisible(item)) {
+            if (item.settingsNavInput !== undefined)
+                out.push({ kind: "input", target: item, input: item.settingsNavInput })
+            else if (typeof item.toggled === "function" && item.keyboardSelected !== undefined)
+                out.push({ kind: "toggle", target: item })
+            else if (typeof item.valueCommitted === "function" && item.maximum !== undefined)
+                out.push({ kind: "slider", target: item })
+        }
         var kids = item.children
         if (!kids)
             return
         for (var i = 0; i < kids.length; i++)
-            root.collectSettingsNavToggles(kids[i], out)
+            root.collectSettingsNavItems(kids[i], out)
+    }
+
+    function currentSettingsNavEntry() {
+        var list = root.settingsNavItems
+        if (!list || list.length === 0)
+            return null
+        var idx = Math.max(0, Math.min(root.settingsKeyIndex, list.length - 1))
+        return list[idx]
+    }
+
+    function clearSettingsNavHighlights() {
+        var list = root.settingsNavItems
+        for (var i = 0; i < list.length; i++) {
+            var target = list[i].target
+            if (target && target.keyboardSelected !== undefined)
+                target.keyboardSelected = false
+        }
+    }
+
+    function releaseTextFocus() {
+        if (!root.focusInTextInput())
+            return
+        var item = root.activeFocusItem
+        if (item && item.focus !== undefined)
+            item.focus = false
+        root.forceActiveFocus()
     }
 
     function activeTabContent() {
@@ -229,28 +260,31 @@ Item {
         if (!root.compactLayout)
             return
         var out = []
-        root.collectSettingsNavToggles(root.activeTabContent(), out)
-        root.settingsNavToggles = out
+        root.collectSettingsNavItems(root.activeTabContent(), out)
+        root.clearSettingsNavHighlights()
+        root.settingsNavItems = out
         if (root.settingsKeyIndex >= out.length)
             root.settingsKeyIndex = Math.max(0, out.length - 1)
         root.applySettingsKeyFocus()
     }
 
     function applySettingsKeyFocus() {
-        var list = root.settingsNavToggles
-        for (var i = 0; i < list.length; i++)
-            list[i].keyboardSelected = i === root.settingsKeyIndex
-        if (list.length > 0)
-            root.ensureSettingsNavVisible(list[root.settingsKeyIndex])
+        root.clearSettingsNavHighlights()
+        var entry = root.currentSettingsNavEntry()
+        if (!entry)
+            return
+        if (entry.target && entry.target.keyboardSelected !== undefined)
+            entry.target.keyboardSelected = true
+        root.ensureSettingsNavVisible(entry.target)
     }
 
-    function ensureSettingsNavVisible(toggle) {
+    function ensureSettingsNavVisible(target) {
         var flick = root.activeTabFlickable()
-        if (!flick || !toggle)
+        if (!flick || !target)
             return
-        var pos = toggle.mapToItem(flick.contentItem, 0, 0)
+        var pos = target.mapToItem(flick.contentItem, 0, 0)
         var y = pos.y
-        var bottom = y + toggle.height
+        var bottom = y + target.height
         if (y < flick.contentY)
             flick.contentY = Math.max(0, y)
         else if (bottom > flick.contentY + flick.height)
@@ -260,21 +294,44 @@ Item {
     function moveSettingsFocus(delta) {
         if (!root.compactLayout)
             return
+        root.releaseTextFocus()
         root.rebuildSettingsNav()
-        var count = root.settingsNavToggles.length
+        var count = root.settingsNavItems.length
         if (count <= 0)
             return
         root.settingsKeyIndex = (root.settingsKeyIndex + delta + count) % count
         root.applySettingsKeyFocus()
     }
 
+    function adjustSettingsNavHorizontal(delta) {
+        if (!root.compactLayout || root.focusInTextInput())
+            return false
+        root.rebuildSettingsNav()
+        var entry = root.currentSettingsNavEntry()
+        if (!entry || entry.kind !== "slider" || !entry.target || entry.target.enabled === false)
+            return false
+        var slider = entry.target
+        var next = Math.max(slider.minimum, Math.min(slider.maximum, slider.value + delta * slider.step))
+        if (next === slider.value)
+            return true
+        slider.dragValue = next
+        slider.value = next
+        slider.valueEdited(next)
+        slider.valueCommitted(next)
+        return true
+    }
+
     function activateSettingsFocus() {
         if (!root.compactLayout)
             return
         root.rebuildSettingsNav()
-        var item = root.settingsNavToggles[root.settingsKeyIndex]
-        if (item && item.enabled !== false)
-            item.toggled()
+        var entry = root.currentSettingsNavEntry()
+        if (!entry || !entry.target || entry.target.enabled === false)
+            return
+        if (entry.kind === "toggle")
+            entry.target.toggled()
+        else if (entry.kind === "input" && entry.input)
+            entry.input.forceActiveFocus()
     }
 
     onMenuFilterTextChanged: Qt.callLater(root.rebuildSettingsNav)
@@ -1479,6 +1536,7 @@ Item {
 
     implicitHeight: parent && parent.height > 0 ? parent.height : settingsLayout.implicitHeight
     implicitWidth: root.compactLayout ? Theme.systemMenuPanelWidth : Theme.settingsPanelWidth
+    readonly property int looksTabContentHeight: looksTab.implicitHeight
 
     ColumnLayout {
         id: settingsLayout
@@ -1752,11 +1810,14 @@ Item {
                                             Layout.fillWidth: true
                                             implicitHeight: 34
                                             radius: 6
-                                            color: Theme.foregroundWash
+                                            property bool keyboardSelected: false
+                                            property alias settingsNavInput: weatherLocationInput
+                                            color: keyboardSelected ? Theme.foregroundHoverWash : Theme.foregroundWash
                                             border.color: Theme.foregroundDivider
                                             border.width: 1
 
                                             TextInput {
+                                                id: weatherLocationInput
                                                 anchors.fill: parent
                                                 anchors.leftMargin: 8
                                                 anchors.rightMargin: 8
@@ -1834,11 +1895,14 @@ Item {
                                         Layout.fillWidth: true
                                         implicitHeight: 34
                                         radius: 6
-                                        color: Theme.foregroundWash
+                                        property bool keyboardSelected: false
+                                        property alias settingsNavInput: personalWallpaperInput
+                                        color: keyboardSelected ? Theme.foregroundHoverWash : Theme.foregroundWash
                                         border.color: Theme.foregroundDivider
                                         border.width: 1
 
                                         TextInput {
+                                            id: personalWallpaperInput
                                             anchors.fill: parent
                                             anchors.leftMargin: 8
                                             anchors.rightMargin: 8
@@ -1896,11 +1960,14 @@ Item {
                                             Layout.fillWidth: true
                                             implicitHeight: 34
                                             radius: 6
-                                            color: Theme.foregroundWash
+                                            property bool keyboardSelected: false
+                                            property alias settingsNavInput: mediaTvInput
+                                            color: keyboardSelected ? Theme.foregroundHoverWash : Theme.foregroundWash
                                             border.color: Theme.foregroundDivider
                                             border.width: 1
 
                                             TextInput {
+                                                id: mediaTvInput
                                                 anchors.fill: parent
                                                 anchors.leftMargin: 8
                                                 anchors.rightMargin: 8
@@ -1967,11 +2034,14 @@ Item {
                                             Layout.fillWidth: true
                                             implicitHeight: 34
                                             radius: 6
-                                            color: Theme.foregroundWash
+                                            property bool keyboardSelected: false
+                                            property alias settingsNavInput: mediaFilmsInput
+                                            color: keyboardSelected ? Theme.foregroundHoverWash : Theme.foregroundWash
                                             border.color: Theme.foregroundDivider
                                             border.width: 1
 
                                             TextInput {
+                                                id: mediaFilmsInput
                                                 anchors.fill: parent
                                                 anchors.leftMargin: 8
                                                 anchors.rightMargin: 8

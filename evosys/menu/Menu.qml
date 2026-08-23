@@ -194,11 +194,20 @@ Item {
         120,
         previewAreaMaxHeight - menuOuterTopInset - menuOuterInset - framedChromeHeight)
     readonly property int screenHeight: panel.height > 0 ? panel.height : 1080
+    property int lockedPowerMenuPanelHeight: 0
     readonly property bool fixedFramedMenuHeight: powerMenuMode || runnerMenuMode
     readonly property int fixedMenuPanelHeight: Math.min(
         Theme.systemMenuPanelHeight,
         screenHeight - Theme.overlayMargin * 2)
-    readonly property int powerMenuPanelHeight: fixedMenuPanelHeight
+    readonly property int powerMenuSettingsChromeHeight: powerMenuTabBarTopPad
+        + mainMenuTabs.implicitHeight + framedColumnSpacing
+    readonly property int powerMenuPanelHeight: {
+        if (!powerMenuMode)
+            return fixedMenuPanelHeight
+        if (lockedPowerMenuPanelHeight > 0)
+            return lockedPowerMenuPanelHeight
+        return fixedMenuPanelHeight
+    }
     readonly property int runnerPanelHeight: fixedMenuPanelHeight
     readonly property int powerMenuColumnHeight: powerMenuPanelHeight - menuOuterTopInset - menuOuterInset
     readonly property int runnerColumnHeight: runnerPanelHeight - menuOuterTopInset - menuOuterInset
@@ -206,7 +215,7 @@ Item {
     readonly property int powerMenuTabBarHeight: Theme.fontSizeS + 8
     readonly property int powerMenuViewportHeight: Math.max(
         160,
-        powerMenuColumnHeight - powerMenuTabBarHeight - powerMenuTabBarTopPad - framedColumnSpacing)
+        powerMenuColumnHeight - powerMenuSettingsChromeHeight)
     readonly property int runnerFieldsetChromeHeight: menuFieldsetPad * 2 + menuLegendChrome + framedColumnSpacing
     readonly property int runnerViewportHeight: Math.max(
         160,
@@ -299,6 +308,19 @@ Item {
             embeddedSettings.loadPackagesBreakdown()
     }
 
+    function lockPowerMenuHeightFromLooks() {
+        if (!root.opened || !root.powerMenuMode || root.lockedPowerMenuPanelHeight > 0)
+            return
+        var content = embeddedSettings.looksTabContentHeight
+        if (content <= 0)
+            return
+        var total = root.menuOuterTopInset + root.menuOuterInset
+            + root.powerMenuSettingsChromeHeight + content
+        root.lockedPowerMenuPanelHeight = Math.min(
+            Math.max(total, 200),
+            root.screenHeight - Theme.overlayMargin * 2)
+    }
+
     function open(payloadJson) {
         try {
             var payload = JSON.parse(payloadJson || "{}")
@@ -314,6 +336,8 @@ Item {
         if (filterField.text !== "")
             filterField.text = ""
         selectedIndex = 0
+        if (mode === "power")
+            lockedPowerMenuPanelHeight = 0
         refreshCommandEntries()
         if (submenu) loadDynamicEntries(submenu)
         else dynamicEntries = []
@@ -327,10 +351,12 @@ Item {
         Qt.callLater(function() {
             root.previewAreaMaxWidth = panel.previewAreaMaxWidth
             root.previewAreaMaxHeight = panel.previewAreaMaxHeight
-            if (powerMenuMode)
+            if (powerMenuMode) {
                 onMainMenuTabActivated(menuTabIndex)
-            else
+                Qt.callLater(root.lockPowerMenuHeightFromLooks)
+            } else {
                 root.focusSearchField()
+            }
         })
     }
 
@@ -358,6 +384,7 @@ Item {
     function close() {
         if (!opened) return
         opened = false
+        lockedPowerMenuPanelHeight = 0
         filterText = ""
         submenu = ""
         menuTabIndex = 0
@@ -735,17 +762,27 @@ Item {
     }
 
     function handlePreviewLeft() {
+        if (showSettingsTab && !embeddedSettings.focusInTextInput()) {
+            if (embeddedSettings.adjustSettingsNavHorizontal(-1))
+                return
+        }
         if (previewTileMode) moveGridSelection(-1, 0)
         else if (sectionMenuMode) moveSectionSelection(-1, 0)
     }
 
     function handlePreviewRight() {
+        if (showSettingsTab && !embeddedSettings.focusInTextInput()) {
+            if (embeddedSettings.adjustSettingsNavHorizontal(1))
+                return
+        }
         if (previewTileMode) moveGridSelection(1, 0)
         else if (sectionMenuMode) moveSectionSelection(1, 0)
     }
 
     function handlePreviewUp() {
         if (showSettingsTab) {
+            if (embeddedSettings.focusInTextInput())
+                return
             embeddedSettings.moveSettingsFocus(-1)
             return
         }
@@ -756,6 +793,8 @@ Item {
 
     function handlePreviewDown() {
         if (showSettingsTab) {
+            if (embeddedSettings.focusInTextInput())
+                return
             embeddedSettings.moveSettingsFocus(1)
             return
         }
@@ -789,6 +828,8 @@ Item {
         } else if (filterText.trim() !== "" && (root.powerMenuMode || root.runnerMenuMode)) {
             filterText = ""
             selectedIndex = 0
+        } else if (showSettingsTab && embeddedSettings.focusInTextInput()) {
+            embeddedSettings.releaseTextFocus()
         } else if (showSettingsTab && embeddedSettings.weatherLocationPickerOpen) {
             embeddedSettings.weatherLocationPickerOpen = false
         } else {
@@ -1370,7 +1411,7 @@ Item {
             Keys.onPressed: function(event) {
                 if (!root.framedMode)
                     return
-                if (root.showSettingsTab && event.key === Qt.Key_Space) {
+                if (root.showSettingsTab && event.key === Qt.Key_Space && !embeddedSettings.focusInTextInput()) {
                     embeddedSettings.activateSettingsFocus()
                     event.accepted = true
                     return
@@ -1384,11 +1425,15 @@ Item {
                     return
                 }
                 if (event.key === Qt.Key_Backspace) {
+                    if (root.showSettingsTab && embeddedSettings.focusInTextInput())
+                        return
                     root.trimFilterText()
                     event.accepted = true
                     return
                 }
                 if (event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier))
+                    return
+                if (root.showSettingsTab && embeddedSettings.focusInTextInput())
                     return
                 var text = event.text
                 if (!text || text.length === 0 || event.isAutoRepeat)
@@ -1441,6 +1486,8 @@ Item {
                     Layout.maximumHeight: root.powerMenuViewportHeight
                     host: settingsHost
                     shell: root.shell
+
+                    onLooksTabContentHeightChanged: root.lockPowerMenuHeightFromLooks()
                 }
 
                 Text {

@@ -152,46 +152,15 @@ Item {
                 notificationsOutput: root.notificationsOutput
                 notificationsPosition: root.notificationsPosition
                 enabled: root.barReady && root.notificationsReady && !root.layoutBusy
+                workspaceClickable: true
                 onBarChosen: function(output, position) {
                     root.setBar(output, position)
                 }
                 onNotificationsChosen: function(output, position) {
                     root.setNotifications(output, position)
                 }
-            }
-
-            Item {
-                Layout.fillWidth: true
-                Layout.topMargin: Theme.spacingS
-                Layout.preferredHeight: workspaceRow.implicitHeight
-
-                Row {
-                    id: workspaceRow
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    spacing: Theme.spacingS
-
-                    Repeater {
-                        model: Hyprland.workspaces
-
-                        delegate: HoverPanelLabelPill {
-                            required property var modelData
-                            readonly property int workspaceId: modelData ? Number(modelData.id) : 0
-                            readonly property bool workspaceVisible: isFinite(workspaceId) && workspaceId > 0
-                            readonly property bool focused: Hyprland.focusedWorkspace
-                                && modelData
-                                && modelData.id === Hyprland.focusedWorkspace.id
-
-                            visible: workspaceVisible
-                            text: String(workspaceId)
-                            fontSize: Theme.fontSizeS
-                            textColor: focused ? Theme.accent : Theme.foreground
-                            fill: focused ? Theme.withOpacity(Theme.accent, 0.14) : Theme.foregroundWash
-                            textOpacity: 1
-                            fieldsetLegend: false
-                            clickable: true
-                            onClicked: root.switchWorkspace(workspaceId)
-                        }
-                    }
+                onWorkspaceChosen: function(workspaceId) {
+                    root.switchWorkspace(Number(workspaceId))
                 }
             }
         }
