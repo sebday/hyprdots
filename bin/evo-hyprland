@@ -130,6 +130,28 @@ percent_to_opacity() {
     awk -v p="$1" 'BEGIN { printf "%.2f", p / 100 }'
 }
 
+MENU_SPECIAL_WS="special:evomenu"
+
+menu_special_visible() {
+    local name
+    name=$(hyprctl monitors -j 2>/dev/null | jq -r '.[] | select(.focused == true) | .specialWorkspace.name // empty' | head -n1)
+    [[ "$name" == "$MENU_SPECIAL_WS" ]]
+}
+
+menu_special_toggle() {
+    hyprctl eval 'hl.dispatch(hl.dsp.workspace.toggle_special("evomenu"))' >/dev/null 2>&1 || true
+}
+
+menu_special_open() {
+    menu_special_visible && return 0
+    menu_special_toggle
+}
+
+menu_special_close() {
+    menu_special_visible || return 0
+    menu_special_toggle
+}
+
 case "${1:-}" in
 get)
     read_state
@@ -205,8 +227,19 @@ reset)
     apply_live "false" "false" "true" "$DEFAULT_ACTIVE_OPACITY" "$DEFAULT_INACTIVE_OPACITY"
     read_state
     ;;
+menu-special)
+    action="${2:-}"
+    case "$action" in
+    open) menu_special_open ;;
+    close) menu_special_close ;;
+    *)
+        echo "usage: evo-hyprland menu-special <open|close>" >&2
+        exit 1
+        ;;
+    esac
+    ;;
 *)
-    echo "usage: evo-hyprland get|apply-saved|reset|toggle <rounding|gaps|animations>|set <active|inactive> <0-100>" >&2
+    echo "usage: evo-hyprland get|apply-saved|reset|toggle <rounding|gaps|animations>|set <active|inactive> <0-100>|menu-special <open|close>" >&2
     exit 1
     ;;
 esac

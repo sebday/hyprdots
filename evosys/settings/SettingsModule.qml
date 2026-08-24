@@ -239,8 +239,12 @@ Item {
         case 0: return looksTab
         case 1: return displaysTab
         case 2: return integrationsColumn
-        case 3: return packagesTabColumn
-        case 4: return playerSettingsHost
+        case 3: return wallpapersTab
+        case 4: return weatherTab
+        case 5: return mediaTab
+        case 6: return homeAssistantTab
+        case 7: return packagesTabColumn
+        case 8: return playerSettingsHost
         default: return null
         }
     }
@@ -250,8 +254,12 @@ Item {
         case 0: return looksTabScroll
         case 1: return displaysTabScroll
         case 2: return integrationsTabScroll
-        case 3: return packagesTabScroll
-        case 4: return playerTabScroll
+        case 3: return wallpapersTabScroll
+        case 4: return weatherTabScroll
+        case 5: return mediaTabScroll
+        case 6: return homeAssistantTabScroll
+        case 7: return packagesTabScroll
+        case 8: return playerTabScroll
         default: return null
         }
     }
@@ -1564,33 +1572,51 @@ Item {
         { label: "Looks", icon: "󰒠" },
         { label: "Displays", icon: "󰍹" },
         { label: "Widgets", icon: "󰒓" },
+        { label: "Wallpapers", icon: "󰏘" },
+        { label: "Weather", icon: "󰖕" },
+        { label: "Media", icon: "󰿯" },
+        { label: "Home Assistant", icon: "󰠵" },
         { label: "Packages", icon: "󰏖" },
         { label: "Player", icon: "󰎆" }
     ], shell ? shell.pluginOverlay : null)
 
+    property alias weatherLocationRow: weatherTab.weatherLocationRow
+
     implicitHeight: parent && parent.height > 0 ? parent.height : settingsLayout.implicitHeight
-    implicitWidth: root.compactLayout ? Theme.systemMenuPanelWidth : Theme.settingsPanelWidth
+    implicitWidth: root.compactLayout
+        ? (host && host.width > 0
+            ? host.width
+            : Theme.menuPanelWidth(Quickshell.screens.length > 0 ? Quickshell.screens[0].width : 1920))
+        : Theme.settingsPanelWidth
     readonly property int looksTabContentHeight: looksTab.implicitHeight
 
-    ColumnLayout {
+    RowLayout {
         id: settingsLayout
         anchors.fill: parent
-        spacing: root.showTabBar ? Theme.hoverPanelSectionSpacing : 0
+        spacing: root.showTabBar ? Theme.spacingM : 0
 
         SettingsTabBar {
             id: settingsTabs
             visible: root.showTabBar
-            Layout.fillWidth: true
+            vertical: true
+            Layout.preferredWidth: root.showTabBar ? Theme.settingsSideTabWidth : 0
+            Layout.fillHeight: true
+            Layout.alignment: Qt.AlignTop
             tabs: root.looksTabModel
             onTabActivated: function(index) {
                 settingsTabs.currentIndex = index
             }
         }
 
+        ColumnLayout {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            spacing: 0
+
         Connections {
             target: settingsTabs
             function onCurrentIndexChanged() {
-                if (settingsTabs.currentIndex !== 2)
+                if (settingsTabs.currentIndex !== 4)
                     root.closeWeatherLocationPicker()
                 root.settingsKeyIndex = 0
                 Qt.callLater(root.rebuildSettingsNav)
@@ -1600,11 +1626,11 @@ Item {
                     if (!loadNotificationsProc.running)
                         loadNotificationsProc.running = true
                 }
-                if (settingsTabs.currentIndex === 2)
+                if (settingsTabs.currentIndex === 6)
                     root.loadHaDiscovery()
-                if (settingsTabs.currentIndex === 3)
+                if (settingsTabs.currentIndex === 7)
                     root.loadPackagesBreakdown()
-                if (settingsTabs.currentIndex === 4)
+                if (settingsTabs.currentIndex === 8)
                     playerSettingsHost.loadPlayerSettings()
             }
         }
@@ -1656,9 +1682,6 @@ Item {
                 boundsBehavior: Flickable.StopAtBounds
                 contentWidth: width
                 contentHeight: integrationsColumn.implicitHeight
-
-                onContentYChanged: root.repositionWeatherLocationPopup()
-                onWidthChanged: root.repositionWeatherLocationPopup()
 
                 ColumnLayout {
                     id: integrationsColumn
@@ -1813,405 +1836,73 @@ Item {
                                     }
                                 }
                     }
+                }
+            }
 
-                    SectionPanel {
-                        visible: root.sectionFilterVisible("Location")
-                        Layout.fillWidth: true
-                        notchLegend: true
-                        legendText: "Location"
-                        legendIcon: "󰍎"
-                        legendBackground: Theme.background
-                        label: ""
+            Flickable {
+                id: wallpapersTabScroll
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
+                boundsBehavior: Flickable.StopAtBounds
+                contentWidth: width
+                contentHeight: wallpapersTab.implicitHeight
 
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 4
+                WallpapersTab {
+                    id: wallpapersTab
+                    width: parent.width
+                    module: root
+                }
+            }
 
-                                    Text {
-                                        text: "Weather location"
-                                        color: Theme.foreground
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: Theme.fontSizeS
-                                        opacity: Theme.opacityMuted
-                                    }
+            Flickable {
+                id: weatherTabScroll
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
+                boundsBehavior: Flickable.StopAtBounds
+                contentWidth: width
+                contentHeight: weatherTab.implicitHeight
 
-                                    RowLayout {
-                                        id: weatherLocationRow
-                                        Layout.fillWidth: true
-                                        spacing: Theme.spacingS
+                onContentYChanged: root.repositionWeatherLocationPopup()
+                onWidthChanged: root.repositionWeatherLocationPopup()
 
-                                        Rectangle {
-                                            Layout.fillWidth: true
-                                            implicitHeight: 34
-                                            radius: 6
-                                            property bool keyboardSelected: false
-                                            property alias settingsNavInput: weatherLocationInput
-                                            color: keyboardSelected ? Theme.foregroundHoverWash : Theme.foregroundWash
-                                            border.color: Theme.foregroundDivider
-                                            border.width: 1
+                WeatherTab {
+                    id: weatherTab
+                    width: parent.width
+                    module: root
+                }
+            }
 
-                                            TextInput {
-                                                id: weatherLocationInput
-                                                anchors.fill: parent
-                                                anchors.leftMargin: 8
-                                                anchors.rightMargin: 8
-                                                color: Theme.foreground
-                                                font.family: Theme.fontFamily
-                                                font.pixelSize: Theme.fontSizeS
-                                                selectionColor: Theme.accent
-                                                selectedTextColor: Theme.mantle
-                                                verticalAlignment: TextInput.AlignVCenter
-                                                clip: true
-                                                text: root.weatherLocation
-                                                enabled: root.weatherReady && !settingsBusy
-                                                onEditingFinished: root.setWeatherLocation(text)
-                                            }
-                                        }
+            Flickable {
+                id: mediaTabScroll
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
+                boundsBehavior: Flickable.StopAtBounds
+                contentWidth: width
+                contentHeight: mediaTab.implicitHeight
 
-                                        Item {
-                                            Layout.preferredWidth: 34
-                                            Layout.preferredHeight: 34
+                MediaTab {
+                    id: mediaTab
+                    width: parent.width
+                    module: root
+                }
+            }
 
-                                            Rectangle {
-                                                anchors.fill: parent
-                                                radius: 6
-                                                color: root.weatherLocationPickerOpen || weatherLocationPickMouse.containsMouse
-                                                    ? Theme.foregroundHoverWash
-                                                    : Theme.foregroundWash
-                                                border.color: root.weatherLocationPickerOpen
-                                                    ? Theme.accent
-                                                    : Theme.foregroundDivider
-                                                border.width: 1
-                                            }
+            Flickable {
+                id: homeAssistantTabScroll
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
+                boundsBehavior: Flickable.StopAtBounds
+                contentWidth: width
+                contentHeight: homeAssistantTab.implicitHeight
 
-                                            Text {
-                                                anchors.centerIn: parent
-                                                text: "󰍎"
-                                                color: Theme.foreground
-                                                font.family: Theme.fontFamily
-                                                font.pixelSize: Theme.fontSizeXl
-                                                opacity: weatherLocationPickMouse.enabled
-                                                    ? (weatherLocationPickMouse.containsMouse || root.weatherLocationPickerOpen ? 1 : 0.72)
-                                                    : 0.35
-                                            }
-
-                                            MouseArea {
-                                                id: weatherLocationPickMouse
-                                                anchors.fill: parent
-                                                hoverEnabled: true
-                                                cursorShape: Qt.PointingHandCursor
-                                                preventStealing: true
-                                                enabled: root.weatherReady && !settingsBusy
-                                                onClicked: {
-                                                    if (root.weatherLocationPickerOpen)
-                                                        root.closeWeatherLocationPicker()
-                                                    else
-                                                        root.openWeatherLocationPicker()
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 4
-
-                                    Text {
-                                        text: "Personal wallpapers"
-                                        color: Theme.foreground
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: Theme.fontSizeS
-                                        opacity: Theme.opacityMuted
-                                    }
-
-                                    RowLayout {
-                                        Layout.fillWidth: true
-                                        spacing: Theme.spacingS
-
-                                        Rectangle {
-                                            Layout.fillWidth: true
-                                            implicitHeight: 34
-                                            radius: 6
-                                            property bool keyboardSelected: false
-                                            property alias settingsNavInput: personalWallpaperInput
-                                            color: keyboardSelected ? Theme.foregroundHoverWash : Theme.foregroundWash
-                                            border.color: Theme.foregroundDivider
-                                            border.width: 1
-
-                                            TextInput {
-                                                id: personalWallpaperInput
-                                                anchors.fill: parent
-                                                anchors.leftMargin: 8
-                                                anchors.rightMargin: 8
-                                                color: Theme.foreground
-                                                font.family: Theme.fontFamily
-                                                font.pixelSize: Theme.fontSizeS
-                                                selectionColor: Theme.accent
-                                                selectedTextColor: Theme.mantle
-                                                verticalAlignment: TextInput.AlignVCenter
-                                                clip: true
-                                                text: root.personalWallpaperDir
-                                                enabled: root.personalWallpaperReady && !settingsBusy
-                                                onEditingFinished: root.setPersonalWallpaperDir(text)
-                                            }
-                                        }
-
-                                        Item {
-                                            Layout.preferredWidth: 34
-                                            Layout.preferredHeight: 34
-
-                                            Text {
-                                                anchors.centerIn: parent
-                                                text: "󰉖"
-                                                color: Theme.foreground
-                                                font.family: Theme.fontFamily
-                                                font.pixelSize: Theme.fontSizeXl
-                                                opacity: personalWallpaperPickMouse.enabled
-                                                    ? (personalWallpaperPickMouse.containsMouse ? 1 : 0.72)
-                                                    : 0.35
-                                            }
-
-                                            MouseArea {
-                                                id: personalWallpaperPickMouse
-                                                anchors.fill: parent
-                                                hoverEnabled: true
-                                                cursorShape: Qt.PointingHandCursor
-                                                enabled: root.personalWallpaperReady && !settingsBusy
-                                                onClicked: root.pickPersonalWallpaperDir()
-                                            }
-                                        }
-                                    }
-
-                                    Text {
-                                        Layout.fillWidth: true
-                                        text: "Images here appear in the wallpaper carousel."
-                                        color: Theme.foreground
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: Theme.fontSizeXs
-                                        opacity: Theme.opacityMuted
-                                        wrapMode: Text.WordWrap
-                                    }
-                                }
-                    }
-
-                    SectionPanel {
-                        visible: root.sectionFilterVisible("Media")
-                        Layout.fillWidth: true
-                        notchLegend: true
-                        legendText: "Media"
-                        legendIcon: "󰿯"
-                        legendBackground: Theme.background
-                        label: ""
-
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 4
-
-                                    Text {
-                                        text: "TV folder"
-                                        color: Theme.foreground
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: Theme.fontSizeS
-                                        opacity: Theme.opacityMuted
-                                    }
-
-                                    RowLayout {
-                                        Layout.fillWidth: true
-                                        spacing: Theme.spacingS
-
-                                        Rectangle {
-                                            Layout.fillWidth: true
-                                            implicitHeight: 34
-                                            radius: 6
-                                            property bool keyboardSelected: false
-                                            property alias settingsNavInput: mediaTvInput
-                                            color: keyboardSelected ? Theme.foregroundHoverWash : Theme.foregroundWash
-                                            border.color: Theme.foregroundDivider
-                                            border.width: 1
-
-                                            TextInput {
-                                                id: mediaTvInput
-                                                anchors.fill: parent
-                                                anchors.leftMargin: 8
-                                                anchors.rightMargin: 8
-                                                color: Theme.foreground
-                                                font.family: Theme.fontFamily
-                                                font.pixelSize: Theme.fontSizeS
-                                                selectionColor: Theme.accent
-                                                selectedTextColor: Theme.mantle
-                                                verticalAlignment: TextInput.AlignVCenter
-                                                clip: true
-                                                text: root.mediaTvRoot
-                                                enabled: root.mediaReady && !settingsBusy
-                                                onEditingFinished: {
-                                                    if (!root.suppressMediaPathCommit)
-                                                        root.setMediaTvRoot(text)
-                                                }
-                                            }
-                                        }
-
-                                        Item {
-                                            Layout.preferredWidth: 34
-                                            Layout.preferredHeight: 34
-
-                                            Text {
-                                                anchors.centerIn: parent
-                                                text: "󰉖"
-                                                color: Theme.foreground
-                                                font.family: Theme.fontFamily
-                                                font.pixelSize: Theme.fontSizeXl
-                                                opacity: mediaTvPickMouse.enabled
-                                                    ? (mediaTvPickMouse.containsMouse ? 1 : 0.72)
-                                                    : 0.35
-                                            }
-
-                                            MouseArea {
-                                                id: mediaTvPickMouse
-                                                anchors.fill: parent
-                                                hoverEnabled: true
-                                                cursorShape: Qt.PointingHandCursor
-                                                enabled: root.mediaReady && !settingsBusy
-                                                onClicked: root.pickMediaTv()
-                                            }
-                                        }
-                                    }
-                                }
-
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 4
-
-                                    Text {
-                                        text: "Films folder"
-                                        color: Theme.foreground
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: Theme.fontSizeS
-                                        opacity: Theme.opacityMuted
-                                    }
-
-                                    RowLayout {
-                                        Layout.fillWidth: true
-                                        spacing: Theme.spacingS
-
-                                        Rectangle {
-                                            Layout.fillWidth: true
-                                            implicitHeight: 34
-                                            radius: 6
-                                            property bool keyboardSelected: false
-                                            property alias settingsNavInput: mediaFilmsInput
-                                            color: keyboardSelected ? Theme.foregroundHoverWash : Theme.foregroundWash
-                                            border.color: Theme.foregroundDivider
-                                            border.width: 1
-
-                                            TextInput {
-                                                id: mediaFilmsInput
-                                                anchors.fill: parent
-                                                anchors.leftMargin: 8
-                                                anchors.rightMargin: 8
-                                                color: Theme.foreground
-                                                font.family: Theme.fontFamily
-                                                font.pixelSize: Theme.fontSizeS
-                                                selectionColor: Theme.accent
-                                                selectedTextColor: Theme.mantle
-                                                verticalAlignment: TextInput.AlignVCenter
-                                                clip: true
-                                                text: root.mediaFilmsRoot
-                                                enabled: root.mediaReady && !settingsBusy
-                                                onEditingFinished: {
-                                                    if (!root.suppressMediaPathCommit)
-                                                        root.setMediaFilmsRoot(text)
-                                                }
-                                            }
-                                        }
-
-                                        Item {
-                                            Layout.preferredWidth: 34
-                                            Layout.preferredHeight: 34
-
-                                            Text {
-                                                anchors.centerIn: parent
-                                                text: "󰉖"
-                                                color: Theme.foreground
-                                                font.family: Theme.fontFamily
-                                                font.pixelSize: Theme.fontSizeXl
-                                                opacity: mediaFilmsPickMouse.enabled
-                                                    ? (mediaFilmsPickMouse.containsMouse ? 1 : 0.72)
-                                                    : 0.35
-                                            }
-
-                                            MouseArea {
-                                                id: mediaFilmsPickMouse
-                                                anchors.fill: parent
-                                                hoverEnabled: true
-                                                cursorShape: Qt.PointingHandCursor
-                                                enabled: root.mediaReady && !settingsBusy
-                                                onClicked: root.pickMediaFilms()
-                                            }
-                                        }
-                                    }
-                        }
-                    }
-
-                    SectionPanel {
-                        visible: root.sectionFilterVisible("Areas")
-                        Layout.fillWidth: true
-                        notchLegend: true
-                        legendText: "Areas"
-                        legendIcon: "󰠵"
-                        legendBackground: Theme.background
-                        label: ""
-
-                        Text {
-                            Layout.fillWidth: true
-                            text: root.haDiscoveryError !== ""
-                                ? root.haDiscoveryError
-                                : "Choose light areas from your Home Assistant instance."
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontSizeXs
-                            opacity: Theme.opacityMuted
-                            wrapMode: Text.WordWrap
-                        }
-
-                        Repeater {
-                            model: root.haAreaOptions.length
-
-                            ToggleRow {
-                                Layout.fillWidth: true
-                                property int rowIndex: index
-                                property var rowData: root.haAreaOptions[rowIndex]
-                                label: rowData ? rowData.name : ""
-                                checked: rowData ? rowData.enabled === true : false
-                                enabled: root.haDiscoveryReady && !settingsBusy
-                                onToggled: root.setHaAreaEnabled(rowIndex, !checked)
-                            }
-                        }
-                    }
-
-                    SectionPanel {
-                        visible: root.sectionFilterVisible("Climate")
-                        Layout.fillWidth: true
-                        notchLegend: true
-                        legendText: "Climate"
-                        legendIcon: "󱤖"
-                        legendBackground: Theme.background
-                        label: ""
-
-                        Repeater {
-                            model: root.haClimateOptions.length
-
-                            ToggleRow {
-                                Layout.fillWidth: true
-                                property int rowIndex: index
-                                property var rowData: root.haClimateOptions[rowIndex]
-                                label: rowData ? rowData.name : ""
-                                checked: rowData ? rowData.enabled === true : false
-                                enabled: root.haDiscoveryReady && !settingsBusy
-                                onToggled: root.setHaClimateEnabled(rowIndex, !checked)
-                            }
-                        }
-                    }
+                HomeAssistantTab {
+                    id: homeAssistantTab
+                    width: parent.width
+                    module: root
                 }
             }
 
@@ -2404,6 +2095,7 @@ Item {
                     width: parent.width
                 }
             }
+        }
         }
     }
 

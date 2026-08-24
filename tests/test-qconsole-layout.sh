@@ -63,6 +63,11 @@ assert(rule.workspace == "special:qconsole", "rule targets qconsole")
 assert(rule.layout == "lua:dashboard_top", "qconsole keeps top layout")
 assert(rule.gaps_in == 0, "qconsole has no inner gaps")
 assert(rule.gaps_out.bottom == 700, "top-half gap on 1440p with bar")
+
+local menu_special = dofile(os.getenv("EVOSHELL_ROOT") .. "/hypr/menu-special.lua")
+assert(menu_special.special_workspace == "special:evomenu", "menu special workspace id")
+local menu_rule = rules[#rules]
+assert(menu_rule.workspace == "special:evomenu", "menu special workspace rule")
 LUA
 
 echo "qconsole layout ok"

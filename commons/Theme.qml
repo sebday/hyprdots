@@ -248,6 +248,7 @@ Singleton {
     readonly property int spacingS: 6
     readonly property int spacingM: 8
     readonly property int spacingL: 10
+    readonly property int settingsNavRowPad: spacingL
     readonly property int panelLabelPadH: spacingS
 
     // Radius scale
@@ -294,6 +295,7 @@ Singleton {
     readonly property int overlayContentInset: hoverPanelMargin + hoverPanelBorderWidth
     readonly property int overlayTopInset: hoverPanelTopPad + hoverPanelBorderWidth
     readonly property int overlaySideInset: overlayContentInset
+    readonly property real specialWorkspaceDim: 0.6
     readonly property int screenEdgeInset: barHoverTopPad
     readonly property int hoverPanelWidthStandard: 440
     readonly property int hoverPanelWidthWide: 580
@@ -301,11 +303,19 @@ Singleton {
     readonly property int systemPanelWidth: 800
     readonly property int systemMenuPanelWidth: 480
     readonly property real menuPanelHeightRatio: 0.5
+    readonly property real menuPanelWidthRatio: 0.25
+    readonly property int settingsSideTabWidth: 152
+    readonly property int settingsSideTabIconWidth: 24
     readonly property int systemMenuPanelHeight: 600
 
     function menuPanelHeight(screenHeight) {
         var h = screenHeight > 0 ? screenHeight : 1080
         return Math.max(320, Math.round(h * menuPanelHeightRatio))
+    }
+
+    function menuPanelWidth(screenWidth) {
+        var w = screenWidth > 0 ? screenWidth : 1920
+        return Math.round(w * menuPanelWidthRatio)
     }
     readonly property int settingsPanelWidth: systemPanelWidth
     readonly property int systemMenuWidth: systemMenuPanelWidth

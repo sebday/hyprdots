@@ -43,21 +43,23 @@ Item {
     }
 
     implicitWidth: column.implicitWidth
-    implicitHeight: column.implicitHeight
+    implicitHeight: column.implicitHeight + rowPad * 2
     opacity: root.enabled ? 1 : Theme.opacityDisabled
+
+    readonly property int rowPad: Theme.settingsNavRowPad
 
     Rectangle {
         anchors.fill: parent
         visible: root.keyboardSelected
-        radius: 4
+        radius: Theme.radiusM
         color: Theme.foregroundWash
         opacity: 0.85
     }
 
     ColumnLayout {
         id: column
-        anchors.left: parent.left
-        anchors.right: parent.right
+        anchors.fill: parent
+        anchors.margins: root.rowPad
         spacing: Theme.spacingS
 
         RowLayout {

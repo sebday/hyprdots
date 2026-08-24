@@ -16,6 +16,7 @@ Item {
     property string mode: "power"
     property string submenu: ""
     property int menuTabIndex: 0
+    property int menuFocusColumn: 1
     property var commandEntries: []
     property var dynamicEntries: []
     property string dynamicEntryKind: ""
@@ -23,6 +24,8 @@ Item {
     property var cachedApps: []
     property var appIconMap: ({})
     property int appIconEpoch: 0
+    property var programRunCounts: ({})
+    readonly property string programRunsPath: Util.statePath(home, "menu-program-runs.json")
     property bool dynamicLoading: false
     property int selectedIndex: 0
     property real previewAreaMaxWidth: 1600
@@ -44,7 +47,12 @@ Item {
         { label: "Looks", icon: "󰒠" },
         { label: "Displays", icon: "󰍹" },
         { label: "Widgets", icon: "󰒓" },
-        { label: "Packages", icon: "󰏖" }
+        { label: "Wallpapers", icon: "󰏘" },
+        { label: "Weather", icon: "󰖕" },
+        { label: "Media", icon: "󰿯" },
+        { label: "Home Assistant", icon: "󰠵" },
+        { label: "Packages", icon: "󰏖" },
+        { label: "Player", icon: "󰎆" }
     ]
     property var sectionLayoutPrograms: []
     property var sectionLayoutGames: []
@@ -75,7 +83,7 @@ Item {
     readonly property int appIconSourceSize: 128
     readonly property string menuHeaderIcon: "󰣇"
     readonly property string menuHeaderTitle: "Evo shell"
-    readonly property string menuHeaderSubtitle: "Programs · looks · displays · widgets"
+    readonly property string menuHeaderSubtitle: "Programs · looks · displays · widgets · weather"
 
     readonly property int previewGridColumns: 5
     readonly property int previewColumnCount: gridColumnCount
@@ -115,6 +123,7 @@ Item {
     readonly property int menuOuterTopInset: Theme.overlayTopInset
     readonly property int menuOuterInset: Theme.overlaySideInset
     readonly property int menuFieldsetPad: Theme.hoverPanelContentPad
+    readonly property int menuPanelOuterPad: menuFieldsetPad
     readonly property int menuLegendChrome: 20
     readonly property int menuChromeHeight: menuOuterTopInset + menuOuterInset + menuFieldsetPad * 2 + menuLegendChrome
     readonly property int menuChromeWidth: menuOuterInset * 2 + menuFieldsetPad * 2
@@ -148,6 +157,7 @@ Item {
 
     readonly property string home: Quickshell.env("HOME")
     readonly property string evoshellBin: shell ? shell.evoshellBin : Util.evoshellBinPath(home, null)
+    readonly property string hyprScript: Util.evoshellScript(home, shell, "evo-hyprland")
     readonly property string placeholderText: {
         if (submenu === "bindings") return "Search bindings…"
         if (submenu === "shell") return "Search shell commands…"
@@ -156,9 +166,29 @@ Item {
         return "Search…"
     }
 
+    readonly property string menuPanelLegendText: {
+        if (submenu === "bindings") return "Bindings"
+        if (submenu === "shell") return "Shell commands"
+        if (powerSearchMode) return "Run"
+        if (powerMenuMode && menuTabIndex >= 0 && menuTabIndex < mainTabModel.length)
+            return mainTabModel[menuTabIndex].label
+        return "Menu"
+    }
+    readonly property string menuPanelLegendIcon: {
+        if (submenu === "bindings") return "󰌌"
+        if (submenu === "shell") return "󰆍"
+        if (powerSearchMode) return "󰜎"
+        if (powerMenuMode && menuTabIndex >= 0 && menuTabIndex < mainTabModel.length)
+            return mainTabModel[menuTabIndex].icon
+        return "󰍉"
+    }
+
     readonly property bool infoListMode: submenu === "bindings" || submenu === "shell"
+    readonly property int screenWidth: panel.width > 0
+        ? panel.width
+        : (Quickshell.screens.length > 0 ? Quickshell.screens[0].width : 1920)
     readonly property int framedMenuWidth: root.powerMenuMode
-        ? Theme.systemMenuPanelWidth
+        ? Theme.menuPanelWidth(screenWidth)
         : Theme.systemPanelWidth
     readonly property int infoListFontSize: Theme.fontSizeS
     readonly property int infoListRowHeight: 40
@@ -198,20 +228,14 @@ Item {
     readonly property int screenHeight: panel.height > 0 ? panel.height : 1080
     readonly property bool fixedFramedMenuHeight: powerMenuMode
     readonly property int fixedMenuPanelHeight: Theme.menuPanelHeight(screenHeight)
-    readonly property int powerMenuSettingsChromeHeight: powerMenuTabBarTopPad
-        + mainMenuTabs.implicitHeight + framedColumnSpacing
+    readonly property int powerMenuSettingsChromeHeight: 0
     readonly property int powerMenuPanelHeight: fixedMenuPanelHeight
-    readonly property int programsColumnHeight: powerMenuPanelHeight - menuOuterTopInset - menuOuterInset
+    readonly property int menuPanelInnerHeight: powerMenuPanelHeight - 2 * menuPanelOuterPad
+    readonly property int programsColumnHeight: menuPanelInnerHeight - menuPanelFieldsetChrome
     readonly property int powerMenuColumnHeight: programsColumnHeight
-    readonly property int powerMenuTabBarTopPad: Theme.spacingM
-    readonly property int powerMenuTabBarHeight: Theme.fontSizeS + 8
-    readonly property int powerMenuViewportHeight: Math.max(
-        160,
-        powerMenuColumnHeight - powerMenuSettingsChromeHeight)
-    readonly property int programsFieldsetChromeHeight: menuFieldsetPad * 2 + menuLegendChrome + framedColumnSpacing
-    readonly property int programsViewportHeight: Math.max(
-        160,
-        powerMenuViewportHeight - programsFieldsetChromeHeight)
+    readonly property int menuPanelFieldsetChrome: menuFieldsetPad * 2 + menuLegendChrome + Theme.spacingS
+    readonly property int powerMenuViewportHeight: Math.max(160, powerMenuColumnHeight)
+    readonly property int programsViewportHeight: Math.max(160, powerMenuViewportHeight)
     readonly property int framedListHeight: {
         if (infoListMode) {
             var infoRows = Math.max(visibleEntries.length, 1)
@@ -259,6 +283,38 @@ Item {
         root.onMainMenuTabActivated(tab)
     }
 
+    function moveMenuTabSelection(delta) {
+        if (!root.showMainMenuTabs)
+            return
+        var count = root.mainTabModel.length
+        if (count <= 0)
+            return
+        var next = (root.menuTabIndex + delta + count) % count
+        root.activateMainMenuTab(next)
+    }
+
+    function setMenuFocusColumn(column) {
+        var col = column === 0 ? 0 : 1
+        if (col === root.menuFocusColumn)
+            return
+        root.menuFocusColumn = col
+        if (col === 0) {
+            if (root.showSettingsTab) {
+                embeddedSettings.releaseTextFocus()
+                embeddedSettings.clearSettingsNavHighlights()
+            }
+            return
+        }
+        if (root.showSettingsTab) {
+            embeddedSettings.rebuildSettingsNav()
+            embeddedSettings.applySettingsKeyFocus()
+        }
+    }
+
+    function menuColumnNavActive() {
+        return root.powerMenuMode && root.framedMode && root.showMainMenuTabs
+    }
+
     function cycleMainMenuTab(backward) {
         if (!root.showMainMenuTabs)
             return
@@ -276,7 +332,7 @@ Item {
         if (typeof tab === "number") {
             if (tab >= 1)
                 tab = tab - 1
-            return Math.max(0, Math.min(4, tab))
+            return Math.max(0, Math.min(root.mainTabModel.length - 1, tab))
         }
         var name = String(tab).toLowerCase()
         if (name === "programs" || name === "runner" || name === "apps" || name === "0")
@@ -285,10 +341,20 @@ Item {
             return 1
         if (name === "displays" || name === "display" || name === "2")
             return 2
-        if (name === "widgets" || name === "integrations" || name === "homeassistant" || name === "ha" || name === "3" || name === "4")
+        if (name === "widgets" || name === "integrations" || name === "3")
             return 3
-        if (name === "packages" || name === "system-packages" || name === "systempackages" || name === "5")
+        if (name === "wallpapers" || name === "personal wallpapers" || name === "4")
             return 4
+        if (name === "weather" || name === "5")
+            return 5
+        if (name === "media" || name === "6")
+            return 6
+        if (name === "home assistant" || name === "homeassistant" || name === "ha" || name === "7")
+            return 7
+        if (name === "packages" || name === "system-packages" || name === "systempackages" || name === "8")
+            return 8
+        if (name === "player" || name === "9")
+            return 9
         return 0
     }
 
@@ -299,10 +365,17 @@ Item {
             return
         }
         embeddedSettings.onActivated()
-        if (index === 3)
+        if (index === 7)
             embeddedSettings.loadHaDiscovery()
-        if (index === 4)
+        if (index === 8)
             embeddedSettings.loadPackagesBreakdown()
+    }
+
+    function syncMenuSpecialWorkspace(show) {
+        if (!root.hyprScript)
+            return
+        menuSpecialProc.command = ["bash", root.hyprScript, "menu-special", show ? "open" : "close"]
+        menuSpecialProc.running = true
     }
 
     function open(payloadJson) {
@@ -326,6 +399,7 @@ Item {
         if (filterField.text !== "")
             filterField.text = ""
         selectedIndex = 0
+        menuFocusColumn = 1
         refreshCommandEntries()
         if (submenu) loadDynamicEntries(submenu)
         else dynamicEntries = []
@@ -336,6 +410,7 @@ Item {
             syncVisibleEntries()
         }
         opened = true
+        root.syncMenuSpecialWorkspace(true)
         Qt.callLater(function() {
             root.previewAreaMaxWidth = panel.previewAreaMaxWidth
             root.previewAreaMaxHeight = panel.previewAreaMaxHeight
@@ -371,12 +446,14 @@ Item {
     function close() {
         if (!opened) return
         opened = false
+        root.syncMenuSpecialWorkspace(false)
         filterText = ""
         submenu = ""
         menuTabIndex = 0
         dynamicEntries = []
         dynamicEntryKind = ""
         selectedIndex = 0
+        menuFocusColumn = 1
     }
 
     function moveSelection(delta) {
@@ -459,8 +536,65 @@ Item {
         return false
     }
 
+    function programRunCount(id) {
+        var key = String(id || "")
+        if (!key)
+            return 0
+        var n = root.programRunCounts[key]
+        if (typeof n === "number")
+            return n
+        return parseInt(n, 10) || 0
+    }
+
+    function loadProgramRunsFromFile() {
+        try {
+            var raw = String(programRunsFile.text || "").trim()
+            if (!raw) {
+                root.programRunCounts = {}
+                return
+            }
+            var data = JSON.parse(raw)
+            if (data && data.counts && typeof data.counts === "object")
+                root.programRunCounts = data.counts
+            else
+                root.programRunCounts = {}
+        } catch (e) {
+            root.programRunCounts = {}
+        }
+        if (root.programsListMode || root.powerSearchMode)
+            root.syncVisibleEntries()
+        else if (root.sectionMenuMode)
+            root.rebuildSectionMenuLayout()
+    }
+
+    function saveProgramRuns() {
+        var payload = JSON.stringify({ counts: root.programRunCounts })
+        saveProgramRunsProc.command = ["bash", "-lc",
+            "mkdir -p $(dirname " + Util.shellQuote(programRunsPath) + ") && printf '%s' "
+                + Util.shellQuote(payload) + " > " + Util.shellQuote(programRunsPath)
+        ]
+        if (!saveProgramRunsProc.running)
+            saveProgramRunsProc.running = true
+    }
+
+    function recordProgramRun(id) {
+        var key = String(id || "").trim()
+        if (!key)
+            return
+        var next = {}
+        for (var k in root.programRunCounts)
+            next[k] = root.programRunCounts[k]
+        next[key] = root.programRunCount(key) + 1
+        root.programRunCounts = next
+        root.saveProgramRuns()
+    }
+
     function sortedApps() {
         return cachedApps.slice().sort(function(a, b) {
+            var ca = root.programRunCount(a.id)
+            var cb = root.programRunCount(b.id)
+            if (ca !== cb)
+                return cb - ca
             return String(a.name || "").localeCompare(String(b.name || ""))
         })
     }
@@ -748,6 +882,13 @@ Item {
     }
 
     function handlePreviewLeft() {
+        if (root.menuColumnNavActive()) {
+            if (root.menuFocusColumn === 1) {
+                root.setMenuFocusColumn(0)
+                return
+            }
+            return
+        }
         if (showSettingsTab && !embeddedSettings.focusInTextInput()) {
             if (embeddedSettings.adjustSettingsNavHorizontal(-1))
                 return
@@ -757,6 +898,17 @@ Item {
     }
 
     function handlePreviewRight() {
+        if (root.menuColumnNavActive()) {
+            if (root.menuFocusColumn === 0) {
+                root.setMenuFocusColumn(1)
+                return
+            }
+            if (showSettingsTab && !embeddedSettings.focusInTextInput()) {
+                if (embeddedSettings.adjustSettingsNavHorizontal(1))
+                    return
+            }
+            return
+        }
         if (showSettingsTab && !embeddedSettings.focusInTextInput()) {
             if (embeddedSettings.adjustSettingsNavHorizontal(1))
                 return
@@ -766,6 +918,10 @@ Item {
     }
 
     function handlePreviewUp() {
+        if (root.menuColumnNavActive() && root.menuFocusColumn === 0) {
+            root.moveMenuTabSelection(-1)
+            return
+        }
         if (showSettingsTab) {
             if (embeddedSettings.focusInTextInput())
                 return
@@ -778,6 +934,10 @@ Item {
     }
 
     function handlePreviewDown() {
+        if (root.menuColumnNavActive() && root.menuFocusColumn === 0) {
+            root.moveMenuTabSelection(1)
+            return
+        }
         if (showSettingsTab) {
             if (embeddedSettings.focusInTextInput())
                 return
@@ -1038,6 +1198,10 @@ Item {
             var sb = MenuEntries.entryMatchScore(b, query)
             if (sa !== sb)
                 return sb - sa
+            var ca = root.programRunCount(a.id)
+            var cb = root.programRunCount(b.id)
+            if (ca !== cb)
+                return cb - ca
             return String(a.name || "").localeCompare(String(b.name || ""))
         })
         return combined
@@ -1083,6 +1247,7 @@ Item {
     }
 
     function launchDesktopEntry(entryRef, id) {
+        root.recordProgramRun(id)
         // Quickshell execute() ignores runInTerminal; gtk-launch respects Terminal=true.
         if (entryRef && entryRef.runInTerminal)
             Quickshell.execDetached(["gtk-launch", String(id)])
@@ -1307,6 +1472,23 @@ Item {
     }
 
     Process {
+        id: menuSpecialProc
+    }
+
+    Process {
+        id: saveProgramRunsProc
+    }
+
+    FileView {
+        id: programRunsFile
+        path: root.programRunsPath
+        watchChanges: false
+        printErrors: false
+        onLoaded: root.loadProgramRunsFromFile()
+        onLoadFailed: root.programRunCounts = {}
+    }
+
+    Process {
         id: dynamicProc
         stdout: StdioCollector {
             onStreamFinished: root.parseDynamicLines(text)
@@ -1370,7 +1552,7 @@ Item {
             height: root.framedMode
                 ? (root.fixedFramedMenuHeight
                     ? root.powerMenuPanelHeight
-                    : root.menuOuterTopInset + framedColumn.implicitHeight + root.menuOuterInset)
+                    : framedColumn.implicitHeight)
                 : root.boxRowHeight
             focus: root.opened && (root.previewTileMode || root.framedMode)
 
@@ -1428,47 +1610,79 @@ Item {
                 anchors.fill: parent
                 visible: root.framedMode
                 color: Theme.background
-                border.color: Theme.accent
-                border.width: Theme.hoverPanelBorderWidth
-                radius: 0
+                radius: Theme.fieldsetCornerRadius
             }
 
-            ColumnLayout {
+            RowLayout {
                 id: framedColumn
-                anchors.top: parent.top
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.topMargin: root.framedMode ? root.menuOuterTopInset : 0
-                anchors.leftMargin: root.framedMode ? root.menuOuterInset : 0
-                anchors.rightMargin: root.framedMode ? root.menuOuterInset : 0
-                spacing: root.framedColumnSpacing
-                clip: false
+                visible: root.framedMode
+                anchors.fill: parent
+                anchors.margins: root.menuPanelOuterPad
+                spacing: Theme.spacingM
 
-                SettingsTabBar {
-                    id: mainMenuTabs
+                SectionPanel {
+                    id: menuListFieldset
                     visible: root.showMainMenuTabs
                     Layout.fillWidth: true
-                    Layout.topMargin: root.showMainMenuTabs ? root.powerMenuTabBarTopPad : 0
-                    tabs: root.mainTabModel
-                    currentIndex: root.menuTabIndex
-                    onTabActivated: function(index) {
-                        root.activateMainMenuTab(index)
+                    Layout.preferredWidth: 34
+                    Layout.alignment: Qt.AlignTop | Qt.AlignLeft
+                    notchLegend: true
+                    legendText: "Menu"
+                    legendIcon: "󰍉"
+                    legendBackground: Theme.background
+                    label: ""
+                    contentPad: root.menuFieldsetPad
+                    sectionSpacing: 0
+
+                    SettingsTabBar {
+                        id: mainMenuTabs
+                        vertical: true
+                        Layout.fillWidth: true
+                        tabs: root.mainTabModel
+                        currentIndex: root.menuTabIndex
+                        onTabActivated: function(index) {
+                            root.menuFocusColumn = 0
+                            root.activateMainMenuTab(index)
+                        }
                     }
                 }
 
-                SettingsModule {
-                    id: embeddedSettings
-                    visible: root.showSettingsTab
-                    showTabBar: false
-                    tabIndex: root.menuTabIndex > 0 ? root.menuTabIndex - 1 : 0
-                    menuFilterText: root.filterText
+                Item {
+                    id: menuEntryHost
                     Layout.fillWidth: true
-                    Layout.alignment: Qt.AlignTop | Qt.AlignLeft
-                    Layout.preferredHeight: root.powerMenuViewportHeight
-                    Layout.maximumHeight: root.powerMenuViewportHeight
-                    host: settingsHost
-                    shell: root.shell
-                }
+                    Layout.preferredWidth: 66
+                    Layout.fillHeight: true
+                    Layout.alignment: Qt.AlignTop
+                    clip: false
+
+                    SettingsModule {
+                        id: embeddedSettings
+                        visible: root.showSettingsTab
+                        anchors.fill: parent
+                        showTabBar: false
+                        tabIndex: root.menuTabIndex > 0 ? root.menuTabIndex - 1 : 0
+                        menuFilterText: root.filterText
+                        host: settingsHost
+                        shell: root.shell
+                    }
+
+                    SectionPanel {
+                        id: menuEntryFieldset
+                        visible: !root.showSettingsTab
+                        anchors.fill: parent
+                        fillHeight: root.fixedFramedMenuHeight
+                        notchLegend: true
+                        legendText: root.menuPanelLegendText
+                        legendIcon: root.menuPanelLegendIcon
+                        legendBackground: Theme.background
+                        label: ""
+                        contentPad: root.menuFieldsetPad
+                        sectionSpacing: 0
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            spacing: root.framedColumnSpacing
 
                 Text {
                     visible: root.framedMode && !root.showSettingsTab && root.dynamicLoading
@@ -1586,36 +1800,20 @@ Item {
                     }
                 }
 
-                SectionPanel {
-                    visible: root.framedMode && !root.showSettingsTab && !root.sectionMenuMode
+                ListView {
+                    id: entryList
+                    visible: root.framedMode && !root.sectionMenuMode && !root.showSettingsTab
                     Layout.fillWidth: true
-                    Layout.fillHeight: false
-                    fillHeight: false
-                    notchLegend: true
-                    legendText: root.powerSearchMode ? "Run"
-                        : (root.programsTabActive ? "Programs"
-                        : (root.submenu === "bindings" ? "Bindings" : "Shell commands"))
-                    legendIcon: root.powerSearchMode ? "󰜎"
-                        : (root.programsTabActive ? "󰀻"
-                        : (root.submenu === "bindings" ? "󰌌" : "󰆍"))
-                    legendBackground: Theme.background
-                    label: ""
-                    sectionSpacing: root.framedColumnSpacing
+                    Layout.preferredHeight: root.programsListMode
+                        ? root.programsViewportHeight
+                        : root.framedListHeight
+                    clip: true
+                    model: root.visibleEntries
+                    currentIndex: root.selectedIndex
 
-                    ListView {
-                        id: entryList
-                        visible: root.framedMode && !root.sectionMenuMode && !root.showSettingsTab
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: root.programsListMode
-                            ? root.programsViewportHeight
-                            : root.framedListHeight
-                        clip: true
-                        model: root.visibleEntries
-                        currentIndex: root.selectedIndex
+                    onCountChanged: if (root.selectedIndex >= count) root.selectedIndex = Math.max(0, count - 1)
 
-                        onCountChanged: if (root.selectedIndex >= count) root.selectedIndex = Math.max(0, count - 1)
-
-                        delegate: Rectangle {
+                    delegate: Rectangle {
                             id: entryRow
                             required property var modelData
                             required property int index
@@ -1768,83 +1966,86 @@ Item {
                         }
                     }
                 }
-
-                Text {
-                    visible: root.dynamicLoading && !root.framedMode
-                    text: "Loading…"
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: root.listFontSize
-                    font.bold: Theme.fontBold
+                    }
                 }
+            }
 
-                Flow {
-                    id: previewFlow
-                    visible: root.previewTileMode
-                    Layout.alignment: Qt.AlignHCenter
-                    Layout.preferredWidth: root.previewGridWidth
-                    Layout.preferredHeight: root.previewGridHeight
-                    spacing: root.tileSpacing
-                    flow: Flow.LeftToRight
+            Text {
+                visible: root.dynamicLoading && !root.framedMode
+                anchors.centerIn: parent
+                text: "Loading…"
+                color: Theme.foreground
+                font.family: Theme.fontFamily
+                font.pixelSize: root.listFontSize
+                font.bold: Theme.fontBold
+            }
 
-                    Repeater {
-                        model: root.visibleEntries
+            Flow {
+                id: previewFlow
+                visible: root.previewTileMode
+                anchors.centerIn: parent
+                width: root.previewGridWidth
+                height: root.previewGridHeight
+                spacing: root.tileSpacing
+                flow: Flow.LeftToRight
 
-                        Rectangle {
-                            required property var modelData
-                            required property int index
-                            width: root.previewTileWidth
-                            height: root.previewTileHeight
-                            color: Theme.overlaySurface
-                            border.color: index === root.selectedIndex ? Theme.accent : Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.35)
-                            border.width: index === root.selectedIndex ? 2 : 1
-                            opacity: root.entrySearchOpacity(modelData, index)
+                Repeater {
+                    model: root.visibleEntries
 
-                            Item {
+                    Rectangle {
+                        required property var modelData
+                        required property int index
+                        width: root.previewTileWidth
+                        height: root.previewTileHeight
+                        color: Theme.overlaySurface
+                        border.color: index === root.selectedIndex ? Theme.accent : Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.35)
+                        border.width: index === root.selectedIndex ? 2 : 1
+                        opacity: root.entrySearchOpacity(modelData, index)
+
+                        Item {
+                            anchors.fill: parent
+                            anchors.margins: 6
+                            clip: true
+
+                            Image {
+                                id: previewImage
                                 anchors.fill: parent
-                                anchors.margins: 6
-                                clip: true
-
-                                Image {
-                                    id: previewImage
-                                    anchors.fill: parent
-                                    source: Util.fileUrl(modelData.preview)
-                                    fillMode: Image.PreserveAspectCrop
-                                    smooth: true
-                                    asynchronous: true
-                                    cache: false
-                                    mipmap: true
-                                    sourceSize: Qt.size(
-                                        Math.ceil(root.previewTileWidth * root.previewDpr),
-                                        Math.ceil(root.previewImageHeight * root.previewDpr)
-                                    )
-                                }
-
-                                Rectangle {
-                                    anchors.fill: parent
-                                    color: Theme.overlaySurface
-                                    visible: !modelData.preview || previewImage.status === Image.Error
-                                }
-
-                                Text {
-                                    anchors.centerIn: parent
-                                    visible: !modelData.preview || previewImage.status === Image.Error
-                                    text: root.previewFallbackIcon
-                                    color: Theme.accent
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: root.tileIconSize
-                                    font.bold: Theme.fontBold
-                                }
+                                source: Util.fileUrl(modelData.preview)
+                                fillMode: Image.PreserveAspectCrop
+                                smooth: true
+                                asynchronous: true
+                                cache: false
+                                mipmap: true
+                                sourceSize: Qt.size(
+                                    Math.ceil(root.previewTileWidth * root.previewDpr),
+                                    Math.ceil(root.previewImageHeight * root.previewDpr)
+                                )
                             }
 
-                            MouseArea {
-                                id: previewMouse
+                            Rectangle {
                                 anchors.fill: parent
-                                hoverEnabled: true
-                                onClicked: {
-                                    root.selectedIndex = index
-                                    root.activateEntry(modelData)
-                                }
+                                color: Theme.overlaySurface
+                                visible: !modelData.preview || previewImage.status === Image.Error
+                            }
+
+                            Text {
+                                anchors.centerIn: parent
+                                visible: !modelData.preview || previewImage.status === Image.Error
+                                text: root.previewFallbackIcon
+                                color: Theme.accent
+                                font.family: Theme.fontFamily
+                                font.pixelSize: root.tileIconSize
+                                font.bold: Theme.fontBold
+                            }
+                        }
+
+                        MouseArea {
+                            id: previewMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            onClicked: {
+                                root.selectedIndex = index
+                                root.activateEntry(modelData)
                             }
                         }
                     }
@@ -1858,6 +2059,7 @@ Item {
         property bool opened: root.opened
         property string activeModule: "settings"
         property bool settingsEmbedded: root.showSettingsTab
+        property int width: menuEntryHost.width
         function dismiss() { root.dismiss() }
     }
 

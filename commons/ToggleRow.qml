@@ -17,22 +17,23 @@ Item {
 
     signal toggled()
 
-    implicitHeight: row.implicitHeight
+    readonly property int rowPad: Theme.settingsNavRowPad
+
+    implicitHeight: row.implicitHeight + rowPad * 2
     implicitWidth: 200
 
     Rectangle {
         anchors.fill: parent
         visible: root.keyboardSelected
-        radius: 4
+        radius: Theme.radiusM
         color: Theme.foregroundWash
         opacity: 0.85
     }
 
     RowLayout {
         id: row
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.top: parent.top
+        anchors.fill: parent
+        anchors.margins: root.rowPad
         spacing: Theme.spacingL
 
         RowLayout {

@@ -2,3 +2,7 @@ module settings
 SettingsModule 1.0 SettingsModule.qml
 LooksTab 1.0 LooksTab.qml
 DisplaysTab 1.0 DisplaysTab.qml
+WeatherTab 1.0 WeatherTab.qml
+MediaTab 1.0 MediaTab.qml
+WallpapersTab 1.0 WallpapersTab.qml
+HomeAssistantTab 1.0 HomeAssistantTab.qml
