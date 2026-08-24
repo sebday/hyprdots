@@ -1,15 +1,16 @@
 {
   "version": 1,
   "bar": {
-    "output": "HDMI-A-1",
-    "position": "bottom",
+    "output": "DP-1",
+    "position": "top",
     "trayWidgets": {
       "github": {},
       "weather": {},
       "cursor": {},
       "cloudflare": {},
       "homeAssistant": {},
-      "audio": {}
+      "audio": {},
+      "media": {}
     },
     "trayWidgetOrder": [
       "volume",
@@ -88,7 +89,7 @@
     ]
   },
   "idle": {
-    "lock": 900
+    "lock": 1200
   },
   "homeAssistant": {
     "lightAreas": [
@@ -102,6 +103,6 @@
     "side": "right"
   },
   "wallpaper": {
-    "activeDefault": "active://yuruyurau-marine-1"
+    "activeDefault": "active://yuruyurau-wave"
   }
 }

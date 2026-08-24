@@ -6,14 +6,17 @@ local themes_dir = vim.fn.expand("~/.themes")
 local reload_timer = nil
 
 local function apply_colorscheme()
-  if reload_timer then
-    vim.fn.timer_stop(reload_timer)
-  end
-  reload_timer = vim.fn.timer_start(250, function()
-    reload_timer = nil
-    vim.schedule(function()
-      pcall(function()
-        require("modular").reload_all()
+  vim.schedule(function()
+    if reload_timer then
+      pcall(vim.fn.timer_stop, reload_timer)
+      reload_timer = nil
+    end
+    reload_timer = vim.fn.timer_start(250, function()
+      reload_timer = nil
+      vim.schedule(function()
+        pcall(function()
+          require("modular").reload_all()
+        end)
       end)
     end)
   end)
