@@ -147,6 +147,25 @@ local function window_size(win)
 	return w, h
 end
 
+local function is_btop_window(win)
+	if not win then
+		return false
+	end
+	local class = win.class or ""
+	local title = win.title or ""
+	if title:match("^btop") == nil then
+		return false
+	end
+	return class == "TUI.tiled" or class == "com.mitchellh.ghostty"
+end
+
+local function is_google_home_cameras_brave(win)
+	if not win or not win.class then
+		return false
+	end
+	return win.class:match("^brave%-home%.google%.com__.*cameras_list") ~= nil
+end
+
 local function is_dashboard_window(win)
 	if not win or win.class ~= "org.quickshell" then
 		return false
@@ -154,6 +173,10 @@ local function is_dashboard_window(win)
 	local title = win.title or ""
 	return title:match("^evo%.panels%.[^%.]+$") ~= nil
 		or title:match("^evo%.panels%.shopify") ~= nil
+end
+
+local function is_ws10_allowed_window(win)
+	return is_dashboard_window(win) or is_google_home_cameras_brave(win) or is_btop_window(win)
 end
 
 local function reflow_dashboard_workspace()
@@ -172,7 +195,7 @@ local function evict_non_dashboard_from_ws10(win)
 	if not win or not win.workspace or win.workspace.name ~= DASHBOARD_WS then
 		return
 	end
-	if is_dashboard_window(win) then
+	if is_ws10_allowed_window(win) then
 		return
 	end
 	hl.dispatch(hl.dsp.window.move({ workspace = EVICT_WS, window = win, follow = false }))
@@ -194,14 +217,10 @@ end
 
 local function is_preserved_tui(win)
 	local class = win and win.class or ""
-	local title = win and win.title or ""
 	if class:match("^TUI%.") then
 		return true
 	end
-	if class == "com.mitchellh.ghostty" and title:match("^btop") then
-		return true
-	end
-	return false
+	return is_btop_window(win)
 end
 
 local function is_brave_window(win)
@@ -251,6 +270,9 @@ local function brave_app_to_floating(win)
 		return
 	end
 	if not is_brave_window(win) or not win.class:match("^brave%-.-__") then
+		return
+	end
+	if is_google_home_cameras_brave(win) then
 		return
 	end
 	hl.timer(function()
