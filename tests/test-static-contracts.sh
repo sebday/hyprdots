@@ -101,7 +101,7 @@ for exe in \
   evo _system _ipc evo-config evo-config-lib \
   evo-bar-weather evo-bar-weather-bar evo-bar-github evo-bar-home-assistant \
   evo-panel-player \
-  evo-tasks evo-calculator evo-clipboard evo-wallpaper evo-theme evo-theme-browser evo-menu-list evo-menu-warm \
+  evo-tasks evo-calculator evo-clipboard evo-wallpaper evo-theme evo-theme-previews evo-theme-browser evo-menu-list evo-menu-warm \
   evo-notification-send evo-brave-launch evo-bar-network-bar evo-bar-transmission-bar evo-bar-steam; do
   [[ -x "${bin}/${exe}" ]] || { echo "missing executable: ${exe}" >&2; fail=1; }
 done
@@ -127,6 +127,9 @@ check_present 'cycle_theme' "${root}/bin/evo-theme"
 check_present 'wallpaper_cycle_path' "${root}/bin/evo-theme-lib"
 check_present 'apply_wallpaper_cycle' "${root}/bin/evo-theme-lib"
 check_present 'Previous wallpaper' "${root}/hypr/bindings.lua"
+check_present 'monitor -o' "${root}/bin/evo-screenshot"
+check_present 'Screenshot theme previews' "${root}/evosys/menu/MenuEntries.js"
+check_present 'Annotate screenshot' "${root}/evosys/menu/MenuEntries.js"
 check_present 'Next theme' "${root}/hypr/bindings.lua"
 check_present 'evo-sys-themes(?:-scrim)?' "${root}/hypr/layers.lua"
 check_present 'themes_gtk_gsettings_force_reload' "${root}/bin/evo-theme-lib"

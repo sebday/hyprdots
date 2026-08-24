@@ -23,6 +23,10 @@ commands:
   region              capture a screen region to /tmp/evo-screenshot.png
   edit [path]           annotate a screenshot with satty
 
+monitor options:
+  -o, --output PATH   output file (default: /tmp/evo-screenshot.png)
+  -s, --silent        suppress notifications and clipboard copy
+
 stacked options:
   -o, --output PATH   output file (default: /tmp/evo-screenshot.png)
   -s, --silent        suppress notifications
@@ -266,11 +270,37 @@ cmd_region() {
 
 cmd_monitor() {
 	local out="$DEFAULT_SHOT"
+	SILENT=0
+
+	while [[ $# -gt 0 ]]; do
+		case "$1" in
+		-o | --output)
+			out="$2"
+			shift 2
+			;;
+		-s | --silent)
+			SILENT=1
+			shift
+			;;
+		-*)
+			echo "evo-screenshot monitor: unknown option: $1" >&2
+			exit 2
+			;;
+		*)
+			echo "evo-screenshot monitor: unexpected argument: $1" >&2
+			exit 2
+			;;
+		esac
+	done
 
 	capture_active_monitor "$out"
-	wl-copy --type image/png < "$out" 2>/dev/null || true
+	if [[ "${SILENT:-0}" -eq 0 ]]; then
+		wl-copy --type image/png < "$out" 2>/dev/null || true
+	fi
 	cleanup_gdk_temps
-	notify_saved "$out"
+	if [[ "${SILENT:-0}" -eq 0 ]]; then
+		notify_saved "$out"
+	fi
 	printf '%s\n' "$out"
 }
 

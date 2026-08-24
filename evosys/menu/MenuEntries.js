@@ -52,7 +52,9 @@ function systemSectionLayout(home, binOverride, extensionPanels) {
             entries: panelEntries
         },
         right: [
-            { title: "Reference", icon: "󰋗", entries: pick(["Bindings", "Shell commands"]) },
+            { title: "Reference", icon: "󰋗", entries: pick([
+                "Bindings", "Shell commands", "Annotate screenshot", "Screenshot theme previews"
+            ]) },
             { title: "Session", icon: "󰍃", entries: pick([
                 "Lock", "Restart shell", "Clear cache", "Backup", "Reboot", "Shutdown"
             ]) }
@@ -79,6 +81,8 @@ function systemEntries(home, binOverride) {
         { name: "Calculator", icon: "󰪚", keywords: ["calc", "calculator", "math"], command: panelToggle(home, "calc", "") },
         { name: "Tasks", icon: "󰄴", keywords: ["tasks", "todo", "list"], command: panelToggle(home, "calc", "tasks") },
         { name: "Clipboard", icon: "󰅍", keywords: ["clipboard", "copy", "paste"], command: ipc(home, "toggle evo.side.clipboard") },
+        { name: "Annotate screenshot", icon: "󰆴", keywords: ["satty", "annotate", "screenshot", "edit", "draw"], command: lib + "/evo-screenshot edit --capture region" },
+        { name: "Screenshot theme previews", icon: "󰸌", keywords: ["theme", "preview", "screenshot", "carousel", "wallpaper"], command: lib + "/evo-theme-previews" },
         { name: "Bindings", icon: "󰌌", keywords: ["bindings", "shortcuts", "keys", "hotkeys", "hyprland", "keybindings"], submenu: "bindings" },
         { name: "Shell commands", icon: "󰆍", keywords: ["shell", "ipc", "commands", "evo", "quickshell"], submenu: "shell" },
         { name: "Lock", icon: "󰌾", keywords: ["lock", "screen"], command: evo + " system lock" },
