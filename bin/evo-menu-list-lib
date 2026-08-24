@@ -669,9 +669,9 @@ local bin="${EVOSHELL_BIN:-${EVOSHELL_ROOT:-$HOME/projects/evoshell}/bin}"
     _menu_list_emit "Idle status" "$ipc evo.sys.lock-screen.idle status" "$(_menu_list_used 'evo.sys.lock-screen.idle status' && echo true || echo false)" \
         "Reports idle inhibitor and lock timer state."
     _menu_list_emit "Next wallpaper" "$ipc evo.sys.wallpaper next" "$(_menu_list_used 'evo.sys.wallpaper next' 'evo.sys.wallpaper "$cmd"' && echo true || echo false)" \
-        "Advances to the next wallpaper in the current theme rotation."
+        "Advances through the current theme wallpapers, then continues into the next theme."
     _menu_list_emit "Previous wallpaper" "$ipc evo.sys.wallpaper prev" "$(_menu_list_used 'evo.sys.wallpaper prev' 'evo.sys.wallpaper "$cmd"' && echo true || echo false)" \
-        "Goes back to the previous wallpaper in the current theme rotation."
+        "Goes back through the current theme wallpapers, then into the previous theme."
     _menu_list_emit "Refresh wallpaper" "$ipc evo.sys.wallpaper refresh" "$(_menu_list_used 'evo.sys.wallpaper refresh' && echo true || echo false)" \
         "Re-applies the current wallpaper (useful after theme or monitor changes)."
 

@@ -4,6 +4,7 @@ evoplayer
 theme.json
 themes/current/
 themes/next/
+themes/.build-cache/
 .cache/
 .build/
 *.sqlite

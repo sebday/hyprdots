@@ -13,10 +13,6 @@ Item {
     readonly property string statePath: Util.statePath(home, "wallpaper")
     readonly property string themeJsonPath: Util.statePath(home, "theme.json")
     readonly property string wallpapersDir: home + "/.themes/current/wallpapers"
-    readonly property string personalWallpaperDir: {
-        var cfg = shell && shell.shellConfig && shell.shellConfig.wallpaper
-        return cfg && cfg.personalDir ? String(cfg.personalDir).trim() : ""
-    }
     readonly property int wallpaperFadeMs: 480
 
     property string currentWallpaper: ""
@@ -98,30 +94,7 @@ Item {
         "find \"$dir\" -maxdepth 1 -type f \\( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \\) 2>/dev/null | sort | head -n1"
     ].join("\n")
 
-    readonly property string cycleScriptBody: [
-        "dir=" + Util.shellQuote(wallpapersDir),
-        "personal=" + Util.shellQuote(personalWallpaperDir),
-        "state=" + Util.shellQuote(statePath),
-        "if [[ \"$personal\" == \\~* ]]; then personal=\"${HOME}${personal#\\~}\"; fi",
-        "files=()",
-        "if [[ -d \"$dir\" ]]; then",
-        "  while IFS= read -r -d '' f; do files+=(\"$f\"); done < <(find \"$dir\" -maxdepth 1 -type f \\( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \\) -print0 | sort -z)",
-        "fi",
-        "if [[ -n \"$personal\" && -d \"$personal\" ]]; then",
-        "  while IFS= read -r -d '' f; do files+=(\"$f\"); done < <(find \"$personal\" -maxdepth 1 -type f \\( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \\) -print0 | sort -z)",
-        "fi",
-        "[[ ${#files[@]} -eq 0 ]] && exit 1",
-        "cur=\"\"",
-        "[[ -f \"$state\" ]] && cur=\"$(cat \"$state\")\"",
-        "idx=-1",
-        "for i in \"${!files[@]}\"; do [[ \"${files[$i]}\" == \"$cur\" ]] && idx=$i; done",
-        "if [[ \"$1\" == \"next\" ]]; then",
-        "  idx=$(( (idx + 1) % ${#files[@]} ))",
-        "else",
-        "  idx=$(( (idx - 1 + ${#files[@]}) % ${#files[@]} ))",
-        "fi",
-        "echo \"${files[$idx]}\""
-    ].join("\n")
+    readonly property string wallpaperScript: Util.evoshellScript(home, shell, "evo-wallpaper")
 
     function imageUrl(path) {
         return Util.fileUrl(path)
@@ -161,7 +134,7 @@ Item {
         var step = String(direction) === "prev" ? "prev" : "next"
         if (cycleProc.running)
             cycleProc.running = false
-        cycleProc.command = ["bash", "-c", cycleScriptBody, "evo-bg-cycle", step]
+        cycleProc.command = [wallpaperScript, step]
         cycleProc.running = true
     }
 
@@ -192,12 +165,6 @@ Item {
 
     Process {
         id: cycleProc
-        stdout: StdioCollector {
-            onStreamFinished: {
-                var path = String(text || "").trim()
-                if (path) root.setWallpaper(path, false)
-            }
-        }
     }
 
     IpcHandler {

@@ -62,6 +62,153 @@ current_theme_name() {
     return 1
 }
 
+theme_names_sorted() {
+    local name
+    find "$THEME_DIR" -mindepth 1 -maxdepth 1 -type d \
+        ! -name current ! -name shared ! -name next \
+        -printf '%f\n' 2>/dev/null | sort |
+        while IFS= read -r name; do
+            [[ -n "$name" && -f "$THEME_DIR/$name/colors.toml" ]] || continue
+            printf '%s\n' "$name"
+        done
+}
+
+wallpaper_resolved_path() {
+    local path="$1" dir base
+    [[ -n "$path" && -f "$path" ]] || return 1
+    dir=$(cd "$(dirname "$path")" && pwd -P) || return 1
+    base=$(basename "$path")
+    printf '%s/%s' "$dir" "$base"
+}
+
+wallpaper_list_image_files() {
+    local dir="$1"
+    [[ -d "$dir" ]] || return 0
+    find "$dir" -maxdepth 1 -type f \
+        \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) \
+        2>/dev/null | sort
+}
+
+wallpaper_cycle_theme_names() {
+    local current="${1:-}" name
+    local names=()
+    mapfile -t names < <(theme_names_sorted)
+    if [[ -n "$current" ]]; then
+        for name in "${names[@]}"; do
+            [[ "$name" == "$current" ]] && printf '%s\n' "$name"
+        done
+    fi
+    for name in "${names[@]}"; do
+        [[ "$name" != "$current" ]] && printf '%s\n' "$name"
+    done
+}
+
+wallpaper_cycle_personal_dir() {
+    local script_dir personal
+    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    # shellcheck source=/dev/null
+    source "$script_dir/evo-config-lib"
+    personal="$(wallpaper_personal_dir)"
+    [[ -n "$personal" ]] || return 0
+    [[ "$personal" == ~* ]] && personal="${HOME}${personal#\~}"
+    [[ -d "$personal" ]] || return 0
+    printf '%s' "$personal"
+}
+
+wallpaper_cycle_all_files() {
+    local theme personal_dir current
+    current="$(current_theme_name 2>/dev/null || true)"
+    while IFS= read -r theme; do
+        [[ -n "$theme" ]] || continue
+        wallpaper_list_image_files "$THEME_DIR/$theme/wallpapers"
+    done < <(wallpaper_cycle_theme_names "$current")
+    personal_dir="$(wallpaper_cycle_personal_dir || true)"
+    if [[ -n "$personal_dir" ]]; then
+        wallpaper_list_image_files "$personal_dir"
+    fi
+}
+
+wallpaper_cycle_entry_key() {
+    local path="$1" theme base personal_dir resolved
+    [[ -n "$path" ]] || return 1
+    resolved="$(wallpaper_resolved_path "$path" 2>/dev/null || true)"
+    [[ -n "$resolved" ]] && path="$resolved"
+    theme="$(theme_name_from_wallpaper_path "$path" 2>/dev/null || true)"
+    base="$(basename "$path")"
+    if [[ -n "$theme" && -n "$base" ]]; then
+        printf '%s/%s' "$theme" "$base"
+        return 0
+    fi
+    personal_dir="$(wallpaper_cycle_personal_dir || true)"
+    if [[ -n "$personal_dir" && "$path" == "$personal_dir"/* ]]; then
+        printf 'personal/%s' "$base"
+        return 0
+    fi
+    return 1
+}
+
+wallpaper_cycle_path() {
+    local direction="$1"
+    local state_path files=() cur cur_key file_key idx=-1 i next_idx
+
+    state_path="${EVOSHELL_STATE}/wallpaper"
+    mapfile -t files < <(wallpaper_cycle_all_files)
+    [[ ${#files[@]} -gt 0 ]] || return 1
+
+    cur=""
+    [[ -f "$state_path" ]] && cur=$(tr -d '\n' < "$state_path")
+    if [[ -n "$cur" ]]; then
+        cur_key="$(wallpaper_cycle_entry_key "$cur" || true)"
+        for i in "${!files[@]}"; do
+            if [[ "${files[$i]}" == "$cur" ]]; then
+                idx=$i
+                break
+            fi
+            if [[ -n "$cur_key" ]]; then
+                file_key="$(wallpaper_cycle_entry_key "${files[$i]}" || true)"
+                if [[ -n "$file_key" && "$file_key" == "$cur_key" ]]; then
+                    idx=$i
+                    break
+                fi
+            fi
+        done
+    fi
+
+    if [[ "$direction" == "next" ]]; then
+        if [[ $idx -lt 0 ]]; then
+            printf '%s' "${files[0]}"
+            return 0
+        fi
+        next_idx=$((idx + 1))
+        [[ $next_idx -ge ${#files[@]} ]] && next_idx=0
+        printf '%s' "${files[$next_idx]}"
+        return 0
+    fi
+
+    if [[ $idx -lt 0 ]]; then
+        printf '%s' "${files[${#files[@]} - 1]}"
+        return 0
+    fi
+    next_idx=$((idx - 1))
+    [[ $next_idx -lt 0 ]] && next_idx=$((${#files[@]} - 1))
+    printf '%s' "${files[$next_idx]}"
+}
+
+apply_wallpaper_cycle() {
+    local direction="$1" path theme_name current_theme script_dir ipc
+    path="$(wallpaper_cycle_path "$direction")" || return 1
+    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    theme_name="$(theme_name_from_wallpaper_path "$path" || true)"
+    current_theme="$(current_theme_name || true)"
+    if [[ -n "$theme_name" && "$theme_name" != "$current_theme" ]]; then
+        "${script_dir}/evo-theme" "$theme_name" "$path"
+        return $?
+    fi
+    ipc="${script_dir}/_ipc"
+    [[ -x "$ipc" ]] || return 1
+    "$ipc" evo.sys.wallpaper set "$path"
+}
+
 theme_name_from_wallpaper_path() {
     local path="$1" resolved parent theme_name
     [ -n "$path" ] || return 1
@@ -438,59 +585,6 @@ themes_apply_brave_chrome() {
         _THEME_TIMING_START_MS="${_THEME_TIMING_START_MS:-}" \
         _THEME_TIMING_LAST_MS="${_THEME_TIMING_LAST_MS:-}" \
         "$browser_script" apply
-}
-
-themes_begin_switch() {
-    local target_dir="$1"
-    local from_toml="${CURRENT_PATH:-$THEME_DIR/current}/colors.toml"
-    local to_toml="$target_dir/colors.toml"
-    local from_bg to_bg payload
-
-    theme_timing_step "switch beginSwitch ipc"
-    from_bg="#000000"
-    to_bg="#000000"
-    [[ -f "$from_toml" ]] && from_bg=$(toml_val background "$from_toml")
-    [[ -f "$to_toml" ]] && to_bg=$(toml_val background "$to_toml")
-    [[ -n "$from_bg" ]] || from_bg="#000000"
-    [[ -n "$to_bg" ]] || to_bg="$from_bg"
-
-    payload=$(jq -nc \
-        --arg fromBackground "$from_bg" \
-        --arg toBackground "$to_bg" \
-        '{fromBackground: $fromBackground, toBackground: $toBackground}')
-    if ! themes_ipc evo.sys.themes beginSwitch "$payload" >/dev/null 2>&1; then
-        echo "evo-theme: theme switch fade unavailable (is evoshell running?)" >&2
-        return 1
-    fi
-    theme_timing_step "switch beginSwitch done"
-}
-
-themes_end_switch() {
-    local attempt
-    theme_timing_step "switch endSwitch ipc"
-    for attempt in 1 2 3 4 5; do
-        if themes_ipc evo.sys.themes endSwitch >/dev/null 2>&1; then
-            break
-        fi
-        if [[ "$attempt" -eq 5 ]]; then
-            echo "evo-theme: endSwitch ipc failed, forcing fade dismiss" >&2
-            themes_ipc evo.sys.themes dismissSwitch >/dev/null 2>&1 || true
-        fi
-        sleep 0.04
-    done
-    theme_timing_step "switch endSwitch done"
-}
-
-themes_ipc() {
-    local ipc_script
-    ipc_script="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_ipc"
-    if [[ ! -x "$ipc_script" ]]; then
-        # shellcheck source=/dev/null
-        source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/evo-paths-lib"
-        ipc_script="$(evoshell_script _ipc)"
-    fi
-    [[ -x "$ipc_script" ]] || return 1
-    "$ipc_script" "$@"
 }
 
 _themes_sync_obsidian_modular_vault() {

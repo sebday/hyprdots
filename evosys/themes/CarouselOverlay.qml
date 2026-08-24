@@ -3,7 +3,6 @@ import Quickshell.Io
 import Quickshell.Wayland
 import QtQuick
 import QtQuick.Effects
-import QtQuick.Shapes
 import "../../commons"
 
 Item {
@@ -78,16 +77,33 @@ Item {
     property string currentWallpaperPath: ""
     property int selectedIndex: 0
 
-    readonly property int expandedWidth: 768
-    readonly property int expandedHeight: 475
-    readonly property int sliceWidth: 108
-    readonly property int sliceHeight: 432
-    readonly property int sliceSpacing: -30
-    readonly property int skewOffset: 28
-    readonly property int bottomChromeHeight: 72
+    readonly property int expandedWidth: 640
+    readonly property int expandedHeight: 400
+    readonly property real angleStep: 0.34
+    readonly property real ringRadiusX: 340
+    readonly property real ringArcLift: 56
+    readonly property int maxVisibleRel: 7
+    readonly property int bottomChromeHeight: 88
     readonly property color dimColor: Theme.background
     readonly property color selectedBorder: Theme.accent
     readonly property color unselectedBorder: Theme.inactiveBorder
+
+    function wrappedDelta(index, selected, count) {
+        if (count <= 0)
+            return 0
+        var delta = index - selected
+        while (delta > count / 2)
+            delta -= count
+        while (delta < -count / 2)
+            delta += count
+        return delta
+    }
+
+    function focusWeight(relativeIndex) {
+        var spread = Math.max(1, maxVisibleRel)
+        var t = 1 - Math.abs(relativeIndex) / spread
+        return Math.max(0, Math.min(1, t))
+    }
 
     function open(payloadJson) {
         opened = true
@@ -489,8 +505,8 @@ Item {
         Item {
             id: card
             visible: root.opened && root.layoutReady && root.entries.length > 0
-            width: Math.min(parent.width - 80, root.expandedWidth + 13 * (root.sliceWidth + root.sliceSpacing) + 40)
-            height: root.expandedHeight + 24 + root.bottomChromeHeight
+            width: parent.width - 48
+            height: root.expandedHeight + root.ringArcLift + root.bottomChromeHeight + 24
             anchors.centerIn: parent
 
             MouseArea {
@@ -503,14 +519,13 @@ Item {
                 id: carousel
                 anchors.top: parent.top
                 anchors.topMargin: 12
-                anchors.bottom: parent.bottom
-                anchors.bottomMargin: root.bottomChromeHeight
-                anchors.horizontalCenter: parent.horizontalCenter
-                width: root.expandedWidth + 13 * (root.sliceWidth + root.sliceSpacing)
+                anchors.left: parent.left
+                anchors.right: parent.right
+                height: root.expandedHeight + root.ringArcLift + 36
                 focus: true
 
-                readonly property real itemStep: root.sliceWidth + root.sliceSpacing
-                readonly property real previewX: (width - root.expandedWidth) / 2
+                readonly property real centerX: width / 2
+                readonly property real centerY: height / 2 + 8
 
                 Keys.onPressed: function(event) {
                     if (event.key === Qt.Key_Escape) {
@@ -544,66 +559,66 @@ Item {
                         id: item
                         required property int index
 
-                        readonly property var entry: root.entries[index]
-                        readonly property int relativeIndex: index - root.selectedIndex
-                        readonly property bool selected: index === root.selectedIndex
-                        readonly property bool nearby: Math.abs(relativeIndex) <= 16
+                        readonly property int relativeIndex: root.wrappedDelta(index, root.selectedIndex, root.entries.length)
+                        readonly property bool selected: relativeIndex === 0
+                        readonly property bool nearby: Math.abs(relativeIndex) <= root.maxVisibleRel
                         readonly property string imageSource: root.previewAt(index)
-                        readonly property bool showImage: nearby || Math.abs(relativeIndex) <= 2
+                        readonly property bool showImage: nearby && Math.abs(relativeIndex) <= 4
+                        readonly property real focusAmount: root.focusWeight(relativeIndex)
+                        readonly property real angle: relativeIndex * root.angleStep
+                        readonly property real cardScale: 0.54 + 0.5 * Math.pow(focusAmount, 0.82)
+                        readonly property real cardWidth: root.expandedWidth * cardScale
+                        readonly property real cardHeight: root.expandedHeight * cardScale
+                        readonly property real depth: 1 - Math.cos(Math.min(Math.abs(angle), Math.PI / 2))
 
                         visible: nearby
-                        z: selected ? 100 : 50 - Math.min(Math.abs(relativeIndex), 40)
-                        width: selected ? root.expandedWidth : root.sliceWidth
-                        height: selected ? root.expandedHeight : root.sliceHeight
-                        y: selected ? 0 : (root.expandedHeight - root.sliceHeight) / 2
-                        x: selected
-                            ? carousel.previewX
-                            : (relativeIndex < 0
-                                ? carousel.previewX + relativeIndex * carousel.itemStep
-                                : carousel.previewX + root.expandedWidth + root.sliceSpacing + (relativeIndex - 1) * carousel.itemStep)
+                        opacity: 0.22 + 0.78 * focusAmount
+                        z: 300 - Math.abs(relativeIndex) * 24 + (selected ? 120 : 0)
+                        width: cardWidth
+                        height: cardHeight
+                        x: carousel.centerX + Math.sin(angle) * root.ringRadiusX * (0.88 + 0.12 * focusAmount) - cardWidth / 2
+                        y: carousel.centerY + depth * root.ringArcLift - cardHeight / 2 - focusAmount * 34
 
                         Behavior on x { NumberAnimation { duration: Theme.motionSlow; easing.type: Easing.OutCubic } }
                         Behavior on y { NumberAnimation { duration: Theme.motionSlow; easing.type: Easing.OutCubic } }
                         Behavior on width { NumberAnimation { duration: Theme.motionSlow; easing.type: Easing.OutCubic } }
                         Behavior on height { NumberAnimation { duration: Theme.motionSlow; easing.type: Easing.OutCubic } }
+                        Behavior on opacity { NumberAnimation { duration: Theme.motionNormal; easing.type: Easing.OutQuad } }
 
-                        readonly property real skAbs: Math.abs(root.skewOffset)
-                        readonly property real topLeft: root.skewOffset >= 0 ? skAbs : 0
-                        readonly property real topRight: root.skewOffset >= 0 ? width : width - skAbs
-                        readonly property real bottomRight: root.skewOffset >= 0 ? width - skAbs : width
-                        readonly property real bottomLeft: root.skewOffset >= 0 ? 0 : skAbs
-
-                        Item {
-                            id: maskShape
-                            anchors.fill: parent
-                            visible: false
-                            layer.enabled: true
-
-                            Shape {
-                                anchors.fill: parent
-                                antialiasing: true
-                                preferredRendererType: Shape.CurveRenderer
-                                ShapePath {
-                                    fillColor: "white"
-                                    strokeColor: "transparent"
-                                    startX: item.topLeft; startY: 0
-                                    PathLine { x: item.topRight; y: 0 }
-                                    PathLine { x: item.bottomRight; y: item.height }
-                                    PathLine { x: item.bottomLeft; y: item.height }
-                                    PathLine { x: item.topLeft; y: 0 }
-                                }
-                            }
+                        transform: Rotation {
+                            origin.x: item.cardWidth / 2
+                            origin.y: item.cardHeight
+                            angle: -relativeIndex * 5.5
                         }
 
-                        Item {
+                        Rectangle {
                             anchors.fill: parent
-                            layer.enabled: true
+                            anchors.margins: selected ? -10 : -4
+                            visible: selected
+                            z: -2
+                            radius: Theme.radiusL + 8
+                            color: "transparent"
+                            border.width: 14
+                            border.color: Theme.withOpacity(Theme.accent, 0.28)
+                            opacity: 0.55 + 0.45 * focusAmount
+                        }
+
+                        Rectangle {
+                            id: frame
+                            anchors.fill: parent
+                            radius: Theme.radiusL
+                            color: Theme.background
+                            clip: true
+                            border.width: selected ? 3 : 1
+                            border.color: selected ? root.selectedBorder : root.unselectedBorder
+                            layer.enabled: selected
                             layer.smooth: true
                             layer.effect: MultiEffect {
-                                maskEnabled: true
-                                maskSource: maskShape
-                                maskThresholdMin: 0.3
-                                maskSpreadAtMin: 0.3
+                                shadowEnabled: selected
+                                shadowColor: Theme.withOpacity(Theme.accent, 0.45)
+                                shadowBlur: 0.85
+                                shadowVerticalOffset: 10
+                                shadowHorizontalOffset: 0
                             }
 
                             Image {
@@ -619,23 +634,8 @@ Item {
 
                             Rectangle {
                                 anchors.fill: parent
-                                color: Theme.withOpacity(root.dimColor, item.selected ? 0 : 0.42)
-                            }
-                        }
-
-                        Shape {
-                            anchors.fill: parent
-                            antialiasing: true
-                            preferredRendererType: Shape.CurveRenderer
-                            ShapePath {
-                                fillColor: "transparent"
-                                strokeColor: item.selected ? root.selectedBorder : root.unselectedBorder
-                                strokeWidth: item.selected ? 3 : 1
-                                startX: item.topLeft; startY: 0
-                                PathLine { x: item.topRight; y: 0 }
-                                PathLine { x: item.bottomRight; y: item.height }
-                                PathLine { x: item.bottomLeft; y: item.height }
-                                PathLine { x: item.topLeft; y: 0 }
+                                radius: parent.radius
+                                color: Theme.withOpacity(root.dimColor, selected ? 0 : 0.5 - focusAmount * 0.12)
                             }
                         }
 
@@ -651,15 +651,15 @@ Item {
 
             Column {
                 anchors.top: carousel.bottom
-                anchors.topMargin: 16
+                anchors.topMargin: 10
                 anchors.horizontalCenter: parent.horizontalCenter
                 spacing: Theme.spacingS
-                width: Math.min(parent.width - 32, root.expandedWidth)
+                width: Math.min(parent.width - 32, root.expandedWidth + 120)
 
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
                     width: parent.width
-                    visible: !root.isWallpaper && root.entries.length > 0
+                    visible: root.entries.length > 0
                     text: {
                         var entry = root.currentEntry()
                         return entry ? String(entry.name || "") : ""
@@ -667,33 +667,15 @@ Item {
                     horizontalAlignment: Text.AlignHCenter
                     color: Theme.foreground
                     font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeM
+                    font.pixelSize: Theme.fontSizeL
                     font.bold: Theme.fontBold
                     elide: Text.ElideMiddle
                     maximumLineCount: 1
                 }
 
-                Row {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    spacing: Theme.spacingM
-                    visible: root.entries.length > 0 && root.entries.length <= 21
-
-                    Repeater {
-                        model: root.entries.length
-                        delegate: Rectangle {
-                            required property int index
-                            width: index === root.selectedIndex ? 18 : 6
-                            height: 6
-                            radius: Theme.radiusM
-                            color: index === root.selectedIndex ? Theme.accent : Theme.withOpacity(Theme.foreground, 0.35)
-                            Behavior on width { NumberAnimation { duration: Theme.motionNormal; easing.type: Easing.OutCubic } }
-                        }
-                    }
-                }
-
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    visible: root.entries.length > 21
+                    visible: root.entries.length > 0
                     text: (root.selectedIndex + 1) + " / " + root.entries.length
                     color: Theme.foreground
                     font.family: Theme.fontFamily

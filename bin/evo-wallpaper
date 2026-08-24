@@ -12,7 +12,7 @@ cmd="${1:-next}"
 
 case "$cmd" in
     next|prev)
-        exec "$IPC" evo.sys.wallpaper "$cmd"
+        apply_wallpaper_cycle "$cmd"
         ;;
     set)
         path="${2:-}"
