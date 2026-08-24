@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-# Apply a theme: build into staging, promote, activate live consumers, notify apps
+# Apply a theme: build into staging, promote, activate live consumers
 #
 # USAGE:
 #   evo-sys-themes [select]  - Open the theme picker popup
@@ -26,6 +26,43 @@ trap cleanup_staging EXIT
 
 get_current_theme() {
     [ -f "$CURRENT_PATH/.theme-name" ] && cat "$CURRENT_PATH/.theme-name" || echo ""
+}
+
+theme_names_sorted() {
+    local name
+    find "$THEME_DIR" -mindepth 1 -maxdepth 1 -type d \
+        ! -name current ! -name shared ! -name next \
+        -printf '%f\n' 2>/dev/null | sort |
+        while IFS= read -r name; do
+            [[ -n "$name" && -f "$THEME_DIR/$name/colors.toml" ]] || continue
+            printf '%s\n' "$name"
+        done
+}
+
+cycle_theme() {
+    local direction="$1"
+    local current names=() idx=-1 i
+
+    mapfile -t names < <(theme_names_sorted)
+    [[ ${#names[@]} -gt 0 ]] || return 1
+
+    current=$(get_current_theme)
+    if [[ -n "$current" ]]; then
+        for i in "${!names[@]}"; do
+            if [[ "${names[$i]}" == "$current" ]]; then
+                idx=$i
+                break
+            fi
+        done
+    fi
+
+    if [[ "$direction" == "next" ]]; then
+        idx=$(( (idx + 1) % ${#names[@]} ))
+    else
+        idx=$(( (idx - 1 + ${#names[@]}) % ${#names[@]} ))
+    fi
+
+    apply_theme "${names[$idx]}"
 }
 
 ensure_gtk_theme_name() {
@@ -174,6 +211,7 @@ activate_theme() {
     themes_sync_obsidian_modular
     theme_timing_step "activate nvim"
     notify_nvim_theme
+    pkill -SIGUSR2 btop 2>/dev/null || true
 
     theme_timing_step "activate done"
 }
@@ -191,19 +229,20 @@ notify_nvim_theme() {
         done
 }
 
-notify_theme_switch() {
-    local theme_name="$1"
-
-    pkill -SIGUSR2 btop 2>/dev/null || true
-
-    evoshell_notify -g "󰸌" "Theme switched to $theme_name" 2>/dev/null || true
-}
-
 apply_theme() {
     local theme_name="$1"
     local wallpaper_path="${2:-}"
     local theme_lock="${EVOSHELL_STATE}/theme.lock"
     local theme_slug
+    local source_path
+    local _theme_switch_open=0
+
+    _theme_switch_cleanup() {
+        if [[ "$_theme_switch_open" == 1 ]]; then
+            themes_end_switch || true
+            _theme_switch_open=0
+        fi
+    }
 
     [ -z "$theme_name" ] && return 1
     [ -d "$THEME_DIR/$theme_name" ] || return 1
@@ -216,7 +255,14 @@ apply_theme() {
         evoshell_notify -g "󰸌" "Theme" "Theme switch already in progress" 2>/dev/null || true
         return 1
     fi
-    trap 'flock -u 9 2>/dev/null || true; cleanup_staging' EXIT
+
+    source_path="$THEME_DIR/$theme_name"
+    if themes_begin_switch "$source_path"; then
+        _theme_switch_open=1
+        trap '_theme_switch_cleanup; flock -u 9 2>/dev/null || true; cleanup_staging' EXIT
+    else
+        trap 'flock -u 9 2>/dev/null || true; cleanup_staging' EXIT
+    fi
 
     build_theme "$theme_name"
     promote_theme
@@ -224,6 +270,7 @@ apply_theme() {
 
     activate_theme "$wallpaper_path"
     theme_timing_step "activate_theme returned"
+    _theme_switch_cleanup
     flock -u 9
     exec 9>&-
 
@@ -241,7 +288,7 @@ apply_theme() {
 COMMAND="${1:-}"
 
 if [[ -z "$COMMAND" ]]; then
-    echo "usage: evo-sys-themes <name>|refresh|wallpaper" >&2
+    echo "usage: evo-sys-themes <name>|next|prev|refresh|wallpaper" >&2
     exit 1
 fi
 
@@ -251,6 +298,10 @@ case "$COMMAND" in
         exec "$SCRIPT_DIR/_ipc" shell toggle evo.sys.wallpaper
         ;;
 
+    next|prev)
+        cycle_theme "$COMMAND" || exit 1
+        ;;
+
     refresh)
         current_theme=$(get_current_theme)
         if [ -z "$current_theme" ]; then
@@ -258,11 +309,9 @@ case "$COMMAND" in
             exit 1
         fi
         apply_theme "$current_theme" || exit 1
-        notify_theme_switch "$current_theme"
         ;;
 
     *)
         apply_theme "$COMMAND" "${2:-}" || exit 1
-        notify_theme_switch "$COMMAND"
         ;;
 esac

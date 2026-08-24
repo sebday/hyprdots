@@ -14,8 +14,8 @@ key="${2:-}"
 
 cache_root="${MENU_CACHE_DIR}"
 dst="$cache_root/$key"
-thumb_w=1152
-thumb_h=713
+thumb_w="${3:-1152}"
+thumb_h="${4:-713}"
 
 mkdir -p "$(dirname "$dst")"
 

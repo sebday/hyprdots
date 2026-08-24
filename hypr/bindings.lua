@@ -18,6 +18,10 @@ end
 -- Evoshell panels and system
 bindd("SUPER + Space", "System menu", hl.dsp.global("evoshell:systemMenu"))
 bindd("SUPER + Home", "Wallpaper switcher", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.sys.wallpaper"))
+bindd("SUPER + minus", "Previous wallpaper", hl.dsp.exec_cmd(lib .. "/evo-wallpaper prev"))
+bindd("SUPER + equal", "Next wallpaper", hl.dsp.exec_cmd(lib .. "/evo-wallpaper next"))
+bindd("SUPER + ALT + minus", "Previous theme", hl.dsp.exec_cmd(lib .. "/evo-theme prev"))
+bindd("SUPER + ALT + equal", "Next theme", hl.dsp.exec_cmd(lib .. "/evo-theme next"))
 bindd("SUPER + ALT + Home", "Theme picker", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.sys.themes"))
 bindd("SUPER + L", "Lock Screen", hl.dsp.exec_cmd(evo .. " system lock"))
 bindd("SUPER + F5", "Restart evoshell", hl.dsp.exec_cmd(evo .. " system restart"))

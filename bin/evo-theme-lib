@@ -440,6 +440,59 @@ themes_apply_brave_chrome() {
         "$browser_script" apply
 }
 
+themes_begin_switch() {
+    local target_dir="$1"
+    local from_toml="${CURRENT_PATH:-$THEME_DIR/current}/colors.toml"
+    local to_toml="$target_dir/colors.toml"
+    local from_bg to_bg payload
+
+    theme_timing_step "switch beginSwitch ipc"
+    from_bg="#000000"
+    to_bg="#000000"
+    [[ -f "$from_toml" ]] && from_bg=$(toml_val background "$from_toml")
+    [[ -f "$to_toml" ]] && to_bg=$(toml_val background "$to_toml")
+    [[ -n "$from_bg" ]] || from_bg="#000000"
+    [[ -n "$to_bg" ]] || to_bg="$from_bg"
+
+    payload=$(jq -nc \
+        --arg fromBackground "$from_bg" \
+        --arg toBackground "$to_bg" \
+        '{fromBackground: $fromBackground, toBackground: $toBackground}')
+    if ! themes_ipc evo.sys.themes beginSwitch "$payload" >/dev/null 2>&1; then
+        echo "evo-theme: theme switch fade unavailable (is evoshell running?)" >&2
+        return 1
+    fi
+    theme_timing_step "switch beginSwitch done"
+}
+
+themes_end_switch() {
+    local attempt
+    theme_timing_step "switch endSwitch ipc"
+    for attempt in 1 2 3 4 5; do
+        if themes_ipc evo.sys.themes endSwitch >/dev/null 2>&1; then
+            break
+        fi
+        if [[ "$attempt" -eq 5 ]]; then
+            echo "evo-theme: endSwitch ipc failed, forcing fade dismiss" >&2
+            themes_ipc evo.sys.themes dismissSwitch >/dev/null 2>&1 || true
+        fi
+        sleep 0.04
+    done
+    theme_timing_step "switch endSwitch done"
+}
+
+themes_ipc() {
+    local ipc_script
+    ipc_script="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_ipc"
+    if [[ ! -x "$ipc_script" ]]; then
+        # shellcheck source=/dev/null
+        source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/evo-paths-lib"
+        ipc_script="$(evoshell_script _ipc)"
+    fi
+    [[ -x "$ipc_script" ]] || return 1
+    "$ipc_script" "$@"
+}
+
 _themes_sync_obsidian_modular_vault() {
     local vault="$1"
     local theme_css="$2"

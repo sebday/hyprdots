@@ -11,6 +11,7 @@ Item {
 
     readonly property string home: Quickshell.env("HOME")
     readonly property string statePath: Util.statePath(home, "wallpaper")
+    readonly property string themeJsonPath: Util.statePath(home, "theme.json")
     readonly property string wallpapersDir: home + "/.themes/current/wallpapers"
     readonly property string personalWallpaperDir: {
         var cfg = shell && shell.shellConfig && shell.shellConfig.wallpaper
@@ -22,6 +23,75 @@ Item {
     property string displayedWallpaper: ""
     property string queuedWrite: ""
     property bool wallpaperSkipFade: false
+    property color backdropColor: Theme.background
+
+    function syncBackdropFromToml() {
+        var text = String(currentColorsFile.text() || "")
+        if (!text)
+            return
+        var match = text.match(/^\s*background\s*=\s*"([^"]+)"/m)
+        if (match && match[1])
+            backdropColor = match[1]
+    }
+
+    function syncBackdropColor() {
+        var text = String(themeJsonFile.text() || "").trim()
+        if (text) {
+            try {
+                var data = JSON.parse(text)
+                if (data.background) {
+                    backdropColor = data.background
+                    return
+                }
+            } catch (e) {
+            }
+        }
+        syncBackdropFromToml()
+    }
+
+    function isWallpaperPath(path) {
+        path = String(path || "").trim()
+        return path.length > 0 && path.charAt(0) === "/"
+    }
+
+    function bootstrapWallpaper(path) {
+        path = String(path || "").trim()
+        if (!isWallpaperPath(path))
+            return false
+        setWallpaper(path, true)
+        return true
+    }
+
+    FileView {
+        id: themeJsonFile
+        path: root.themeJsonPath
+        watchChanges: true
+        printErrors: false
+        onLoaded: root.syncBackdropColor()
+        onFileChanged: reload()
+    }
+
+    FileView {
+        id: currentColorsFile
+        path: home + "/.themes/current/colors.toml"
+        watchChanges: true
+        printErrors: false
+        onLoaded: root.syncBackdropColor()
+        onFileChanged: reload()
+    }
+
+    FileView {
+        id: wallpaperStateFile
+        path: root.statePath
+        watchChanges: true
+        printErrors: false
+        onLoaded: {
+            var path = String(wallpaperStateFile.text() || "").trim()
+            if (isWallpaperPath(path) && path !== root.displayedWallpaper)
+                root.bootstrapWallpaper(path)
+        }
+        onFileChanged: reload()
+    }
 
     readonly property string defaultWallpaperCommand: [
         "dir=" + Util.shellQuote(wallpapersDir),
@@ -63,7 +133,7 @@ Item {
 
     function setWallpaper(path, instant) {
         path = String(path || "").trim()
-        if (!path) return
+        if (!isWallpaperPath(path)) return
         if (path === currentWallpaper && path === displayedWallpaper) return
         currentWallpaper = path
         wallpaperSkipFade = instant || !displayedWallpaper
@@ -140,7 +210,12 @@ Item {
         function prev(): string { root.cycleWallpapers("prev"); return "ok" }
     }
 
-    Component.onCompleted: refreshWallpaper()
+    Component.onCompleted: {
+        syncBackdropColor()
+        var path = String(wallpaperStateFile.text() || "").trim()
+        if (!bootstrapWallpaper(path))
+            refreshWallpaper()
+    }
 
     component WallpaperLayer: Item {
         id: layer
@@ -148,6 +223,7 @@ Item {
 
         readonly property string imagePath: root.displayedWallpaper
         readonly property int fadeMs: root.wallpaperFadeMs
+        readonly property color fillColor: root.backdropColor
 
         property string basePath: ""
         property string overlayPath: ""
@@ -155,7 +231,7 @@ Item {
 
         Rectangle {
             anchors.fill: parent
-            color: Theme.background
+            color: layer.fillColor
         }
 
         Image {
@@ -236,7 +312,7 @@ Item {
             screen: modelData
             visible: true
             anchors { top: true; bottom: true; left: true; right: true }
-            color: "transparent"
+            color: root.backdropColor
             aboveWindows: false
             WlrLayershell.namespace: "evo-sys-wallpaper"
             WlrLayershell.layer: WlrLayer.Background
