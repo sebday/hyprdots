@@ -15,7 +15,7 @@ if [[ -e "$CURRENT_THEME" ]]; then
 fi
 EVO_ICON_THEME="${EVO_ICON_THEME:-evo-current}"
 
-# Timing state (preserve when re-sourced in a timed child, e.g. evo-theme-browser).
+# Timing state (preserve when re-sourced in a timed child).
 _THEME_TIMING_START_MS="${_THEME_TIMING_START_MS:-}"
 _THEME_TIMING_LAST_MS="${_THEME_TIMING_LAST_MS:-}"
 
@@ -438,61 +438,6 @@ themes_apply_brave_chrome() {
         _THEME_TIMING_START_MS="${_THEME_TIMING_START_MS:-}" \
         _THEME_TIMING_LAST_MS="${_THEME_TIMING_LAST_MS:-}" \
         "$browser_script" apply
-}
-
-themes_switch_fade_ms() {
-    printf '%s' "0.08"
-}
-
-themes_ipc() {
-    local ipc_script
-    ipc_script="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_ipc"
-    if [[ ! -x "$ipc_script" ]]; then
-        # shellcheck source=/dev/null
-        source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/evo-paths-lib"
-        ipc_script="$(evoshell_script _ipc)"
-    fi
-    [[ -x "$ipc_script" ]] || return 1
-    "$ipc_script" "$@"
-}
-
-themes_begin_switch() {
-    local theme_dir="$1"
-    local toml="$theme_dir/colors.toml"
-    local bg payload fade_s
-
-    theme_timing_step "overlay beginSwitch ipc"
-    [[ -f "$toml" ]] || return 0
-    bg=$(toml_val background "$toml")
-    [[ -n "$bg" ]] || bg="#000000"
-    payload=$(jq -nc --arg background "$bg" '{background: $background}')
-    if ! themes_ipc evo.sys.themes beginSwitch "$payload" >/dev/null 2>&1; then
-        echo "evo-theme: theme switch indicator unavailable (is evoshell running?)" >&2
-        return 1
-    fi
-    theme_timing_step "overlay beginSwitch sleep"
-    fade_s=$(themes_switch_fade_ms)
-    sleep "$fade_s"
-    theme_timing_step "overlay beginSwitch done"
-}
-
-themes_end_switch() {
-    local fade_s attempt
-    theme_timing_step "overlay endSwitch ipc"
-    for attempt in 1 2 3 4 5; do
-        if themes_ipc evo.sys.themes endSwitch >/dev/null 2>&1; then
-            break
-        fi
-        if [[ "$attempt" -eq 5 ]]; then
-            echo "evo-theme: endSwitch ipc failed, forcing indicator dismiss" >&2
-            themes_ipc evo.sys.themes dismissSwitch >/dev/null 2>&1 || true
-        fi
-        sleep 0.08
-    done
-    theme_timing_step "overlay endSwitch sleep"
-    fade_s=$(themes_switch_fade_ms)
-    sleep "$fade_s"
-    theme_timing_step "overlay endSwitch done"
 }
 
 _themes_sync_obsidian_modular_vault() {

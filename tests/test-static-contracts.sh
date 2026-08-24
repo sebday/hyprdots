@@ -121,13 +121,6 @@ if [[ "$skip_evoplayer" != "1" ]]; then
 fi
 
 check_present 'evo-menu-list' "${root}/evosys/themes/CarouselOverlay.qml"
-check_present 'evo-sys-themes-switch' "${root}/evosys/themes/SwitchService.qml"
-check_present '󰸌' "${root}/evosys/themes/SwitchService.qml"
-check_present 'endSwitch' "${root}/evosys/themes/SwitchService.qml"
-check_present 'dismissSwitch' "${root}/evosys/themes/SwitchService.qml"
-check_present 'servicePath: "evosys/themes/SwitchService.qml"' "${root}/pluginManifest.js"
-check_present 'themes_begin_switch' "${root}/bin/evo-theme-lib"
-check_present 'themes_end_switch' "${root}/bin/evo-theme-lib"
 check_present 'themes_gtk_gsettings_force_reload' "${root}/bin/evo-theme-lib"
 check_present 'themes_sync_icon_theme_force_reload' "${root}/bin/evo-theme-lib"
 check_present 'themes_apply_brave_chrome' "${root}/bin/evo-theme-lib"

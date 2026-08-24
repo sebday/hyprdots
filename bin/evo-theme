@@ -203,18 +203,7 @@ apply_theme() {
     local theme_name="$1"
     local wallpaper_path="${2:-}"
     local theme_lock="${EVOSHELL_STATE}/theme.lock"
-    local source_path
-    local _theme_switch_active=0
-    local _theme_switch_open=0
-
-    _theme_switch_cleanup() {
-        if [[ "$_theme_switch_open" == 1 ]]; then
-            themes_end_switch || true
-            _theme_switch_open=0
-        fi
-        flock -u 9 2>/dev/null || true
-        _theme_switch_active=0
-    }
+    local theme_slug
 
     [ -z "$theme_name" ] && return 1
     [ -d "$THEME_DIR/$theme_name" ] || return 1
@@ -227,13 +216,7 @@ apply_theme() {
         evoshell_notify -g "󰸌" "Theme" "Theme switch already in progress" 2>/dev/null || true
         return 1
     fi
-
-    source_path="$THEME_DIR/$theme_name"
-    if themes_begin_switch "$source_path"; then
-        _theme_switch_open=1
-        _theme_switch_active=1
-        trap '_theme_switch_cleanup; cleanup_staging' EXIT
-    fi
+    trap 'flock -u 9 2>/dev/null || true; cleanup_staging' EXIT
 
     build_theme "$theme_name"
     promote_theme
@@ -241,7 +224,6 @@ apply_theme() {
 
     activate_theme "$wallpaper_path"
     theme_timing_step "activate_theme returned"
-    _theme_switch_cleanup
     flock -u 9
     exec 9>&-
 
