@@ -9,6 +9,8 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
+source "$SCRIPT_DIR/evo-paths-lib"
+# shellcheck source=/dev/null
 source "$SCRIPT_DIR/evo-theme-lib"
 
 CURRENT_PATH="${CURRENT_PATH:-$THEME_DIR/current}"
@@ -59,7 +61,7 @@ ensure_gtk_icon_theme_name() {
     fi
 }
 
-activate_gtk() {
+activate_gtk_files() {
     local gtk_theme="current"
     local icon_theme="$EVO_ICON_THEME"
     ensure_gtk_theme_name "$HOME/.config/gtk-3.0/settings.ini" "$gtk_theme"
@@ -78,10 +80,11 @@ activate_gtk() {
             ln -sfn "$assets_src" "$assets_dst"
         fi
     fi
+}
 
-    gsettings set org.gnome.desktop.interface gtk-theme "" 2>/dev/null || true
-    sleep 0.5
-    gsettings set org.gnome.desktop.interface gtk-theme "$gtk_theme" 2>/dev/null || true
+activate_gtk_force_reload() {
+    activate_gtk_files
+    themes_gtk_gsettings_force_reload "current"
 }
 
 build_theme() {
@@ -90,6 +93,11 @@ build_theme() {
 
     STAGING_DIR="$NEXT_PATH"
     rm -rf "$NEXT_PATH"
+
+    if theme_build_cache_restore "$theme_name" "$NEXT_PATH"; then
+        return 0
+    fi
+
     mkdir -p "$NEXT_PATH"
     cp -a "$source_path/." "$NEXT_PATH/"
     echo "$theme_name" > "$NEXT_PATH/.theme-name"
@@ -101,21 +109,34 @@ build_theme() {
     process_theme_template "$NEXT_PATH" "nvim-icons.lua"
     THEME_PATH="$NEXT_PATH" "$SCRIPT_DIR/evo-theme-gtk"
     "$SCRIPT_DIR/evo-theme-nvim" "$NEXT_PATH"
+    theme_build_cache_store "$theme_name" "$NEXT_PATH"
 }
 
 promote_theme() {
-    rm -rf "$CURRENT_PATH"
+    local prev="${CURRENT_PATH}.prev"
+
+    # Swap staging into place; delete the old tree in the background (rm -rf current was freezing input).
+    rm -rf "$prev"
+    if [[ -e "$CURRENT_PATH" ]]; then
+        mv "$CURRENT_PATH" "$prev"
+    fi
     mv "$NEXT_PATH" "$CURRENT_PATH"
     STAGING_DIR=""
+    if [[ -d "$prev" ]]; then
+        ( rm -rf "$prev" ) &
+    fi
 }
 
 activate_theme() {
     local wallpaper_path="${1:-}"
     local theme_slug
-    theme_slug=$(get_current_theme)
+
     install_theme_manifest
+    themes_apply_hypr_border
     themes_sync_evo_shell
-    activate_gtk
+    "$SCRIPT_DIR/evo-theme-browser" apply
+    activate_gtk_force_reload
+    themes_reload_ghostty
 
     local wallpaper
     if [ -n "$wallpaper_path" ]; then
@@ -124,20 +145,22 @@ activate_theme() {
         wallpaper=$(themes_default_wallpaper || true)
     fi
     if [ -n "$wallpaper" ]; then
-        "$SCRIPT_DIR/_ipc" evo.sys.wallpaper set "$wallpaper"
+        local state="${EVOSHELL_STATE}/wallpaper" cur=""
+        [ -f "$state" ] && cur=$(tr -d '\n' < "$state")
+        if [ "$wallpaper" != "$cur" ]; then
+            "$SCRIPT_DIR/_ipc" evo.sys.wallpaper setInstant "$wallpaper" >/dev/null 2>&1 || true
+        fi
     fi
 
     themes_sync_obsidian_modular
-    # GTK font settings only; theme.json was written by themes_sync_evo_shell.
-    "$SCRIPT_DIR/evo-font" apply-gtk >/dev/null 2>&1 || true
+    notify_nvim_theme
 
+    theme_slug=$(get_current_theme)
     if [[ -n "$theme_slug" ]]; then
-        (
-            "$SCRIPT_DIR/evo-theme-icons" activate "$theme_slug"
-            if [[ "$(get_current_theme)" == "$theme_slug" ]]; then
-                themes_sync_icon_theme_gsettings
-            fi
-        ) &
+        "$SCRIPT_DIR/evo-theme-icons" activate "$theme_slug"
+        if [[ "$(get_current_theme)" == "$theme_slug" ]]; then
+            themes_sync_icon_theme_force_reload
+        fi
     fi
 }
 
@@ -157,30 +180,6 @@ notify_nvim_theme() {
 notify_theme_switch() {
     local theme_name="$1"
 
-    rm -rf "${HOME}/.cache/evoshell/bar" 2>/dev/null || true
-    "$SCRIPT_DIR/_system" restart >/dev/null 2>&1 &
-
-    notify_nvim_theme
-
-    local ghostty_addresses
-    ghostty_addresses=$(hyprctl clients -j 2>/dev/null | jq -r '.[] | select(.class == "com.mitchellh.ghostty") | .address' 2>/dev/null) || true
-    if [[ -n "$ghostty_addresses" ]]; then
-        local current_window
-        current_window=$(hyprctl activewindow -j 2>/dev/null | jq -r '.address' 2>/dev/null) || true
-        while IFS= read -r address; do
-            if [[ -n "$address" ]]; then
-                hyprctl dispatch "hl.dsp.focus({ window = \"address:$address\" })" 2>/dev/null || true
-                sleep 0.1
-                hyprctl dispatch "hl.dsp.send_shortcut({ mods = \"CTRL SHIFT\", key = \"comma\", window = \"address:$address\" })" 2>/dev/null || true
-            fi
-        done <<< "$ghostty_addresses"
-        if [[ -n "$current_window" ]]; then
-            hyprctl dispatch "hl.dsp.focus({ window = \"address:$current_window\" })" 2>/dev/null || true
-        fi
-    fi
-
-    hyprctl reload 2>/dev/null || true
-    "$SCRIPT_DIR/evo-menu-warm" 2>/dev/null &
     pkill -SIGUSR2 btop 2>/dev/null || true
 
     evoshell_notify -g "󰸌" "Theme switched to $theme_name" 2>/dev/null || true
@@ -190,6 +189,18 @@ apply_theme() {
     local theme_name="$1"
     local wallpaper_path="${2:-}"
     local theme_lock="${EVOSHELL_STATE}/theme.lock"
+    local source_path
+    local _theme_switch_active=0
+    local _theme_switch_open=0
+
+    _theme_switch_cleanup() {
+        if [[ "$_theme_switch_open" == 1 ]]; then
+            themes_end_switch || true
+            _theme_switch_open=0
+        fi
+        _theme_switch_active=0
+    }
+
     [ -z "$theme_name" ] && return 1
     [ -d "$THEME_DIR/$theme_name" ] || return 1
 
@@ -200,11 +211,23 @@ apply_theme() {
         return 1
     fi
 
+    source_path="$THEME_DIR/$theme_name"
+    if themes_begin_switch "$source_path"; then
+        _theme_switch_open=1
+        _theme_switch_active=1
+        trap '_theme_switch_cleanup; cleanup_staging' EXIT
+    fi
+
+    themes_sync_evo_shell "$source_path"
+    themes_apply_hypr_border "$source_path"
+
     build_theme "$theme_name"
     promote_theme
     flock -u 9
 
     activate_theme "$wallpaper_path"
+    _theme_switch_cleanup
+    trap cleanup_staging EXIT
 }
 
 COMMAND="${1:-}"

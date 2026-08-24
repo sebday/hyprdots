@@ -123,6 +123,7 @@ build_theme_icons() {
     sed -i "s/^Name=.*/Name=$ICON_THEME_NAME/" "$cache_dir/index.theme"
     recolor_svgs "$cache_dir"
     printf '%s' "$expected_stamp" >"$stamp"
+    gtk-update-icon-cache -f "$cache_dir"
 }
 
 link_active_theme() {
@@ -131,9 +132,13 @@ link_active_theme() {
 
     cache_dir=$(cache_dir_for "$slug")
     mkdir -p "$(dirname "$ICON_LINK")"
+
+    if [[ ! -f "$cache_dir/icon-theme.cache" ]]; then
+        gtk-update-icon-cache -f "$cache_dir"
+    fi
+
     ln -sfn "$cache_dir" "$ICON_LINK"
     ln -sfn "$cache_dir" "$CACHE_ROOT/$ICON_THEME_NAME"
-    gtk-update-icon-cache -f "$ICON_LINK"
 }
 
 activate_theme_icons() {

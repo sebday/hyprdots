@@ -31,10 +31,10 @@ Item {
     readonly property bool locked: lockRequested || sessionLock.locked || sessionLock.secure
 
     function recoverOrphanLock() {
-        if (sessionLock.secure && !lockRequested) {
-            lockRequested = true
-            refreshBackground()
-        }
+        // Compositor can stay secure after the lock client dies (Hyprland "locker died").
+        // Re-engage our lock surface instead of only flipping lockRequested.
+        if (sessionLock.secure && !sessionLock.locked)
+            beginLock()
     }
 
     function refreshBackground() {
@@ -196,7 +196,8 @@ Item {
         target: "evo.sys.lock-screen.lock"
 
         function lock(): string {
-            if (!root.locked && !root.beginLock()) return "failed"
+            if (!sessionLock.locked)
+                root.beginLock()
             return "ok"
         }
 

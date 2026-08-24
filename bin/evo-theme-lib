@@ -175,6 +175,18 @@ process_theme_template() {
     _expand_theme_template "$theme_dir" "$basename" 0
 }
 
+# Apply active border colors live (no hyprctl reload — that freezes input).
+themes_apply_hypr_border() {
+    local theme_dir="${1:-${CURRENT_PATH:-$THEME_DIR/current}}"
+    local toml="$theme_dir/colors.toml"
+    local accent accent_strip
+
+    [ -f "$toml" ] || return 0
+    accent=$(toml_val accent "$toml")
+    accent_strip="${accent#\#}"
+    hyprctl eval "hl.config({ general = { col = { active_border = \"rgb(${accent_strip})\" } }, group = { col = { border_active = \"rgb(${accent_strip})\" } } })" >/dev/null 2>&1 || true
+}
+
 # Copy theme files from current/ into ~/.config (hypr theme, btop).
 install_theme_manifest() {
     local current="${CURRENT_PATH:-$THEME_DIR/current}"
@@ -213,11 +225,67 @@ EOF
     fi
 }
 
+# Fingerprint inputs that affect evo-theme build (templates, shared GTK base, colors.toml).
+theme_build_stamp() {
+    local theme_name="$1"
+    local toml="$THEME_DIR/$theme_name/colors.toml"
+    local toml_hash gtk_hash tmpl_hash
+
+    [[ -f "$toml" ]] || return 1
+    toml_hash=$(sha256sum "$toml" | awk '{print $1}')
+    if [[ -d "$THEME_DIR/shared/gtk-3.0" && -d "$THEME_DIR/shared/gtk-4.0" ]]; then
+        gtk_hash=$(find "$THEME_DIR/shared/gtk-3.0" "$THEME_DIR/shared/gtk-4.0" -type f 2>/dev/null \
+            | sort | xargs sha256sum 2>/dev/null | sha256sum | awk '{print $1}')
+    else
+        gtk_hash="none"
+    fi
+    if [[ -d "$TEMPLATES_DIR" ]]; then
+        tmpl_hash=$(find "$TEMPLATES_DIR" -type f 2>/dev/null \
+            | sort | xargs sha256sum 2>/dev/null | sha256sum | awk '{print $1}')
+    else
+        tmpl_hash="none"
+    fi
+    printf '%s|%s|%s' "$toml_hash" "$gtk_hash" "$tmpl_hash"
+}
+
+theme_build_cache_dir() {
+    printf '%s/.build-cache/%s' "$THEME_DIR" "$1"
+}
+
+# Hardlink-copy a built theme tree into $2 from $THEME_DIR/.build-cache/<slug>.
+theme_build_cache_restore() {
+    local theme_name="$1"
+    local dest="$2"
+    local cache_path expected_stamp
+
+    cache_path=$(theme_build_cache_dir "$theme_name")
+    expected_stamp=$(theme_build_stamp "$theme_name") || return 1
+    [[ -f "$cache_path/.stamp" && "$(cat "$cache_path/.stamp")" == "$expected_stamp" && -f "$cache_path/.theme-name" ]] || return 1
+
+    mkdir -p "$dest"
+    cp -al "$cache_path/." "$dest/"
+    return 0
+}
+
+# Refresh $THEME_DIR/.build-cache/<slug> from a freshly built staging dir.
+theme_build_cache_store() {
+    local theme_name="$1"
+    local src="$2"
+    local cache_path expected_stamp
+
+    expected_stamp=$(theme_build_stamp "$theme_name") || return 0
+    cache_path=$(theme_build_cache_dir "$theme_name")
+    rm -rf "$cache_path"
+    mkdir -p "$cache_path"
+    cp -al "$src/." "$cache_path/"
+    printf '%s' "$expected_stamp" >"$cache_path/.stamp"
+}
+
 # Write $EVOSHELL_STATE/theme.json from colors.toml for Quickshell Theme.qml.
 # Preserves fontFamily / fontPixelSize from an existing theme.json or evo-font state.
 themes_sync_evo_shell() {
-    local current="${CURRENT_PATH:-$THEME_DIR/current}"
-    local toml="$current/colors.toml"
+    local theme_dir="${1:-${CURRENT_PATH:-$THEME_DIR/current}}"
+    local toml="$theme_dir/colors.toml"
     local out="${EVOSHELL_STATE}/theme.json"
     local font_state="${FONT_CONFIG_JSON}"
     [ -f "$toml" ] || return 0
@@ -234,8 +302,8 @@ themes_sync_evo_shell() {
     [ -f "$out" ] && prev_json=$(cat "$out" 2>/dev/null || echo '{}')
     [ -f "$font_state" ] && fonts_json=$(cat "$font_state" 2>/dev/null || echo '{}')
 
-    mkdir -p "$(dirname "$out")"
-    jq -n \
+    local new_json tmp
+    new_json=$(jq -n \
         --arg foreground "$fg" \
         --arg background "$bg" \
         --arg accent "$accent" \
@@ -259,12 +327,89 @@ themes_sync_evo_shell() {
         + (if ($prev.fontPixelSize // $fonts.evoSize // null) != null then
             {fontPixelSize: ($prev.fontPixelSize // $fonts.evoSize)}
           else {} end)
-        ' \
-        > "$out"
+        ')
+
+    if [[ -f "$out" ]] && cmp -s <(printf '%s\n' "$new_json") "$out"; then
+        return 0
+    fi
+
+    mkdir -p "$(dirname "$out")"
+    tmp="${out}.tmp.$$"
+    printf '%s\n' "$new_json" >"$tmp"
+    mv "$tmp" "$out"
 }
 
 themes_sync_icon_theme_gsettings() {
+    local current
+    current=$(gsettings get org.gnome.desktop.interface icon-theme 2>/dev/null || true)
+    [[ "$current" == "'$EVO_ICON_THEME'" ]] && return 0
+    (
+        gsettings set org.gnome.desktop.interface icon-theme "$EVO_ICON_THEME" 2>/dev/null || true
+    ) &
+}
+
+themes_sync_icon_theme_force_reload() {
+    gsettings set org.gnome.desktop.interface icon-theme "" 2>/dev/null || true
+    sleep 0.05
     gsettings set org.gnome.desktop.interface icon-theme "$EVO_ICON_THEME" 2>/dev/null || true
+}
+
+themes_gtk_gsettings_force_reload() {
+    local gtk_theme="${1:-current}"
+    gsettings set org.gnome.desktop.interface gtk-theme "" 2>/dev/null || true
+    sleep 0.05
+    gsettings set org.gnome.desktop.interface gtk-theme "$gtk_theme" 2>/dev/null || true
+}
+
+themes_reload_ghostty() {
+    pkill -SIGUSR2 ghostty 2>/dev/null || true
+}
+
+themes_apply_brave_chrome() {
+    local browser_script
+    browser_script="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/evo-theme-browser"
+    [[ -x "$browser_script" ]] || return 0
+    "$browser_script" apply
+}
+
+themes_switch_fade_ms() {
+    printf '%s' "0.08"
+}
+
+themes_ipc() {
+    local ipc_script
+    ipc_script="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_ipc"
+    if [[ ! -x "$ipc_script" ]]; then
+        # shellcheck source=/dev/null
+        source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/evo-paths-lib"
+        ipc_script="$(evoshell_script _ipc)"
+    fi
+    [[ -x "$ipc_script" ]] || return 1
+    "$ipc_script" "$@"
+}
+
+themes_begin_switch() {
+    local theme_dir="$1"
+    local toml="$theme_dir/colors.toml"
+    local bg payload fade_s
+
+    [[ -f "$toml" ]] || return 0
+    bg=$(toml_val background "$toml")
+    [[ -n "$bg" ]] || bg="#000000"
+    payload=$(jq -nc --arg background "$bg" '{background: $background}')
+    if ! themes_ipc evo.sys.themes beginSwitch "$payload" >/dev/null 2>&1; then
+        echo "evo-theme: theme switch overlay unavailable (is evoshell running?)" >&2
+        return 1
+    fi
+    fade_s=$(themes_switch_fade_ms)
+    sleep "$fade_s"
+}
+
+themes_end_switch() {
+    local fade_s
+    themes_ipc evo.sys.themes endSwitch >/dev/null 2>&1 || true
+    fade_s=$(themes_switch_fade_ms)
+    sleep "$fade_s"
 }
 
 _themes_sync_obsidian_modular_vault() {

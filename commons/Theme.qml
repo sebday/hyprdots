@@ -25,9 +25,20 @@ Singleton {
         path: root.themePath
         watchChanges: true
         printErrors: false
-        onLoaded: root.applyThemeFile()
-        onLoadFailed: root.applyThemeFile()
+        onLoaded: root.scheduleThemeApply()
+        onLoadFailed: root.scheduleThemeApply()
         onFileChanged: reload()
+    }
+
+    Timer {
+        id: themeApplyTimer
+        interval: 32
+        repeat: false
+        onTriggered: root.applyThemeFile()
+    }
+
+    function scheduleThemeApply() {
+        themeApplyTimer.restart()
     }
 
     FileView {
@@ -331,7 +342,7 @@ Singleton {
     readonly property int notificationStackSlot: 104
 
     Component.onCompleted: {
-        applyThemeFile()
+        scheduleThemeApply()
         applyLooksFile()
         applyUiFile()
     }

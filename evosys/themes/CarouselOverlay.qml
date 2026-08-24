@@ -288,8 +288,9 @@ Item {
             dismiss()
             return
         }
-        Quickshell.execDetached(["bash", "-lc", command])
+        // Close overlay before theme apply so heavy carousel delegates are destroyed first.
         dismiss()
+        Quickshell.execDetached(["bash", "-lc", command])
     }
 
     FileView {
@@ -537,7 +538,7 @@ Item {
                 }
 
                 Repeater {
-                    model: root.entries.length
+                    model: root.opened ? root.entries.length : 0
 
                     delegate: Item {
                         id: item

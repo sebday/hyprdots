@@ -1,0 +1,1 @@
+{{ mantle_rgb }}

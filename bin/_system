@@ -22,6 +22,7 @@ usage: evo system <command>
 commands:
   start      launch the evoshell quickshell supervisor
   lock       lock the session
+  unlock     recover from a dead locker (logind + shell restart)
   restart    restart the evoshell quickshell process
   reboot     reboot the machine
   shutdown   power off (runs evo-system-cleanup first)
@@ -239,6 +240,7 @@ cmd_start() {
 
     discover_wayland_display() {
         if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
+            discover_hyprland_instance || true
             return 0
         fi
 
@@ -248,6 +250,28 @@ cmd_start() {
             [[ -S "$sock" ]] || continue
             WAYLAND_DISPLAY="${sock##*/}"
             export WAYLAND_DISPLAY
+            discover_hyprland_instance || true
+            return 0
+        done
+
+        return 1
+    }
+
+    discover_hyprland_instance() {
+        if [[ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]]; then
+            return 0
+        fi
+
+        local runtime="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+        local hypr_dir="$runtime/hypr"
+        local sig_dir
+
+        [[ -d "$hypr_dir" ]] || return 1
+
+        for sig_dir in "$hypr_dir"/*; do
+            [[ -d "$sig_dir" ]] || continue
+            HYPRLAND_INSTANCE_SIGNATURE="${sig_dir##*/}"
+            export HYPRLAND_INSTANCE_SIGNATURE
             return 0
         done
 
@@ -314,6 +338,39 @@ cmd_start() {
 
 cmd_lock() {
     exec "$IPC" evo.sys.lock-screen.lock lock
+}
+
+wayland_session_id() {
+    loginctl list-sessions --no-legend 2>/dev/null \
+        | awk '$3 == "seb" && $4 == "wayland" { print $1; exit }'
+}
+
+cmd_unlock() {
+    local session_id
+
+    session_id="$(wayland_session_id)"
+    if [[ -n "$session_id" ]]; then
+        loginctl unlock-session "$session_id" 2>/dev/null || true
+    fi
+
+    pkill -TERM -f '^/usr/bin/quickshell$' 2>/dev/null || true
+
+    if systemctl --user is-enabled evoshell.service >/dev/null 2>&1; then
+        systemctl --user restart evoshell.service
+    else
+        nohup "${BIN}/_system" start >/dev/null 2>&1 &
+        disown 2>/dev/null || true
+    fi
+
+    for _ in {1..200}; do
+        if "$IPC" shell ping >/dev/null 2>&1; then
+            return 0
+        fi
+        sleep 0.1
+    done
+
+    echo "evo system: shell restarted but ipc did not respond" >&2
+    exit 1
 }
 
 cmd_restart() {
@@ -384,6 +441,7 @@ ACTION="${1:-}"
 case "$ACTION" in
     start) cmd_start ;;
     lock) cmd_lock ;;
+    unlock) cmd_unlock ;;
     restart) cmd_restart ;;
     reboot) cmd_reboot ;;
     shutdown) cmd_shutdown ;;

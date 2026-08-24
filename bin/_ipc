@@ -15,28 +15,30 @@ method="${2:-ping}"
 arg1="${3:-}"
 arg2="${4:-}"
 
+ipc_args=(--any-display -p "$EVOSHELL_ROOT")
+
 # Direct plugin IPC (e.g. evo.sys.media.audio stepUp)
 if [[ "$target" != "shell" ]]; then
     if [[ -n "$arg2" ]]; then
-        quickshell ipc -p "$EVOSHELL_ROOT" call "$target" "$method" "$arg1" "$arg2"
+        quickshell ipc "${ipc_args[@]}" call "$target" "$method" "$arg1" "$arg2"
     elif [[ -n "$arg1" ]]; then
-        quickshell ipc -p "$EVOSHELL_ROOT" call "$target" "$method" "$arg1"
+        quickshell ipc "${ipc_args[@]}" call "$target" "$method" "$arg1"
     else
-        quickshell ipc -p "$EVOSHELL_ROOT" call "$target" "$method"
+        quickshell ipc "${ipc_args[@]}" call "$target" "$method"
     fi
     exit 0
 fi
 
 # toggle/summon always need a payloadJson argument (use "" when omitted)
 if [[ "$method" == "toggle" || "$method" == "summon" ]]; then
-    quickshell ipc -p "$EVOSHELL_ROOT" call "$target" "$method" "$arg1" "${arg2:-}"
+    quickshell ipc "${ipc_args[@]}" call "$target" "$method" "$arg1" "${arg2:-}"
     exit 0
 fi
 
 if [[ -n "$arg2" ]]; then
-    quickshell ipc -p "$EVOSHELL_ROOT" call "$target" "$method" "$arg1" "$arg2"
+    quickshell ipc "${ipc_args[@]}" call "$target" "$method" "$arg1" "$arg2"
 elif [[ -n "$arg1" ]]; then
-    quickshell ipc -p "$EVOSHELL_ROOT" call "$target" "$method" "$arg1"
+    quickshell ipc "${ipc_args[@]}" call "$target" "$method" "$arg1"
 else
-    quickshell ipc -p "$EVOSHELL_ROOT" call "$target" "$method"
+    quickshell ipc "${ipc_args[@]}" call "$target" "$method"
 fi

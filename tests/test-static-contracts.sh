@@ -101,7 +101,7 @@ for exe in \
   evo _system _ipc evo-config evo-config-lib \
   evo-bar-weather evo-bar-weather-bar evo-bar-github evo-bar-home-assistant \
   evo-panel-player \
-  evo-tasks evo-calculator evo-clipboard evo-wallpaper evo-theme evo-menu-list evo-menu-warm \
+  evo-tasks evo-calculator evo-clipboard evo-wallpaper evo-theme evo-theme-browser evo-menu-list evo-menu-warm \
   evo-notification-send evo-brave-launch evo-bar-network-bar evo-bar-transmission-bar evo-bar-steam; do
   [[ -x "${bin}/${exe}" ]] || { echo "missing executable: ${exe}" >&2; fail=1; }
 done
@@ -121,6 +121,17 @@ if [[ "$skip_evoplayer" != "1" ]]; then
 fi
 
 check_present 'evo-menu-list' "${root}/evosys/themes/CarouselOverlay.qml"
+check_present 'evo-sys-themes-switch' "${root}/evosys/themes/SwitchService.qml"
+check_present 'Switching theme' "${root}/evosys/themes/SwitchService.qml"
+check_present 'endSwitch' "${root}/evosys/themes/SwitchService.qml"
+check_present 'servicePath: "evosys/themes/SwitchService.qml"' "${root}/pluginManifest.js"
+check_present 'themes_begin_switch' "${root}/bin/evo-theme-lib"
+check_present 'themes_end_switch' "${root}/bin/evo-theme-lib"
+check_present 'themes_gtk_gsettings_force_reload' "${root}/bin/evo-theme-lib"
+check_present 'themes_sync_icon_theme_force_reload' "${root}/bin/evo-theme-lib"
+check_present 'themes_apply_brave_chrome' "${root}/bin/evo-theme-lib"
+check_present 'BrowserThemeColor' "${root}/bin/evo-theme-browser"
+check_present 'mantle_rgb' "${root}/themes/shared/templates/chromium.theme.tpl"
 check_present 'evo-bar-network-bar' "${root}/evobar/widgets/NetworkWidget.qml"
 check_present 'evo-bar-transmission-bar' "${root}/evobar/widgets/NetworkWidget.qml"
 check_present 'evo\.panels\.notifications' "${root}/pluginManifest.js"

@@ -123,8 +123,9 @@ var plugins = {
         keepLoaded: true
     },
     "evo.sys.themes": {
-        kinds: ["menu"],
+        kinds: ["menu", "service"],
         path: "evosys/themes/Theme.qml",
+        servicePath: "evosys/themes/SwitchService.qml",
         keepLoaded: true
     },
     "evo.side.clipboard": {
