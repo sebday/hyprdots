@@ -126,6 +126,17 @@ build_theme_icons() {
     gtk-update-icon-cache -f "$cache_dir"
 }
 
+icon_cache_ready() {
+    local slug="$1"
+    local cache_dir stamp expected_stamp
+
+    cache_dir=$(cache_dir_for "$slug")
+    stamp="$cache_dir/.stamp"
+    expected_stamp=$(stamp_for_theme "$slug")
+
+    [[ -f "$stamp" && "$(cat "$stamp")" == "$expected_stamp" && -f "$cache_dir/index.theme" && -f "$cache_dir/icon-theme.cache" ]]
+}
+
 link_active_theme() {
     local slug="$1"
     local cache_dir
@@ -141,6 +152,36 @@ link_active_theme() {
     ln -sfn "$cache_dir" "$CACHE_ROOT/$ICON_THEME_NAME"
 }
 
+icons_link_if_current() {
+    local slug="$1"
+
+    mkdir -p "$CACHE_ROOT"
+    exec 7>"$ICON_ACTIVATE_LOCK"
+    flock 7
+
+    if is_current_theme_slug "$slug"; then
+        link_active_theme "$slug"
+        themes_sync_icon_theme_force_reload
+    fi
+
+    flock -u 7 2>/dev/null || true
+}
+
+icons_build_and_link_async() {
+    local slug="$1"
+    local cache_dir
+
+    cache_dir=$(cache_dir_for "$slug")
+    mkdir -p "$cache_dir"
+
+    (
+        exec 8>"$cache_dir/.lock"
+        flock -n 8 || exit 0
+        build_theme_icons "$slug"
+        icons_link_if_current "$slug"
+    ) &
+}
+
 activate_theme_icons() {
     local slug="$1"
     [[ -n "$slug" ]] || {
@@ -148,17 +189,13 @@ activate_theme_icons() {
         return 1
     }
 
-    build_theme_icons "$slug"
-
-    mkdir -p "$CACHE_ROOT"
-    exec 7>"$ICON_ACTIVATE_LOCK"
-    flock 7
-
-    if ! is_current_theme_slug "$slug"; then
+    if icon_cache_ready "$slug"; then
+        icons_link_if_current "$slug"
         return 0
     fi
 
-    link_active_theme "$slug"
+    # Papirus recolor touches hundreds of thousands of SVGs — never block theme switch on it.
+    icons_build_and_link_async "$slug"
 }
 
 usage() {

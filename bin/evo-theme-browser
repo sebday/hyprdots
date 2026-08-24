@@ -70,12 +70,16 @@ refresh_brave_policy() {
 themes_apply_brave_chrome() {
     local hex
 
+    theme_timing_step "brave read theme"
     hex=$(read_chromium_theme_hex) || return 0
+    theme_timing_step "brave write policy"
     write_brave_policy "$BRAVE_POLICY_DIR" "$hex" || {
         echo "evo-theme-browser: cannot write ${BRAVE_POLICY_DIR}/color.json (run: evo-theme-browser ensure-policy-dir)" >&2
         return 0
     }
+    theme_timing_step "brave refresh policy"
     refresh_brave_policy
+    theme_timing_step "brave done"
 }
 
 ensure_policy_dir() {

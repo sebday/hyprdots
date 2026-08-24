@@ -82,39 +82,42 @@ activate_gtk_files() {
     fi
 }
 
-activate_gtk_force_reload() {
-    activate_gtk_files
-    themes_gtk_gsettings_force_reload "current"
-}
-
 build_theme() {
     local theme_name="$1"
     local source_path="$THEME_DIR/$theme_name"
 
+    theme_timing_step "build_theme rm next"
     STAGING_DIR="$NEXT_PATH"
     rm -rf "$NEXT_PATH"
 
     if theme_build_cache_restore "$theme_name" "$NEXT_PATH"; then
+        theme_timing_step "build_theme cache hit"
         return 0
     fi
 
+    theme_timing_step "build_theme cache miss copy"
     mkdir -p "$NEXT_PATH"
     cp -a "$source_path/." "$NEXT_PATH/"
     echo "$theme_name" > "$NEXT_PATH/.theme-name"
 
+    theme_timing_step "build_theme templates"
     process_theme_templates "$NEXT_PATH"
     process_theme_template "$NEXT_PATH" "obsidian.css"
     process_theme_template "$NEXT_PATH" "colors.css"
     process_theme_template "$NEXT_PATH" "shoelace-hex.css"
     process_theme_template "$NEXT_PATH" "nvim-icons.lua"
+    theme_timing_step "build_theme gtk+nvim"
     THEME_PATH="$NEXT_PATH" "$SCRIPT_DIR/evo-theme-gtk"
     "$SCRIPT_DIR/evo-theme-nvim" "$NEXT_PATH"
+    theme_timing_step "build_theme cache store"
     theme_build_cache_store "$theme_name" "$NEXT_PATH"
+    theme_timing_step "build_theme done"
 }
 
 promote_theme() {
     local prev="${CURRENT_PATH}.prev"
 
+    theme_timing_step "promote_theme swap"
     # Swap staging into place; delete the old tree in the background (rm -rf current was freezing input).
     rm -rf "$prev"
     if [[ -e "$CURRENT_PATH" ]]; then
@@ -125,17 +128,30 @@ promote_theme() {
     if [[ -d "$prev" ]]; then
         ( rm -rf "$prev" ) &
     fi
+    theme_timing_step "promote_theme done"
 }
 
 activate_theme() {
     local wallpaper_path="${1:-}"
     local theme_slug
 
+    theme_timing_step "activate install_manifest"
     install_theme_manifest
+    theme_timing_step "activate hypr_border"
     themes_apply_hypr_border
+    theme_timing_step "activate hypr_border done"
+    theme_timing_step "activate theme.json"
     themes_sync_evo_shell
-    "$SCRIPT_DIR/evo-theme-browser" apply
-    activate_gtk_force_reload
+    theme_timing_step "activate theme.json done"
+    theme_timing_step "activate brave"
+    themes_apply_brave_chrome
+    theme_timing_step "activate brave done"
+    theme_timing_step "activate gtk_files"
+    activate_gtk_files
+    theme_timing_step "activate gtk_gsettings"
+    themes_gtk_gsettings_force_reload "current"
+    theme_timing_step "activate gtk_gsettings done"
+    theme_timing_step "activate ghostty"
     themes_reload_ghostty
 
     local wallpaper
@@ -148,20 +164,18 @@ activate_theme() {
         local state="${EVOSHELL_STATE}/wallpaper" cur=""
         [ -f "$state" ] && cur=$(tr -d '\n' < "$state")
         if [ "$wallpaper" != "$cur" ]; then
+            theme_timing_step "activate wallpaper"
             "$SCRIPT_DIR/_ipc" evo.sys.wallpaper setInstant "$wallpaper" >/dev/null 2>&1 || true
+            theme_timing_step "activate wallpaper done"
         fi
     fi
 
+    theme_timing_step "activate obsidian"
     themes_sync_obsidian_modular
+    theme_timing_step "activate nvim"
     notify_nvim_theme
 
-    theme_slug=$(get_current_theme)
-    if [[ -n "$theme_slug" ]]; then
-        "$SCRIPT_DIR/evo-theme-icons" activate "$theme_slug"
-        if [[ "$(get_current_theme)" == "$theme_slug" ]]; then
-            themes_sync_icon_theme_force_reload
-        fi
-    fi
+    theme_timing_step "activate done"
 }
 
 notify_nvim_theme() {
@@ -198,11 +212,14 @@ apply_theme() {
             themes_end_switch || true
             _theme_switch_open=0
         fi
+        flock -u 9 2>/dev/null || true
         _theme_switch_active=0
     }
 
     [ -z "$theme_name" ] && return 1
     [ -d "$THEME_DIR/$theme_name" ] || return 1
+
+    theme_timing_init
 
     mkdir -p "$(dirname "$theme_lock")"
     exec 9>"$theme_lock"
@@ -218,15 +235,24 @@ apply_theme() {
         trap '_theme_switch_cleanup; cleanup_staging' EXIT
     fi
 
-    themes_sync_evo_shell "$source_path"
-    themes_apply_hypr_border "$source_path"
-
     build_theme "$theme_name"
     promote_theme
-    flock -u 9
+    theme_timing_step "build+promote done"
 
     activate_theme "$wallpaper_path"
+    theme_timing_step "activate_theme returned"
     _theme_switch_cleanup
+    flock -u 9
+    exec 9>&-
+
+    theme_slug=$(get_current_theme)
+    if [[ -n "$theme_slug" ]]; then
+        theme_timing_step "activate icons deferred"
+        "$SCRIPT_DIR/evo-theme-icons" activate "$theme_slug"
+        theme_timing_step "activate icons dispatched"
+    fi
+
+    theme_timing_step "total"
     trap cleanup_staging EXIT
 }
 
