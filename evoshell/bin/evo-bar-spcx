@@ -1,0 +1,242 @@
+#!/bin/bash
+# Evo stats panel: SPCX USD price + Trading 212 unrealized P/L %.
+# Seeds/persists daily closes (Yahoo chart + live T212 price) for stats-panel charts.
+#
+# Credentials: pass entries evoshell/trading212/api-key and .../api-secret
+
+_bin_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${_bin_dir}/evo-bar-common"
+# shellcheck source=/dev/null
+source "${_bin_dir}/evo-storage-lib"
+
+HISTORY_FILE="$(evo_bar_history_path spcx)"
+HISTORY_KEEP=90
+
+CHART_DAYS="${1:-30}"
+if ! [[ "$CHART_DAYS" =~ ^[0-9]+$ ]] || (( CHART_DAYS < 1 )); then
+    CHART_DAYS=30
+fi
+if (( CHART_DAYS > 90 )); then
+    CHART_DAYS=90
+fi
+
+CACHE_KEY="spcx-${CHART_DAYS}"
+if cached=$(evo_bar_cache_read "$CACHE_KEY" 60 2>/dev/null); then
+    printf '%s\n' "$cached"
+    exit 0
+fi
+
+evo_bar_load_secrets T212_API_KEY T212_API_SECRET
+
+fmt_price() {
+  awk -v p="$1" '
+    function comma(n, s, i, out, len) {
+      s = sprintf("%.0f", n)
+      len = length(s)
+      for (i = 1; i <= len; i++) {
+        if (i > 1 && (len - i + 1) % 3 == 0)
+          out = out ","
+        out = out substr(s, i, 1)
+      }
+      return out
+    }
+    BEGIN {
+      if (p >= 10000)
+        printf "$%s", comma(p)
+      else
+        printf "$%.2f", p
+    }'
+}
+
+json_out() {
+    local text="$1" tooltip="$2" detail="${3:-}" bars="${4:-[]}"
+    local source="${5:-Trading 212}" quote="$6" period="$7" position="$8"
+    [[ -n "$quote" ]] || quote='{}'
+    [[ -n "$period" ]] || period='{}'
+    [[ -n "$position" ]] || position='{}'
+    jq -cn \
+        --arg text "$text" \
+        --arg tooltip "$tooltip" \
+        --arg detail "$detail" \
+        --argjson bars "$bars" \
+        --arg source "$source" \
+        --argjson quote "$quote" \
+        --argjson period "$period" \
+        --argjson position "$position" \
+        '{
+            text: $text,
+            tooltip: $tooltip,
+            detail: $detail,
+            bars: $bars,
+            source: $source,
+            quote: $quote,
+            period: $period,
+            position: $position
+        }'
+}
+
+fetch_yahoo_rows() {
+    local raw
+    raw=$(curl -sf --max-time 12 \
+        -A 'Mozilla/5.0' \
+        'https://query1.finance.yahoo.com/v8/finance/chart/SPCX?interval=1d&range=3mo' 2>/dev/null) || raw=""
+    if [[ -z "$raw" ]]; then
+        return 0
+    fi
+    echo "$raw" | jq -r '
+        .chart.result[0] as $r
+        | ($r.timestamp // []) as $ts
+        | ($r.indicators.quote[0]) as $q
+        | [range(0; ($ts|length))]
+        | .[]
+        | select($q.close[.] != null)
+        | (($ts[.] | tonumber | strftime("%Y-%m-%d"))
+            + "|" + ($q.open[.] | tonumber | tostring)
+            + "|" + ($q.high[.] | tonumber | tostring)
+            + "|" + ($q.low[.] | tonumber | tostring)
+            + "|" + ($q.close[.] | tonumber | tostring))
+    ' 2>/dev/null || true
+}
+
+build_bars() {
+    local price="$1"
+    local today rows=() period_rows=()
+    today=$(date +%Y-%m-%d)
+    evo_bar_load_heatmap_colors || true
+
+    mapfile -t rows < <({
+        fetch_yahoo_rows
+        printf '%s|%s|%s|%s|%s\n' "$today" "$price" "$price" "$price" "$price"
+    } | evo_bar_merge_history "$HISTORY_FILE" "$HISTORY_KEEP")
+
+    period_rows=("${rows[@]}")
+    if ((${#rows[@]} > CHART_DAYS)); then
+        rows=("${rows[@]: -CHART_DAYS}")
+    fi
+    PERIOD_ROWS=("${period_rows[@]: -CHART_DAYS}")
+    if ((${#rows[@]} == 0)); then
+        BARS_JSON='[]'
+        PERIOD_JSON='{}'
+        return
+    fi
+    BARS_JSON=$(evo_bar_build_candles_json "${rows[@]}")
+    PERIOD_JSON=$(evo_bar_period_stats_json "${PERIOD_ROWS[@]}")
+}
+
+bars_from_cache() {
+    evo_bar_load_heatmap_colors || true
+    if [[ ! -f "$HISTORY_FILE" ]]; then
+        BARS_JSON='[]'
+        PERIOD_JSON='{}'
+        return
+    fi
+    local rows=()
+    mapfile -t rows < <(jq -r '
+        .[]
+        | if (.open != null and .high != null and .low != null and .close != null) then
+            "\(.date)|\(.open)|\(.high)|\(.low)|\(.close)"
+          else
+            "\(.date)|\(.value)"
+          end
+    ' "$HISTORY_FILE" 2>/dev/null | tail -n "$CHART_DAYS")
+    if ((${#rows[@]} == 0)); then
+        BARS_JSON='[]'
+        PERIOD_JSON='{}'
+        return
+    fi
+    BARS_JSON=$(evo_bar_build_candles_json "${rows[@]}")
+    PERIOD_JSON=$(evo_bar_period_stats_json "${rows[@]}")
+}
+
+if [[ -z "${T212_API_KEY:-}" || -z "${T212_API_SECRET:-}" ]]; then
+  bars_from_cache
+  json_out "SPCX —" "Set T212_API_KEY and T212_API_SECRET in pass (evoshell/trading212/*)" "" "$BARS_JSON" "Trading 212" '{}' "$PERIOD_JSON" '{}'
+    exit 0
+fi
+
+BASE_URL="${T212_BASE_URL:-https://live.trading212.com}"
+POSITION=$(curl -sf --max-time 15 \
+    -u "${T212_API_KEY}:${T212_API_SECRET}" \
+    "${BASE_URL}/api/v0/equity/positions?ticker=SPCX_US_EQ" 2>/dev/null) || POSITION=""
+
+if [[ -z "$POSITION" ]]; then
+    bars_from_cache
+    json_out "SPCX —" "Trading 212 SPCX position unavailable" "" "$BARS_JSON" "Trading 212" '{}' "$PERIOD_JSON" '{}'
+    exit 0
+fi
+
+read -r LAST UPNL TOTAL_COST QTY AVG_PRICE CURRENT_VALUE WALLET_CURRENCY < <(
+    echo "$POSITION" | jq -r '
+        (if type == "array" then .[0] else . end) // empty
+        | [
+            (.currentPrice // empty),
+            (.walletImpact.unrealizedProfitLoss // 0),
+            (.walletImpact.totalCost // 0),
+            (.quantity // 0),
+            (.averagePrice // .averagePricePaid // 0),
+            (.walletImpact.currentValue // 0),
+            (.walletImpact.currency // "GBP")
+          ]
+        | @tsv
+    ' 2>/dev/null
+)
+
+if [[ -z "${LAST:-}" ]]; then
+    bars_from_cache
+    json_out "SPCX —" "No SPCX position found on Trading 212" "" "$BARS_JSON" "Trading 212" '{}' "$PERIOD_JSON" '{}'
+    exit 0
+fi
+
+build_bars "$LAST"
+PRICE_S=$(fmt_price "$LAST")
+VALUE_GBP=$(awk -v v="$CURRENT_VALUE" 'BEGIN { printf "%.2f", v + 0 }')
+WALLET_CURRENCY="${WALLET_CURRENCY:-GBP}"
+
+QUOTE_JSON=$(jq -cn \
+    --argjson price "$(awk -v p="$LAST" 'BEGIN { printf "%.2f", p + 0 }')" \
+    --arg pair "SPCX/USD" \
+    '{price: $price, pair: $pair}')
+
+if ! awk -v c="$TOTAL_COST" 'BEGIN { exit !(c + 0 > 0) }'; then
+    PCT_S="—"
+    UPNL_PCT=0
+    TEXT="SPCX ${PRICE_S}"
+    DETAIL="${PRICE_S} · —"
+    TIP="SPCX/USD · Trading 212
+Price: ${PRICE_S}
+Unrealized P/L: unavailable (cost basis is zero)"
+    POSITION_JSON=$(jq -cn \
+        --argjson quantity "$(awk -v q="$QTY" 'BEGIN { printf "%.4f", q + 0 }')" \
+        --argjson averagePrice "$(awk -v p="$AVG_PRICE" 'BEGIN { printf "%.2f", p + 0 }')" \
+        --argjson value "$VALUE_GBP" \
+        --arg currency "$WALLET_CURRENCY" \
+        --argjson upnlPct 0 \
+        --argjson unrealizedPnl 0 \
+        --argjson totalCost 0 \
+        '{quantity: $quantity, averagePrice: $averagePrice, value: $value, currency: $currency, upnlPct: $upnlPct, unrealizedPnl: $unrealizedPnl, totalCost: $totalCost}')
+else
+    PCT_S=$(awk -v upnl="$UPNL" -v cost="$TOTAL_COST" 'BEGIN {
+        printf "%+.2f", (upnl / cost) * 100
+    }')
+    UPNL_PCT=$(awk -v upnl="$UPNL" -v cost="$TOTAL_COST" 'BEGIN {
+        printf "%.4f", (upnl / cost) * 100
+    }')
+    TEXT="SPCX ${PRICE_S}"
+    DETAIL="${PRICE_S} · ${PCT_S}%"
+    TIP="SPCX/USD · Trading 212
+Price: ${PRICE_S}
+Unrealized P/L: ${PCT_S}%"
+    POSITION_JSON=$(jq -cn \
+        --argjson quantity "$(awk -v q="$QTY" 'BEGIN { printf "%.4f", q + 0 }')" \
+        --argjson averagePrice "$(awk -v p="$AVG_PRICE" 'BEGIN { printf "%.2f", p + 0 }')" \
+        --argjson value "$VALUE_GBP" \
+        --arg currency "$WALLET_CURRENCY" \
+        --argjson upnlPct "$UPNL_PCT" \
+        --argjson unrealizedPnl "$(awk -v u="$UPNL" 'BEGIN { printf "%.2f", u + 0 }')" \
+        --argjson totalCost "$(awk -v c="$TOTAL_COST" 'BEGIN { printf "%.2f", c + 0 }')" \
+        '{quantity: $quantity, averagePrice: $averagePrice, value: $value, currency: $currency, upnlPct: $upnlPct, unrealizedPnl: $unrealizedPnl, totalCost: $totalCost}')
+fi
+
+output=$(json_out "$TEXT" "$TIP" "$DETAIL" "$BARS_JSON" "Trading 212" "$QUOTE_JSON" "$PERIOD_JSON" "$POSITION_JSON")
+printf '%s\n' "$output" | evo_bar_cache_write "$CACHE_KEY"
+printf '%s\n' "$output"

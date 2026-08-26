@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+# Open evo dashboard windows on workspace 10 (HDMI-A-1).
+
+set -euo pipefail
+
+_bin_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "${_bin_dir}/evo-paths-lib"
+# shellcheck source=/dev/null
+source "${_bin_dir}/evo-config-lib"
+
+IPC="${EVOSHELL_BIN}/_ipc"
+
+usage() {
+  cat >&2 <<'EOF'
+usage: evo-panel-hypr restore-dashboards [dashboard-id ...]
+EOF
+  exit 1
+}
+
+find_dashboard_address() {
+  local title="$1"
+  hyprctl clients -j 2>/dev/null | jq -r --arg t "$title" '
+    .[] | select(.class == "org.quickshell" and .title == $t) | .address' | head -1
+}
+
+open_dashboard_if_needed() {
+  local id="$1"
+  [[ -n "$id" ]] || return 0
+  if [[ -n "$(find_dashboard_address "$id")" ]]; then
+    return 0
+  fi
+  "$IPC" shell openDashboard "$id" >/dev/null 2>&1 || true
+  local tries=0
+  while (( tries < 30 )); do
+    [[ -n "$(find_dashboard_address "$id")" ]] && return 0
+    sleep 0.05
+    tries=$((tries + 1))
+  done
+  return 1
+}
+
+evict_non_dashboards_from_ws10() {
+  local addr
+  while IFS= read -r addr; do
+    [[ -n "$addr" ]] || continue
+    hyprctl dispatch "hl.dsp.window.move({ workspace = 5, window = \"address:${addr}\", follow = false })" \
+      >/dev/null 2>&1 || true
+  done < <(hyprctl clients -j 2>/dev/null | jq -r '
+    .[] | select(.workspace.name == "10")
+      | select((.class == "org.quickshell" and (.title | test("^evo\\.panels\\."))) | not)
+      | .address')
+}
+
+reflow_dashboard_workspace() {
+  hyprctl dispatch "hl.dsp.focus({ workspace = 10 })" >/dev/null 2>&1 || true
+  hyprctl dispatch 'hl.dsp.layout("name lua:dashboard_2x2")' >/dev/null 2>&1 || true
+}
+
+open_dashboards() {
+  local ids others player id
+  others=()
+  player=""
+  if (($# > 0)); then
+    while (($# > 0)); do
+      id="$1"
+      shift
+      [[ -n "$id" ]] || continue
+      if [[ "$id" == "evo.panels.player" ]]; then
+        player="$id"
+      else
+        others+=("$id")
+      fi
+    done
+  else
+    while IFS= read -r id; do
+      [[ -n "$id" ]] || continue
+      if [[ "$id" == "evo.panels.player" ]]; then
+        player="$id"
+      else
+        others+=("$id")
+      fi
+    done < <(merged_config | jq -r '.dashboards.openOnStart[]? // empty')
+  fi
+  local ordered=("${others[@]}")
+  [[ -n "$player" ]] && ordered+=("$player")
+  for id in "${ordered[@]}"; do
+    open_dashboard_if_needed "$id" || true
+  done
+}
+
+restore_dashboards() {
+  open_dashboards "$@"
+  evict_non_dashboards_from_ws10
+  reflow_dashboard_workspace
+}
+
+cmd="${1:-}"
+case "$cmd" in
+restore-dashboards)
+  shift
+  restore_dashboards "$@"
+  ;;
+-h | --help | help | "") usage ;;
+*)
+  echo "evo-panel-hypr: unknown command: $cmd" >&2
+  usage
+  ;;
+esac

@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+# Capture monitor screenshots as each theme's preview.png (theme carousel source).
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "${SCRIPT_DIR}/evo-paths-lib"
+# shellcheck source=/dev/null
+source "${SCRIPT_DIR}/evo-theme-lib"
+
+theme_script="$(evoshell_script evo-theme)"
+screenshot_script="$(evoshell_script evo-screenshot)"
+thumb_script="$(evoshell_script evo-menu-thumb)"
+settle_ms="${EVO_THEME_PREVIEW_SETTLE_MS:-1500}"
+first_notify_ms="${EVO_THEME_PREVIEW_FIRST_NOTIFY_MS:-3000}"
+preview_lock="${EVOSHELL_STATE}/theme-previews.lock"
+
+usage() {
+	cat <<'EOF'
+usage: evo-theme-previews
+
+Apply each theme in sort order, capture the focused monitor (same as Alt+Print),
+and write THEME_DIR/<name>/preview.png. Restores the theme that was active when
+the script started.
+
+environment:
+  EVO_THEME_PREVIEW_SETTLE_MS        wait after each theme apply (default: 1500)
+  EVO_THEME_PREVIEW_FIRST_NOTIFY_MS  first-shot toast duration + wait (default: 3000)
+EOF
+}
+
+wait_first_preview_notice() {
+	local seconds
+	evoshell_notify -g "󰸌" "Theme previews" "Capturing ${#names[@]} themes…" -t "$first_notify_ms" 2>/dev/null || true
+	seconds="$(awk -v ms="$first_notify_ms" 'BEGIN { printf "%.3f", ms / 1000 }')"
+	sleep "$seconds"
+}
+
+settle_after_apply() {
+	local seconds
+	seconds="$(awk -v ms="$settle_ms" 'BEGIN { printf "%.3f", ms / 1000 }')"
+	sleep "$seconds"
+}
+
+capture_preview() {
+	local name="$1"
+	local preview="${THEME_DIR}/${name}/preview.png"
+	mkdir -p "$(dirname "$preview")"
+	"$screenshot_script" monitor -o "$preview" -s >/dev/null
+	if [[ -x "$thumb_script" ]]; then
+		"$thumb_script" "$preview" "themes/${name}.png" >/dev/null 2>&1 || true
+	fi
+	printf '%s\n' "$preview"
+}
+
+case "${1:-}" in
+-h | --help | help)
+	usage
+	exit 0
+	;;
+'')
+	;;
+*)
+	echo "evo-theme-previews: unknown argument: $1" >&2
+	usage >&2
+	exit 2
+	;;
+esac
+
+names=()
+mapfile -t names < <(theme_names_sorted)
+if [[ ${#names[@]} -eq 0 ]]; then
+	echo "evo-theme-previews: no themes found in ${THEME_DIR}" >&2
+	exit 1
+fi
+
+mkdir -p "$(dirname "$preview_lock")"
+exec 9>"$preview_lock"
+if ! flock -n 9; then
+	evoshell_notify -g "󰸌" "Theme previews" "Capture already running" 2>/dev/null || true
+	exit 0
+fi
+
+restore="$(current_theme_name 2>/dev/null || true)"
+
+"$theme_script" "${names[0]}"
+settle_after_apply
+wait_first_preview_notice
+capture_preview "${names[0]}"
+
+for ((i = 1; i < ${#names[@]}; i++)); do
+	"$theme_script" next
+	settle_after_apply
+	capture_preview "${names[$i]}"
+done
+
+if [[ -n "$restore" ]]; then
+	"$theme_script" "$restore"
+fi
+
+evoshell_notify -g "󰸌" "Theme previews" "Saved ${#names[@]} preview.png files" 2>/dev/null || true

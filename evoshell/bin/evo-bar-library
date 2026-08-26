@@ -1,0 +1,846 @@
+#!/usr/bin/env bash
+# Local film/TV library index + playback for evoshell.
+
+set -euo pipefail
+
+_bin_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "${_bin_dir}/evo-storage-lib"
+
+STATE_DIR="${EVOSHELL_STATE}"
+INDEX_PATH="${STATE_DIR}/media-library.json"
+PLAYS_PATH="${STATE_DIR}/media-plays.json"
+POSTER_DIR="${STATE_DIR}/media-posters"
+MEDIA_SETTINGS_FILE="${MEDIA_CONFIG_JSON}"
+FILMS_ROOT_DEFAULT=""
+TV_ROOT_DEFAULT=""
+VIDEO_EXTS='mkv mp4 m4v avi'
+
+usage() {
+    cat >&2 <<'EOF'
+usage:
+  evo-media scan
+  evo-media status
+  evo-media list films
+  evo-media list shows
+  evo-media list catalog
+  evo-media list episodes <show>
+  evo-media popup preview
+  evo-media play film <id>
+  evo-media play episode <id>
+  evo-media settings get
+  evo-media settings set tv <dir>
+  evo-media settings set films <dir>
+  evo-media settings pick tv|films
+EOF
+    exit 1
+}
+
+index_empty() {
+    printf '%s\n' '{"films":[],"shows":[]}'
+}
+
+plays_empty() {
+    printf '%s\n' '{"film":{},"episode":{}}'
+}
+
+index_read() {
+    if [[ -f "$INDEX_PATH" ]]; then
+        jq -c '.' "$INDEX_PATH" 2>/dev/null || index_empty
+    else
+        index_empty
+    fi
+}
+
+plays_read() {
+    if [[ -f "$PLAYS_PATH" ]]; then
+        jq -c '.' "$PLAYS_PATH" 2>/dev/null || plays_empty
+    else
+        plays_empty
+    fi
+}
+
+json_write_atomic() {
+    local dest="$1"
+    local body="$2"
+    local tmp
+    mkdir -p "$(dirname "$dest")"
+    tmp="$(mktemp "${dest}.XXXXXX")"
+    printf '%s\n' "$body" >"$tmp"
+    mv "$tmp" "$dest"
+}
+
+index_write() {
+    json_write_atomic "$INDEX_PATH" "$1"
+}
+
+plays_write() {
+    json_write_atomic "$PLAYS_PATH" "$1"
+}
+
+init_index() {
+    mkdir -p "$STATE_DIR" "$POSTER_DIR"
+}
+
+is_video() {
+    local path="$1"
+    [[ -f "$path" ]] || return 1
+    local ext="${path##*.}"
+    ext="${ext,,}"
+    local allowed
+    for allowed in $VIDEO_EXTS; do
+        if [[ "$ext" == "$allowed" ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+clean_name() {
+    local text="$1"
+    text="${text//./ }"
+    text="${text//_/ }"
+    text="$(printf '%s' "$text" | sed -E 's/[[:space:]]+/ /g; s/^[[:space:]]+//; s/[[:space:]]+$//')"
+    printf '%s' "$text"
+}
+
+strip_video_ext() {
+    local text="$1"
+    local lower="${text,,}"
+    local ext dotext
+    for ext in $VIDEO_EXTS; do
+        dotext=".${ext}"
+        if [[ "$lower" == *"$dotext" ]]; then
+            printf '%s' "${text:0:$((${#text} - ${#dotext}))}"
+            return 0
+        fi
+    done
+    printf '%s' "$text"
+}
+
+display_title() {
+    local text="$1"
+    local out
+    out="$(strip_video_ext "$text")"
+    out="$(clean_name "$out")"
+    if [[ -z "$out" ]]; then
+        out="$text"
+    fi
+    printf '%s' "$out"
+}
+
+parse_film() {
+    local path="$1"
+    local filename stem title year="" sort_title
+
+    filename="$(basename "$path")"
+    stem="$(strip_video_ext "$filename")"
+    title="$stem"
+
+    local year_paren year_space
+    year_paren="$(printf '%s' "$stem" | sed -nE 's/.*\(([0-9]{4})\)[[:space:]]*$/\1/p')"
+    if [[ -n "$year_paren" ]]; then
+        year="$year_paren"
+        title="$(printf '%s' "$stem" | sed -E 's/[[:space:]]*\([0-9]{4}\)[[:space:]]*$//')"
+        title="$(printf '%s' "$title" | sed -E 's/[ -._]+$//')"
+    else
+        year_space="$(printf '%s' "$stem" | sed -nE 's/.*[[:space:]]([0-9]{4})[[:space:]]*$/\1/p')"
+        if [[ -n "$year_space" ]]; then
+            year="$year_space"
+            title="$(printf '%s' "$stem" | sed -E 's/[[:space:]][0-9]{4}[[:space:]]*$//')"
+            title="$(printf '%s' "$title" | sed -E 's/[ -._]+$//')"
+        fi
+    fi
+
+    title="$(clean_name "$title")"
+    [[ -z "$title" ]] && title="$stem"
+    sort_title="$(printf '%s' "$title" | tr '[:upper:]' '[:lower:]')"
+
+    FILM_TITLE="$title"
+    FILM_YEAR="$year"
+    FILM_SORT_TITLE="$sort_title"
+}
+
+parse_episode() {
+    local filename="$1"
+    local season="" episode="" title sort_key season_ep
+
+    season_ep="$(printf '%s' "$filename" | grep -oiE 'S[0-9]{1,2}E[0-9]{1,3}' | head -1 || true)"
+    if [[ -n "$season_ep" ]]; then
+        season="$(printf '%s' "$season_ep" | sed -E 's/^S([0-9]+)E.*/\1/i')"
+        episode="$(printf '%s' "$season_ep" | sed -E 's/^S[0-9]+E([0-9]+)$/\1/i')"
+        title="$(printf '%s' "$filename" | sed -E 's/.*S[0-9]{1,2}E[0-9]{1,3}//i' | sed -E 's/^[ -._]+//')"
+    else
+        title="$filename"
+    fi
+
+    title="$(display_title "$title")"
+    [[ -z "$title" ]] && title="$(display_title "$filename")"
+    [[ -z "$title" ]] && title="$filename"
+
+    if [[ -n "$season" && -n "$episode" ]]; then
+        sort_key="$(printf '%02d-%04d-%s' "$season" "$episode" "$(printf '%s' "$title" | tr '[:upper:]' '[:lower:]')")"
+    else
+        sort_key="$(printf '%s' "$title" | tr '[:upper:]' '[:lower:]')"
+    fi
+
+    EP_SEASON="$season"
+    EP_EPISODE="$episode"
+    EP_TITLE="$title"
+    EP_SORT_KEY="$sort_key"
+}
+
+json_or_empty() {
+    local raw="${1:-}"
+    if [[ -z "$raw" ]]; then
+        printf '%s\n' '[]'
+    else
+        printf '%s\n' "$raw"
+    fi
+}
+
+show_name_from_dir() {
+    local show_dir="$1"
+    local name
+    name="$(clean_name "$(basename "$show_dir")")"
+    [[ -z "$name" ]] && name="$(basename "$show_dir")"
+    printf '%s\n' "$name"
+}
+
+media_settings_json() {
+    if [[ -f "$MEDIA_SETTINGS_FILE" ]]; then
+        jq -c '.' "$MEDIA_SETTINGS_FILE" 2>/dev/null || echo '{}'
+    else
+        echo '{}'
+    fi
+}
+
+merge_media_field() {
+    local expr="$1"
+    shift
+    mkdir -p "$EVOSHELL_CONFIG"
+    local current merged
+    current="$(media_settings_json)"
+    merged="$(jq -c "$expr" "$@" <<<"$current")"
+    printf '%s\n' "$merged" >"$MEDIA_SETTINGS_FILE"
+}
+
+tv_root() {
+    if [[ -n "${EVO_MEDIA_TV:-}" ]]; then
+        printf '%s' "$EVO_MEDIA_TV"
+        return 0
+    fi
+    local root
+    root="$(jq -r '.tvRoot // empty' <<<"$(media_settings_json)")"
+    if [[ -n "$root" ]]; then
+        printf '%s' "$root"
+    else
+        printf '%s' "$TV_ROOT_DEFAULT"
+    fi
+}
+
+films_root() {
+    if [[ -n "${EVO_MEDIA_FILMS:-}" ]]; then
+        printf '%s' "$EVO_MEDIA_FILMS"
+        return 0
+    fi
+    local root
+    root="$(jq -r '.filmsRoot // empty' <<<"$(media_settings_json)")"
+    if [[ -n "$root" ]]; then
+        printf '%s' "$root"
+    else
+        printf '%s' "$FILMS_ROOT_DEFAULT"
+    fi
+}
+
+media_roots() {
+    TV_ROOT="$(tv_root)"
+    FILMS_ROOT="$(films_root)"
+}
+
+list_tv_show_names() {
+    media_roots
+    [[ -d "$TV_ROOT" ]] || return 0
+    local show_dir
+    for show_dir in "$TV_ROOT"/*; do
+        [[ -d "$show_dir" ]] || continue
+        show_name_from_dir "$show_dir"
+    done | LC_ALL=C sort -u
+}
+
+read_enabled_show_names() {
+    [[ -f "$MEDIA_SETTINGS_FILE" ]] || return 0
+    jq -r '.enabledShows[]? // empty' "$MEDIA_SETTINGS_FILE" 2>/dev/null
+}
+
+uses_show_whitelist() {
+    [[ -f "$MEDIA_SETTINGS_FILE" ]] && jq -e 'has("enabledShows")' "$MEDIA_SETTINGS_FILE" >/dev/null 2>&1
+}
+
+show_is_enabled() {
+    local target="$1"
+    if ! uses_show_whitelist; then
+        return 0
+    fi
+    local name
+    while IFS= read -r name; do
+        [[ -n "$name" && "$name" == "$target" ]] && return 0
+    done < <(read_enabled_show_names)
+    return 1
+}
+
+write_enabled_show_names() {
+    mkdir -p "$STATE_DIR"
+    if (($# == 0)); then
+        jq -n '{enabledShows: []}' >"$MEDIA_SETTINGS_FILE"
+        return 0
+    fi
+    jq -n --argjson enabled "$(printf '%s\n' "$@" | jq -R . | jq -s 'sort')" \
+        '{enabledShows: $enabled}' >"$MEDIA_SETTINGS_FILE"
+}
+
+clear_media_show_settings() {
+    rm -f "$MEDIA_SETTINGS_FILE"
+}
+
+POPUP_ROW_LIMIT=4
+
+record_play() {
+    local kind="$1"
+    local path="$2"
+    local now plays
+    [[ "$kind" == "film" || "$kind" == "episode" ]] || return 0
+    [[ -n "$path" ]] || return 0
+    now="$(date +%s)"
+    plays="$(plays_read)"
+    plays="$(
+        jq -c --arg kind "$kind" --arg path "$path" --argjson now "$now" '
+            .[$kind][$path] = {
+                play_count: ((.[$kind][$path].play_count // 0) + 1),
+                last_played_at: $now
+            }
+        ' <<<"$plays"
+    )"
+    plays_write "$plays"
+}
+
+cmd_settings_get() {
+    media_roots
+    jq -n \
+        --arg tvRoot "$TV_ROOT" \
+        --arg filmsRoot "$FILMS_ROOT" \
+        '{ok: true, tvRoot: $tvRoot, filmsRoot: $filmsRoot}'
+}
+
+cmd_settings_set_path() {
+    local kind="${1:-}" path="${2:-}"
+    path="${path%/}"
+    local field
+    case "$kind" in
+    tv) field="tvRoot" ;;
+    films) field="filmsRoot" ;;
+    *)
+        echo '{"ok":false,"error":"invalid kind"}' >&2
+        return 1
+        ;;
+    esac
+    if [[ -z "$path" ]]; then
+        merge_media_field "del(.${field})"
+        cmd_settings_get
+        return 0
+    fi
+    [[ -d "$path" ]] || {
+        echo '{"ok":false,"error":"directory not found"}' >&2
+        return 1
+    }
+    merge_media_field ".${field} = \$path" --arg path "$path"
+    cmd_scan >/dev/null 2>&1 &
+    cmd_settings_get
+}
+
+cmd_settings_pick() {
+    local kind="${1:-tv}"
+    local start_dir selected title
+    case "$kind" in
+    tv)
+        start_dir="$(tv_root)"
+        title="Select TV folder"
+        ;;
+    films)
+        start_dir="$(films_root)"
+        title="Select films folder"
+        ;;
+    *)
+        echo '{"ok":false,"error":"invalid kind"}' >&2
+        return 1
+        ;;
+    esac
+    if [[ -z "$start_dir" || ! -d "$start_dir" ]]; then
+        start_dir="$HOME"
+    fi
+    selected="$(
+        zenity --file-selection --directory --title="$title" --filename="${start_dir}/" 2>/dev/null || true
+    )"
+    [[ -n "$selected" ]] || {
+        cmd_settings_get
+        return 0
+    }
+    cmd_settings_set_path "$kind" "$selected"
+}
+
+cmd_settings_set_shows() {
+    local json="${1:-}"
+    [[ -n "$json" ]] || json="$(cat)"
+    jq -e 'type == "array"' <<<"$json" >/dev/null 2>&1 || usage
+
+    local -a all=()
+    local all_json selected_json
+    mapfile -t all < <(list_tv_show_names)
+    all_json="$(printf '%s\n' "${all[@]}" | jq -R -s 'split("\n") | map(select(length > 0)) | sort')"
+    selected_json="$(jq -c 'sort' <<<"$json")"
+
+    if [[ "$all_json" == "$selected_json" ]]; then
+        merge_media_field 'del(.enabledShows)'
+    else
+        merge_media_field '.enabledShows = $enabled' --argjson enabled "$selected_json"
+    fi
+
+    cmd_settings_get
+}
+
+cmd_settings_toggle() {
+    local target="${1:-}"
+    [[ -n "$target" ]] || usage
+
+    local -a all=() enabled=() next=()
+    local found=false name all_json next_json
+
+    mapfile -t all < <(list_tv_show_names)
+    if uses_show_whitelist; then
+        mapfile -t enabled < <(read_enabled_show_names)
+    else
+        enabled=("${all[@]}")
+    fi
+
+    for name in "${enabled[@]}"; do
+        if [[ "$name" == "$target" ]]; then
+            found=true
+            continue
+        fi
+        next+=("$name")
+    done
+    if [[ "$found" == false ]]; then
+        next+=("$target")
+    fi
+
+    all_json="$(printf '%s\n' "${all[@]}" | jq -R -s 'split("\n") | map(select(length > 0)) | sort')"
+    next_json="$(printf '%s\n' "${next[@]}" | jq -R -s 'split("\n") | map(select(length > 0)) | sort')"
+
+    if [[ "$all_json" == "$next_json" ]]; then
+        merge_media_field 'del(.enabledShows)'
+    else
+        merge_media_field '.enabledShows = $enabled' --argjson enabled "$next_json"
+    fi
+
+    cmd_settings_get
+}
+
+find_video_files() {
+    local dir="$1"
+    local -a find_args=("$dir" -type f '(')
+    local ext first=true
+    for ext in $VIDEO_EXTS; do
+        if $first; then
+            first=false
+        else
+            find_args+=(-o)
+        fi
+        find_args+=(-iname "*.${ext}")
+    done
+    find_args+=(')')
+    find "${find_args[@]}" 2>/dev/null | LC_ALL=C sort
+}
+
+cmd_scan() {
+    init_index
+    media_roots
+    local tmpdir films_jsonl shows_jsonl path show_dir show_name resolved
+    local film_count=0 show_count=0 episode_count=0 film_id=0 show_id=0 episode_id=0
+    local eps_jsonl show_obj films shows index
+
+    tmpdir="$(mktemp -d "${TMPDIR:-/tmp}/evo-media-scan.XXXXXX")"
+    films_jsonl="${tmpdir}/films.jsonl"
+    shows_jsonl="${tmpdir}/shows.jsonl"
+    : >"$films_jsonl"
+    : >"$shows_jsonl"
+
+    if [[ -d "$FILMS_ROOT" ]]; then
+        while IFS= read -r path; do
+            [[ -n "$path" ]] || continue
+            parse_film "$path"
+            resolved="$(realpath "$path")"
+            film_id=$((film_id + 1))
+            jq -nc \
+                --argjson id "$film_id" \
+                --arg path "$resolved" \
+                --arg title "$FILM_TITLE" \
+                --arg year "$FILM_YEAR" \
+                --arg sort_title "$FILM_SORT_TITLE" \
+                '{
+                    id: $id,
+                    path: $path,
+                    title: $title,
+                    year: (if $year == "" then null else ($year | tonumber) end),
+                    sort_title: $sort_title,
+                    poster_path: null
+                }' >>"$films_jsonl"
+            film_count=$((film_count + 1))
+        done < <(
+            for path in "$FILMS_ROOT"/*; do
+                [[ -f "$path" ]] && is_video "$path" && printf '%s\n' "$path"
+            done | LC_ALL=C sort
+        )
+    fi
+
+    if [[ -d "$TV_ROOT" ]]; then
+        while IFS= read -r show_dir; do
+            [[ -n "$show_dir" ]] || continue
+            show_name="$(clean_name "$(basename "$show_dir")")"
+            [[ -z "$show_name" ]] && show_name="$(basename "$show_dir")"
+            resolved="$(realpath "$show_dir")"
+            show_id=$((show_id + 1))
+            eps_jsonl="${tmpdir}/eps.${show_id}.jsonl"
+            : >"$eps_jsonl"
+            while IFS= read -r path; do
+                [[ -n "$path" ]] || continue
+                parse_episode "$(basename "$path")" "$show_name"
+                episode_id=$((episode_id + 1))
+                jq -nc \
+                    --argjson id "$episode_id" \
+                    --arg path "$(realpath "$path")" \
+                    --arg season "$EP_SEASON" \
+                    --arg episode "$EP_EPISODE" \
+                    --arg title "$EP_TITLE" \
+                    --arg sort_key "$EP_SORT_KEY" \
+                    '{
+                        id: $id,
+                        path: $path,
+                        season: (if $season == "" then null else ($season | tonumber) end),
+                        episode: (if $episode == "" then null else ($episode | tonumber) end),
+                        title: $title,
+                        sort_key: $sort_key,
+                        poster_path: null
+                    }' >>"$eps_jsonl"
+                episode_count=$((episode_count + 1))
+            done < <(find_video_files "$show_dir")
+            if [[ -s "$eps_jsonl" ]]; then
+                show_obj="$(
+                    jq -nc \
+                        --argjson id "$show_id" \
+                        --arg name "$show_name" \
+                        --arg folder_path "$resolved" \
+                        --slurpfile episodes "$eps_jsonl" \
+                        '{
+                            id: $id,
+                            name: $name,
+                            folder_path: $folder_path,
+                            poster_path: null,
+                            episodes: $episodes
+                        }'
+                )"
+            else
+                show_obj="$(
+                    jq -nc \
+                        --argjson id "$show_id" \
+                        --arg name "$show_name" \
+                        --arg folder_path "$resolved" \
+                        '{
+                            id: $id,
+                            name: $name,
+                            folder_path: $folder_path,
+                            poster_path: null,
+                            episodes: []
+                        }'
+                )"
+            fi
+            printf '%s\n' "$show_obj" >>"$shows_jsonl"
+            show_count=$((show_count + 1))
+        done < <(
+            for show_dir in "$TV_ROOT"/*; do
+                [[ -d "$show_dir" ]] && printf '%s\n' "$show_dir"
+            done | LC_ALL=C sort
+        )
+    fi
+
+    if [[ -s "$films_jsonl" ]]; then
+        films="$(jq -s '.' "$films_jsonl")"
+    else
+        films='[]'
+    fi
+    if [[ -s "$shows_jsonl" ]]; then
+        shows="$(jq -s '.' "$shows_jsonl")"
+    else
+        shows='[]'
+    fi
+    index="$(jq -nc --argjson films "$films" --argjson shows "$shows" '{films:$films, shows:$shows}')"
+    index_write "$index"
+    rm -rf "$tmpdir"
+
+    jq -n \
+        --argjson films "$film_count" \
+        --argjson shows "$show_count" \
+        --argjson episodes "$episode_count" \
+        '{ok: true, films: $films, shows: $shows, episodes: $episodes}'
+}
+
+cmd_status() {
+    init_index
+    if [[ ! -f "$INDEX_PATH" ]]; then
+        jq -n '{ok: true, exists: false, films: 0, shows: 0, episodes: 0}'
+        return 0
+    fi
+    jq -c '
+        {
+            ok: true,
+            exists: true,
+            films: ((.films // []) | length),
+            shows: ((.shows // []) | length),
+            episodes: (([.shows[]? | (.episodes // [])[]] ) | length)
+        }
+    ' <<<"$(index_read)"
+}
+
+cmd_list_films() {
+    init_index
+    jq -c '
+        [.films[]? | {id, title, year, poster_path, path, sort_title}]
+        | sort_by(.sort_title // "" | ascii_downcase)
+        | map(del(.sort_title))
+    ' <<<"$(index_read)"
+}
+
+cmd_list_shows() {
+    init_index
+    jq -c '
+        [.shows[]? | {id, name, poster_path}]
+        | sort_by(.name // "" | ascii_downcase)
+    ' <<<"$(index_read)"
+}
+
+cmd_list_catalog() {
+    init_index
+    local films shows
+    films="$(cmd_list_films)"
+    shows="$(cmd_list_shows)"
+    jq -nc --argjson films "$films" --argjson shows "$shows" '{films: $films, shows: $shows}'
+}
+
+cmd_popup_preview() {
+    init_index
+    local limit="$POPUP_ROW_LIMIT"
+    [[ -f "$INDEX_PATH" ]] || index_write "$(index_empty)"
+    [[ -f "$PLAYS_PATH" ]] || plays_write "$(plays_empty)"
+    jq -nc --argjson limit "$limit" --slurpfile lib "$INDEX_PATH" --slurpfile plays "$PLAYS_PATH" '
+        def library: $lib[0] // {films:[], shows:[]};
+        def counts: $plays[0] // {film:{}, episode:{}};
+        def film_rows:
+            [(library.films // [])[] | {
+                id, poster_path,
+                name: .title,
+                play_count: ((counts.film[.path].play_count) // 0),
+                last_played_at: ((counts.film[.path].last_played_at) // 0),
+                sort_title: (.sort_title // .title // "")
+            }];
+        def show_rows:
+            [(library.shows // [])[] | . as $s | {
+                id: $s.id,
+                name: $s.name,
+                poster_path: $s.poster_path,
+                play_count: ([($s.episodes // [])[] | ((counts.episode[.path].play_count) // 0)] | add // 0),
+                last_played_at: (
+                    [($s.episodes // [])[] | ((counts.episode[.path].last_played_at) // 0)]
+                    | if length == 0 then 0 else max end
+                )
+            }];
+        def pick($rows; $played):
+            if ($played | length) > 0 then
+                $played | sort_by([-.play_count, -.last_played_at, (.name // "" | ascii_downcase)]) | .[:$limit]
+            else
+                $rows | sort_by((.sort_title // .name // "") | ascii_downcase) | .[:$limit]
+                | map({id, name, poster_path, play_count: 0})
+            end;
+        (film_rows) as $films
+        | (show_rows) as $shows
+        | {
+            films: pick($films; [$films[] | select(.play_count > 0)]),
+            shows: pick($shows; [$shows[] | select(.play_count > 0)])
+          }
+        | .films |= map({id, name, poster_path, play_count})
+        | .shows |= map({id, name, poster_path, play_count})
+    '
+}
+
+cmd_list_episodes() {
+    local show_query="$1"
+    init_index
+    jq -c --arg q "$show_query" '
+        def pad2: tostring | if length < 2 then "0" + . else . end;
+        def ep_label:
+            if (.season != null and .episode != null) then
+                "S" + (.season | pad2) + "E" + (.episode | pad2) + " · " + (.title // "")
+            else (.title // "") end;
+        (.shows // []) as $shows
+        | ($shows | map(select((.name // "") | ascii_downcase == ($q | ascii_downcase))) | .[0]) as $show
+        | if $show == null then
+            {ok: false, error: "show not found", show: $q, episodes: []}
+          else
+            {
+                ok: true,
+                show: $show.name,
+                showId: $show.id,
+                episodes: (
+                    ($show.episodes // [])
+                    | sort_by(.sort_key // "" | ascii_downcase)
+                    | map({id, season, episode, title, path, poster_path: (.poster_path // ""), label: ep_label})
+                )
+            }
+          end
+    ' <<<"$(index_read)"
+}
+
+play_mpv() {
+    local path="$1"
+    local mode="${2:-fullscreen}"
+    local -a args=(--force-window=immediate --really-quiet)
+
+    if [[ "$mode" == "floating" ]]; then
+        args+=(--wayland-app-id=floating-window)
+    else
+        args+=(--fullscreen)
+    fi
+
+    nohup mpv "${args[@]}" -- "$path" >/dev/null 2>&1 &
+    disown
+}
+
+cmd_play() {
+    local kind="$1"
+    local entry_id="$2"
+    local path
+
+    if ! [[ "$entry_id" =~ ^[0-9]+$ ]]; then
+        jq -n '{ok: false, error: "invalid id"}'
+        return 0
+    fi
+
+    init_index
+
+    if [[ "$kind" == "film" ]]; then
+        path="$(jq -r --argjson id "$entry_id" '[.films[]? | select(.id == $id) | .path] | .[0] // empty' <<<"$(index_read)")"
+    elif [[ "$kind" == "episode" ]]; then
+        path="$(jq -r --argjson id "$entry_id" '[.shows[]? | (.episodes // [])[] | select(.id == $id) | .path] | .[0] // empty' <<<"$(index_read)")"
+    else
+        jq -n '{ok: false, error: "invalid kind"}'
+        return 0
+    fi
+
+    if [[ -z "$path" ]]; then
+        jq -n '{ok: false, error: "not found"}'
+        return 0
+    fi
+
+    if [[ ! -f "$path" ]]; then
+        jq -n --arg path "$path" '{ok: false, error: "file missing", path: $path}'
+        return 0
+    fi
+
+    record_play "$kind" "$path"
+
+    if [[ "$kind" == "film" ]]; then
+        play_mpv "$path" floating
+    else
+        play_mpv "$path"
+    fi
+    jq -n --arg path "$path" '{ok: true, path: $path}'
+}
+
+cmd="${1:-}"
+case "$cmd" in
+scan)
+    cmd_scan
+    ;;
+status)
+    cmd_status
+    ;;
+list)
+    sub="${2:-}"
+    case "$sub" in
+    films)
+        cmd_list_films
+        ;;
+    shows)
+        cmd_list_shows
+        ;;
+    catalog)
+        cmd_list_catalog
+        ;;
+    episodes)
+        show="${3:-}"
+        [[ -n "$show" ]] || usage
+        cmd_list_episodes "$show"
+        ;;
+    *)
+        usage
+        ;;
+    esac
+    ;;
+popup)
+    sub="${2:-}"
+    case "$sub" in
+    preview)
+        cmd_popup_preview
+        ;;
+    *)
+        usage
+        ;;
+    esac
+    ;;
+play)
+    kind="${2:-}"
+    entry_id="${3:-}"
+    [[ "$kind" == "film" || "$kind" == "episode" ]] || usage
+    [[ "$entry_id" =~ ^[0-9]+$ ]] || usage
+    cmd_play "$kind" "$entry_id"
+    ;;
+settings)
+    sub="${2:-}"
+    case "$sub" in
+    get)
+        cmd_settings_get
+        ;;
+    set)
+        kind="${3:-}"
+        path="${4:-}"
+        case "$kind" in
+        tv|films)
+            [[ -n "$path" ]] || path="$(cat)"
+            cmd_settings_set_path "$kind" "$path"
+            ;;
+        *)
+            usage
+            ;;
+        esac
+        ;;
+    pick)
+        kind="${3:-tv}"
+        cmd_settings_pick "$kind"
+        ;;
+    *)
+        usage
+        ;;
+    esac
+    ;;
+*)
+    usage
+    ;;
+esac

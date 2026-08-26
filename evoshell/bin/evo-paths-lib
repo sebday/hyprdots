@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Shared EVOSHELL path defaults for bash scripts.
+
+_evo_paths_lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+EVOSHELL_LIB="${EVOSHELL_LIB:-${HOME}/.local/lib/evoshell/bin}"
+EVOPLAYER_LIB="${EVOPLAYER_LIB:-${HOME}/.local/lib/evoplayer}"
+EVOSHELL_BIN="${EVOSHELL_BIN:-${_evo_paths_lib_dir}}"
+EVOSHELL_ROOT="${EVOSHELL_ROOT:-$HOME/projects/evoshell}"
+EVOSHELL_CONFIG="${EVOSHELL_CONFIG:-${XDG_CONFIG_HOME:-${HOME}/.config}/evoshell}"
+EVOSHELL_STATE="${EVOSHELL_STATE:-${XDG_STATE_HOME:-${HOME}/.local/state}/evoshell}"
+EVOSHELL_CACHE="${EVOSHELL_CACHE:-${XDG_CACHE_HOME:-${HOME}/.cache}/evoshell}"
+
+evoshell_script() {
+    printf '%s/%s' "${EVOSHELL_BIN%/}" "$1"
+}
+
+evoshell_notify() {
+    "$(evoshell_script evo-notification-send)" "$@"
+}

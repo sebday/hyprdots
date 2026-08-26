@@ -1,0 +1,20 @@
+[Unit]
+Description=evoshell quickshell desktop shell
+After=pipewire-pulse.service
+# quickshell needs a live Wayland compositor; evo system start waits for hyprland.
+
+[Service]
+Type=simple
+EnvironmentFile=-%h/.config/evoshell/environment
+ExecStart=%h/.local/bin/evo system start
+Environment=QS_NO_RELOAD_POPUP=1
+OOMScoreAdjust=-300
+KillMode=process
+KillSignal=SIGTERM
+TimeoutStopSec=5
+TimeoutStartSec=120
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

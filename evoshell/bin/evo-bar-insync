@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# Insync status for evoshell hover popup (evo.panels.insync).
+
+set -euo pipefail
+
+INSYNC_BIN="${INSYNC_BIN:-insync}"
+_script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "${_script_dir}/evo-storage-lib"
+# shellcheck source=evo-bar-insync-lib
+source "${_script_dir}/evo-bar-insync-lib"
+
+insync_available() {
+    command -v "$INSYNC_BIN" >/dev/null 2>&1
+}
+
+parse_bytes() {
+    local raw="${1:-0}"
+    raw="$(tr '[:upper:]' '[:lower:]' <<<"$raw")"
+    if [[ "$raw" =~ ^([0-9]+(\.[0-9]+)?)[[:space:]]*(b|kb|mb|gb)$ ]]; then
+        local n="${BASH_REMATCH[1]}"
+        local unit="${BASH_REMATCH[3]}"
+        awk -v n="$n" -v u="$unit" 'BEGIN {
+            if (u == "b") printf "%.0f", n
+            else if (u == "kb") printf "%.0f", n * 1024
+            else if (u == "mb") printf "%.0f", n * 1048576
+            else if (u == "gb") printf "%.0f", n * 1073741824
+            else printf "%.0f", n
+        }'
+        return
+    fi
+    printf '%s' "${raw//[^0-9.]}"
+}
+
+cmd_popup() {
+    if ! insync_available; then
+        mkdir -p "$(dirname "$INSYNC_ACCOUNTS_JSON")"
+        jq -n '{ok:false,error:"insync not found",status:"",paused:false,accounts:[],files:[],errors:[]}' | tee "$INSYNC_ACCOUNTS_JSON"
+        return
+    fi
+
+    local status_text errors_text
+    status_text="$("$INSYNC_BIN" status 2>&1 || true)"
+    errors_text="$("$INSYNC_BIN" error list 2>&1 || true)"
+
+    insync_parse_popup "$status_text" "$errors_text"
+}
+
+cmd_account_cache() {
+    [[ -f "$INSYNC_ACCOUNTS_JSON" ]] || return 1
+    cat "$INSYNC_ACCOUNTS_JSON"
+}
+
+cmd_pause() {
+    insync_available || return 1
+    "$INSYNC_BIN" pause
+}
+
+cmd_resume() {
+    insync_available || return 1
+    "$INSYNC_BIN" resume
+}
+
+case "${1:-}" in
+popup)
+    cmd_popup
+    ;;
+account-cache)
+    cmd_account_cache
+    ;;
+pause)
+    cmd_pause
+    ;;
+resume)
+    cmd_resume
+    ;;
+*)
+    echo "usage: $0 popup|account-cache|pause|resume" >&2
+    exit 1
+    ;;
+esac

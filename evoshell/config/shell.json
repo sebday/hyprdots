@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "idle": {
+    "lock": 900
+  },
+  "notifications": {
+    "position": "top"
+  },
+  "bar": {
+    "id": "evo.bar",
+    "position": "bottom",
+    "trayWidgetOrder": [
+      "volume",
+      "media",
+      "workspaces",
+      "weather",
+      "homeAssistant",
+      "github",
+      "notifications",
+      "stocks",
+      "cursor",
+      "cloudflare",
+      "network"
+    ],
+    "layout": {
+      "left": [
+        {
+          "id": "evo.panels.system",
+          "interval": 5,
+          "onHover": "evo.panels.system"
+        }
+      ],
+      "center": [
+        {
+          "id": "evo.bar.tray",
+          "workspaces": {
+            "onHover": "evo.panels.workspaces"
+          },
+          "weather": {
+            "onHover": "evo.panels.weather"
+          },
+          "cursor": {
+            "onHover": "evo.panels.cursor"
+          },
+          "github": {
+            "onHover": "evo.panels.github"
+          },
+          "notifications": {
+            "onHover": "evo.panels.notifications"
+          },
+          "stocks": {
+            "onHover": "evo.panels.stocks"
+          },
+          "cloudflare": {
+            "onHover": "evo.panels.cloudflare",
+            "analyticsIntervalSec": 900
+          },
+          "audio": {
+            "onHover": "evo.panels.media.volume",
+            "mediaOnHover": "evo.panels.media.now-playing"
+          },
+          "network": {
+            "transmissionInterval": 3,
+            "onHover": "evo.panels.network.stats",
+            "iconOnly": true
+          },
+          "homeAssistant": {
+            "onHover": "evo.panels.homeassistant"
+          }
+        }
+      ],
+      "right": [
+        {
+          "id": "evo.bar.clock",
+          "format": "%a %d %H:%M"
+        }
+      ]
+    }
+  },
+  "panel": {
+    "side": "left"
+  },
+  "dashboards": {
+    "openOnStart": []
+  }
+}

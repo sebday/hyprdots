@@ -1,0 +1,293 @@
+#!/usr/bin/env bash
+# Shared evoshell config merge + overrides helpers.
+
+_evo_config_lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "${_evo_config_lib_dir}/evo-storage-lib"
+
+SHELL_JSON="${EVOSHELL_ROOT}/config/shell.json"
+OVERRIDES_JSON="${EVOSHELL_CONFIG}/overrides.json"
+PLUGIN_OVERLAY_JSON="${EVOSHELL_CONFIG}/plugins/manifest.json"
+SHELL_IPC="${EVOSHELL_BIN}/_ipc"
+
+overlay_tray_widgets_json() {
+    if [[ ! -f "$PLUGIN_OVERLAY_JSON" ]]; then
+        printf '{}'
+        return
+    fi
+    jq -c '.trayWidgets // {}' "$PLUGIN_OVERLAY_JSON" 2>/dev/null || printf '{}'
+}
+
+tray_widget_names() {
+    local names=(volume media weather github cursor stocks cloudflare homeAssistant network notifications)
+    local overlay widget
+    while IFS= read -r widget; do
+        [[ -n "$widget" ]] || continue
+        names+=("$widget")
+    done < <(overlay_tray_widgets_json | jq -r 'keys[]?' 2>/dev/null || true)
+    printf '%s\n' "${names[@]}"
+}
+
+ensure_overrides() {
+    mkdir -p "$EVOSHELL_CONFIG"
+    if [[ ! -f "$OVERRIDES_JSON" ]]; then
+        echo '{"version":1}' >"$OVERRIDES_JSON"
+    fi
+}
+
+merged_config() {
+    ensure_overrides
+    jq -n --slurpfile base "$SHELL_JSON" --slurpfile over "$OVERRIDES_JSON" '
+        def is_plain_object(x):
+            (x | type) == "object";
+        def deepmerge(a; b):
+            if (is_plain_object(a) | not) then
+                if b == null then a else b end
+            elif (is_plain_object(b) | not) then
+                a
+            else
+                reduce (a | keys_unsorted[]) as $k ({}; . + {($k): a[$k]})
+                | reduce (b | keys_unsorted[]) as $k (.;
+                    (.[$k]) as $left
+                    | if is_plain_object($left) and is_plain_object(b[$k])
+                        and (($left | type) != "array") and ((b[$k] | type) != "array") then
+                        .[$k] = deepmerge($left; b[$k])
+                    else
+                        .[$k] = b[$k]
+                    end)
+            end;
+        deepmerge($base[0]; $over[0])
+    '
+}
+
+patch_overrides() {
+    local jq_filter="$1"
+    shift
+    ensure_overrides
+    local tmp
+    tmp="$(mktemp)"
+    jq "$jq_filter" "$@" "$OVERRIDES_JSON" >"$tmp"
+    mv "$tmp" "$OVERRIDES_JSON"
+}
+
+reload_shell_config() {
+    "$SHELL_IPC" shell reloadConfig >/dev/null
+}
+
+patch_overrides_reload() {
+    patch_overrides "$@"
+    reload_shell_config
+}
+
+homeassistant_config() {
+    merged_config | jq -c '.homeAssistant // {}'
+}
+
+patch_homeassistant() {
+    local ha_json="$1"
+    patch_overrides_reload --argjson ha "$ha_json" '.homeAssistant = $ha'
+}
+
+wallpaper_personal_dir() {
+    merged_config | jq -r '.wallpaper.personalDir // ""'
+}
+
+patch_wallpaper_personal_dir() {
+    local dir="$1"
+    patch_overrides_reload --arg dir "$dir" '.wallpaper = (.wallpaper // {}) | .wallpaper.personalDir = $dir'
+}
+
+tray_entry_merged() {
+    merged_config | jq -c '
+        (.bar.layout as $l
+        | ($l.center // []) + ($l.left // []) + ($l.right // [])
+        | map(select(.id == "evo.bar.tray"))
+        | if length > 0 then .[0] else {} end)
+    '
+}
+
+tray_widget_settings_json() {
+    local widget="$1"
+    merged_config | jq -c --arg w "$widget" --argjson overlay_tray "$(overlay_tray_widgets_json)" '
+        def tray_entry:
+            (.bar.layout as $l
+            | ($l.center // []) + ($l.left // []) + ($l.right // [])
+            | map(select(.id == "evo.bar.tray"))
+            | if length > 0 then .[0] else {} end);
+        def audio_over: .bar.trayWidgets.audio // null;
+        def widget_over($name):
+            if (.bar.trayWidgets | has($name)) then .bar.trayWidgets[$name] else null end;
+        def widget_enabled($name; $base):
+            (widget_over($name)) as $over
+            | (audio_over) as $audioOver
+            | if $over == false or $audioOver == false then {enabled: false}
+              elif ($over | type) == "object" then ($over + {enabled: true})
+              elif $base == false then {enabled: false}
+              elif ($base | type) == "object" then ($base + {enabled: true})
+              else {enabled: true} end;
+        (tray_entry) as $entry
+        | if $w == "volume" or $w == "media" then
+            widget_enabled($w; ($entry.audio // null))
+          else
+            (widget_over($w)) as $over
+            | ($entry[$w] // null) as $base
+            | if $over == false then {enabled: false}
+              elif ($over | type) == "object" then ($over + {enabled: true})
+              elif ($w == "github" or $w == "stocks" or $w == "cloudflare" or $w == "homeAssistant" or ($overlay_tray | has($w))) then
+                if $base == false then {enabled: false}
+                elif ($base | type) == "object" then ($base + {enabled: true})
+                else {enabled: false} end
+              elif $base == false then {enabled: false}
+              elif ($base | type) == "object" then ($base + {enabled: true})
+              else {enabled: true} end
+          end
+    '
+}
+
+patch_tray_widget_enabled() {
+    local widget="$1"
+    local enabled="$2"
+    if [[ "$enabled" == "true" ]]; then
+        patch_overrides_reload --arg w "$widget" '
+            .bar.trayWidgets //= {}
+            | if (.bar.trayWidgets[$w] | type) == "object" then .
+              else .bar.trayWidgets[$w] = {} end
+        '
+    else
+        patch_overrides_reload --arg w "$widget" '
+            .bar.trayWidgets //= {}
+            | .bar.trayWidgets[$w] = false
+        '
+    fi
+}
+
+patch_tray_widget_interval() {
+    local widget="$1"
+    local interval="$2"
+    patch_overrides_reload --arg w "$widget" --argjson interval "$interval" '
+        .bar.trayWidgets //= {}
+        | .bar.trayWidgets[$w] = (
+            (.bar.trayWidgets[$w] // {})
+            | if type == "object" then . + {interval: $interval}
+              else {interval: $interval} end
+        )
+    '
+}
+
+tray_widget_resolved_order_json() {
+    merged_config | jq -c --argjson overlay "$(overlay_tray_widgets_json)" '
+        def normalize($id):
+            if $id == "audio" then "volume" else $id end;
+        def builtin:
+            ["volume","media","workspaces","weather","homeAssistant","github","notifications","stocks","cursor","cloudflare","network"]
+            + ($overlay | keys | map(select(. as $w |
+                ["volume","media","workspaces","weather","homeAssistant","github","notifications","stocks","cursor","cloudflare","network"]
+                | index($w) | not)));
+        def source:
+            if (.bar.barWidgetOrder | type) == "array" and (.bar.barWidgetOrder | length) > 0 then
+                .bar.barWidgetOrder
+            elif (.bar.trayWidgetOrder | type) == "array" and (.bar.trayWidgetOrder | length) > 0 then
+                .bar.trayWidgetOrder
+            else
+                builtin
+            end;
+        source as $custom
+        | [ $custom[] | normalize(.) | select(. as $w | (builtin | index($w)) != null) ] as $picked
+        | $picked + [ builtin[] | select(. as $w | ($picked | index($w)) == null) ]
+    '
+}
+
+patch_tray_widget_field() {
+    local widget="$1"
+    local field="$2"
+    local value="$3"
+    patch_overrides_reload --arg w "$widget" --arg field "$field" --arg value "$value" '
+        .bar.trayWidgets //= {}
+        | .bar.trayWidgets[$w] = (
+            (.bar.trayWidgets[$w] // {})
+            | if type == "object" then . + {($field): $value}
+              else {($field): $value} end
+        )
+    '
+}
+
+bar_chrome_widget_ids_json() {
+    printf '%s' '["workspaces"]'
+}
+
+bar_chrome_resolved_order_json() {
+    local widget_order chrome_ids
+    widget_order="$(bar_widget_resolved_order_json)"
+    chrome_ids="$(bar_chrome_widget_ids_json)"
+    jq -nc --argjson order "$widget_order" --argjson chrome "$chrome_ids" \
+        '[ $order[] | select(. as $w | ($chrome | index($w)) != null) ]'
+}
+
+bar_widget_resolved_order_json() {
+    tray_widget_resolved_order_json
+}
+
+patch_bar_widget_order() {
+    local order_json="$1"
+    local chrome_order
+    chrome_order="$(jq -c '[.[] | select(. == "workspaces")]' <<<"$order_json")"
+    patch_overrides_reload \
+        --argjson order "$order_json" \
+        --argjson chrome "$chrome_order" '
+        .bar //= {}
+        | .bar.barWidgetOrder = $order
+        | .bar.trayWidgetOrder = $order
+        | .bar.barChromeOrder = $chrome
+    '
+}
+
+patch_tray_widget_order() {
+    local order_json="$1"
+    if jq -e 'index("workspaces") != null' <<<"$order_json" >/dev/null 2>&1; then
+        patch_bar_widget_order "$order_json"
+        return
+    fi
+    patch_overrides_reload --argjson order "$order_json" '
+        .bar //= {}
+        | .bar.trayWidgetOrder = $order
+    '
+}
+
+bar_chrome_widget_names() {
+    printf '%s\n' workspaces
+}
+
+bar_chrome_widget_settings_json() {
+    local widget="$1"
+    merged_config | jq -c --arg w "$widget" '
+        (.bar.barWidgets[$w] // {}) as $over
+        | if $over.enabled == false then {enabled: false}
+          else {enabled: true} end
+    '
+}
+
+patch_bar_chrome_widget_enabled() {
+    local widget="$1"
+    local enabled="$2"
+    if [[ "$enabled" == "true" ]]; then
+        patch_overrides_reload --arg w "$widget" '
+            .bar.barWidgets //= {}
+            | .bar.barWidgets[$w] = ((.bar.barWidgets[$w] // {}) + {enabled: true})
+        '
+    else
+        patch_overrides_reload --arg w "$widget" '
+            .bar.barWidgets //= {}
+            | .bar.barWidgets[$w] = {enabled: false}
+        '
+    fi
+}
+
+bar_chrome_widgets_payload_json() {
+    local widget payload='{}'
+    while IFS= read -r widget; do
+        [[ -n "$widget" ]] || continue
+        payload="$(jq -c --arg w "$widget" --argjson cfg "$(bar_chrome_widget_settings_json "$widget")" \
+            '. + {($w): $cfg}' <<<"$payload")"
+    done < <(bar_chrome_widget_names)
+    printf '%s' "$payload"
+}

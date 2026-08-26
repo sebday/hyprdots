@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Seed local overrides.json bar.output from hypr when missing (standalone install UX).
+
+set -euo pipefail
+
+EVOSHELL_CONFIG="${EVOSHELL_CONFIG:-${XDG_CONFIG_HOME:-${HOME}/.config}/evoshell}"
+OVERRIDES_JSON="${EVOSHELL_CONFIG}/overrides.json"
+
+seed_layout_from_hypr() {
+  command -v hyprctl >/dev/null 2>&1 || return 0
+  command -v jq >/dev/null 2>&1 || return 0
+
+  mkdir -p "$EVOSHELL_CONFIG"
+
+  if [[ -f "$OVERRIDES_JSON" ]]; then
+    local current
+    current="$(jq -r '.bar.output // ""' "$OVERRIDES_JSON" 2>/dev/null || true)"
+    if [[ -n "$current" ]]; then
+      return 0
+    fi
+  fi
+
+  local monitors_json focused
+  monitors_json="$(hyprctl monitors -j 2>/dev/null)" || return 0
+  [[ -n "$monitors_json" ]] || return 0
+
+  focused="$(jq -r '[.[] | select(.focused == true) | .name][0] // empty' <<<"$monitors_json")"
+  if [[ -z "$focused" ]]; then
+    focused="$(jq -r '.[0].name // empty' <<<"$monitors_json")"
+  fi
+  [[ -n "$focused" ]] || return 0
+
+  if [[ -f "$OVERRIDES_JSON" ]]; then
+    jq --arg output "$focused" '.bar.output = $output' "$OVERRIDES_JSON" >"${OVERRIDES_JSON}.tmp"
+    mv "${OVERRIDES_JSON}.tmp" "$OVERRIDES_JSON"
+  else
+    jq -n --arg output "$focused" '{version: 1, bar: {output: $output, position: "bottom"}}' >"$OVERRIDES_JSON"
+  fi
+
+  echo "seeded bar.output=$focused in $OVERRIDES_JSON from hyprctl monitors"
+}
+
+seed_layout_from_hypr

@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Bar JSON line for evoshell transmission tray widget.
+
+set -euo pipefail
+
+_bin_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+exec "${_bin_dir}/evo-bar-transmission" bar

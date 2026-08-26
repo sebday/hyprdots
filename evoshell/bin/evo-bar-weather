@@ -1,0 +1,177 @@
+#!/usr/bin/env bash
+# Weather location settings + Met Office launcher for evoshell.
+
+set -euo pipefail
+
+_bin_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "${_bin_dir}/evo-bar-common"
+# shellcheck source=/dev/null
+source "${_bin_dir}/evo-storage-lib"
+
+LOCATION_FILE="${WEATHER_CONFIG_JSON}"
+usage() {
+    cat >&2 <<'EOF'
+usage:
+  evo-weather settings get
+  evo-weather settings set <location>
+  evo-weather settings search <query>
+  evo-weather open
+EOF
+}
+
+ensure_state_dir() {
+    mkdir -p "$EVOSHELL_CONFIG"
+}
+
+met_office_url_for() {
+    local name="$1"
+    printf 'https://weather.metoffice.gov.uk/forecast/find?q=%s' "$(jq -rn --arg q "$name" '$q|@uri')"
+}
+
+geocode_location() {
+    local query="$1"
+    local raw name lat lon country
+    raw="$(curl -fsS --max-time 12 \
+        "https://geocoding-api.open-meteo.com/v1/search?name=$(jq -rn --arg q "$query" '$q|@uri')&count=1&language=en&format=json" \
+        2>/dev/null)" || raw=""
+    [[ -n "$raw" ]] || return 1
+    name="$(jq -r '.results[0].name // empty' <<<"$raw")"
+    lat="$(jq -r '.results[0].latitude // empty' <<<"$raw")"
+    lon="$(jq -r '.results[0].longitude // empty' <<<"$raw")"
+    country="$(jq -r '.results[0].country // empty' <<<"$raw")"
+    [[ -n "$name" && -n "$lat" && -n "$lon" ]] || return 1
+    jq -cn \
+        --arg name "$name" \
+        --argjson lat "$lat" \
+        --argjson lon "$lon" \
+        --arg country "$country" \
+        --arg metOfficeUrl "$(met_office_url_for "$name")" \
+        '{name: $name, lat: $lat, lon: $lon, country: $country, metOfficeUrl: $metOfficeUrl}'
+}
+
+search_locations() {
+    local query="$1"
+    local raw
+    if [[ ${#query} -lt 2 ]]; then
+        jq -n '{ok: true, results: []}'
+        return 0
+    fi
+    raw="$(curl -fsS --max-time 12 \
+        "https://geocoding-api.open-meteo.com/v1/search?name=$(jq -rn --arg q "$query" '$q|@uri')&count=10&language=en&format=json" \
+        2>/dev/null)" || raw=""
+    if [[ -z "$raw" ]]; then
+        jq -n '{ok: true, results: []}'
+        return 0
+    fi
+    jq -cn --argjson raw "$raw" '
+        def place_label(r):
+            (r.name // "")
+            + (if (r.admin1 // "") != "" then ", " + r.admin1 else "" end)
+            + (if (r.country // "") != "" then ", " + r.country else "" end);
+        {
+            ok: true,
+            results: [($raw.results // [])[]? | {
+                name: .name,
+                country: (.country // ""),
+                admin1: (.admin1 // ""),
+                label: place_label(.),
+                query: .name
+            }]
+        }'
+}
+
+default_location_json() {
+    jq -n '{ok: false, error: "Weather location not configured. Run: evo-bar-weather settings set <city>"}'
+}
+
+read_location_json() {
+    ensure_state_dir
+    if [[ -f "$LOCATION_FILE" ]] && jq -e 'type == "object"' "$LOCATION_FILE" >/dev/null 2>&1; then
+        local name lat lon country met_url resolved
+        name="$(jq -r '.name // empty' "$LOCATION_FILE")"
+        lat="$(jq -r '.lat // empty' "$LOCATION_FILE")"
+        lon="$(jq -r '.lon // empty' "$LOCATION_FILE")"
+        country="$(jq -r '.country // empty' "$LOCATION_FILE")"
+        met_url="$(jq -r '.metOfficeUrl // empty' "$LOCATION_FILE")"
+        if [[ -n "$name" && -n "$lat" && -n "$lon" && -n "$met_url" ]]; then
+            jq -cn \
+                --arg name "$name" \
+                --argjson lat "$lat" \
+                --argjson lon "$lon" \
+                --arg country "$country" \
+                --arg metOfficeUrl "$met_url" \
+                '{ok: true, name: $name, lat: $lat, lon: $lon, country: $country, metOfficeUrl: $metOfficeUrl}'
+            return 0
+        fi
+        if [[ -n "$name" ]]; then
+            resolved="$(geocode_location "$name" 2>/dev/null || true)"
+            if [[ -n "$resolved" ]]; then
+                write_location_json "$resolved"
+                jq -c '. + {ok: true}' <<<"$resolved"
+                return 0
+            fi
+        fi
+    fi
+    default_location_json | jq -c '.'
+}
+
+write_location_json() {
+    local json="$1"
+    ensure_state_dir
+    printf '%s\n' "$json" | jq -c '{name, lat, lon, country, metOfficeUrl}' >"$LOCATION_FILE"
+}
+
+cmd_settings_get() {
+    read_location_json
+}
+
+cmd_settings_set() {
+    local query="${1:-}"
+    [[ -n "$query" ]] || {
+        jq -n '{ok: false, error: "location required"}'
+        return 0
+    }
+    local resolved
+    resolved="$(geocode_location "$query")" || {
+        jq -cn --arg query "$query" '{ok: false, error: ("Could not find location: " + $query)}'
+        return 0
+    }
+    write_location_json "$resolved"
+    jq -c '. + {ok: true}' <<<"$resolved"
+}
+
+cmd_settings_search() {
+    search_locations "${1:-}"
+}
+
+cmd_open() {
+    local url settings_json
+    settings_json="$(read_location_json)"
+    if jq -e '.ok == false' <<<"$settings_json" >/dev/null 2>&1; then
+        echo "Weather location not configured. Run: evo-bar-weather settings set <city>" >&2
+        exit 1
+    fi
+    url="$(jq -r '.metOfficeUrl // empty' <<<"$settings_json")"
+    [[ -n "$url" ]] || {
+        echo "Weather location missing metOfficeUrl" >&2
+        exit 1
+    }
+    exec "$(evoshell_script evo-bar-brave)" open brave-weather "$url"
+}
+
+cmd="${1:-}"
+sub="${2:-}"
+case "$cmd" in
+settings)
+    case "$sub" in
+    get) cmd_settings_get ;;
+    set) cmd_settings_set "${3:-}" ;;
+    search) cmd_settings_search "${3:-}" ;;
+    *) usage; exit 1 ;;
+    esac
+    ;;
+open) cmd_open ;;
+""|-h|--help) usage; exit 0 ;;
+*) usage; exit 1 ;;
+esac

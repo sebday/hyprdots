@@ -1,0 +1,433 @@
+#!/bin/bash
+# Home Assistant REST helper for evoshell bar/popup.
+# Secrets: pass entries evoshell/home-assistant/url and .../token
+
+set -euo pipefail
+
+_bin_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${_bin_dir}/evo-bar-common"
+
+HA_DEFAULT_CONFIG='{}'
+
+load_secrets() {
+    evo_bar_load_secrets HOME_ASSISTANT_URL HOME_ASSISTANT_TOKEN
+}
+
+ha_base_url() {
+    local url="${HOME_ASSISTANT_URL:-}"
+    url="${url%/}"
+    printf '%s' "$url"
+}
+
+ha_token() {
+    printf '%s' "${HOME_ASSISTANT_TOKEN:-}"
+}
+
+json_error() {
+    local msg="$1"
+    local detail="${2:-}"
+    jq -cn --arg error "$msg" --arg detail "$detail" '{ok: false, error: $error, detail: $detail}'
+}
+
+require_config() {
+    local url token
+    url="$(ha_base_url)"
+    token="$(ha_token)"
+    if [[ -z "$url" || -z "$token" ]]; then
+        json_error "not configured" "Set HOME_ASSISTANT_URL and HOME_ASSISTANT_TOKEN in pass (evoshell/home-assistant/*)"
+        exit 1
+    fi
+}
+
+ha_request() {
+    local method="$1"
+    local path="$2"
+    local body="${3:-}"
+    local url token resp
+    url="$(ha_base_url)"
+    token="$(ha_token)"
+    if [[ -z "$body" ]]; then
+        resp=$(curl -sS -w $'\n%{http_code}' -X "$method" \
+            -H "Authorization: Bearer ${token}" \
+            -H "Content-Type: application/json" \
+            "${url}${path}" 2>/dev/null || true)
+    else
+        resp=$(curl -sS -w $'\n%{http_code}' -X "$method" \
+            -H "Authorization: Bearer ${token}" \
+            -H "Content-Type: application/json" \
+            -d "$body" \
+            "${url}${path}" 2>/dev/null || true)
+    fi
+    printf '%s' "$resp"
+}
+
+ha_template() {
+    local template="$1"
+    local body code resp
+    body=$(jq -cn --arg template "$template" '{template: $template}')
+    resp=$(ha_request POST "/api/template" "$body")
+    code="${resp##*$'\n'}"
+    resp="${resp%$'\n'*}"
+    if [[ "$code" != "200" ]]; then
+        return 1
+    fi
+    printf '%s' "$resp"
+}
+
+light_area_map() {
+    local lines
+    lines=$(ha_template $'{% for s in states.light %}{{ s.entity_id }}|{{ area_name(s.entity_id) }}\n{% endfor %}' 2>/dev/null || true)
+    if [[ -z "$lines" ]]; then
+        printf '{}'
+        return 0
+    fi
+    jq -Rn '[inputs | select(length > 0) | split("|") | {(.[0]): (.[1] // "")}] | add // {}' <<<"$lines"
+}
+
+hue_to_degrees() {
+    awk -v h="$1" 'BEGIN {
+        h = h + 0
+        if (h < 0) h = 0
+        if (h > 1) h = 1
+        printf "%d", int(h * 360 + 0.5)
+    }'
+}
+
+invalidate_states_cache() {
+    rm -f "${EVO_BAR_CACHE_DIR}/home-assistant-states-"*.json 2>/dev/null || true
+}
+
+cmd_states() {
+    local config_json="${1:-$HA_DEFAULT_CONFIG}"
+    local fresh="${2:-}"
+    require_config
+
+    local light_allow light_area_allow light_groups_only climate_allow
+    light_allow=$(jq -c '.lightEntities // []' <<<"$config_json")
+    light_area_allow=$(jq -c '.lightAreas // []' <<<"$config_json")
+    light_groups_only=$(jq -r '.lightGroupsOnly // false' <<<"$config_json")
+    climate_allow=$(jq -c '.climateEntities // []' <<<"$config_json")
+
+    local cache_key
+    cache_key=$(printf '%s' "$config_json" | sha256sum | awk '{print $1}')
+    if [[ "$fresh" != "fresh" ]] && cached=$(evo_bar_cache_read "home-assistant-states-${cache_key}" 20 2>/dev/null); then
+        printf '%s\n' "$cached"
+        exit 0
+    fi
+
+    local body code
+    body=$(ha_request GET "/api/states")
+    code="${body##*$'\n'}"
+    body="${body%$'\n'*}"
+
+    if [[ "$code" != "200" ]]; then
+        if [[ "$code" == "401" || "$code" == "403" ]]; then
+            json_error "authentication failed" "Check HOME_ASSISTANT_TOKEN"
+            exit 1
+        fi
+        json_error "request failed" "Home Assistant returned HTTP ${code:-unknown}"
+        exit 1
+    fi
+
+    if ! jq -e 'type == "array"' <<<"$body" >/dev/null 2>&1; then
+        json_error "invalid response" "Expected a JSON array from /api/states"
+        exit 1
+    fi
+
+    local lights climates
+    lights=$(jq -c --argjson allow "$light_allow" --argjson area_allow "$light_area_allow" --argjson groups_only "$light_groups_only" --argjson area_map "$(light_area_map)" '
+        [.[] | select(.entity_id | startswith("light."))]
+        | if ($allow | length) == 0 then . else map(select(.entity_id as $id | any($allow[]; . == $id))) end
+        | map({
+            entityId: .entity_id,
+            name: (.attributes.friendly_name // .entity_id),
+            haArea: (
+              ($area_map[.entity_id] // "") as $mapped
+              | if ($mapped | length) > 0 and $mapped != "None" then $mapped else "" end
+            ),
+            isHueGroup: (.attributes.is_hue_group == true),
+            on: (.state == "on"),
+            brightness: ((.attributes.brightness // 0) | tonumber? // 0),
+            brightnessPct: (
+              if (.attributes.brightness // null) == null then 0
+              else ((.attributes.brightness | tonumber) / 255 * 100 | round)
+              end
+            ),
+            rgbColor: (.attributes.rgb_color // null),
+            hsColor: (.attributes.hs_color // null),
+            colorTempKelvin: (.attributes.color_temp_kelvin // null),
+            minColorTempKelvin: (.attributes.min_color_temp_kelvin // null),
+            maxColorTempKelvin: (.attributes.max_color_temp_kelvin // null),
+            colorModes: (.attributes.supported_color_modes // []),
+            supportsColor: (
+              (.attributes.supported_color_modes // []) as $modes
+              | any($modes[]; . == "xy" or . == "rgb" or . == "hs" or . == "color_temp")
+            ),
+            available: ((.state // "") != "unavailable")
+          })
+        | map(. + { area: (if .haArea != "" then .haArea else .name end) })
+        | if ($area_allow | length) > 0 then
+            [$area_allow[] as $want |
+              ([.[] | select(.haArea == $want or .name == $want)]
+               | if length == 0 then empty
+                 else (sort_by(.isHueGroup | not) | .[0])
+                 end
+              )
+            ]
+          else
+            []
+          end
+    ' <<<"$body")
+
+    climates=$(jq -c --argjson allow "$climate_allow" '
+        [.[] | select(.entity_id | startswith("climate."))]
+        | if ($allow | length) == 0 then . else map(select(.entity_id as $id | any($allow[]; . == $id))) end
+        | map({
+            entityId: .entity_id,
+            name: (.attributes.friendly_name // .entity_id),
+            mode: (.state // "off"),
+            target: (.attributes.temperature // null),
+            current: (.attributes.current_temperature // null),
+            min: ((.attributes.min_temp // 10) | tonumber),
+            max: ((.attributes.max_temp // 32) | tonumber),
+            unit: (.attributes.temperature_unit // "°C"),
+            modes: (.attributes.hvac_modes // []),
+            action: (.attributes.hvac_action // ""),
+            available: ((.state // "") != "unavailable")
+          })
+    ' <<<"$body")
+
+    local lights_on lights_total
+    lights_total=$(jq 'length' <<<"$lights")
+    lights_on=$(jq '[.[] | select(.on)] | length' <<<"$lights")
+
+    local now_ms
+    now_ms=$(($(date +%s) * 1000))
+
+    local output
+    output=$(jq -cn \
+        --arg url "$(ha_base_url)" \
+        --argjson updatedAt "$now_ms" \
+        --argjson lights "$lights" \
+        --argjson climates "$climates" \
+        --argjson lightsTotal "$lights_total" \
+        --argjson lightsOn "$lights_on" \
+        '{
+            ok: true,
+            url: $url,
+            updatedAt: $updatedAt,
+            summary: {
+                lightsOn: $lightsOn,
+                lightsTotal: $lightsTotal
+            },
+            lights: $lights,
+            climates: $climates
+        }')
+
+    printf '%s\n' "$output" | evo_bar_cache_write "home-assistant-states-${cache_key}"
+    printf '%s\n' "$output"
+}
+
+cmd_light() {
+    local entity_id="$1"
+    local action="$2"
+    local arg3="${3:-}"
+    local arg4="${4:-}"
+    local arg5="${5:-}"
+    require_config
+    [[ -n "$entity_id" && -n "$action" ]] || {
+        json_error "usage: light <entity_id> on|off|hue [args...]"
+        exit 1
+    }
+
+    local service body
+    if [[ "$action" == "on" ]]; then
+        service="light/turn_on"
+        if [[ -n "$arg3" ]]; then
+            local raw
+            raw=$(awk -v pct="$arg3" 'BEGIN { printf "%d", int(pct * 255 / 100 + 0.5) }')
+            body=$(jq -cn --arg entity_id "$entity_id" --argjson brightness "$raw" \
+                '{entity_id: $entity_id, brightness: $brightness}')
+        else
+            body=$(jq -cn --arg entity_id "$entity_id" '{entity_id: $entity_id}')
+        fi
+    elif [[ "$action" == "off" ]]; then
+        service="light/turn_off"
+        body=$(jq -cn --arg entity_id "$entity_id" '{entity_id: $entity_id}')
+    elif [[ "$action" == "hue" ]]; then
+        service="light/turn_on"
+        [[ -n "$arg3" ]] || {
+            json_error "missing hue value" "Use light <entity_id> hue <0.0-1.0> [brightness_pct]"
+            exit 1
+        }
+        local hs_h hs_s=100
+        hs_h="$(hue_to_degrees "$arg3")"
+        if [[ -n "$arg5" ]]; then
+            hs_s="$(awk -v s="$arg5" 'BEGIN {
+                s = s + 0
+                if (s < 0) s = 0
+                if (s > 100) s = 100
+                printf "%d", int(s + 0.5)
+            }')"
+        fi
+        if [[ -n "$arg4" ]]; then
+            local raw
+            raw=$(awk -v pct="$arg4" 'BEGIN { printf "%d", int(pct * 255 / 100 + 0.5) }')
+            body=$(jq -cn \
+                --arg entity_id "$entity_id" \
+                --argjson hs_h "$hs_h" --argjson hs_s "$hs_s" \
+                --argjson brightness "$raw" \
+                '{entity_id: $entity_id, hs_color: [$hs_h, $hs_s], brightness: $brightness, transition: 0}')
+        else
+            body=$(jq -cn \
+                --arg entity_id "$entity_id" \
+                --argjson hs_h "$hs_h" --argjson hs_s "$hs_s" \
+                '{entity_id: $entity_id, hs_color: [$hs_h, $hs_s], transition: 0}')
+        fi
+    else
+        json_error "invalid action" "Use on, off, or hue"
+        exit 1
+    fi
+
+    local resp code
+    resp=$(ha_request POST "/api/services/${service}" "$body")
+    code="${resp##*$'\n'}"
+    if [[ "$code" != "200" ]]; then
+        json_error "light action failed" "HTTP ${code}"
+        exit 1
+    fi
+    invalidate_states_cache
+    jq -cn --arg entityId "$entity_id" --arg action "$action" '{ok: true, entityId: $entityId, action: $action}'
+}
+
+cmd_climate() {
+    local entity_id="$1"
+    local action="$2"
+    local value="${3:-}"
+    require_config
+    [[ -n "$entity_id" && -n "$action" ]] || {
+        json_error "usage: climate <entity_id> set-temp <temperature>|set-mode <mode>"
+        exit 1
+    }
+
+    local service body
+    case "$action" in
+        set-temp)
+            [[ -n "$value" ]] || { json_error "missing temperature"; exit 1; }
+            service="climate/set_temperature"
+            body=$(jq -cn --arg entity_id "$entity_id" --argjson temperature "$value" \
+                '{entity_id: $entity_id, temperature: $temperature}')
+            ;;
+        set-mode)
+            [[ -n "$value" ]] || { json_error "missing mode"; exit 1; }
+            service="climate/set_hvac_mode"
+            body=$(jq -cn --arg entity_id "$entity_id" --arg hvac_mode "$value" \
+                '{entity_id: $entity_id, hvac_mode: $hvac_mode}')
+            ;;
+        *)
+            json_error "invalid action" "Use set-temp or set-mode"
+            exit 1
+            ;;
+    esac
+
+    local resp code
+    resp=$(ha_request POST "/api/services/${service}" "$body")
+    code="${resp##*$'\n'}"
+    if [[ "$code" != "200" ]]; then
+        json_error "climate action failed" "HTTP ${code}"
+        exit 1
+    fi
+    invalidate_states_cache
+    jq -cn --arg entityId "$entity_id" --arg action "$action" '{ok: true, entityId: $entityId, action: $action}'
+}
+
+cmd_open() {
+    local url
+    url="$(ha_base_url)"
+    if [[ -z "$url" ]]; then
+        json_error "not configured"
+        exit 1
+    fi
+    exec "$(evoshell_script evo-bar-brave)" open brave-home-assistant "$url"
+}
+
+cmd_discover() {
+    require_config
+
+    local area_lines areas_json body code climates_json
+    area_lines=$(ha_template $'{% for a in areas() %}{{ a.name }}\n{% endfor %}' 2>/dev/null || true)
+    if [[ -z "$area_lines" ]]; then
+        area_lines=$(ha_template $'{% for s in states.light %}{{ area_name(s.entity_id) }}\n{% endfor %}' 2>/dev/null || true)
+    fi
+    areas_json=$(printf '%s\n' "$area_lines" | jq -R -s '
+        split("\n")
+        | map(gsub("^[[:space:]]+|[[:space:]]+$"; ""))
+        | map(select(length > 0 and . != "None"))
+        | unique
+        | sort
+    ')
+
+    body=$(ha_request GET "/api/states")
+    code="${body##*$'\n'}"
+    body="${body%$'\n'*}"
+
+    if [[ "$code" != "200" ]]; then
+        if [[ "$code" == "401" || "$code" == "403" ]]; then
+            json_error "authentication failed" "Check HOME_ASSISTANT_TOKEN"
+            exit 1
+        fi
+        json_error "request failed" "Home Assistant returned HTTP ${code:-unknown}"
+        exit 1
+    fi
+
+    climates_json=$(jq -c '
+        [.[] | select(.entity_id | startswith("climate."))]
+        | map({
+            entityId: .entity_id,
+            name: (.attributes.friendly_name // .entity_id)
+          })
+        | sort_by(.name)
+    ' <<<"$body")
+
+    jq -cn \
+        --argjson areas "$areas_json" \
+        --argjson climates "$climates_json" \
+        '{ok: true, areas: $areas, climates: $climates}'
+}
+
+usage() {
+    cat <<'EOF'
+usage:
+  evo-bar-home-assistant states [config_json] [fresh]
+  evo-bar-home-assistant discover
+  evo-bar-home-assistant climate <entity_id> set-temp <temperature>
+  evo-bar-home-assistant climate <entity_id> set-mode <mode>
+  evo-bar-home-assistant light <entity_id> on|off [brightness_pct]
+  evo-bar-home-assistant light <entity_id> hue <0.0-1.0> [brightness_pct]
+  evo-bar-home-assistant open
+EOF
+    exit 1
+}
+
+load_secrets
+
+case "${1:-}" in
+    states)
+        cmd_states "${2:-$HA_DEFAULT_CONFIG}" "${3:-}"
+        ;;
+    discover)
+        cmd_discover
+        ;;
+    climate)
+        cmd_climate "${2:-}" "${3:-}" "${4:-}"
+        ;;
+    light)
+        cmd_light "${2:-}" "${3:-}" "${4:-}" "${5:-}"
+        ;;
+    open)
+        cmd_open
+        ;;
+    *)
+        usage
+        ;;
+esac

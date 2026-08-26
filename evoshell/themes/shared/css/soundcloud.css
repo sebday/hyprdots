@@ -1,0 +1,192 @@
+/* Shared SoundCloud Styles */
+
+* {
+    font-family: monospace!important;
+}
+
+/* Classic (v1) theme tokens */
+.theme-dark,
+.theme-light {
+    --primary-color: var(--text-primary);
+    --secondary-color: var(--text-accent);
+    --font-primary-color: var(--text-primary);
+    --font-secondary-color: var(--text-accent);
+    --surface-color: var(--bg-secondary);
+    --background-surface-color: var(--bg-primary);
+    --link-primary-color: var(--blue);
+    --highlight-color: var(--bg-secondary);
+    --special-color: var(--pink);
+    --button-secondary-font-color: var(--text-accent);
+    --button-secondary-background-color: var(--bg-primary);
+    --tag-default-background-color: var(--bg-secondary);
+    --input-default-font-color: var(--text-accent);
+    --tag-default-font-color: var(--text-accent);
+}
+
+/* MUI / Next.js track UI (iframe at /n/..., html.mui-theme-dark) */
+:root,
+.mui-theme-dark,
+.mui-theme-light {
+    --mui-palette-background-default: var(--bg-primary) !important;
+    --mui-palette-background-paper: var(--bg-primary) !important;
+    --mui-palette-background-dark: var(--bg-primary) !important;
+    --mui-palette-background-tonal: var(--bg-secondary) !important;
+    --mui-palette-background-low: var(--bg-secondary) !important;
+    --mui-palette-common-background: var(--bg-primary) !important;
+    --mui-palette-black-main: var(--bg-primary) !important;
+
+    --mui-palette-text-primary: var(--text-primary) !important;
+    --mui-palette-text-secondary: var(--text-accent) !important;
+    --mui-palette-common-onBackground: var(--text-primary) !important;
+    --mui-palette-white-main: var(--text-primary) !important;
+
+    --mui-palette-primary-main: var(--text-primary) !important;
+    --mui-palette-primary-contrastText: var(--bg-primary) !important;
+    --mui-palette-secondary-main: var(--text-accent) !important;
+    --mui-palette-secondary-light: var(--bg-secondary) !important;
+    --mui-palette-secondary-contrastText: var(--text-primary) !important;
+
+    --mui-palette-highlight-main: var(--bg-secondary) !important;
+    --mui-palette-link-main: var(--blue) !important;
+    --mui-palette-link-light: var(--blue) !important;
+    --mui-palette-brand-main: var(--pink) !important;
+
+    --mui-palette-contrast-contrastText: var(--text-primary) !important;
+    --mui-palette-contrast-light: var(--text-accent) !important;
+    --mui-palette-action-hover: var(--bg-secondary) !important;
+    --mui-palette-action-selected: var(--bg-secondary) !important;
+    --mui-palette-action-disabledBackground: var(--bg-secondary) !important;
+    --mui-palette-divider: var(--bg-secondary) !important;
+    --mui-palette-border-main: var(--bg-secondary) !important;
+    --mui-palette-border-subtle: var(--bg-secondary) !important;
+}
+
+html.mui-theme-dark,
+html.mui-theme-dark body,
+html.mui-theme-light,
+html.mui-theme-light body,
+#main,
+#navigation-shell-right-side-container {
+    background-color: var(--bg-primary) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Artwork-tinted player header (hashed class e.g. mui-1fqfhr3) */
+section[aria-label="Track header"] {
+    background-color: var(--bg-primary) !important;
+    background-image: none !important;
+}
+
+.header__upsellWrapper,
+.header__forArtistsButton,
+.header__soundInput,
+.l-sidebar-right,
+.queue__fallback,
+.backgroundGradient,
+.imageChooser,
+.l-fixed-left,
+a[data-menu-name="home"],
+[aria-label="More actions"],
+[aria-label="Share"] {
+    display: none!important;
+}
+
+/* Comment composer: classic BEM + MUI field (placeholder text is not stable) */
+.commentForm,
+.MuiTextField-root:has([aria-label="Add a comment to this track"]) {
+    display: none!important;
+}
+
+.l-container {
+    width: 935px;
+}
+
+.l-search .l-fixed-left {
+    width: 300px;
+}
+
+.l-search .l-main,
+.l-fluid-fixed .l-main {
+    margin: 0!important;
+}
+
+.l-listen-wrapper .l-about-main {
+    margin: 0!important;
+}
+
+.l-about-main {
+    padding-top: 0!important;
+}
+
+.playControls__bg, .playControls__inner {
+    background-color: var(--bg-primary)!important;
+}
+.playControls__queue {
+    bottom: 48px;
+}
+
+.queue__itemsHeight {
+    background-size: auto!important;
+}
+
+/* Classic listen hero only — MUI titles use palette text tokens */
+.fullHero h1,
+.l-listen-hero h1 {
+    color: var(--bg-primary)!important;
+}
+
+html.mui-theme-dark h1,
+html.mui-theme-light h1 {
+    color: var(--text-primary)!important;
+}
+
+.queue__itemWrapper,
+.queue__itemsHeight,
+.queue,
+.sc-button-like,
+.g-type-shrinkwrap-inline {
+    background-color: var(--bg-primary)!important;
+}
+
+.g-type-shrinkwrap-block {
+    background: transparent;
+    color: var(--text-accent)!important;
+}
+.g-type-shrinkwrap-inline {
+    color: var(--text-accent)!important;
+}
+
+.g-type-shrinkwrap-large-secondary {
+    padding-top: 0!important;
+}
+
+.sc-button-xxlarge {
+    background-color: var(--text-accent)!important;
+}
+.queue__itemWrapper .m-playing,
+.queue__itemWrapper .m-active,
+.sc-input {
+    background-color: var(--bg-secondary)!important;
+}
+.sc-button-like {
+    background: transparent!important;
+}
+
+.sc-link-primary {
+    color: var(--text-accent)!important;
+}
+
+.sc-button-next svg, 
+.sc-button-pause svg, 
+.sc-button-play svg, 
+.sc-button-prev svg {
+    color: var(--bg-secondary)!important;
+}
+
+.searchTitle {
+    background: var(--bg-primary)!important;
+}
+
+.searchTitle__textContent {
+    color: var(--text-primary)!important;
+}

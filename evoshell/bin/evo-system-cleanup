@@ -1,0 +1,65 @@
+#!/bin/bash
+# Clear evoshell cache, clipboard history, and optional local cleanup targets.
+
+set -euo pipefail
+
+_bin_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "${_bin_dir}/evo-paths-lib"
+# shellcheck source=/dev/null
+source "${_bin_dir}/evo-storage-lib"
+
+EVO_CLIPBOARD="${EVOSHELL_BIN}/evo-clipboard"
+EVO_CLEANUP_TRASH="${EVO_CLEANUP_TRASH:-0}"
+EVO_CLEANUP_SYSTEM_CACHE="${EVO_CLEANUP_SYSTEM_CACHE:-0}"
+EVO_CLEANUP_SECURE_MOUNT="${EVO_CLEANUP_SECURE_MOUNT:-}"
+
+cleared=()
+
+# Clipboard history — clear cliphist but keep pinned entries (restored from disk)
+if [[ -x "$EVO_CLIPBOARD" ]]; then
+  bash "$EVO_CLIPBOARD" clear || true
+  cleared+=("cliphist (pins kept)")
+fi
+
+# Evo-shell cache (bar widget JSON, menu previews, chart history, etc.)
+if [[ -d "$EVOSHELL_CACHE" ]]; then
+  rm -rf "$EVOSHELL_CACHE"
+  cleared+=("evoshell cache")
+fi
+
+# Optional: wipe other ~/.cache entries (keep cliphist db for pinned history)
+if [[ "$EVO_CLEANUP_SYSTEM_CACHE" == "1" && -d "${HOME}/.cache" ]]; then
+  find "${HOME}/.cache" -mindepth 1 -maxdepth 1 ! -name 'cliphist' -exec rm -rf {} +
+  cleared+=("~/.cache (except cliphist)")
+fi
+
+# Optional: clear Trash
+if [[ "$EVO_CLEANUP_TRASH" == "1" && -d "${HOME}/.local/share/Trash" ]]; then
+  rm -rf "${HOME}/.local/share/Trash"/*
+  cleared+=("trash")
+fi
+
+# Optional: unmount a configured secure volume
+if [[ -n "$EVO_CLEANUP_SECURE_MOUNT" ]] && mountpoint -q "$EVO_CLEANUP_SECURE_MOUNT" 2>/dev/null; then
+  fusermount3 -u "$EVO_CLEANUP_SECURE_MOUNT"
+  cleared+=("${EVO_CLEANUP_SECURE_MOUNT} unmounted")
+fi
+
+# User journal — safe to trim without root
+if command -v journalctl >/dev/null 2>&1; then
+  journalctl --user --vacuum-time=30d --quiet 2>/dev/null || true
+  journalctl --user --vacuum-size=200M --quiet 2>/dev/null || true
+  cleared+=("user journal")
+fi
+
+# System journal — only when passwordless sudo is available
+if command -v journalctl >/dev/null 2>&1 && \
+  sudo -n journalctl --vacuum-time=30d --vacuum-size=500M --quiet 2>/dev/null; then
+  cleared+=("system journal")
+fi
+
+summary=$(printf '%s, ' "${cleared[@]}")
+summary=${summary%, }
+
+evoshell_notify -g "󰃢" "Cache Cleared" "${summary:-nothing to clear}."
