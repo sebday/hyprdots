@@ -146,8 +146,11 @@ install_hypr_bin() {
 
 link_evoshell() {
     log "Linking evoshell..."
-    local evoshell_root="${EVOSHELL_ROOT:-${HOME}/projects/evoshell}"
-    clone_companion_repo evoshell https://github.com/sebday/evoshell.git "$evoshell_root"
+    local evoshell_root="${EVOSHELL_ROOT:-${HOME}/evoshell}"
+    if [[ ! -f "${evoshell_root}/shell.qml" ]]; then
+        echo "evoshell not found at ${evoshell_root}; set EVOSHELL_ROOT to the embedded evoshell/ directory"
+        exit 1
+    fi
     bash "${evoshell_root}/scripts/install"
 }
 

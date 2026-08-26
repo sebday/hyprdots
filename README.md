@@ -15,11 +15,11 @@ Thank you to [Bjarne](https://github.com/bjarneo) for some gorgeous themes.
 **hyprdots**
 
 - Hyprland config
-- Bootstrap installer (clones and links [evoshell](https://github.com/sebday/evoshell) and [evoplayer](https://github.com/sebday/evoplayer))
+- Bootstrap installer (links embedded evoshell on the `evoshell` branch and [evoplayer](https://github.com/sebday/evoplayer))
 - App dotfiles — Neovim, Ghostty, Brave flags, and related configs
 - Evoshell Shopify plugin
 
-**evoshell**
+**evoshell** (embedded at `evoshell/` on this branch; standalone repo archived)
 
 - Quickshell desktop shell
 - Theme packs
