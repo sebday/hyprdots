@@ -1,0 +1,454 @@
+#!/usr/bin/env bash
+# Session and power actions for evoshell.
+
+set -euo pipefail
+
+_bin_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "${_bin_dir}/evo-paths-lib"
+
+BIN="${EVOSHELL_BIN}"
+IPC="${BIN}/_ipc"
+STATE_DIR="${EVOSHELL_STATE}"
+SUPERVISOR_PID_FILE="${STATE_DIR}/launch-shell.pid"
+SHELL_PID_FILE="${STATE_DIR}/shell.pid"
+RESTART_LOCK_FILE="${STATE_DIR}/restart.lock"
+STOPPING_FILE="${STATE_DIR}/stopping"
+
+usage() {
+    cat <<'EOF'
+usage: evo system <command>
+
+commands:
+  start      launch the evoshell quickshell supervisor
+  lock       lock the session
+  unlock     recover from a dead locker (logind + shell restart)
+  restart    restart the evoshell quickshell process
+  reboot     reboot the machine
+  shutdown   power off (runs evo-system-cleanup first)
+EOF
+}
+
+close_brave() {
+    if pgrep -i "brave" &>/dev/null; then
+        pkill -TERM -i "brave"
+        while pgrep -i "brave" &>/dev/null; do
+            sleep 0.1
+        done
+    fi
+}
+
+stop_pid() {
+    local pid="$1"
+    [[ -n "$pid" ]] || return 0
+    kill -TERM "$pid" 2>/dev/null || true
+    for _ in {1..30}; do
+        kill -0 "$pid" 2>/dev/null || return 0
+        sleep 0.1
+    done
+    kill -KILL "$pid" 2>/dev/null || true
+}
+
+is_preserved_tui_pid() {
+    local pid="$1"
+    local args
+
+    args=$(ps -o args= -p "$pid" 2>/dev/null) || return 1
+    [[ "$args" == *ghostty* ]] || return 1
+    [[ "$args" == *btop* || "$args" == *wiremix* || "$args" == *alsamixer* || "$args" == *"--class=TUI"* ]]
+}
+
+kill_shell_tree() {
+    local pid="$1"
+    local child
+
+    [[ -n "$pid" ]] || return 0
+
+    while IFS= read -r child; do
+        [[ -n "$child" ]] || continue
+        if is_preserved_tui_pid "$child"; then
+            continue
+        fi
+        kill_shell_tree "$child"
+        kill -TERM "$child" 2>/dev/null || true
+    done < <(pgrep -P "$pid" 2>/dev/null || true)
+
+    kill -TERM "$pid" 2>/dev/null || true
+}
+
+evo_shell_cmd_matches() {
+    local cmd="$1"
+    [[ "$cmd" == *"quickshell"* && "$cmd" == *"$EVOSHELL_ROOT"* ]] && return 0
+    [[ "$cmd" == *" qs "* && "$cmd" == *"$EVOSHELL_ROOT"* ]] && return 0
+    return 1
+}
+
+quickshell_evo_pids() {
+    local line pid cmd file_pid
+
+    while IFS= read -r line; do
+        [[ -n "$line" ]] || continue
+        pid="${line%% *}"
+        cmd="${line#* }"
+        if evo_shell_cmd_matches "$cmd"; then
+            printf '%s\n' "$pid"
+        fi
+    done < <(pgrep -af 'quickshell|qs ' 2>/dev/null || true)
+
+    if [[ -f "$SHELL_PID_FILE" ]]; then
+        file_pid="$(cat "$SHELL_PID_FILE" 2>/dev/null || true)"
+        if [[ -n "$file_pid" ]] && kill -0 "$file_pid" 2>/dev/null; then
+            printf '%s\n' "$file_pid"
+        fi
+    fi
+}
+
+quickshell_evo_running() {
+    quickshell_evo_pids | grep -q .
+}
+
+wait_evo_stopped() {
+    local attempt
+
+    for attempt in {1..80}; do
+        quickshell_evo_running || return 0
+        sleep 0.1
+    done
+
+    return 1
+}
+
+stop_quickshell_instances() {
+    local pid signal=TERM
+
+    for _ in 1 2; do
+        while IFS= read -r pid; do
+            [[ -n "$pid" ]] || continue
+            kill -"$signal" "$pid" 2>/dev/null || true
+        done < <(quickshell_evo_pids | sort -u)
+
+        pkill -"$signal" -f "quickshell -n -p ${EVOSHELL_ROOT}" 2>/dev/null || true
+        pkill -"$signal" -f "quickshell -p ${EVOSHELL_ROOT}" 2>/dev/null || true
+        pkill -"$signal" -f "quickshell ipc -p ${EVOSHELL_ROOT}" 2>/dev/null || true
+        pkill -"$signal" -f "qs -n -p ${EVOSHELL_ROOT}" 2>/dev/null || true
+        pkill -"$signal" -f "qs -p ${EVOSHELL_ROOT}" 2>/dev/null || true
+        pkill -"$signal" -f "qs ipc -p ${EVOSHELL_ROOT}" 2>/dev/null || true
+        pkill -"$signal" -f 'systemd-cat -t evoshell' 2>/dev/null || true
+
+        if wait_evo_stopped; then
+            return 0
+        fi
+
+        signal=KILL
+    done
+
+    return 1
+}
+
+stop_shell_supervisor() {
+    local supervisor_pid=""
+
+    touch "$STOPPING_FILE"
+
+    if [[ -f "$SUPERVISOR_PID_FILE" ]]; then
+        supervisor_pid="$(cat "$SUPERVISOR_PID_FILE" 2>/dev/null || true)"
+        rm -f "$SUPERVISOR_PID_FILE"
+    fi
+
+    if [[ -n "$supervisor_pid" ]]; then
+        stop_pid "$supervisor_pid"
+    fi
+
+    pkill -TERM -f "systemd-cat -t evoshell" 2>/dev/null || true
+    stop_quickshell_instances || true
+    rm -f "$SHELL_PID_FILE"
+    wait_evo_stopped || true
+}
+
+cmd_start() {
+    mkdir -p "$STATE_DIR"
+
+    if [[ -f "$STOPPING_FILE" ]] && ! quickshell_evo_running; then
+        rm -f "$STOPPING_FILE"
+    fi
+
+    if [[ -f "$SUPERVISOR_PID_FILE" ]]; then
+        local existing
+        existing="$(cat "$SUPERVISOR_PID_FILE" 2>/dev/null || true)"
+        if [[ -n "$existing" ]] && kill -0 "$existing" 2>/dev/null; then
+            echo "evo system: supervisor already running (pid $existing)" >&2
+            exit 0
+        fi
+        rm -f "$SUPERVISOR_PID_FILE"
+    fi
+
+    if quickshell_evo_running; then
+        wait_evo_stopped || {
+            echo "evo system: evoshell still running; use restart instead of start" >&2
+            exit 1
+        }
+    fi
+
+    printf '%s\n' "$$" >"$SUPERVISOR_PID_FILE"
+
+    local terminating=0
+    local shell_pid=""
+    local attempts=0
+    local window_started=$SECONDS
+    local status
+
+    cleanup_pid_file() {
+        local current
+        current="$(cat "$SUPERVISOR_PID_FILE" 2>/dev/null || true)"
+        if [[ "$current" == "$$" ]]; then
+            rm -f "$SUPERVISOR_PID_FILE"
+        fi
+    }
+
+    run_shell() {
+        discover_wayland_display || true
+        # shellcheck source=/dev/null
+        source "${BIN}/evo-theme-lib" 2>/dev/null || true
+        systemd-cat -t evoshell -- env \
+            QS_NO_RELOAD_POPUP=1 \
+            QS_ICON_THEME="${EVO_ICON_THEME:-evo-current}" \
+            QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-wayland}" \
+            quickshell -n -p "$EVOSHELL_ROOT" &
+        shell_pid=$!
+        printf '%s\n' "$shell_pid" >"$SHELL_PID_FILE"
+
+        local run_status
+        while true; do
+            wait "$shell_pid"
+            run_status=$?
+            kill -0 "$shell_pid" 2>/dev/null || break
+        done
+
+        rm -f "$SHELL_PID_FILE"
+        shell_pid=""
+        return "$run_status"
+    }
+
+    compositor_alive() {
+        local attempt
+        for attempt in 1 2 3; do
+            hyprctl -j monitors >/dev/null 2>&1 && return 0
+            (( attempt < 3 )) && sleep 0.5
+        done
+        return 1
+    }
+
+    discover_wayland_display() {
+        if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
+            discover_hyprland_instance || true
+            return 0
+        fi
+
+        local runtime="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+        local sock
+        for sock in "$runtime"/wayland-*; do
+            [[ -S "$sock" ]] || continue
+            WAYLAND_DISPLAY="${sock##*/}"
+            export WAYLAND_DISPLAY
+            discover_hyprland_instance || true
+            return 0
+        done
+
+        return 1
+    }
+
+    discover_hyprland_instance() {
+        if [[ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]]; then
+            return 0
+        fi
+
+        local runtime="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+        local hypr_dir="$runtime/hypr"
+        local sig_dir
+
+        [[ -d "$hypr_dir" ]] || return 1
+
+        for sig_dir in "$hypr_dir"/*; do
+            [[ -d "$sig_dir" ]] || continue
+            HYPRLAND_INSTANCE_SIGNATURE="${sig_dir##*/}"
+            export HYPRLAND_INSTANCE_SIGNATURE
+            return 0
+        done
+
+        return 1
+    }
+
+    wait_for_compositor() {
+        local attempt
+
+        for attempt in $(seq 1 120); do
+            (( terminating )) && return 1
+            [[ -f "$STOPPING_FILE" ]] && return 1
+
+            discover_wayland_display || true
+            compositor_alive && return 0
+
+            sleep 0.5
+        done
+
+        echo "evo system: compositor not ready after 60s" >&2
+        return 1
+    }
+
+    stop() {
+        terminating=1
+        if [[ -n "${shell_pid:-}" ]]; then
+            kill_shell_tree "$shell_pid"
+        fi
+        rm -f "$SHELL_PID_FILE"
+        cleanup_pid_file
+        return 0
+    }
+    trap stop HUP INT TERM EXIT
+
+    wait_for_compositor || exit 1
+
+    while true; do
+        (( terminating )) && exit 0
+        [[ -f "$STOPPING_FILE" ]] && exit 0
+
+        run_shell
+        status=$?
+
+        (( terminating )) && exit 0
+        [[ -f "$STOPPING_FILE" ]] && exit 0
+        (( status == 0 )) && exit 0
+
+        compositor_alive || exit 0
+
+        if (( SECONDS - window_started > 60 )); then
+            attempts=0
+            window_started=$SECONDS
+        fi
+
+        if (( ++attempts > 5 )); then
+            logger -t evoshell "Giving up on evoshell after $attempts relaunches in under a minute."
+            exit 1
+        fi
+
+        logger -t evoshell "evoshell exited with status $status; relaunching."
+        sleep 1
+    done
+}
+
+cmd_lock() {
+    exec "$IPC" evo.sys.lock-screen.lock lock
+}
+
+wayland_session_id() {
+    loginctl list-sessions --no-legend 2>/dev/null \
+        | awk '$3 == "seb" && $4 == "wayland" { print $1; exit }'
+}
+
+cmd_unlock() {
+    local session_id
+
+    session_id="$(wayland_session_id)"
+    if [[ -n "$session_id" ]]; then
+        loginctl unlock-session "$session_id" 2>/dev/null || true
+    fi
+
+    pkill -TERM -f '^/usr/bin/quickshell$' 2>/dev/null || true
+
+    if systemctl --user is-enabled evoshell.service >/dev/null 2>&1; then
+        systemctl --user restart evoshell.service
+    else
+        nohup "${BIN}/_system" start >/dev/null 2>&1 &
+        disown 2>/dev/null || true
+    fi
+
+    for _ in {1..200}; do
+        if "$IPC" shell ping >/dev/null 2>&1; then
+            return 0
+        fi
+        sleep 0.1
+    done
+
+    echo "evo system: shell restarted but ipc did not respond" >&2
+    exit 1
+}
+
+cmd_restart() {
+    local was_locked="false"
+    local status
+
+    mkdir -p "$STATE_DIR"
+    exec 9>"$RESTART_LOCK_FILE"
+    if ! flock -n 9; then
+        echo "evo system: restart already in progress" >&2
+        exit 1
+    fi
+
+    touch "$STOPPING_FILE"
+
+    if status="$(timeout 2 "$IPC" evo.sys.lock-screen.lock status 2>/dev/null || true)"; then
+        was_locked="$(printf '%s' "$status" | jq -r '.locked // false' 2>/dev/null || echo false)"
+    fi
+
+    stop_shell_supervisor
+    wait_evo_stopped || true
+
+    if quickshell_evo_running; then
+        echo "evo system: quickshell still running after stop" >&2
+        quickshell_evo_pids >&2 || true
+        rm -f "$STOPPING_FILE"
+        flock -u 9
+        exit 1
+    fi
+
+    rm -f "$STOPPING_FILE"
+
+    if systemctl --user is-enabled evoshell.service >/dev/null 2>&1; then
+        systemctl --user restart evoshell.service
+    else
+        nohup "${BIN}/_system" start >/dev/null 2>&1 &
+        disown 2>/dev/null || true
+    fi
+
+    for _ in {1..200}; do
+        if "$IPC" shell ping >/dev/null 2>&1; then
+            if [[ "$was_locked" == "true" ]]; then
+                "$IPC" evo.sys.lock-screen.lock lock >/dev/null 2>&1 || true
+            fi
+            flock -u 9
+            return 0
+        fi
+        sleep 0.1
+    done
+
+    flock -u 9
+    echo "evo system: shell started but ipc did not respond" >&2
+    exit 1
+}
+
+cmd_reboot() {
+    close_brave
+    systemctl reboot
+}
+
+cmd_shutdown() {
+    close_brave
+    bash "${BIN}/evo-system-cleanup"
+    systemctl poweroff
+}
+
+ACTION="${1:-}"
+case "$ACTION" in
+    start) cmd_start ;;
+    lock) cmd_lock ;;
+    unlock) cmd_unlock ;;
+    restart) cmd_restart ;;
+    reboot) cmd_reboot ;;
+    shutdown) cmd_shutdown ;;
+    -h|--help|help|"") usage ;;
+    *)
+        echo "evo system: unknown command: $ACTION" >&2
+        usage >&2
+        exit 1
+        ;;
+esac

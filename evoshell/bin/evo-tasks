@@ -1,0 +1,129 @@
+#!/usr/bin/env bash
+# Tasks storage for evoshell — JSON in $EVOSHELL_STATE/apps/tasks.json.
+
+set -euo pipefail
+
+_bin_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "${_bin_dir}/evo-storage-lib"
+
+TASKS_JSON="${EVOSHELL_STATE}/apps/tasks.json"
+
+usage() {
+    cat >&2 <<'EOF'
+usage:
+  evo-tasks settings get
+  evo-tasks load
+  evo-tasks save <json>
+  evo-tasks copy <json-text>
+EOF
+    exit 1
+}
+
+ensure_state_dir() {
+    mkdir -p "${EVOSHELL_STATE}/apps"
+}
+
+tasks_file() {
+    printf '%s' "$TASKS_JSON"
+}
+
+load_json_tasks() {
+    local file="$1"
+    [[ -f "$file" ]] || {
+        echo '[]'
+        return 0
+    }
+    jq -c '
+        if type == "object" and (.tasks | type) == "array" then .tasks
+        elif type == "array" then .
+        else [] end
+        | map(select(type == "object"))
+        | map({text: (.text // ""), done: (.done == true)})
+    ' "$file" 2>/dev/null || echo '[]'
+}
+
+save_json_tasks() {
+    local file="$1" tasks_json="$2"
+    local tmp
+    tmp="$(mktemp)"
+    jq -n --argjson tasks "$tasks_json" '{tasks: $tasks}' >"$tmp"
+    mv "$tmp" "$file"
+}
+
+cmd_settings_get() {
+    local file
+    file="$(tasks_file)"
+    jq -n \
+        --arg tasksFile "$file" \
+        --arg format "json" \
+        '{
+            ok: true,
+            tasksFile: $tasksFile,
+            format: $format
+        }'
+}
+
+cmd_load() {
+    local file tasks
+    file="$(tasks_file)"
+    tasks="$(load_json_tasks "$file")"
+    jq -n \
+        --arg tasksFile "$file" \
+        --arg format "json" \
+        --argjson tasks "$tasks" \
+        '{tasksFile: $tasksFile, format: $format, tasks: $tasks}'
+}
+
+cmd_save() {
+    local payload="${1:-}"
+    [[ -n "$payload" ]] || payload="$(cat)"
+    jq -e '.tasks | type == "array"' <<<"$payload" >/dev/null 2>&1 || usage
+    local file tasks
+    file="$(tasks_file)"
+    tasks="$(jq -c '.tasks' <<<"$payload")"
+    ensure_state_dir
+    save_json_tasks "$file" "$tasks"
+    jq -n --arg tasksFile "$file" --arg format "json" '{ok: true, tasksFile: $tasksFile, format: $format}'
+}
+
+cmd_copy() {
+    local json="${1:-}"
+    [[ -n "$json" ]] || return 0
+    local text
+    text="$(jq -r . <<<"$json")"
+    [[ -n "$text" && "$text" != "null" ]] || return 0
+    printf '%s' "$text" | wl-copy
+}
+
+target="${1:-}"
+action="${2:-}"
+
+case "$target" in
+settings)
+    case "$action" in
+    get)
+        cmd_settings_get
+        ;;
+    *)
+        usage
+        ;;
+    esac
+    ;;
+load)
+    cmd_load
+    ;;
+save)
+    json="${2:-}"
+    [[ -n "$json" ]] || json="$(cat)"
+    cmd_save "$json"
+    ;;
+copy)
+    json="${2:-}"
+    [[ -n "$json" ]] || json="$(cat)"
+    cmd_copy "$json"
+    ;;
+*)
+    usage
+    ;;
+esac

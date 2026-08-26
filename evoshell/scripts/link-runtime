@@ -1,0 +1,152 @@
+#!/usr/bin/env bash
+# Symlink evoshell into runtime paths (private lib bin + public evo CLI).
+set -euo pipefail
+
+EVOSHELL_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export EVOSHELL_ROOT
+EVOSHELL_STATE="${EVOSHELL_STATE:-${XDG_STATE_HOME:-${HOME}/.local/state}/evoshell}"
+LOCAL_BIN="${HOME}/.local/bin"
+EVOSHELL_LIB="${HOME}/.local/lib/evoshell/bin"
+SYSTEMD_USER="${HOME}/.config/systemd/user"
+EVOSHELL_ENV_FILE="${HOME}/.config/evoshell/environment"
+
+link_path() {
+  local target="$1"
+  local source="$2"
+  mkdir -p "$(dirname "$target")"
+  if [[ -e "$target" && ! -L "$target" ]]; then
+    rm -rf "$target"
+  fi
+  ln -sfn "$source" "$target"
+}
+
+remove_path_marker() {
+  local marker="$1"
+  local profile="${HOME}/.profile"
+  local fish_config="${HOME}/.config/fish/config.fish"
+
+  if [[ -f "$profile" ]]; then
+    sed -i "/${marker}/d" "$profile" 2>/dev/null || true
+    sed -i '/\.local\/bin\/evoshell/d' "$profile" 2>/dev/null || true
+    sed -i '/\.local\/bin\/evoplayer/d' "$profile" 2>/dev/null || true
+  fi
+  if [[ -f "$fish_config" ]]; then
+    sed -i "/${marker}/d" "$fish_config" 2>/dev/null || true
+    sed -i '/\.local\/bin\/evoshell/d' "$fish_config" 2>/dev/null || true
+    sed -i '/\.local\/bin\/evoplayer/d' "$fish_config" 2>/dev/null || true
+  fi
+}
+
+ensure_path_entry() {
+  local marker="# evo cli"
+  remove_path_marker "# evoshell bin"
+  remove_path_marker "# evoplayer bin"
+
+  if [[ -n "${FISH_VERSION:-}" ]] || [[ "${SHELL:-}" == *fish* ]]; then
+    local fish_config="${HOME}/.config/fish/config.fish"
+    mkdir -p "$(dirname "$fish_config")"
+    if [[ ! -f "$fish_config" ]] || ! grep -Fq "$marker" "$fish_config" 2>/dev/null; then
+      {
+        echo ""
+        echo "$marker"
+        echo 'fish_add_path "$HOME/.local/bin"'
+      } >>"$fish_config"
+    fi
+    return 0
+  fi
+
+  local profile="${HOME}/.profile"
+  [[ -f "$profile" ]] || touch "$profile"
+  if ! grep -Fq "$marker" "$profile" 2>/dev/null; then
+    {
+      echo ""
+      echo "$marker"
+      echo 'export PATH="$HOME/.local/bin:$PATH"'
+    } >>"$profile"
+  fi
+}
+
+write_environment_file() {
+  mkdir -p "$(dirname "$EVOSHELL_ENV_FILE")"
+  cat >"$EVOSHELL_ENV_FILE" <<EOF
+EVOSHELL_ROOT=${EVOSHELL_ROOT}
+EOF
+}
+
+sync_theme_json() {
+  if [[ -f "${HOME}/.themes/current/colors.toml" ]]; then
+    # shellcheck source=/dev/null
+    source "${EVOSHELL_ROOT}/bin/evo-theme-lib"
+    themes_sync_evo_shell
+  fi
+}
+
+link_core_binaries() {
+  local script name
+  local repo_bin="${EVOSHELL_ROOT}/bin"
+
+  # Legacy installs symlinked the whole bin dir; replace with per-script links.
+  if [[ -L "${EVOSHELL_LIB}" ]]; then
+    rm -f "${EVOSHELL_LIB}"
+  fi
+  mkdir -p "$EVOSHELL_LIB"
+
+  for script in "${repo_bin}"/*; do
+    [[ -e "$script" ]] || continue
+    name="$(basename "$script")"
+    if [[ -L "$script" ]]; then
+      echo "link-runtime: skipping symlink in repo bin (restore from git): ${name}" >&2
+      continue
+    fi
+    link_path "${EVOSHELL_LIB}/${name}" "$script"
+  done
+}
+
+link_plugin_overlays() {
+  local plugins_dir="${HOME}/.config/evoshell/plugins"
+  mkdir -p "$plugins_dir" "$EVOSHELL_LIB"
+  link_path "${plugins_dir}/commons" "${EVOSHELL_ROOT}/commons"
+  if [[ -x "${plugins_dir}/shopify/bin/evo-panel-shopify" ]]; then
+    link_path "${EVOSHELL_LIB}/evo-panel-shopify" "${plugins_dir}/shopify/bin/evo-panel-shopify"
+  else
+    rm -f "${EVOSHELL_LIB}/evo-panel-shopify"
+  fi
+}
+
+migrate_themes_dir() {
+  local home_themes="${HOME}/.themes"
+  if [[ -d "$home_themes" && ! -L "$home_themes" ]]; then
+    if [[ -d "${home_themes}/current" ]]; then
+      rm -rf "${EVOSHELL_ROOT}/themes/current"
+      mv "${home_themes}/current" "${EVOSHELL_ROOT}/themes/current"
+    fi
+    rm -rf "$home_themes"
+  fi
+}
+
+link_core_binaries
+link_path "${LOCAL_BIN}/evo" "${EVOSHELL_ROOT}/bin/evo"
+
+# Remove legacy public symlinks.
+rm -f "${LOCAL_BIN}/evoshell"
+for script in "${EVOSHELL_ROOT}"/bin/evo-*; do
+  [[ -e "$script" ]] || continue
+  stale="${LOCAL_BIN}/$(basename "$script")"
+  [[ -L "$stale" ]] && rm -f "$stale"
+done
+rm -f "${LOCAL_BIN}/evo-system" "${LOCAL_BIN}/evo-ipc" "${LOCAL_BIN}/evoplayer" "${LOCAL_BIN}/evo-nvim-open"
+
+migrate_themes_dir
+link_path "${HOME}/.themes" "${EVOSHELL_ROOT}/themes"
+link_path "${SYSTEMD_USER}/evoshell.service" "${EVOSHELL_ROOT}/systemd/evoshell.service"
+link_path "${SYSTEMD_USER}/darkhttpd.service" "${EVOSHELL_ROOT}/systemd/darkhttpd.service"
+link_plugin_overlays
+write_environment_file
+if command -v systemctl >/dev/null 2>&1; then
+  systemctl --user daemon-reload 2>/dev/null || true
+fi
+
+ensure_path_entry
+sync_theme_json
+
+echo "linked evoshell from ${EVOSHELL_ROOT}; public cli ${LOCAL_BIN}/evo; lib ${EVOSHELL_LIB}"

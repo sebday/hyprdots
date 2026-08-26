@@ -1,0 +1,179 @@
+#!/usr/bin/env bash
+# JSON breakdown of explicitly installed pacman packages by category.
+
+set -euo pipefail
+
+_bin_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "${_bin_dir}/evo-paths-lib"
+
+read_mise_package_count() {
+  if ! command -v mise >/dev/null 2>&1; then
+    printf '0'
+    return
+  fi
+  mise ls --json 2>/dev/null | jq '[to_entries[] | .value[]] | length' 2>/dev/null || printf '0'
+}
+
+emit_error() {
+  local msg="$1"
+  jq -cn \
+    --arg error "$msg" \
+    '{
+      ok: false,
+      error: $error,
+      summary: { total: 0, explicit: 0, foreign: 0, orphans: 0, mise: 0 },
+      categories: [],
+      orphans: []
+    }'
+}
+
+collect_reference_files() {
+  local -a files=()
+  local -A seen=()
+  local candidate resolved
+
+  candidate="${EVOSHELL_ROOT}/packages.txt"
+  if [[ -f "$candidate" ]]; then
+    resolved="$(readlink -f "$candidate" 2>/dev/null || printf '%s' "$candidate")"
+    if [[ -z "${seen[$resolved]:-}" ]]; then
+      files+=("$candidate")
+      seen[$resolved]=1
+    fi
+  fi
+
+  for candidate in \
+    "${EVOSHELL_ROOT}/../hyprdots/.install/packages.txt" \
+    "${HOME}/projects/hyprdots/.install/packages.txt"; do
+    [[ -f "$candidate" ]] || continue
+    resolved="$(readlink -f "$candidate" 2>/dev/null || printf '%s' "$candidate")"
+    [[ -n "${seen[$resolved]:-}" ]] && continue
+    files+=("$candidate")
+    seen[$resolved]=1
+  done
+
+  printf '%s\n' "${files[@]}"
+}
+
+parse_reference_manifests() {
+  local file category
+  while IFS= read -r file; do
+    [[ -n "$file" ]] || continue
+  category=""
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    if [[ "$line" =~ ^#[[:space:]]+([^#]+) ]]; then
+      category="${BASH_REMATCH[1]}"
+      category="${category%%[[:space:]]#*}"
+      category="${category%"${category##*[![:space:]]}"}"
+      continue
+    fi
+    [[ -z "$category" ]] && continue
+    [[ "$line" =~ ^[[:space:]]*# ]] && continue
+    [[ "$line" =~ ^[[:space:]]*$ ]] && continue
+    read -r pkg _ <<<"$line"
+    [[ -n "$pkg" ]] || continue
+    printf '%s\t%s\n' "$category" "$pkg"
+  done <"$file"
+  done < <(collect_reference_files)
+}
+
+cmd="${1:-breakdown}"
+case "$cmd" in
+  breakdown | "")
+    ;;
+  *)
+    echo "usage: evo-system-packages [breakdown]" >&2
+    exit 2
+    ;;
+esac
+
+if ! command -v pacman >/dev/null 2>&1; then
+  emit_error "pacman not available"
+  exit 0
+fi
+
+if ! command -v jq >/dev/null 2>&1; then
+  emit_error "jq not available"
+  exit 0
+fi
+
+mapfile -t explicit_lines < <(pacman -Qqe 2>/dev/null | while read -r pkg; do
+  ver="$(pacman -Q "$pkg" 2>/dev/null | awk '{print $2}')"
+  printf '%s\t%s\n' "$pkg" "${ver:-}"
+done)
+
+mapfile -t foreign_pkgs < <(pacman -Qqm 2>/dev/null || true)
+mapfile -t orphan_pkgs < <(pacman -Qdtq 2>/dev/null || true)
+
+total_count="$(pacman -Qq 2>/dev/null | wc -l | tr -d ' ')"
+explicit_count="${#explicit_lines[@]}"
+foreign_count="${#foreign_pkgs[@]}"
+orphan_count="${#orphan_pkgs[@]}"
+mise_count="$(read_mise_package_count)"
+
+reference_tsv="$(parse_reference_manifests)"
+categories_json="$(jq -Rn \
+  --arg ref "$reference_tsv" \
+  --arg explicit "$(printf '%s\n' "${explicit_lines[@]}")" \
+  --arg foreign "$(printf '%s\n' "${foreign_pkgs[@]}")" \
+  '
+  ($ref | split("\n") | map(select(length > 0) | split("\t")) | map({cat: .[0], pkg: .[1]})) as $refs
+  | ($foreign | split("\n") | map(select(length > 0))) as $foreignSet
+  | ($explicit | split("\n") | map(select(length > 0) | split("\t")) | map({name: .[0], version: (.[1] // "")})) as $pkgs
+  | [ $refs | .[].cat ] | unique as $refCatOrder
+  | reduce $refs[] as $r (
+      {};
+      if (.[$r.cat] // [] | index($r.pkg)) then .
+      else .[$r.cat] = ((.[$r.cat] // []) + [$r.pkg]) end
+    ) as $catMap
+  | ($pkgs | map(
+      . as $p
+      | (($refs | map(select(.pkg == $p.name)) | if length > 0 then .[0].cat else null end)) as $cat
+      | { category: ($cat // "Other"), package: $p }
+    )) as $assigned
+  | (
+      ($refCatOrder + ["Other"]) | unique
+      | map(
+          . as $catName
+          | {
+              name: $catName,
+              packages: [
+                $assigned[]
+                | select(.category == $catName)
+                | .package as $pkg
+                | $pkg + {
+                    source: (if ($foreignSet | index($pkg.name)) then "aur" else "repo" end)
+                  }
+              ]
+              | sort_by(.name)
+            }
+        )
+      | map(select(.packages | length > 0))
+    )
+  ')"
+
+orphans_json="$(jq -cn --arg lines "$(printf '%s\n' "${orphan_pkgs[@]}")" '
+  [$lines | split("\n")[] | select(length > 0)] | sort
+')"
+
+jq -cn \
+  --argjson total "$total_count" \
+  --argjson explicit "$explicit_count" \
+  --argjson foreign "$foreign_count" \
+  --argjson orphans "$orphan_count" \
+  --argjson mise "$mise_count" \
+  --argjson categories "$categories_json" \
+  --argjson orphanList "$orphans_json" \
+  '{
+    ok: true,
+    error: "",
+    summary: {
+      total: $total,
+      explicit: $explicit,
+      foreign: $foreign,
+      orphans: $orphans,
+      mise: $mise
+    },
+    categories: $categories,
+    orphans: $orphanList
+  }'

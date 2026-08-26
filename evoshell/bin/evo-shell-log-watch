@@ -1,0 +1,416 @@
+#!/usr/bin/env bash
+# Poll evoshell and user journal warnings/errors; emit NDJSON for notifications.
+
+set -euo pipefail
+
+_bin_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "${_bin_dir}/evo-paths-lib"
+
+CURSOR_FILE="${EVOSHELL_STATE}/log-watch.cursor"
+USER_CURSOR_FILE="${EVOSHELL_STATE}/log-watch-user.cursor"
+
+usage() {
+    cat <<'EOF'
+usage: evo-shell-log-watch <command>
+
+commands:
+  poll            emit new shell + user journal lines as NDJSON
+  format          parse one evoshell message to NDJSON (stdin or arg)
+  format-journal  parse one journal JSON line to NDJSON (stdin or arg)
+EOF
+}
+
+strip_ansi() {
+    sed -r 's/\x1b\[[0-9;]*[[:alpha:]]//g; s/\x1b\[[0-9;]*m//g'
+}
+
+decode_journal_message() {
+    local raw="$1"
+    if [[ "$raw" == \[* ]]; then
+        jq -r 'map([.] | implode) | join("")' <<< "$raw" 2>/dev/null || printf '%s' "$raw"
+        return
+    fi
+    printf '%s' "$raw"
+}
+
+normalize_message() {
+    local text="$1"
+    text="$(printf '%s' "$text" | strip_ansi)"
+    text="$(printf '%s' "$text" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//; s/[[:space:]]+/ /g')"
+    printf '%s' "$text"
+}
+
+fingerprint_message() {
+    local text="$1"
+    local norm
+    norm="$(normalize_message "$text")"
+    norm="$(printf '%s' "$norm" | sed -E \
+        's/evoshell\[[0-9]+\]:?//g' \
+        | sed -E 's/\[[0-9]+:[0-9]+\]/[L:C]/g' \
+        | sed -E 's#/home/[^/]+/#|HOME|/#g')"
+    printf '%s' "$norm" | sha256sum | awk '{print $1}'
+}
+
+fingerprint_journal() {
+    local identifier="$1"
+    local message="$2"
+    printf '%s\x1f%s' "$identifier" "$(normalize_message "$message")" | sha256sum | awk '{print $1}'
+}
+
+is_shell_noise_message() {
+    local text="$1"
+    case "$text" in
+        *"/.cache/evoshell/"*" failed: File does not exist."*) return 0 ;;
+        *"Detected function \""*" in Connections element."*) return 0 ;;
+    esac
+    return 1
+}
+
+is_journal_noise_message() {
+    local message="$1"
+    case "$message" in
+        *"left-over process"*) return 0 ;;
+        *"implementation deficiencies"*) return 0 ;;
+        *"evoshell.service: Failed with result 'exit-code'."*) return 0 ;;
+    esac
+    return 1
+}
+
+is_shell_warning_message() {
+    local text="$1"
+    [[ -n "$text" ]] || return 1
+    if is_shell_noise_message "$text"; then
+        return 1
+    fi
+    if [[ "$text" =~ (^|[[:space:]])WARN[[:space:]:] ]]; then
+        return 0
+    fi
+    if [[ "$text" =~ (^|[[:space:]])ERROR[[:space:]:] ]]; then
+        return 0
+    fi
+    if [[ "$text" =~ console\.warn: ]]; then
+        return 0
+    fi
+    case "$text" in
+        *"Binding loop detected"*) return 0 ;;
+        *"Maximum call stack size exceeded"*) return 0 ;;
+        *RangeError:*|*TypeError:*|*ReferenceError:*) return 0 ;;
+    esac
+    return 1
+}
+
+level_from_message() {
+    local text="$1"
+    if [[ "$text" =~ (^|[[:space:]])ERROR[[:space:]:] ]] \
+        || [[ "$text" == *"Maximum call stack size exceeded"* ]] \
+        || [[ "$text" == RangeError:* ]] \
+        || [[ "$text" == TypeError:* ]] \
+        || [[ "$text" == ReferenceError:* ]]; then
+        printf 'error'
+        return
+    fi
+    printf 'warning'
+}
+
+level_from_priority() {
+    local priority="$1"
+    if [[ "$priority" =~ ^[0-3]$ ]]; then
+        printf 'error'
+        return
+    fi
+    printf 'warning'
+}
+
+journal_timestamp() {
+    local line="$1"
+    local at
+    at="$(jq -r '
+        if .__REALTIME_TIMESTAMP then
+            (.["__REALTIME_TIMESTAMP"] | tonumber / 1000000 | strftime("%Y-%m-%dT%H:%M:%SZ"))
+        else
+            ""
+        end
+    ' <<< "$line" 2>/dev/null || true)"
+    if [[ -n "$at" ]]; then
+        printf '%s' "$at"
+    else
+        date -u +%Y-%m-%dT%H:%M:%SZ
+    fi
+}
+
+journal_message_text() {
+    local line="$1"
+    jq -r '.MESSAGE | if type == "array" then implode else . end' <<< "$line" 2>/dev/null || true
+}
+
+journal_identifier() {
+    local line="$1"
+    jq -r '
+        if ._SYSTEMD_USER_UNIT and ._SYSTEMD_USER_UNIT != "" then
+            ._SYSTEMD_USER_UNIT
+        elif .SYSLOG_IDENTIFIER and .SYSLOG_IDENTIFIER != "" then
+            .SYSLOG_IDENTIFIER
+        elif ._COMM and ._COMM != "" then
+            ._COMM
+        else
+            "journal"
+        end
+    ' <<< "$line" 2>/dev/null || printf 'journal'
+}
+
+parse_shell_log() {
+    local raw="$1"
+    local text title body qml_type file_part issue fingerprint level
+
+    text="$(normalize_message "$(decode_journal_message "$raw")")"
+    [[ -n "$text" ]] || return 1
+    is_shell_warning_message "$text" || return 1
+
+    level="$(level_from_message "$text")"
+    fingerprint="$(fingerprint_message "$text")"
+
+    if [[ "$text" =~ .*QML[[:space:]]+([^[:space:]]+)[[:space:]]+at[[:space:]]+qs:([^[]+)\[([0-9]+):([0-9]+)\]:[[:space:]]*(.+) ]]; then
+        qml_type="${BASH_REMATCH[1]}"
+        file_part="${BASH_REMATCH[2]}"
+        local line_no="${BASH_REMATCH[3]}"
+        issue="${BASH_REMATCH[5]}"
+        file_part="${file_part##*/}"
+        if [[ "$issue" =~ Binding[[:space:]]loop[[:space:]]detected[[:space:]]for[[:space:]]property[[:space:]]\"([^\"]+)\" ]]; then
+            title="Binding loop: ${BASH_REMATCH[1]}"
+        elif [[ "$issue" =~ Detected[[:space:]]function[[:space:]]\"([^\"]+)\" ]]; then
+            title="QML handler: ${BASH_REMATCH[1]}"
+        elif [[ "$issue" =~ ^Cannot[[:space:]]open:[[:space:]]*(.+) ]]; then
+            local icon_path="${BASH_REMATCH[1]}"
+            title="missing icon"
+            body="${icon_path##*/}"
+        else
+            title="${issue%%:*}"
+            title="${title:0:72}"
+            body="${file_part}:${line_no}"$'\n'"${qml_type}"$'\n'"${issue}"
+        fi
+        if [[ -z "${body:-}" ]]; then
+            body="${file_part}:${line_no}"$'\n'"${qml_type}"$'\n'"${issue}"
+        fi
+    elif [[ "$text" =~ WARN[[:space:]]scene:[[:space:]]+qs:([^[]+)\[([0-9]+):-?([0-9]+)\]:[[:space:]]*(.+) ]]; then
+        file_part="${BASH_REMATCH[1]}"
+        local line_no="${BASH_REMATCH[2]}"
+        issue="${BASH_REMATCH[4]}"
+        file_part="${file_part##*/}"
+        if [[ "$issue" =~ ^TypeError: ]]; then
+            title="TypeError"
+            local detail="${issue#TypeError:}"
+            detail="${detail# }"
+            body="${file_part}:${line_no} — ${detail}"
+        elif [[ "$issue" =~ ^Unable[[:space:]]to[[:space:]]assign ]]; then
+            title="QML assign error"
+            body="${file_part}:${line_no}"$'\n'"${issue}"
+        else
+            title="${issue%%:*}"
+            title="${title:0:72}"
+            body="${file_part}:${line_no}"$'\n'"${issue}"
+        fi
+    elif [[ "$text" =~ ^WARN:[[:space:]]*Could[[:space:]]not[[:space:]]load[[:space:]]icon[[:space:]]+\"([^\"]+)\" ]]; then
+        local icon_path="${BASH_REMATCH[1]}"
+        icon_path="${icon_path%%\?*}"
+        title="icon load failed"
+        body="${icon_path##*/}"
+    elif [[ "$text" =~ console\.warn:[[:space:]]*(.+) ]]; then
+        title="console.warn"
+        body="${BASH_REMATCH[1]}"
+    elif [[ "$text" =~ ^(WARN|ERROR):[[:space:]]*(.+) ]]; then
+        local rest="${BASH_REMATCH[2]}"
+        title="${rest%% at *}"
+        title="${title%%.*}"
+        title="${title:0:40}"
+        [[ -n "$title" ]] || title="${BASH_REMATCH[1]}"
+        body="$rest"
+    else
+        title="${text%%:*}"
+        title="${title:0:72}"
+        body="$text"
+    fi
+
+    jq -nc \
+        --arg level "$level" \
+        --arg source "shell" \
+        --arg message "$text" \
+        --arg title "$title" \
+        --arg body "$body" \
+        --arg fingerprint "$fingerprint" \
+        '{level:$level,source:$source,message:$message,title:$title,body:$body,fingerprint:$fingerprint}'
+}
+
+parse_journal_entry() {
+    local line="$1"
+    local message identifier priority level fingerprint title body syslog_id
+
+    [[ -n "$line" ]] || return 1
+    [[ "$line" == \{* ]] || return 1
+
+    message="$(journal_message_text "$line")"
+    message="$(normalize_message "$message")"
+    [[ -n "$message" ]] || return 1
+    if is_journal_noise_message "$message"; then
+        return 1
+    fi
+
+    identifier="$(journal_identifier "$line")"
+    syslog_id="$(jq -r '.SYSLOG_IDENTIFIER // ""' <<< "$line" 2>/dev/null || true)"
+    if [[ "$syslog_id" == "evoshell" ]] && is_shell_warning_message "$message"; then
+        return 1
+    fi
+
+    priority="$(jq -r '.PRIORITY // "4"' <<< "$line" 2>/dev/null || printf '4')"
+    level="$(level_from_priority "$priority")"
+    fingerprint="$(fingerprint_journal "$identifier" "$message")"
+    title="$identifier"
+    body="$message"
+
+    jq -nc \
+        --arg level "$level" \
+        --arg source "journal" \
+        --arg message "$message" \
+        --arg title "$title" \
+        --arg body "$body" \
+        --arg fingerprint "$fingerprint" \
+        '{level:$level,source:$source,message:$message,title:$title,body:$body,fingerprint:$fingerprint}'
+}
+
+format_entry_json() {
+    local raw="$1"
+    local at="${2:-}"
+    local parsed
+
+    parsed="$(parse_shell_log "$raw" || true)"
+    [[ -n "$parsed" ]] || return 1
+    if [[ -n "$at" ]]; then
+        jq -c --arg at "$at" '. + {at:$at}' <<< "$parsed"
+    else
+        printf '%s\n' "$parsed"
+    fi
+}
+
+format_journal_json() {
+    local line="$1"
+    local at="${2:-}"
+    local parsed
+
+    parsed="$(parse_journal_entry "$line" || true)"
+    [[ -n "$parsed" ]] || return 1
+    if [[ -n "$at" ]]; then
+        jq -c --arg at "$at" '. + {at:$at}' <<< "$parsed"
+    else
+        printf '%s\n' "$parsed"
+    fi
+}
+
+cmd_format() {
+    local raw="${1:-}"
+    if [[ -z "$raw" ]]; then
+        raw="$(cat)"
+    fi
+    format_entry_json "$raw"
+}
+
+cmd_format_journal() {
+    local line="${1:-}"
+    if [[ -z "$line" ]]; then
+        line="$(cat)"
+    fi
+    format_journal_json "$line"
+}
+
+init_cursor() {
+    local file="$1"
+    local journal_args=("${@:2}")
+    mkdir -p "$(dirname "$file")"
+    local next
+    next="$(journalctl "${journal_args[@]}" -n 1 -o json 2>/dev/null \
+        | jq -r '.__CURSOR // empty' 2>/dev/null || true)"
+    printf '%s' "$next" > "$file"
+}
+
+poll_journal_stream() {
+    local cursor_file="$1"
+    shift
+    local journal_args=("$@")
+
+    if ! command -v journalctl >/dev/null 2>&1; then
+        return 0
+    fi
+
+    mkdir -p "$(dirname "$cursor_file")"
+    if [[ ! -f "$cursor_file" ]]; then
+        init_cursor "$cursor_file" "${journal_args[@]}"
+        return 0
+    fi
+
+    local cursor last_cursor line at journal_out
+    cursor="$(tr -d '\n' < "$cursor_file")"
+    if [[ -z "$cursor" ]]; then
+        init_cursor "$cursor_file" "${journal_args[@]}"
+        return 0
+    fi
+    last_cursor="$cursor"
+
+    journal_out="$(journalctl "${journal_args[@]}" --show-cursor -o json --after-cursor "$cursor" 2>&1 || true)"
+    if [[ "$journal_out" == *"Failed to seek to cursor"* ]]; then
+        init_cursor "$cursor_file" "${journal_args[@]}"
+        return 0
+    fi
+
+    while IFS= read -r line; do
+        [[ -n "$line" ]] || continue
+        if [[ "$line" == --\ cursor:* ]]; then
+            last_cursor="${line#-- cursor: }"
+            continue
+        fi
+
+        at="$(journal_timestamp "$line")"
+        if [[ "$cursor_file" == "$CURSOR_FILE" ]]; then
+            local message
+            message="$(journal_message_text "$line")"
+            [[ -n "$message" ]] || continue
+            format_entry_json "$message" "$at" || true
+        else
+            format_journal_json "$line" "$at" || true
+        fi
+    done <<< "$journal_out"
+
+    if [[ -n "$last_cursor" && "$last_cursor" != "$cursor" ]]; then
+        printf '%s\n' "$last_cursor" > "$cursor_file"
+    fi
+}
+
+cmd_poll_shell() {
+    poll_journal_stream "$CURSOR_FILE" --user -t evoshell
+}
+
+cmd_poll_user() {
+    poll_journal_stream "$USER_CURSOR_FILE" --user -p warning
+}
+
+cmd_poll() {
+    cmd_poll_shell
+    if [[ "${EVOSHELL_LOG_USER_JOURNAL:-1}" != "0" ]]; then
+        cmd_poll_user
+    fi
+}
+
+main() {
+    local cmd="${1:-}"
+    case "$cmd" in
+        poll) shift; cmd_poll "$@" ;;
+        format) shift; cmd_format "$@" ;;
+        format-journal) shift; cmd_format_journal "$@" ;;
+        -h|--help|help|"") usage ;;
+        *)
+            echo "unknown command: $cmd" >&2
+            usage >&2
+            exit 1
+            ;;
+    esac
+}
+
+main "$@"

@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat >&2 <<'EOF'
+usage:
+  evo-brave open <wm-class> <url>
+EOF
+}
+
+cmd_open() {
+  local wm_class="${1:?wm class required}"
+  local url="${2:?url required}"
+  exec brave --class="$wm_class" --app="$url"
+}
+
+case "${1:-}" in
+open) shift; cmd_open "$@" ;;
+""|-h|--help) usage; exit 0 ;;
+*) usage; exit 1 ;;
+esac

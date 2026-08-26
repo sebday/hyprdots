@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export EVOSHELL_ROOT="$root"
+bash "${root}/scripts/link-runtime"
+bash "${root}/scripts/link-evoplayer"
+bash "${root}/scripts/seed-overrides"

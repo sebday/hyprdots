@@ -1,0 +1,141 @@
+#!/usr/bin/env bash
+# Open files in the running Neovim instance that matches the file workspace.
+
+set -euo pipefail
+
+usage() {
+	cat <<'EOF'
+usage: evo-nvim-open [options] <file> [file ...]
+
+Open files in a running Neovim via RPC. Picks the instance whose cwd is the
+best ancestor of the target paths.
+
+options:
+  -l, --line N        jump to line N (applies to next path only, or all if one file)
+  -h, --help          show this help
+EOF
+}
+
+line_num=""
+paths=()
+
+while [[ $# -gt 0 ]]; do
+	case "$1" in
+	-l | --line)
+		line_num="$2"
+		shift 2
+		;;
+	-h | --help)
+		usage
+		exit 0
+		;;
+	-*)
+		echo "evo-nvim-open: unknown option: $1" >&2
+		usage >&2
+		exit 2
+		;;
+	*)
+		paths+=("$1")
+		shift
+		;;
+	esac
+done
+
+if [[ ${#paths[@]} -eq 0 ]]; then
+	echo "evo-nvim-open: no files given" >&2
+	usage >&2
+	exit 2
+fi
+
+command -v nvim >/dev/null || {
+	echo "evo-nvim-open: nvim not found" >&2
+	exit 1
+}
+
+abs_paths=()
+for p in "${paths[@]}"; do
+	local_path="$p"
+	# file:line or file:line:col
+	if [[ "$local_path" == *:* ]]; then
+		local_path="${local_path%%:*}"
+	fi
+	if [[ ! -e "$local_path" ]]; then
+		echo "evo-nvim-open: file not found: $p" >&2
+		exit 1
+	fi
+	abs_paths+=("$(realpath "$local_path")")
+done
+
+find_sockets() {
+	local runtime="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+	find "$runtime" -maxdepth 2 -type s -name 'nvim.*.0' 2>/dev/null || true
+}
+
+server_cwd() {
+	nvim --server "$1" --remote-expr 'getcwd()' 2>/dev/null || true
+}
+
+score_server() {
+	local cwd="$1"
+	local score=0
+	local path
+	for path in "${abs_paths[@]}"; do
+		if [[ "$path" == "$cwd" || "$path" == "$cwd/"* ]]; then
+			local len=${#cwd}
+			if ((len > score)); then
+				score=$len
+			fi
+		fi
+	done
+	printf '%s' "$score"
+}
+
+best_sock=""
+best_score=0
+mapfile -t sockets < <(find_sockets)
+
+if [[ ${#sockets[@]} -eq 0 ]]; then
+	echo "evo-nvim-open: no neovim server running" >&2
+	exit 1
+fi
+
+declare -A seen_cwd=()
+for sock in "${sockets[@]}"; do
+	cwd="$(server_cwd "$sock")"
+	[[ -n "$cwd" ]] || continue
+	score="$(score_server "$cwd")"
+	if ((score > best_score)); then
+		best_score=$score
+		best_sock="$sock"
+	fi
+done
+
+if [[ -z "$best_sock" || "$best_score" -eq 0 ]]; then
+	echo "evo-nvim-open: no neovim instance for workspace" >&2
+	echo "evo-nvim-open: running instances:" >&2
+	for sock in "${sockets[@]}"; do
+		cwd="$(server_cwd "$sock")"
+		[[ -n "$cwd" && -z "${seen_cwd[$cwd]:-}" ]] || continue
+		seen_cwd[$cwd]=1
+		echo "  $cwd" >&2
+	done
+	exit 1
+fi
+
+# Open each file in the current tabpage as a buffer tab. --remote-tab-silent
+# creates Vim tabpages (one per file), which breaks the editor-chrome layout.
+for p in "${paths[@]}"; do
+	local_path="$p"
+	file_line="$line_num"
+	if [[ "$local_path" == *:* ]]; then
+		rest="${local_path#*:}"
+		local_path="${local_path%%:*}"
+		file_line="${rest%%:*}"
+	fi
+	abs="$(realpath "$local_path")"
+	if [[ -n "$file_line" ]]; then
+		nvim --server "$best_sock" --remote-silent "+${file_line}" "$abs"
+	else
+		nvim --server "$best_sock" --remote-silent "$abs"
+	fi
+done

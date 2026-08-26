@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+# Calculator eval + history for evoshell calc panel.
+
+set -euo pipefail
+
+_bin_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "${_bin_dir}/evo-paths-lib"
+
+HISTORY_FILE="${EVOSHELL_STATE}/apps/calc-history.json"
+MAX_ITEMS=100
+HISTORY_LIMIT=50
+
+mkdir -p "${EVOSHELL_STATE}/apps"
+
+normalize_expr() {
+    local expr="${1:-}"
+    expr="${expr//×/*}"
+    expr=$(printf '%s' "$expr" | sed -E 's/([0-9.)])[xX]([0-9.(])/\1*\2/g')
+    printf '%s' "$expr"
+}
+
+eval_expr() {
+    local expr="${1:-}"
+    [[ -n "$expr" ]] || return 1
+    if [[ ! "$expr" =~ ^[0-9+*/().[:space:]xX×-]+$ ]]; then
+        printf 'error\n'
+        return 1
+    fi
+    local normalized result
+    normalized=$(normalize_expr "$expr")
+    if ! result=$(printf 'scale=10\n%s\n' "$normalized" | bc 2>/dev/null); then
+        printf 'error\n'
+        return 1
+    fi
+    result="${result//$'\n'/}"
+    if [[ "$result" == *.* ]]; then
+        result=$(printf '%s' "$result" | sed -E 's/0+$//; s/\.$//')
+    fi
+    [[ -n "$result" ]] || {
+        printf 'error\n'
+        return 1
+    }
+    printf '%s\n' "$result"
+}
+
+history_list() {
+    local limit="$HISTORY_LIMIT"
+    if [[ ! -f "$HISTORY_FILE" ]]; then
+        return 0
+    fi
+    jq -r --argjson limit "$limit" '
+        if type == "array" then .[-$limit:] else [] end
+        | .[]
+        | select(type == "object")
+        | select((.expr // "") != "")
+        | "\(.expr)\t\(.result // "")"
+    ' "$HISTORY_FILE" 2>/dev/null || true
+}
+
+add_history() {
+    local expr="${1:-}" result="${2:-}"
+    local tmp
+    [[ -n "$expr" && -n "$result" ]] || return 1
+    tmp="$(mktemp)"
+    if [[ -f "$HISTORY_FILE" ]]; then
+        jq --arg expr "$expr" --arg result "$result" --argjson max "$MAX_ITEMS" '
+            (if type == "array" then . else [] end)
+            + [{expr: $expr, result: $result}]
+            | .[-$max:]
+        ' "$HISTORY_FILE" >"$tmp" 2>/dev/null || echo "[]" >"$tmp"
+    else
+        jq -n --arg expr "$expr" --arg result "$result" '[{expr: $expr, result: $result}]' >"$tmp"
+    fi
+    mv "$tmp" "$HISTORY_FILE"
+}
+
+clear_history() {
+    echo '[]' >"$HISTORY_FILE"
+}
+
+case "${1:-}" in
+eval) eval_expr "${2:-}" ;;
+history) history_list ;;
+add) add_history "${2:-}" "${3:-}" ;;
+clear) clear_history ;;
+*)
+    echo "usage: evo-calculator eval <expr>|history|add <expr> <result>|clear" >&2
+    exit 1
+    ;;
+esac

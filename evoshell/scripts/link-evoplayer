@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Symlink evoplayer into evoshell source tree.
+set -euo pipefail
+
+EVOPLAYER_ROOT="${EVOPLAYER_ROOT:-${HOME}/projects/evoplayer}"
+EVOSHELL_ROOT="${EVOSHELL_ROOT:-${HOME}/projects/evoshell}"
+VENDOR_LINK="${EVOSHELL_ROOT}/vendor/evoplayer"
+
+if [[ ! -f "${EVOPLAYER_ROOT}/scripts/install" ]]; then
+  echo "WARNING: evoplayer repo missing at ${EVOPLAYER_ROOT}; clone it before using the player" >&2
+  exit 0
+fi
+
+export EVOSHELL_ROOT
+mkdir -p "${EVOSHELL_ROOT}/vendor"
+ln -sfn "${EVOPLAYER_ROOT}" "${VENDOR_LINK}"
+EVOSHELL_ROOT="${EVOSHELL_ROOT}" bash "${EVOPLAYER_ROOT}/scripts/install"
+
+echo "linked evoplayer from ${EVOPLAYER_ROOT} into ${EVOSHELL_ROOT}/vendor"

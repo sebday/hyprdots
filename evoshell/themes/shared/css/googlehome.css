@@ -1,0 +1,16 @@
+mat-toolbar,
+ghw-camera-history {
+    display: none!important;
+}
+.main-content-wrapper {
+    margin: 0!important;
+    padding: 0!important;
+}
+.full-screen-container {
+    width: calc(100vw)!important;
+    height: calc(100vh)!important;
+    padding:0!important;
+}
+ghw-full-player {
+    border-radius:0!important;
+}

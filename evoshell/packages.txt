@@ -1,0 +1,27 @@
+# Evoshell Arch packages (official repos only).
+# Install: sudo pacman -S --needed $(grep -vE '^#|^$' packages.txt)
+# See hyprdots .install/packages.txt for the full desktop list and optional AUR packages.
+
+# Required ##################
+hyprland
+quickshell
+jq
+pass
+libnotify
+pipewire
+pipewire-pulse
+darkhttpd
+wl-clipboard
+cliphist
+
+# Recommended #############
+imagemagick
+grim
+slurp
+satty
+papirus-icon-theme
+curl
+playerctl
+glib2
+noto-fonts
+noto-fonts-emoji

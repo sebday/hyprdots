@@ -1,0 +1,183 @@
+#!/bin/bash
+# Evo bar weather — bar label + hover popup (Open-Meteo, no API key).
+#
+# Environment:
+#   EVO_WEATHER_CACHE_SEC — cache TTL (default 1800)
+
+set -euo pipefail
+
+_bin_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "${_bin_dir}/evo-bar-common"
+
+EVO_WEATHER_LAT=""
+EVO_WEATHER_LON=""
+EVO_WEATHER_LOCATION=""
+EVO_WEATHER_CACHE_SEC="${EVO_WEATHER_CACHE_SEC:-1800}"
+MET_OFFICE_URL=""
+
+weather_cache_slug() {
+    printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/_/g' | sed 's/_\+/_/g' | sed 's/^_\|_$//g'
+}
+
+error_out() {
+    jq -cn \
+        --arg location "${EVO_WEATHER_LOCATION:-}" \
+        --arg error "$1" \
+        --arg url "${MET_OFFICE_URL:-}" \
+        --arg text "󰖐 —" \
+        --arg tooltip "${EVO_WEATHER_LOCATION:-Weather} unavailable" \
+        '{ok:false, location:$location, error:$error, metOfficeUrl:$url, text:$text, tooltip:$tooltip, sunrise:"", sunset:"", current:null, daily:[], hourly:[]}'
+}
+
+if settings="$("$(evoshell_script evo-bar-weather)" settings get 2>/dev/null)"; then
+    if jq -e '.ok == false' <<<"$settings" >/dev/null 2>&1; then
+        error_out "$(jq -r '.error // "Weather location not configured"' <<<"$settings")"
+        exit 0
+    fi
+    EVO_WEATHER_LOCATION="$(jq -r '.name // empty' <<<"$settings")"
+    EVO_WEATHER_LAT="$(jq -r '.lat // empty' <<<"$settings")"
+    EVO_WEATHER_LON="$(jq -r '.lon // empty' <<<"$settings")"
+    MET_OFFICE_URL="$(jq -r '.metOfficeUrl // empty' <<<"$settings")"
+fi
+
+if [[ -z "$EVO_WEATHER_LOCATION" || -z "$EVO_WEATHER_LAT" || -z "$EVO_WEATHER_LON" ]]; then
+    error_out "Weather location not configured. Run: evo-bar-weather settings set <city>"
+    exit 0
+fi
+
+WEATHER_CACHE_KEY="weather-$(weather_cache_slug "$EVO_WEATHER_LOCATION")"
+
+if cached=$(evo_bar_cache_read "$WEATHER_CACHE_KEY" "$EVO_WEATHER_CACHE_SEC" 2>/dev/null); then
+    printf '%s\n' "$cached"
+    exit 0
+fi
+
+API_URL="https://api.open-meteo.com/v1/forecast?latitude=${EVO_WEATHER_LAT}&longitude=${EVO_WEATHER_LON}&timezone=auto&forecast_days=7&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset&hourly=temperature_2m,weather_code"
+
+DATA=$(curl -sf --max-time 12 "$API_URL" 2>/dev/null) || DATA=""
+
+if [[ -z "$DATA" ]] || ! echo "$DATA" | jq -e '.daily.time | length >= 2' >/dev/null 2>&1; then
+    error_out "Weather unavailable"
+    exit 0
+fi
+
+output="$(echo "$DATA" | jq -c \
+    --arg location "$EVO_WEATHER_LOCATION" \
+    --arg url "$MET_OFFICE_URL" '
+def icon($c):
+  if $c == 0 then "󰖙"
+  elif $c == 1 then "󰖔"
+  elif ($c == 2 or $c == 3) then "󰖕"
+  elif ($c == 45 or $c == 48) then "󰖑"
+  elif ($c == 51 or $c == 53 or $c == 55 or $c == 56 or $c == 57) then "󰖗"
+  elif ($c == 61 or $c == 63 or $c == 65 or $c == 66 or $c == 67 or $c == 80 or $c == 81 or $c == 82) then "󰖖"
+  elif ($c == 71 or $c == 73 or $c == 75 or $c == 77 or $c == 85 or $c == 86) then "󰖘"
+  elif ($c == 95 or $c == 96 or $c == 99) then "󰙾"
+  else "󰖐" end;
+
+def wlabel($c):
+  if $c == 0 then "Clear"
+  elif $c == 1 then "Mainly clear"
+  elif $c == 2 then "Partly cloudy"
+  elif $c == 3 then "Overcast"
+  elif ($c == 45 or $c == 48) then "Fog"
+  elif ($c == 51 or $c == 53 or $c == 55) then "Drizzle"
+  elif ($c == 56 or $c == 57) then "Freezing drizzle"
+  elif $c == 61 then "Light rain"
+  elif $c == 63 then "Rain"
+  elif $c == 65 then "Heavy rain"
+  elif ($c == 66 or $c == 67) then "Freezing rain"
+  elif $c == 71 then "Light snow"
+  elif $c == 73 then "Snow"
+  elif $c == 75 then "Heavy snow"
+  elif $c == 77 then "Snow grains"
+  elif ($c == 80 or $c == 81 or $c == 82) then "Showers"
+  elif ($c == 85 or $c == 86) then "Snow showers"
+  elif $c == 95 then "Thunderstorm"
+  elif ($c == 96 or $c == 99) then "Thunderstorm with hail"
+  else "Unknown" end;
+
+def temp($t): ($t // 0 | round);
+
+def hour_label($iso):
+  ($iso | split("T")[1] // "00:00")[0:5];
+
+def clock($iso):
+  if ($iso // "") == "" then ""
+  else ($iso | split("T")[1] // "")[0:5]
+  end;
+
+def dow($date):
+  ($date + "T12:00:00Z" | fromdateiso8601 | strftime("%a"));
+
+(.daily.time[0]) as $today |
+(.daily.time[1]) as $tomorrow |
+(.current.weather_code // 0) as $now_code |
+(.current.temperature_2m // 0) as $now_c |
+(.current.time // "" | split("T")[1] // "00:00")[0:2] as $current_hour |
+($tomorrow + "T" + $current_hour + ":00") as $tom_slot |
+((.hourly.time | index($tom_slot)) // null) as $tom_i |
+(if $tom_i == null then
+  {c: ((.daily.temperature_2m_max[1] + .daily.temperature_2m_min[1]) / 2 | round), code: (.daily.weather_code[1] // 0)}
+else
+  {c: temp(.hourly.temperature_2m[$tom_i]), code: (.hourly.weather_code[$tom_i] // 0)}
+end) as $tom |
+($tom.c) as $tom_c |
+($tom.code) as $tom_code |
+{
+  ok: true,
+  location: $location,
+  error: "",
+  metOfficeUrl: $url,
+  text: (
+    icon($now_code) + " " + (temp($now_c) | tostring) + "°"
+    + " " + icon($tom_code) + " " + ($tom_c | tostring) + "°"
+  ),
+  tooltip: (
+    $location + "\n" +
+    (dow($today)) + " (now): " + (temp($now_c) | tostring) + "°C · " + wlabel($now_code) + "\n" +
+    (dow($tomorrow)) + " (~" + $current_hour + ":00): " + ($tom_c | tostring) + "°C · " + wlabel($tom_code) + "\n" +
+    "Forecast range today: " + (temp(.daily.temperature_2m_min[0]) | tostring) + "–" + (temp(.daily.temperature_2m_max[0]) | tostring) + "°C\n" +
+    "Forecast range tomorrow: " + (temp(.daily.temperature_2m_min[1]) | tostring) + "–" + (temp(.daily.temperature_2m_max[1]) | tostring) + "°C"
+  ),
+  sunrise: clock(.daily.sunrise[0]),
+  sunset: clock(.daily.sunset[0]),
+  current: {
+    temp: temp($now_c),
+    code: $now_code,
+    label: wlabel($now_code),
+    icon: icon($now_code),
+    time: (.current.time // "")
+  },
+  daily: [
+    range(0; .daily.time | length) as $i |
+    (.daily.weather_code[$i] // 0) as $code |
+    {
+      date: .daily.time[$i],
+      dow: dow(.daily.time[$i]),
+      min: temp(.daily.temperature_2m_min[$i]),
+      max: temp(.daily.temperature_2m_max[$i]),
+      code: $code,
+      label: wlabel($code),
+      icon: icon($code)
+    }
+  ],
+  hourly: [
+    range(0; .hourly.time | length) as $i |
+    select((.hourly.time[$i] | split("T")[0]) == $today) |
+    (.hourly.weather_code[$i] // 0) as $code |
+    {
+      time: hour_label(.hourly.time[$i]),
+      iso: .hourly.time[$i],
+      temp: temp(.hourly.temperature_2m[$i]),
+      code: $code,
+      label: wlabel($code),
+      icon: icon($code)
+    }
+  ]
+}
+')"
+
+printf '%s\n' "$output" | evo_bar_cache_write "$WEATHER_CACHE_KEY"
+printf '%s\n' "$output"

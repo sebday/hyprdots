@@ -1,0 +1,290 @@
+#!/bin/bash
+set -e
+# Apply a theme: build into staging, promote, activate live consumers
+#
+# USAGE:
+#   evo-theme <name>         - Apply theme by name
+#   evo-theme next|prev      - Cycle themes
+#   evo-theme refresh        - Regenerate configs for current theme
+#   evo-theme wallpaper      - Open wallpaper picker
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "$SCRIPT_DIR/evo-paths-lib"
+# shellcheck source=/dev/null
+source "$SCRIPT_DIR/evo-theme-lib"
+
+CURRENT_PATH="${CURRENT_PATH:-$THEME_DIR/current}"
+NEXT_PATH="${NEXT_PATH:-$THEME_DIR/next}"
+STAGING_DIR=""
+
+cleanup_staging() {
+    if [[ -n "$STAGING_DIR" && -d "$STAGING_DIR" ]]; then
+        rm -rf "$STAGING_DIR"
+    fi
+}
+trap cleanup_staging EXIT
+
+get_current_theme() {
+    current_theme_name 2>/dev/null || echo ""
+}
+
+cycle_theme() {
+    local direction="$1"
+    local current names=() idx=-1 i
+
+    mapfile -t names < <(theme_names_sorted)
+    [[ ${#names[@]} -gt 0 ]] || return 1
+
+    current=$(get_current_theme)
+    if [[ -n "$current" ]]; then
+        for i in "${!names[@]}"; do
+            if [[ "${names[$i]}" == "$current" ]]; then
+                idx=$i
+                break
+            fi
+        done
+    fi
+
+    if [[ "$direction" == "next" ]]; then
+        idx=$(( (idx + 1) % ${#names[@]} ))
+    else
+        idx=$(( (idx - 1 + ${#names[@]}) % ${#names[@]} ))
+    fi
+
+    apply_theme "${names[$idx]}"
+}
+
+ensure_gtk_theme_name() {
+    local ini="$1" gtk_theme="${2:-current}"
+    mkdir -p "$(dirname "$ini")"
+    if [[ -f "$ini" ]]; then
+        if grep -q '^gtk-theme-name=' "$ini"; then
+            sed -i "s/^gtk-theme-name=.*/gtk-theme-name=$gtk_theme/" "$ini"
+        elif grep -q '^\[Settings\]' "$ini"; then
+            sed -i "/^\[Settings\]/a gtk-theme-name=$gtk_theme" "$ini"
+        else
+            printf '\n[Settings]\ngtk-theme-name=%s\n' "$gtk_theme" >>"$ini"
+        fi
+    else
+        printf '[Settings]\ngtk-theme-name=%s\n' "$gtk_theme" >"$ini"
+    fi
+}
+
+ensure_gtk_icon_theme_name() {
+    local ini="$1" icon_theme="$2"
+    [ -n "$icon_theme" ] || return 0
+    mkdir -p "$(dirname "$ini")"
+    if [[ -f "$ini" ]]; then
+        if grep -q '^gtk-icon-theme-name=' "$ini"; then
+            sed -i "s/^gtk-icon-theme-name=.*/gtk-icon-theme-name=$icon_theme/" "$ini"
+        elif grep -q '^\[Settings\]' "$ini"; then
+            sed -i "/^\[Settings\]/a gtk-icon-theme-name=$icon_theme" "$ini"
+        else
+            printf '\n[Settings]\ngtk-icon-theme-name=%s\n' "$icon_theme" >>"$ini"
+        fi
+    else
+        printf '[Settings]\ngtk-icon-theme-name=%s\n' "$icon_theme" >"$ini"
+    fi
+}
+
+activate_gtk_files() {
+    local gtk_theme="current"
+    local icon_theme="$EVO_ICON_THEME"
+    ensure_gtk_theme_name "$HOME/.config/gtk-3.0/settings.ini" "$gtk_theme"
+    ensure_gtk_theme_name "$HOME/.config/gtk-4.0/settings.ini" "$gtk_theme"
+    ensure_gtk_icon_theme_name "$HOME/.config/gtk-3.0/settings.ini" "$icon_theme"
+    ensure_gtk_icon_theme_name "$HOME/.config/gtk-4.0/settings.ini" "$icon_theme"
+
+    local current_gtk="$THEME_DIR/current/gtk-4.0"
+    if [ -d "$current_gtk" ]; then
+        mkdir -p "$HOME/.config/gtk-4.0"
+        ln -sf "$current_gtk/gtk.css" "$HOME/.config/gtk-4.0/gtk.css"
+        [ -f "$current_gtk/gtk-dark.css" ] && ln -sf "$current_gtk/gtk-dark.css" "$HOME/.config/gtk-4.0/gtk-dark.css"
+        local assets_src="$current_gtk/assets"
+        local assets_dst="$HOME/.config/gtk-4.0/assets"
+        if [ -d "$assets_src" ] && ! paths_resolved_equal "$assets_src" "$assets_dst" 2>/dev/null; then
+            ln -sfn "$assets_src" "$assets_dst"
+        fi
+    fi
+}
+
+build_theme() {
+    local theme_name="$1"
+    local source_path="$THEME_DIR/$theme_name"
+
+    theme_timing_step "build_theme rm next"
+    STAGING_DIR="$NEXT_PATH"
+    rm -rf "$NEXT_PATH"
+
+    if theme_build_cache_restore "$theme_name" "$NEXT_PATH"; then
+        theme_timing_step "build_theme cache hit"
+        return 0
+    fi
+
+    theme_timing_step "build_theme cache miss copy"
+    mkdir -p "$NEXT_PATH"
+    cp -a "$source_path/." "$NEXT_PATH/"
+    echo "$theme_name" > "$NEXT_PATH/.theme-name"
+
+    theme_timing_step "build_theme templates"
+    process_theme_templates "$NEXT_PATH"
+    process_theme_template "$NEXT_PATH" "obsidian.css"
+    process_theme_template "$NEXT_PATH" "colors.css"
+    process_theme_template "$NEXT_PATH" "shoelace-hex.css"
+    process_theme_template "$NEXT_PATH" "nvim-icons.lua"
+    theme_timing_step "build_theme gtk+nvim"
+    THEME_PATH="$NEXT_PATH" "$SCRIPT_DIR/evo-theme-gtk"
+    "$SCRIPT_DIR/evo-theme-nvim" "$NEXT_PATH"
+    theme_timing_step "build_theme cache store"
+    theme_build_cache_store "$theme_name" "$NEXT_PATH"
+    theme_timing_step "build_theme done"
+}
+
+promote_theme() {
+    local prev="${CURRENT_PATH}.prev"
+
+    theme_timing_step "promote_theme swap"
+    # Swap staging into place; delete the old tree in the background (rm -rf current was freezing input).
+    rm -rf "$prev"
+    if [[ -e "$CURRENT_PATH" ]]; then
+        mv "$CURRENT_PATH" "$prev"
+    fi
+    mv "$NEXT_PATH" "$CURRENT_PATH"
+    STAGING_DIR=""
+    if [[ -d "$prev" ]]; then
+        ( rm -rf "$prev" ) &
+    fi
+    theme_timing_step "promote_theme done"
+}
+
+activate_theme() {
+    local wallpaper_path="${1:-}"
+    local theme_slug
+    local wallpaper
+
+    if [ -n "$wallpaper_path" ]; then
+        wallpaper="$wallpaper_path"
+    else
+        wallpaper=$(themes_default_wallpaper || true)
+    fi
+    if [ -n "$wallpaper" ]; then
+        local state="${EVOSHELL_STATE}/wallpaper" cur=""
+        [ -f "$state" ] && cur=$(tr -d '\n' < "$state")
+        if [ "$wallpaper" != "$cur" ]; then
+            theme_timing_step "activate wallpaper"
+            "$SCRIPT_DIR/_ipc" evo.sys.wallpaper set "$wallpaper" >/dev/null 2>&1 || true
+            theme_timing_step "activate wallpaper done"
+        fi
+    fi
+
+    theme_timing_step "activate install_manifest"
+    install_theme_manifest
+    theme_timing_step "activate hypr_border"
+    themes_apply_hypr_border
+    theme_timing_step "activate hypr_border done"
+    theme_timing_step "activate theme.json"
+    themes_sync_evo_shell
+    theme_timing_step "activate theme.json done"
+    theme_timing_step "activate brave"
+    themes_apply_brave_chrome
+    theme_timing_step "activate brave done"
+    theme_timing_step "activate gtk_files"
+    activate_gtk_files
+    theme_timing_step "activate gtk_gsettings"
+    themes_gtk_gsettings_force_reload "current"
+    theme_timing_step "activate gtk_gsettings done"
+    theme_timing_step "activate ghostty"
+    themes_reload_ghostty
+
+    theme_timing_step "activate obsidian"
+    themes_sync_obsidian_modular
+    theme_timing_step "activate nvim"
+    notify_nvim_theme
+    pkill -SIGUSR2 btop 2>/dev/null || true
+
+    theme_timing_step "activate done"
+}
+
+notify_nvim_theme() {
+    command -v nvim >/dev/null 2>&1 || return 0
+
+    local runtime="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+    local reload_cmd=':lua require("modular").reload_all()<CR>'
+
+    find "$runtime" -maxdepth 2 -type s -name 'nvim.*.0' 2>/dev/null |
+        while IFS= read -r sock; do
+            [[ -n "$sock" ]] || continue
+            nvim --server "$sock" --remote-send "$reload_cmd" >/dev/null 2>&1 || true
+        done
+}
+
+apply_theme() {
+    local theme_name="$1"
+    local wallpaper_path="${2:-}"
+    local theme_lock="${EVOSHELL_STATE}/theme.lock"
+    local theme_slug
+
+    [ -z "$theme_name" ] && return 1
+    [ -d "$THEME_DIR/$theme_name" ] || return 1
+
+    theme_timing_init
+
+    mkdir -p "$(dirname "$theme_lock")"
+    exec 9>"$theme_lock"
+    if ! flock -n 9; then
+        evoshell_notify -g "󰸌" "Theme" "Theme switch already in progress" 2>/dev/null || true
+        return 1
+    fi
+    trap 'flock -u 9 2>/dev/null || true; cleanup_staging' EXIT
+
+    build_theme "$theme_name"
+    promote_theme
+    theme_timing_step "build+promote done"
+
+    activate_theme "$wallpaper_path"
+    theme_timing_step "activate_theme returned"
+    flock -u 9
+    exec 9>&-
+
+    theme_slug=$(get_current_theme)
+    if [[ -n "$theme_slug" ]]; then
+        theme_timing_step "activate icons deferred"
+        "$SCRIPT_DIR/evo-theme-icons" activate "$theme_slug"
+        theme_timing_step "activate icons dispatched"
+    fi
+
+    theme_timing_step "total"
+    trap cleanup_staging EXIT
+}
+
+COMMAND="${1:-}"
+
+if [[ -z "$COMMAND" ]]; then
+    echo "usage: evo-theme <name>|next|prev|refresh|wallpaper" >&2
+    exit 1
+fi
+
+case "$COMMAND" in
+    wallpaper)
+        trap - EXIT
+        exec "$SCRIPT_DIR/_ipc" shell toggle evo.sys.wallpaper
+        ;;
+
+    next|prev)
+        cycle_theme "$COMMAND" || exit 1
+        ;;
+
+    refresh)
+        current_theme=$(get_current_theme)
+        if [ -z "$current_theme" ]; then
+            evoshell_notify -g "󰸌" "Theme Refresh" "No current theme." 2>/dev/null || true
+            exit 1
+        fi
+        apply_theme "$current_theme" || exit 1
+        ;;
+
+    *)
+        apply_theme "$COMMAND" "${2:-}" || exit 1
+        ;;
+esac

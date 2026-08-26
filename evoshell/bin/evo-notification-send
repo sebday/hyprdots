@@ -1,0 +1,201 @@
+#!/usr/bin/env bash
+# Canonical evoshell desktop notification sender (notify-send wrapper).
+# Internal: --probe sends an expiring ping (used by evo-brave-launch).
+
+set -euo pipefail
+
+_bin_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "${_bin_dir}/evo-paths-lib"
+
+usage() {
+  cat <<'EOF'
+usage: evo-notification-send [options] HEADLINE [BODY] [-- notify-send extras...]
+
+options:
+  --app-name NAME       notify-send app name (default: evoshell)
+  -u, --urgency LEVEL   low|normal|critical (default: normal)
+  -t, --timeout MS      dismiss after milliseconds (default: from config or 5000)
+  -g, --glyph GLYPH     nerd-font / unicode icon hint for toast art slot
+  --image PATH          image-path hint (and -i when file exists)
+  --exec CMD            shell command to run on left-click (evoshell-exec hint)
+  --silent              no-op success (for callers with a quiet flag)
+  --probe               expiring dbus ping (internal; evo-brave-launch only)
+  -h, --help            show this help
+EOF
+}
+
+default_timeout_ms() {
+  local ms=5000
+  local path
+
+  for path in "${EVOSHELL_CONFIG}/overrides.json" "${EVOSHELL_ROOT}/config/shell.json"; do
+    [[ -f "$path" ]] || continue
+    ms="$(jq -r '.notifications.durationMs // empty' "$path" 2>/dev/null || true)"
+    [[ -n "$ms" && "$ms" != "null" ]] && break
+  done
+
+  [[ -n "$ms" && "$ms" != "null" ]] || ms=5000
+  printf '%s' "$ms"
+}
+
+app_name="evoshell"
+urgency="normal"
+timeout_ms=""
+glyph=""
+image=""
+exec_command=""
+silent=0
+probe=0
+args=()
+parsed_option_args=0
+
+parse_option() {
+  case "$1" in
+    -h|--help|help)
+      usage
+      exit 0
+      ;;
+    --probe)
+      probe=1
+      parsed_option_args=1
+      return 0
+      ;;
+    --silent)
+      silent=1
+      parsed_option_args=1
+      return 0
+      ;;
+    --app-name)
+      [[ $# -ge 2 ]] || {
+        echo "evo-notification-send: missing value for $1" >&2
+        exit 1
+      }
+      app_name="$2"
+      parsed_option_args=2
+      return 0
+      ;;
+    -u|--urgency)
+      [[ $# -ge 2 ]] || {
+        echo "evo-notification-send: missing value for $1" >&2
+        exit 1
+      }
+      urgency="$2"
+      parsed_option_args=2
+      return 0
+      ;;
+    -t|--timeout)
+      [[ $# -ge 2 ]] || {
+        echo "evo-notification-send: missing value for $1" >&2
+        exit 1
+      }
+      timeout_ms="$2"
+      parsed_option_args=2
+      return 0
+      ;;
+    -g|--glyph)
+      [[ $# -ge 2 ]] || {
+        echo "evo-notification-send: missing value for $1" >&2
+        exit 1
+      }
+      glyph="$2"
+      parsed_option_args=2
+      return 0
+      ;;
+    --image)
+      [[ $# -ge 2 ]] || {
+        echo "evo-notification-send: missing value for $1" >&2
+        exit 1
+      }
+      image="$2"
+      parsed_option_args=2
+      return 0
+      ;;
+    --exec)
+      [[ $# -ge 2 ]] || {
+        echo "evo-notification-send: missing value for $1" >&2
+        exit 1
+      }
+      exec_command="$2"
+      parsed_option_args=2
+      return 0
+      ;;
+  esac
+  return 1
+}
+
+while (($# > 0)); do
+  if parse_option "$@"; then
+    shift "$parsed_option_args"
+  else
+    break
+  fi
+done
+
+if ((probe)); then
+  command -v notify-send >/dev/null || {
+    echo "evo-notification-send: notify-send required" >&2
+    exit 1
+  }
+  notify-send -e -a evoshell "ok" >/dev/null 2>&1 || true
+  exit 0
+fi
+
+if (($# < 1)); then
+  usage >&2
+  exit 1
+fi
+
+if ((silent)); then
+  exit 0
+fi
+
+command -v notify-send >/dev/null || {
+  echo "evo-notification-send: notify-send required" >&2
+  exit 1
+}
+
+headline="$1"
+shift
+
+body=""
+if (($# > 0)) && [[ $1 != -- && $1 != -* ]]; then
+  body="$1"
+  shift
+fi
+
+if [[ ${1:-} == -- ]]; then
+  shift
+fi
+
+while (($# > 0)); do
+  if parse_option "$@"; then
+    shift "$parsed_option_args"
+  else
+    args+=("$1")
+    shift
+  fi
+done
+
+[[ -n "$timeout_ms" ]] || timeout_ms="$(default_timeout_ms)"
+
+notify_args=(-a "$app_name" -u "$urgency" -t "$timeout_ms")
+
+if [[ -n "$glyph" ]]; then
+  notify_args+=(-h "string:evoshell-glyph:$glyph")
+fi
+
+if [[ -n "$image" ]]; then
+  notify_args+=(-h "string:image-path:$image")
+  [[ -f "$image" ]] && notify_args+=(-i "$image")
+fi
+
+if [[ -n "$exec_command" ]]; then
+  notify_args+=(-h "string:evoshell-exec:$exec_command")
+fi
+
+if [[ -n "$body" ]]; then
+  notify-send "${notify_args[@]}" "${args[@]}" "$headline" "$body"
+else
+  notify-send "${notify_args[@]}" "${args[@]}" "$headline"
+fi

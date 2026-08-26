@@ -1,0 +1,8 @@
+[Unit]
+Description=darkhttpd user web server for stylus themes
+
+[Service]
+ExecStart=/usr/bin/darkhttpd %h/.themes --addr 127.0.0.1 --port 8008 --no-listing --header 'Cache-Control: no-cache, no-store, must-revalidate'
+
+[Install]
+WantedBy=default.target

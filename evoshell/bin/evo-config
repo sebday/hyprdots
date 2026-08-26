@@ -1,0 +1,435 @@
+#!/usr/bin/env bash
+# Read merged shell config and patch local overrides only.
+
+set -euo pipefail
+
+_bin_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "${_bin_dir}/evo-config-lib"
+
+usage() {
+    cat >&2 <<'EOF'
+usage:
+  evo-config merged
+  evo-config get <jq-filter>
+  evo-config patch '<jq-filter>' [jq args...]
+  evo-config dashboards get|set <id> [on|off]|toggle <id> [on|off]
+  evo-config panel get|set left|right
+  evo-config homeassistant get|set '<json>'|set-fields <light-areas-csv> <climate-entities-csv>|areas
+  evo-config shopify get|set '<json>'|set-paths <sqliteDir> <remote> <timezone>
+  evo-config idle get|set-fields <lock-min>
+  evo-config wallpaper get|set-personal-dir <path>|pick-personal-dir
+  evo-config tray get|set <widget> enabled on|off|set <widget> interval <seconds>|set <widget> field <name> <value>|order set '<json-array>'
+  evo-config secrets status [--json]
+EOF
+    exit 1
+}
+
+cmd_merged() {
+    merged_config
+}
+
+cmd_get() {
+    local filter="${1:-.}"
+    merged_config | jq -c "$filter"
+}
+
+cmd_patch() {
+    local filter="${1:-}"
+    shift || true
+    [[ -n "$filter" ]] || usage
+    patch_overrides_reload "$filter" "$@"
+}
+
+cmd_dashboards_get() {
+    merged_config | jq -c '{openOnStart: (.dashboards.openOnStart // [])}'
+}
+
+cmd_dashboards_set() {
+    local id on current next
+    [[ $# -ge 1 ]] || usage
+    id="$1"
+    on="${2:-on}"
+    [[ "$id" == evo.panels.* ]] || usage
+    current="$(merged_config | jq -c '.dashboards.openOnStart // []')"
+    if [[ "$on" == "off" ]]; then
+        next="$(jq -c --arg id "$id" 'map(select(. != $id))' <<<"$current")"
+    else
+        next="$(jq -c --arg id "$id" '. + [$id] | unique' <<<"$current")"
+    fi
+    patch_overrides_reload --argjson ids "$next" '.dashboards.openOnStart = $ids'
+    cmd_dashboards_get
+}
+
+cmd_dashboards_toggle() {
+    local id="$1" on="$2"
+    cmd_dashboards_set "$id" "$([[ "$on" == "true" ]] && echo on || echo off)"
+}
+
+cmd_panel_get() {
+    merged_config | jq -c '{side: (.panel.side // "left")}'
+}
+
+cmd_panel_set() {
+    local side="${1:-}"
+    case "$side" in
+    left | right) ;;
+    *) usage ;;
+    esac
+    patch_overrides_reload --arg side "$side" '.panel.side = $side'
+    cmd_panel_get
+}
+
+cmd_homeassistant_get() {
+    homeassistant_config
+}
+
+cmd_homeassistant_set() {
+    local json="${1:-}"
+    [[ -n "$json" ]] || json="$(cat)"
+    jq -e 'type == "object"' <<<"$json" >/dev/null 2>&1 || {
+        echo '{"ok":false,"error":"expected object"}' >&2
+        exit 1
+    }
+    patch_homeassistant "$json"
+    jq -n --argjson config "$(homeassistant_config)" '{ok:true,homeAssistant:$config}'
+}
+
+cmd_homeassistant_set_fields() {
+    local areas_arg="${1:-[]}"
+    local climates_arg="${2:-[]}"
+    local base areas climates
+    base="$(homeassistant_config)"
+    if [[ "$areas_arg" == \[* ]]; then
+        areas="$areas_arg"
+    else
+        areas="$(printf '%s' "$areas_arg" | jq -R 'split(",") | map(gsub("^[[:space:]]+|[[:space:]]+$"; "")) | map(select(length > 0))')"
+    fi
+    if [[ "$climates_arg" == \[* ]]; then
+        climates="$climates_arg"
+    else
+        climates="$(printf '%s' "$climates_arg" | jq -R 'split(",") | map(gsub("^[[:space:]]+|[[:space:]]+$"; "")) | map(select(length > 0))')"
+    fi
+    patch_overrides_reload --argjson ha "$(jq -c --argjson lightAreas "$areas" --argjson climateEntities "$climates" \
+        '.lightAreas = $lightAreas | .climateEntities = $climateEntities' <<<"$base")" \
+        '.homeAssistant = $ha'
+    cmd_homeassistant_get
+}
+
+cmd_homeassistant_areas() {
+    local ha_script="${EVOSHELL_BIN}/evo-bar-home-assistant"
+    [[ -x "$ha_script" ]] || ha_script="${_bin_dir}/evo-bar-home-assistant"
+    local raw config enabled_areas enabled_climates
+    config="$(cmd_homeassistant_get)"
+    enabled_areas="$(jq -c '.lightAreas // []' <<<"$config")"
+    enabled_climates="$(jq -c '.climateEntities // []' <<<"$config")"
+    raw="$("$ha_script" discover 2>/dev/null || true)"
+    if ! jq -e '.ok == true' <<<"$raw" >/dev/null 2>&1; then
+        jq -n \
+            --arg error "$(jq -r '.error // "not configured"' <<<"${raw:-\{\}}")" \
+            --argjson enabledLightAreas "$enabled_areas" \
+            --argjson enabledClimateEntities "$enabled_climates" \
+            '{ok:false,error:$error,areas:[],climates:[],enabledLightAreas:$enabledLightAreas,enabledClimateEntities:$enabledClimateEntities}'
+        return 0
+    fi
+    jq -n \
+        --argjson areas "$(jq -c '.areas // []' <<<"$raw")" \
+        --argjson climates "$(jq -c '.climates // []' <<<"$raw")" \
+        --argjson enabledLightAreas "$enabled_areas" \
+        --argjson enabledClimateEntities "$enabled_climates" \
+        '{ok:true,areas:$areas,climates:$climates,enabledLightAreas:$enabledLightAreas,enabledClimateEntities:$enabledClimateEntities}'
+}
+
+cmd_shopify_get() {
+    merged_config | jq -c '.shopify // {}'
+}
+
+cmd_shopify_set() {
+    local json="${1:-}"
+    [[ -n "$json" ]] || json="$(cat)"
+    jq -e 'type == "object"' <<<"$json" >/dev/null 2>&1 || {
+        echo '{"ok":false,"error":"expected object"}' >&2
+        exit 1
+    }
+    patch_overrides_reload --argjson shopify "$json" '.shopify = $shopify'
+    jq -n --argjson shopify "$(cmd_shopify_get)" '{ok:true,shopify:$shopify}'
+}
+
+cmd_shopify_set_paths() {
+    local sqlite_dir="${1:-}"
+    local remote="${2:-}"
+    local timezone="${3:-UTC}"
+    local base
+    base="$(cmd_shopify_get)"
+    patch_overrides_reload --arg sqliteDir "$sqlite_dir" --arg remote "$remote" --arg timezone "$timezone" \
+        --argjson shopify "$(jq -c --arg sqliteDir "$sqlite_dir" --arg remote "$remote" --arg timezone "$timezone" \
+            '.sqliteDir = $sqliteDir | .remote = $remote | .timezone = $timezone' <<<"$base")" \
+        '.shopify = $shopify'
+    cmd_shopify_get
+}
+
+cmd_idle_get() {
+    merged_config | jq -c '{
+        lock: (.idle.lock // 900)
+    }'
+}
+
+cmd_idle_set_fields() {
+    local lock_min="${1:-15}"
+    local lock_sec=$((lock_min * 60))
+    patch_overrides_reload --argjson lock "$lock_sec" '
+        .idle //= {}
+        | .idle.lock = $lock
+    '
+    cmd_idle_get
+}
+
+expand_config_path() {
+    local p="$1"
+    if [[ "$p" == ~* ]]; then
+        p="${HOME}${p#\~}"
+    fi
+    printf '%s' "$p"
+}
+
+cmd_wallpaper_get() {
+    merged_config | jq -c '{personalDir: (.wallpaper.personalDir // "")}'
+}
+
+cmd_wallpaper_set_personal_dir() {
+    local dir="${1:-}"
+    if [[ -n "$dir" ]]; then
+        dir="$(expand_config_path "$dir")"
+        mkdir -p "$dir"
+    fi
+    patch_wallpaper_personal_dir "$dir"
+    cmd_wallpaper_get
+}
+
+cmd_wallpaper_pick_personal_dir() {
+    local start_dir selected
+    start_dir="$(merged_config | jq -r '.wallpaper.personalDir // ""')"
+    start_dir="$(expand_config_path "$start_dir")"
+    if [[ -z "$start_dir" || ! -d "$start_dir" ]]; then
+        start_dir="$HOME"
+    fi
+    selected="$(
+        zenity --file-selection --directory --title="Select personal wallpapers folder" --filename="${start_dir}/" 2>/dev/null || true
+    )"
+    [[ -n "$selected" ]] || {
+        cmd_wallpaper_get
+        return 0
+    }
+    cmd_wallpaper_set_personal_dir "$selected"
+}
+
+cmd_tray_get() {
+    local widget payload order bar_order bar_chrome bar_chrome_order
+    payload='{}'
+    while IFS= read -r widget; do
+        [[ -n "$widget" ]] || continue
+        payload="$(jq -c --arg w "$widget" --argjson cfg "$(tray_widget_settings_json "$widget")" \
+            '. + {($w): $cfg}' <<<"$payload")"
+    done < <(tray_widget_names)
+    order="$(tray_widget_resolved_order_json)"
+    bar_order="$(bar_widget_resolved_order_json)"
+    bar_chrome="$(bar_chrome_widgets_payload_json)"
+    bar_chrome_order="$(bar_chrome_resolved_order_json)"
+    jq -cn \
+        --argjson widgets "$payload" \
+        --argjson order "$order" \
+        --argjson barWidgetOrder "$bar_order" \
+        --argjson barChrome "$bar_chrome" \
+        --argjson barChromeOrder "$bar_chrome_order" \
+        '{widgets: $widgets, order: $order, barWidgetOrder: $barWidgetOrder, barChrome: $barChrome, barChromeOrder: $barChromeOrder}'
+}
+
+cmd_tray_order_set() {
+    local json="${1:-}"
+    [[ -n "$json" ]] || json="$(cat)"
+    jq -e 'type == "array"' <<<"$json" >/dev/null 2>&1 || {
+        echo '{"ok":false,"error":"expected array"}' >&2
+        exit 1
+    }
+    patch_tray_widget_order "$json"
+    cmd_tray_get
+}
+
+cmd_tray_set_enabled() {
+    local widget="${1:-}"
+    local enabled="${2:-on}"
+    [[ -n "$widget" ]] || usage
+    if [[ "$widget" == "workspaces" ]]; then
+        patch_bar_chrome_widget_enabled "$widget" "$([[ "$enabled" == off || "$enabled" == false ]] && echo false || echo true)"
+        cmd_tray_get
+        return
+    fi
+    patch_tray_widget_enabled "$widget" "$([[ "$enabled" == off || "$enabled" == false ]] && echo false || echo true)"
+    cmd_tray_get
+}
+
+cmd_tray_set_interval() {
+    local widget="${1:-}"
+    local interval="${2:-}"
+    [[ -n "$widget" && -n "$interval" && "$interval" =~ ^[0-9]+$ ]] || usage
+    patch_tray_widget_interval "$widget" "$interval"
+    cmd_tray_get
+}
+
+cmd_tray_set_field() {
+    local widget="${1:-}"
+    local field="${2:-}"
+    local value="${3:-}"
+    [[ -n "$widget" && -n "$field" ]] || usage
+    patch_tray_widget_field "$widget" "$field" "$value"
+    cmd_tray_get
+}
+
+cmd_secrets_status() {
+    local json=0
+    [[ "${1:-}" == "--json" ]] && json=1
+    # shellcheck source=/dev/null
+    source "${_bin_dir}/evo-secrets-lib"
+    check_one() {
+        local key="$1" label="$2"
+        local configured=false path=""
+        if path="$(evo_secrets_pass_path "$key" 2>/dev/null)" && pass show "$path" >/dev/null 2>&1; then
+            configured=true
+        fi
+        jq -n --arg label "$label" --arg path "${path:-}" --argjson configured "$configured" \
+            '{label:$label,configured:$configured,passPath:$path}'
+    }
+    local out
+    out="$(jq -n \
+        --argjson github "$(check_one GITHUB_TOKEN github)" \
+        --argjson cursor "$(check_one CURSOR_ACCESS_TOKEN cursor)" \
+        --argjson cloudflare "$(check_one CLOUDFLARE_API_TOKEN cloudflare)" \
+        --argjson homeAssistantUrl "$(check_one HOME_ASSISTANT_URL "home-assistant url")" \
+        --argjson homeAssistantToken "$(check_one HOME_ASSISTANT_TOKEN "home-assistant token")" \
+        '{github:$github,cursor:$cursor,cloudflare:$cloudflare,homeAssistant:{url:$homeAssistantUrl,token:$homeAssistantToken}}')"
+    if [[ "$json" -eq 1 ]]; then
+        printf '%s\n' "$out"
+    else
+        jq -r '
+            .github | "github: " + (if .configured then "configured" else "missing (" + .passPath + ")" end),
+            .cursor | "cursor: " + (if .configured then "configured" else "missing (" + .passPath + ")" end),
+            .cloudflare | "cloudflare: " + (if .configured then "configured" else "missing (" + .passPath + ")" end),
+            .homeAssistant.url | "home assistant url: " + (if .configured then "configured" else "missing" end),
+            .homeAssistant.token | "home assistant token: " + (if .configured then "configured" else "missing" end)
+        ' <<<"$out"
+    fi
+}
+
+target="${1:-}"
+action="${2:-}"
+shift 2 || true
+
+case "$target" in
+merged)
+    cmd_merged
+    ;;
+get)
+    cmd_get "${1:-.}"
+    ;;
+patch)
+    cmd_patch "$@"
+    ;;
+dashboards)
+    case "$action" in
+    get) cmd_dashboards_get ;;
+    set)
+        if [[ $# -eq 2 && "$2" == "on" || "$2" == "off" ]]; then
+            cmd_dashboards_toggle "$1" "$([[ "$2" == on ]] && echo true || echo false)"
+        else
+            cmd_dashboards_set "$@"
+        fi
+        ;;
+    toggle)
+        id="${1:-}"
+        on="${2:-on}"
+        [[ -n "$id" ]] || usage
+        cmd_dashboards_toggle "$id" "$([[ "$on" == off ]] && echo false || echo true)"
+        ;;
+    *) usage ;;
+    esac
+    ;;
+panel)
+    case "$action" in
+    get) cmd_panel_get ;;
+    set) cmd_panel_set "${1:-}" ;;
+    toggle)
+        current="$(cmd_panel_get | jq -r '.side // "left"')"
+        if [[ "$current" == "right" ]]; then
+            cmd_panel_set left
+        else
+            cmd_panel_set right
+        fi
+        ;;
+    *) usage ;;
+    esac
+    ;;
+homeassistant)
+    case "$action" in
+    get) cmd_homeassistant_get ;;
+    set) cmd_homeassistant_set "${1:-}" ;;
+    set-fields) cmd_homeassistant_set_fields "${1:-}" "${2:-}" ;;
+    areas) cmd_homeassistant_areas ;;
+    *) usage ;;
+    esac
+    ;;
+shopify)
+    case "$action" in
+    get) cmd_shopify_get ;;
+    set) cmd_shopify_set "${1:-}" ;;
+    set-paths) cmd_shopify_set_paths "${1:-}" "${2:-}" "${3:-}" ;;
+    *) usage ;;
+    esac
+    ;;
+idle)
+    case "$action" in
+    get) cmd_idle_get ;;
+    set-fields) cmd_idle_set_fields "${1:-}" ;;
+    *) usage ;;
+    esac
+    ;;
+wallpaper)
+    case "$action" in
+    get) cmd_wallpaper_get ;;
+    set-personal-dir) cmd_wallpaper_set_personal_dir "${1:-}" ;;
+    pick-personal-dir) cmd_wallpaper_pick_personal_dir ;;
+    *) usage ;;
+    esac
+    ;;
+tray)
+    case "$action" in
+    get) cmd_tray_get ;;
+    order)
+        sub="${1:-}"
+        case "$sub" in
+        set) cmd_tray_order_set "${2:-}" ;;
+        *) usage ;;
+        esac
+        ;;
+    set)
+        widget="${1:-}"
+        field="${2:-}"
+        shift 2 || true
+        case "$field" in
+        enabled) cmd_tray_set_enabled "$widget" "${1:-on}" ;;
+        interval) cmd_tray_set_interval "$widget" "${1:-}" ;;
+        field) cmd_tray_set_field "$widget" "${1:-}" "${2:-}" ;;
+        *) usage ;;
+        esac
+        ;;
+    *) usage ;;
+    esac
+    ;;
+secrets)
+    case "$action" in
+    status) cmd_secrets_status "${1:-}" ;;
+    *) usage ;;
+    esac
+    ;;
+-h | --help | help | "") usage ;;
+*) usage ;;
+esac

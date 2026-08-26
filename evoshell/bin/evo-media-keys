@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# Media keys: evoplayer when its daemon socket exists, else playerctl.
+
+set -euo pipefail
+
+_bin_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "${_bin_dir}/evo-paths-lib"
+
+EVOPLAYER_BIN="${EVOPLAYER_LIB}/evoplayer"
+RUNTIME="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+EVOPLAYER_SOCKET="${EVOPLAYER_SOCKET:-${RUNTIME}/evoplayer.sock}"
+
+usage() {
+    cat <<'EOF'
+usage: evo-media-keys play-pause|next|prev
+EOF
+}
+
+evo_socket_ready() {
+    [[ -x "$EVOPLAYER_BIN" && -S "$EVOPLAYER_SOCKET" ]]
+}
+
+run_evoplayer() {
+    local cmd="$1"
+    case "$cmd" in
+        play-pause) "$EVOPLAYER_BIN" toggle ;;
+        next) "$EVOPLAYER_BIN" next ;;
+        prev) "$EVOPLAYER_BIN" prev ;;
+        *) return 1 ;;
+    esac
+}
+
+run_playerctl() {
+    local cmd="$1"
+    if ! command -v playerctl >/dev/null 2>&1; then
+        echo "evo-media-keys: no evoplayer socket and playerctl not installed" >&2
+        return 1
+    fi
+    case "$cmd" in
+        play-pause) playerctl play-pause ;;
+        next) playerctl next ;;
+        prev) playerctl previous ;;
+        *) return 1 ;;
+    esac
+}
+
+cmd="${1:-}"
+case "$cmd" in
+    play-pause|next|prev)
+        if evo_socket_ready; then
+            run_evoplayer "$cmd"
+        else
+            run_playerctl "$cmd"
+        fi
+        ;;
+    -h|--help|help|"") usage ;;
+    *)
+        echo "evo-media-keys: unknown command: $cmd" >&2
+        usage
+        exit 1
+        ;;
+esac

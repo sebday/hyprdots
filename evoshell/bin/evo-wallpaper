@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Cycle or set wallpaper through evoshell background plugin.
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+IPC="${SCRIPT_DIR}/_ipc"
+# shellcheck source=/dev/null
+source "${SCRIPT_DIR}/evo-theme-lib"
+
+cmd="${1:-next}"
+
+case "$cmd" in
+    next|prev)
+        apply_wallpaper_cycle "$cmd"
+        ;;
+    set)
+        path="${2:-}"
+        [[ -n "$path" ]] || { echo "Usage: $0 set <path>" >&2; exit 1; }
+        theme_name="$(theme_name_from_wallpaper_path "$path" || true)"
+        current_theme="$(current_theme_name || true)"
+        if [[ -n "$theme_name" && "$theme_name" != "$current_theme" ]]; then
+            exec "${SCRIPT_DIR}/evo-theme" "$theme_name" "$path"
+        fi
+        exec "$IPC" evo.sys.wallpaper set "$path"
+        ;;
+    *)
+        echo "Usage: $0 [next|prev|set <path>]" >&2
+        exit 1
+        ;;
+esac

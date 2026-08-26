@@ -1,0 +1,632 @@
+#!/bin/bash
+# Shared helpers for evo theme scripts (source from other scripts).
+
+# shellcheck source=/dev/null
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/evo-storage-lib"
+
+THEME_DIR="${THEME_DIR:-$HOME/.themes}"
+if [[ -e "$THEME_DIR" ]]; then
+    THEME_DIR="$(cd "$THEME_DIR" && pwd -P)"
+fi
+TEMPLATES_DIR="${TEMPLATES_DIR:-$THEME_DIR/shared/templates}"
+CURRENT_THEME="${CURRENT_THEME:-$THEME_DIR/current}"
+if [[ -e "$CURRENT_THEME" ]]; then
+    CURRENT_THEME="$(cd "$CURRENT_THEME" && pwd -P)"
+fi
+EVO_ICON_THEME="${EVO_ICON_THEME:-evo-current}"
+
+# Timing state (preserve when re-sourced in a timed child).
+_THEME_TIMING_START_MS="${_THEME_TIMING_START_MS:-}"
+_THEME_TIMING_LAST_MS="${_THEME_TIMING_LAST_MS:-}"
+
+theme_timing_enabled() {
+    [[ "${EVO_THEME_TIMING:-0}" == 1 ]]
+}
+
+theme_timing_now_ms() {
+    echo $(( $(date +%s%N) / 1000000 ))
+}
+
+theme_timing_init() {
+    theme_timing_enabled || return 0
+    _THEME_TIMING_START_MS=$(theme_timing_now_ms)
+    _THEME_TIMING_LAST_MS=$_THEME_TIMING_START_MS
+    export _THEME_TIMING_START_MS _THEME_TIMING_LAST_MS
+    theme_timing_step "start"
+}
+
+theme_timing_step() {
+    theme_timing_enabled || return 0
+    local label="$1" now delta total
+    now=$(theme_timing_now_ms)
+    delta=$((now - _THEME_TIMING_LAST_MS))
+    total=$((now - _THEME_TIMING_START_MS))
+    _THEME_TIMING_LAST_MS=$now
+    export _THEME_TIMING_LAST_MS
+    printf 'evo-theme: +%4dms (+%4dms) %s\n' "$total" "$delta" "$label" >&2
+}
+
+theme_wallpapers_dir() {
+    local theme_path="${1:-$CURRENT_THEME}"
+    local dir="$theme_path/wallpapers"
+    [ -d "$dir" ] || return 1
+    printf '%s' "$dir"
+}
+
+current_theme_name() {
+    local name
+    if [ -f "$CURRENT_THEME/.theme-name" ]; then
+        name=$(tr -d '\n' < "$CURRENT_THEME/.theme-name" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        [ -n "$name" ] && printf '%s' "$name" && return 0
+    fi
+    return 1
+}
+
+theme_names_sorted() {
+    local name
+    find "$THEME_DIR" -mindepth 1 -maxdepth 1 -type d \
+        ! -name current ! -name shared ! -name next \
+        -printf '%f\n' 2>/dev/null | sort |
+        while IFS= read -r name; do
+            [[ -n "$name" && -f "$THEME_DIR/$name/colors.toml" ]] || continue
+            printf '%s\n' "$name"
+        done
+}
+
+wallpaper_resolved_path() {
+    local path="$1" dir base
+    [[ -n "$path" && -f "$path" ]] || return 1
+    dir=$(cd "$(dirname "$path")" && pwd -P) || return 1
+    base=$(basename "$path")
+    printf '%s/%s' "$dir" "$base"
+}
+
+wallpaper_list_image_files() {
+    local dir="$1"
+    [[ -d "$dir" ]] || return 0
+    find "$dir" -maxdepth 1 -type f \
+        \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) \
+        2>/dev/null | sort
+}
+
+wallpaper_cycle_theme_names() {
+    local current="${1:-}" name
+    local names=()
+    mapfile -t names < <(theme_names_sorted)
+    if [[ -n "$current" ]]; then
+        for name in "${names[@]}"; do
+            [[ "$name" == "$current" ]] && printf '%s\n' "$name"
+        done
+    fi
+    for name in "${names[@]}"; do
+        [[ "$name" != "$current" ]] && printf '%s\n' "$name"
+    done
+}
+
+wallpaper_cycle_personal_dir() {
+    local script_dir personal
+    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    # shellcheck source=/dev/null
+    source "$script_dir/evo-config-lib"
+    personal="$(wallpaper_personal_dir)"
+    [[ -n "$personal" ]] || return 0
+    [[ "$personal" == ~* ]] && personal="${HOME}${personal#\~}"
+    [[ -d "$personal" ]] || return 0
+    printf '%s' "$personal"
+}
+
+wallpaper_cycle_all_files() {
+    local theme personal_dir current
+    current="$(current_theme_name 2>/dev/null || true)"
+    while IFS= read -r theme; do
+        [[ -n "$theme" ]] || continue
+        wallpaper_list_image_files "$THEME_DIR/$theme/wallpapers"
+    done < <(wallpaper_cycle_theme_names "$current")
+    personal_dir="$(wallpaper_cycle_personal_dir || true)"
+    if [[ -n "$personal_dir" ]]; then
+        wallpaper_list_image_files "$personal_dir"
+    fi
+}
+
+wallpaper_cycle_entry_key() {
+    local path="$1" theme base personal_dir resolved
+    [[ -n "$path" ]] || return 1
+    resolved="$(wallpaper_resolved_path "$path" 2>/dev/null || true)"
+    [[ -n "$resolved" ]] && path="$resolved"
+    theme="$(theme_name_from_wallpaper_path "$path" 2>/dev/null || true)"
+    base="$(basename "$path")"
+    if [[ -n "$theme" && -n "$base" ]]; then
+        printf '%s/%s' "$theme" "$base"
+        return 0
+    fi
+    personal_dir="$(wallpaper_cycle_personal_dir || true)"
+    if [[ -n "$personal_dir" && "$path" == "$personal_dir"/* ]]; then
+        printf 'personal/%s' "$base"
+        return 0
+    fi
+    return 1
+}
+
+wallpaper_cycle_path() {
+    local direction="$1"
+    local state_path files=() cur cur_key file_key idx=-1 i next_idx
+
+    state_path="${EVOSHELL_STATE}/wallpaper"
+    mapfile -t files < <(wallpaper_cycle_all_files)
+    [[ ${#files[@]} -gt 0 ]] || return 1
+
+    cur=""
+    [[ -f "$state_path" ]] && cur=$(tr -d '\n' < "$state_path")
+    if [[ -n "$cur" ]]; then
+        cur_key="$(wallpaper_cycle_entry_key "$cur" || true)"
+        for i in "${!files[@]}"; do
+            if [[ "${files[$i]}" == "$cur" ]]; then
+                idx=$i
+                break
+            fi
+            if [[ -n "$cur_key" ]]; then
+                file_key="$(wallpaper_cycle_entry_key "${files[$i]}" || true)"
+                if [[ -n "$file_key" && "$file_key" == "$cur_key" ]]; then
+                    idx=$i
+                    break
+                fi
+            fi
+        done
+    fi
+
+    if [[ "$direction" == "next" ]]; then
+        if [[ $idx -lt 0 ]]; then
+            printf '%s' "${files[0]}"
+            return 0
+        fi
+        next_idx=$((idx + 1))
+        [[ $next_idx -ge ${#files[@]} ]] && next_idx=0
+        printf '%s' "${files[$next_idx]}"
+        return 0
+    fi
+
+    if [[ $idx -lt 0 ]]; then
+        printf '%s' "${files[${#files[@]} - 1]}"
+        return 0
+    fi
+    next_idx=$((idx - 1))
+    [[ $next_idx -lt 0 ]] && next_idx=$((${#files[@]} - 1))
+    printf '%s' "${files[$next_idx]}"
+}
+
+apply_wallpaper_cycle() {
+    local direction="$1" path theme_name current_theme script_dir ipc
+    path="$(wallpaper_cycle_path "$direction")" || return 1
+    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    theme_name="$(theme_name_from_wallpaper_path "$path" || true)"
+    current_theme="$(current_theme_name || true)"
+    if [[ -n "$theme_name" && "$theme_name" != "$current_theme" ]]; then
+        "${script_dir}/evo-theme" "$theme_name" "$path"
+        return $?
+    fi
+    ipc="${script_dir}/_ipc"
+    [[ -x "$ipc" ]] || return 1
+    "$ipc" evo.sys.wallpaper set "$path"
+}
+
+theme_name_from_wallpaper_path() {
+    local path="$1" resolved parent theme_name
+    [ -n "$path" ] || return 1
+    resolved=$(cd "$(dirname "$path")" 2>/dev/null && pwd -P) || return 1
+    case "$resolved" in
+        */wallpapers)
+            parent=$(dirname "$resolved")
+            theme_name=$(basename "$parent")
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+    case "$theme_name" in
+        current)
+            current_theme_name
+            return 0
+        ;;
+        shared|next|"")
+            return 1
+        ;;
+    esac
+    if [ -d "$THEME_DIR/$theme_name" ]; then
+        printf '%s' "$theme_name"
+        return 0
+    fi
+    return 1
+}
+
+toml_val() {
+    local key="$1" toml="$2"
+    grep "^$key " "$toml" 2>/dev/null | sed 's/.*= *"//;s/".*//' | tr -d '\n'
+}
+
+# Mix two #rrggbb colours. t=0 keeps $1, t=1 is $2.
+mix_hex() {
+    local a="${1#\#}" b="${2#\#}" t="$3"
+    local ar=$((16#${a:0:2})) ag=$((16#${a:2:2})) ab=$((16#${a:4:2}))
+    local br=$((16#${b:0:2})) bg=$((16#${b:2:2})) bb=$((16#${b:4:2}))
+    awk -v ar="$ar" -v ag="$ag" -v ab="$ab" -v br="$br" -v bg="$bg" -v bb="$bb" -v t="$t" '
+    BEGIN {
+        r = int(ar + (br - ar) * t + 0.5)
+        g = int(ag + (bg - ag) * t + 0.5)
+        b = int(ab + (bb - ab) * t + 0.5)
+        printf "#%02x%02x%02x\n", r, g, b
+    }'
+}
+
+# e.g. tokyo-night -> Tokyo Night
+theme_display_name() {
+    local slug="$1" word display_name=""
+    for word in $(echo "$slug" | tr '-' ' '); do
+        display_name="${display_name}${word^} "
+    done
+    printf '%s' "${display_name% }"
+}
+
+# Default wallpaper: first lexicographically sorted image in the active theme wallpapers/ dir.
+themes_default_wallpaper() {
+    local dir candidate
+    dir=$(theme_wallpapers_dir "$CURRENT_THEME") || return 1
+    candidate=$(find "$dir" -maxdepth 1 -type f \
+        \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) \
+        2>/dev/null | sort | head -n1)
+    [ -n "$candidate" ] || return 1
+    printf '%s' "$candidate"
+}
+
+paths_resolved_equal() {
+    local a b
+    a=$(cd "$1" 2>/dev/null && pwd -P) || return 1
+    b=$(cd "$2" 2>/dev/null && pwd -P) || return 1
+    [ "$a" = "$b" ]
+}
+
+# Build sed substitution script from colors.toml into the given file.
+_theme_build_sed_script() {
+    local toml="$1"
+    local sed_script="$2"
+    local key value hex
+
+    : >"$sed_script"
+    while IFS='=' read -r key value; do
+        key="${key//[\"\' ]/}"
+        [[ $key && $key != \#* ]] || continue
+        value="${value#*[\"\']}"
+        value="${value%%[\"\']*}"
+        printf 's|{{ %s }}|%s|g\n' "$key" "$value" >>"$sed_script"
+        printf 's|{{ %s_strip }}|%s|g\n' "$key" "${value#\#}" >>"$sed_script"
+        if [[ $value =~ ^# ]]; then
+            hex="${value#\#}"
+            printf 's|{{ %s_rgb }}|%d,%d,%d|g\n' "$key" "$(( 0x${hex:0:2} ))" "$(( 0x${hex:2:2} ))" "$(( 0x${hex:4:2} ))" >>"$sed_script"
+        fi
+    done <"$toml"
+}
+
+# Expand one .tpl into theme_dir. skip_existing=1 skips when output already exists.
+_expand_theme_template() {
+    local theme_dir="$1"
+    local basename="$2"
+    local skip_existing="${3:-0}"
+    local toml="$theme_dir/colors.toml"
+    local tpl="$TEMPLATES_DIR/${basename}.tpl"
+    local output="$theme_dir/$basename"
+    local sed_script
+
+    [ -f "$toml" ] || return 1
+    [ -f "$tpl" ] || return 1
+    if [[ "$skip_existing" == 1 && -f "$output" ]]; then
+        return 0
+    fi
+
+    sed_script=$(mktemp)
+    _theme_build_sed_script "$toml" "$sed_script"
+    sed -f "$sed_script" "$tpl" >"$output"
+    rm -f "$sed_script"
+}
+
+# Expand shared/templates/*.tpl into theme_dir from colors.toml.
+# Skips existing outputs except named templates regenerated via process_theme_template.
+process_theme_templates() {
+    local theme_dir="$1"
+    local filename tpl
+
+    [ -n "$theme_dir" ] || return 1
+    [ -f "$theme_dir/colors.toml" ] || return 0
+
+    for tpl in "$TEMPLATES_DIR"/*.tpl; do
+        [ -f "$tpl" ] || continue
+        filename=$(basename "$tpl" .tpl)
+        case "$filename" in
+        obsidian.css | colors.css | shoelace-hex.css | nvim-icons.lua) continue ;;
+        esac
+        _expand_theme_template "$theme_dir" "$filename" 1
+    done
+}
+
+# Generate a single template output (always overwrites).
+process_theme_template() {
+    local theme_dir="$1"
+    local basename="$2"
+    _expand_theme_template "$theme_dir" "$basename" 0
+}
+
+# Install stable ~/.config/hypr/theme.lua once (reads accent from state; never rewrite on switch).
+themes_ensure_hypr_theme_lua() {
+    local dest="${HOME}/.config/hypr/theme.lua"
+    local root="${EVOSHELL_ROOT:-$HOME/projects/evoshell}"
+    local src="$root/hypr/theme.lua"
+
+    [[ -f "$src" ]] || return 0
+    if [[ -f "$dest" ]] && grep -q 'evoshell: hypr-border-accent' "$dest" 2>/dev/null; then
+        theme_timing_step "hypr theme.lua ok"
+        return 0
+    fi
+    theme_timing_step "hypr theme.lua install"
+    printf 'evo-theme: installing stable hypr theme.lua (one-time hypr pause possible)\n' >&2
+    mkdir -p "${HOME}/.config/hypr"
+    cp "$src" "$dest"
+    theme_timing_step "hypr theme.lua installed"
+}
+
+# Persist accent for Hyprland startup without triggering a config reload.
+themes_write_hypr_border_accent() {
+    local current="${CURRENT_PATH:-$THEME_DIR/current}"
+    local toml="$current/colors.toml"
+    local out="${EVOSHELL_STATE}/hypr-border-accent"
+    local accent accent_strip
+
+    theme_timing_step "hypr accent read"
+    [ -f "$toml" ] || return 0
+    accent=$(toml_val accent "$toml")
+    accent_strip="${accent#\#}"
+    if [[ -f "$out" ]] && [[ "$(tr -d '\n' <"$out")" == "$accent_strip" ]]; then
+        theme_timing_step "hypr accent unchanged"
+        return 0
+    fi
+    theme_timing_step "hypr accent write"
+    mkdir -p "$(dirname "$out")"
+    local tmp="${out}.tmp.$$"
+    printf '%s\n' "$accent_strip" >"$tmp"
+    mv "$tmp" "$out"
+    theme_timing_step "hypr accent done"
+}
+
+# Apply active border colors live (no hyprctl reload — that freezes input).
+themes_apply_hypr_border() {
+    local theme_dir="${1:-${CURRENT_PATH:-$THEME_DIR/current}}"
+    local toml="$theme_dir/colors.toml"
+    local accent accent_strip
+
+    theme_timing_step "hypr_border read"
+    [ -f "$toml" ] || return 0
+    accent=$(toml_val accent "$toml")
+    accent_strip="${accent#\#}"
+    theme_timing_step "hypr_border eval"
+    hyprctl eval "hl.config({ general = { col = { active_border = \"rgb(${accent_strip})\" } }, group = { col = { border_active = \"rgb(${accent_strip})\" } } })" >/dev/null 2>&1 || true
+    theme_timing_step "hypr_border done"
+}
+
+# Copy theme files from current/ into ~/.config (hypr accent state, btop, nvim).
+install_theme_manifest() {
+    local current="${CURRENT_PATH:-$THEME_DIR/current}"
+    local config="${HOME}/.config"
+
+    if [ -f "$current/colors.toml" ]; then
+        themes_ensure_hypr_theme_lua
+        themes_write_hypr_border_accent
+    fi
+    if [ -f "$current/btop.theme" ]; then
+        mkdir -p "$config/btop/themes"
+        cp "$current/btop.theme" "$config/btop/themes/current.theme"
+        [ -f "$config/btop/btop.conf" ] && sed -i 's|^color_theme =.*|color_theme = "current"|' "$config/btop/btop.conf"
+    fi
+    if [ -f "$current/nvim-icons.lua" ]; then
+        mkdir -p "$config/nvim/lua"
+        cp "$current/nvim-icons.lua" "$config/nvim/lua/theme-icons.lua"
+    else
+        rm -f "$config/nvim/lua/theme-icons.lua"
+    fi
+}
+
+# Fingerprint inputs that affect evo-theme build (templates, shared GTK base, colors.toml).
+theme_build_stamp() {
+    local theme_name="$1"
+    local toml="$THEME_DIR/$theme_name/colors.toml"
+    local toml_hash gtk_hash tmpl_hash
+
+    [[ -f "$toml" ]] || return 1
+    toml_hash=$(sha256sum "$toml" | awk '{print $1}')
+    if [[ -d "$THEME_DIR/shared/gtk-3.0" && -d "$THEME_DIR/shared/gtk-4.0" ]]; then
+        gtk_hash=$(find "$THEME_DIR/shared/gtk-3.0" "$THEME_DIR/shared/gtk-4.0" -type f 2>/dev/null \
+            | sort | xargs sha256sum 2>/dev/null | sha256sum | awk '{print $1}')
+    else
+        gtk_hash="none"
+    fi
+    if [[ -d "$TEMPLATES_DIR" ]]; then
+        tmpl_hash=$(find "$TEMPLATES_DIR" -type f 2>/dev/null \
+            | sort | xargs sha256sum 2>/dev/null | sha256sum | awk '{print $1}')
+    else
+        tmpl_hash="none"
+    fi
+    printf '%s|%s|%s' "$toml_hash" "$gtk_hash" "$tmpl_hash"
+}
+
+theme_build_cache_dir() {
+    printf '%s/.build-cache/%s' "$THEME_DIR" "$1"
+}
+
+# Hardlink-copy a built theme tree into $2 from $THEME_DIR/.build-cache/<slug>.
+theme_build_cache_restore() {
+    local theme_name="$1"
+    local dest="$2"
+    local cache_path expected_stamp
+
+    cache_path=$(theme_build_cache_dir "$theme_name")
+    expected_stamp=$(theme_build_stamp "$theme_name") || return 1
+    [[ -f "$cache_path/.stamp" && "$(cat "$cache_path/.stamp")" == "$expected_stamp" && -f "$cache_path/.theme-name" ]] || return 1
+
+    mkdir -p "$dest"
+    cp -al "$cache_path/." "$dest/"
+    return 0
+}
+
+# Refresh $THEME_DIR/.build-cache/<slug> from a freshly built staging dir.
+theme_build_cache_store() {
+    local theme_name="$1"
+    local src="$2"
+    local cache_path expected_stamp
+
+    expected_stamp=$(theme_build_stamp "$theme_name") || return 0
+    cache_path=$(theme_build_cache_dir "$theme_name")
+    rm -rf "$cache_path"
+    mkdir -p "$cache_path"
+    cp -al "$src/." "$cache_path/"
+    printf '%s' "$expected_stamp" >"$cache_path/.stamp"
+}
+
+# Write $EVOSHELL_STATE/theme.json from colors.toml for Quickshell Theme.qml.
+# Preserves fontFamily / fontPixelSize from an existing theme.json or evo-font state.
+themes_sync_evo_shell() {
+    local theme_dir="${1:-${CURRENT_PATH:-$THEME_DIR/current}}"
+    local toml="$theme_dir/colors.toml"
+    local out="${EVOSHELL_STATE}/theme.json"
+    local font_state="${FONT_CONFIG_JSON}"
+    [ -f "$toml" ] || return 0
+
+    theme_timing_step "theme.json read toml"
+    local fg bg accent mantle urgent
+    fg=$(toml_val foreground "$toml")
+    bg=$(toml_val background "$toml")
+    accent=$(toml_val accent "$toml")
+    mantle=$(toml_val mantle "$toml")
+    urgent=$(toml_val color1 "$toml")
+
+    local prev_json='{}'
+    local fonts_json='{}'
+    [ -f "$out" ] && prev_json=$(cat "$out" 2>/dev/null || echo '{}')
+    [ -f "$font_state" ] && fonts_json=$(cat "$font_state" 2>/dev/null || echo '{}')
+
+    theme_timing_step "theme.json jq"
+    local new_json tmp
+    new_json=$(jq -n \
+        --arg foreground "$fg" \
+        --arg background "$bg" \
+        --arg accent "$accent" \
+        --arg mantle "$mantle" \
+        --arg urgent "$urgent" \
+        --arg iconTheme "$EVO_ICON_THEME" \
+        --argjson prev "$prev_json" \
+        --argjson fonts "$fonts_json" \
+        '
+        {
+          foreground: $foreground,
+          background: $background,
+          accent: $accent,
+          mantle: $mantle,
+          urgent: $urgent,
+          iconTheme: $iconTheme
+        }
+        + (if (($prev.fontFamily // $fonts.family // "") | length) > 0 then
+            {fontFamily: ($prev.fontFamily // $fonts.family)}
+          else {} end)
+        + (if ($prev.fontPixelSize // $fonts.evoSize // null) != null then
+            {fontPixelSize: ($prev.fontPixelSize // $fonts.evoSize)}
+          else {} end)
+        ')
+
+    theme_timing_step "theme.json cmp"
+    if [[ -f "$out" ]] && cmp -s <(printf '%s\n' "$new_json") "$out"; then
+        theme_timing_step "theme.json unchanged skip"
+        return 0
+    fi
+
+    theme_timing_step "theme.json write"
+    mkdir -p "$(dirname "$out")"
+    tmp="${out}.tmp.$$"
+    printf '%s\n' "$new_json" >"$tmp"
+    mv "$tmp" "$out"
+    theme_timing_step "theme.json write done"
+}
+
+themes_sync_icon_theme_gsettings() {
+    local current
+    current=$(gsettings get org.gnome.desktop.interface icon-theme 2>/dev/null || true)
+    [[ "$current" == "'$EVO_ICON_THEME'" ]] && return 0
+    (
+        gsettings set org.gnome.desktop.interface icon-theme "$EVO_ICON_THEME" 2>/dev/null || true
+    ) &
+}
+
+themes_sync_icon_theme_force_reload() {
+    gsettings set org.gnome.desktop.interface icon-theme "" 2>/dev/null || true
+    sleep 0.05
+    gsettings set org.gnome.desktop.interface icon-theme "$EVO_ICON_THEME" 2>/dev/null || true
+}
+
+themes_gtk_gsettings_force_reload() {
+    local gtk_theme="${1:-current}"
+    gsettings set org.gnome.desktop.interface gtk-theme "" 2>/dev/null || true
+    sleep 0.05
+    gsettings set org.gnome.desktop.interface gtk-theme "$gtk_theme" 2>/dev/null || true
+}
+
+themes_reload_ghostty() {
+    pkill -SIGUSR2 ghostty 2>/dev/null || true
+}
+
+themes_apply_brave_chrome() {
+    local browser_script
+    browser_script="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/evo-theme-browser"
+    [[ -x "$browser_script" ]] || return 0
+    EVO_THEME_TIMING="${EVO_THEME_TIMING:-0}" \
+        _THEME_TIMING_START_MS="${_THEME_TIMING_START_MS:-}" \
+        _THEME_TIMING_LAST_MS="${_THEME_TIMING_LAST_MS:-}" \
+        "$browser_script" apply
+}
+
+_themes_sync_obsidian_modular_vault() {
+    local vault="$1"
+    local theme_css="$2"
+    local shared_css="$3"
+    local shared_manifest="$4"
+    local modular_dir appearance updated_json
+
+    [ -n "$vault" ] && [ -d "$vault" ] || return 0
+
+    modular_dir="$vault/.obsidian/themes/Modular"
+    appearance="$vault/.obsidian/appearance.json"
+
+    mkdir -p "$modular_dir"
+    if [ ! -f "$modular_dir/manifest.json" ] && [ -f "$shared_manifest" ]; then
+        cp "$shared_manifest" "$modular_dir/manifest.json"
+    fi
+    if [ -f "$shared_css" ] && [ -f "$theme_css" ]; then
+        cat "$shared_css" "$theme_css" > "$modular_dir/theme.css"
+    fi
+
+    mkdir -p "$(dirname "$appearance")"
+    if [ -f "$appearance" ]; then
+        updated_json=$(cat "$appearance")
+    else
+        updated_json='{}'
+    fi
+    updated_json=$(echo "$updated_json" | jq --arg theme "obsidian" '.theme = $theme' | jq --arg cssTheme "Modular" '.cssTheme = $cssTheme')
+    echo "$updated_json" > "$appearance"
+}
+
+themes_sync_obsidian_modular() {
+    local theme_css="${THEME_DIR}/current/obsidian.css"
+    local shared_css="${THEME_DIR}/shared/css/obsidian.css"
+    local shared_manifest="${THEME_DIR}/shared/obsidian.conf"
+    local vault
+
+    [ -f "$theme_css" ] || return 0
+
+    while IFS= read -r vault; do
+        _themes_sync_obsidian_modular_vault "$vault" "$theme_css" "$shared_css" "$shared_manifest"
+    done < <(obsidian_vault_paths)
+}
+

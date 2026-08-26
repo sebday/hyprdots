@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# Steam library/recent play status for evoshell hover popup (evo.panels.steam).
+
+set -euo pipefail
+
+STEAM_DIR="${STEAM_DIR:-${HOME}/.local/share/Steam}"
+STEAM_BIN="${STEAM_BIN:-steam}"
+_script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=evo-bar-steam-lib
+source "${_script_dir}/evo-bar-steam-lib"
+
+cmd_popup() {
+    steam_popup_json "$STEAM_DIR" "$STEAM_BIN"
+}
+
+cmd_launch() {
+    local appid="${1:-}"
+    [[ -n "$appid" ]] || { echo "usage: $0 launch <appid>" >&2; return 1; }
+    command -v "$STEAM_BIN" >/dev/null 2>&1 || return 1
+    "$STEAM_BIN" -applaunch "$appid" >/dev/null 2>&1 &
+}
+
+cmd_open() {
+    command -v "$STEAM_BIN" >/dev/null 2>&1 || return 1
+    "$STEAM_BIN" >/dev/null 2>&1 &
+}
+
+case "${1:-}" in
+popup)
+    cmd_popup
+    ;;
+launch)
+    cmd_launch "${2:-}"
+    ;;
+open|open-downloads)
+    cmd_open
+    ;;
+*)
+    echo "usage: $0 popup|launch <appid>|open" >&2
+    exit 1
+    ;;
+esac

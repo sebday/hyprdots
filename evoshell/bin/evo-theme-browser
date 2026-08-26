@@ -1,0 +1,114 @@
+#!/bin/bash
+set -euo pipefail
+# Apply Omarchy-style Chromium/Brave managed policy theme colors (no GTK reload).
+#
+# USAGE:
+#   evo-theme-browser apply
+#   evo-theme-browser ensure-policy-dir
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "$SCRIPT_DIR/evo-theme-lib"
+
+BRAVE_POLICY_DIR="${BRAVE_POLICY_DIR:-/etc/brave/policies/managed}"
+
+hex_strip() {
+    local value="$1"
+    printf '%s' "${value#\#}" | tr '[:upper:]' '[:lower:]'
+}
+
+hex_to_rgb_csv() {
+    local hex="$1"
+    hex=$(hex_strip "$hex")
+    [[ ${#hex} -eq 6 ]] || return 1
+    printf '%d,%d,%d' "0x${hex:0:2}" "0x${hex:2:2}" "0x${hex:4:2}"
+}
+
+rgb_csv_to_hex() {
+    local csv="$1" r g b
+    IFS=',' read -r r g b <<<"$csv"
+    [[ -n "$r" && -n "$g" && -n "$b" ]] || return 1
+    printf '#%02x%02x%02x' "$r" "$g" "$b"
+}
+
+read_chromium_theme_hex() {
+    local current="${CURRENT_PATH:-$THEME_DIR/current}"
+    local theme_file="$current/chromium.theme"
+    local toml="$current/colors.toml"
+    local csv mantle
+
+    if [[ -f "$theme_file" ]]; then
+        csv=$(tr -d '[:space:]' <"$theme_file")
+        rgb_csv_to_hex "$csv" && return 0
+    fi
+
+    [[ -f "$toml" ]] || return 1
+    mantle=$(toml_val mantle "$toml")
+    [[ -n "$mantle" ]] || mantle=$(toml_val background "$toml")
+    [[ -n "$mantle" ]] || return 1
+    rgb_csv_to_hex "$(hex_to_rgb_csv "$mantle")"
+}
+
+write_brave_policy() {
+    local policy_dir="$1" hex="$2" payload tmp
+
+    [[ -n "$hex" ]] || return 1
+    [[ -d "$policy_dir" && -w "$policy_dir" ]] || return 1
+
+    payload=$(jq -nc --arg color "$hex" '{BrowserThemeColor: $color, BrowserColorScheme: "device"}')
+    tmp="${policy_dir}/color.json.tmp.$$"
+    printf '%s\n' "$payload" >"$tmp"
+    mv "$tmp" "${policy_dir}/color.json"
+}
+
+refresh_brave_policy() {
+    command -v brave >/dev/null 2>&1 || return 0
+    pgrep -x brave >/dev/null 2>&1 || return 0
+    brave --refresh-platform-policy --no-startup-window &>/dev/null || true
+}
+
+themes_apply_brave_chrome() {
+    local hex
+
+    theme_timing_step "brave read theme"
+    hex=$(read_chromium_theme_hex) || return 0
+    theme_timing_step "brave write policy"
+    write_brave_policy "$BRAVE_POLICY_DIR" "$hex" || {
+        echo "evo-theme-browser: cannot write ${BRAVE_POLICY_DIR}/color.json (run: evo-theme-browser ensure-policy-dir)" >&2
+        return 0
+    }
+    theme_timing_step "brave refresh policy"
+    refresh_brave_policy
+    theme_timing_step "brave done"
+}
+
+ensure_policy_dir() {
+  if [[ -d "$BRAVE_POLICY_DIR" && -w "$BRAVE_POLICY_DIR" ]]; then
+    echo "ok: ${BRAVE_POLICY_DIR} is writable"
+    return 0
+  fi
+
+  if ! command -v sudo >/dev/null 2>&1; then
+    echo "evo-theme-browser: sudo required to create ${BRAVE_POLICY_DIR}" >&2
+    return 1
+  fi
+
+  sudo mkdir -p "$BRAVE_POLICY_DIR"
+  sudo chmod 1777 "$BRAVE_POLICY_DIR"
+  echo "ok: ${BRAVE_POLICY_DIR} created (mode 1777)"
+}
+
+COMMAND="${1:-apply}"
+
+case "$COMMAND" in
+    apply)
+        themes_apply_brave_chrome
+        ;;
+    ensure-policy-dir)
+        ensure_policy_dir
+        ;;
+    *)
+        echo "usage: evo-theme-browser apply|ensure-policy-dir" >&2
+        exit 1
+        ;;
+esac

@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Cursor dashboard launcher for evoshell.
+
+set -euo pipefail
+
+_bin_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "${_bin_dir}/evo-bar-common"
+
+SPENDING_URL="https://cursor.com/dashboard/spending"
+
+usage() {
+    cat >&2 <<'EOF'
+usage:
+  evo-bar-cursor-usage open
+EOF
+}
+
+cmd_open() {
+    exec "$(evoshell_script evo-bar-brave)" open brave-cursor "$SPENDING_URL"
+}
+
+case "${1:-}" in
+open) cmd_open ;;
+""|-h|--help) usage; exit 0 ;;
+*) usage; exit 1 ;;
+esac
