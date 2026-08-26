@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# Cycle to the next or previous Omarchy theme.
+
+set -euo pipefail
+
+direction="${1:-}"
+
+case "$direction" in
+next | prev) ;;
+*)
+  echo "usage: omarchy-theme-cycle next|prev" >&2
+  exit 2
+  ;;
+esac
+
+mapfile -t themes < <(omarchy-theme-list 2>/dev/null | sed '/^[[:space:]]*$/d')
+total=${#themes[@]}
+
+if (( total == 0 )); then
+  omarchy-notification-send "No themes found" -t 2000
+  exit 0
+fi
+
+current="$(omarchy theme current 2>/dev/null)"
+index=-1
+for i in "${!themes[@]}"; do
+  if [[ ${themes[$i]} == "$current" ]]; then
+    index=$i
+    break
+  fi
+done
+
+if (( index == -1 )); then
+  next_index=0
+elif [[ $direction == next ]]; then
+  next_index=$(((index + 1) % total))
+else
+  next_index=$(((index - 1 + total) % total))
+fi
+
+omarchy theme set "${themes[$next_index]}"

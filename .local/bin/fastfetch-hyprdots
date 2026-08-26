@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+# Custom fastfetch formatters for hyprdots.
+
+set -euo pipefail
+
+monitors() {
+  if ! command -v hyprctl >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1; then
+    fastfetch --structure display --logo none 2>/dev/null | paste -sd ', ' -
+    return
+  fi
+
+  hyprctl monitors -j | jq -r '
+    group_by("\(.width)x\(.height)@\(.scale)") |
+    map(
+      if length == 1 then
+        "\(.[0].width)x\(.[0].height)@\(.[0].scale)"
+      else
+        "\(.[0].width)x\(.[0].height)×\(length)@\(.[0].scale)"
+      end
+    ) | join(", ")
+  '
+}
+
+disk() {
+  local name="${1:-}"
+  local mount
+  case "$name" in
+  root | /) mount="/" ;;
+  home | /home) mount="/home" ;;
+  onedrive | /onedrive) mount="/mnt/onedrive" ;;
+  external | /external) mount="/mnt/external" ;;
+  *)
+    echo "unknown disk: $name" >&2
+    return 1
+    ;;
+  esac
+
+  df -h --output=used,size,pcent "$mount" 2>/dev/null | awk 'NR == 2 {
+    gsub(/%/, "", $3)
+    printf "%s / %s (%s%%)\n", $1, $2, $3
+  }'
+}
+
+memswap() {
+  awk '
+    /MemTotal:/ { mem_total = $2 }
+    /MemAvailable:/ { mem_avail = $2 }
+    /SwapTotal:/ { swap_total = $2 }
+    /SwapFree:/ { swap_free = $2 }
+    END {
+      mem_used = mem_total - mem_avail
+      mem_pct = mem_total > 0 ? int(mem_used * 100 / mem_total + 0.5) : 0
+      mem_str = sprintf("%dG / %dG (%d%%)", int(mem_used / 1024 / 1024 + 0.5), int(mem_total / 1024 / 1024 + 0.5), mem_pct)
+
+      if (swap_total == 0) {
+        print mem_str
+        exit
+      }
+
+      swap_used = swap_total - swap_free
+      swap_pct = int(swap_used * 100 / swap_total + 0.5)
+      swap_total_g = int(swap_total / 1024 / 1024 + 0.5)
+      if (swap_used >= 1024 * 1024)
+        swap_str = sprintf("%dG / %dG (%d%%)", int(swap_used / 1024 / 1024 + 0.5), swap_total_g, swap_pct)
+      else
+        swap_str = sprintf("%dM / %dG (%d%%)", int(swap_used / 1024 + 0.5), swap_total_g, swap_pct)
+
+      printf "%s · %s\n", mem_str, swap_str
+    }' /proc/meminfo
+}
+
+packages() {
+  local pacman mise
+  pacman=$(pacman -Qq 2>/dev/null | wc -l | tr -d " ")
+  mise=0
+  if command -v mise >/dev/null 2>&1; then
+    mise=$(mise list --installed 2>/dev/null | wc -l | tr -d " ")
+  fi
+
+  if (( mise > 0 )); then
+    printf "%s (pacman) %s (mise)\n" "$pacman" "$mise"
+  else
+    printf "%s (pacman)\n" "$pacman"
+  fi
+}
+
+case "${1:-}" in
+monitors) monitors ;;
+disk) disk "${2:-}" ;;
+memswap) memswap ;;
+packages) packages ;;
+*)
+  echo "usage: fastfetch-hyprdots monitors|disk <root|home|onedrive|external>|memswap|packages" >&2
+  exit 1
+  ;;
+esac

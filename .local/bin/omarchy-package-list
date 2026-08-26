@@ -1,0 +1,238 @@
+#!/usr/bin/env bash
+# Live pacman / AUR / mise package breakdown for terminal display.
+
+set -euo pipefail
+
+_repo="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../.." && pwd)"
+_category_manifest="${_repo}/.install/package-categories.txt"
+
+read_mise_count() {
+  if ! command -v mise >/dev/null 2>&1; then
+    printf '0'
+    return
+  fi
+  mise list --installed 2>/dev/null | wc -l | tr -d " "
+}
+
+parse_category_manifest() {
+  local file="$1"
+  [[ -f "$file" ]] || return 0
+
+  local category=""
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    if [[ "$line" =~ ^#[[:space:]]+([^#]+) ]]; then
+      category="${BASH_REMATCH[1]}"
+      category="${category%%[[:space:]]#*}"
+      category="${category%"${category##*[![:space:]]}"}"
+      continue
+    fi
+    [[ -z "$category" ]] && continue
+    [[ "$line" =~ ^[[:space:]]*# ]] && continue
+    [[ "$line" =~ ^[[:space:]]*$ ]] && continue
+    read -r pkg _ <<<"$line"
+    [[ -n "$pkg" ]] || continue
+    printf '%s\t%s\n' "$category" "$pkg"
+  done <"$file"
+}
+
+emit_error_json() {
+  local msg="$1"
+  jq -cn \
+    --arg error "$msg" \
+    '{
+      ok: false,
+      error: $error,
+      summary: { total: 0, explicit: 0, foreign: 0, orphans: 0, mise: 0 },
+      categories: [],
+      mise: [],
+      orphans: []
+    }'
+}
+
+collect_breakdown_json() {
+  if ! command -v pacman >/dev/null 2>&1; then
+    emit_error_json "pacman not available"
+    return 0
+  fi
+  if ! command -v jq >/dev/null 2>&1; then
+    emit_error_json "jq not available"
+    return 0
+  fi
+
+  local explicit_tsv foreign_lines orphan_lines mise_tsv reference_tsv
+  if command -v expac >/dev/null 2>&1; then
+    explicit_tsv="$(expac -Q '%n\t%v' $(pacman -Qqe 2>/dev/null) 2>/dev/null || true)"
+  else
+    explicit_tsv="$(pacman -Qqe 2>/dev/null | while read -r pkg; do
+      line="$(pacman -Q "$pkg" 2>/dev/null || true)"
+      [[ -n $line ]] || continue
+      printf '%s\t%s\n' "${line%% *}" "${line#* }"
+    done)"
+  fi
+  foreign_lines="$(pacman -Qqm 2>/dev/null || true)"
+  orphan_lines="$(pacman -Qdtq 2>/dev/null || true)"
+  if command -v mise >/dev/null 2>&1; then
+    mise_tsv="$(mise list --installed 2>/dev/null | awk 'NF >= 2 { print $1 "\t" $2 }')"
+  else
+    mise_tsv=""
+  fi
+  reference_tsv="$(parse_category_manifest "$_category_manifest")"
+
+  local categories_json
+  categories_json="$(jq -Rn \
+    --arg ref "$reference_tsv" \
+    --arg explicit "$explicit_tsv" \
+    --arg foreign "$foreign_lines" \
+    '
+    ($ref | split("\n") | map(select(length > 0) | split("\t")) | map({cat: .[0], pkg: .[1]})) as $refs
+    | ($foreign | split("\n") | map(select(length > 0))) as $foreignSet
+    | ($explicit | split("\n") | map(select(length > 0) | split("\t")) | map({name: .[0], version: (.[1] // "")})) as $pkgs
+    | ($refs | map(.cat) | reduce .[] as $c ([]; if index($c) then . else . + [$c] end)) as $refCatOrder
+    | reduce $refs[] as $r (
+        {};
+        if (.[$r.cat] // [] | index($r.pkg)) then .
+        else .[$r.cat] = ((.[$r.cat] // []) + [$r.pkg]) end
+      ) as $catMap
+    | ($pkgs | map(
+        . as $p
+        | (($refs | map(select(.pkg == $p.name)) | if length > 0 then .[0].cat else null end)) as $cat
+        | { category: ($cat // "Other"), package: $p }
+      )) as $assigned
+    | (
+        ($refCatOrder + ["Other"])
+        | map(
+            . as $catName
+            | {
+                name: $catName,
+                packages: [
+                  $assigned[]
+                  | select(.category == $catName)
+                  | .package as $pkg
+                  | $pkg + {
+                      source: (if ($foreignSet | index($pkg.name)) then "aur" else "repo" end)
+                    }
+                ]
+                | sort_by(.name)
+              }
+          )
+        | map(select(.packages | length > 0))
+      )
+    ')"
+
+  jq -cn \
+    --arg explicit "$explicit_tsv" \
+    --arg orphans "$orphan_lines" \
+    --arg mise "$mise_tsv" \
+    --argjson total "$(pacman -Qq 2>/dev/null | wc -l | tr -d " ")" \
+    --argjson miseCount "$(read_mise_count)" \
+    --argjson categories "$categories_json" \
+    '
+    ($explicit | split("\n") | map(select(length > 0))) as $explicitList
+    | ($orphans | split("\n") | map(select(length > 0)) | sort) as $orphanList
+    | ($mise | split("\n") | map(select(length > 0) | split("\t")) | map({name: .[0], version: (.[1] // "")}) | sort_by(.name)) as $misePkgs
+    | {
+        ok: true,
+        error: "",
+        summary: {
+          total: $total,
+          explicit: ($explicitList | length),
+          foreign: ($categories | map(.packages[]) | map(select(.source == "aur")) | length),
+          orphans: ($orphanList | length),
+          mise: $miseCount
+        },
+        categories: $categories,
+        mise: $misePkgs,
+        orphans: $orphanList
+      }
+    '
+}
+
+print_category_section() {
+  local title="$1"
+  local count="$2"
+  local json="$3"
+
+  [[ "$count" -gt 0 ]] || return 0
+
+  printf '\n%s (%s)\n' "$title" "$count"
+  jq -r '.[] | "\(.name)\t\(.version // "")\t\(.source // "repo")"' <<<"$json" | while IFS=$'\t' read -r name version source; do
+    local suffix=""
+    [[ "$source" == "aur" ]] && suffix="  AUR"
+    if [[ ${#name} -gt 36 ]]; then
+      printf '  %-36s %s%s\n' "${name:0:35}…" "$version" "$suffix"
+    else
+      printf '  %-36s %s%s\n' "$name" "$version" "$suffix"
+    fi
+  done
+}
+
+print_mise_section() {
+  local count="$1"
+  local json="$2"
+
+  [[ "$count" -gt 0 ]] || return 0
+
+  printf '\nMise (%s)\n' "$count"
+  jq -r '.[] | "\(.name)\t\(.version // "")"' <<<"$json" | while IFS=$'\t' read -r name version; do
+    if [[ ${#name} -gt 36 ]]; then
+      printf '  %-36s %s\n' "${name:0:35}…" "$version"
+    else
+      printf '  %-36s %s\n' "$name" "$version"
+    fi
+  done
+}
+
+show_breakdown() {
+  local data
+  data="$(collect_breakdown_json)"
+
+  if [[ "$(jq -r '.ok' <<<"$data")" != "true" ]]; then
+    echo "Could not load packages: $(jq -r '.error' <<<"$data")" >&2
+    return 1
+  fi
+
+  local total explicit foreign orphans mise
+  total="$(jq -r '.summary.total' <<<"$data")"
+  explicit="$(jq -r '.summary.explicit' <<<"$data")"
+  foreign="$(jq -r '.summary.foreign' <<<"$data")"
+  orphans="$(jq -r '.summary.orphans' <<<"$data")"
+  mise="$(jq -r '.summary.mise' <<<"$data")"
+
+  printf 'Summary\n'
+  printf '  %s total · %s explicit · %s AUR · %s orphans · %s mise\n' \
+    "$total" "$explicit" "$foreign" "$orphans" "$mise"
+
+  while IFS= read -r cat_json; do
+    local name count
+    name="$(jq -r '.name' <<<"$cat_json")"
+    count="$(jq -r '.packages | length' <<<"$cat_json")"
+    print_category_section "$name" "$count" "$(jq -c '.packages' <<<"$cat_json")"
+  done < <(jq -c '.categories[]' <<<"$data")
+
+  print_mise_section "$mise" "$(jq -c '.mise' <<<"$data")"
+
+  if (( orphans > 0 )); then
+    printf '\nOrphans (pacman -Qdt)\n'
+    jq -r '.orphans[]' <<<"$data" | while read -r name; do
+      [[ -n $name ]] || continue
+      printf '  %s\n' "$name"
+    done
+  fi
+
+  printf '\n'
+}
+
+usage() {
+  cat >&2 <<'EOF'
+usage:
+  omarchy-package-list show
+  omarchy-package-list breakdown
+EOF
+  exit 2
+}
+
+case "${1:-}" in
+show) show_breakdown ;;
+breakdown) collect_breakdown_json ;;
+*) usage ;;
+esac

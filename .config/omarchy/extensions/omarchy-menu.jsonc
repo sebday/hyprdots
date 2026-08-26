@@ -1,0 +1,95 @@
+{
+  // Capture menu extensions (hyprdots omarchy branch).
+  "trigger.shopify": {
+    "icon": "󰒚",
+    "label": "Shopify",
+    "action": "omarchy-shell shell toggle evo.shopify '{}'"
+  },
+  "trigger.github": {
+    "icon": "",
+    "label": "GitHub contributions",
+    "action": "omarchy-shell shell toggle evo.github '{}'"
+  },
+  "trigger.stocks": {
+    "icon": "󰄪",
+    "label": "Stocks",
+    "action": "omarchy-shell shell toggle evo.stocks '{}'"
+  },
+  "trigger.steam": {
+    "icon": "󰓓",
+    "label": "Steam",
+    "action": "omarchy-shell shell toggle evo.steam '{}'"
+  },
+  "trigger.insync": {
+    "icon": "󰋼",
+    "label": "Insync",
+    "action": "omarchy-shell shell toggle evo.insync '{}'"
+  },
+  "trigger.system": {
+    "icon": "󰒋",
+    "label": "System",
+    "action": "omarchy-shell shell toggle evo.system '{}'"
+  },
+  "trigger.cursor": {
+    "icon": "󰁨",
+    "label": "Cursor usage",
+    "action": "omarchy-shell shell toggle evo.cursor '{}'"
+  },
+  "trigger.cloudflare": {
+    "icon": "󰊠",
+    "label": "Cloudflare",
+    "action": "omarchy-shell shell toggle evo.cloudflare '{}'"
+  },
+  "trigger.homeassistant": {
+    "icon": "󰠡",
+    "label": "Home Assistant",
+    "action": "omarchy-shell shell toggle evo.homeassistant '{}'"
+  },
+  "trigger.media": {
+    "icon": "󰐊",
+    "label": "Media",
+    "action": "omarchy-shell shell toggle evo.media '{}'"
+  },
+  "trigger.capture.edit-last": {
+    "icon": "󰆴",
+    "label": "Annotate last screenshot",
+    "action": "omarchy-capture-edit-last"
+  },
+  "trigger.capture.compositor": {
+    "icon": "󰄀",
+    "label": "Screenshot all monitors",
+    "action": "omarchy-capture-compositor"
+  },
+  "trigger.capture.screenrecord.theme-switching": {
+    "icon": "󰸌",
+    "label": "Record theme switching",
+    "when": "! pgrep -f '^gpu-screen-recorder'",
+    "action": "omarchy-capture-record-theme-switching"
+  },
+  "about": {
+    "icon": "",
+    "label": "About"
+  },
+  "about.system": {
+    "icon": "󰋼",
+    "label": "System info",
+    "action": "omarchy-launch-about"
+  },
+  "about.package-list": {
+    "icon": "󰏖",
+    "label": "Package List",
+    "action": "omarchy-launch-floating-terminal-with-presentation omarchy-package-list show"
+  },
+  "trigger.share.receive": {
+    "when": "omarchy-pkg-present localsend"
+  },
+  "update.hardware.bluetooth": {
+    "when": "omarchy-pkg-present bluez"
+  },
+  "install.development.docker-dbs": {
+    "when": "omarchy-pkg-present docker"
+  },
+  "remove.security.sudoless-docker": {
+    "when": "omarchy-pkg-present docker && ! omarchy-sudo-docker --configured"
+  }
+}

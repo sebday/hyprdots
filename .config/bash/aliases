@@ -1,0 +1,26 @@
+# Personal aliases (sourced after Omarchy defaults in ~/.bashrc).
+
+# Hyprdots wrappers must win over /usr/share/omarchy/bin (e.g. omarchy-theme-switcher).
+export PATH="$HOME/.local/bin:$PATH"
+
+# Override Omarchy agent shortcuts (see /usr/share/omarchy/default/bash/aliases).
+unalias cx cy 2>/dev/null
+
+# File system
+alias ll='eza -al --icons'
+alias lt='eza -alr --sort=mod --tree --level=1 --icons'
+alias df='/usr/bin/df -hT -xtmpfs -xdevtmpfs -xefivarfs'
+alias lock='fusermount3 -u /mnt/secure'
+alias unlock='gocryptfs /mnt/external/.crypt /mnt/secure'
+
+# Tools
+alias lg='lazygit'
+alias fa='fastfetch'
+
+# Projects
+alias pub='(cd "$HOME/Projects/client-docs" && npm run publish)'
+alias reports='(cd "$HOME/Projects/ecommerce-reports" && ruby bin/generate-reports weekly)'
+
+# Git
+alias gs='git status'
+alias master='git checkout master'

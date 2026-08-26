@@ -1,0 +1,8 @@
+#!/bin/bash
+# Keep darkhttpd web root pointed at the active Omarchy theme directory.
+
+WEB_ROOT="${HOME}/.config/omarchy/web"
+CURRENT_THEME="${HOME}/.local/state/omarchy/current/theme"
+
+mkdir -p "$WEB_ROOT"
+ln -sfn "$CURRENT_THEME" "$WEB_ROOT/current"

@@ -1,0 +1,180 @@
+#!/usr/bin/env bash
+# Read and write bar/notifications placements in ~/.config/omarchy/shell.json
+
+set -euo pipefail
+
+source omarchy-shell-config
+
+usage() {
+  cat >&2 <<'EOF'
+usage:
+  omarchy-layout bar get
+  omarchy-layout bar set <output> <top|bottom|left|right>   # toggle placement
+  omarchy-layout notifications get
+  omarchy-layout notifications set <output> <top|bottom> [left|center|right]   # toggle placement
+  omarchy-layout reset
+EOF
+  exit 1
+}
+
+normalize_align() {
+  case "${1:-right}" in
+  left) echo "left" ;;
+  center | middle | centre) echo "center" ;;
+  right | *) echo "right" ;;
+  esac
+}
+
+read_bar_state() {
+  jq -c '{
+    placements: (
+      if (.bar.placements | type) == "array" and (.bar.placements | length) > 0 then .bar.placements
+      elif (.bar.output // "") != "" then [{output: .bar.output, position: (.bar.position // "top")}]
+      else [] end
+    ),
+    id: (.bar.id // "evo.bar")
+  }' "$(source_file)"
+}
+
+read_notifications_state() {
+  jq -c '{
+    placements: (
+      if (.notifications.placements | type) == "array" and (.notifications.placements | length) > 0 then .notifications.placements
+      elif (.notifications.output // "") != "" then [{output: .notifications.output, position: (.notifications.position // "top"), align: (.notifications.align // "right")}]
+      else [] end
+    )
+  }' "$(source_file)"
+}
+
+toggle_placement() {
+  local section="$1"
+  local output="$2"
+  local position="$3"
+  case "$position" in
+  top | bottom | left | right) ;;
+  *) usage ;;
+  esac
+  commit "$NORMALIZE
+    | .[\$section] = (.[\$section] | object_or_empty)
+    | .[\$section].placements = (
+        (if (.[\$section].placements | type) == \"array\" and (.[\$section].placements | length) > 0 then
+          .[\$section].placements
+        elif (.[\$section].output // \"\") != \"\" then
+          [{output: .[\$section].output, position: (.[\$section].position // \"top\")}]
+        else [] end) as \$current
+        | (\$current | map(select(.output == \$output)) | .[0] // null) as \$existing
+        | (\$current | map(select(.output != \$output))) as \$rest
+        | if \$existing != null and (\$existing.position // \"top\") == \$position then
+            \$rest
+          else
+            \$rest + [{output: \$output, position: \$position}]
+          end
+      )
+    | del(.[\$section].output)
+    | if \$section == \"bar\" then .bar.id = \"evo.bar\" else . end
+    | if (.[\$section].placements | length) > 0
+      then .[\$section].position = .[\$section].placements[0].position
+      else . end
+  " --arg section "$section" --arg output "$output" --arg position "$position"
+}
+
+toggle_notification_placement() {
+  local output="$1"
+  local position="$2"
+  local align="$3"
+  case "$position" in
+  top | bottom) ;;
+  *) usage ;;
+  esac
+  case "$align" in
+  left | center | right) ;;
+  *) usage ;;
+  esac
+  commit "$NORMALIZE
+    | .notifications = (.notifications | object_or_empty)
+    | .notifications.placements = (
+        (if (.notifications.placements | type) == \"array\" and (.notifications.placements | length) > 0 then
+          .notifications.placements
+        elif (.notifications.output // \"\") != \"\" then
+          [{output: .notifications.output, position: (.notifications.position // \"top\"), align: (.notifications.align // \"right\")}]
+        else [] end) as \$current
+        | (\$current | map(select(.output == \$output)) | .[0] // null) as \$existing
+        | (\$current | map(select(.output != \$output))) as \$rest
+        | if \$existing != null
+            and ((\$existing.position // \"top\") == \$position)
+            and ((\$existing.align // \"right\") == \$align) then
+            \$rest
+          else
+            \$rest + [{output: \$output, position: \$position, align: \$align}]
+          end
+      )
+    | del(.notifications.output)
+    | if (.notifications.placements | length) > 0 then
+        .notifications.position = .notifications.placements[0].position
+        | .notifications.align = (.notifications.placements[0].align // \"right\")
+      else . end
+  " --arg output "$output" --arg position "$position" --arg align "$align"
+}
+
+reset_layout() {
+  local monitors
+  monitors=$(hyprctl monitors -j | jq -r '[.[].name] | unique | .[]')
+  local bar_json="[]"
+  local notif_json="[]"
+  while IFS= read -r name; do
+    [[ -n $name ]] || continue
+    bar_json=$(jq -c --arg name "$name" '. + [{output: $name, position: "top"}]' <<<"$bar_json")
+    notif_json=$(jq -c --arg name "$name" '. + [{output: $name, position: "top", align: "right"}]' <<<"$notif_json")
+  done <<<"$monitors"
+  commit "$NORMALIZE
+    | .bar = (.bar | object_or_empty)
+    | .bar.id = \"evo.bar\"
+    | .bar.placements = \$bar
+    | .bar.position = \"top\"
+    | del(.bar.output)
+    | .notifications = (.notifications | object_or_empty)
+    | .notifications.placements = \$notifications
+    | .notifications.position = \"top\"
+    | .notifications.align = \"right\"
+    | del(.notifications.output)
+  " --argjson bar "$bar_json" --argjson notifications "$notif_json"
+}
+
+target="${1:-}"
+action="${2:-}"
+
+case "$target" in
+bar)
+  case "$action" in
+  get) read_bar_state ;;
+  set)
+    output="${3:-}"
+    position="${4:-}"
+    [[ -n $output && -n $position ]] || usage
+    toggle_placement bar "$output" "$position"
+    read_bar_state
+    ;;
+  *) usage ;;
+  esac
+  ;;
+notifications)
+  case "$action" in
+  get) read_notifications_state ;;
+  set)
+    output="${3:-}"
+    position="${4:-}"
+    align="${5:-right}"
+    [[ -n $output && -n $position ]] || usage
+    align=$(normalize_align "$align")
+    toggle_notification_placement "$output" "$position" "$align"
+    read_notifications_state
+    ;;
+  *) usage ;;
+  esac
+  ;;
+reset)
+  reset_layout
+  jq -c '{bar: .bar.placements, notifications: .notifications.placements}' "$(source_file)"
+  ;;
+*) usage ;;
+esac

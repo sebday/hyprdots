@@ -1,0 +1,159 @@
+{
+  "version": 1,
+  "idle": {
+    "screensaver": 150,
+    "lock": 300
+  },
+  "bar": {
+    "id": "evo.bar",
+    "position": "top",
+    "placements": [
+      {
+        "output": "DP-1",
+        "position": "top"
+      }
+    ],
+    "transparent": true,
+    "centerAnchor": "evo.cursor",
+    "layout": {
+      "left": [
+        {
+          "id": "omarchy.menu"
+        },
+        {
+          "id": "omarchy.workspaces"
+        }
+      ],
+      "center": [
+        {
+          "id": "omarchy.tray"
+        },
+        {
+          "id": "evo.steam"
+        },
+        {
+          "id": "evo.insync"
+        },
+        {
+          "id": "evo.shopify"
+        },
+        {
+          "id": "evo.github"
+        },
+        {
+          "id": "evo.stocks"
+        },
+        {
+          "id": "evo.system"
+        },
+        {
+          "id": "evo.cursor"
+        },
+        {
+          "id": "evo.cloudflare"
+        },
+        {
+          "id": "evo.homeassistant"
+        },
+        {
+          "id": "omarchy.agents"
+        },
+        {
+          "id": "omarchy.power"
+        },
+        {
+          "id": "omarchy.keyboard-layout"
+        },
+        {
+          "id": "omarchy.system-update"
+        },
+        {
+          "id": "omarchy.network"
+        },
+        {
+          "id": "evo.monitor"
+        },
+        {
+          "id": "omarchy.audio"
+        },
+        {
+          "id": "evo.media"
+        }
+      ],
+      "right": [
+        {
+          "id": "omarchy.indicators"
+        },
+        {
+          "id": "omarchy.clock",
+          "format": "dddd HH:mm",
+          "formatAlt": "d MMMM 'W'ww yyyy",
+          "verticalFormat": "HH\n—\nmm"
+        },
+        {
+          "id": "omarchy.weather"
+        }
+      ]
+    }
+  },
+  "notifications": {
+    "position": "top",
+    "placements": [
+      {
+        "output": "HDMI-A-1",
+        "position": "top",
+        "align": "center"
+      }
+    ],
+    "align": "center"
+  },
+  "disabledPlugins": [
+    "omarchy.bar",
+    "omarchy.monitor",
+    "omarchy.notifications",
+    "omarchy.media"
+  ],
+  "shopify": {
+    "sqliteDir": "/home/seb/.cache/omarchy/shopify-data",
+    "timezone": "Europe/London",
+    "remote": "seb@zotac:~/projects/ecommerce-data/data"
+  },
+  "plugins": [
+    {
+      "id": "evo.notifications"
+    },
+    {
+      "id": "evo.evoplayer"
+    },
+    {
+      "id": "evo.shopify"
+    },
+    {
+      "id": "evo.github"
+    },
+    {
+      "id": "evo.stocks"
+    },
+    {
+      "id": "evo.steam"
+    },
+    {
+      "id": "evo.insync"
+    },
+    {
+      "id": "evo.system"
+    },
+    {
+      "id": "evo.cursor"
+    },
+    {
+      "id": "evo.cloudflare"
+    },
+    {
+      "id": "evo.homeassistant"
+    },
+    {
+      "id": "evo.media"
+    }
+  ]
+}

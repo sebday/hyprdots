@@ -1,0 +1,22 @@
+#!/bin/bash
+# Keep Foot on the hyprdots override at 12pt. omarchy font set sed -i breaks the
+# foot.ini symlink and hardcodes :size=9.
+
+set -euo pipefail
+
+FOOT_SIZE=12
+hook_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+repo_ini="$(cd "$hook_dir/../../../.." && pwd)/.config/foot/foot.ini"
+dest="$HOME/.config/foot/foot.ini"
+family="${1:-}"
+
+[[ -f "$repo_ini" ]] || exit 0
+
+mkdir -p "$(dirname "$dest")"
+ln -sfn "$repo_ini" "$dest"
+
+if [[ -n "$family" ]]; then
+	sed -i "s/^font=.*/font=${family}:size=${FOOT_SIZE}/" "$repo_ini"
+else
+	sed -i -E "s/(:size=)[0-9.]+/\1${FOOT_SIZE}/" "$repo_ini"
+fi

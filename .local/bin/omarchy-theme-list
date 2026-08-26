@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Filtered theme list — hides themes with mode = "light" in colors.toml.
+
+set -euo pipefail
+
+OMARCHY_PATH="${OMARCHY_PATH:-/usr/share/omarchy}"
+# shellcheck source=/dev/null
+source "${HOME}/.config/omarchy/bin/theme-filter.sh"
+
+theme_list_visible

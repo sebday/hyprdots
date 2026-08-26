@@ -1,0 +1,50 @@
+#!/bin/bash
+# Sync GTK interface fonts when omarchy font set runs ($1 = font family name).
+
+set -euo pipefail
+
+family="${1:-}"
+[[ -n "$family" ]] || exit 0
+
+GKEY_SCHEMA="org.gnome.desktop.interface"
+
+gtk_font_pt() {
+	local name pt
+	name="$(gsettings get "$GKEY_SCHEMA" font-name 2>/dev/null || true)"
+	pt="${name%\'}"
+	pt="${pt##* }"
+	if [[ $pt =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+		echo "$pt"
+	else
+		echo 11
+	fi
+}
+
+gtk_font_name() {
+	local family="$1" size="$2" face
+	if fc-list "${family} Mono" family 2>/dev/null | grep -q .; then
+		face="${family} Mono"
+	elif [[ "$family" == *Mono* ]]; then
+		face="$family"
+	else
+		face="$family"
+	fi
+	printf '%s %s' "$face" "$size"
+}
+
+pt="$(gtk_font_pt)"
+font_name="$(gtk_font_name "$family" "$pt")"
+
+for ini in "$HOME/.config/gtk-3.0/settings.ini" "$HOME/.config/gtk-4.0/settings.ini"; do
+	mkdir -p "$(dirname "$ini")"
+	if [[ -f "$ini" ]] && grep -q '^gtk-font-name=' "$ini"; then
+		sed -i "s/^gtk-font-name=.*/gtk-font-name=${font_name}/" "$ini"
+	else
+		printf '[Settings]\ngtk-font-name=%s\n' "$font_name" >"$ini"
+	fi
+done
+
+if [[ -n ${DBUS_SESSION_BUS_ADDRESS:-} ]]; then
+	gsettings set "$GKEY_SCHEMA" font-name "$font_name" 2>/dev/null || true
+	gsettings set "$GKEY_SCHEMA" monospace-font-name "$font_name" 2>/dev/null || true
+fi

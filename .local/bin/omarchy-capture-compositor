@@ -1,0 +1,38 @@
+#!/bin/bash
+
+# omarchy:summary=Capture the full compositor (all monitors) to Pictures
+# omarchy:group=capture
+
+[[ -f ~/.config/user-dirs.dirs ]] && source ~/.config/user-dirs.dirs
+OUTPUT_DIR="${OMARCHY_SCREENSHOT_DIR:-${XDG_PICTURES_DIR:-$HOME/Pictures}}"
+SCREENSHOT_EDITOR="${OMARCHY_SCREENSHOT_EDITOR:-tensaku-edit}"
+
+if [[ ! -d $OUTPUT_DIR ]]; then
+  mkdir -p "$OUTPUT_DIR"
+  omarchy-notification-send "Created screenshot directory: $OUTPUT_DIR" -t 2000
+fi
+
+NO_HW_CURSORS=$(hyprctl getoption cursor:no_hardware_cursors -j | jq '.int')
+
+set_no_hw_cursors() {
+  hyprctl eval "hl.config({ cursor = { no_hardware_cursors = $1 } })" &>/dev/null ||
+    hyprctl keyword cursor:no_hardware_cursors "$1" &>/dev/null
+}
+
+cleanup() {
+  set_no_hw_cursors "$NO_HW_CURSORS"
+}
+trap cleanup EXIT
+
+set_no_hw_cursors 0
+
+FILENAME="screenshot-$(date +'%Y-%m-%d_%H-%M-%S').png"
+FILEPATH="$OUTPUT_DIR/$FILENAME"
+
+grim "$FILEPATH" || exit 1
+echo "$FILEPATH"
+wl-copy --type image/png <"$FILEPATH"
+
+omarchy-notification-send "Screenshot saved to clipboard and file" "Edit with Super + Print (or click this)" \
+  --image "$FILEPATH" \
+  --exec "$(printf '%q %q' "$SCREENSHOT_EDITOR" "$FILEPATH")" || true
