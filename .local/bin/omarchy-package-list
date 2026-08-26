@@ -1,38 +1,104 @@
 #!/usr/bin/env bash
-# Live pacman / AUR / mise package breakdown for terminal display.
+# Explicitly installed pacman packages for terminal display.
 
 set -euo pipefail
 
-_repo="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../.." && pwd)"
-_category_manifest="${_repo}/.install/package-categories.txt"
+CATEGORY_ORDER=$'Omarchy\nHyprland & desktop\nTerminal & CLI\nFonts\nMedia\nFiles & storage\nNetwork & security\nApplications\nDevelopment\nSystem & boot\nPacman & tools\nLibraries\nOther'
 
-read_mise_count() {
-  if ! command -v mise >/dev/null 2>&1; then
-    printf '0'
-    return
+categorize_package() {
+  local name="$1"
+  local groups="${2:-}"
+  local desc="${3:-}"
+  local lower="${name,,}"
+  local dlower="${desc,,}"
+
+  case " $groups " in
+    *" fcitx5-im "*) printf '%s' "Hyprland & desktop"; return ;;
+    *" gnome "*) printf '%s' "Files & storage"; return ;;
+    *" nerd-fonts "*) printf '%s' "Fonts"; return ;;
+    *" qt6 "*) printf '%s' "Libraries"; return ;;
+    *" python-build-backend "*) printf '%s' "Development"; return ;;
+    *" tesseract-data "*) printf '%s' "Libraries"; return ;;
+  esac
+
+  case "$lower" in
+    omarchy|omarchy-*|aether|asdcontrol|cliamp|herdr|omacalc|omacut|omawrite|tensaku|tobi-try|ttfx|usage|uwsm)
+      printf '%s' "Omarchy"; return ;;
+    hypr*|quickshell|grim|slurp|gpu-screen-recorder|wl-clipboard|wtype|fcitx5|fcitx5-*|gnome-themes-extra|yaru-icon-theme|ddcutil|bolt|power-profiles-daemon|xdg-desktop-portal*|xdg-terminal-exec)
+      printf '%s' "Hyprland & desktop"; return ;;
+    foot|starship|tmux|fzf|bat|eza|ripgrep|fd|less|man-db|tldr|bash-completion)
+      printf '%s' "Terminal & CLI"; return ;;
+    noto-fonts|noto-fonts-*|ttf-*|woff2-font-awesome)
+      printf '%s' "Fonts"; return ;;
+    pipewire|pipewire-*|wireplumber|libpulse|alsa-utils|pamixer|mpv|mpv-*|imagemagick|imv|ffmpegthumbnailer|gst-plugin-pipewire|yt-dlp)
+      printf '%s' "Media"; return ;;
+    nautilus|nautilus-*|gnome-disk-utility|udiskie|gvfs-*|btrfs-progs|dosfstools|exfatprogs|ntfs-3g|gocryptfs|sushi)
+      printf '%s' "Files & storage"; return ;;
+    networkmanager|ufw|inetutils|wireless-regdb|nss-mdns|darkhttpd|pass|gnome-keyring|whois)
+      printf '%s' "Network & security"; return ;;
+    brave-bin|obsidian|insync|evince)
+      printf '%s' "Applications"; return ;;
+    git|mise-bin|lazygit|clang|llvm|ruby|lua51|luarocks|tree-sitter-cli|python-*|dotnet-runtime|qemu-*)
+      printf '%s' "Development"; return ;;
+    base|base-devel|sudo|linux|linux-firmware|mkinitcpio|limine|efibootmgr|intel-ucode|kernel-modules-hook|sddm|zram-generator|vulkan-*)
+      printf '%s' "System & boot"; return ;;
+    pacman-contrib|yay|expac|jq|btop|fastfetch|inxi|plocate|tzupdate|qrencode|zbar|socat|inotify-tools|dua-cli)
+      printf '%s' "Pacman & tools"; return ;;
+    mariadb-libs|postgresql-libs|libvips|libyaml|qt6-imageformats|tesseract|tesseract-*)
+      printf '%s' "Libraries"; return ;;
+  esac
+
+  if [[ "$dlower" == *font* || "$dlower" == *typeface* ]]; then
+    printf '%s' "Fonts"; return
   fi
-  mise list --installed 2>/dev/null | wc -l | tr -d " "
+  if [[ "$dlower" == *wayland* || "$dlower" == *compositor* || "$dlower" == *hyprland* ]]; then
+    printf '%s' "Hyprland & desktop"; return
+  fi
+  if [[ "$dlower" == *sound* || "$dlower" == *audio* || "$dlower" == *pipewire* || "$dlower" == *alsa* ]]; then
+    printf '%s' "Media"; return
+  fi
+  if [[ "$dlower" == *terminal* || "$dlower" == *shell* || "$dlower" == *"command-line"* ]]; then
+    printf '%s' "Terminal & CLI"; return
+  fi
+  if [[ "$dlower" == *filesystem* || "$dlower" == *"file manager"* || "$dlower" == *storage* ]]; then
+    printf '%s' "Files & storage"; return
+  fi
+  if [[ "$dlower" == *network* || "$dlower" == *firewall* || "$dlower" == *dns* ]]; then
+    printf '%s' "Network & security"; return
+  fi
+  if [[ "$dlower" == *library* || "$dlower" == *headers* ]]; then
+    printf '%s' "Libraries"; return
+  fi
+  if [[ "$dlower" == *kernel* || "$dlower" == *boot* || "$dlower" == *firmware* ]]; then
+    printf '%s' "System & boot"; return
+  fi
+  if [[ "$dlower" == *pacman* || "$dlower" == *"package manager"* ]]; then
+    printf '%s' "Pacman & tools"; return
+  fi
+  if [[ "$dlower" == *compiler* || "$dlower" == *development* || "$dlower" == *sdk* ]]; then
+    printf '%s' "Development"; return
+  fi
+
+  printf '%s' "Other"
 }
 
-parse_category_manifest() {
-  local file="$1"
-  [[ -f "$file" ]] || return 0
+build_category_reference() {
+  local pkg version groups desc category
 
-  local category=""
-  while IFS= read -r line || [[ -n "$line" ]]; do
-    if [[ "$line" =~ ^#[[:space:]]+([^#]+) ]]; then
-      category="${BASH_REMATCH[1]}"
-      category="${category%%[[:space:]]#*}"
-      category="${category%"${category##*[![:space:]]}"}"
-      continue
-    fi
-    [[ -z "$category" ]] && continue
-    [[ "$line" =~ ^[[:space:]]*# ]] && continue
-    [[ "$line" =~ ^[[:space:]]*$ ]] && continue
-    read -r pkg _ <<<"$line"
+  if command -v expac >/dev/null 2>&1; then
+    while IFS=$'\t' read -r pkg version groups desc; do
+      [[ -n "$pkg" ]] || continue
+      category="$(categorize_package "$pkg" "$groups" "$desc")"
+      printf '%s\t%s\n' "$category" "$pkg"
+    done < <(expac -Q '%n\t%v\t%G\t%d' $(pacman -Qqe 2>/dev/null) 2>/dev/null || true)
+    return
+  fi
+
+  while read -r pkg; do
     [[ -n "$pkg" ]] || continue
+    category="$(categorize_package "$pkg" "" "")"
     printf '%s\t%s\n' "$category" "$pkg"
-  done <"$file"
+  done < <(pacman -Qqe 2>/dev/null || true)
 }
 
 emit_error_json() {
@@ -42,10 +108,8 @@ emit_error_json() {
     '{
       ok: false,
       error: $error,
-      summary: { total: 0, explicit: 0, foreign: 0, orphans: 0, mise: 0 },
-      categories: [],
-      mise: [],
-      orphans: []
+      summary: { explicit: 0, foreign: 0 },
+      categories: []
     }'
 }
 
@@ -59,7 +123,7 @@ collect_breakdown_json() {
     return 0
   fi
 
-  local explicit_tsv foreign_lines orphan_lines mise_tsv reference_tsv
+  local explicit_tsv foreign_lines reference_tsv
   if command -v expac >/dev/null 2>&1; then
     explicit_tsv="$(expac -Q '%n\t%v' $(pacman -Qqe 2>/dev/null) 2>/dev/null || true)"
   else
@@ -70,36 +134,28 @@ collect_breakdown_json() {
     done)"
   fi
   foreign_lines="$(pacman -Qqm 2>/dev/null || true)"
-  orphan_lines="$(pacman -Qdtq 2>/dev/null || true)"
-  if command -v mise >/dev/null 2>&1; then
-    mise_tsv="$(mise list --installed 2>/dev/null | awk 'NF >= 2 { print $1 "\t" $2 }')"
-  else
-    mise_tsv=""
-  fi
-  reference_tsv="$(parse_category_manifest "$_category_manifest")"
+  reference_tsv="$(build_category_reference)"
 
   local categories_json
   categories_json="$(jq -Rn \
     --arg ref "$reference_tsv" \
     --arg explicit "$explicit_tsv" \
     --arg foreign "$foreign_lines" \
+    --arg order "$CATEGORY_ORDER" \
     '
     ($ref | split("\n") | map(select(length > 0) | split("\t")) | map({cat: .[0], pkg: .[1]})) as $refs
     | ($foreign | split("\n") | map(select(length > 0))) as $foreignSet
     | ($explicit | split("\n") | map(select(length > 0) | split("\t")) | map({name: .[0], version: (.[1] // "")})) as $pkgs
-    | ($refs | map(.cat) | reduce .[] as $c ([]; if index($c) then . else . + [$c] end)) as $refCatOrder
-    | reduce $refs[] as $r (
-        {};
-        if (.[$r.cat] // [] | index($r.pkg)) then .
-        else .[$r.cat] = ((.[$r.cat] // []) + [$r.pkg]) end
-      ) as $catMap
+    | ($order | split("\n") | map(select(length > 0))) as $preferredOrder
+    | ($refs | map(.cat) | reduce .[] as $c ([]; if index($c) then . else . + [$c] end)) as $seenCats
+    | ($preferredOrder + ($seenCats - $preferredOrder) + ["Other"]) as $catOrder
     | ($pkgs | map(
         . as $p
-        | (($refs | map(select(.pkg == $p.name)) | if length > 0 then .[0].cat else null end)) as $cat
-        | { category: ($cat // "Other"), package: $p }
+        | (($refs | map(select(.pkg == $p.name)) | if length > 0 then .[0].cat else "Other" end)) as $cat
+        | { category: $cat, package: $p }
       )) as $assigned
     | (
-        ($refCatOrder + ["Other"])
+        $catOrder
         | map(
             . as $catName
             | {
@@ -121,28 +177,17 @@ collect_breakdown_json() {
 
   jq -cn \
     --arg explicit "$explicit_tsv" \
-    --arg orphans "$orphan_lines" \
-    --arg mise "$mise_tsv" \
-    --argjson total "$(pacman -Qq 2>/dev/null | wc -l | tr -d " ")" \
-    --argjson miseCount "$(read_mise_count)" \
     --argjson categories "$categories_json" \
     '
     ($explicit | split("\n") | map(select(length > 0))) as $explicitList
-    | ($orphans | split("\n") | map(select(length > 0)) | sort) as $orphanList
-    | ($mise | split("\n") | map(select(length > 0) | split("\t")) | map({name: .[0], version: (.[1] // "")}) | sort_by(.name)) as $misePkgs
     | {
         ok: true,
         error: "",
         summary: {
-          total: $total,
           explicit: ($explicitList | length),
-          foreign: ($categories | map(.packages[]) | map(select(.source == "aur")) | length),
-          orphans: ($orphanList | length),
-          mise: $miseCount
+          foreign: ($categories | map(.packages[]) | map(select(.source == "aur")) | length)
         },
-        categories: $categories,
-        mise: $misePkgs,
-        orphans: $orphanList
+        categories: $categories
       }
     '
 }
@@ -166,22 +211,6 @@ print_category_section() {
   done
 }
 
-print_mise_section() {
-  local count="$1"
-  local json="$2"
-
-  [[ "$count" -gt 0 ]] || return 0
-
-  printf '\nMise (%s)\n' "$count"
-  jq -r '.[] | "\(.name)\t\(.version // "")"' <<<"$json" | while IFS=$'\t' read -r name version; do
-    if [[ ${#name} -gt 36 ]]; then
-      printf '  %-36s %s\n' "${name:0:35}…" "$version"
-    else
-      printf '  %-36s %s\n' "$name" "$version"
-    fi
-  done
-}
-
 show_breakdown() {
   local data
   data="$(collect_breakdown_json)"
@@ -191,16 +220,14 @@ show_breakdown() {
     return 1
   fi
 
-  local total explicit foreign orphans mise
-  total="$(jq -r '.summary.total' <<<"$data")"
+  local explicit foreign
   explicit="$(jq -r '.summary.explicit' <<<"$data")"
   foreign="$(jq -r '.summary.foreign' <<<"$data")"
-  orphans="$(jq -r '.summary.orphans' <<<"$data")"
-  mise="$(jq -r '.summary.mise' <<<"$data")"
 
-  printf 'Summary\n'
-  printf '  %s total · %s explicit · %s AUR · %s orphans · %s mise\n' \
-    "$total" "$explicit" "$foreign" "$orphans" "$mise"
+  printf 'Explicitly installed (%s)\n' "$explicit"
+  if (( foreign > 0 )); then
+    printf '  %s from AUR\n' "$foreign"
+  fi
 
   while IFS= read -r cat_json; do
     local name count
@@ -208,16 +235,6 @@ show_breakdown() {
     count="$(jq -r '.packages | length' <<<"$cat_json")"
     print_category_section "$name" "$count" "$(jq -c '.packages' <<<"$cat_json")"
   done < <(jq -c '.categories[]' <<<"$data")
-
-  print_mise_section "$mise" "$(jq -c '.mise' <<<"$data")"
-
-  if (( orphans > 0 )); then
-    printf '\nOrphans (pacman -Qdt)\n'
-    jq -r '.orphans[]' <<<"$data" | while read -r name; do
-      [[ -n $name ]] || continue
-      printf '  %s\n' "$name"
-    done
-  fi
 
   printf '\n'
 }

@@ -38,8 +38,7 @@ link_plugin() {
 	chmod +x "$src/bin/"* 2>/dev/null || true
 }
 
-link_plugin evo.bar "$HOME/Projects/omarchy-plugin-bar"
-link_plugin evo.bar-lib "$HOME/Projects/omarchy-plugin-bar-lib"
+link_plugin evo.tray "$HOME/Projects/omarchy-plugin-tray"
 link_plugin evo.cloudflare "$HOME/Projects/omarchy-plugin-cloudflare"
 link_plugin evo.cursor "$HOME/Projects/omarchy-plugin-cursor"
 link_plugin evo.github "$HOME/Projects/omarchy-plugin-github"
