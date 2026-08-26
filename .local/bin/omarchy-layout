@@ -32,7 +32,7 @@ read_bar_state() {
       elif (.bar.output // "") != "" then [{output: .bar.output, position: (.bar.position // "top")}]
       else [] end
     ),
-    id: (.bar.id // "omarchy.bar")
+    id: (.bar.id // "evo.bar")
   }' "$(source_file)"
 }
 
@@ -71,7 +71,7 @@ toggle_placement() {
           end
       )
     | del(.[\$section].output)
-    | if \$section == \"bar\" then .bar.id = \"omarchy.bar\" else . end
+    | if \$section == \"bar\" then .bar.id = \"evo.bar\" else . end
     | if (.[\$section].placements | length) > 0
       then .[\$section].position = .[\$section].placements[0].position
       else . end
@@ -128,7 +128,7 @@ reset_layout() {
   done <<<"$monitors"
   commit "$NORMALIZE
     | .bar = (.bar | object_or_empty)
-    | .bar.id = \"omarchy.bar\"
+    | .bar.id = \"evo.bar\"
     | .bar.placements = \$bar
     | .bar.position = \"top\"
     | del(.bar.output)

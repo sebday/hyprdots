@@ -25,6 +25,18 @@ http://localhost:8008/shared/orangemonkey-theme-reloader.js
 
 **Neovim:** `install.sh` links `.config/nvim`. `nvim` with no args opens the Snacks projects picker (`~/Projects/*`). After first install or plugin changes: `nvim --headless "+Lazy! sync" +qa`.
 
+## Removed packages
+
+Slim-down from stock Omarchy (Aug 2026):
+
+```bash
+yay -Rns aether asdcontrol asciiquarium bluez bluez-tools bluez-utils bolt brightnessctl chromium cliamp cups cups-browsed cups-filters cups-pdf docker docker-buildx docker-compose dotnet-runtime gnome-disk-utility gnome-themes-extra gvfs-mtp gvfs-nfs gvfs-smb hyprsunset inxi iw kdenlive lazydocker lib32-nvidia-utils libreoffice-fresh linux-firmware localsend mise moonlight-qt nvidia-utils noto-fonts-cjk obs-studio pinta plocate python-poetry-core qemu-user-static-binfmt quickshell-git system-config-printer tldr tobi-try ttf-ia-writer ufw-docker wireless-regdb xournalpp zbar zoxide
+
+yay -S linux-firmware-amdgpu linux-firmware-intel linux-firmware-other linux-firmware-whence lib32-vulkan-radeon
+```
+
+Firmware keeps amdgpu/intel/other only (no WiFi/NVIDIA splits). Steam needs `lib32-vulkan-radeon` instead of NVIDIA userspace.
+
 ## Display layout
 
 The Display bar popup (`SUPER + CTRL + D` or the monitor icon) includes a monitor graphic at the bottom. Click a top/bottom strip to toggle the bar or notifications on that monitor — click again to remove it. Defaults start with `DP-1` only.
@@ -32,7 +44,7 @@ The Display bar popup (`SUPER + CTRL + D` or the monitor icon) includes a monito
 ```bash
 hyprctl monitors
 omarchy-layout bar get
-omarchy-layout bar set DP-1 top    # toggle bar on DP-1 top edge
+omarchy-layout bar set DP-1 top
 omarchy-layout notifications set HDMI-A-2 top
 hyprctl layers
 ```

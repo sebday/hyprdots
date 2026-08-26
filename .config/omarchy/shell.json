@@ -5,7 +5,7 @@
     "lock": 300
   },
   "bar": {
-    "id": "omarchy.bar",
+    "id": "evo.bar",
     "position": "top",
     "placements": [
       {
@@ -108,6 +108,7 @@
     "align": "center"
   },
   "disabledPlugins": [
+    "omarchy.bar",
     "omarchy.monitor",
     "omarchy.notifications",
     "omarchy.media"
