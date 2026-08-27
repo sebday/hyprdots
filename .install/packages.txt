@@ -24,3 +24,6 @@ ttf-cascadia-mono-nerd
 
 # Omadots services
 darkhttpd
+
+# Screenshots (replaces stock tensaku)
+omasnap

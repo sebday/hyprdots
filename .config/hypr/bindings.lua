@@ -75,13 +75,26 @@ for workspace = 1, 10 do
 	)
 end
 
--- Screenshot keys (replace Omarchy color picker + screen record on Alt+Print).
+-- Screenshot keys (omasnap overlay + custom edit-last / compositor shortcuts).
+hl.unbind("PRINT")
 hl.unbind("SUPER + PRINT")
 hl.unbind("ALT + PRINT")
 
+o.bind("PRINT", "Screenshot", "omasnap")
+o.bind("ALT + PRINT", "Screenshot monitor", "omasnap fullscreen")
 o.bind("SUPER + PRINT", "Annotate last screenshot", "omarchy-capture-edit-last")
-o.bind("ALT + PRINT", "Screenshot monitor", "omarchy capture screenshot fullscreen")
 o.bind("SUPER + ALT + PRINT", "Screenshot all monitors", "omarchy-capture-compositor")
+
+hl.layer_rule({
+	match = { namespace = "^omasnap$" },
+	no_anim = true,
+	animation = "none",
+	no_screen_share = true,
+})
+
+-- Stock grim/slurp capture paths (omasnap hotkeys above replace these).
+hl.unbind("SUPER + CTRL + C")
+hl.unbind("SUPER + CTRL + PRINT")
 
 o.bind("SUPER + F5", "Restart shell", "omarchy restart shell")
 

@@ -22,7 +22,7 @@ categorize_package() {
   esac
 
   case "$lower" in
-    omarchy|omarchy-*|aether|asdcontrol|cliamp|herdr|omacalc|omacut|omawrite|tensaku|tobi-try|ttfx|usage|uwsm)
+    omarchy|omarchy-*|aether|asdcontrol|cliamp|herdr|omacalc|omacut|omawrite|omasnap|tobi-try|ttfx|usage|uwsm)
       printf '%s' "Omarchy"; return ;;
     hypr*|quickshell|grim|slurp|gpu-screen-recorder|wl-clipboard|wtype|fcitx5|fcitx5-*|gnome-themes-extra|yaru-icon-theme|ddcutil|bolt|power-profiles-daemon|xdg-desktop-portal*|xdg-terminal-exec)
       printf '%s' "Hyprland & desktop"; return ;;

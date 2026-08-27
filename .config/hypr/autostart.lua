@@ -14,3 +14,4 @@ for entry in (os.getenv("PATH") or ""):gmatch("[^:]+") do
 end
 table.insert(kept, 1, local_bin)
 hl.env("PATH", table.concat(kept, ":"))
+hl.env("OMARCHY_SCREENSHOT_EDITOR", "omasnap-edit")

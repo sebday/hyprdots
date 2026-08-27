@@ -1,38 +1,99 @@
 #!/bin/bash
 
-# omarchy:summary=Capture the full compositor (all monitors) to Pictures
+# omarchy:summary=Capture all monitors via omasnap and stitch into one image
 # omarchy:group=capture
+
+set -euo pipefail
 
 [[ -f ~/.config/user-dirs.dirs ]] && source ~/.config/user-dirs.dirs
 OUTPUT_DIR="${OMARCHY_SCREENSHOT_DIR:-${XDG_PICTURES_DIR:-$HOME/Pictures}}"
-SCREENSHOT_EDITOR="${OMARCHY_SCREENSHOT_EDITOR:-tensaku-edit}"
+SCREENSHOT_EDITOR="${OMARCHY_SCREENSHOT_EDITOR:-omasnap-edit}"
 
 if [[ ! -d $OUTPUT_DIR ]]; then
   mkdir -p "$OUTPUT_DIR"
   omarchy-notification-send "Created screenshot directory: $OUTPUT_DIR" -t 2000
 fi
 
-NO_HW_CURSORS=$(hyprctl getoption cursor:no_hardware_cursors -j | jq '.int')
+if ! command -v omasnap >/dev/null || ! command -v magick >/dev/null; then
+  omarchy-notification-send "Compositor capture failed" "omasnap and imagemagick are required" -t 4000
+  exit 1
+fi
 
-set_no_hw_cursors() {
-  hyprctl eval "hl.config({ cursor = { no_hardware_cursors = $1 } })" &>/dev/null ||
-    hyprctl keyword cursor:no_hardware_cursors "$1" &>/dev/null
-}
+monitors_json=$(hyprctl monitors -j)
+monitor_count=$(jq 'length' <<<"$monitors_json")
+if (( monitor_count == 0 )); then
+  omarchy-notification-send "Compositor capture failed" "No monitors reported by Hyprland" -t 4000
+  exit 1
+fi
 
+focused_monitor=$(jq -r '.[] | select(.focused) | .name' <<<"$monitors_json" | head -1)
+
+tmpdir=$(mktemp -d)
 cleanup() {
-  set_no_hw_cursors "$NO_HW_CURSORS"
+  rm -rf "$tmpdir"
+  if [[ -n ${focused_monitor:-} ]]; then
+    hyprctl dispatch "hl.dsp.focus({ monitor = \"$focused_monitor\" })" &>/dev/null || true
+  fi
 }
 trap cleanup EXIT
 
-set_no_hw_cursors 0
+# Hyprland x/y are logical layout coords; scale HiDPI captures down to match.
+read -r min_x min_y max_x max_y <<<"$(
+  jq -r '
+    ([.[].x] | min) as $minx |
+    ([.[].y] | min) as $miny |
+    ([.[] | .x + (.width / .scale)] | max) as $maxx |
+    ([.[] | .y + (.height / .scale)] | max) as $maxy |
+    "\($minx) \($miny) \($maxx) \($maxy)"
+  ' <<<"$monitors_json"
+)"
+canvas_w=$(jq -n --argjson min "$min_x" --argjson max "$max_x" '($max - $min) | floor')
+canvas_h=$(jq -n --argjson min "$min_y" --argjson max "$max_y" '($max - $min) | floor')
+
+while IFS= read -r monitor; do
+  [[ -n $monitor ]] || continue
+  name=${monitor%% *}
+  mon_tmp="$tmpdir/$name"
+  mkdir -p "$mon_tmp"
+
+  hyprctl dispatch "hl.dsp.focus({ monitor = \"$name\" })" &>/dev/null || true
+  sleep 0.5
+
+  if ! OMASNAP_SCREENSHOT_DIR="$mon_tmp" omasnap fullscreen --save >/dev/null 2>&1; then
+    omarchy-notification-send "Compositor capture failed" "Could not capture $name" -t 4000
+    exit 1
+  fi
+
+  shot=$(find "$mon_tmp" -maxdepth 1 -type f -name '*.png' -printf '%T@ %p\n' | sort -nr | head -1 | cut -d' ' -f2-)
+  if [[ -z $shot || ! -f $shot ]]; then
+    omarchy-notification-send "Compositor capture failed" "No image saved for $name" -t 4000
+    exit 1
+  fi
+
+  mv "$shot" "$tmpdir/$name.png"
+done < <(jq -r '.[].name' <<<"$monitors_json")
+
+canvas="$tmpdir/canvas.png"
+magick -size "${canvas_w}x${canvas_h}" xc:none PNG32:"$canvas"
+
+while IFS=$'\t' read -r name x y width height scale; do
+  ox=$(jq -n --argjson x "$x" --argjson min "$min_x" '($x - $min) | floor')
+  oy=$(jq -n --argjson y "$y" --argjson min "$min_y" '($y - $min) | floor')
+  lw=$(jq -n --argjson w "$width" --argjson s "$scale" '($w / $s) | floor')
+  lh=$(jq -n --argjson h "$height" --argjson s "$scale" '($h / $s) | floor')
+
+  magick "$canvas" \
+    \( "$tmpdir/$name.png" -resize "${lw}x${lh}!" \) \
+    -geometry "+${ox}+${oy}" -compose over -composite PNG32:"$canvas"
+done < <(jq -r '.[] | [.name, .x, .y, .width, .height, .scale] | @tsv' <<<"$monitors_json")
 
 FILENAME="screenshot-$(date +'%Y-%m-%d_%H-%M-%S').png"
 FILEPATH="$OUTPUT_DIR/$FILENAME"
+cp "$canvas" "$FILEPATH"
 
-grim "$FILEPATH" || exit 1
 echo "$FILEPATH"
 wl-copy --type image/png <"$FILEPATH"
 
 omarchy-notification-send "Screenshot saved to clipboard and file" "Edit with Super + Print (or click this)" \
   --image "$FILEPATH" \
-  --exec "$(printf '%q %q' "$SCREENSHOT_EDITOR" "$FILEPATH")" || true
+  --exec "$SCREENSHOT_EDITOR" "$FILEPATH" || true

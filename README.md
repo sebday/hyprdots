@@ -21,11 +21,11 @@ http://localhost:8008/shared/orangemonkey-theme-reloader.js
 
 **Brave:** stock Omarchy `BrowserThemeColor` policy via `omarchy-theme-set-browser` (not GTK).
 
-**Files (Nautilus):** `gtk-css-apply.sh` writes only the libadwaita palette (`libadwaita-gtk.css`, ~4KB) to `gtk.css`. The Nautilus extension reloads that palette from `current/theme` on `SIGUSR1` — no 250KB widget CSS. Restart Nautilus once after extension updates.
+**Files (Nautilus):** `gtk-css-apply.sh` writes only the libadwaita palette (`libadwaita-gtk.css`, ~4KB) to `gtk.css`. The Nautilus extension reloads that palette from `current/theme` on `SIGUSR1`. 
 
-**Themes:** light themes (`mode = "light"` in `colors.toml`) are hidden from the bar theme picker and `omarchy-theme-cycle`. `omarchy theme list` still shows all stock themes. To show everything: `OMARCHY_HIDE_LIGHT_THEMES=0` or `touch ~/.config/omarchy/theme-filter-all`.
+**Themes:** light themes (`mode = "light"` in `colors.toml`) are hidden from the bar theme picker and `omarchy-theme-cycle`. 
 
-**Neovim:** `install.sh` links `.config/nvim`. `nvim` with no args opens the Snacks projects picker (`~/Projects/*`). After first install or plugin changes: `nvim --headless "+Lazy! sync" +qa`.
+**Neovim:** `install.sh` links `.config/nvim`.
 
 ## Packages
 
@@ -37,11 +37,9 @@ Slim-down from stock Omarchy (Aug 2026). Lists live in [`.install/packages-remov
 ./install.sh --packages        # symlinks + apply package lists
 ```
 
-Firmware keeps amdgpu/intel/other only (no WiFi/NVIDIA splits). Steam needs `lib32-vulkan-radeon` instead of NVIDIA userspace.
-
 ## Display layout
 
-The Display bar popup (`SUPER + CTRL + D` or the monitor icon) includes a monitor graphic at the bottom. Click a top/bottom strip to toggle the bar or notifications on that monitor — click again to remove it. Defaults start with `DP-1` only.
+The Display bar popup (`SUPER + CTRL + D` or the monitor icon) includes a monitor graphic at the bottom. Click a top/bottom strip to toggle the bar or notifications on that monitor — click again to remove it. 
 
 ```bash
 hyprctl monitors
@@ -61,5 +59,6 @@ hyprctl layers
 - `SUPER + 4`, `SUPER + SHIFT + F` — file manager
 - `SUPER + 5` — Obsidian
 - `SUPER + 6–0` — unbound; use numpad or `SUPER + TAB` for workspaces
-- `SUPER + PRINT` — annotate last screenshot; `ALT + PRINT` — monitor; `SUPER + ALT + PRINT` — all monitors
+- `PRINT` — omasnap region overlay (toggle); `ALT + PRINT` — fullscreen capture
+- `SUPER + PRINT` — annotate last screenshot; `SUPER + ALT + PRINT` — all monitors (omasnap per-output stitch)
 

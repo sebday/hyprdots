@@ -61,6 +61,11 @@ zoxide
 hyprsunset
 brightnessctl
 
+# Screenshots (replaced by omasnap; grim only needed for stock Omarchy OCR/QR/record)
+grim
+slurp
+tensaku
+
 # Misc utilities
 asdcontrol
 asciiquarium

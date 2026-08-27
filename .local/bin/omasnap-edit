@@ -1,0 +1,7 @@
+#!/bin/bash
+# Opens Omasnap to annotate a screenshot.
+#
+# Omarchy's screenshot scripts hand a single bare image path to the
+# `omasnap-edit` command by default (or to $OMARCHY_SCREENSHOT_EDITOR when
+# explicitly overridden).
+exec omasnap --file "$1"
