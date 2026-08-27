@@ -1,0 +1,73 @@
+# Slim-down from stock Omarchy (Aug 2026)
+
+# Shell / bar
+aether
+quickshell-git
+
+# Bluetooth / wireless
+bluez
+bluez-tools
+bluez-utils
+bolt
+iw
+wireless-regdb
+
+# Printing
+cups
+cups-browsed
+cups-filters
+cups-pdf
+system-config-printer
+
+# Docker
+docker
+docker-buildx
+docker-compose
+lazydocker
+ufw-docker
+
+# Browsers / apps
+chromium
+kdenlive
+libreoffice-fresh
+moonlight-qt
+obs-studio
+pinta
+xournalpp
+
+# GNOME / GTK extras
+gnome-disk-utility
+gnome-themes-extra
+gvfs-mtp
+gvfs-nfs
+gvfs-smb
+
+# NVIDIA (AMD GPU setup)
+lib32-nvidia-utils
+nvidia-utils
+
+# Firmware / fonts
+linux-firmware
+noto-fonts-cjk
+
+# Dev / tooling
+dotnet-runtime
+python-poetry-core
+qemu-user-static-binfmt
+tldr
+zoxide
+
+# Hyprland / desktop
+hyprsunset
+brightnessctl
+
+# Misc utilities
+asdcontrol
+asciiquarium
+cliamp
+inxi
+localsend
+plocate
+tobi-try
+ttf-ia-writer
+zbar

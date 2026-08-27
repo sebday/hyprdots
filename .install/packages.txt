@@ -1,0 +1,26 @@
+# Firmware (split packages; no monolithic linux-firmware)
+linux-firmware-amdgpu
+linux-firmware-intel
+linux-firmware-other
+linux-firmware-whence
+
+# Gaming
+steam
+vulkan-radeon
+lib32-vulkan-radeon
+gst-plugin-pipewire
+
+# Applications (AUR)
+brave-bin
+insync
+
+# Storage / encryption
+gocryptfs
+ntfs-3g
+pass
+
+# Fonts
+ttf-cascadia-mono-nerd
+
+# Omadots services
+darkhttpd

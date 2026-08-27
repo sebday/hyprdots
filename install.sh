@@ -5,6 +5,13 @@ set -euo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOME="${HOME:-$(eval echo ~)}"
 
+PACKAGES=0
+for arg in "$@"; do
+	case "$arg" in
+	--packages) PACKAGES=1 ;;
+	esac
+done
+
 link() {
 	local src="$1" dest="$2"
 	mkdir -p "$(dirname "$dest")"
@@ -49,7 +56,6 @@ link_plugin evo.notifications "$HOME/Projects/omarchy-plugin-notifications"
 link_plugin evo.shopify "$HOME/Projects/omarchy-plugin-shopify"
 link_plugin evo.steam "$HOME/Projects/omarchy-plugin-steam"
 link_plugin evo.stocks "$HOME/Projects/omarchy-plugin-stocks"
-link_plugin evo.system "$HOME/Projects/omarchy-plugin-system"
 link "$REPO/.local/bin/omarchy-capture-edit-last" "$HOME/.local/bin/omarchy-capture-edit-last"
 link "$REPO/.local/bin/omarchy-capture-compositor" "$HOME/.local/bin/omarchy-capture-compositor"
 link "$REPO/.local/bin/omarchy-capture-record-theme-switching" "$HOME/.local/bin/omarchy-capture-record-theme-switching"
@@ -109,5 +115,10 @@ else
 fi
 
 link "$REPO/.config/foot/foot.ini" "$HOME/.config/foot/foot.ini"
+
+if (( PACKAGES )); then
+	echo "packages:"
+	bash "$REPO/.install/packages.sh" apply
+fi
 
 echo "done"

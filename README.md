@@ -27,14 +27,14 @@ http://localhost:8008/shared/orangemonkey-theme-reloader.js
 
 **Neovim:** `install.sh` links `.config/nvim`. `nvim` with no args opens the Snacks projects picker (`~/Projects/*`). After first install or plugin changes: `nvim --headless "+Lazy! sync" +qa`.
 
-## Removed packages
+## Packages
 
-Slim-down from stock Omarchy (Aug 2026):
+Slim-down from stock Omarchy (Aug 2026). Lists live in [`.install/packages-removed.txt`](.install/packages-removed.txt) and [`.install/packages.txt`](.install/packages.txt).
 
 ```bash
-yay -Rns aether asdcontrol asciiquarium bluez bluez-tools bluez-utils bolt brightnessctl chromium cliamp cups cups-browsed cups-filters cups-pdf docker docker-buildx docker-compose dotnet-runtime gnome-disk-utility gnome-themes-extra gvfs-mtp gvfs-nfs gvfs-smb hyprsunset inxi iw kdenlive lazydocker lib32-nvidia-utils libreoffice-fresh linux-firmware localsend mise moonlight-qt nvidia-utils noto-fonts-cjk obs-studio pinta plocate python-poetry-core qemu-user-static-binfmt quickshell-git system-config-printer tldr tobi-try ttf-ia-writer ufw-docker wireless-regdb xournalpp zbar zoxide
-
-yay -S linux-firmware-amdgpu linux-firmware-intel linux-firmware-other linux-firmware-whence lib32-vulkan-radeon
+.install/packages.sh show      # dry-run summary
+.install/packages.sh apply     # remove then install
+./install.sh --packages        # symlinks + apply package lists
 ```
 
 Firmware keeps amdgpu/intel/other only (no WiFi/NVIDIA splits). Steam needs `lib32-vulkan-radeon` instead of NVIDIA userspace.

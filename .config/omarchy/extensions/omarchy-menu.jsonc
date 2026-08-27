@@ -25,11 +25,6 @@
     "label": "Insync",
     "action": "omarchy-shell shell toggle evo.insync '{}'"
   },
-  "trigger.system": {
-    "icon": "󰒋",
-    "label": "System",
-    "action": "omarchy-shell shell toggle evo.system '{}'"
-  },
   "trigger.cursor": {
     "icon": "󰁨",
     "label": "Cursor usage",

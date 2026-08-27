@@ -47,9 +47,6 @@
           "id": "evo.cursor"
         },
         {
-          "id": "evo.system"
-        },
-        {
           "id": "evo.cloudflare"
         },
         {
@@ -100,7 +97,7 @@
     "position": "top",
     "placements": [
       {
-        "output": "HDMI-A-1",
+        "output": "DP-1",
         "position": "top",
         "align": "center"
       }
@@ -139,9 +136,6 @@
     },
     {
       "id": "evo.insync"
-    },
-    {
-      "id": "evo.system"
     },
     {
       "id": "evo.cursor"

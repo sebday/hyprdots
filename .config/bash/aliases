@@ -3,6 +3,11 @@
 # Hyprdots wrappers must win over /usr/share/omarchy/bin (e.g. omarchy-theme-switcher).
 export PATH="$HOME/.local/bin:$PATH"
 
+# Go module and build cache (default GOPATH is ~/go).
+export GOPATH="${GOPATH:-$HOME/.cache/go}"
+export GOMODCACHE="${GOMODCACHE:-$GOPATH/pkg/mod}"
+export GOCACHE="${GOCACHE:-$HOME/.cache/go-build}"
+
 # Override Omarchy agent shortcuts (see /usr/share/omarchy/default/bash/aliases).
 unalias cx cy 2>/dev/null
 
