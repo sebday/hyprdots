@@ -18,8 +18,8 @@ alias lg='lazygit'
 alias fa='fastfetch'
 
 # Projects
-alias pub='(cd "$HOME/Projects/client-docs" && npm run publish)'
-alias reports='(cd "$HOME/Projects/ecommerce-reports" && ruby bin/generate-reports weekly)'
+alias pub='(cd "$HOME/Work/client-docs" && npm run publish)'
+alias reports='(cd "$HOME/Work/ecommerce-reports" && ruby bin/generate-reports weekly)'
 
 # Git
 alias gs='git status'

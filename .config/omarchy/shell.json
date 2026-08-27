@@ -13,7 +13,7 @@
         "position": "top"
       }
     ],
-    "transparent": true,
+    "transparent": false,
     "centerAnchor": "evo.cursor",
     "layout": {
       "left": [
@@ -44,10 +44,10 @@
           "id": "evo.stocks"
         },
         {
-          "id": "evo.system"
+          "id": "evo.cursor"
         },
         {
-          "id": "evo.cursor"
+          "id": "evo.system"
         },
         {
           "id": "evo.cloudflare"

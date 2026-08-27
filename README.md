@@ -1,5 +1,7 @@
 # Omadots
 
+![Omadots desktop preview](preview.png)
+
 Personal Omarchy overrides: quad-monitor layout, Brave/file-manager bindings, numpad workspaces, capture scripts, OrangeMonkey web CSS, and shell aliases.
 
 ## Install
