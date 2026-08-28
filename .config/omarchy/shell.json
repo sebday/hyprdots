@@ -85,7 +85,7 @@
           "id": "omarchy.clock",
           "format": "dddd HH:mm",
           "formatAlt": "d MMMM 'W'ww yyyy",
-          "verticalFormat": "HH\n\u2014\nmm"
+          "verticalFormat": "HH\n—\nmm"
         },
         {
           "id": "omarchy.weather"
@@ -111,7 +111,7 @@
     "omarchy.media"
   ],
   "shopify": {
-    "dataPath": "zotac:~/Projects/data-store",
+    "dataPath": "zotac:~/projects/data-store",
     "timezone": "Europe/London"
   },
   "plugins": [

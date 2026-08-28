@@ -7,7 +7,7 @@ Personal Omarchy overrides: quad-monitor layout, Brave/file-manager bindings, nu
 ## Install
 
 ```bash
-cd ~/Projects/omadots
+cd ~/projects/omadots
 ./install.sh
 ```
 

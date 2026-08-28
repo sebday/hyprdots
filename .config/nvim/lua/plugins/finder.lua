@@ -1,12 +1,6 @@
 local function projects_root()
 	local home = vim.fn.expand("~")
-	for _, name in ipairs({ "Projects", "projects" }) do
-		local path = home .. "/" .. name
-		if vim.fn.isdirectory(path) == 1 then
-			return path
-		end
-	end
-	return home .. "/Projects"
+	return home .. "/projects"
 end
 
 local function list_projects()

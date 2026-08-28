@@ -34,15 +34,16 @@ moonlight-qt
 obs-studio
 pinta
 xournalpp
+cliamp
 
-# GNOME / GTK extras
+# GNOME
 gnome-disk-utility
 gnome-themes-extra
 gvfs-mtp
 gvfs-nfs
 gvfs-smb
 
-# NVIDIA (AMD GPU setup)
+# NVIDIA
 lib32-nvidia-utils
 nvidia-utils
 
@@ -56,12 +57,13 @@ python-poetry-core
 qemu-user-static-binfmt
 tldr
 zoxide
+herdr
 
 # Hyprland / desktop
 hyprsunset
 brightnessctl
 
-# Screenshots (replaced by omasnap; grim only needed for stock Omarchy OCR/QR/record)
+# Screenshots
 grim
 slurp
 tensaku
@@ -76,3 +78,4 @@ plocate
 tobi-try
 ttf-ia-writer
 zbar
+dua-cli
