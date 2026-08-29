@@ -41,22 +41,5 @@ return {
 				end,
 			})
 		end,
-		init = function()
-			vim.api.nvim_create_autocmd("User", {
-				pattern = "VeryLazy",
-				once = true,
-				callback = function()
-					vim.defer_fn(function()
-						if vim.fn.argc() > 0 then
-							return
-						end
-						local ok, Snacks = pcall(require, "snacks")
-						if ok then
-							Snacks.picker.projects()
-						end
-					end, 80)
-				end,
-			})
-		end,
 	},
 }

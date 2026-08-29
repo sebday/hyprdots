@@ -21,6 +21,23 @@ alias unlock='gocryptfs /mnt/external/.crypt /mnt/secure'
 # Tools
 alias lg='lazygit'
 alias fa='fastfetch'
+colours() {
+  printf 'ANSI palette (0-15):\n'
+  for i in $(seq 0 15); do
+    printf '\033[48;5;%sm  %2d  \033[0m' "$i" "$i"
+    (( i % 8 == 7 )) && printf '\n'
+  done
+  echo
+  printf '\nNamed slots:\n'
+  for i in 0 1 2 3 4 5 6 7; do
+    printf '\033[3%sm fg%-2d \033[0m' "$i" "$i"
+  done
+  echo
+  for i in 0 1 2 3 4 5 6 7; do
+    printf '\033[9%sm fg%-2d \033[0m' "$i" "$i"
+  done
+  echo
+}
 
 # Projects
 alias pub='(cd "$HOME/work/client-docs" && npm run publish)'

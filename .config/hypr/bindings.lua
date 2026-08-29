@@ -109,7 +109,7 @@ o.bind(
 
 hl.unbind("SUPER + SHIFT + CTRL + SPACE")
 
--- Wallpaper prev/next on Super+Ctrl+=/- (replaces Omarchy large resize on those keys).
+-- Wallpaper prev/next on Super+Ctrl+=/- (Omarchy default on those keys is large window resize).
 hl.unbind("SUPER + CTRL + code:20")
 hl.unbind("SUPER + CTRL + code:21")
 o.bind("SUPER + CTRL + code:21", "Next background", "omarchy theme bg next")
@@ -119,6 +119,9 @@ hl.unbind("SUPER + ALT + code:20")
 hl.unbind("SUPER + ALT + code:21")
 o.bind("SUPER + ALT + code:21", "Next theme", "omarchy-theme-cycle next")
 o.bind("SUPER + ALT + code:20", "Previous theme", "omarchy-theme-cycle prev")
+
+o.bind("SUPER + CTRL + ALT + code:20", "Previous shader", "omarchy-shell shaders prev")
+o.bind("SUPER + CTRL + ALT + code:21", "Next shader", "omarchy-shell shaders next")
 
 -- Resize tiled windows (old hyprdots: Super+Ctrl+arrows, 100px, repeat).
 hl.unbind("SUPER + CTRL + LEFT")

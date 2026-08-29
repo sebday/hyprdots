@@ -71,6 +71,9 @@
           "id": "evo.monitor"
         },
         {
+          "id": "evo.shaders"
+        },
+        {
           "id": "omarchy.audio"
         },
         {
@@ -144,6 +147,13 @@
     },
     {
       "id": "evo.media"
+    },
+    {
+      "id": "evo.shaders",
+      "shader": "xor",
+      "fps": 30,
+      "scale": 0.75,
+      "steps": 56
     }
   ]
 }
