@@ -71,7 +71,16 @@
           "id": "evo.monitor"
         },
         {
-          "id": "evo.shaders"
+          "id": "evo.shaders",
+          "shader": "xor",
+          "fps": 30,
+          "scale": 0.75,
+          "speed": 0.5,
+          "opacity": 1,
+          "tint": 0,
+          "enabled": false,
+          "wallpaper": true,
+          "screensaver": false
         },
         {
           "id": "omarchy.audio"
