@@ -1,4 +1,4 @@
-# Omadots
+# Hyprdots (omarchy branch)
 
 ![Omadots desktop preview](preview.png)
 
@@ -7,7 +7,9 @@ Personal Omarchy overrides: quad-monitor layout, Brave/file-manager bindings, nu
 ## Install
 
 ```bash
-cd ~/projects/omadots
+git clone git@github.com:sebday/hyprdots.git ~/projects/hyprdots
+cd ~/projects/hyprdots
+git checkout omarchy
 ./install.sh
 ```
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Apply omadots package additions and removals from list files.
+# Apply hyprdots omarchy package additions and removals from list files.
 set -euo pipefail
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

@@ -19,7 +19,7 @@ link() {
 	printf '  %s -> %s\n' "$dest" "$src"
 }
 
-echo "omadots install (repo: $REPO)"
+echo "hyprdots install (branch: omarchy, repo: $REPO)"
 echo "symlinks:"
 
 link "$REPO/.config/hypr/monitors.lua" "$HOME/.config/hypr/monitors.lua"
