@@ -1,6 +1,7 @@
-# Hyprdots (omarchy branch)
+# Omarchy dots
 
-![Omadots desktop preview](preview.png)
+![Omadots desktop preview](preview.png)  
+![Omadots terminals](preview2.png)
 
 Personal Omarchy overrides: quad-monitor layout, Brave/file-manager bindings, numpad workspaces, capture scripts, OrangeMonkey web CSS, and shell aliases.
 
@@ -41,7 +42,7 @@ Slim-down from stock Omarchy (Aug 2026). Lists live in [`.install/packages-remov
 
 ## Display layout
 
-The Display bar popup (`SUPER + CTRL + D` or the monitor icon) includes a monitor graphic at the bottom. Click a top/bottom strip to toggle the bar or notifications on that monitor — click again to remove it. 
+The Display bar popup (`SUPER + CTRL + D` or the monitor icon) includes a monitor graphic at the bottom to set the bar and notification locations.
 
 ```bash
 hyprctl monitors
