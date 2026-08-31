@@ -43,5 +43,7 @@ alias pub='(cd "$HOME/work/client-docs" && npm run publish)'
 alias reports='(cd "$HOME/work/ecommerce-reports" && ruby bin/generate-reports weekly)'
 
 # Git
+unalias gcam 2>/dev/null
 alias gs='git status'
 alias master='git checkout master'
+gcam() { git add -A && git commit -m "$@"; }

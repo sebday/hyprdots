@@ -6,17 +6,15 @@ o.bind("SUPER + L", "Lock system", "omarchy-system-lock")
 
 o.bind("SUPER + E", "Editor", { omarchy = "editor" })
 
--- Clipboard manager + calculator (replace Omarchy Super+V paste, Super+C copy, Super+Ctrl+V clipboard, Super+Ctrl+Q calc).
+-- Clipboard manager (replace Omarchy Super+V paste and Super+Ctrl+V clipboard).
 hl.unbind("SUPER + V")
-hl.unbind("SUPER + C")
 hl.unbind("SUPER + CTRL + V")
 hl.unbind("SUPER + CTRL + Q")
 
 o.bind("SUPER + V", "Clipboard manager", "omarchy-shell shell toggle omarchy.clipboard")
-o.bind("SUPER + C", "Calculator", "omacalc")
 
 -- Number row: override Omarchy SUPER+1–0 workspace switching.
--- 1–3 → Brave; 4 → file manager; 5 → Obsidian; 6–0 unbound (use numpad). SUPER+SHIFT+F → file manager.
+-- 1–3 → Brave; 4 → file manager; 5 → calculator; 6–0 unbound (use numpad). SUPER+SHIFT+F → file manager.
 local function workspace_code(workspace)
 	return "code:" .. tostring(workspace + 9)
 end
@@ -29,7 +27,7 @@ o.bind("SUPER + code:10", "Brave", { launch = "brave" })
 o.bind("SUPER + code:11", "Brave Incognito", "brave --incognito")
 o.bind("SUPER + code:12", "Brave Tor", "brave --tor")
 o.bind("SUPER + code:13", "File manager", { omarchy = "nautilus" })
-o.bind("SUPER + code:14", "Obsidian", { launch = "obsidian", focus = "^obsidian$" })
+o.bind("SUPER + code:14", "Calculator", "omacalc")
 o.bind("SUPER + code:15", "SoundCloud", { webapp = "https://soundcloud.com/", focus = true })
 
 hl.unbind("SUPER + SHIFT + F")
