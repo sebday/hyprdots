@@ -118,9 +118,6 @@ hl.unbind("SUPER + ALT + code:21")
 o.bind("SUPER + ALT + code:21", "Next theme", "omarchy-theme-cycle next")
 o.bind("SUPER + ALT + code:20", "Previous theme", "omarchy-theme-cycle prev")
 
-o.bind("SUPER + CTRL + ALT + code:20", "Previous shader", "omarchy-shell shaders prev")
-o.bind("SUPER + CTRL + ALT + code:21", "Next shader", "omarchy-shell shaders next")
-
 -- Resize tiled windows (old hyprdots: Super+Ctrl+arrows, 100px, repeat).
 hl.unbind("SUPER + CTRL + LEFT")
 hl.unbind("SUPER + CTRL + RIGHT")
