@@ -43,7 +43,7 @@ link_plugin() {
 	chmod +x "$src/bin/"* 2>/dev/null || true
 }
 
-link_plugin evo.bar "$HOME/projects/omarchy-bar"
+link_plugin evo.monitors "$HOME/projects/omarchy-monitors"
 link_plugin evo.tray "$HOME/projects/omarchy-tray"
 link_plugin evo.cloudflare "$HOME/projects/omarchy-cloudflare"
 link_plugin evo.cursor "$HOME/projects/omarchy-cursor"
@@ -51,8 +51,6 @@ link_plugin evo.github "$HOME/projects/omarchy-github"
 link_plugin evo.homeassistant "$HOME/projects/omarchy-homeassistant"
 link_plugin evo.insync "$HOME/projects/omarchy-insync"
 link_plugin evo.media "$HOME/projects/omarchy-media"
-link_plugin evo.monitor "$HOME/projects/omarchy-monitor"
-link_plugin evo.notifications "$HOME/projects/omarchy-notifications"
 link_plugin evo.shopify "$HOME/projects/omarchy-shopify"
 link_plugin evo.steam "$HOME/projects/omarchy-steam"
 link_plugin evo.stocks "$HOME/projects/omarchy-stocks"

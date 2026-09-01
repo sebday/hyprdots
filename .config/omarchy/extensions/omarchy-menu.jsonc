@@ -35,11 +35,6 @@
     "label": "Cloudflare",
     "action": "omarchy-shell shell toggle evo.cloudflare '{}'"
   },
-  "trigger.homeassistant": {
-    "icon": "󰠡",
-    "label": "Home Assistant",
-    "action": "omarchy-shell shell toggle evo.homeassistant '{}'"
-  },
   "trigger.media": {
     "icon": "󰐊",
     "label": "Media",
