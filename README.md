@@ -28,6 +28,8 @@ http://localhost:8008/shared/orangemonkey-theme-reloader.js
 
 **Themes:** light themes (`mode = "light"` in `colors.toml`) are hidden from the bar theme picker and `omarchy-theme-cycle`. 
 
+**Default agent:** `a` / `omarchy agent` launch [Cursor Agent](https://cursor.com) via wrappers in `.local/bin/omarchy-agent` and `omarchy-default-agent` (set in Setup → Agent → Cursor). Uses `agent --force` for unattended mode.
+
 **Neovim:** `install.sh` links `.config/nvim`.
 
 ## Packages

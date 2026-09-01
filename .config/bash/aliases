@@ -9,6 +9,7 @@ export GOMODCACHE="${GOMODCACHE:-$GOPATH/pkg/mod}"
 export GOCACHE="${GOCACHE:-$HOME/.cache/go-build}"
 
 # Override Omarchy agent shortcuts (see /usr/share/omarchy/default/bash/aliases).
+# Default agent is Cursor via ~/.local/bin/omarchy-{agent,default-agent} wrappers.
 unalias cx cy 2>/dev/null
 
 # File system

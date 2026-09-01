@@ -36,6 +36,10 @@ link "$REPO/.config/bash/aliases" "$HOME/.config/bash/aliases"
 link "$REPO/.config/fastfetch/config.jsonc" "$HOME/.config/fastfetch/config.jsonc"
 link "$REPO/.config/omarchy/extensions/omarchy-menu.jsonc" "$HOME/.config/omarchy/extensions/omarchy-menu.jsonc"
 link "$REPO/.config/omarchy/shell.json" "$HOME/.config/omarchy/shell.json"
+link "$REPO/.config/omarchy/defaults/agent" "$HOME/.config/omarchy/defaults/agent"
+link "$REPO/.local/bin/omarchy-agent" "$HOME/.local/bin/omarchy-agent"
+link "$REPO/.local/bin/omarchy-default-agent" "$HOME/.local/bin/omarchy-default-agent"
+chmod +x "$REPO/.local/bin/omarchy-agent" "$REPO/.local/bin/omarchy-default-agent"
 
 link_plugin() {
 	local id="$1" src="$2"

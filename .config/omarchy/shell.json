@@ -38,7 +38,8 @@
           "id": "evo.shopify"
         },
         {
-          "id": "evo.github"
+          "id": "evo.github",
+          "repoRoots": "/home/seb/projects"
         },
         {
           "id": "evo.stocks"
@@ -123,6 +124,10 @@
         "iconKey": "tgs"
       }
     ]
+  },
+  "media": {
+    "filmsRoot": "/mnt/external/Films",
+    "tvRoot": "/mnt/external/TV"
   },
   "plugins": [
     {

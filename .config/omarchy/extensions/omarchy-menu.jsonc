@@ -56,6 +56,12 @@
     "when": "! pgrep -f '^gpu-screen-recorder'",
     "action": "omarchy-capture-record-theme-switching"
   },
+  "setup.default.agent.cursor": {
+    "icon": "󰁨",
+    "label": "Cursor",
+    "checked": "[[ \"$(omarchy-default-agent)\" == \"cursor\" ]]",
+    "action": "omarchy-default-agent cursor"
+  },
   "about": {
     "icon": "",
     "label": "About"

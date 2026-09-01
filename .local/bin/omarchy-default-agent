@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# Hyprdots wrapper: register Cursor as a valid default Omarchy agent.
+set -euo pipefail
+
+OMARCHY_DEFAULT_AGENT_REAL="${OMARCHY_DEFAULT_AGENT_REAL:-/usr/bin/omarchy-default-agent}"
+agent_file="${HOME}/.config/omarchy/defaults/agent"
+
+installing=false
+if [[ ${1:-} == "--install" ]]; then
+  installing=true
+  shift
+fi
+
+if (($# == 0)); then
+  if [[ -f $agent_file ]]; then
+    read -r agent <"$agent_file"
+  fi
+  [[ -n ${agent:-} ]] && echo "$agent"
+  exit 0
+fi
+
+case "$1" in
+cursor | cursor-agent | cursor-agent-cli)
+  agent="cursor"
+  name="Cursor"
+  ;;
+*)
+  exec "$OMARCHY_DEFAULT_AGENT_REAL" ${installing:+--install} "$@"
+  ;;
+esac
+
+if ! command -v agent >/dev/null 2>&1; then
+  if [[ $installing == "true" ]]; then
+    echo "Cursor agent is not installed (expected 'agent' on PATH)." >&2
+  else
+    echo "Could not set $name as the default coding agent" >&2
+  fi
+  exit 1
+fi
+
+mkdir -p "$(dirname "$agent_file")"
+printf '%s\n' "$agent" >"$agent_file"
+
+if [[ $installing == "true" ]]; then
+  printf '\033[2J\033[3J\033[H'
+  exec omarchy-agent --inline
+else
+  exec omarchy-agent
+fi

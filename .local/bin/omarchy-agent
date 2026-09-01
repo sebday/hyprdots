@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# Hyprdots wrapper: route the default Omarchy agent to Cursor when configured.
+set -euo pipefail
+
+OMARCHY_AGENT_REAL="${OMARCHY_AGENT_REAL:-/usr/bin/omarchy-agent}"
+
+inline=false
+pick=false
+prompt=""
+
+while (($#)); do
+  case "$1" in
+    --inline)
+      inline=true
+      shift
+      ;;
+    --pick)
+      pick=true
+      shift
+      ;;
+    --prompt)
+      prompt=${2:?--prompt needs a value}
+      shift 2
+      ;;
+    *)
+      echo "Unexpected argument: $1" >&2
+      echo "To pass a prompt: omarchy agent prompt \"$*\"" >&2
+      exit 1
+      ;;
+  esac
+done
+
+agent="$(omarchy-default-agent 2>/dev/null || true)"
+if [[ -z $agent ]]; then
+  if [[ $pick == "true" ]]; then
+    exec omarchy-menu summon setup.default.agent
+  fi
+  args=()
+  [[ $inline == "true" ]] && args+=(--inline)
+  [[ $pick == "true" ]] && args+=(--pick)
+  [[ -n $prompt ]] && args+=(--prompt "$prompt")
+  exec "$OMARCHY_AGENT_REAL" "${args[@]}"
+fi
+
+if [[ $agent != "cursor" ]]; then
+  args=()
+  [[ $inline == "true" ]] && args+=(--inline)
+  [[ $pick == "true" ]] && args+=(--pick)
+  [[ -n $prompt ]] && args+=(--prompt "$prompt")
+  exec "$OMARCHY_AGENT_REAL" "${args[@]}"
+fi
+
+if ! command -v agent >/dev/null 2>&1; then
+  echo "Cursor agent is not installed (expected 'agent' on PATH)." >&2
+  exit 1
+fi
+
+[[ $PWD == "$HOME" && -d $HOME/Work ]] && cd "$HOME/Work"
+
+command=(agent --force)
+[[ -n $prompt ]] && command+=("$prompt")
+
+if [[ $inline == "true" ]]; then
+  exec "${command[@]}"
+else
+  exec omarchy-launch-tui --app-id=org.omarchy.agent "${command[@]}"
+fi
