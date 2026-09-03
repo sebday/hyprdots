@@ -14,7 +14,7 @@ hl.unbind("SUPER + CTRL + Q")
 o.bind("SUPER + V", "Clipboard manager", "omarchy-shell shell toggle omarchy.clipboard")
 
 -- Number row: override Omarchy SUPER+1–0 workspace switching.
--- 1–3 → Brave; 4 → file manager; 5 → calculator; 6–0 unbound (use numpad). SUPER+SHIFT+F → file manager.
+-- 1–3 → Brave; 4 → file manager; 5 → calculator; 6 → color picker; 7–0 unbound (use numpad). SUPER+SHIFT+F → file manager.
 local function workspace_code(workspace)
 	return "code:" .. tostring(workspace + 9)
 end
@@ -28,7 +28,7 @@ o.bind("SUPER + code:11", "Brave Incognito", "brave --incognito")
 o.bind("SUPER + code:12", "Brave Tor", "brave --tor")
 o.bind("SUPER + code:13", "File manager", { omarchy = "nautilus" })
 o.bind("SUPER + code:14", "Calculator", "omacalc")
-o.bind("SUPER + code:15", "SoundCloud", { webapp = "https://soundcloud.com/", focus = true })
+o.bind("SUPER + code:15", "Color picker", "pkill hyprpicker || hyprpicker -a")
 
 hl.unbind("SUPER + SHIFT + F")
 o.bind("SUPER + SHIFT + F", "File manager", { omarchy = "nautilus" })
