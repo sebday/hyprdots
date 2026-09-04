@@ -40,8 +40,23 @@ colours() {
 }
 
 # Projects
-alias pub='(cd "$HOME/work/client-docs" && npm run publish)'
-alias reports='(cd "$HOME/work/ecommerce-reports" && ruby bin/generate-reports weekly)'
+alias pub='(cd "$HOME/work/ecommerce-docs" && npm run publish)'
+unalias reports 2>/dev/null
+reports() {
+  local cmd="${1:-}"
+  case "$cmd" in
+    weekly)
+      (cd "$HOME/work/ecommerce-reports" && ruby bin/generate-reports weekly)
+      ;;
+    monthly)
+      (cd "$HOME/work/ecommerce-reports" && ruby bin/generate-reports monthly)
+      ;;
+    *)
+      echo "usage: reports weekly|monthly" >&2
+      return 1
+      ;;
+  esac
+}
 
 # Git
 unalias gcam 2>/dev/null
