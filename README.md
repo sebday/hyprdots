@@ -3,7 +3,7 @@
 ![Omadots desktop preview](preview.png)  
 ![Omadots terminals](preview2.png)
 
-Personal Omarchy overrides: quad-monitor layout, Brave/file-manager bindings, numpad workspaces, capture scripts, OrangeMonkey web CSS, and shell aliases.
+Personal Omarchy overrides: quad-monitor layout, Brave/file-manager bindings, numpad workspaces, capture scripts, Brave/Chromium web CSS, and shell aliases.
 
 ## Install
 
@@ -14,17 +14,11 @@ git checkout omarchy
 ./install.sh
 ```
 
-Web CSS needs `darkhttpd` (`pacman -S darkhttpd`). Install the OrangeMonkey userscript once from:
-
-```
-http://localhost:8008/shared/orangemonkey-theme-reloader.js
-```
-
-**Fonts (GTK apps):** `omarchy font set` only updates fontconfig (bar, terminals). Nautilus and other GTK apps use `gsettings font-name` — synced by `.config/omarchy/hooks/font-set.d/gtk-font.hook` into `~/.config/gtk-3.0/settings.ini` and `gtk-4.0/settings.ini`.
+**Web CSS:** install the [omarchy-webtheme](https://github.com/sebday/omarchy-webtheme) plugin (linked by `install.sh`). Restart Brave/Chromium once; matching sites pick up the active Omarchy palette and refresh on `omarchy theme set`.
 
 **Brave:** stock Omarchy `BrowserThemeColor` policy via `omarchy-theme-set-browser` (not GTK).
 
-**Files (Nautilus):** `gtk-css-apply.sh` writes only the libadwaita palette (`libadwaita-gtk.css`, ~4KB) to `gtk.css`. The Nautilus extension reloads that palette from `current/theme` on `SIGUSR1`. 
+**Files:** [Flea](https://github.com/thisisgm/flea) is the file manager (`flea --default`). Nautilus is on the removal list. 
 
 **Themes:** light themes (`mode = "light"` in `colors.toml`) are hidden from the bar theme picker and `omarchy-theme-cycle`. 
 

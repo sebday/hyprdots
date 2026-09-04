@@ -1,8 +1,0 @@
-[Unit]
-Description=darkhttpd for Omarchy web CSS (OrangeMonkey hot-reload)
-
-[Service]
-ExecStart=/usr/bin/darkhttpd %h/.config/omarchy/web --addr 127.0.0.1 --port 8008 --no-listing --header 'Cache-Control: no-cache, no-store, must-revalidate'
-
-[Install]
-WantedBy=default.target

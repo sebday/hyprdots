@@ -16,14 +16,10 @@ insync
 
 # Storage / encryption
 gocryptfs
-ntfs-3g
 pass
 
 # Fonts
 ttf-cascadia-mono-nerd
-
-# Omadots services
-darkhttpd
 
 # Screenshots (replaces stock tensaku)
 omasnap

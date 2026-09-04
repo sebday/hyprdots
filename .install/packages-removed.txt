@@ -42,6 +42,9 @@ gnome-themes-extra
 gvfs-mtp
 gvfs-nfs
 gvfs-smb
+nautilus
+nautilus-python
+sushi
 
 # NVIDIA
 lib32-nvidia-utils

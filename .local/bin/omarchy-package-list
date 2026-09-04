@@ -34,7 +34,7 @@ categorize_package() {
       printf '%s' "Media"; return ;;
     nautilus|nautilus-*|gnome-disk-utility|udiskie|gvfs-*|btrfs-progs|dosfstools|exfatprogs|ntfs-3g|gocryptfs|sushi)
       printf '%s' "Files & storage"; return ;;
-    networkmanager|ufw|inetutils|wireless-regdb|nss-mdns|darkhttpd|pass|gnome-keyring|whois)
+    networkmanager|ufw|inetutils|wireless-regdb|nss-mdns|pass|gnome-keyring|whois)
       printf '%s' "Network & security"; return ;;
     brave-bin|obsidian|insync|evince)
       printf '%s' "Applications"; return ;;

@@ -1,2 +1,0 @@
-#!/bin/bash
-exec "$(dirname "$0")/../../bin/gtk-css-apply.sh" "${1:-}"

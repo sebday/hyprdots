@@ -40,6 +40,11 @@
     "label": "Media",
     "action": "omarchy-shell shell toggle evo.media '{}'"
   },
+  "trigger.webtheme": {
+    "icon": "󰸌",
+    "label": "Webtheme",
+    "action": "omarchy-shell shell toggle evo.webtheme '{}'"
+  },
   "trigger.capture.edit-last": {
     "icon": "󰆴",
     "label": "Annotate last screenshot",

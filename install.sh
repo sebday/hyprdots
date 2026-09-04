@@ -30,8 +30,6 @@ link "$REPO/.config/nvim" "$HOME/.config/nvim"
 mkdir -p "$REPO/.config/nvim/lua/plugins"
 ln -sfn "$HOME/.local/state/omarchy/current/theme/neovim.lua" "$REPO/.config/nvim/lua/plugins/theme.lua"
 printf '  %s -> %s\n' "$REPO/.config/nvim/lua/plugins/theme.lua" "$HOME/.local/state/omarchy/current/theme/neovim.lua"
-link "$REPO/.config/gtk-3.0/settings.ini" "$HOME/.config/gtk-3.0/settings.ini"
-link "$REPO/.config/gtk-4.0/settings.ini" "$HOME/.config/gtk-4.0/settings.ini"
 link "$REPO/.config/bash/aliases" "$HOME/.config/bash/aliases"
 link "$REPO/.config/fastfetch/config.jsonc" "$HOME/.config/fastfetch/config.jsonc"
 link "$REPO/.config/omarchy/extensions/omarchy-menu.jsonc" "$HOME/.config/omarchy/extensions/omarchy-menu.jsonc"
@@ -58,6 +56,7 @@ link_plugin evo.media "$HOME/projects/omarchy-media"
 link_plugin evo.shopify "$HOME/projects/omarchy-shopify"
 link_plugin evo.steam "$HOME/projects/omarchy-steam"
 link_plugin evo.stocks "$HOME/projects/omarchy-stocks"
+link_plugin evo.webtheme "$HOME/projects/omarchy-webtheme"
 link "$REPO/.config/imv/config" "$HOME/.config/imv/config"
 link "$REPO/.local/bin/omasnap-edit" "$HOME/.local/bin/omasnap-edit"
 chmod +x "$REPO/.local/bin/omasnap-edit"
@@ -76,39 +75,14 @@ link "$REPO/.local/bin/omarchy-theme-bg-prev" "$HOME/.local/bin/omarchy-theme-bg
 
 link "$REPO/.config/omarchy/themed/colors.css.tpl" "$HOME/.config/omarchy/themed/colors.css.tpl"
 link "$REPO/.config/omarchy/themed/shoelace-hex.css.tpl" "$HOME/.config/omarchy/themed/shoelace-hex.css.tpl"
-link "$REPO/.config/omarchy/themed/libadwaita-gtk.css.tpl" "$HOME/.config/omarchy/themed/libadwaita-gtk.css.tpl"
-link "$REPO/.config/omarchy/themed/gtk-4.0-gtk.css.tpl" "$HOME/.config/omarchy/themed/gtk-4.0-gtk.css.tpl"
-link "$REPO/.config/omarchy/themed/gtk-4.0-gtk-dark.css.tpl" "$HOME/.config/omarchy/themed/gtk-4.0-gtk-dark.css.tpl"
-link "$REPO/.config/omarchy/gtk" "$HOME/.config/omarchy/gtk"
 link "$REPO/.config/omarchy/bin/theme-filter.sh" "$HOME/.config/omarchy/bin/theme-filter.sh"
-link "$REPO/.config/omarchy/bin/gtk-css-apply.sh" "$HOME/.config/omarchy/bin/gtk-css-apply.sh"
-link "$REPO/.config/omarchy/hooks/theme-set.d/gtk-activate.hook" "$HOME/.config/omarchy/hooks/theme-set.d/gtk-activate.hook"
-chmod +x "$REPO/.config/omarchy/hooks/theme-set.d/gtk-activate.hook"
 chmod +x "$REPO/.config/omarchy/bin/theme-filter.sh"
-chmod +x "$REPO/.config/omarchy/bin/gtk-css-apply.sh"
 chmod +x "$REPO/.local/bin/omarchy-theme-list"
 chmod +x "$REPO/.local/bin/omarchy-theme-switcher"
-link "$REPO/.config/omarchy/web/shared/css" "$HOME/.config/omarchy/web/shared/css"
-link "$REPO/.config/omarchy/web/shared/orangemonkey-theme-reloader.js" "$HOME/.config/omarchy/web/shared/orangemonkey-theme-reloader.js"
-link "$REPO/.config/omarchy/hooks/theme-set.d/web-css-symlink.hook" "$HOME/.config/omarchy/hooks/theme-set.d/web-css-symlink.hook"
-link "$REPO/.config/omarchy/hooks/font-set.d/gtk-font.hook" "$HOME/.config/omarchy/hooks/font-set.d/gtk-font.hook"
-chmod +x "$REPO/.config/omarchy/hooks/font-set.d/gtk-font.hook"
 link "$REPO/.config/omarchy/hooks/font-set.d/foot-font.hook" "$HOME/.config/omarchy/hooks/font-set.d/foot-font.hook"
 chmod +x "$REPO/.config/omarchy/hooks/font-set.d/foot-font.hook"
-mkdir -p "$HOME/.local/share/nautilus-python/extensions"
-link "$REPO/.local/share/nautilus-python/extensions/omarchy-gtk-reload.py" "$HOME/.local/share/nautilus-python/extensions/omarchy-gtk-reload.py"
 link "$REPO/.config/omarchy/backgrounds" "$HOME/.config/omarchy/backgrounds"
 link "$HOME/projects/omarchy-darkula-theme" "$HOME/.config/omarchy/themes/darkula"
-link "$REPO/.config/systemd/user/darkhttpd.service" "$HOME/.config/systemd/user/darkhttpd.service"
-link "$HOME/.local/state/omarchy/current/theme" "$HOME/.config/omarchy/web/current"
-
-if command -v darkhttpd >/dev/null 2>&1; then
-	systemctl --user daemon-reload
-	systemctl --user enable --now darkhttpd.service
-	echo "darkhttpd: $(systemctl --user is-active darkhttpd.service)"
-else
-	echo "darkhttpd not installed — skip: pacman -S darkhttpd && $0"
-fi
 
 if command -v omarchy >/dev/null 2>&1; then
 	omarchy theme refresh
