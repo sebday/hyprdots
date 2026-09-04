@@ -73,8 +73,6 @@ link "$REPO/.local/bin/omarchy-theme-list" "$HOME/.local/bin/omarchy-theme-list"
 link "$REPO/.local/bin/omarchy-theme-switcher" "$HOME/.local/bin/omarchy-theme-switcher"
 link "$REPO/.local/bin/omarchy-theme-bg-prev" "$HOME/.local/bin/omarchy-theme-bg-prev"
 
-link "$REPO/.config/omarchy/themed/colors.css.tpl" "$HOME/.config/omarchy/themed/colors.css.tpl"
-link "$REPO/.config/omarchy/themed/shoelace-hex.css.tpl" "$HOME/.config/omarchy/themed/shoelace-hex.css.tpl"
 link "$REPO/.config/omarchy/bin/theme-filter.sh" "$HOME/.config/omarchy/bin/theme-filter.sh"
 chmod +x "$REPO/.config/omarchy/bin/theme-filter.sh"
 chmod +x "$REPO/.local/bin/omarchy-theme-list"
