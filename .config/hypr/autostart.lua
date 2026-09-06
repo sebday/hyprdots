@@ -13,7 +13,8 @@ launch_on_workspace("10", o.launch_webapp(google_home_cameras))
 launch_on_workspace("10", "omarchy-launch-tui btop")
 launch_on_workspace("10", "omarchy-launch-tui evoplayer")
 launch_on_workspace("10", "omarchy-launch-tui evoshopify")
-o.launch_on_start("insync")
+-- Bare `insync` is a Click CLI and exits. The desktop file starts the daemon.
+o.launch_on_start("insync start --qt-qpa-platform xcb")
 
 -- Prepend ~/.local/bin so hyprdots wrappers override stock Omarchy binaries
 -- (e.g. filtered omarchy-theme-switcher for the theme picker).
