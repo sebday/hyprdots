@@ -118,7 +118,8 @@
     "omarchy.bar",
     "omarchy.monitor",
     "omarchy.notifications",
-    "omarchy.media"
+    "omarchy.media",
+    "omarchy.lock"
   ],
   "shopify": {
     "apiUrl": "https://data.day.marketing",
@@ -165,6 +166,12 @@
     },
     {
       "id": "evo.media"
+    },
+    {
+      "id": "seb.lock"
     }
+  ],
+  "cloneSourceRestores": [
+    "seb.lock"
   ]
 }

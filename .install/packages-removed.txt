@@ -1,4 +1,4 @@
-# Slim-down from stock Omarchy (Aug 2026)
+# Slim-down from stock Omarchy
 
 # Shell / bar
 aether
@@ -68,7 +68,6 @@ brightnessctl
 
 # Screenshots
 grim
-slurp
 tensaku
 
 # Misc utilities
