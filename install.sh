@@ -80,6 +80,8 @@ chmod +x "$REPO/.local/bin/omarchy-theme-list"
 chmod +x "$REPO/.local/bin/omarchy-theme-switcher"
 link "$REPO/.config/omarchy/hooks/font-set.d/foot-font.hook" "$HOME/.config/omarchy/hooks/font-set.d/foot-font.hook"
 chmod +x "$REPO/.config/omarchy/hooks/font-set.d/foot-font.hook"
+link "$REPO/.config/omarchy/hooks/theme-set.d/gtk-theme.hook" "$HOME/.config/omarchy/hooks/theme-set.d/gtk-theme.hook"
+chmod +x "$REPO/.config/omarchy/hooks/theme-set.d/gtk-theme.hook"
 link "$REPO/.config/omarchy/backgrounds" "$HOME/.config/omarchy/backgrounds"
 link "$HOME/projects/omarchy-darkula-theme" "$HOME/.config/omarchy/themes/darkula"
 

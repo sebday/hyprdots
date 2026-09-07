@@ -37,6 +37,7 @@ xournalpp
 cliamp
 
 # GNOME
+evince
 gnome-disk-utility
 gnome-themes-extra
 gvfs-mtp
