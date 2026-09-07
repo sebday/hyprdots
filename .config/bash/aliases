@@ -44,3 +44,6 @@ unalias gcam 2>/dev/null
 alias gs='git status'
 alias master='git checkout master'
 gcam() { git add -A && git commit -m "$@"; }
+
+# Projects
+alias pub='(cd "$HOME/work/ecommerce-docs" && npm run publish)'

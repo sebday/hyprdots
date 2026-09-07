@@ -21,6 +21,8 @@ return {
 	{
 		"folke/snacks.nvim",
 		opts = function(_, opts)
+			opts.dashboard = opts.dashboard or {}
+			opts.dashboard.enabled = false
 			opts.picker = opts.picker or {}
 			opts.picker.sources = opts.picker.sources or {}
 			opts.picker.sources.projects = vim.tbl_deep_extend("force", opts.picker.sources.projects or {}, {
@@ -38,6 +40,26 @@ return {
 					end
 					picker:close()
 					vim.fn.chdir(item.file)
+				end,
+			})
+		end,
+		init = function()
+			local group = vim.api.nvim_create_augroup("hyprdots_projects_picker", { clear = true })
+			vim.api.nvim_create_autocmd("StdinReadPre", {
+				group = group,
+				callback = function()
+					vim.g.hyprdots_started_with_stdin = true
+				end,
+			})
+			vim.api.nvim_create_autocmd("VimEnter", {
+				group = group,
+				callback = function()
+					if vim.fn.argc(-1) > 0 or vim.g.hyprdots_started_with_stdin then
+						return
+					end
+					vim.schedule(function()
+						Snacks.picker.projects()
+					end)
 				end,
 			})
 		end,
