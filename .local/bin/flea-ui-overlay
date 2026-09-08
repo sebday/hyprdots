@@ -1,0 +1,58 @@
+#!/bin/bash
+# Rebuild a user Flea UI overlay so mouse Back goes to history (Nav.back).
+# Packaged /usr/share/flea/ui stays untouched; flea reads this via FLEA_UI.
+set -euo pipefail
+
+SRC="${FLEA_UI_SRC:-/usr/share/flea/ui}"
+DST="${FLEA_UI:-$HOME/.local/share/flea/ui}"
+MARKER="Mouse side-button (and Alt+Left / XF86Back)"
+
+[[ -f $SRC/shell.qml ]] || {
+	echo "flea-ui-overlay: missing $SRC/shell.qml" >&2
+	exit 1
+}
+
+mkdir -p "$DST"
+shopt -s dotglob nullglob
+for entry in "$SRC"/*; do
+	name="${entry##*/}"
+	[[ $name == shell.qml ]] && continue
+	ln -sfn "$entry" "$DST/$name"
+done
+
+cp -f "$SRC/shell.qml" "$DST/shell.qml"
+if grep -Fq "$MARKER" "$DST/shell.qml"; then
+	echo "flea-ui-overlay: $DST (already patched)"
+	exit 0
+fi
+
+python - "$DST/shell.qml" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+text = path.read_text()
+needle = """                onOpened: function (path) { shareBrowser.close() }
+            }
+
+            Flea.StatusBar {"""
+insert = """                onOpened: function (path) { shareBrowser.close() }
+            }
+
+            // Mouse side-button (and Alt+Left / XF86Back) is the chrome back arrow: history, not parent.
+            Shortcut {
+                sequences: [StandardKey.Back]
+                onActivated: pane.goBack()
+            }
+            TapHandler {
+                acceptedButtons: Qt.BackButton
+                onTapped: pane.goBack()
+            }
+
+            Flea.StatusBar {"""
+if needle not in text:
+    sys.exit("flea-ui-overlay: shell.qml shape changed; cannot patch")
+path.write_text(text.replace(needle, insert, 1))
+PY
+
+echo "flea-ui-overlay: $DST"

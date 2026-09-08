@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Flea
+GenericName=File Manager
+Comment=Fast, keyboard-first file manager
+Exec=env FLEA_UI=%h/.local/share/flea/ui /usr/bin/flea --gui %f
+Icon=com.thisisgm.flea
+Terminal=false
+Categories=System;FileTools;FileManager;
+MimeType=inode/directory;
+Keywords=files;folder;manager;browser;flea;
+StartupWMClass=com.thisisgm.flea

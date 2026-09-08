@@ -20,22 +20,20 @@ o.bind("SUPER + V", "Clipboard manager", "omarchy-shell shell toggle omarchy.cli
 -- Number row: override Omarchy SUPER+1–0 workspace switching.
 -- 1–3 → Brave; 4 → file manager; 5 → calculator; 6 → color picker; 7–0 unbound (use numpad). SUPER+SHIFT+F → file manager.
 local function workspace_code(workspace)
-	return "code:" .. tostring(workspace + 9)
+  return "code:" .. tostring(workspace + 9)
 end
 
 for workspace = 1, 10 do
-	hl.unbind("SUPER + " .. workspace_code(workspace))
+  hl.unbind("SUPER + " .. workspace_code(workspace))
 end
 
 o.bind("SUPER + code:10", "Brave", { launch = "brave" })
 o.bind("SUPER + code:11", "Brave Incognito", "brave --incognito")
 o.bind("SUPER + code:12", "Brave Tor", "brave --tor")
-o.bind("SUPER + code:13", "File manager", { launch = "flea --gui" })
-o.bind("SUPER + code:14", "Calculator", "omacalc")
-o.bind("SUPER + code:15", "Color picker", "pkill hyprpicker || hyprpicker -a")
+o.bind("SUPER + code:13", "Color picker", "pkill hyprpicker || hyprpicker -a")
 
 hl.unbind("SUPER + SHIFT + F")
-o.bind("SUPER + SHIFT + F", "File manager", { launch = "flea --gui" })
+o.bind("SUPER + SHIFT + F", "File manager", { launch = os.getenv("HOME") .. "/.local/bin/flea --gui" })
 
 -- Numpad workspace switching (MX Keys).
 o.bind("SUPER + KP_End", "Switch to workspace 1", hl.dsp.focus({ workspace = "1" }))
@@ -51,30 +49,30 @@ o.bind("SUPER + KP_Insert", "Switch to workspace 10", hl.dsp.focus({ workspace =
 
 o.bind("SUPER + KP_Add", "Toggle scratchpad", hl.dsp.workspace.toggle_special("scratchpad"))
 o.bind(
-	"SUPER + SHIFT + KP_Add",
-	"Move window to scratchpad",
-	hl.dsp.window.move({ workspace = "special:scratchpad", follow = false })
+  "SUPER + SHIFT + KP_Add",
+  "Move window to scratchpad",
+  hl.dsp.window.move({ workspace = "special:scratchpad", follow = false })
 )
 
 local numpad_workspace_keys = {
-	[1] = "KP_End",
-	[2] = "KP_Down",
-	[3] = "KP_Next",
-	[4] = "KP_Left",
-	[5] = "KP_Begin",
-	[6] = "KP_Right",
-	[7] = "KP_Home",
-	[8] = "KP_Up",
-	[9] = "KP_Prior",
-	[10] = "KP_Insert",
+  [1] = "KP_End",
+  [2] = "KP_Down",
+  [3] = "KP_Next",
+  [4] = "KP_Left",
+  [5] = "KP_Begin",
+  [6] = "KP_Right",
+  [7] = "KP_Home",
+  [8] = "KP_Up",
+  [9] = "KP_Prior",
+  [10] = "KP_Insert",
 }
 
 for workspace = 1, 10 do
-	o.bind(
-		"SUPER + SHIFT + " .. numpad_workspace_keys[workspace],
-		"Move window to workspace " .. workspace,
-		hl.dsp.window.move({ workspace = tostring(workspace), follow = false })
-	)
+  o.bind(
+    "SUPER + SHIFT + " .. numpad_workspace_keys[workspace],
+    "Move window to workspace " .. workspace,
+    hl.dsp.window.move({ workspace = tostring(workspace), follow = false })
+  )
 end
 
 -- Screenshot keys (omasnap overlay + custom edit-last / compositor shortcuts).
@@ -88,10 +86,10 @@ o.bind("SUPER + PRINT", "Annotate last screenshot", "omarchy-capture-edit-last")
 o.bind("SUPER + ALT + PRINT", "Screenshot all monitors", "omarchy-capture-compositor")
 
 hl.layer_rule({
-	match = { namespace = "^omasnap$" },
-	no_anim = true,
-	animation = "none",
-	no_screen_share = true,
+  match = { namespace = "^omasnap$" },
+  no_anim = true,
+  animation = "none",
+  no_screen_share = true,
 })
 
 -- Stock grim/slurp capture paths (omasnap hotkeys above replace these).
@@ -104,9 +102,9 @@ o.bind("SUPER + F5", "Restart shell", "omarchy restart shell")
 hl.unbind("SUPER + ALT + SPACE")
 o.bind("SUPER + D", "Apps menu", "omarchy-menu toggle apps")
 o.bind(
-	"SUPER + ALT + SPACE",
-	"Theme picker",
-	'theme=$("$HOME/.local/bin/omarchy-theme-switcher"); [[ -n $theme ]] && omarchy theme set "$theme"'
+  "SUPER + ALT + SPACE",
+  "Theme picker",
+  'theme=$("$HOME/.local/bin/omarchy-theme-switcher"); [[ -n $theme ]] && omarchy theme set "$theme"'
 )
 
 hl.unbind("SUPER + SHIFT + CTRL + SPACE")
@@ -129,33 +127,34 @@ hl.unbind("SUPER + CTRL + RIGHT")
 
 local resize_step = 100
 o.bind(
-	"SUPER + CTRL + RIGHT",
-	"Resize window wider",
-	hl.dsp.window.resize({ x = resize_step, y = 0, relative = true }),
-	{ repeating = true }
+  "SUPER + CTRL + RIGHT",
+  "Resize window wider",
+  hl.dsp.window.resize({ x = resize_step, y = 0, relative = true }),
+  { repeating = true }
 )
 o.bind(
-	"SUPER + CTRL + LEFT",
-	"Resize window narrower",
-	hl.dsp.window.resize({ x = -resize_step, y = 0, relative = true }),
-	{ repeating = true }
+  "SUPER + CTRL + LEFT",
+  "Resize window narrower",
+  hl.dsp.window.resize({ x = -resize_step, y = 0, relative = true }),
+  { repeating = true }
 )
 o.bind(
-	"SUPER + CTRL + UP",
-	"Resize window shorter",
-	hl.dsp.window.resize({ x = 0, y = -resize_step, relative = true }),
-	{ repeating = true }
+  "SUPER + CTRL + UP",
+  "Resize window shorter",
+  hl.dsp.window.resize({ x = 0, y = -resize_step, relative = true }),
+  { repeating = true }
 )
 o.bind(
-	"SUPER + CTRL + DOWN",
-	"Resize window taller",
-	hl.dsp.window.resize({ x = 0, y = resize_step, relative = true }),
-	{ repeating = true }
+  "SUPER + CTRL + DOWN",
+  "Resize window taller",
+  hl.dsp.window.resize({ x = 0, y = resize_step, relative = true }),
+  { repeating = true }
 )
 
 -- flea --default: begin. Written by `flea --default`; `flea --default off` removes the block whole.
 hl.unbind("SUPER + SHIFT + F")
-o.bind("SUPER + SHIFT + F", "File manager", { launch = 'flea --gui' })
+o.bind("SUPER + SHIFT + F", "File manager", { launch = os.getenv("HOME") .. "/.local/bin/flea --gui" })
 hl.unbind("SUPER + ALT + SHIFT + F")
-o.bind("SUPER + ALT + SHIFT + F", "File manager (cwd)", { launch = 'flea --gui "$(omarchy-cmd-terminal-cwd)"' })
+o.bind("SUPER + ALT + SHIFT + F", "File manager (cwd)",
+  { launch = os.getenv("HOME") .. '/.local/bin/flea --gui "$(omarchy-cmd-terminal-cwd)"' })
 -- flea --default: end.
