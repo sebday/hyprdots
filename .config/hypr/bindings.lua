@@ -6,6 +6,10 @@ o.bind("SUPER + L", "Lock system", "omarchy-system-lock")
 
 o.bind("SUPER + E", "Editor", { omarchy = "editor" })
 
+-- Super+/ and Super+Alt+/ scale the focused monitor; unsafe on this layout.
+hl.unbind("SUPER + SLASH")
+hl.unbind("SUPER + ALT + SLASH")
+
 -- Clipboard manager (replace Omarchy Super+V paste and Super+Ctrl+V clipboard).
 hl.unbind("SUPER + V")
 hl.unbind("SUPER + CTRL + V")

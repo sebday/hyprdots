@@ -6,11 +6,11 @@
   },
   "bar": {
     "id": "evo.monitors",
-    "position": "top",
+    "position": "bottom",
     "placements": [
       {
-        "output": "DP-1",
-        "position": "top"
+        "output": "HDMI-A-1",
+        "position": "bottom"
       }
     ],
     "transparent": false,
