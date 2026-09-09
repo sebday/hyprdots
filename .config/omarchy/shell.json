@@ -51,6 +51,9 @@
           ]
         },
         {
+          "id": "evo.weather"
+        },
+        {
           "id": "evo.stocks"
         },
         {
@@ -96,9 +99,6 @@
           "format": "ddd d MMM HH:mm",
           "formatAlt": "d MMMM 'W'ww yyyy",
           "verticalFormat": "HH\n—\nmm"
-        },
-        {
-          "id": "omarchy.weather"
         }
       ]
     }
@@ -148,6 +148,9 @@
     },
     {
       "id": "evo.github"
+    },
+    {
+      "id": "evo.weather"
     },
     {
       "id": "evo.stocks"

@@ -102,6 +102,7 @@ else
 fi
 
 link "$REPO/.config/foot/foot.ini" "$HOME/.config/foot/foot.ini"
+link "$REPO/.config/wireplumber/wireplumber.conf.d/51-ice1712.conf" "$HOME/.config/wireplumber/wireplumber.conf.d/51-ice1712.conf"
 
 if (( PACKAGES )); then
 	echo "packages:"
