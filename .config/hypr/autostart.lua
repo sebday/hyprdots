@@ -30,5 +30,3 @@ end
 table.insert(kept, 1, local_bin)
 hl.env("PATH", table.concat(kept, ":"))
 hl.env("OMARCHY_SCREENSHOT_EDITOR", "omasnap-edit")
--- User Flea UI overlay (mouse Back → folder history). See flea-ui-overlay.
-hl.env("FLEA_UI", home .. "/.local/share/flea/ui")

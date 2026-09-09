@@ -32,9 +32,6 @@ o.bind("SUPER + code:11", "Brave Incognito", "brave --incognito")
 o.bind("SUPER + code:12", "Brave Tor", "brave --tor")
 o.bind("SUPER + code:13", "Color picker", "pkill hyprpicker || hyprpicker -a")
 
-hl.unbind("SUPER + SHIFT + F")
-o.bind("SUPER + SHIFT + F", "File manager", { launch = os.getenv("HOME") .. "/.local/bin/flea --gui" })
-
 -- Numpad workspace switching (MX Keys).
 o.bind("SUPER + KP_End", "Switch to workspace 1", hl.dsp.focus({ workspace = "1" }))
 o.bind("SUPER + KP_Down", "Switch to workspace 2", hl.dsp.focus({ workspace = "2" }))
@@ -153,8 +150,8 @@ o.bind(
 
 -- flea --default: begin. Written by `flea --default`; `flea --default off` removes the block whole.
 hl.unbind("SUPER + SHIFT + F")
-o.bind("SUPER + SHIFT + F", "File manager", { launch = os.getenv("HOME") .. "/.local/bin/flea --gui" })
+o.bind("SUPER + SHIFT + F", "File manager", { launch = "flea --gui" })
 hl.unbind("SUPER + ALT + SHIFT + F")
 o.bind("SUPER + ALT + SHIFT + F", "File manager (cwd)",
-  { launch = os.getenv("HOME") .. '/.local/bin/flea --gui "$(omarchy-cmd-terminal-cwd)"' })
+  { launch = 'flea --gui "$(omarchy-cmd-terminal-cwd)"' })
 -- flea --default: end.

@@ -22,7 +22,7 @@ git checkout omarchy
 
 **Themes:** light themes (`mode = "light"` in `colors.toml`) are hidden from the bar theme picker and `omarchy-theme-cycle`. 
 
-**Default agent:** `a` / `omarchy agent` launch [Cursor Agent](https://cursor.com) via wrappers in `.local/bin/omarchy-agent` and `omarchy-default-agent` (set in Setup → Agent → Cursor). Uses `agent --force` for unattended mode.
+**Default agent:** `a` / `omarchy agent` launch [Cursor CLI](https://cursor.com) via stock Omarchy (`cursor-agent`, set in Setup → Agent → Cursor CLI).
 
 **Neovim:** `install.sh` links `.config/nvim`.
 

@@ -1,4 +1,0 @@
-#!/bin/bash
-# Prefer the hyprdots Flea UI overlay (mouse Back → history).
-export FLEA_UI="${FLEA_UI:-$HOME/.local/share/flea/ui}"
-exec /usr/bin/flea "$@"
