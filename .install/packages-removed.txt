@@ -57,6 +57,7 @@ noto-fonts-cjk
 
 # Dev / tooling
 dotnet-runtime
+neovim
 python-poetry-core
 qemu-user-static-binfmt
 tldr

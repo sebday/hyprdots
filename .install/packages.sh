@@ -1,17 +1,15 @@
 #!/usr/bin/env bash
-# Apply hyprdots omarchy package additions and removals from list files.
+# Apply hyprdots omarchy package additions and removals from list files
+# via `omarchy pkg` (not yay/pacman directly).
 set -euo pipefail
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ADDED="$DIR/packages.txt"
 REMOVED="$DIR/packages-removed.txt"
 
-pkg_manager() {
-	if command -v yay >/dev/null 2>&1; then
-		printf '%s' yay
-	elif command -v pacman >/dev/null 2>&1; then
-		printf '%s' pacman
-	else
+require_omarchy() {
+	if ! command -v omarchy >/dev/null 2>&1; then
+		echo "packages.sh: omarchy required (use omarchy pkg add/drop, not yay/pacman)" >&2
 		return 1
 	fi
 }
@@ -23,11 +21,17 @@ read_list() {
 }
 
 installed() {
-	pacman -Q "$1" >/dev/null 2>&1
+	omarchy pkg present "$1" >/dev/null 2>&1
+}
+
+in_sync_repo() {
+	pacman -Si "$1" >/dev/null 2>&1
 }
 
 cmd_show() {
 	local pkg to_remove=() to_install=()
+
+	require_omarchy
 
 	while IFS= read -r pkg; do
 		[[ -n "$pkg" ]] || continue
@@ -59,12 +63,9 @@ cmd_show() {
 }
 
 cmd_apply() {
-	local mgr pkg to_remove=() to_install=()
+	local pkg to_remove=() to_install=() repo_pkgs=() aur_pkgs=()
 
-	mgr="$(pkg_manager)" || {
-		echo "packages.sh: yay or pacman required" >&2
-		return 1
-	}
+	require_omarchy
 
 	while IFS= read -r pkg; do
 		[[ -n "$pkg" ]] || continue
@@ -77,21 +78,26 @@ cmd_apply() {
 	done < <(read_list "$ADDED")
 
 	if ((${#to_remove[@]} > 0)); then
-		echo "removing ${#to_remove[@]} package(s)..."
-		if [[ "$mgr" == yay ]]; then
-			yay -Rns "${to_remove[@]}"
-		else
-			pacman -Rns "${to_remove[@]}"
-		fi
+		echo "removing ${#to_remove[@]} package(s) via omarchy pkg drop..."
+		omarchy pkg drop "${to_remove[@]}"
 	fi
 
-	if ((${#to_install[@]} > 0)); then
-		echo "installing ${#to_install[@]} package(s)..."
-		if [[ "$mgr" == yay ]]; then
-			yay -S --noconfirm "${to_install[@]}"
+	for pkg in "${to_install[@]}"; do
+		if in_sync_repo "$pkg"; then
+			repo_pkgs+=("$pkg")
 		else
-			pacman -S --noconfirm "${to_install[@]}"
+			aur_pkgs+=("$pkg")
 		fi
+	done
+
+	if ((${#repo_pkgs[@]} > 0)); then
+		echo "installing ${#repo_pkgs[@]} package(s) via omarchy pkg add..."
+		omarchy pkg add "${repo_pkgs[@]}"
+	fi
+
+	if ((${#aur_pkgs[@]} > 0)); then
+		echo "installing ${#aur_pkgs[@]} package(s) via omarchy pkg aur add..."
+		omarchy pkg aur add "${aur_pkgs[@]}"
 	fi
 
 	if ((${#to_remove[@]} == 0 && ${#to_install[@]} == 0)); then

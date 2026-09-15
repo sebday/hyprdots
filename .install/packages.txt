@@ -12,6 +12,7 @@ gst-plugin-pipewire
 
 # Applications (AUR)
 brave-bin
+cursor-bin
 insync
 
 # Storage / encryption
