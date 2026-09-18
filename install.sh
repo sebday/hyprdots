@@ -79,6 +79,8 @@ link "$REPO/.config/omarchy/hooks/font-set.d/foot-font.hook" "$HOME/.config/omar
 chmod +x "$REPO/.config/omarchy/hooks/font-set.d/foot-font.hook"
 link "$REPO/.config/omarchy/hooks/theme-set.d/gtk-theme.hook" "$HOME/.config/omarchy/hooks/theme-set.d/gtk-theme.hook"
 chmod +x "$REPO/.config/omarchy/hooks/theme-set.d/gtk-theme.hook"
+link "$REPO/.config/omarchy/themed/libadwaita-gtk.css.tpl" "$HOME/.config/omarchy/themed/libadwaita-gtk.css.tpl"
+link "$REPO/.config/omarchy/themed/gtk3.css.tpl" "$HOME/.config/omarchy/themed/gtk3.css.tpl"
 link "$REPO/.config/omarchy/backgrounds" "$HOME/.config/omarchy/backgrounds"
 link "$HOME/projects/omarchy-darkula-theme" "$HOME/.config/omarchy/themes/darkula"
 

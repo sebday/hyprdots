@@ -30,3 +30,5 @@ end
 table.insert(kept, 1, local_bin)
 hl.env("PATH", table.concat(kept, ":"))
 hl.env("OMARCHY_SCREENSHOT_EDITOR", "omasnap-edit")
+-- Chromium/Electron file dialogs stay on Adwaita light unless this is set.
+hl.env("GTK_THEME", "Adwaita:dark")

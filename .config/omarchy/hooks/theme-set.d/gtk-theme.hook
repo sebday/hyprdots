@@ -1,14 +1,13 @@
 #!/bin/bash
 # Chromium/Brave file dialogs use GTK3 and only honour
 # gtk-application-prefer-dark-theme from settings.ini, not gsettings
-# color-scheme. Keep that boolean (and user gtk.css) in sync with the
-# active Omarchy theme so open/save pickers are not stuck on Adwaita light.
+# color-scheme. Keep that boolean and the generated palette CSS in sync
+# with the active Omarchy theme so open/save pickers match.
 
 set -euo pipefail
 
 THEME_DIR="${HOME}/.local/state/omarchy/current/theme"
 COLORS_FILE="$THEME_DIR/colors.toml"
-GTK_CSS="$THEME_DIR/libadwaita-gtk.css"
 
 mode="dark"
 if [[ -f $COLORS_FILE ]] && command -v omarchy-theme-color >/dev/null 2>&1; then
@@ -17,10 +16,12 @@ fi
 
 if [[ $mode == "light" ]]; then
 	gtk_theme="Adwaita"
-	prefer_dark=0
+	gtk_theme_env="Adwaita"
+	prefer_dark=false
 else
 	gtk_theme="Adwaita-dark"
-	prefer_dark=1
+	gtk_theme_env="Adwaita:dark"
+	prefer_dark=true
 fi
 
 write_settings() {
@@ -33,18 +34,27 @@ gtk-application-prefer-dark-theme=${prefer_dark}
 EOF
 }
 
+link_css() {
+	local src="$1"
+	local dest="$2"
+	mkdir -p "$(dirname "$dest")"
+	if [[ -f $src ]]; then
+		ln -sfn "$src" "$dest"
+	elif [[ -L $dest ]]; then
+		rm -f "$dest"
+	fi
+}
+
 write_settings "${HOME}/.config/gtk-3.0"
 write_settings "${HOME}/.config/gtk-4.0"
 
-# libadwaita-gtk.css is GTK4/libadwaita (color-mix, :root). GTK3 file
-# choosers — including Chromium/Brave — only need settings.ini.
-gtk3_css="${HOME}/.config/gtk-3.0/gtk.css"
-[[ -L $gtk3_css ]] && rm -f "$gtk3_css"
+link_css "$THEME_DIR/gtk3.css" "${HOME}/.config/gtk-3.0/gtk.css"
+link_css "$THEME_DIR/libadwaita-gtk.css" "${HOME}/.config/gtk-4.0/gtk.css"
 
-gtk4_css="${HOME}/.config/gtk-4.0/gtk.css"
-mkdir -p "${HOME}/.config/gtk-4.0"
-if [[ -f $GTK_CSS ]]; then
-	ln -sfn "$GTK_CSS" "$gtk4_css"
-elif [[ -L $gtk4_css ]]; then
-	rm -f "$gtk4_css"
+# Chromium/Electron ignore settings.ini unless GTK_THEME is in the environment.
+# portal-gtk is a systemd user service, so Hyprland env= does not reach it.
+systemctl --user set-environment "GTK_THEME=$gtk_theme_env" >/dev/null 2>&1 || true
+if command -v dbus-update-activation-environment >/dev/null 2>&1; then
+	dbus-update-activation-environment --systemd GTK_THEME >/dev/null 2>&1 || true
 fi
+systemctl --user try-restart xdg-desktop-portal-gtk.service >/dev/null 2>&1 || true
