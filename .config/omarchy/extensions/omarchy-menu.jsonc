@@ -3,7 +3,7 @@
   "trigger.shopify": {
     "icon": "󰒚",
     "label": "Shopify",
-    "action": "omarchy-shell shell toggle evo.shopify '{}'"
+    "action": "omarchy-launch-tui evoshopify"
   },
   "trigger.github": {
     "icon": "",

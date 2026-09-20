@@ -35,9 +35,6 @@
           "id": "evo.insync"
         },
         {
-          "id": "evo.shopify"
-        },
-        {
           "id": "evo.github",
           "repoRoots": [
             {
