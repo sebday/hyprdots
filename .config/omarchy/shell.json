@@ -29,6 +29,15 @@
           "id": "evo.tray"
         },
         {
+          "id": "evo.weather"
+        },
+        {
+          "id": "evo.stocks"
+        },
+        {
+          "id": "evo.cursor"
+        },
+        {
           "id": "evo.steam"
         },
         {
@@ -46,15 +55,6 @@
               "label": "work"
             }
           ]
-        },
-        {
-          "id": "evo.weather"
-        },
-        {
-          "id": "evo.stocks"
-        },
-        {
-          "id": "evo.cursor"
         },
         {
           "id": "evo.cloudflare"
@@ -75,13 +75,7 @@
           "id": "omarchy.network"
         },
         {
-          "id": "evo.webtheme"
-        },
-        {
           "id": "evo.monitors"
-        },
-        {
-          "id": "omarchy.audio"
         },
         {
           "id": "evo.media"
@@ -166,6 +160,9 @@
     },
     {
       "id": "evo.media"
+    },
+    {
+      "id": "evo.webtheme"
     },
     {
       "id": "seb.lock"
