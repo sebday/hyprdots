@@ -35,6 +35,9 @@
           "id": "evo.stocks"
         },
         {
+          "id": "evo.trading"
+        },
+        {
           "id": "evo.cursor"
         },
         {
@@ -145,6 +148,9 @@
     },
     {
       "id": "evo.stocks"
+    },
+    {
+      "id": "evo.trading"
     },
     {
       "id": "evo.steam"

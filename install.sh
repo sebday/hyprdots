@@ -54,6 +54,7 @@ link_plugin evo.media "$HOME/projects/omarchy-media"
 link_plugin evo.shopify "$HOME/projects/omarchy-shopify"
 link_plugin evo.steam "$HOME/projects/omarchy-steam"
 link_plugin evo.stocks "$HOME/projects/omarchy-stocks"
+link_plugin evo.trading "$HOME/projects/omarchy-trading"
 link_plugin evo.webtheme "$HOME/projects/omarchy-webtheme"
 link "$REPO/.config/imv/config" "$HOME/.config/imv/config"
 link "$REPO/.local/bin/omasnap-edit" "$HOME/.local/bin/omasnap-edit"
@@ -100,6 +101,13 @@ link "$REPO/.config/wireplumber/wireplumber.conf.d/51-ice1712.conf" "$HOME/.conf
 if (( PACKAGES )); then
 	echo "packages:"
 	bash "$REPO/.install/packages.sh" apply
+fi
+
+_trading_units="$HOME/projects/omarchy-trading/systemd/omarchy-trading-desk.service"
+if [[ -f "$_trading_units" ]]; then
+	systemctl --user link "$HOME/projects/omarchy-trading/systemd/omarchy-trading-desk.service" 2>/dev/null || true
+	systemctl --user link "$HOME/projects/omarchy-trading/systemd/omarchy-trading-desk.timer" 2>/dev/null || true
+	systemctl --user enable --now omarchy-trading-desk.timer 2>/dev/null || true
 fi
 
 echo "done"
