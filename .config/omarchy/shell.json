@@ -14,28 +14,19 @@
       }
     ],
     "transparent": false,
-    "centerAnchor": "evo.cursor",
+    "centerAnchor": "evo.steam",
     "layout": {
       "left": [
-        {
-          "id": "omarchy.menu"
-        },
-        {
-          "id": "omarchy.workspaces"
-        }
-      ],
-      "center": [
-        {
-          "id": "evo.tray"
-        },
-        {
-          "id": "evo.weather"
-        },
         {
           "id": "evo.stocks"
         },
         {
           "id": "evo.trading"
+        }
+      ],
+      "center": [
+        {
+          "id": "evo.tray"
         },
         {
           "id": "evo.cursor"
@@ -60,6 +51,9 @@
           ]
         },
         {
+          "id": "omarchy.network"
+        },
+        {
           "id": "evo.cloudflare"
         },
         {
@@ -75,12 +69,6 @@
           "id": "omarchy.system-update"
         },
         {
-          "id": "omarchy.network"
-        },
-        {
-          "id": "evo.monitors"
-        },
-        {
           "id": "evo.media"
         }
       ],
@@ -89,7 +77,10 @@
           "id": "omarchy.indicators"
         },
         {
-          "id": "omarchy.clock",
+          "id": "evo.weather"
+        },
+        {
+          "id": "seb.clock",
           "format": "ddd d MMM HH:mm",
           "formatAlt": "d MMMM 'W'ww yyyy",
           "verticalFormat": "HH\n—\nmm"
