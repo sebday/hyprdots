@@ -1,0 +1,155 @@
+#!/usr/bin/env bash
+# Remove trash, thumbnails, your temp files, clipboard history, and rebuildable caches.
+set -euo pipefail
+
+if [[ $# -gt 0 ]]; then
+  echo "Usage: clean" >&2
+  exit 1
+fi
+
+cache="${XDG_CACHE_HOME:-$HOME/.cache}"
+state="${XDG_STATE_HOME:-$HOME/.local/state}/omarchy"
+trash="${XDG_DATA_HOME:-$HOME/.local/share}/Trash"
+
+labels=()
+kinds=()
+paths=()
+bytes=()
+
+add() {
+  local label=$1 kind=$2 path=$3 size=$4
+  (( size > 0 )) || return 0
+  labels+=("$label")
+  kinds+=("$kind")
+  paths+=("$path")
+  bytes+=("$size")
+}
+
+dir_size() {
+  local path=$1
+  [[ -d $path ]] || {
+    echo 0
+    return
+  }
+  [[ -n $(find "$path" -mindepth 1 -print -quit 2>/dev/null) ]] || {
+    echo 0
+    return
+  }
+  du -sb "$path" 2>/dev/null | awk '{print $1}'
+}
+
+tmp_size() {
+  local path=$1 sum=0 size
+  [[ -d $path ]] || {
+    echo 0
+    return
+  }
+  while IFS= read -r -d '' entry; do
+    size=$(du -sb "$entry" 2>/dev/null | awk '{print $1}')
+    sum=$((sum + ${size:-0}))
+  done < <(find "$path" -mindepth 1 -maxdepth 1 -user "$USER" -print0 2>/dev/null)
+  echo "$sum"
+}
+
+history_size() {
+  local path=$1 compact
+  [[ -f $path ]] || {
+    echo 0
+    return
+  }
+  compact=$(tr -d '[:space:]' <"$path" || true)
+  if [[ -z $compact || $compact == "[]" ]]; then
+    echo 0
+    return
+  fi
+  wc -c <"$path" | tr -d ' '
+}
+
+human() {
+  if command -v numfmt >/dev/null 2>&1; then
+    numfmt --to=iec --suffix=B "$1"
+  else
+    printf '%sB\n' "$1"
+  fi
+}
+
+add "$trash/files" dir "$trash/files" "$(dir_size "$trash/files")"
+add "$trash/info" dir "$trash/info" "$(dir_size "$trash/info")"
+add "$trash/expunged" dir "$trash/expunged" "$(dir_size "$trash/expunged")"
+add "$cache/thumbnails" dir "$cache/thumbnails" "$(dir_size "$cache/thumbnails")"
+add "$HOME/.thumbnails" dir "$HOME/.thumbnails" "$(dir_size "$HOME/.thumbnails")"
+add "/tmp (your files)" tmp /tmp "$(tmp_size /tmp)"
+add "/var/tmp (your files)" tmp /var/tmp "$(tmp_size /var/tmp)"
+add "$state/clipboard-history.json" history "$state/clipboard-history.json" "$(history_size "$state/clipboard-history.json")"
+add "$state/clipboard-images" dir "$state/clipboard-images" "$(dir_size "$state/clipboard-images")"
+add "$cache/yay" dir "$cache/yay" "$(dir_size "$cache/yay")"
+add "$cache/mesa_shader_cache" dir "$cache/mesa_shader_cache" "$(dir_size "$cache/mesa_shader_cache")"
+add "$cache/radv_builtin_shaders" dir "$cache/radv_builtin_shaders" "$(dir_size "$cache/radv_builtin_shaders")"
+
+shopt -s nullglob
+for path in "$cache"/qtshadercache-*; do
+  add "$path" dir "$path" "$(dir_size "$path")"
+done
+shopt -u nullglob
+
+add "$cache/fontconfig" dir "$cache/fontconfig" "$(dir_size "$cache/fontconfig")"
+
+if [[ ${#labels[@]} -eq 0 ]]; then
+  echo "Nothing to clean."
+  exit 0
+fi
+
+total=0
+for size in "${bytes[@]}"; do
+  total=$((total + size))
+done
+
+echo "clean:"
+for i in "${!labels[@]}"; do
+  printf '  %8s  %s\n' "$(human "${bytes[$i]}")" "${labels[$i]}"
+done
+printf '  %8s  total\n' "$(human "$total")"
+
+empty_dir() {
+  find "$1" -mindepth 1 -delete || printf 'warning: could not remove everything in %s\n' "$1" >&2
+}
+
+empty_tmp() {
+  local path=$1 entry
+  while IFS= read -r -d '' entry; do
+    rm -rf -- "$entry" || printf 'warning: could not remove %s\n' "$entry" >&2
+  done < <(find "$path" -mindepth 1 -maxdepth 1 -user "$USER" -print0 2>/dev/null)
+}
+
+clear_history() {
+  local path=$1 dir tmp
+  dir=$(dirname "$path")
+  mkdir -p "$dir"
+  tmp=$(mktemp "$dir/.clipboard-history.XXXXXX")
+  printf '[]\n' >"$tmp"
+  # Keep the existing inode so the shell's file watcher reloads an empty history.
+  if [[ -e $path ]]; then
+    cat "$tmp" >"$path"
+    rm -f "$tmp"
+  else
+    mv "$tmp" "$path"
+  fi
+}
+
+cleaned_fonts=0
+for i in "${!labels[@]}"; do
+  case "${kinds[$i]}" in
+  dir)
+    empty_dir "${paths[$i]}"
+    [[ ${paths[$i]} == "$cache/fontconfig" ]] && cleaned_fonts=1
+    ;;
+  tmp) empty_tmp "${paths[$i]}" ;;
+  history) clear_history "${paths[$i]}" ;;
+  esac
+done
+
+if (( cleaned_fonts )) && command -v fc-cache >/dev/null 2>&1; then
+  fc-cache -r >/dev/null
+fi
+
+echo "Cleaned."

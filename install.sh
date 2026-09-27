@@ -66,6 +66,8 @@ link "$REPO/.local/bin/omarchy-capture-record-theme-switching" "$HOME/.local/bin
 chmod +x "$REPO/.local/bin/omarchy-capture-record-theme-switching"
 link "$REPO/.local/bin/omarchy-layout" "$HOME/.local/bin/omarchy-layout"
 link "$REPO/.local/bin/fastfetch-hyprdots" "$HOME/.local/bin/fastfetch-hyprdots"
+link "$REPO/.local/bin/clean" "$HOME/.local/bin/clean"
+chmod +x "$REPO/.local/bin/clean"
 link "$REPO/.local/bin/omarchy-package-list" "$HOME/.local/bin/omarchy-package-list"
 link "$REPO/.local/bin/omarchy-theme-cycle" "$HOME/.local/bin/omarchy-theme-cycle"
 link "$REPO/.local/bin/omarchy-theme-list" "$HOME/.local/bin/omarchy-theme-list"
