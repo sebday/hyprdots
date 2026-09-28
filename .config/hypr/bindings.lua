@@ -6,6 +6,10 @@ o.bind("SUPER + L", "Lock system", "omarchy-system-lock")
 
 o.bind("SUPER + E", "Editor", { omarchy = "editor" })
 
+-- Super+Shift+S was Google Maps; Super+Shift+E was Hey email.
+o.rebind("SUPER + SHIFT + S", "Shopify", { panel = "evo.shopify" })
+o.rebind("SUPER + SHIFT + E", "Evoplayer", { panel = "evo.evoplayer" })
+
 -- Super+/ and Super+Alt+/ scale the focused monitor; unsafe on this layout.
 hl.unbind("SUPER + SLASH")
 hl.unbind("SUPER + ALT + SLASH")
