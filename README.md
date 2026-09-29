@@ -52,7 +52,7 @@ hyprctl layers
 
 ## Keybindings
 
-- `SUPER + E` — editor (nvim)
+- `SUPER + E` — unbound
 - `SUPER + L` — lock screen
 - `SUPER + 1/2/3` — Brave / incognito / Tor
 - `SUPER + 4`, `SUPER + SHIFT + F` — file manager

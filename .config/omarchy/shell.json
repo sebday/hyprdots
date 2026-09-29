@@ -69,7 +69,7 @@
           "id": "omarchy.system-update"
         },
         {
-          "id": "evo.media"
+          "id": "evo.player"
         }
       ],
       "right": [
@@ -123,10 +123,6 @@
       }
     ]
   },
-  "media": {
-    "filmsRoot": "/mnt/external/Films",
-    "tvRoot": "/mnt/external/TV"
-  },
   "plugins": [
     {
       "id": "evo.shopify"
@@ -156,7 +152,7 @@
       "id": "evo.cloudflare"
     },
     {
-      "id": "evo.media"
+      "id": "evo.player"
     },
     {
       "id": "evo.webtheme"
