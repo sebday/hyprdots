@@ -32,7 +32,8 @@ for workspace = 1, 10 do
 end
 
 o.bind("SUPER + code:10", "Brave", { launch = "brave" })
-o.bind("SUPER + code:11", "Brave Incognito", "brave --incognito")
+-- Socket handoff: `brave --incognito` replaces the running browser.
+o.bind("SUPER + code:11", "Brave Incognito", { omarchy = "browser --private" })
 o.bind("SUPER + code:12", "Brave Tor", "brave --tor")
 o.bind("SUPER + code:13", "Color picker", "pkill hyprpicker || hyprpicker -a")
 
