@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Wake outputs after overnight panel power-save.
+# Stock `omarchy-brightness-display on` skips the DPMS enable when Hyprland
+# already reports dpmsStatus=true, which is exactly the overnight case here:
+# the GPU thinks the heads are lit, the panels are asleep.
+set -euo pipefail
+
+uid="${UID:-$(id -u)}"
+: "${XDG_RUNTIME_DIR:=/run/user/${uid}}"
+export XDG_RUNTIME_DIR
+
+if [[ -z ${HYPRLAND_INSTANCE_SIGNATURE:-} ]]; then
+  his_dir=$(find "$XDG_RUNTIME_DIR/hypr" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | head -1 || true)
+  [[ -n $his_dir ]] || exit 0
+  export HYPRLAND_INSTANCE_SIGNATURE=$(basename "$his_dir")
+fi
+
+[[ -x /usr/bin/hyprctl ]] || exit 0
+
+# Always enable. Do not trust .dpmsStatus.
+/usr/bin/hyprctl dispatch 'hl.dsp.dpms({ action = "enable" })' >/dev/null 2>&1 || true
+omarchy-brightness-keyboard restore >/dev/null 2>&1 || true
+omarchy-hyprland-monitor-clamshell >/dev/null 2>&1 || true
+
+[[ -x /usr/bin/ddcutil ]] || exit 0
+
+stamp="${XDG_RUNTIME_DIR}/seb.lock-ddc-wake"
+now=$(date +%s)
+if [[ -f $stamp ]]; then
+  last=$(<"$stamp") || last=0
+  if [[ $last =~ ^[0-9]+$ ]] && (( now - last < 15 )); then
+    exit 0
+  fi
+fi
+printf '%s\n' "$now" >"$stamp"
+
+# One detect, then VCP D6 (power mode) = on. Sleeping panels often hang DDC,
+# so each setvcp is bounded and they run in parallel.
+mapfile -t buses < <(/usr/bin/timeout -k 1 4 /usr/bin/ddcutil --skip-ddc-checks detect --brief 2>/dev/null \
+  | awk '/I2C bus:/{ bus=$NF; sub(/^.*\/i2c-/,"",bus); if (bus ~ /^[0-9]+$/) print bus }') || true
+
+((${#buses[@]} > 0)) || exit 0
+
+pids=()
+for bus in "${buses[@]}"; do
+  [[ $bus =~ ^[0-9]+$ ]] || continue
+  /usr/bin/timeout -k 1 2 /usr/bin/ddcutil --bus "$bus" --skip-ddc-checks setvcp D6 0x01 >/dev/null 2>&1 &
+  pids+=($!)
+done
+for pid in "${pids[@]}"; do
+  wait "$pid" || true
+done

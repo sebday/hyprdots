@@ -35,16 +35,15 @@ Item {
   property string backgroundSignature: ""
   property string lastEvent: "init"
   property string lastEventAt: ""
-  property bool displaysBlank: false
-  // displaysBlank tracks what the lock asked for; Hyprland reports what each
-  // panel actually did. While a video is on show the two are reconciled, so a
-  // blank that failed keeps playing and a panel woken behind the lock's back
-  // (a resume that kept the same outputs) resumes instead of freezing.
+  // This lock never blanks the displays itself; Hyprland reports what each
+  // panel did (idle DPMS), so a video wallpaper pauses on a panel that is off.
   property var monitorDpms: ({})
   property bool monitorDpmsKnown: false
   readonly property bool videoBackground: Util.isVideoPath(backgroundPath)
   property bool strandedLock: false
   property bool strandedLockResolved: false
+  property double lastUnlockAt: 0
+  property bool recoverMonitorsQueued: false
 
   readonly property bool locked: lockRequested || sessionLock.locked || sessionLock.secure
   readonly property bool authenticating: authenticatingPassword || fingerprintAuthenticating
@@ -157,7 +156,6 @@ Item {
 
     resetAuthenticationState()
     lockRequested = true
-    armBlankTimer()
     logEvent("lock-requested")
     queueSessionLock()
 
@@ -177,33 +175,44 @@ Item {
     sessionLockStabilizeTimer.stop()
     pendingSessionLockTimer.stop()
     resetAuthenticationState()
-    idleBlankTimer.stop()
     sessionLock.locked = false
     logEvent("unlocked")
+    afterUnlock()
+  }
+
+  // Outputs often drop to 0x0 after the lock surfaces unmap rather than during
+  // the lock, so recovery keeps retrying for a few seconds after unlock.
+  function afterUnlock() {
+    lastUnlockAt = Date.now()
+    recoverAfterUnlockTimer.remaining = 8
+    recoverAfterUnlockTimer.start()
     runWake()
   }
 
-  function armBlankTimer() {
-    idleBlankTimer.armedAt = Date.now()
-    idleBlankTimer.restart()
+  function recoverMonitors() {
+    if (lockRequested) return
+    if (recoverMonitorsProcess.running) {
+      recoverMonitorsQueued = true
+      return
+    }
+    recoverMonitorsProcess.running = true
+  }
+
+  function recentlyUnlocked() {
+    return lastUnlockAt > 0 && (Date.now() - lastUnlockAt) < 15000
   }
 
   function runWake() {
-    root.displaysBlank = false
+    if (lockRequested) return
     root.monitorDpmsKnown = false
+    logEvent("wake-displays")
+    recoverMonitors()
     if (!wakeProcess.running) wakeProcess.running = true
-    if (lockRequested) armBlankTimer()
-  }
-
-  function runBlank() {
-    root.displaysBlank = true
-    root.monitorDpmsKnown = false
-    if (!blankProcess.running) blankProcess.running = true
   }
 
   function screenBlank(screenName) {
     var name = String(screenName || "")
-    if (!monitorDpmsKnown || !(name in monitorDpms)) return displaysBlank
+    if (!monitorDpmsKnown || !(name in monitorDpms)) return false
     return !monitorDpms[name]
   }
 
@@ -229,7 +238,6 @@ Item {
     var password = String(value || "")
     if (!lockRequested || authenticatingPassword || password.length === 0) return
 
-    runWake()
     pendingPassword = password
     failureMessage = ""
     authenticatingPassword = true
@@ -255,7 +263,6 @@ Item {
     pendingPassword = ""
     failedAttempts += 1
     failureMessage = "Authentication failed (" + failedAttempts + ")"
-    runWake()
   }
 
   function startFingerprint() {
@@ -309,7 +316,7 @@ Item {
         sessionLockStabilizeTimer.stop()
         pendingSessionLockTimer.stop()
         root.resetAuthenticationState()
-        root.runWake()
+        root.afterUnlock()
       }
     }
 
@@ -335,7 +342,6 @@ Item {
         onPasswordTextEdited: function(password) { root.enteredPassword = password }
         onSubmitPassword: function(password) { root.submitPassword(password) }
         onClearFailureRequested: root.failureMessage = ""
-        onWakeRequested: root.runWake()
       }
 
     }
@@ -452,6 +458,8 @@ Item {
         var lines = String(text || "").split("\n")
         var next = String(lines[0] || "").trim()
         var signature = String(lines[1] || "").trim()
+        // A failed read keeps the wallpaper it has rather than going blank.
+        if (!next) return
         if (next !== root.backgroundPath) {
           root.videoPosterPath = ""
           root.backgroundPath = next
@@ -482,10 +490,10 @@ Item {
 
   Process {
     id: fingerprintCheckProc
-    command: ["bash", "-c", "if [[ -f /etc/pam.d/omarchy-lock-fingerprint ]] && command -v fprintd-list >/dev/null 2>&1 && fprintd-list \"$USER\" 2>/dev/null | grep -qi finger; then echo yes; else echo no; fi"]
-    stdout: StdioCollector { id: fingerprintCheckStdout; waitForEnd: true }
-    onExited: {
-      root.fingerprintConfigured = String(fingerprintCheckStdout.text || "").trim() === "yes"
+    // fprintd-list can hang, so the script bounds it.
+    command: ["bash", Qt.resolvedUrl("fingerprint-configured").toString().replace("file://", "")]
+    onExited: function(exitCode) {
+      root.fingerprintConfigured = exitCode === 0
       if (root.lockRequested && root.fingerprintConfigured) root.startFingerprint()
       else if (!root.fingerprintConfigured && fingerprintPam.active) fingerprintPam.abort()
     }
@@ -508,17 +516,33 @@ Item {
 
   Process {
     id: wakeProcess
-    command: ["bash", "-c", "omarchy-system-wake"]
+    command: ["bash", Qt.resolvedUrl("wake-displays").toString().replace("file://", "")]
   }
 
   Process {
-    id: blankProcess
-    command: ["bash", "-c", "omarchy-brightness-keyboard off; omarchy-brightness-display off"]
+    id: recoverMonitorsProcess
+    command: ["bash", Qt.resolvedUrl("recover-monitors.sh").toString().replace("file://", "")]
+    onExited: function() {
+      if (!root.recoverMonitorsQueued) return
+      root.recoverMonitorsQueued = false
+      root.recoverMonitors()
+    }
+  }
+
+  Timer {
+    id: recoverAfterUnlockTimer
+    interval: 1000
+    repeat: true
+    property int remaining: 0
+    onTriggered: {
+      remaining -= 1
+      root.recoverMonitors()
+      if (remaining <= 0) stop()
+    }
   }
 
   // Quickshell exposes no DPMS signal, so the panel state is polled while a
-  // video is the locked wallpaper. A wake or blank request drops the last
-  // answer, so its optimistic state applies until the next poll confirms it.
+  // video is the locked wallpaper.
   Process {
     id: monitorDpmsProcess
     command: ["hyprctl", "monitors", "-j"]
@@ -538,26 +562,6 @@ Item {
     }
     onRunningChanged: {
       if (!running) root.monitorDpmsKnown = false
-    }
-  }
-
-  Timer {
-    id: idleBlankTimer
-    interval: 5000
-    repeat: false
-    property double armedAt: 0
-    onTriggered: {
-      // A countdown frozen by suspend fires right after resume, which would
-      // blank the freshly woken unlock screen under the user. Wall-clock time
-      // exposes the gap: take a fresh run-up instead of blanking.
-      if (Date.now() - armedAt > interval + 2000) {
-        root.armBlankTimer()
-        return
-      }
-      // Only a password check in flight should hold the display up. The
-      // fingerprint PAM stays armed for the whole lock, so gating on
-      // `authenticating` here would keep the panel lit until unlock.
-      if (root.lockRequested && !root.authenticatingPassword) root.runBlank()
     }
   }
 
@@ -597,22 +601,14 @@ Item {
   Connections {
     target: Quickshell
     function onScreensChanged() {
-      // A panel coming back is a display turning on that runWake did not ask
-      // for, so the blank state has to be given up here or a visible lock
-      // wallpaper stays frozen until the next keypress.
-      root.displaysBlank = false
       root.requestSessionLock()
 
       // A monitor still coming up has no workspace, so cannot answer yet.
       strandedLockRetryTimer.rearm()
       root.checkStrandedLock()
-    }
-  }
 
-  onAuthenticatingPasswordChanged: {
-    if (!lockRequested) return
-    if (authenticatingPassword) idleBlankTimer.stop()
-    else armBlankTimer()
+      if (root.recentlyUnlocked()) root.recoverMonitors()
+    }
   }
 
   FileView {

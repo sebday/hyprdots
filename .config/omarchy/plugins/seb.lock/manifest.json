@@ -2,20 +2,17 @@
   "schemaVersion": 1,
   "id": "seb.lock",
   "name": "My Lock Screen",
-  "version": "1.0.0",
+  "version": "1.1.5",
   "author": "Omarchy",
-  "description": "Quickshell session lock with separate password and fingerprint PAM flows.",
-  "omarchy": {
-    "capabilities": [
-      "authentication"
-    ],
-    "clonedFrom": "omarchy.lock"
-  },
+  "description": "Session lock without DPMS blank or DDC keep-alive; rewakes and heals 0x0 outputs after unlock.",
   "kinds": [
     "service"
   ],
   "keepLoaded": true,
   "entryPoints": {
     "service": "Service.qml"
+  },
+  "omarchy": {
+    "clonedFrom": "omarchy.lock"
   }
 }

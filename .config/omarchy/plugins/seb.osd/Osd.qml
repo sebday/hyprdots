@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Wayland
 import qs.Commons
@@ -123,14 +124,42 @@ Item {
     function ping(): string { return "ok" }
   }
 
-  OverlayWindow {
-    id: panel
-    shown: root.opened
-    shownKeyboardFocus: WlrKeyboardFocus.None
-    WlrLayershell.namespace: "omarchy-osd"
-    // Visual-only surface: keep the layer-shell input region empty so the OSD
-    // never blocks clicks to the desktop below it.
-    mask: Region {}
+  // One surface per output, with the screen set before the window exists.
+  // The stock overlay leaves its screen unset until show, and that surface
+  // never maps, so volume changes had no on-screen display.
+  Variants {
+    model: Quickshell.screens
+
+    PanelWindow {
+      id: panel
+      required property var modelData
+      readonly property string screenName: modelData ? String(modelData.name || "") : ""
+      readonly property string focusedName: {
+        var monitor = Hyprland.focusedMonitor
+        return monitor ? String(monitor.name || "") : ""
+      }
+      readonly property bool focusMatchesScreen: {
+        if (focusedName === "") return false
+        for (var i = 0; i < Quickshell.screens.length; i++) {
+          if (String(Quickshell.screens[i].name || "") === focusedName) return true
+        }
+        return false
+      }
+      readonly property bool showHere: focusMatchesScreen
+        ? screenName === focusedName
+        : Quickshell.screens.length > 0 && screenName === String(Quickshell.screens[0].name || "")
+
+      screen: modelData
+      visible: root.opened && showHere
+      anchors { top: true; bottom: true; left: true; right: true }
+      color: "transparent"
+      exclusionMode: ExclusionMode.Ignore
+      WlrLayershell.namespace: "omarchy-osd"
+      WlrLayershell.layer: WlrLayer.Overlay
+      WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+      // Visual-only surface: keep the layer-shell input region empty so the OSD
+      // never blocks clicks to the desktop below it.
+      mask: Region {}
 
     BorderSurface {
       id: card
@@ -197,6 +226,7 @@ Item {
           maximumLineCount: 1
         }
       }
+    }
     }
   }
 }

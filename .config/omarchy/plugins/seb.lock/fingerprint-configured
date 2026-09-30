@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+[[ -f /etc/pam.d/omarchy-lock-fingerprint ]] || exit 1
+command -v fprintd-list >/dev/null 2>&1 || exit 1
+out=$(/usr/bin/timeout -k 1 5 fprintd-list "${USER}" 2>/dev/null | /usr/bin/head -c 4097) || exit 1
+[ ${#out} -le 4096 ] || exit 1
+grep -qi finger <<<"$out"
