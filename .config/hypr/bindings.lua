@@ -9,6 +9,7 @@ hl.unbind("SUPER + E")
 -- Super+Shift+S was Google Maps; Super+Shift+E was Hey email.
 o.rebind("SUPER + SHIFT + S", "Shopify", { panel = "evo.shopify" })
 o.rebind("SUPER + SHIFT + E", "Evoplayer", { panel = "evo.player" })
+o.rebind("SUPER + SHIFT + X", "Cameras", "/home/seb/projects/omarchy-cameras/arrange")
 
 -- Super+/ and Super+Alt+/ scale the focused monitor; unsafe on this layout.
 hl.unbind("SUPER + SLASH")
@@ -22,7 +23,7 @@ hl.unbind("SUPER + CTRL + Q")
 o.bind("SUPER + V", "Clipboard manager", "omarchy-shell shell toggle omarchy.clipboard")
 
 -- Number row: override Omarchy SUPER+1–0 workspace switching.
--- 1–3 → Brave; 4 → file manager; 5 → calculator; 6 → color picker; 7–0 unbound (use numpad). SUPER+SHIFT+F → file manager.
+-- 1–3 → Brave; 4–0 unbound (use numpad). Color picker is SUPER+SHIFT+I. SUPER+ALT+RETURN → file manager.
 local function workspace_code(workspace)
   return "code:" .. tostring(workspace + 9)
 end
@@ -31,11 +32,16 @@ for workspace = 1, 10 do
   hl.unbind("SUPER + " .. workspace_code(workspace))
 end
 
+-- Number-row move stays off; workspace moves are on the numpad.
+hl.unbind("SUPER + SHIFT + " .. workspace_code(4))
+
 o.bind("SUPER + code:10", "Brave", { launch = "brave" })
 -- Own data dir, so this launch cannot take over the running Brave profile.
 o.bind("SUPER + code:11", "Brave Incognito", "brave-incognito")
 o.bind("SUPER + code:12", "Brave Tor", "brave --tor")
-o.bind("SUPER + code:13", "Color picker", "pkill hyprpicker || hyprpicker -a")
+
+o.bind("SUPER + SHIFT + I", "Color picker", "pkill hyprpicker || hyprpicker -a")
+o.rebind("SUPER + SHIFT + C", "Calculator", "omacalc")
 
 -- Numpad workspace switching (MX Keys).
 o.bind("SUPER + KP_End", "Switch to workspace 1", hl.dsp.focus({ workspace = "1" }))
@@ -151,8 +157,25 @@ o.bind(
 
 -- flea --default: begin. Written by `flea --default`; `flea --default off` removes the block whole.
 hl.unbind("SUPER + SHIFT + F")
-o.bind("SUPER + SHIFT + F", "File manager", { launch = "flea --gui" })
-hl.unbind("SUPER + ALT + SHIFT + F")
-o.bind("SUPER + ALT + SHIFT + F", "File manager (cwd)",
-  { launch = 'flea --gui "$(omarchy-cmd-terminal-cwd)"' })
+-- Super+Alt+Return was Tmux.
+o.rebind("SUPER + ALT + RETURN", "File manager", { launch = "flea --gui" })
 -- flea --default: end.
+
+-- Super+Shift+Alt. Numpad still switches and moves workspaces.
+local super_shift_alt_keys = {
+  "A", "B", "E", "F", "G", "M", "X",
+  "LEFT", "RIGHT", "UP", "DOWN",
+  "TAB",
+  "comma",
+  "code:20",
+  "code:21",
+}
+
+for _, key in ipairs(super_shift_alt_keys) do
+  hl.unbind("SUPER + SHIFT + ALT + " .. key)
+  hl.unbind("SUPER + ALT + SHIFT + " .. key)
+end
+
+for workspace = 1, 10 do
+  hl.unbind("SUPER + SHIFT + ALT + " .. workspace_code(workspace))
+end

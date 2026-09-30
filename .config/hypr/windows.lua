@@ -12,3 +12,13 @@ o.window({ class = "^org\\.quickshell$", title = "^Shopify$" }, { workspace = "1
 
 -- Pop & pin (Super+O): Omarchy defaults to rounded corners for the pop tag.
 o.window({ tag = "pop" }, { rounding = 0 })
+
+-- Google Home camera pop-outs. Title match only, so no camera id is stored.
+-- border_size and rounding are dynamic, so they apply to windows already open.
+o.window({
+  class = "^brave",
+  title = "^Cameras . Google Home$",
+}, {
+  border_size = 0,
+  rounding = 0,
+})
