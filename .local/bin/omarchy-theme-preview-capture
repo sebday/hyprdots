@@ -1,0 +1,164 @@
+#!/usr/bin/env bash
+
+# omarchy:summary=Screenshot each theme on the focused monitor and save it as preview.png
+# omarchy:group=capture
+
+set -euo pipefail
+
+SETTLE="${OMARCHY_THEME_PREVIEW_SETTLE:-1}"
+OMARCHY_PATH="${OMARCHY_PATH:-/usr/share/omarchy}"
+USER_THEMES="$HOME/.config/omarchy/themes"
+WIDTH=1800
+NOTE_ID=""
+restored=0
+DND_CHANGED=0
+dnd_restored=0
+
+if ! command -v omasnap >/dev/null 2>&1; then
+	omarchy-notification-send "Theme previews" "omasnap is missing" -u critical -t 4000
+	exit 1
+fi
+if ! command -v magick >/dev/null 2>&1; then
+	omarchy-notification-send "Theme previews" "magick is missing" -u critical -t 4000
+	exit 1
+fi
+
+mapfile -t themes < <(omarchy-theme-list 2>/dev/null | sed '/^[[:space:]]*$/d')
+if ((${#themes[@]} == 0)); then
+	omarchy-notification-send "No themes found" -t 3000
+	exit 1
+fi
+
+start_theme="$(omarchy theme current 2>/dev/null || true)"
+
+shot_dir() {
+	local conf=${XDG_CONFIG_HOME:-$HOME/.config}/omasnap/omasnap.conf
+	local dir=""
+	if [[ -f $conf ]]; then
+		dir=$(awk -F= '
+			/^\[output\]/ { section = 1; next }
+			/^\[/ { section = 0 }
+			section && $1 ~ /^[[:space:]]*directory[[:space:]]*$/ {
+				val = $2
+				sub(/^[[:space:]]+/, "", val)
+				sub(/[[:space:]]+$/, "", val)
+				gsub(/^"|"$/, "", val)
+				print val
+				exit
+			}
+		' "$conf")
+	fi
+	dir=${dir:-~/Pictures/Screenshots}
+	dir=${dir/#\~/$HOME}
+	printf '%s' "$dir"
+}
+
+SHOT_DIR=$(shot_dir)
+
+note() {
+	local body=$1
+	if [[ -n $NOTE_ID ]]; then
+		omarchy-notification-send -r "$NOTE_ID" -t 4000 "Theme previews" "$body" >/dev/null || true
+	else
+		NOTE_ID=$(omarchy-notification-send -p -t 4000 "Theme previews" "$body" || true)
+	fi
+}
+
+restore_theme() {
+	((restored)) && return 0
+	restored=1
+	if [[ -n $start_theme ]]; then
+		omarchy theme set "$start_theme" || true
+	fi
+}
+
+silence_notifications() {
+	local state
+	state=$(omarchy-shell notifications isDnd 2>/dev/null || true)
+	omarchy-shell -q notifications dismissAll >/dev/null 2>&1 || true
+	if [[ $state != on ]]; then
+		omarchy-shell notifications setDnd on >/dev/null 2>&1 || true
+		DND_CHANGED=1
+		omarchy-shell -q omarchy.indicators refresh >/dev/null 2>&1 || true
+	fi
+}
+
+restore_notifications() {
+	((dnd_restored)) && return 0
+	dnd_restored=1
+	if ((DND_CHANGED)); then
+		omarchy-shell notifications setDnd off >/dev/null 2>&1 || true
+		omarchy-shell -q omarchy.indicators refresh >/dev/null 2>&1 || true
+	fi
+}
+
+finish() {
+	restore_theme
+	restore_notifications
+}
+
+trap finish EXIT
+trap 'finish; exit 130' INT TERM
+
+slug_for() {
+	printf '%s' "$1" | sed -E 's/<[^>]+>//g' | tr '[:upper:]' '[:lower:]' | tr ' ' '-'
+}
+
+preview_dir_for() {
+	local slug=$1
+	local user_dir=$USER_THEMES/$slug
+	local stock_dir=$OMARCHY_PATH/themes/$slug
+
+	if [[ -d $user_dir ]]; then
+		printf '%s' "$user_dir"
+		return 0
+	fi
+	if [[ ! -d $stock_dir ]]; then
+		echo "no theme directory for $slug" >&2
+		return 1
+	fi
+	mkdir -p "$user_dir"
+	printf '%s' "$user_dir"
+}
+
+capture_preview() {
+	local dir=$1
+	local stamp shot sized
+
+	omarchy-shell -q notifications dismissAll >/dev/null 2>&1 || true
+	sleep 0.3
+	stamp=$(mktemp)
+	touch "$stamp"
+	omasnap --capture-fullscreen --save
+	# ~/pictures is a symlink. Without -H, find stays on the link and sees no files.
+	shot=$(find -H "$SHOT_DIR" -maxdepth 1 -type f -name '*.png' -newer "$stamp" -printf '%T@ %p\n' | sort -n | tail -1 | cut -d' ' -f2-)
+	rm -f "$stamp"
+	if [[ -z ${shot:-} || ! -f $shot ]]; then
+		echo "omasnap did not save a screenshot in $SHOT_DIR" >&2
+		return 1
+	fi
+	sized=$(mktemp -p "$dir" .preview.XXXXXXXX.png)
+	magick "$shot" -filter Lanczos -resize "${WIDTH}x" "$sized"
+	mv -f -T "$sized" "$dir/preview.png"
+	rm -f "$shot"
+}
+
+silence_notifications
+for theme in "${themes[@]}"; do
+	slug=$(slug_for "$theme")
+	if [[ -z $slug || $slug == .* || $slug == */* ]]; then
+		continue
+	fi
+	omarchy theme set "$theme"
+	sleep "$SETTLE"
+	if ! capture_preview "$(preview_dir_for "$slug")"; then
+		finish
+		trap - EXIT INT TERM
+		omarchy-notification-send "Theme previews" "Could not capture $theme" -u critical -t 5000 || true
+		exit 1
+	fi
+done
+
+finish
+trap - EXIT INT TERM
+note "Done"

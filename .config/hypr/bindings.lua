@@ -103,11 +103,7 @@ o.bind("SUPER + F5", "Restart shell", "omarchy restart shell")
 -- Apps on Super+D; theme picker on Super+Alt+Space (was Super+Alt+Space → apps).
 hl.unbind("SUPER + ALT + SPACE")
 o.bind("SUPER + D", "Apps menu", "omarchy-menu toggle apps")
-o.bind(
-  "SUPER + ALT + SPACE",
-  "Theme picker",
-  'theme=$("$HOME/.local/bin/omarchy-theme-switcher"); [[ -n $theme ]] && omarchy theme set "$theme"'
-)
+o.bind("SUPER + ALT + SPACE", "Theme picker", { menu = "theme" })
 
 hl.unbind("SUPER + SHIFT + CTRL + SPACE")
 

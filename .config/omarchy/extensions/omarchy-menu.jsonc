@@ -45,6 +45,12 @@
     "label": "Webtheme",
     "action": "omarchy-shell shell toggle evo.webtheme '{}'"
   },
+  "style.theme": {
+    "icon": "󰸌",
+    "label": "Theme",
+    "aliases": ["theme", "themes"],
+    "action": "theme=$(\"$HOME/.local/bin/omarchy-theme-switcher\"); [[ -n $theme ]] && omarchy theme set \"$theme\""
+  },
   "trigger.capture.edit-last": {
     "icon": "󰆴",
     "label": "Annotate last screenshot",
@@ -60,6 +66,11 @@
     "label": "Record theme switching",
     "when": "! pgrep -f '^gpu-screen-recorder'",
     "action": "omarchy-capture-record-theme-switching"
+  },
+  "trigger.capture.screenrecord.theme-previews": {
+    "icon": "󰸌",
+    "label": "Capture theme previews",
+    "action": "omarchy-theme-preview-capture"
   },
   "about": {
     "icon": "",

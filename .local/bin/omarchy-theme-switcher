@@ -1,11 +1,13 @@
 #!/bin/bash
-# Filtered Omarchy theme switcher — hides light themes from the preview picker.
+# Filtered Omarchy theme switcher. Hides light themes from the preview picker.
 # Diff against /usr/share/omarchy/bin/omarchy-theme-switcher on Omarchy updates.
 
-preload=false
+print_rows=false
 
-if [[ $1 == "--preload" ]]; then
-	preload=true
+# The shell's picker opens from rows it already holds and runs this to refresh
+# them, so the theme list never waits on the index below.
+if [[ $1 == "--print-rows" ]]; then
+	print_rows=true
 	shift
 fi
 
@@ -26,7 +28,7 @@ find_preview() {
 	local theme_path="$1"
 	local preview preview_name
 
-	for preview_name in preview.png preview.jpg preview.jpeg preview.webp preview.gif preview.bmp; do
+	for preview_name in preview.png preview.jpg preview.jpeg preview.webp preview.gif preview.bmp preview.mp4 preview.m4v preview.mov preview.webm preview.mkv preview.avi; do
 		preview=$(find -L "$theme_path" -maxdepth 1 -type f -iname "$preview_name" -print -quit 2>/dev/null)
 
 		if [[ -n $preview ]]; then
@@ -36,7 +38,10 @@ find_preview() {
 	done
 
 	if [[ -d $theme_path/backgrounds ]]; then
-		find -L "$theme_path/backgrounds" -maxdepth 1 -type f \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.gif' -o -iname '*.bmp' -o -iname '*.webp' \) -print 2>/dev/null | sort | head -n 1
+		find -L "$theme_path/backgrounds" -maxdepth 1 -type f \
+			\( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.gif' -o -iname '*.bmp' -o -iname '*.webp' \
+				-o -iname '*.mp4' -o -iname '*.m4v' -o -iname '*.mov' -o -iname '*.webm' -o -iname '*.mkv' -o -iname '*.avi' \) \
+			-print 2>/dev/null | sort | head -n 1
 	fi
 }
 
@@ -123,7 +128,7 @@ fi
 current_theme=$(cat "$HOME/.local/state/omarchy/current/theme.name" 2>/dev/null)
 selected_preview=""
 if theme_slug_visible "$current_theme"; then
-	for extension in png jpg jpeg webp gif bmp; do
+	for extension in png jpg jpeg webp gif bmp mp4 m4v mov webm mkv avi; do
 		if [[ -e $preview_dir/$current_theme.$extension ]]; then
 			selected_preview="$preview_dir/$current_theme.$extension"
 			break
@@ -142,8 +147,8 @@ if [[ -n $selected_preview ]]; then
 	menu_args+=(--selected "$selected_preview")
 fi
 
-if [[ $preload == true ]]; then
-	menu_args+=(--preload)
+if [[ $print_rows == true ]]; then
+	menu_args+=(--print-rows)
 fi
 
 prune_hidden_previews
