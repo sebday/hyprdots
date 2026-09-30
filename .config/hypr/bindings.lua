@@ -9,7 +9,6 @@ hl.unbind("SUPER + E")
 -- Super+Shift+S was Google Maps; Super+Shift+E was Hey email.
 o.rebind("SUPER + SHIFT + S", "Shopify", { panel = "evo.shopify" })
 o.rebind("SUPER + SHIFT + E", "Evoplayer", { panel = "evo.player" })
-o.rebind("SUPER + SHIFT + X", "Cameras", "python3 -I /home/seb/projects/omarchy-cameras/bin/open")
 
 -- Super+/ and Super+Alt+/ scale the focused monitor; unsafe on this layout.
 hl.unbind("SUPER + SLASH")
