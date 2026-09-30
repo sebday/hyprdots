@@ -34,7 +34,13 @@ printf '  %s -> %s\n' "$REPO/.config/nvim/lua/plugins/theme.lua" "$HOME/.local/s
 link "$REPO/.config/bash/aliases" "$HOME/.config/bash/aliases"
 link "$REPO/.config/fastfetch/config.jsonc" "$HOME/.config/fastfetch/config.jsonc"
 link "$REPO/.config/omarchy/extensions/omarchy-menu.jsonc" "$HOME/.config/omarchy/extensions/omarchy-menu.jsonc"
-link "$REPO/.config/omarchy/shell.json" "$HOME/.config/omarchy/shell.json"
+# The shell saves shell.json by replacing the file, which would break a
+# symlink, so it is only seeded here. Copy it back into the repo to keep it.
+if [[ ! -e $HOME/.config/omarchy/shell.json ]]; then
+	mkdir -p "$HOME/.config/omarchy"
+	cp "$REPO/.config/omarchy/shell.json" "$HOME/.config/omarchy/shell.json"
+	printf '  %s <- %s (copied)\n' "$HOME/.config/omarchy/shell.json" "$REPO/.config/omarchy/shell.json"
+fi
 link "$REPO/.config/omarchy/defaults/agent" "$HOME/.config/omarchy/defaults/agent"
 
 link_plugin() {
@@ -48,13 +54,18 @@ link_plugin evo.tray "$HOME/projects/omarchy-tray"
 link_plugin evo.cloudflare "$HOME/projects/omarchy-cloudflare"
 link_plugin evo.cursor "$HOME/projects/omarchy-cursor"
 link_plugin evo.github "$HOME/projects/omarchy-github"
-link_plugin evo.homeassistant "$HOME/projects/omarchy-homeassistant"
 link_plugin evo.insync "$HOME/projects/omarchy-insync"
+link_plugin evo.player "$HOME/projects/evoplayer/gui/omarchy-plugin"
 link_plugin evo.shopify "$HOME/projects/omarchy-shopify"
 link_plugin evo.steam "$HOME/projects/omarchy-steam"
 link_plugin evo.stocks "$HOME/projects/omarchy-stocks"
 link_plugin evo.trading "$HOME/projects/omarchy-trading"
+link_plugin evo.weather "$HOME/projects/omarchy-weather"
 link_plugin evo.webtheme "$HOME/projects/omarchy-webtheme"
+# Clones of built-in plugins, kept here as stock plus local changes.
+link_plugin seb.clock "$REPO/.config/omarchy/plugins/seb.clock"
+link_plugin seb.lock "$REPO/.config/omarchy/plugins/seb.lock"
+link_plugin seb.osd "$REPO/.config/omarchy/plugins/seb.osd"
 link "$REPO/.config/imv/config" "$HOME/.config/imv/config"
 link "$REPO/.config/mpv/mpv.conf" "$HOME/.config/mpv/mpv.conf"
 link "$REPO/.local/bin/omasnap-edit" "$HOME/.local/bin/omasnap-edit"

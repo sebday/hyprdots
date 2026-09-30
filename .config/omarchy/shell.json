@@ -18,7 +18,12 @@
     "layout": {
       "left": [
         {
-          "id": "evo.stocks"
+          "id": "evo.stocks",
+          "market": "btc"
+        },
+        {
+          "id": "evo.stocks",
+          "market": "spcx"
         },
         {
           "id": "evo.trading"
@@ -51,10 +56,10 @@
           ]
         },
         {
-          "id": "omarchy.network"
+          "id": "evo.cloudflare"
         },
         {
-          "id": "evo.cloudflare"
+          "id": "omarchy.network"
         },
         {
           "id": "omarchy.agents"
@@ -67,6 +72,9 @@
         },
         {
           "id": "omarchy.system-update"
+        },
+        {
+          "id": "evo.monitors"
         },
         {
           "id": "evo.player"
@@ -86,7 +94,14 @@
           "verticalFormat": "HH\n—\nmm"
         }
       ]
-    }
+    },
+    "notificationPlacements": [
+      {
+        "output": "DP-1",
+        "position": "top",
+        "align": "center"
+      }
+    ]
   },
   "notifications": {
     "position": "top",
@@ -104,7 +119,8 @@
     "omarchy.monitor",
     "omarchy.notifications",
     "omarchy.media",
-    "omarchy.lock"
+    "omarchy.lock",
+    "omarchy.osd"
   ],
   "shopify": {
     "apiUrl": "https://data.day.marketing",
@@ -152,16 +168,22 @@
       "id": "evo.cloudflare"
     },
     {
-      "id": "evo.player"
-    },
-    {
       "id": "evo.webtheme"
     },
     {
       "id": "seb.lock"
+    },
+    {
+      "id": "evo.player"
+    },
+    {
+      "id": "seb.osd"
     }
   ],
   "cloneSourceRestores": [
-    "seb.lock"
+    "evo.monitors",
+    "evo.player",
+    "seb.lock",
+    "seb.osd"
   ]
 }
