@@ -13,12 +13,24 @@ o.window({ class = "^org\\.quickshell$", title = "^Shopify$" }, { workspace = "1
 -- Pop & pin (Super+O): Omarchy defaults to rounded corners for the pop tag.
 o.window({ tag = "pop" }, { rounding = 0 })
 
+-- The cameras window is one tile. Title keeps this off other qml windows.
+o.window({ class = "^org\\.qt-project\\.qml$", title = "^Cameras$" }, { tile = true })
+
 -- Google Home camera pop-outs. Title match only, so no camera id is stored.
--- border_size and rounding are dynamic, so they apply to windows already open.
 o.window({
   class = "^brave",
   title = "^Cameras . Google Home$",
 }, {
   border_size = 0,
   rounding = 0,
+  render_unfocused = true,
+})
+
+-- Camera list webapps. The class prefix is the site, not a camera id.
+o.window({
+  class = "^brave-home\\.google\\.com__.*_cameras_list_",
+}, {
+  border_size = 0,
+  rounding = 0,
+  render_unfocused = true,
 })
