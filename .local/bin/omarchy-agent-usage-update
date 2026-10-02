@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# Run the packaged agent usage collectors, then publish a Cursor record when
+# this refresh includes Cursor. The bar resolves this name on PATH ahead of
+# /usr/share/omarchy/bin. omarchy agent usage update calls /usr/bin directly.
+set -euo pipefail
+
+REAL=/usr/bin/omarchy-agent-usage-update
+here=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+collector="$here/omarchy-agent-usage-cursor"
+usage_dir="${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/agents/usage"
+
+want_cursor() {
+  local except=0
+  local -a only=()
+  local arg
+  while (($#)); do
+    arg="$1"
+    shift
+    case "$arg" in
+    --except)
+      [[ ${1:-} == cursor ]] && except=1
+      shift || true
+      ;;
+    --force | --limits-only) ;;
+    *) only+=("$arg") ;;
+    esac
+  done
+  ((except)) && return 1
+  ((${#only[@]} == 0)) && return 0
+  local name
+  for name in "${only[@]}"; do
+    [[ $name == cursor ]] && return 0
+  done
+  return 1
+}
+
+flags=()
+for arg in "$@"; do
+  case "$arg" in
+  --force | --limits-only) flags+=("$arg") ;;
+  esac
+done
+
+status=0
+"$REAL" "$@" || status=$?
+
+if want_cursor "$@"; then
+  record=""
+  if [[ -x $collector ]]; then
+    record=$("$collector" "${flags[@]}") || record=""
+  fi
+  if [[ -z $record ]] || ! /usr/bin/jq -e '.id == "cursor"' >/dev/null 2>&1 <<<"$record"; then
+    echo "omarchy-agent-usage-update: cursor collector failed" >&2
+    status=1
+  elif [[ -L $usage_dir ]]; then
+    echo "omarchy-agent-usage-update: refusing to write through a symlinked usage directory" >&2
+    status=1
+  else
+    mkdir -p -m 700 "$usage_dir"
+    umask 077
+    tmp=$(/usr/bin/mktemp "$usage_dir/.cursor.XXXXXX")
+    printf '%s\n' "$record" >"$tmp"
+    mv -f -T -- "$tmp" "$usage_dir/cursor.json"
+  fi
+fi
+
+exit "$status"
