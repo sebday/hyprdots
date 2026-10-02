@@ -34,9 +34,8 @@ end
 -- Number-row move stays off; workspace moves are on the numpad.
 hl.unbind("SUPER + SHIFT + " .. workspace_code(4))
 
-o.bind("SUPER + code:10", "Brave", { launch = "brave" })
--- Own data dir, so this launch cannot take over the running Brave profile.
-o.bind("SUPER + code:11", "Brave Incognito", "brave-incognito")
+o.bind("SUPER + code:10", "Brave", { launch = "brave-open" })
+o.bind("SUPER + code:11", "Brave Incognito", "omarchy-launch-browser --private")
 o.bind("SUPER + code:12", "Brave Tor", "brave --tor")
 
 o.bind("SUPER + SHIFT + I", "Color picker", "pkill hyprpicker || hyprpicker -a")

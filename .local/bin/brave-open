@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Pass this launch to the running Brave. A second process on the same
+# profile replaces the one already open.
+
+set -euo pipefail
+
+if [[ ${1:-} == --help || ${1:-} == --version ]]; then
+  exec /usr/bin/brave "$@"
+fi
+
+if omarchy-cmd-browser-handoff /usr/bin/brave "$@"; then
+  exit 0
+fi
+
+exec env -u BROWSER /usr/bin/brave "$@"
