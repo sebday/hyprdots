@@ -46,4 +46,4 @@ alias master='git checkout master'
 gcam() { git add -A && git commit -m "$@"; }
 
 # Projects
-alias pub='(cd "$HOME/work/ecommerce-docs" && npm run publish)'
+alias pub='(cd "$HOME/work/ecommerce-sites" && npm run publish)'
