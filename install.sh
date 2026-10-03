@@ -32,6 +32,7 @@ mkdir -p "$REPO/.config/nvim/lua/plugins"
 ln -sfn "$HOME/.local/state/omarchy/current/theme/neovim.lua" "$REPO/.config/nvim/lua/plugins/theme.lua"
 printf '  %s -> %s\n' "$REPO/.config/nvim/lua/plugins/theme.lua" "$HOME/.local/state/omarchy/current/theme/neovim.lua"
 link "$REPO/.config/bash/aliases" "$HOME/.config/bash/aliases"
+link "$REPO/.config/user-dirs.dirs" "$HOME/.config/user-dirs.dirs"
 link "$REPO/.config/fastfetch/config.jsonc" "$HOME/.config/fastfetch/config.jsonc"
 link "$REPO/.config/omarchy/extensions/omarchy-menu.jsonc" "$HOME/.config/omarchy/extensions/omarchy-menu.jsonc"
 # The shell saves shell.json by replacing the file, which would break a
