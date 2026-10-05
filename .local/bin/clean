@@ -282,19 +282,21 @@ empty_dir() {
 
 # /proc/net/unix lists the path a process bound, not the file's inode.
 # Removing that path leaves the process listening where nothing can connect.
-socket_open() {
-  [[ -S $1 ]] || return 1
-  awk -v path="$1" 'NR > 1 {
+# Chromium's socket is /tmp/org.chromium.Chromium.<id>/SingletonSocket, so the
+# directory itself is not a socket and a top-level check would delete it.
+entry_has_open_socket() {
+  [[ -S $1 || -d $1 ]] || return 1
+  awk -v path="$1" -v prefix="$1/" 'NR > 1 {
     sock = $0
     sub(/^[^ ]+([ \t]+[^ \t]+){6}[ \t]+/, "", sock)
-    if (sock == path) found = 1
+    if (sock == path || index(sock, prefix) == 1) found = 1
   } END { exit !found }' /proc/net/unix
 }
 
 empty_tmp() {
   local path=$1 entry
   while IFS= read -r -d '' entry; do
-    if socket_open "$entry"; then
+    if entry_has_open_socket "$entry"; then
       printf 'warning: left %s in place, a process still has it open\n' "$entry" >&2
       continue
     fi

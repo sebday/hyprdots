@@ -34,9 +34,9 @@ end
 -- Number-row move stays off; workspace moves are on the numpad.
 hl.unbind("SUPER + SHIFT + " .. workspace_code(4))
 
-o.bind("SUPER + code:10", "Brave", { launch = "brave-open" })
-o.bind("SUPER + code:11", "Brave Incognito", "omarchy-launch-browser --private")
-o.bind("SUPER + code:12", "Brave Tor", "brave --tor")
+o.bind("SUPER + code:10", "Brave", { launch = "brave" })
+o.bind("SUPER + code:11", "Brave Incognito", { launch = "brave --incognito" })
+o.bind("SUPER + code:12", "Brave Tor", { launch = "brave --tor" })
 
 o.bind("SUPER + SHIFT + I", "Color picker", "pkill hyprpicker || hyprpicker -a")
 o.rebind("SUPER + SHIFT + C", "Calculator", "omacalc")
