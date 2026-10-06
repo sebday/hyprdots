@@ -52,9 +52,17 @@ install_yay() {
     rm -rf "$temp_build_dir"
 }
 
+# Steam and the 32-bit Vulkan driver live in multilib.
+enable_multilib() {
+    log "Enabling the multilib repository..."
+    sudo sed -i '/^#\[multilib\]/,+1 s/^#//' /etc/pacman.conf
+    sudo pacman -Sy --noconfirm
+}
+
 # Install packages from the official Arch repositories using pacman.
 # Lines in packages.txt that are not in the official repos (e.g. AUR-only brave-bin) are skipped.
 install_pacman_packages() {
+    enable_multilib
     log "Updating system and installing pacman packages from packages.txt..."
     local sync_packages=()
     local pkg

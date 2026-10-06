@@ -70,6 +70,11 @@ mpv
 imagemagick
 transmission-cli
 
+# Games ######################
+steam
+vulkan-radeon
+lib32-vulkan-radeon
+
 # Dev #######################
 mise
 python
