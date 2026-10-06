@@ -1,0 +1,6 @@
+{
+  "id": "grok",
+  "name": "Grok",
+  "matches": ["https://grok.com/*"],
+  "enabled": true
+}

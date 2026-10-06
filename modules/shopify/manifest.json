@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "evo.shopify",
+  "name": "Shopify",
+  "version": "2.0.0",
+  "author": "seb",
+  "description": "Multi-store Shopify revenue panel",
+  "kinds": [
+    "dashboard"
+  ],
+  "entryPoints": {
+    "dashboard": "Panel.qml"
+  },
+  "menu": {
+    "name": "Shopify",
+    "icon": "󰝗",
+    "keywords": ["shopify", "store", "ecommerce", "revenue"]
+  }
+}

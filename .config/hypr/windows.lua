@@ -30,12 +30,6 @@ hl.window_rule({
 })
 
 hl.window_rule({
-	name = "tag-floating-window-satty",
-	match = { initial_title = "^satty$" },
-	tag = "+floating-window",
-})
-
-hl.window_rule({
 	name = "floating-window-float",
 	match = { tag = "floating-window" },
 	float = true,
@@ -107,7 +101,6 @@ hl.window_rule({
 
 local DASHBOARD_WS = "10"
 local EVICT_WS = "5"
-local DASHBOARD_LAYOUT = "lua:dashboard_2x2"
 
 hl.window_rule({
 	name = "dashboard-no-initial-focus",
@@ -122,7 +115,7 @@ hl.window_rule({
 	name = "dashboard-pinned-shopify-ws10",
 	match = {
 		class = "^(org%.quickshell)$",
-		title = "^evo%.panels%.shopify",
+		title = "^evo%.shopify$",
 	},
 	workspace = DASHBOARD_WS,
 })
@@ -131,12 +124,10 @@ hl.window_rule({
 	name = "dashboard-pinned-player-ws10",
 	match = {
 		class = "^(org%.quickshell)$",
-		title = "^evo%.panels%.player$",
+		title = "^evo%.player$",
 	},
 	workspace = DASHBOARD_WS,
 })
-
-local dashboard_reflow_pending = false
 
 local function window_size(win)
 	if not win then
@@ -172,23 +163,12 @@ local function is_dashboard_window(win)
 	end
 	local title = win.title or ""
 	return title:match("^evo%.panels%.[^%.]+$") ~= nil
-		or title:match("^evo%.panels%.shopify") ~= nil
+		or title == "evo.shopify"
+		or title == "evo.player"
 end
 
 local function is_ws10_allowed_window(win)
 	return is_dashboard_window(win) or is_google_home_cameras_brave(win) or is_btop_window(win)
-end
-
-local function reflow_dashboard_workspace()
-	if dashboard_reflow_pending then
-		return
-	end
-	dashboard_reflow_pending = true
-	hl.timer(function()
-		dashboard_reflow_pending = false
-		hl.dispatch(hl.dsp.focus({ workspace = DASHBOARD_WS }))
-		hl.dispatch(hl.dsp.layout("name " .. DASHBOARD_LAYOUT))
-	end, { timeout = 200, type = "oneshot" })
 end
 
 local function evict_non_dashboard_from_ws10(win)
@@ -207,12 +187,10 @@ local function route_dashboard_window(win)
 	end
 
 	if win.workspace and win.workspace.name == DASHBOARD_WS then
-		reflow_dashboard_workspace()
 		return
 	end
 
 	hl.dispatch(hl.dsp.window.move({ workspace = DASHBOARD_WS, window = win, follow = false }))
-	reflow_dashboard_workspace()
 end
 
 local function is_preserved_tui(win)

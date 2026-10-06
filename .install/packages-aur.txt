@@ -1,5 +1,7 @@
 # Tools ######################
 brave-bin
+cursor-bin
+omasnap-bin
 
 # File Management ###########
 insync

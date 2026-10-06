@@ -1,0 +1,146 @@
+#!/usr/bin/env bash
+# Native messaging host. Chrome stdin is the main loop; a FIFO watcher
+# pokes open tabs when `webtheme notify` runs.
+
+set -euo pipefail
+
+export PATH="${HOME}/.local/bin:/usr/local/bin:/usr/bin:${PATH:-}"
+
+: "${XDG_RUNTIME_DIR:?XDG_RUNTIME_DIR is required}"
+FIFO="${XDG_RUNTIME_DIR}/evo-webtheme.notify"
+LOCK="${XDG_RUNTIME_DIR}/evo-webtheme.host.lock"
+STATE_DIR="${WEBTHEME_DATA_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/evoshell/webtheme}"
+PLUGIN_DIR_FILE="$STATE_DIR/plugin-dir"
+
+find_webtheme() {
+  local plugin_dir candidate here
+  if [[ -f $PLUGIN_DIR_FILE ]]; then
+    plugin_dir=$(<"$PLUGIN_DIR_FILE")
+    candidate="$plugin_dir/bin/webtheme"
+    [[ -x $candidate ]] && { printf '%s' "$candidate"; return 0; }
+  fi
+  candidate="$HOME/projects/hyprdots/modules/webtheme/bin/webtheme"
+  [[ -x $candidate ]] && { printf '%s' "$candidate"; return 0; }
+  here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+  candidate="$here/bin/webtheme"
+  [[ -x $candidate ]] && { printf '%s' "$candidate"; return 0; }
+  return 1
+}
+
+send_json() {
+  local msg=$1
+  local len
+  len=$(printf '%s' "$msg" | wc -c)
+  (
+    flock 9
+    printf "\\$(printf '%03o' $((len & 255)))"
+    printf "\\$(printf '%03o' $(((len >> 8) & 255)))"
+    printf "\\$(printf '%03o' $(((len >> 16) & 255)))"
+    printf "\\$(printf '%03o' $(((len >> 24) & 255)))"
+    printf '%s' "$msg"
+  ) 9>"$LOCK"
+}
+
+send_reload() {
+  send_json '{"type":"reload"}'
+}
+
+reply() {
+  local req_id=$1 payload=$2
+  send_json "$(jq -c --arg id "$req_id" '. + {id: $id}' <<<"$payload")"
+}
+
+reply_err() {
+  local req_id=$1 err=$2
+  send_json "$(jq -nc --arg id "$req_id" --arg error "$err" '{ok:false, id:$id, error:$error}')"
+}
+
+handle_message() {
+  set +e
+  local raw=$1 type req_id url title site_id enabled webtheme out
+  type=$(jq -r '.type // empty' <<<"$raw" 2>/dev/null) || return 0
+  req_id=$(jq -r '.id // empty' <<<"$raw" 2>/dev/null) || true
+  webtheme=$(find_webtheme)
+  if [[ -z ${webtheme:-} ]]; then
+    [[ -n $req_id ]] && reply_err "$req_id" "webtheme CLI not found"
+    return 0
+  fi
+
+  case $type in
+    list)
+      if out=$("$webtheme" list 2>/dev/null); then
+        reply "$req_id" "$(jq -c '. + {ok:true, type:"list"}' <<<"$out")"
+      else
+        reply_err "$req_id" "list failed"
+      fi
+      ;;
+    set-enabled)
+      site_id=$(jq -r '.siteId // empty' <<<"$raw")
+      enabled=$(jq -r '.enabled' <<<"$raw")
+      case $enabled in
+        true|false) ;;
+        *) reply_err "$req_id" "enabled must be true or false"; return 0 ;;
+      esac
+      [[ -n $site_id ]] || { reply_err "$req_id" "missing siteId"; return 0; }
+      if "$webtheme" set-enabled "$site_id" "$enabled" >/dev/null 2>&1; then
+        reply "$req_id" '{"ok":true,"type":"set-enabled"}'
+      else
+        reply_err "$req_id" "set-enabled failed"
+      fi
+      ;;
+    enabled)
+      enabled=$(jq -r '.enabled' <<<"$raw")
+      case $enabled in
+        true|false) ;;
+        *) reply_err "$req_id" "enabled must be true or false"; return 0 ;;
+      esac
+      if "$webtheme" enabled "$enabled" >/dev/null 2>&1; then
+        reply "$req_id" '{"ok":true,"type":"enabled"}'
+      else
+        reply_err "$req_id" "enabled failed"
+      fi
+      ;;
+    theme-site)
+      url=$(jq -r '.url // empty' <<<"$raw")
+      title=$(jq -r '.title // empty' <<<"$raw")
+      [[ $url =~ ^https?:// ]] || { reply_err "$req_id" "URL must be http(s)"; return 0; }
+      if out=$("$webtheme" theme-site --launch "$url" "$title" 2>/dev/null); then
+        reply "$req_id" "$(jq -c '. + {type:"theme-site"}' <<<"$out")"
+      else
+        reply_err "$req_id" "theme-site failed"
+      fi
+      ;;
+  esac
+  set -e
+  return 0
+}
+
+watch_stdin() {
+  while true; do
+    local len raw
+    len=$(dd bs=4 count=1 status=none | od -An -tu4 | tr -d ' ') || true
+    [[ -n ${len:-} ]] || break
+    if (( len <= 0 )); then
+      continue
+    fi
+    if (( len > 1048576 )); then
+      break
+    fi
+    raw=$(dd bs="$len" count=1 status=none) || break
+    handle_message "$raw"
+  done
+}
+
+watch_fifo() {
+  if [[ ! -p $FIFO ]]; then
+    rm -f "$FIFO"
+    mkfifo -m 600 "$FIFO" || return 0
+  fi
+  exec 3<>"$FIFO"
+  while read -r _ <&3; do
+    send_reload || true
+  done
+}
+
+watch_fifo &
+watch_stdin

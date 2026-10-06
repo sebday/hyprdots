@@ -1,0 +1,11 @@
+:root {
+    --color-background-night: var(--bg-primary);
+    --color-background-storm: var(--bg-secondary);
+    --color-terminal-blue: var(--blue);
+    --color-terminal-cyan: var(--text-accent);
+    --color-terminal-white: var(--text-primary);
+    --color-green: var(--green);
+    --color-turquoise: var(--cyan);
+    --color-white: var(--text-primary);
+    --border-color: color-mix(in srgb, var(--bg-secondary) 80%, transparent);
+}

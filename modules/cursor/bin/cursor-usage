@@ -1,0 +1,154 @@
+#!/usr/bin/env bash
+# Cursor usage for the evo.cursor bar widget. Runs cursor-usage-collect,
+# publishes its record to $EVOSHELL_STATE/cursor/usage.json, and prints the
+# panel payload derived from it.
+set -euo pipefail
+
+_bin_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+_paths_lib="${EVOSHELL_LIB:-$HOME/.local/lib/evoshell/bin}/evo-paths-lib"
+# shellcheck source=/dev/null
+[[ -r $_paths_lib ]] && source "$_paths_lib"
+EVOSHELL_STATE="${EVOSHELL_STATE:-${XDG_STATE_HOME:-$HOME/.local/state}/evoshell}"
+
+SPENDING_URL="https://cursor.com/dashboard/spending"
+COLLECTOR="${_bin_dir}/cursor-usage-collect"
+STATE_DIR="${EVOSHELL_STATE}/cursor"
+STATE_PATH="${STATE_DIR}/usage.json"
+HEATMAP_JSON='["#45475a","#89b4fa","#74c7ec","#89dceb","#cba6f7"]'
+
+usage() {
+    cat >&2 <<'EOF'
+usage:
+  cursor-usage [--force]
+  cursor-usage open
+EOF
+}
+
+cmd_open() {
+    exec /usr/bin/xdg-open "$SPENDING_URL"
+}
+
+json_error() {
+    jq -cn --arg text "$1" --arg message "${2:-}" \
+        '{text: $text, class: "error", message: $message, chips: [], cursorPercent: 0, otherPercent: 0, cycleDaysUsed: 0, cycleDaysTotal: 0, cycleProgress: 0, detail: null}'
+}
+
+publish_record() {
+    [[ ! -L $STATE_DIR ]] || return 1
+    mkdir -p -m 700 "$STATE_DIR" || return 1
+    umask 077
+    local tmp
+    tmp="$(/usr/bin/mktemp -p "$STATE_DIR" .usage.XXXXXXXXXX)" || return 1
+    printf '%s\n' "$1" >"$tmp" || { rm -f -- "$tmp"; return 1; }
+    mv -f -T -- "$tmp" "$STATE_PATH"
+}
+
+day_epoch() {
+    [[ -n ${1:-} ]] || { echo 0; return; }
+    date -d "$(date -d "$1" +%Y-%m-%d 2>/dev/null)" +%s 2>/dev/null || echo 0
+}
+
+cmd_status() {
+    local record
+    record=$("$COLLECTOR" "$@" 2>/dev/null) || record=""
+    if [[ -z $record ]] || ! jq -e '.id == "cursor"' >/dev/null 2>&1 <<<"$record"; then
+        json_error "…" "Cursor usage collector failed"
+        exit 0
+    fi
+    publish_record "$record" || true
+
+    if ! jq -e '(.limits | length) > 0' >/dev/null 2>&1 <<<"$record"; then
+        local msg
+        msg=$(jq -r '[.usageStatusText, .authHelpText] | map(select(. != "")) | join(" — ")' <<<"$record")
+        if jq -e '.usageStatusText == "Not signed in"' >/dev/null 2>&1 <<<"$record"; then
+            json_error "auth" "${msg:-Sign in to Cursor IDE or the Cursor CLI}"
+        else
+            json_error "…" "${msg:-Cursor usage unavailable}"
+        fi
+        exit 0
+    fi
+
+    local start_epoch end_epoch today_epoch
+    local cycle_days_used=0 cycle_days_total=0 cycle_progress=0
+    start_epoch=$(day_epoch "$(jq -r '.billingCycleStart // ""' <<<"$record")")
+    end_epoch=$(day_epoch "$(jq -r '.billingCycleEnd // (.limits[0].resetsAt // "")' <<<"$record")")
+    today_epoch=$(date -d "today 00:00:00" +%s 2>/dev/null || echo 0)
+    if (( start_epoch > 0 && end_epoch > start_epoch && today_epoch > 0 )); then
+        cycle_days_total=$(( (end_epoch - start_epoch) / 86400 ))
+        cycle_days_used=$(( (today_epoch - start_epoch) / 86400 ))
+        (( cycle_days_used < 0 )) && cycle_days_used=0
+        (( cycle_days_used > cycle_days_total )) && cycle_days_used=$cycle_days_total
+        if (( cycle_days_total > 0 )); then
+            cycle_progress=$(awk -v u="$cycle_days_used" -v t="$cycle_days_total" 'BEGIN { p = u / t; if (p > 1) p = 1; printf "%.4f", p }')
+        fi
+    fi
+
+    jq -c \
+        --argjson colors "$HEATMAP_JSON" \
+        --argjson cycleDaysUsed "$cycle_days_used" \
+        --argjson cycleDaysTotal "$cycle_days_total" \
+        --argjson cycleProgress "$cycle_progress" \
+        '
+        def pct($l): (($l.percent // 0) * 100 + 0.5 | floor) as $p
+          | if $p < 0 then 0 elif $p > 100 then 100 else $p end;
+        def bucket_total($b):
+          ($b.inputTokens // 0) + ($b.outputTokens // 0)
+            + ($b.cacheReadInputTokens // 0) + ($b.cacheCreationInputTokens // 0);
+        (.limits | map(select(.label == "Included")) | first // {}) as $included
+        | (.limits | map(select(.label == "API")) | first // {}) as $api
+        | pct($included) as $cursor
+        | pct($api) as $other
+        | $colors[2] as $cursorColor
+        | $colors[4] as $otherColor
+        | ((.modelUsage // {}) | to_entries | map({model: .key, tokens: bucket_total(.value)})) as $models
+        | ($models | map(.tokens) | add // 0) as $tokensTotal
+        | ($models | sort_by(-.tokens) | .[0:6]) as $top
+        | ($top | map(.tokens) | add // 0) as $topTotal
+        | {
+            text: "\($cursor)% / \($other)%",
+            class: "cursor-usage",
+            chips: [
+              {label: "Cursor", percent: $cursor, color: $cursorColor, group: "cursor"},
+              {label: "Other", percent: $other, color: $otherColor, group: "other"}
+            ],
+            cursorPercent: $cursor,
+            otherPercent: $other,
+            cycleDaysUsed: $cycleDaysUsed,
+            cycleDaysTotal: $cycleDaysTotal,
+            cycleProgress: $cycleProgress,
+            detail: {
+              membership: (if (.tierLabel // "") == "" then "unknown" else .tierLabel end),
+              billingCycleStart: (.billingCycleStart // ""),
+              billingCycleEnd: (.billingCycleEnd // ($included.resetsAt // "")),
+              autoMessage: (.autoMessage // ""),
+              apiMessage: (.apiMessage // ""),
+              onDemand: (.onDemandEnabled == true),
+              onDemandUsed: (.onDemandUsed // 0),
+              cursorPercent: $cursor,
+              otherPercent: $other,
+              tokensTotal: $tokensTotal,
+              tokensToday: (.todayTotalTokens // 0),
+              modelSplit: ($top | to_entries | map({
+                model: .value.model,
+                tokens: .value.tokens,
+                percent: (if $topTotal > 0 then (.value.tokens / $topTotal * 100) else 0 end),
+                color: $colors[.key % ($colors | length)]
+              })),
+              cycleDaysUsed: $cycleDaysUsed,
+              cycleDaysTotal: $cycleDaysTotal,
+              cycleProgress: $cycleProgress,
+              cursorColor: $cursorColor,
+              otherColor: $otherColor,
+              stale: (.limitsStale == true)
+            }
+          }
+        ' <<<"$record" || json_error "…" "Could not parse Cursor usage"
+}
+
+case "${1:-}" in
+open) cmd_open ;;
+"") cmd_status ;;
+--force) cmd_status --force ;;
+-h|--help) usage; exit 0 ;;
+*) usage; exit 1 ;;
+esac

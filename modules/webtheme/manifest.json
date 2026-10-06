@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "evo.webtheme",
+  "name": "Webtheme",
+  "version": "1.0.0",
+  "author": "seb",
+  "description": "evoshell theme CSS for Brave and Chromium sites",
+  "kinds": [
+    "service",
+    "bar-widget"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "service": "Service.qml",
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Webtheme",
+    "description": "Site CSS packages for Brave and Chromium",
+    "category": "Appearance",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}

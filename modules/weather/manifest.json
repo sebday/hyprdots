@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "evo.weather",
+  "name": "Weather",
+  "version": "1.0.0",
+  "author": "seb",
+  "description": "Weather pill with a pixel rain radar",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Weather",
+    "description": "Current conditions and a small RainViewer pixel map",
+    "category": "Info",
+    "allowMultiple": false,
+    "defaultSection": "center"
+  }
+}

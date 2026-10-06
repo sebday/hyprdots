@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "evo.sys.themes",
+  "name": "Themes",
+  "version": "1.0.0",
+  "author": "seb",
+  "description": "Theme carousel",
+  "kinds": [
+    "menu"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "menu": "Theme.qml"
+  }
+}

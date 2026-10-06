@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Prints the lock wallpaper path, then its mtime:size signature.
+# usage: lock-background <evoshell wallpaper state file> <theme dir>
+# Same resolution as evoshell's wallpaper service: the saved wallpaper, else
+# the same file name in the active theme, else the theme's first image.
+set -uo pipefail
+
+state=${1:-}
+theme=${2:-}
+path=""
+
+if [[ -f $state ]]; then
+  saved=$(<"$state")
+  if [[ -f $saved ]]; then
+    path=$saved
+  elif [[ -n $saved ]]; then
+    for dir in "$theme/wallpapers" "$theme/backgrounds"; do
+      [[ -f $dir/${saved##*/} ]] && { path=$dir/${saved##*/}; break; }
+    done
+  fi
+fi
+
+if [[ -z $path ]]; then
+  for dir in "$theme/wallpapers" "$theme/backgrounds"; do
+    path=$(find "$dir" -maxdepth 1 -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) 2>/dev/null | sort | head -n1)
+    [[ -n $path ]] && break
+  done
+fi
+
+[[ -n $path ]] || exit 1
+path=$(readlink -f -- "$path") || exit 1
+printf '%s\n%s\n' "$path" "$(stat -Lc %Y:%s -- "$path" 2>/dev/null)"

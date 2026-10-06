@@ -1,0 +1,4 @@
+module widgets
+TrayUsageDial 1.0 TrayUsageDial.qml
+CommandWidget 1.0 CommandWidget.qml
+BarSection 1.0 BarSection.qml

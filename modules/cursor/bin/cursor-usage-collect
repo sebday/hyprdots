@@ -1,0 +1,434 @@
+#!/usr/bin/env bash
+# Print one agent usage record for Cursor (schemaVersion 1, same shape as the
+# Omarchy agents records, plus billing cycle fields for evo.cursor).
+# Auth is the session Cursor already stores on this machine. The cookie goes
+# to curl on stdin, never in argv.
+set -euo pipefail
+
+_paths_lib="${EVOSHELL_LIB:-$HOME/.local/lib/evoshell/bin}/evo-paths-lib"
+# shellcheck source=/dev/null
+[[ -r $_paths_lib ]] && source "$_paths_lib"
+EVOSHELL_CACHE="${EVOSHELL_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/evoshell}"
+
+CACHE_DIR="${EVOSHELL_CACHE}/cursor"
+CACHE_PATH="${CACHE_DIR}/record.json"
+CACHE_TTL="${CURSOR_AGENT_CACHE_SEC:-300}"
+CURSOR_AUTH_JSON="${CURSOR_AUTH_JSON:-$HOME/.config/cursor/auth.json}"
+CURSOR_STATE_DB="${CURSOR_STATE_DB:-$HOME/.config/Cursor/User/globalStorage/state.vscdb}"
+MAX_BYTES=1048576
+
+force=0
+limits_only=0
+for arg in "$@"; do
+  case "$arg" in
+  --force) force=1 ;;
+  --limits-only) limits_only=1 ;;
+  -h | --help)
+    echo "usage: cursor-usage-collect [--force] [--limits-only]" >&2
+    exit 0
+    ;;
+  *)
+    echo "usage: cursor-usage-collect [--force] [--limits-only]" >&2
+    exit 1
+    ;;
+  esac
+done
+
+private_dir() {
+  local dir="$1"
+  mkdir -p -m 700 "$dir" || return 1
+  [[ ! -L $dir && -d $dir ]] || return 1
+  [[ $(stat -c %u "$dir") == "$(id -u)" ]] || return 1
+  find "$dir" -mindepth 1 -maxdepth 1 ! -type f -exec rm -rf -- {} + 2>/dev/null || true
+  find "$dir" -mindepth 1 -maxdepth 1 -type f -exec chmod 600 -- {} + 2>/dev/null || true
+}
+
+read_bounded() {
+  local file="$1" max="${2:-65536}" data
+  [[ -e $file && ! -L $file ]] || return 1
+  data=$(/usr/bin/dd if="$file" iflag=nofollow,nonblock,count_bytes,fullblock bs=1 count=$((max + 1)) status=none) || return 1
+  [[ ${#data} -le $max ]] || return 1
+  printf '%s' "$data"
+}
+
+curl_cookie() {
+  local url="$1" cookie="$2"
+  shift 2
+  case "$cookie" in *'"'* | *\\* | *$'\n'*) return 1 ;; esac
+  local resp
+  resp=$(
+    printf '%s\n' "header = \"Cookie: WorkosCursorSessionToken=${cookie}\"" \
+      | /usr/bin/curl -q -sS --fail --config - \
+        --proto '=https' --proto-redir '=https' \
+        --max-time 20 --connect-timeout 5 --max-filesize "$MAX_BYTES" --noproxy '*' \
+        "$@" -- "$url" \
+      | /usr/bin/head -c $((MAX_BYTES + 1))
+  ) || return 1
+  [[ ${#resp} -le $MAX_BYTES ]] || return 1
+  printf '%s' "$resp"
+}
+
+token_from_auth_json() {
+  local path="$1"
+  [[ -f $path && ! -L $path ]] || return 1
+  /usr/bin/jq -r '.accessToken // empty' "$path" 2>/dev/null
+}
+
+token_from_state_db() {
+  local path="$1"
+  [[ -f $path && ! -L $path ]] || return 1
+  /usr/bin/python3 -I -S - "$path" <<'PY'
+import sqlite3, sys
+path = sys.argv[1]
+for uri in (f"file:{path}?mode=ro", f"file:{path}?mode=ro&immutable=1"):
+    try:
+        con = sqlite3.connect(uri, uri=True)
+        row = con.execute(
+            "SELECT value FROM ItemTable WHERE key = 'cursorAuth/accessToken'"
+        ).fetchone()
+        con.close()
+        if row and row[0]:
+            print(row[0], end="")
+            raise SystemExit(0)
+    except SystemExit:
+        raise
+    except Exception:
+        continue
+raise SystemExit(1)
+PY
+}
+
+resolve_token() {
+  local token=""
+  token="$(token_from_auth_json "$CURSOR_AUTH_JSON" || true)"
+  if [[ -n $token ]]; then
+    printf '%s' "$token"
+    return 0
+  fi
+  token="$(token_from_state_db "$CURSOR_STATE_DB" || true)"
+  if [[ -n $token ]]; then
+    printf '%s' "$token"
+    return 0
+  fi
+  return 1
+}
+
+jwt_sub() {
+  local token="$1" payload b64 pad
+  payload=$(printf '%s' "$token" | cut -d. -f2)
+  [[ -n $payload ]] || return 1
+  b64="$payload"
+  pad=$(((4 - ${#b64} % 4) % 4))
+  if ((pad > 0)); then
+    b64="${b64}$(printf '%*s' "$pad" '' | tr ' ' '=')"
+  fi
+  b64="${b64//-/+}"
+  b64="${b64//_/\/}"
+  printf '%s' "$b64" | base64 -d 2>/dev/null | /usr/bin/jq -r '.sub // empty' 2>/dev/null
+}
+
+workos_user_from_sub() {
+  local sub="$1"
+  if [[ $sub == *"|"* ]]; then
+    printf '%s' "${sub#*|}"
+    return 0
+  fi
+  printf '%s' "$sub"
+}
+
+build_session_cookie() {
+  local token="$1" user_id sub
+  [[ -n $token ]] || return 1
+  sub=$(jwt_sub "$token") || return 1
+  user_id=$(workos_user_from_sub "$sub")
+  [[ -n $user_id ]] || return 1
+  printf '%s::%s' "$user_id" "$token"
+}
+
+now_iso() { date -Iseconds; }
+now_ms() { date +%s%3N; }
+
+cache_read() {
+  [[ -e $CACHE_PATH ]] || return 1
+  local now mtime age content
+  now=$(date +%s)
+  mtime=$(stat -c %Y "$CACHE_PATH" 2>/dev/null || echo 0)
+  age=$((now - mtime))
+  ((force == 0 && age < CACHE_TTL)) || return 1
+  content="$(read_bounded "$CACHE_PATH" "$MAX_BYTES")" || return 1
+  /usr/bin/jq -e '.id == "cursor" and .ready == true' >/dev/null 2>&1 <<<"$content" || return 1
+  printf '%s\n' "$content"
+}
+
+cache_load_any() {
+  local content
+  content="$(read_bounded "$CACHE_PATH" "$MAX_BYTES")" || return 1
+  /usr/bin/jq -e '.id == "cursor"' >/dev/null 2>&1 <<<"$content" || return 1
+  printf '%s' "$content"
+}
+
+cache_write() {
+  private_dir "$CACHE_DIR" || return 1
+  umask 077
+  local tmp
+  tmp="$(/usr/bin/mktemp -p "$CACHE_DIR" .cursor.XXXXXXXXXX)" || return 1
+  cat >"$tmp" || {
+    rm -f -- "$tmp"
+    return 1
+  }
+  mv -f -T -- "$tmp" "$CACHE_PATH"
+}
+
+unavailable() {
+  local status="$1" help="$2" retry="$3"
+  /usr/bin/jq -nc \
+    --arg updatedAt "$(now_iso)" \
+    --arg status "$status" \
+    --arg help "$help" \
+    --argjson retry "$retry" \
+    '{
+      schemaVersion: 1,
+      id: "cursor",
+      name: "Cursor",
+      updatedAt: $updatedAt,
+      ready: false,
+      hasLocalStats: false,
+      hasPromptStats: false,
+      scope: "account",
+      tierLabel: "",
+      usageStatusText: $status,
+      authHelpText: $help,
+      retryAdvised: $retry,
+      limits: [],
+      limitsStale: false,
+      limitsFetchedAt: 0,
+      todayPrompts: 0,
+      todaySessions: 0,
+      todayTotalTokens: 0,
+      todayTokensByModel: {},
+      recentDays: [],
+      totalPrompts: 0,
+      totalSessions: 0,
+      activeDays: 0,
+      activeDates: [],
+      modelUsage: {}
+    }'
+}
+
+stale_from_cache() {
+  local cached="$1"
+  /usr/bin/jq -c \
+    --arg updatedAt "$(now_iso)" \
+    '.updatedAt = $updatedAt
+      | .ready = false
+      | .limitsStale = true
+      | .retryAdvised = true
+      | .usageStatusText = "Usage unavailable"
+      | .authHelpText = "Could not reach Cursor"' <<<"$cached"
+}
+
+fetch_aggregated() {
+  local start_ms="$1" end_ms="$2" cookie="$3" body resp
+  [[ $start_ms =~ ^[0-9]+$ && $end_ms =~ ^[0-9]+$ && $start_ms -gt 0 && $end_ms -gt 0 ]] || return 1
+  body=$(/usr/bin/jq -nc --arg start "$start_ms" --arg end "$end_ms" '{startDate: $start, endDate: $end}')
+  # Dates only. The session cookie stays on curl's stdin via curl_cookie.
+  resp=$(curl_cookie "https://cursor.com/api/dashboard/get-aggregated-usage-events" "$cookie" \
+    -H "Content-Type: application/json" \
+    -H "Origin: https://cursor.com" \
+    -d "$body") || return 1
+  printf '%s' "$resp"
+}
+
+# Billing cycle and on-demand fields evo.cursor shows; needs iso() defined first.
+JQ_BILLING='
+    def billing($s):
+      {
+        billingCycleStart: iso($s.billingCycleStart // ""),
+        billingCycleEnd: iso($s.billingCycleEnd // ""),
+        autoMessage: (($s.autoModelSelectedDisplayMessage // "") | tostring | .[0:240]),
+        apiMessage: (($s.namedModelSelectedDisplayMessage // "") | tostring | .[0:240]),
+        onDemandEnabled: ($s.individualUsage.onDemand.enabled == true),
+        onDemandUsed: (($s.individualUsage.onDemand.used // 0) | tonumber? // 0)
+      };
+'
+
+# autoPercentUsed / apiPercentUsed are 0–100. The record stores 0–1.
+build_record() {
+  local summary="$1" cycle="${2:-}" today="${3:-}"
+  /usr/bin/jq -nc \
+    --argjson summary "$summary" \
+    --argjson cycle "${cycle:-null}" \
+    --argjson today "${today:-null}" \
+    --arg updatedAt "$(now_iso)" \
+    --argjson fetchedAt "$(now_ms)" \
+    '
+    def iso($s):
+      if ($s | type) == "string" and ($s | test("^[0-9]{4}-[0-9]{2}-[0-9]{2}")) then $s else "" end;
+    '"$JQ_BILLING"'
+    def pct($n):
+      (if ($n | type) == "number" then $n else ($n | tonumber? // 0) end) as $v
+      | (if $v < 0 then 0 elif $v > 100 then 100 else $v end) / 100;
+    def tokens($a):
+      {
+        inputTokens: (($a.inputTokens // "0") | tonumber? // 0 | floor),
+        outputTokens: (($a.outputTokens // "0") | tonumber? // 0 | floor),
+        cacheReadInputTokens: (($a.cacheReadTokens // "0") | tonumber? // 0 | floor),
+        cacheCreationInputTokens: (($a.cacheWriteTokens // "0") | tonumber? // 0 | floor)
+      };
+    def bucket_map($root):
+      if $root == null or ($root | type) != "object" then {}
+      else
+        reduce ((($root.aggregations // []) | if type == "array" then . else [] end)[:24][]) as $a ({};
+          ($a.modelIntent // "") as $name
+          | if ($name | type) != "string" or $name == "" or ($name | length) > 80 then .
+            else .[$name] = tokens($a)
+            end)
+      end;
+    def sum_tokens($map):
+      reduce ($map | to_entries[]) as $e (0;
+        . + ($e.value.inputTokens + $e.value.outputTokens
+          + $e.value.cacheReadInputTokens + $e.value.cacheCreationInputTokens));
+    ($summary.individualUsage.plan // {}) as $plan
+    | iso($summary.billingCycleEnd // "") as $resets
+    | (($summary.membershipType // "") | tostring | gsub("[^A-Za-z0-9 _+-]"; "") | .[0:40]) as $tier
+    | bucket_map($cycle) as $models
+    | bucket_map($today) as $today_models
+    | {
+        schemaVersion: 1,
+        id: "cursor",
+        name: "Cursor",
+        updatedAt: $updatedAt,
+        ready: true,
+        hasLocalStats: true,
+        hasPromptStats: false,
+        scope: "account",
+        tierLabel: $tier,
+        usageStatusText: "",
+        authHelpText: "",
+        retryAdvised: false,
+        limits: [
+          {label: "Included", title: "Included", percent: pct($plan.autoPercentUsed // 0), resetsAt: $resets},
+          {label: "API", title: "API", percent: pct($plan.apiPercentUsed // 0), resetsAt: $resets}
+        ],
+        limitsStale: false,
+        limitsFetchedAt: $fetchedAt,
+        todayPrompts: 0,
+        todaySessions: 0,
+        todayTotalTokens: sum_tokens($today_models),
+        todayTokensByModel: $today_models,
+        recentDays: [],
+        totalPrompts: 0,
+        totalSessions: 0,
+        activeDays: 0,
+        activeDates: [],
+        modelUsage: $models
+      } + billing($summary)
+    '
+}
+
+if ((force == 0 && limits_only == 0)); then
+  if cached=$(cache_read 2>/dev/null); then
+    printf '%s\n' "$cached"
+    exit 0
+  fi
+fi
+
+token="$(resolve_token || true)"
+cookie=$(build_session_cookie "$token" || true)
+if [[ -z $cookie ]]; then
+  if cached=$(cache_load_any 2>/dev/null); then
+    stale_from_cache "$cached"
+  else
+    unavailable "Not signed in" "Sign in to Cursor IDE or the Cursor CLI" false
+  fi
+  exit 0
+fi
+
+summary=$(curl_cookie "https://cursor.com/api/usage-summary" "$cookie" \
+  -H "Origin: https://cursor.com") || summary=""
+
+if [[ -z $summary ]] || ! /usr/bin/jq -e 'type == "object" and (.error | not)' >/dev/null 2>&1 <<<"$summary"; then
+  if cached=$(cache_load_any 2>/dev/null); then
+    stale_from_cache "$cached"
+  elif [[ -n $summary ]] && /usr/bin/jq -e '.error' >/dev/null 2>&1 <<<"$summary"; then
+    unavailable "Not signed in" "Sign in to Cursor IDE or the Cursor CLI" false
+  else
+    unavailable "Usage unavailable" "Could not reach Cursor" true
+  fi
+  exit 0
+fi
+
+if ! /usr/bin/jq -e '.individualUsage.plan | type == "object"' >/dev/null 2>&1 <<<"$summary"; then
+  unavailable "No plan usage" "Cursor did not return plan usage" false
+  exit 0
+fi
+
+cycle_json="null"
+today_json="null"
+if ((limits_only == 1)); then
+  if cached=$(cache_load_any 2>/dev/null) && /usr/bin/jq -e '.ready == true' >/dev/null 2>&1 <<<"$cached"; then
+    record=$(/usr/bin/jq -nc \
+      --argjson summary "$summary" \
+      --argjson cached "$cached" \
+      --arg updatedAt "$(now_iso)" \
+      --argjson fetchedAt "$(now_ms)" \
+      '
+      def pct($n):
+        (if ($n | type) == "number" then $n else ($n | tonumber? // 0) end) as $v
+        | (if $v < 0 then 0 elif $v > 100 then 100 else $v end) / 100;
+      def iso($s):
+        if ($s | type) == "string" and ($s | test("^[0-9]{4}-[0-9]{2}-[0-9]{2}")) then $s else "" end;
+      '"$JQ_BILLING"'
+      ($summary.individualUsage.plan // {}) as $plan
+      | iso($summary.billingCycleEnd // "") as $resets
+      | (($summary.membershipType // "") | tostring | gsub("[^A-Za-z0-9 _+-]"; "") | .[0:40]) as $tier
+      | $cached
+      | .updatedAt = $updatedAt
+      | .ready = true
+      | .tierLabel = $tier
+      | .usageStatusText = ""
+      | .authHelpText = ""
+      | .retryAdvised = false
+      | .limitsStale = false
+      | .limitsFetchedAt = $fetchedAt
+      | .hasPromptStats = false
+      | .scope = "account"
+      | .limits = [
+          {label: "Included", title: "Included", percent: pct($plan.autoPercentUsed // 0), resetsAt: $resets},
+          {label: "API", title: "API", percent: pct($plan.apiPercentUsed // 0), resetsAt: $resets}
+        ]
+      | . + billing($summary)
+      ') || record=""
+    if [[ -n $record ]]; then
+      printf '%s\n' "$record" | cache_write || true
+      printf '%s\n' "$record"
+      exit 0
+    fi
+  fi
+fi
+
+start_ms=$(/usr/bin/jq -r '.billingCycleStart // ""' <<<"$summary")
+end_ms=$(date +%s%3N)
+today_ms=$(date -d "today 00:00:00" +%s%3N 2>/dev/null || echo 0)
+if [[ $start_ms =~ ^[0-9]{4}- ]]; then
+  start_ms=$(date -d "$start_ms" +%s%3N 2>/dev/null || echo 0)
+else
+  start_ms=0
+fi
+cycle_raw=$(fetch_aggregated "$start_ms" "$end_ms" "$cookie" || true)
+today_raw=$(fetch_aggregated "$today_ms" "$end_ms" "$cookie" || true)
+if /usr/bin/jq -e 'type == "object"' >/dev/null 2>&1 <<<"${cycle_raw:-}"; then
+  cycle_json=$(/usr/bin/jq -c . <<<"$cycle_raw")
+fi
+if /usr/bin/jq -e 'type == "object"' >/dev/null 2>&1 <<<"${today_raw:-}"; then
+  today_json=$(/usr/bin/jq -c . <<<"$today_raw")
+fi
+
+record=$(build_record "$summary" "$cycle_json" "$today_json") || record=""
+if [[ -z $record ]] || ! /usr/bin/jq -e '.id == "cursor"' >/dev/null 2>&1 <<<"$record"; then
+  unavailable "Usage unavailable" "Could not read Cursor usage" true
+  exit 0
+fi
+
+printf '%s\n' "$record" | cache_write || true
+printf '%s\n' "$record"

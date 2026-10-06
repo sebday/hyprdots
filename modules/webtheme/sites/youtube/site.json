@@ -1,0 +1,6 @@
+{
+  "id": "youtube",
+  "name": "YouTube",
+  "matches": ["https://www.youtube.com/*"],
+  "enabled": true
+}

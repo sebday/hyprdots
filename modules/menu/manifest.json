@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "evo.sys.menu",
+  "name": "Menu",
+  "version": "1.0.0",
+  "author": "seb",
+  "description": "System and app launcher",
+  "kinds": [
+    "menu"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "menu": "Menu.qml"
+  }
+}

@@ -1,0 +1,365 @@
+#!/usr/bin/env bash
+# Insync status parsing helpers for the evo.insync bar widget (bash + jq).
+
+_paths_lib="${EVOSHELL_LIB:-$HOME/.local/lib/evoshell/bin}/evo-paths-lib"
+# shellcheck source=/dev/null
+[[ -r $_paths_lib ]] && source "$_paths_lib"
+EVOSHELL_CACHE="${EVOSHELL_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/evoshell}"
+INSYNC_ACCOUNTS_JSON="${INSYNC_ACCOUNTS_JSON:-${EVOSHELL_CACHE}/insync/accounts.json}"
+
+insync_to_bytes() {
+    local n="$1" unit="${2,,}"
+    case "$unit" in
+    bytes|b) printf '%.0f' "$n" ;;
+    kb) awk -v n="$n" 'BEGIN{printf "%.0f", n * 1024}' ;;
+    mb) awk -v n="$n" 'BEGIN{printf "%.0f", n * 1048576}' ;;
+    gb) awk -v n="$n" 'BEGIN{printf "%.0f", n * 1073741824}' ;;
+    *) printf '%.0f' "$n" ;;
+    esac
+}
+
+# Sum of regular files Insync has recorded, and their sizes. Names and paths stay in the database.
+insync_synced_totals() {
+    local dir="${XDG_CONFIG_HOME:-$HOME/.config}/Insync/data"
+    local line=""
+    line="$(
+        /usr/bin/python3 -I - "$dir" <<'PY'
+import os
+import re
+import sqlite3
+import stat
+import sys
+
+NAME = re.compile(r"^(gd|od)-[A-Za-z0-9]+\.db$")
+MAX_BYTES = 512 * 1024 * 1024
+QUERY = "SELECT COUNT(*), COALESCE(SUM(fs_size), 0) FROM fs_items WHERE fs_type = 'R'"
+
+def collect(directory):
+    files = 0
+    nbytes = 0
+    try:
+        dirfd = os.open(directory, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_DIRECTORY)
+    except OSError:
+        return 0, 0
+    try:
+        info = os.fstat(dirfd)
+        if info.st_uid != os.getuid() or not stat.S_ISDIR(info.st_mode):
+            return 0, 0
+        for name in os.listdir(dirfd):
+            if not NAME.fullmatch(name):
+                continue
+            try:
+                fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=dirfd)
+            except OSError:
+                continue
+            try:
+                st = os.fstat(fd)
+                if not stat.S_ISREG(st.st_mode) or st.st_uid != os.getuid() or st.st_nlink != 1:
+                    continue
+                if st.st_mode & 0o022 or st.st_size <= 0 or st.st_size > MAX_BYTES:
+                    continue
+                uri = "file:/proc/self/fd/%d?immutable=1" % fd
+                try:
+                    con = sqlite3.connect(uri, uri=True)
+                except sqlite3.Error:
+                    continue
+                try:
+                    row = con.execute(QUERY).fetchone()
+                except sqlite3.Error:
+                    continue
+                finally:
+                    con.close()
+                if not row:
+                    continue
+                files += int(row[0] or 0)
+                nbytes += int(row[1] or 0)
+            finally:
+                os.close(fd)
+    finally:
+        os.close(dirfd)
+    return files, nbytes
+
+def main():
+    directory = sys.argv[1] if len(sys.argv) > 1 else ""
+    try:
+        files, nbytes = collect(directory)
+    except Exception:
+        files, nbytes = 0, 0
+    if files < 0 or nbytes < 0:
+        files, nbytes = 0, 0
+    print("%d %d" % (files, nbytes))
+
+if __name__ == "__main__":
+    main()
+PY
+    )" || line=""
+    if [[ "$line" =~ ^([0-9]+)[[:space:]]([0-9]+)$ ]]; then
+        printf '%s %s\n' "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}"
+    else
+        printf '0 0\n'
+    fi
+}
+
+# Last completed file syncs (download or upload), newest first.
+# Reads the checkpointed live databases. Insync holds those files locked, so this
+# uses the same descriptor checks as the totals query and opens them immutable.
+insync_recent_files() {
+    local dir="${XDG_CONFIG_HOME:-$HOME/.config}/Insync/live"
+    /usr/bin/python3 -I - "$dir" <<'PY'
+import json
+import os
+import re
+import sqlite3
+import stat
+import sys
+
+NAME = re.compile(r"^live-(gd|od)-[A-Za-z0-9]+\.db$")
+MAX_BYTES = 512 * 1024 * 1024
+LIMIT = 3
+QUERY = """
+SELECT a.generated_at,
+       (SELECT part_content FROM act_parts p WHERE p.id = a.id AND p.part_key = 3)
+FROM acts a
+WHERE a.act_type IN (1, 2)
+ORDER BY a.id DESC
+LIMIT 8
+"""
+
+def clean_name(value):
+    if not isinstance(value, str):
+        return ""
+    out = []
+    for ch in value:
+        code = ord(ch)
+        if code < 32 or 127 <= code < 160 or ch in "<>&":
+            continue
+        out.append(ch)
+        if len(out) >= 160:
+            break
+    return "".join(out).strip()
+
+def provider_for(name):
+    if name.startswith("live-gd-"):
+        return "Google Drive"
+    if name.startswith("live-od-"):
+        return "OneDrive"
+    return ""
+
+def collect(directory):
+    found = []
+    try:
+        dirfd = os.open(directory, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_DIRECTORY)
+    except OSError:
+        return found
+    try:
+        info = os.fstat(dirfd)
+        if info.st_uid != os.getuid() or not stat.S_ISDIR(info.st_mode):
+            return found
+        for name in os.listdir(dirfd):
+            if not NAME.fullmatch(name):
+                continue
+            provider = provider_for(name)
+            if not provider:
+                continue
+            try:
+                fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=dirfd)
+            except OSError:
+                continue
+            try:
+                st = os.fstat(fd)
+                if not stat.S_ISREG(st.st_mode) or st.st_uid != os.getuid() or st.st_nlink != 1:
+                    continue
+                if st.st_mode & 0o022 or st.st_size <= 0 or st.st_size > MAX_BYTES:
+                    continue
+                uri = "file:/proc/self/fd/%d?immutable=1" % fd
+                try:
+                    con = sqlite3.connect(uri, uri=True)
+                except sqlite3.Error:
+                    continue
+                try:
+                    rows = con.execute(QUERY).fetchall()
+                except sqlite3.Error:
+                    continue
+                finally:
+                    con.close()
+                for generated_at, raw_name in rows:
+                    try:
+                        when = int(generated_at)
+                    except (TypeError, ValueError):
+                        continue
+                    if when < 946684800 or when > 4102444800:
+                        continue
+                    title = clean_name(raw_name)
+                    if not title:
+                        continue
+                    found.append({"name": title, "provider": provider, "at": when})
+            finally:
+                os.close(fd)
+    finally:
+        os.close(dirfd)
+    return found
+
+def main():
+    directory = sys.argv[1] if len(sys.argv) > 1 else ""
+    try:
+        found = collect(directory)
+    except Exception:
+        found = []
+    found.sort(key=lambda row: row["at"], reverse=True)
+    seen = set()
+    out = []
+    for row in found:
+        key = (row["provider"], row["name"])
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(row)
+        if len(out) >= LIMIT:
+            break
+    sys.stdout.write(json.dumps(out, separators=(",", ":")))
+
+if __name__ == "__main__":
+    main()
+PY
+}
+
+insync_parse_popup() {
+    local status_text="$1" errors_text="$2"
+    local cache_path="$INSYNC_ACCOUNTS_JSON"
+    local sync_status="" paused=false ok=true error=""
+    local section="" line
+    local -a account_lines=() file_lines=() error_lines=()
+
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        line="${line%"${line##*[![:space:]]}"}"
+        if [[ "$line" == "Accounts:" ]]; then
+            section="accounts"
+            continue
+        fi
+        if [[ "$line" == Sync\ status:* ]]; then
+            sync_status="${line#Sync status:}"
+            sync_status="${sync_status#"${sync_status%%[![:space:]]*}"}"
+            section=""
+            continue
+        fi
+        if [[ "$line" == "Syncing files:" ]]; then
+            section="files"
+            continue
+        fi
+        [[ -z "${line//[[:space:]]/}" ]] && section="" && continue
+
+        case "$section" in
+        accounts)
+            if [[ "$line" =~ ^(.+)[[:space:]]+\((.+)\)[[:space:]]*$ ]]; then
+                local email="${BASH_REMATCH[1]}"
+                local provider="${BASH_REMATCH[2]}"
+                email="${email#"${email%%[![:space:]]*}"}"
+                email="${email%"${email##*[![:space:]]}"}"
+                provider="${provider#"${provider%%[![:space:]]*}"}"
+                provider="${provider%"${provider##*[![:space:]]}"}"
+                account_lines+=("$(
+                    jq -nc --arg email "$email" --arg provider "$provider" '{email:$email,provider:$provider}'
+                )")
+            fi
+            ;;
+        files)
+            if [[ "$line" =~ ^(.+)[[:space:]]+-[[:space:]]+([[:alnum:]_]+)[[:space:]]+(.+)$ ]]; then
+                local path="${BASH_REMATCH[1]}"
+                local action="${BASH_REMATCH[2],,}"
+                local detail="${BASH_REMATCH[3]}"
+                path="${path#"${path%%[![:space:]]*}"}"
+                path="${path%"${path##*[![:space:]]}"}"
+                detail="${detail#"${detail%%[![:space:]]*}"}"
+                detail="${detail%"${detail##*[![:space:]]}"}"
+                local done=0 total=0 percent=0
+                if [[ "$detail" =~ ([0-9]+(\.[0-9]+)?)[[:space:]]*(bytes|kb|mb|gb)[[:space:]]+of[[:space:]]+([0-9]+(\.[0-9]+)?)[[:space:]]*(bytes|kb|mb|gb)[[:space:]]+\(([0-9.]+)%\) ]]; then
+                    done="$(insync_to_bytes "${BASH_REMATCH[1]}" "${BASH_REMATCH[3]}")"
+                    total="$(insync_to_bytes "${BASH_REMATCH[4]}" "${BASH_REMATCH[6]}")"
+                    percent="${BASH_REMATCH[7]}"
+                fi
+                file_lines+=("$(
+                    jq -nc \
+                        --arg path "$path" \
+                        --arg action "$action" \
+                        --argjson done "$done" \
+                        --argjson total "$total" \
+                        --argjson percent "$percent" \
+                        --arg detail "$detail" \
+                        '{path:$path,action:$action,done:$done,total:$total,percent:$percent,detail:$detail}'
+                )")
+            fi
+            ;;
+        esac
+    done <<<"$status_text"
+
+    local status_upper="${sync_status^^}"
+    [[ "$status_upper" == *PAUSED* ]] && paused=true
+
+    if $paused; then
+        file_lines=()
+    fi
+
+    local err_clean="${errors_text#"${errors_text%%[![:space:]]*}"}"
+    err_clean="${err_clean%"${err_clean##*[![:space:]]}"}"
+    if [[ -n "$err_clean" && "${err_clean,,}" != "no errors or actions required." ]]; then
+        while IFS= read -r line || [[ -n "$line" ]]; do
+            line="${line#"${line%%[![:space:]]*}"}"
+            line="${line%"${line##*[![:space:]]}"}"
+            if [[ -n "$line" && "$line" != *"Choose an error to resolve"* && "$line" != "Aborted!" && "$line" != *"You may report this error before retrying"* ]]; then
+                error_lines+=("$line")
+            fi
+        done <<<"$err_clean"
+    fi
+
+    if [[ "${status_text,,}" == *"not running"* || "${status_text,,}" == *"cannot connect"* ]]; then
+        ok=false
+        error="$(printf '%s\n' "$status_text" | head -1)"
+        error="${error#"${error%%[![:space:]]*}"}"
+        error="${error%"${error##*[![:space:]]}"}"
+    fi
+
+    local synced_files=0 synced_bytes=0 totals_line recent_json
+    totals_line="$(insync_synced_totals)"
+    if [[ "$totals_line" =~ ^([0-9]+)[[:space:]]([0-9]+)$ ]]; then
+        synced_files="${BASH_REMATCH[1]}"
+        synced_bytes="${BASH_REMATCH[2]}"
+    fi
+    recent_json="$(insync_recent_files 2>/dev/null || true)"
+    if ! jq -e 'type == "array"' >/dev/null 2>&1 <<<"$recent_json"; then
+        recent_json='[]'
+    fi
+
+    local accounts_json files_json errors_json payload
+    if ((${#account_lines[@]} > 0)); then
+        accounts_json="$(printf '%s\n' "${account_lines[@]}" | jq -s '.')"
+    else
+        accounts_json='[]'
+    fi
+    if ((${#file_lines[@]} > 0)); then
+        files_json="$(printf '%s\n' "${file_lines[@]}" | jq -s '.')"
+    else
+        files_json='[]'
+    fi
+    if ((${#error_lines[@]} > 0)); then
+        errors_json="$(printf '%s\n' "${error_lines[@]}" | jq -R . | jq -s '.')"
+    else
+        errors_json='[]'
+    fi
+
+    payload="$(jq -nc \
+        --argjson ok "$ok" \
+        --arg error "$error" \
+        --arg status "$sync_status" \
+        --argjson paused "$paused" \
+        --argjson accounts "$accounts_json" \
+        --argjson files "$files_json" \
+        --argjson errors "$errors_json" \
+        --argjson syncedFiles "$synced_files" \
+        --argjson syncedBytes "$synced_bytes" \
+        --argjson recent "$recent_json" \
+        '{ok:$ok,error:$error,status:$status,paused:$paused,accounts:$accounts,files:$files,errors:$errors,syncedFiles:$syncedFiles,syncedBytes:$syncedBytes,recent:$recent}')"
+
+    mkdir -p -m 700 "$(dirname "$cache_path")"
+    printf '%s\n' "$payload" >"$cache_path"
+    printf '%s\n' "$payload"
+}

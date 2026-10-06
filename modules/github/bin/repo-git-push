@@ -1,0 +1,76 @@
+#!/usr/bin/bash
+# Push the current branch from one or more repos.
+set -euo pipefail
+
+plain() {
+  local value=${1:-}
+  local max=${2:-240}
+  value=${value//[<>&]/}
+  printf '%s' "$value" \
+    | /usr/bin/tr -d '\000-\037\177' \
+    | /usr/bin/head -c "$max" \
+    | /usr/bin/iconv -c -f UTF-8 -t UTF-8 \
+    || true
+}
+
+notify() {
+  [[ -x /usr/bin/notify-send ]] || return 0
+  local title body duration
+  title="$(plain "${1:-GitHub}" 80)"
+  body="$(plain "${2:-}" 240)"
+  duration=${3:-5000}
+  /usr/bin/notify-send -a evo.github -t "$duration" -- "$title" "$body" >/dev/null 2>&1 || true
+}
+
+(( $# > 0 )) || {
+  printf 'repo path required\n' >&2
+  exit 2
+}
+
+if [[ ! -x /usr/bin/git ]]; then
+  notify "GitHub" "Could not push: git not found"
+  exit 1
+fi
+
+dirs=("$@")
+count=${#dirs[@]}
+
+if (( count == 1 )); then
+  display_name=${dirs[0]%/}
+  display_name=${display_name##*/}
+  notify "GitHub" "Pushing ${display_name}…"
+else
+  notify "GitHub" "Pushing ${count} repos…"
+fi
+
+successes=0
+failures=()
+
+for dir in "${dirs[@]}"; do
+  name=${dir%/}
+  name=${name##*/}
+  [[ -n "$name" ]] || name="repo"
+
+  if /usr/bin/timeout -k 2 120 /usr/bin/git -C "$dir" push >/dev/null 2>&1; then
+    (( successes += 1 ))
+  else
+    failures+=("$name")
+  fi
+done
+
+if (( ${#failures[@]} == 0 )); then
+  if (( count == 1 )); then
+    notify "GitHub" "Pushed ${display_name}" 8000
+  else
+    notify "GitHub" "Pushed all ${count} repos" 8000
+  fi
+  exit 0
+fi
+
+failed_names="${failures[*]}"
+if (( successes == 0 )); then
+  notify "GitHub" "Push failed: ${failed_names}" 10000
+else
+  notify "GitHub" "Pushed ${successes} of ${count}; failed: ${failed_names}" 10000
+fi
+exit 1

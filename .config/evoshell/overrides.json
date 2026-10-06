@@ -53,7 +53,7 @@
   },
   "dashboards": {
     "openOnStart": [
-      "evo.panels.shopify",
+      "evo.shopify",
       "evo.panels.player"
     ],
     "braveOnStart": [

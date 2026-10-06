@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "evo.sys.media.audio",
+  "name": "Audio",
+  "version": "1.0.0",
+  "author": "seb",
+  "description": "Volume and audio backend",
+  "kinds": [
+    "service"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "service": "Service.qml"
+  }
+}

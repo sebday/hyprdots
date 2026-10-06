@@ -1,0 +1,6 @@
+{
+  "id": "telegram",
+  "name": "Telegram Web",
+  "matches": ["https://web.telegram.org/*"],
+  "enabled": true
+}

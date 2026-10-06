@@ -1,0 +1,46 @@
+{
+  "manifest_version": 3,
+  "name": "Evo Webtheme",
+  "version": "1.1.0",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuR2sl7RIGtD8aw/tQkBSq9o8yJzV2vwnOfzyb1Vzz7uBvwuO7pKqypSvKroV+mcGj2n00QMvM79v3awEdkQ/NMv6VL1+W+e77S+Cd/DKg0qvcqlxpApZTXPkLwGZ2Y45Z6AnIL5kbhYtf6zO0LxvGOAvC/MUSyTsVMfpnSdK5humIDFV4IpWPtup002wcm+tzEbZt7RCmx1P12WzjDAtNpMfsAk7rJjH6h2zY4LZd17ZYeYE5ntZUkqKh/KufthwByoGGmS6cmTuIUf0Rdl2RTQHN8Qjg0jayorQWMptEPYfN92G79vPvk8rHMeKLHeRjMMWPq6mMu5kyZIulmtntwIDAQAB",
+  "description": "evoshell website themes. Manage site packages from the toolbar popup.",
+  "permissions": ["nativeMessaging", "activeTab", "tabs", "scripting", "notifications", "storage"],
+  "icons": {
+    "16": "icon.png",
+    "48": "icon.png",
+    "128": "icon.png"
+  },
+  "action": {
+    "default_title": "Evo Webtheme",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon.png",
+      "48": "icon.png",
+      "128": "icon.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["match.js", "content.js"],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "catalog.json",
+        "revision",
+        "enabled",
+        "theme.json",
+        "colors.css",
+        "sites/*"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

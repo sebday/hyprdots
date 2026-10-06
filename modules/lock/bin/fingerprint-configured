@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Exits 0 when the fingerprint PAM module is installed and the user has an
+# enrolled finger. fprintd-list can hang, so it is bounded.
+set -euo pipefail
+[[ -f /usr/lib/security/pam_fprintd.so ]] || exit 1
+command -v fprintd-list >/dev/null 2>&1 || exit 1
+out=$(/usr/bin/timeout -k 1 5 fprintd-list "${USER}" 2>/dev/null | /usr/bin/head -c 4097) || exit 1
+[ ${#out} -le 4096 ] || exit 1
+grep -qi finger <<<"$out"

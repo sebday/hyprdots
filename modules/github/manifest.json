@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "evo.github",
+  "name": "GitHub",
+  "version": "1.1.0",
+  "author": "seb",
+  "description": "GitHub contribution heatmap and stats",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "GitHub",
+    "description": "Contribution count and activity heatmap",
+    "category": "Info",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "refreshMinutes": 15,
+      "agent": "cursor-agent"
+    }
+  }
+}

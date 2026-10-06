@@ -1,0 +1,674 @@
+#!/bin/bash
+# Shopify KPI JSON for the evo.shopify panel.
+# Reads store KPIs from the ecommerce-data Worker API (D1 over HTTP).
+#
+# Config (evoshell shell config `shopify` block, see evo_shopify_config):
+#   apiUrl    — HTTPS Worker base URL
+#   timezone, stores, pollIntervalMinutes
+#   token via pass (omarchy/ecommerce-data/api-token, or evoshell/ if migrated)
+#
+# Worker routes used:
+#   GET  /v1/sites
+#   GET  /v1/sites/:site/kpi/summary
+#   POST /v1/sync/today
+
+set -euo pipefail
+
+_bin_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=common.sh
+source "${_bin_dir}/common.sh"
+
+merged_config() { evo_shopify_config; }
+
+DEFAULT_TZ="Europe/London"
+API_URL=""
+STORES=()
+
+discover_stores_api() {
+    local sites_json key display
+    sites_json=$(evo_worker_curl "${API_URL%/}/v1/sites" 2>/dev/null) || return 1
+    STORES=()
+    while IFS= read -r key; do
+        [[ -n "$key" ]] || continue
+        display="${key^^} "
+        STORES+=("${key^^}|${display}|${key}")
+    done < <(jq -r '.sites[]? // empty' <<<"$sites_json")
+    ((${#STORES[@]} > 0))
+}
+
+resolve_api_config() {
+    local cfg api_url
+    cfg="$(merged_config | jq -c '.shopify // {}')"
+    DEFAULT_TZ="$(jq -r '.timezone // "Europe/London"' <<<"$cfg")"
+    api_url="$(jq -r '.apiUrl // ""' <<<"$cfg")"
+    api_url="${api_url// /}"
+    [[ -n "$api_url" ]] || api_url="${ECOMMERCE_API_URL:-}"
+    [[ -n "$api_url" ]] || api_url="${CLOUD_STORE_URL:-}"
+    api_url="${api_url// /}"
+    API_URL=""
+    [[ -n "$api_url" ]] || return 1
+    [[ "$api_url" == https://* ]] || return 1
+    API_URL="${api_url%/}"
+}
+
+load_shopify_config() {
+    STORES=()
+    resolve_api_config || return 0
+    discover_stores_api || load_stores_from_config || true
+}
+
+load_stores_from_config() {
+    local cfg_json entry prefix icon_key
+    cfg_json="$(merged_config | jq -c '.shopify.stores // []')"
+    [[ "$(jq -r 'length' <<<"$cfg_json")" -gt 0 ]] || return 1
+    STORES=()
+    while IFS= read -r entry; do
+        [[ -n "$entry" ]] || continue
+        prefix="$(jq -r '.key // ""' <<<"$entry")"
+        [[ -n "$prefix" ]] || continue
+        icon_key="$(jq -r '.iconKey // .sqliteKey // (.key | ascii_downcase)' <<<"$entry")"
+        STORES+=("${prefix}|${prefix} |${icon_key}")
+    done < <(jq -c '.[]' <<<"$cfg_json")
+    ((${#STORES[@]} > 0))
+}
+
+config_api_url() {
+    local api_url
+    api_url="$(merged_config | jq -r '.shopify.apiUrl // ""')"
+    api_url="${api_url// /}"
+    [[ -n "$api_url" ]] || api_url="${ECOMMERCE_API_URL:-}"
+    [[ -n "$api_url" ]] || api_url="${CLOUD_STORE_URL:-}"
+    api_url="${api_url// /}"
+    printf '%s' "$api_url"
+}
+
+cache_key_slug() {
+    printf '%s' "$(config_api_url)" | tr '/:@~ ' '_'
+}
+
+snapshot_cache_key() {
+    printf 'shopify-%s-snapshot' "$(cache_key_slug)"
+}
+
+store_cache_key() {
+    printf 'shopify-%s-%s-%s' "$(cache_key_slug)" "${1:-all}" "$2"
+}
+
+json_text() {
+    jq -cn --arg text "$1" '{text: $text}'
+}
+
+payload_is_ok() {
+    jq -e '((.bars // []) | length) > 0 or ((.todayDetail.date // "") | length) > 0' <<<"$1" >/dev/null 2>&1
+}
+
+channels_total_json() {
+    jq -r '[.channels.paid // 0, .channels.organic // 0, .channels.direct // 0, .channels.email // 0] | add // 0' <<<"$1"
+}
+
+channels_need_restore() {
+    local total
+    total=$(channels_total_json "$1")
+    awk -v t="${total:-0}" 'BEGIN { exit (t > 0) ? 1 : 0 }'
+}
+
+restore_period_channels_json() {
+    local payload=$1 site_key=$2 days=$3 tz=$4
+    if ! channels_need_restore "$payload"; then
+        printf '%s' "$payload"
+        return 0
+    fi
+    local period
+    period=$(fetch_store_snapshot_api "$site_key" "$days" "$tz") || {
+        printf '%s' "$payload"
+        return 0
+    }
+    jq -c --argjson period "$period" '
+        .channels = ($period.channels // .channels)
+        | .period = ($period.period // .period)
+    ' <<<"$payload"
+}
+
+repair_snapshot_channels() {
+    local snap=$1
+    local tz_name=$2
+    local payloads key one repaired
+    payloads=$(jq -c '.payloads // {}' <<<"$snap")
+    while IFS= read -r key; do
+        [[ -n "$key" ]] || continue
+        one=$(jq -c --arg k "$key" '.[$k]' <<<"$payloads")
+        if ! channels_need_restore "$one"; then
+            continue
+        fi
+        find_store "$key" || continue
+        repaired=$(restore_period_channels_json "$one" "$STORE_SITE_KEY" "$SNAPSHOT_DAYS" "$tz_name")
+        payloads=$(jq -c --arg k "$key" --argjson v "$repaired" '.[$k] = $v' <<<"$payloads")
+        printf '%s\n' "$repaired" | evo_bar_cache_write "$(store_cache_key "$key" "$SNAPSHOT_DAYS")"
+    done < <(jq -r '.payloads | keys[]' <<<"$snap")
+    jq -c --argjson payloads "$payloads" '.payloads = $payloads' <<<"$snap"
+}
+
+find_store() {
+    local want_prefix=$1
+    local entry prefix display site_key
+    for entry in "${STORES[@]}"; do
+        IFS='|' read -r prefix display site_key <<< "$entry"
+        if [[ "$prefix" == "$want_prefix" ]]; then
+            STORE_PREFIX=$prefix
+            STORE_DISPLAY=$display
+            STORE_SITE_KEY=$site_key
+            return 0
+        fi
+    done
+    return 1
+}
+
+api_ready() {
+    [[ -n "$API_URL" ]] && evo_worker_api_token >/dev/null
+}
+
+summary_to_store_payload() {
+    local channel_daily=${2:-'{"rows":[]}'}
+    local calendar_today=${3:-}
+    jq -c --argjson channelDaily "$channel_daily" --arg calendarToday "$calendar_today" '
+      def num($v): ($v // 0) | tonumber? // 0;
+      def money($v): ((num($v) * 100) | round) / 100;
+      def is_leap($y): ($y % 4 == 0) and (($y % 100 != 0) or ($y % 400 == 0));
+      def days_in_month(iso):
+        (iso[0:4] | tonumber) as $y
+        | (iso[5:7] | tonumber) as $m
+        | [0, 31, (if is_leap($y) then 29 else 28 end), 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+        | .[$m];
+      def level($max; $v):
+        if $max <= 0 or $v <= 0 then 0
+        else (($v / $max * 4) | floor | if . > 4 then 4 elif . < 1 then 1 else . end)
+        end;
+      def sumkey($rows; $key): ([$rows[] | money(.[$key])] | add // 0);
+      def spark($rows; $key): [$rows[] | { date: (.dt // ""), value: money(.[$key]) }];
+      def series($daily; $values; $orders):
+        ($values | map(num(.)) | max // 0) as $max
+        | [range(0; $daily | length)]
+        | map(
+            . as $i
+            | ($daily[$i]) as $row
+            | num($values[$i]) as $v
+            | {
+                date: ($row.dt // ""),
+                value: $v,
+                orders: num($orders[$i]),
+                level: level($max; $v),
+                colorLevel: level($max; $v),
+                color: ""
+              }
+          );
+
+      (.daily // []) as $daily
+      | (.from // "") as $curFrom
+      | (.to // ($daily[-1].dt // "")) as $periodTo
+      | ($channelDaily.rows // []) as $factRows
+      | [ $factRows[]
+          | select($curFrom != "" and (.dt // "") >= $curFrom and ($periodTo == "" or (.dt // "") <= $periodTo))
+        ] as $curFacts
+      | [ $factRows[] | select($curFrom != "" and (.dt // "") != "" and (.dt // "") < $curFrom) ] as $prevFacts
+      | ([ $factRows[] | select($calendarToday != "" and (.dt // "") == $calendarToday) ] | last) as $liveRow
+      | (($daily | map(select(.dt == $periodTo)) | last) // $daily[-1] // {}) as $periodEnd
+      | (
+          if $liveRow == null then $periodEnd
+          else
+            (num($liveRow.revenue)) as $rev
+            | (num($liveRow.orders)) as $ord
+            | (num($liveRow.sessions)) as $ses
+            | (num($liveRow.google_spend)) as $spend
+            | {
+                dt: ($liveRow.dt // $calendarToday),
+                revenue: $rev,
+                orders: $ord,
+                sessions: $ses,
+                spend: $spend,
+                cvr: (if $ses > 0 then ($ord / $ses) else num($liveRow.cvr) end),
+                cos_pct: (if $rev > 0 then (((($spend / $rev) * 1000) | round) / 10) else 0 end)
+              }
+          end
+        ) as $today
+      | ($periodTo[0:7]) as $month
+      | ([ $daily[] | select((.dt // "")[0:7] == $month) | num(.revenue) ] | add // 0) as $mtd
+      | (num($today.cos_pct) | tostring) as $cos_num
+      | (if $cos_num == "0" then "0%" else ($cos_num + "%") end) as $cos_str
+      | {
+          symbol: "£",
+          orders: num($today.orders),
+          cos: $cos_str,
+          revenue: money($today.revenue),
+          todayDetail: {
+            date: ($today.dt // $periodTo),
+            calendarDate: (if $calendarToday != "" then $calendarToday else $periodTo end),
+            revenue: money($today.revenue),
+            orders: num($today.orders),
+            sessions: num($today.sessions),
+            cos: $cos_str,
+            spend: money($today.spend),
+            cvr: num($today.cvr)
+          },
+          period: {
+            days: num(.period_days),
+            revenue: money(.period.revenue),
+            prevRevenue: money(.prev_period.revenue),
+            orders: num(.period.orders),
+            sessions: num(.period.sessions),
+            spend: money(.period.spend)
+          },
+          channels: {
+            paid: money(.channels.paid),
+            organic: money(.channels.organic),
+            direct: money(.channels.direct),
+            email: money(.channels.email),
+            prevPaid: (if ($prevFacts | length) == 0 then null else sumkey($prevFacts; "paid_revenue") end),
+            prevOrganic: (if ($prevFacts | length) == 0 then null else sumkey($prevFacts; "organic_revenue") end),
+            prevDirect: (if ($prevFacts | length) == 0 then null else sumkey($prevFacts; "direct_revenue") end),
+            prevEmail: (if ($prevFacts | length) == 0 then null else sumkey($prevFacts; "email_revenue") end)
+          },
+          channelBars: {
+            paid: spark($curFacts; "paid_revenue"),
+            organic: spark($curFacts; "organic_revenue"),
+            direct: spark($curFacts; "direct_revenue"),
+            email: spark($curFacts; "email_revenue")
+          },
+          prevDaily: {
+            revenue: spark($prevFacts; "revenue"),
+            orders: [$prevFacts[] | { date: (.dt // ""), value: num(.orders) }],
+            sessions: [$prevFacts[] | { date: (.dt // ""), value: num(.sessions) }],
+            spend: spark($prevFacts; "google_spend"),
+            cvr: [$prevFacts[] | { date: (.dt // ""), value: num(.cvr) }],
+            aov: [$prevFacts[] | {
+              date: (.dt // ""),
+              value: (if num(.orders) > 0 then money(num(.revenue) / num(.orders)) else 0 end)
+            }],
+            cos: [$prevFacts[] | {
+              date: (.dt // ""),
+              value: (if num(.revenue) > 0 then (num(.google_spend) / num(.revenue)) else 0 end)
+            }]
+          },
+          month: {
+            mtdRevenue: money($mtd),
+            forecastRevenue: money(.forecast),
+            day: (if $periodTo[8:10] then ($periodTo[8:10] | tonumber) else 0 end),
+            daysInMonth: (if $periodTo != "" then days_in_month($periodTo) else 0 end)
+          },
+          bars: series($daily; [$daily[] | money(.revenue)]; [$daily[].orders]),
+          orderBars: series($daily; [$daily[].orders]; [$daily[].orders]),
+          sessionBars: series($daily; [$daily[].sessions]; [$daily[].orders]),
+          spendBars: series($daily; [$daily[] | money(.spend)]; [$daily[].orders]),
+          cvrBars: series($daily; [$daily[].cvr]; [$daily[].orders]),
+          aovBars: series($daily; [$daily[] | money(.aov)]; [$daily[].orders]),
+          cosBars: series($daily; [$daily[] | money(num(.cos_pct) / 100)]; [$daily[].orders])
+        }
+    ' <<<"$1"
+}
+
+fetch_store_snapshot_api() {
+    local site_key=$1 days=$2 tz_name=$3
+    local calendar_today finished_to from url payload
+    site_key=$(printf '%s' "$site_key" | tr '[:upper:]' '[:lower:]')
+    tz_name="${tz_name// /}"
+    [[ -z "$tz_name" ]] && tz_name="$DEFAULT_TZ"
+    if ! [[ "$days" =~ ^[0-9]+$ ]] || (( days < 1 )); then
+        days=14
+    fi
+    # Shopify "last 30 days" is the last 30 finished days, ending yesterday.
+    calendar_today=$(TZ="$tz_name" date +%F)
+    finished_to=$(TZ="$tz_name" date -d "${calendar_today} - 1 day" +%F)
+    from=$(TZ="$tz_name" date -d "${finished_to} - $((days - 1)) days" +%F)
+    url="${API_URL}/v1/sites/${site_key}/kpi/summary?from=${from}&to=${finished_to}&tz=$(printf '%s' "$tz_name" | jq -sRr @uri)"
+    payload=$(evo_worker_curl "$url") || return 1
+    local prev_from daily_url channel_daily channel_body
+    prev_from=$(TZ="$tz_name" date -d "${from} - ${days} days" +%F)
+    daily_url="${API_URL}/v1/sites/${site_key}/kpi/daily?from=${prev_from}&to=${calendar_today}"
+    channel_daily='{"rows":[]}'
+    if channel_body=$(evo_worker_curl "$daily_url") && jq -e 'type == "object"' >/dev/null 2>&1 <<<"$channel_body"; then
+        channel_daily=$channel_body
+    fi
+    payload=$(summary_to_store_payload "$payload" "$channel_daily" "$calendar_today") || return 1
+    payload_is_ok "$payload" || return 1
+    printf '%s' "$payload"
+}
+
+SYNC_TODAY_MIN_INTERVAL_SEC=240
+
+sync_today_cache_key() {
+    printf 'shopify-%s-sync-today' "$(cache_key_slug)"
+}
+
+maybe_run_sync_today() {
+    [[ -n "$API_URL" ]] || return 0
+    local key path now mtime age
+    key=$(sync_today_cache_key)
+    path=$(evo_bar_cache_path "$key")
+    now=$(date +%s)
+    if [[ -f "$path" ]]; then
+        mtime=$(stat -c %Y "$path" 2>/dev/null || echo 0)
+        age=$((now - mtime))
+        if (( age < SYNC_TODAY_MIN_INTERVAL_SEC )); then
+            return 0
+        fi
+    fi
+    if evo_worker_post "${API_URL%/}/v1/sync/today" >/dev/null 2>&1; then
+        printf '%s' '{}' | evo_bar_cache_write "$key"
+    fi
+}
+
+format_int_commas() {
+    awk -v n="$1" 'BEGIN {
+        s = sprintf("%d", n + 0)
+        len = length(s)
+        out = ""
+        for (i = 1; i <= len; i++) {
+            c = substr(s, len - i + 1, 1)
+            if (i > 1 && (i - 1) % 3 == 0) out = "," out
+            out = c out
+        }
+        print out
+    }'
+}
+
+build_one_store_api_refresh() {
+    local store_prefix=$1
+    local tz_name payload sym today_sales_val cos_str label_text
+
+    if ! find_store "$store_prefix"; then
+        json_text "Error: Store ${store_prefix} not found"
+        return 1
+    fi
+
+    tz_name="${EVO_SHOPIFY_TZ:-$DEFAULT_TZ}"
+    tz_name="${tz_name// /}"
+    [[ -z "$tz_name" ]] && tz_name="$DEFAULT_TZ"
+
+    payload=$(fetch_store_snapshot_api "$STORE_SITE_KEY" "$SNAPSHOT_DAYS" "$tz_name") || {
+        json_text "${STORE_DISPLAY}: API error"
+        return 1
+    }
+
+    sym=$(jq -r '.symbol // "£"' <<<"$payload")
+    today_sales_val=$(format_int_commas "$(jq -r '.todayDetail.revenue // 0' <<<"$payload")")
+    cos_str=$(jq -r '.cos // "—"' <<<"$payload")
+    label_text="${STORE_DISPLAY}${sym}${today_sales_val} | ${cos_str}"
+    jq -c --arg text "$label_text" --arg label "$label_text" \
+        '.text = $text | .label = $label' <<<"$payload"
+}
+
+EMPTY_SNAPSHOT='{"stores":[],"payloads":{}}'
+SNAPSHOT_DAYS=30
+CACHE_TTL_SEC=300
+
+store_icon_key() {
+    jq -r '.iconKey // .sqliteKey // (.key | ascii_downcase)' <<<"$1"
+}
+
+snapshot_with_icons() {
+    local snap=$1
+    local stores payloads store icon_key icon new_stores
+    stores=$(jq -c '.stores // []' <<<"$snap")
+    payloads=$(jq -c '.payloads // {}' <<<"$snap")
+    new_stores='[]'
+    while IFS= read -r store; do
+        [[ -n "$store" ]] || continue
+        icon_key=$(store_icon_key "$store")
+        icon=$(evo_resolve_icon_path "$icon_key" 2>/dev/null || true)
+        new_stores=$(jq -c --argjson s "$store" --arg icon "$icon" '. + [$s + {iconPath: $icon}]' <<<"$new_stores")
+    done < <(jq -c '.[]' <<<"$stores")
+    jq -c --argjson stores "$new_stores" '{stores: $stores, payloads: .}' <<<"$payloads"
+}
+
+stores_json() {
+    local entry prefix display site_key title admin_slug icon_key icon_path
+    local -a lines=()
+    local cfg_json cfg_count
+
+    cfg_json="$(merged_config | jq -c '.shopify.stores // []')"
+    cfg_count="$(jq -r 'length' <<<"$cfg_json")"
+
+    if [[ "$cfg_count" -gt 0 ]]; then
+        while IFS= read -r entry; do
+            [[ -n "$entry" ]] || continue
+            prefix="$(jq -r '.key // ""' <<<"$entry")"
+            [[ -n "$prefix" ]] || continue
+            title="$(jq -r '.title // .key // ""' <<<"$entry")"
+            admin_slug="$(jq -r '.adminSlug // ""' <<<"$entry")"
+            icon_key="$(store_icon_key "$entry")"
+            icon_path="$(evo_resolve_icon_path "$icon_key" 2>/dev/null || true)"
+            lines+=("$(jq -cn --arg key "$prefix" --arg title "$title" --arg adminSlug "$admin_slug" --arg iconKey "$icon_key" --arg iconPath "$icon_path" \
+                '{key: $key, title: $title, adminSlug: $adminSlug, iconKey: $iconKey, iconPath: $iconPath}')")
+        done < <(jq -c '.[]' <<<"$cfg_json")
+    else
+        if ((${#STORES[@]} == 0)) && api_ready; then
+            discover_stores_api || load_stores_from_config || true
+        fi
+        for entry in "${STORES[@]}"; do
+            IFS='|' read -r prefix display site_key <<< "$entry"
+            title="${display%% }"
+            [[ -z "$title" ]] && title="$prefix"
+            icon_path="$(evo_resolve_icon_path "$site_key" 2>/dev/null || true)"
+            lines+=("$(jq -cn --arg key "$prefix" --arg title "$title" --arg iconKey "$site_key" --arg iconPath "$icon_path" \
+                '{key: $key, title: $title, adminSlug: "", iconKey: $iconKey, iconPath: $iconPath}')")
+        done
+    fi
+
+    if ((${#lines[@]} == 0)); then
+        printf '[]'
+    else
+        printf '%s\n' "${lines[@]}" | jq -s -c '.'
+    fi
+}
+
+cmd_cache() {
+    local cached cached_count slug prefix f base key stores payloads_json one snapshot
+    local cfg_count tz_name
+
+    load_shopify_config
+    tz_name="${EVO_SHOPIFY_TZ:-$DEFAULT_TZ}"
+    tz_name="${tz_name// /}"
+    [[ -z "$tz_name" ]] && tz_name="$DEFAULT_TZ"
+
+    cfg_count="$(merged_config | jq -r '(.shopify.stores // []) | length')"
+
+    if cached=$(evo_bar_cache_read "$(snapshot_cache_key)" "$CACHE_TTL_SEC" 2>/dev/null); then
+        cached_count="$(jq -r '(.stores // []) | length' <<<"$cached")"
+        if [[ "$cfg_count" -eq 0 || "$cached_count" -eq "$cfg_count" ]]; then
+            cached=$(repair_snapshot_channels "$cached" "$tz_name")
+            snapshot_with_icons "$cached"
+            return 0
+        fi
+    fi
+
+    if [[ "$cfg_count" -gt 0 ]]; then
+        stores=$(stores_json)
+        payloads_json='{}'
+        while IFS= read -r key; do
+            [[ -n "$key" ]] || continue
+            one=""
+            if one=$(evo_bar_cache_read_any "$(store_cache_key "$key" "$SNAPSHOT_DAYS")" 2>/dev/null) && payload_is_ok "$one"; then
+                if channels_need_restore "$one"; then
+                    find_store "$key" && one=$(restore_period_channels_json "$one" "$STORE_SITE_KEY" "$SNAPSHOT_DAYS" "$tz_name")
+                    printf '%s\n' "$one" | evo_bar_cache_write "$(store_cache_key "$key" "$SNAPSHOT_DAYS")"
+                fi
+            elif api_ready && one=$(build_one_store "$key" "$SNAPSHOT_DAYS" 2>/dev/null); then
+                printf '%s\n' "$one" | evo_bar_cache_write "$(store_cache_key "$key" "$SNAPSHOT_DAYS")"
+            fi
+            [[ -n "$one" ]] || continue
+            payloads_json=$(jq -c --arg k "$key" --argjson v "$one" '. + {($k): $v}' <<<"$payloads_json")
+        done < <(jq -r '.[].key // empty' <<<"$stores")
+
+        if [[ "$payloads_json" != "{}" ]]; then
+            snapshot=$(snapshot_with_icons "$(jq -c --argjson stores "$stores" '{stores: $stores, payloads: .}' <<<"$payloads_json")")
+            printf '%s\n' "$snapshot" | evo_bar_cache_write "$(snapshot_cache_key)"
+            printf '%s\n' "$snapshot"
+            return 0
+        fi
+    fi
+
+    slug=$(cache_key_slug)
+    prefix="shopify-${slug}-"
+    stores='[]'
+    payloads_json='{}'
+    shopt -s nullglob
+    for f in "${EVO_BAR_CACHE_DIR}/${prefix}"*-"${SNAPSHOT_DAYS}.json"; do
+        base=$(basename "$f" ".json")
+        key="${base#"$prefix"}"
+        key="${key%-${SNAPSHOT_DAYS}}"
+        [[ "$key" == "snapshot" || "$key" == "all" || -z "$key" ]] && continue
+        one=$(cat "$f")
+        [[ -n "$one" ]] || continue
+        payload_is_ok "$one" || continue
+        if channels_need_restore "$one"; then
+            find_store "$key" && one=$(restore_period_channels_json "$one" "$STORE_SITE_KEY" "$SNAPSHOT_DAYS" "$tz_name")
+            printf '%s\n' "$one" | evo_bar_cache_write "$(store_cache_key "$key" "$SNAPSHOT_DAYS")"
+        fi
+        stores=$(jq -c --arg key "$key" --arg title "$key" --arg iconKey "$(printf '%s' "$key" | tr '[:upper:]' '[:lower:]')" \
+            '. + [{key: $key, title: $title, adminSlug: "", iconKey: $iconKey}]' <<<"$stores")
+        payloads_json=$(jq -c --arg k "$key" --argjson v "$one" '. + {($k): $v}' <<<"$payloads_json")
+    done
+    shopt -u nullglob
+
+    if [[ "$stores" == "[]" ]]; then
+        printf '%s\n' "$EMPTY_SNAPSHOT"
+        return 0
+    fi
+
+    snapshot=$(snapshot_with_icons "$(jq -c --argjson stores "$stores" '{stores: $stores, payloads: .}' <<<"$payloads_json")")
+    printf '%s\n' "$snapshot" | evo_bar_cache_write "$(snapshot_cache_key)"
+    printf '%s\n' "$snapshot"
+}
+
+cmd_refresh() {
+    local stores payloads_json key one snapshot prev
+    load_shopify_config
+    evo_bar_load_heatmap_colors
+
+    if ! api_ready; then
+        cmd_cache
+        return 0
+    fi
+
+    maybe_run_sync_today
+    stores=$(stores_json)
+    payloads_json='{}'
+
+    while IFS= read -r key; do
+        [[ -n "$key" ]] || continue
+        if ! one=$(build_one_store_api_refresh "$key"); then
+            [[ -n "$one" ]] || one=$(json_text "Error: Store ${key} not found")
+            if prev=$(evo_bar_cache_read_any "$(store_cache_key "$key" "$SNAPSHOT_DAYS")" 2>/dev/null) && payload_is_ok "$prev"; then
+                one="$prev"
+            fi
+        else
+            printf '%s\n' "$one" | evo_bar_cache_write "$(store_cache_key "$key" "$SNAPSHOT_DAYS")"
+        fi
+        payloads_json=$(jq -c --arg k "$key" --argjson v "$one" '. + {($k): $v}' <<<"$payloads_json")
+    done < <(jq -r '.[].key // empty' <<<"$stores")
+
+    if [[ "$payloads_json" == "{}" && "$stores" == "[]" ]]; then
+        cmd_cache
+        return 0
+    fi
+
+    snapshot=$(snapshot_with_icons "$(jq -c --argjson stores "$stores" '{stores: $stores, payloads: .}' <<<"$payloads_json")")
+    printf '%s\n' "$snapshot" | evo_bar_cache_write "$(snapshot_cache_key)"
+    printf '%s\n' "$snapshot"
+}
+
+build_one_store() {
+    local store_prefix=$1
+    local days=$2
+    local tz_name site_key api_payload sym today_sales_val cos_str label_text
+
+    if ! [[ "$days" =~ ^[0-9]+$ ]] || (( days < 1 )); then
+        days=14
+    fi
+    if (( days > 90 )); then
+        days=90
+    fi
+
+    tz_name="${EVO_SHOPIFY_TZ:-$DEFAULT_TZ}"
+    tz_name="${tz_name// /}"
+    [[ -z "$tz_name" ]] && tz_name="$DEFAULT_TZ"
+
+    if ! api_ready; then
+        json_text "Shopify: set shopify.apiUrl and pass insert evoshell/ecommerce-data/api-token"
+        return 0
+    fi
+
+    if [[ -n "$store_prefix" ]]; then
+        if ! find_store "$store_prefix"; then
+            json_text "Error: Store ${store_prefix} not found"
+            return 1
+        fi
+        site_key="$STORE_SITE_KEY"
+    else
+        if ((${#STORES[@]} == 0)); then
+            json_text "Shopify: no stores found"
+            return 0
+        fi
+        IFS='|' read -r STORE_PREFIX STORE_DISPLAY STORE_SITE_KEY <<< "${STORES[0]}"
+        site_key="$STORE_SITE_KEY"
+    fi
+
+    api_payload=$(fetch_store_snapshot_api "$site_key" "$days" "$tz_name") || {
+        json_text "${STORE_DISPLAY}: API error"
+        return 1
+    }
+    sym=$(jq -r '.symbol // "£"' <<<"$api_payload")
+    today_sales_val=$(format_int_commas "$(jq -r '.todayDetail.revenue // 0' <<<"$api_payload")")
+    cos_str=$(jq -r '.cos // "—"' <<<"$api_payload")
+    label_text="${STORE_DISPLAY}${sym}${today_sales_val} | ${cos_str}"
+    jq -c --arg text "$label_text" --arg label "$label_text" \
+        '.text = $text | .label = $label' <<<"$api_payload"
+}
+
+main() {
+    local store_prefix=${1:-}
+    local days=${2:-14}
+    local cache_key cached output
+
+    if ! [[ "$days" =~ ^[0-9]+$ ]] || (( days < 1 )); then
+        days=14
+    fi
+    if (( days > 90 )); then
+        days=90
+    fi
+    cache_key="$(store_cache_key "${store_prefix:-all}" "$days")"
+
+    if cached=$(evo_bar_cache_read_any "$cache_key" 2>/dev/null) && payload_is_ok "$cached"; then
+        printf '%s\n' "$cached"
+        return 0
+    fi
+
+    load_shopify_config
+    evo_bar_load_heatmap_colors
+    output=$(build_one_store "$store_prefix" "$days") || return 1
+    printf '%s\n' "$output" | evo_bar_cache_write "$cache_key"
+    printf '%s\n' "$output"
+}
+
+cmd_stores() {
+    local cached
+    if cached=$(evo_bar_cache_read_any "$(snapshot_cache_key)" 2>/dev/null); then
+        jq -c '.stores // []' <<<"$cached"
+        return 0
+    fi
+    printf '[]\n'
+}
+
+case "${1:-}" in
+    cache)
+        cmd_cache
+        ;;
+    refresh)
+        cmd_refresh
+        ;;
+    stores)
+        cmd_stores
+        ;;
+    *)
+        main "$@"
+        ;;
+esac

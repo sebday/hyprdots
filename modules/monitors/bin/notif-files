@@ -1,0 +1,385 @@
+#!/usr/bin/python3 -I
+"""Popup and history files under $EVOSHELL_STATE/monitors/notifications/, and
+the DND setting beside them in $EVOSHELL_STATE/monitors/notifications.json.
+
+QML never builds a shell string. JSON arrives on stdin. Image copy sources
+are opened once with O_NOFOLLOW|O_NONBLOCK and the dest is published by
+rename through a held dirfd.
+"""
+import json
+import os
+import re
+import stat
+import sys
+import secrets
+
+MAX_JSON = 65536
+MAX_IMAGE = 5 * 1024 * 1024
+MAX_CAT = 262144
+MAX_DIR_ENTRIES = 512
+STEM_RE = re.compile(r"^[0-9]{1,16}-[0-9]{1,16}$")
+JSON_RE = re.compile(r"^[0-9]{1,16}-[0-9]{1,16}\.json$")
+IMAGE_RE = re.compile(r"^([0-9]{1,16}-[0-9]{1,16})-(appIcon|image)$")
+CHAIN = ["monitors", "notifications"]
+SETTINGS_NAME = "notifications.json"
+
+
+def state_root():
+    env = os.environ.get("EVOSHELL_STATE", "").strip()
+    if env:
+        return env
+    xdg = os.environ.get("XDG_STATE_HOME", "").strip()
+    if xdg:
+        return os.path.join(xdg, "evoshell")
+    return os.path.join(os.path.expanduser("~"), ".local", "state", "evoshell")
+
+
+def open_dir_chain(parts):
+    root = state_root()
+    if not os.path.isabs(root):
+        raise PermissionError("state root must be absolute")
+    os.makedirs(root, 0o700, exist_ok=True)
+    fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    try:
+        st = os.fstat(fd)
+        if st.st_uid != os.geteuid():
+            raise PermissionError("untrusted state root")
+        for name in parts:
+            nfd = child_dir(fd, name)
+            os.close(fd)
+            fd = nfd
+        return fd
+    except BaseException:
+        os.close(fd)
+        raise
+
+
+def child_dir(parent_fd, name):
+    try:
+        nfd = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=parent_fd)
+    except FileNotFoundError:
+        os.mkdir(name, 0o700, dir_fd=parent_fd)
+        nfd = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=parent_fd)
+    try:
+        st = os.fstat(nfd)
+        if not stat.S_ISDIR(st.st_mode) or st.st_uid != os.geteuid():
+            raise PermissionError(f"untrusted directory {name}")
+        if st.st_mode & 0o077:
+            os.fchmod(nfd, 0o700)
+        return nfd
+    except BaseException:
+        os.close(nfd)
+        raise
+
+
+def require_json_name(name):
+    if not JSON_RE.fullmatch(name or ""):
+        raise ValueError("refusing notification file name")
+    return name
+
+
+def require_stem(stem):
+    if not STEM_RE.fullmatch(stem or ""):
+        raise ValueError("refusing notification stem")
+    return stem
+
+
+def listdir_names(dirfd):
+    names = os.listdir(dirfd)
+    if len(names) > MAX_DIR_ENTRIES:
+        raise PermissionError("directory listing exceeded limit")
+    return names
+
+
+def write_atomic(dirfd, name, data: bytes):
+    if len(data) > MAX_JSON:
+        raise ValueError("payload too large")
+    tmp = f".{name}.{secrets.token_hex(8)}.tmp"
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600, dir_fd=dirfd)
+    try:
+        os.fchmod(fd, 0o600)
+        view = memoryview(data)
+        while view:
+            n = os.write(fd, view)
+            view = view[n:]
+        os.fsync(fd)
+        os.rename(tmp, name, src_dir_fd=dirfd, dst_dir_fd=dirfd)
+        os.fsync(dirfd)
+    except BaseException:
+        try:
+            os.unlink(tmp, dir_fd=dirfd)
+        except OSError:
+            pass
+        raise
+    finally:
+        os.close(fd)
+
+
+def read_json_stdin():
+    payload = sys.stdin.buffer.read(MAX_JSON + 1)
+    if len(payload) > MAX_JSON:
+        raise ValueError("payload too large")
+    if not payload:
+        raise ValueError("empty payload")
+    obj = json.loads(payload.decode("utf-8"))
+    if not isinstance(obj, dict):
+        raise ValueError("payload is not an object")
+    line = json.dumps(obj, separators=(",", ":"), ensure_ascii=False) + "\n"
+    encoded = line.encode("utf-8")
+    if len(encoded) > MAX_JSON:
+        raise ValueError("payload too large")
+    return encoded
+
+
+def copy_image(src_path, dest_name, images_fd):
+    if not IMAGE_RE.fullmatch(dest_name):
+        raise ValueError("refusing image dest name")
+    if not src_path or src_path[0] != "/" or "\0" in src_path:
+        raise ValueError("refusing image source")
+    segs = src_path.split("/")
+    if any(seg in (".", "..") for seg in segs):
+        raise ValueError("refusing image source")
+    fd = os.open(src_path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+    try:
+        st = os.fstat(fd)
+        if not stat.S_ISREG(st.st_mode) or st.st_uid != os.geteuid() or st.st_nlink != 1:
+            raise PermissionError("refusing image source")
+        if st.st_size > MAX_IMAGE:
+            raise PermissionError("image too large")
+        os.set_blocking(fd, True)
+        data = b""
+        while len(data) <= MAX_IMAGE:
+            chunk = os.read(fd, min(65536, MAX_IMAGE + 1 - len(data)))
+            if not chunk:
+                break
+            data += chunk
+        if len(data) > MAX_IMAGE:
+            raise PermissionError("image too large")
+    finally:
+        os.close(fd)
+
+    tmp = f".{dest_name}.{secrets.token_hex(8)}.tmp"
+    out = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600, dir_fd=images_fd)
+    try:
+        os.fchmod(out, 0o600)
+        view = memoryview(data)
+        while view:
+            n = os.write(out, view)
+            view = view[n:]
+        os.fsync(out)
+        os.rename(tmp, dest_name, src_dir_fd=images_fd, dst_dir_fd=images_fd)
+        os.fsync(images_fd)
+    except BaseException:
+        try:
+            os.unlink(tmp, dir_fd=images_fd)
+        except OSError:
+            pass
+        raise
+    finally:
+        os.close(out)
+
+
+def copy_pairs(args, stem, images_fd):
+    if len(args) % 2 != 0 or len(args) > 8:
+        raise ValueError("image copy args must be from/to pairs")
+    prefix = stem + "-"
+    for i in range(0, len(args), 2):
+        src = args[i]
+        dest = os.path.basename(args[i + 1])
+        if not dest.startswith(prefix) or not IMAGE_RE.fullmatch(dest):
+            raise ValueError("image dest does not match stem")
+        try:
+            copy_image(src, dest, images_fd)
+        except (OSError, PermissionError, ValueError):
+            continue
+
+
+def unlink_if_present(dirfd, name):
+    try:
+        os.unlink(name, dir_fd=dirfd)
+    except FileNotFoundError:
+        pass
+
+
+def unlink_stem_images(images_fd, stem):
+    prefix = stem + "-"
+    for name in listdir_names(images_fd):
+        if name.startswith(".") or not name.startswith(prefix):
+            continue
+        if IMAGE_RE.fullmatch(name):
+            unlink_if_present(images_fd, name)
+
+
+def json_names(dirfd):
+    names = [n for n in listdir_names(dirfd) if JSON_RE.fullmatch(n)]
+    names.sort(key=lambda n: (int(n.split("-", 1)[0]), n))
+    return names
+
+
+def read_owned(dirfd, name):
+    """The file's bytes, or None unless it is a plain file we own within MAX_JSON."""
+    try:
+        fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC, dir_fd=dirfd)
+    except OSError:
+        return None
+    try:
+        st = os.fstat(fd)
+        if not stat.S_ISREG(st.st_mode) or st.st_uid != os.geteuid() or st.st_nlink != 1:
+            return None
+        os.set_blocking(fd, True)
+        data = b""
+        while len(data) <= MAX_JSON:
+            chunk = os.read(fd, min(65536, MAX_JSON + 1 - len(data)))
+            if not chunk:
+                break
+            data += chunk
+        return data if len(data) <= MAX_JSON else None
+    except OSError:
+        return None
+    finally:
+        os.close(fd)
+
+
+def cat_json(dirfd):
+    out = bytearray()
+    for name in json_names(dirfd):
+        data = read_owned(dirfd, name)
+        if not data:
+            continue
+        if not data.endswith(b"\n"):
+            data += b"\n"
+        if len(out) + len(data) > MAX_CAT:
+            break
+        out += data
+    sys.stdout.buffer.write(out)
+
+
+def parse_limit(raw):
+    try:
+        limit = int(raw)
+    except (TypeError, ValueError):
+        raise ValueError("bad history limit") from None
+    if limit < 1 or limit > 100:
+        raise ValueError("bad history limit")
+    return limit
+
+
+def trim_history(history_fd, images_fd, limit):
+    names = json_names(history_fd)
+    drop = names[: max(0, len(names) - limit)]
+    for name in drop:
+        unlink_if_present(history_fd, name)
+        unlink_stem_images(images_fd, name[: -len(".json")])
+
+
+def cmd_persist(popup_fd, images_fd, name, copies):
+    name = require_json_name(name)
+    stem = name[: -len(".json")]
+    copy_pairs(copies, stem, images_fd)
+    write_atomic(popup_fd, name, read_json_stdin())
+
+
+def cmd_delete(popup_fd, images_fd, stem):
+    stem = require_stem(stem)
+    unlink_if_present(popup_fd, stem + ".json")
+    unlink_stem_images(images_fd, stem)
+
+
+def cmd_archive(popup_fd, history_fd, images_fd, name, limit):
+    name = require_json_name(name)
+    try:
+        os.rename(name, name, src_dir_fd=popup_fd, dst_dir_fd=history_fd)
+        os.fsync(history_fd)
+    except FileNotFoundError:
+        return
+    trim_history(history_fd, images_fd, parse_limit(limit))
+
+
+def cmd_write_history(history_fd, images_fd, name, limit, copies):
+    name = require_json_name(name)
+    stem = name[: -len(".json")]
+    copy_pairs(copies, stem, images_fd)
+    write_atomic(history_fd, name, read_json_stdin())
+    trim_history(history_fd, images_fd, parse_limit(limit))
+
+
+def cmd_clear_history(history_fd, images_fd):
+    for name in json_names(history_fd):
+        unlink_if_present(history_fd, name)
+        unlink_stem_images(images_fd, name[: -len(".json")])
+
+
+def cmd_sweep(popup_fd, history_fd, images_fd):
+    live = set()
+    for name in json_names(popup_fd):
+        live.add(name[: -len(".json")])
+    for name in json_names(history_fd):
+        live.add(name[: -len(".json")])
+    for name in listdir_names(images_fd):
+        if name.startswith("."):
+            unlink_if_present(images_fd, name)
+            continue
+        match = IMAGE_RE.fullmatch(name)
+        if not match or match.group(1) not in live:
+            unlink_if_present(images_fd, name)
+
+
+def cmd_settings(state_fd, op):
+    if op == "settings-read":
+        sys.stdout.buffer.write(read_owned(state_fd, SETTINGS_NAME) or b"")
+        return
+    payload = sys.stdin.buffer.read(MAX_JSON + 1)
+    if len(payload) > MAX_JSON:
+        raise ValueError("payload too large")
+    json.loads(payload.decode("utf-8"))
+    write_atomic(state_fd, SETTINGS_NAME, payload)
+
+
+def main(argv):
+    if len(argv) < 2:
+        sys.exit(2)
+    op = argv[1]
+    if op in ("settings-read", "settings-write"):
+        state_fd = open_dir_chain(CHAIN[:-1])
+        try:
+            cmd_settings(state_fd, op)
+        finally:
+            os.close(state_fd)
+        return
+    popup_fd = open_dir_chain(CHAIN)
+    history_fd = None
+    images_fd = None
+    try:
+        history_fd = child_dir(popup_fd, "history")
+        images_fd = child_dir(popup_fd, "images")
+        if op == "persist":
+            cmd_persist(popup_fd, images_fd, argv[2], argv[3:])
+        elif op == "delete":
+            cmd_delete(popup_fd, images_fd, argv[2])
+        elif op == "archive":
+            cmd_archive(popup_fd, history_fd, images_fd, argv[2], argv[3])
+        elif op == "write-history":
+            cmd_write_history(history_fd, images_fd, argv[2], argv[3], argv[4:])
+        elif op == "clear-history":
+            cmd_clear_history(history_fd, images_fd)
+        elif op == "sweep":
+            cmd_sweep(popup_fd, history_fd, images_fd)
+        elif op == "read-popups":
+            cat_json(popup_fd)
+        elif op == "read-history":
+            cat_json(history_fd)
+        else:
+            sys.exit(2)
+    finally:
+        if images_fd is not None:
+            os.close(images_fd)
+        if history_fd is not None:
+            os.close(history_fd)
+        os.close(popup_fd)
+
+
+if __name__ == "__main__":
+    try:
+        main(sys.argv)
+    except (ValueError, PermissionError, json.JSONDecodeError, OSError, IndexError):
+        sys.exit(1)

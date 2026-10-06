@@ -1,0 +1,6 @@
+{
+  "id": "omarchy",
+  "name": "Omarchy",
+  "matches": ["https://omarchy.org/*"],
+  "enabled": true
+}

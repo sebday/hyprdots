@@ -1,0 +1,6 @@
+{
+  "id": "github",
+  "name": "GitHub",
+  "matches": ["https://github.com/*"],
+  "enabled": true
+}

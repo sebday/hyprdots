@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "evo.insync",
+  "name": "Insync",
+  "version": "1.0.0",
+  "author": "seb",
+  "description": "Insync cloud sync status and totals",
+  "kinds": [
+    "bar-widget",
+    "menu"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml",
+    "menu": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "Insync",
+    "description": "Sync status, totals, and accounts",
+    "category": "Files",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}

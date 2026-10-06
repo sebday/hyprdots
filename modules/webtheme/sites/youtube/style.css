@@ -1,0 +1,18 @@
+html {
+    --yt-spec-base-background: var(--bg-primary) !important;
+    --yt-spec-brand-background-solid: var(--bg-primary) !important;
+    --yt-spec-brand-background-primary: var(--bg-primary) !important;
+}
+
+ytd-app {
+    background-color: var(--bg-primary) !important;
+}
+
+#frosted-glass.ytd-app,
+#background.ytd-masthead {
+    background-color: var(--bg-primary) !important;
+}
+
+.ytSearchboxComponentInputBoxDark {
+    background-color: var(--bg-transparent) !important;
+}

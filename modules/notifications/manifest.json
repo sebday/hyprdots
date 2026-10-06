@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "evo.panels.notifications",
+  "name": "Notifications",
+  "version": "1.0.0",
+  "author": "seb",
+  "description": "Notification history",
+  "kinds": [
+    "menu",
+    "bar-widget"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "menu": "Notifications.qml",
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Notifications",
+    "description": "Notification icon and history",
+    "category": "Status",
+    "allowMultiple": false
+  }
+}

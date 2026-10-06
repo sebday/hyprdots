@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "id": "evo.stocks",
+  "name": "Stocks",
+  "version": "1.0.0",
+  "author": "seb",
+  "description": "Separate BTC and SPCX bar icons with candlestick charts and a daily headline strip",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Stocks",
+    "description": "One icon each for Kraken BTC and Trading 212 SPCX",
+    "category": "Info",
+    "allowMultiple": true,
+    "defaultSection": "left",
+    "defaults": {
+      "market": "btc"
+    },
+    "schema": [
+      {
+        "key": "market",
+        "type": "enum",
+        "label": "Market",
+        "options": [
+          "btc",
+          "spcx"
+        ],
+        "defaultValue": "btc"
+      }
+    ]
+  }
+}

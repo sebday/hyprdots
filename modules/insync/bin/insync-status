@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+# Insync status for the evo.insync bar widget.
+set -euo pipefail
+
+INSYNC_BIN="${INSYNC_BIN:-insync}"
+_paths_lib="${EVOSHELL_LIB:-$HOME/.local/lib/evoshell/bin}/evo-paths-lib"
+# shellcheck source=/dev/null
+[[ -r $_paths_lib ]] && source "$_paths_lib"
+EVOSHELL_CACHE="${EVOSHELL_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/evoshell}"
+INSYNC_ACCOUNTS_JSON="${INSYNC_ACCOUNTS_JSON:-${EVOSHELL_CACHE}/insync/accounts.json}"
+
+_bin_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=insync-status-lib
+source "${_bin_dir}/insync-status-lib"
+
+insync_available() {
+  command -v "$INSYNC_BIN" >/dev/null 2>&1
+}
+
+cmd_popup() {
+  if ! insync_available; then
+    mkdir -p -m 700 "$(dirname "$INSYNC_ACCOUNTS_JSON")"
+    jq -n '{ok:false,error:"insync not found",status:"",paused:false,accounts:[],files:[],errors:[],syncedFiles:0,syncedBytes:0,recent:[]}' | tee "$INSYNC_ACCOUNTS_JSON"
+    return
+  fi
+
+  local status_text errors_text
+  status_text="$("$INSYNC_BIN" status 2>&1 || true)"
+
+  local paused=false
+  [[ "${status_text^^}" == *"PAUSED"* ]] && paused=true
+
+  errors_text=""
+  if ! $paused; then
+    if [[ -t 0 ]]; then
+      errors_text="$("$INSYNC_BIN" error list 2>&1 || true)"
+    else
+      errors_text="$(timeout 2 "$INSYNC_BIN" error list </dev/null 2>&1 || true)"
+    fi
+  fi
+
+  insync_parse_popup "$status_text" "$errors_text"
+}
+
+cmd_account_cache() {
+  [[ -f "$INSYNC_ACCOUNTS_JSON" ]] || return 1
+  cat "$INSYNC_ACCOUNTS_JSON"
+}
+
+cmd_pause() {
+  insync_available || return 1
+  "$INSYNC_BIN" pause
+}
+
+cmd_resume() {
+  insync_available || return 1
+  "$INSYNC_BIN" resume
+}
+
+hypr_dispatch() {
+  local lua="$1"
+  shift
+  hyprctl dispatch "$lua" >/dev/null 2>&1 || hyprctl dispatch "$@" >/dev/null
+}
+
+insync_window_address() {
+  hyprctl clients -j 2>/dev/null | jq -r '
+    .[] | select((.class // "" | test("^insync$"; "i")) or (.initialClass // "" | test("^insync$"; "i")))
+    | .address
+  ' | head -n1
+}
+
+# Reveal Insync; Hypr applies float/center/size via +floating-window at map time.
+cmd_show() {
+  insync_available || return 1
+  "$INSYNC_BIN" show
+
+  command -v hyprctl >/dev/null 2>&1 || return 0
+
+  local addr="" window=""
+  local i
+  for i in $(seq 1 30); do
+    addr="$(insync_window_address)"
+    [[ -n "$addr" ]] && break
+    sleep 0.05
+  done
+  [[ -n "$addr" ]] || return 0
+
+  window="address:$addr"
+  hypr_dispatch "hl.dsp.focus({ window = \"$window\" })" focuswindow "$window"
+}
+
+case "${1:-}" in
+popup)
+  cmd_popup
+  ;;
+account-cache)
+  cmd_account_cache
+  ;;
+pause)
+  cmd_pause
+  ;;
+resume)
+  cmd_resume
+  ;;
+show)
+  cmd_show
+  ;;
+*)
+  echo "usage: $0 popup|account-cache|pause|resume|show" >&2
+  exit 1
+  ;;
+esac

@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "id": "evo.cursor",
+  "name": "Cursor",
+  "version": "1.0.0",
+  "author": "seb",
+  "description": "Cursor IDE usage and billing cycle",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Cursor",
+    "description": "Cursor and API model usage",
+    "category": "Info",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "refreshIntervalSec": 300
+    },
+    "schema": [
+      {
+        "key": "refreshIntervalSec",
+        "type": "integer",
+        "label": "Refresh interval (seconds)",
+        "min": 30,
+        "max": 3600,
+        "step": 30,
+        "defaultValue": 300
+      }
+    ]
+  }
+}

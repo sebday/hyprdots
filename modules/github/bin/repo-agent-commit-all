@@ -1,0 +1,104 @@
+#!/usr/bin/bash
+# Commit local changes in one or more repos with the configured coding agent.
+set -euo pipefail
+
+_bin_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+prompt='Review the git changes in this repository, stage the appropriate files, and create a commit with a concise message that follows the project'\''s commit conventions. Do not push.'
+
+plain() {
+  local value=${1:-}
+  local max=${2:-240}
+  value=${value//[<>&]/}
+  printf '%s' "$value" \
+    | /usr/bin/tr -d '\000-\037\177' \
+    | /usr/bin/head -c "$max" \
+    | /usr/bin/iconv -c -f UTF-8 -t UTF-8 \
+    || true
+}
+
+notify() {
+  [[ -x /usr/bin/notify-send ]] || return 0
+  local title body duration
+  title="$(plain "${1:-GitHub}" 80)"
+  body="$(plain "${2:-}" 240)"
+  duration=${3:-5000}
+  /usr/bin/notify-send -a evo.github -t "$duration" -- "$title" "$body" >/dev/null 2>&1 || true
+}
+
+repo_name() {
+  local dir=${1%/}
+  dir=${dir##*/}
+  [[ -n $dir ]] || dir="repo"
+  printf '%s' "$dir"
+}
+
+(( $# > 0 )) || {
+  printf 'repo path required\n' >&2
+  exit 2
+}
+
+agent="${EVO_GITHUB_AGENT:-cursor-agent}"
+if ! command -v "$agent" >/dev/null 2>&1; then
+  notify "GitHub" "Could not start agent: ${agent} not found"
+  exit 1
+fi
+
+if [[ -z ${XDG_RUNTIME_DIR:-} || ! -d $XDG_RUNTIME_DIR ]]; then
+  notify "GitHub" "Could not start agent: runtime dir missing"
+  exit 1
+fi
+
+dirs=("$@")
+count=${#dirs[@]}
+display_name=$(repo_name "${dirs[0]}")
+
+if (( count == 1 )); then
+  notify "GitHub" "Agent committing in ${display_name}…"
+else
+  notify "GitHub" "Committing ${count} repos…"
+fi
+
+successes=0
+failures=()
+
+for dir in "${dirs[@]}"; do
+  name=$(repo_name "$dir")
+
+  if [[ ! -d $dir || ! -e $dir/.git ]]; then
+    failures+=("$name")
+    continue
+  fi
+
+  log=$(mktemp -p "$XDG_RUNTIME_DIR" evo-github-agent.XXXXXX) || {
+    failures+=("$name")
+    continue
+  }
+
+  if (
+    cd -- "$dir"
+    /usr/bin/timeout -k 5 900 bash "$_bin_dir/agent-prompt" "$prompt" >"$log" 2>&1
+  ); then
+    (( successes += 1 )) || true
+  else
+    failures+=("$name")
+  fi
+  rm -f -- "$log"
+done
+
+if (( ${#failures[@]} == 0 )); then
+  if (( count == 1 )); then
+    notify "GitHub" "Commit finished in ${display_name}" 8000
+  else
+    notify "GitHub" "Committed all ${count} repos" 8000
+  fi
+  exit 0
+fi
+
+failed_names="${failures[*]}"
+if (( successes == 0 )); then
+  notify "GitHub" "Agent commit failed: ${failed_names}" 10000
+else
+  notify "GitHub" "Committed ${successes} of ${count}; failed: ${failed_names}" 10000
+fi
+exit 1

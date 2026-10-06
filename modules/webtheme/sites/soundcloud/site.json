@@ -1,0 +1,6 @@
+{
+  "id": "soundcloud",
+  "name": "SoundCloud",
+  "matches": ["https://soundcloud.com/*"],
+  "enabled": true
+}

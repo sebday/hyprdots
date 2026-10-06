@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "id": "evo.cloudflare",
+  "name": "Cloudflare",
+  "version": "1.0.0",
+  "author": "seb",
+  "description": "Cloudflare account resources, usage, and recent deploys",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Cloudflare",
+    "description": "Workers, Pages, R2, D1, and zone usage",
+    "category": "Info",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "analyticsIntervalSec": 900,
+      "deployRows": 8,
+      "overviewDeployRows": 3,
+      "errorRatePercent": 1,
+      "workerRequestsPerDay": 0,
+      "r2StorageGb": 0,
+      "d1RowsReadPerDay": 0,
+      "projectsRoot": ""
+    }
+  }
+}

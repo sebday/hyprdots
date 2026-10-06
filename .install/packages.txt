@@ -9,6 +9,7 @@ xorg-xwayland
 
 # Desktop ###################
 quickshell
+gnome-keyring
 hyprpicker
 wl-clipboard
 cliphist
@@ -23,7 +24,6 @@ papirus-icon-theme
 
 # Tools ######################
 ghostty
-satty
 git
 pass
 libnotify
@@ -60,6 +60,9 @@ wine-mono
 
 # Media #####################
 pipewire
+pipewire-alsa
+pipewire-pulse
+wireplumber
 alsa-utils
 playerctl
 imv
@@ -71,5 +74,5 @@ transmission-cli
 mise
 python
 lazygit
-neovim
+nano
 obsidian

@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "evo.now-playing",
+  "name": "Now playing",
+  "version": "1.0.0",
+  "author": "seb",
+  "description": "Volume icon and the now playing popup",
+  "kinds": ["bar-widget", "service"],
+  "keepLoaded": true,
+  "entryPoints": {
+    "service": "Service.qml",
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Now playing",
+    "description": "Volume icon with the now playing popup",
+    "category": "Media",
+    "allowMultiple": false,
+    "defaultSection": "center"
+  }
+}

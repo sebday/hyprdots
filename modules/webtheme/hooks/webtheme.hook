@@ -1,0 +1,10 @@
+#!/bin/bash
+# evo-theme theme-set hook: re-render the webtheme colors.css from
+# ~/.themes/current and poke open Brave/Chromium tabs to reload it.
+
+DATA_DIR="${WEBTHEME_DATA_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/evoshell/webtheme}"
+plugin_dir="$(cat "$DATA_DIR/plugin-dir" 2>/dev/null || true)"
+WEBTHEME="${plugin_dir:-$HOME/projects/hyprdots/modules/webtheme}/bin/webtheme"
+
+[[ -x $WEBTHEME ]] || exit 0
+"$WEBTHEME" sync-theme >/dev/null

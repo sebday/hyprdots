@@ -1,0 +1,45 @@
+<!doctype html>
+<html class="sites" lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>All sites — Evo Webtheme</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <span class="hero-icon" aria-hidden="true">󰸌</span>
+      <div class="hero-copy">
+        <h1>All sites</h1>
+        <p id="meta">Loading…</p>
+      </div>
+      <span id="count" class="count">…</span>
+    </header>
+
+    <div class="stats">
+      <div class="stat"><b id="stat-enabled">0</b><span>enabled</span></div>
+      <div class="stat"><b id="stat-bundled">0</b><span>bundled</span></div>
+      <div class="stat"><b id="stat-mine">0</b><span>mine</span></div>
+      <div class="stat"><b id="stat-total">0</b><span>total</span></div>
+    </div>
+
+    <p id="error" class="error" hidden></p>
+
+    <div class="columns">
+      <section>
+        <h2>Bundled</h2>
+        <div id="bundled" class="list"></div>
+        <p id="bundled-empty" class="empty" hidden>No bundled packages.</p>
+      </section>
+
+      <section>
+        <h2>Personal</h2>
+        <div id="personal" class="list"></div>
+        <p id="personal-empty" class="empty" hidden>No personal packages yet. Theme this site from the popup.</p>
+      </section>
+    </div>
+
+    <script src="ui.js"></script>
+    <script src="sites.js"></script>
+  </body>
+</html>

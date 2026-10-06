@@ -1,7 +1,6 @@
 require("input")
 require("looks")
 require("theme")
-require("layouts/dashboard")
 require("monitors")
 require("windows")
 require("layout")
@@ -24,7 +23,7 @@ local function evoshell_root()
 		end
 		f:close()
 	end
-	return home .. "/projects/evoshell"
+	return home .. "/projects/hyprdots"
 end
 
 local bootstrap = evoshell_root() .. "/hypr/bootstrap.lua"
@@ -33,7 +32,7 @@ if not bootstrap_file then
 	error(
 		"evoshell bootstrap missing at "
 			.. bootstrap
-			.. " (clone evoshell to ~/projects/evoshell or run scripts/install)"
+			.. " (set EVOSHELL_ROOT in ~/.config/evoshell/environment or run scripts/install)"
 	)
 end
 bootstrap_file:close()

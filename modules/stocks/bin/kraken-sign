@@ -1,0 +1,17 @@
+#!/usr/bin/python3 -I
+"""HMAC-SHA512 Kraken signature. Secret on stdin line 1, never argv."""
+import base64
+import hashlib
+import hmac
+import sys
+
+secret_b64 = sys.stdin.readline().rstrip("\n")
+nonce = sys.stdin.readline().rstrip("\n")
+postdata = sys.stdin.readline().rstrip("\n")
+api_path = sys.stdin.readline().rstrip("\n")
+if not secret_b64 or not nonce or not api_path:
+    sys.exit(1)
+secret = base64.b64decode(secret_b64)
+sha = hashlib.sha256((nonce + postdata).encode("utf-8")).digest()
+digest = hmac.new(secret, api_path.encode("utf-8") + sha, hashlib.sha512).digest()
+sys.stdout.write(base64.b64encode(digest).decode("ascii"))

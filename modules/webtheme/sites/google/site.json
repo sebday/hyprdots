@@ -1,0 +1,6 @@
+{
+  "id": "google",
+  "name": "Google",
+  "matches": ["https://www.google.com/*", "https://google.com/*"],
+  "enabled": true
+}

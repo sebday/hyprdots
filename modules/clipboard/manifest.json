@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "evo.side.clipboard",
+  "name": "Clipboard",
+  "version": "1.0.0",
+  "author": "seb",
+  "description": "Clipboard history",
+  "kinds": [
+    "menu",
+    "service"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "menu": "Clipboard.qml",
+    "service": "Service.qml"
+  }
+}

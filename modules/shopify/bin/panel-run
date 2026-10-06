@@ -1,0 +1,126 @@
+#!/usr/bin/python3 -I
+"""Run one command in its own session, with a deadline and a byte cap.
+
+Stdout bigger than MAX is discarded and the process group is killed.
+Stderr is kept up to ERR_MAX. QML should still cap what it reads.
+"""
+import fcntl
+import os
+import selectors
+import signal
+import subprocess
+import sys
+import time
+
+MAX = 262144
+ERR_MAX = 4096
+DEADLINE = 240
+
+
+def killpg(proc, sig):
+    try:
+        os.killpg(proc.pid, sig)
+    except OSError:
+        try:
+            proc.send_signal(sig)
+        except OSError:
+            pass
+
+
+def set_nonblock(fd):
+    flags = fcntl.fcntl(fd, fcntl.F_GETFL)
+    fcntl.fcntl(fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
+
+
+def main(argv):
+    if len(argv) < 1 or not argv[0].startswith("/"):
+        return 2
+    proc = subprocess.Popen(
+        argv,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        start_new_session=True,
+    )
+    set_nonblock(proc.stdout)
+    set_nonblock(proc.stderr)
+
+    def stop(_signum, _frame):
+        killpg(proc, signal.SIGTERM)
+        try:
+            proc.wait(timeout=0.4)
+        except subprocess.TimeoutExpired:
+            killpg(proc, signal.SIGKILL)
+            proc.wait()
+        sys.exit(143)
+
+    signal.signal(signal.SIGTERM, stop)
+    signal.signal(signal.SIGINT, stop)
+    signal.signal(signal.SIGHUP, stop)
+
+    sel = selectors.DefaultSelector()
+    sel.register(proc.stdout, selectors.EVENT_READ)
+    sel.register(proc.stderr, selectors.EVENT_READ)
+    out = bytearray()
+    err = bytearray()
+    end = time.monotonic() + DEADLINE
+    overflow = False
+    timed_out = False
+
+    while sel.get_map():
+        if time.monotonic() > end:
+            timed_out = True
+            break
+        events = sel.select(timeout=0.2)
+        if not events and proc.poll() is not None:
+            break
+        for key, _ in events:
+            try:
+                chunk = os.read(key.fd, 65536)
+            except BlockingIOError:
+                continue
+            if not chunk:
+                sel.unregister(key.fileobj)
+                continue
+            if key.fileobj is proc.stdout:
+                if len(out) <= MAX:
+                    out.extend(chunk)
+                if len(out) > MAX:
+                    overflow = True
+                    break
+            elif len(err) < ERR_MAX:
+                room = ERR_MAX - len(err)
+                err.extend(chunk[:room])
+        if overflow:
+            break
+
+    if overflow or timed_out or proc.poll() is None:
+        killpg(proc, signal.SIGTERM)
+        try:
+            proc.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            killpg(proc, signal.SIGKILL)
+            proc.wait()
+    else:
+        proc.wait()
+
+    if err:
+        sys.stderr.buffer.write(err[:ERR_MAX])
+    if overflow:
+        sys.stderr.write("output exceeded %d bytes\n" % MAX)
+        return 1
+    if timed_out:
+        sys.stderr.write("timed out\n")
+        return 124
+    if proc.returncode != 0:
+        return proc.returncode
+    sys.stdout.buffer.write(out)
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main(sys.argv[1:]))
+    except BrokenPipeError:
+        sys.exit(0)
+    except Exception:
+        sys.exit(1)

@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# Pick the more legible of two bar text colours over the wallpaper strip under
+# a transparent bar. Prints one #rrggbb; falls back to the text colour.
+# usage: bar-text-color <top|bottom|left|right> <bar-px> <text-hex> <background-hex> [<WxH>]
+# Adapted from Omarchy's omarchy-bar-text-color (MIT).
+
+set -euo pipefail
+
+position=${1:-top}
+bar_size=${2:-}
+text_color=${3:-}
+background_color=${4:-}
+screen_size=${5:-}
+
+EVOSHELL_STATE="${EVOSHELL_STATE:-${XDG_STATE_HOME:-$HOME/.local/state}/evoshell}"
+
+fallback() {
+  printf '%s\n' "$text_color"
+  exit 0
+}
+
+valid_hex() {
+  [[ $1 =~ ^#[0-9A-Fa-f]{6}$ ]]
+}
+
+contrast() {
+  awk -v fg="$1" -v bg="$2" '
+    function channel(hex, start) { return strtonum("0x" substr(hex, start, 2)) / 255 }
+    function linear(c) { return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ^ 2.4 }
+    function luminance(hex) { return 0.2126 * linear(channel(hex, 2)) + 0.7152 * linear(channel(hex, 4)) + 0.0722 * linear(channel(hex, 6)) }
+    BEGIN {
+      l1 = luminance(fg); l2 = luminance(bg)
+      if (l1 < l2) { t = l1; l1 = l2; l2 = t }
+      printf "%.6f\n", (l1 + 0.05) / (l2 + 0.05)
+    }
+  '
+}
+
+valid_hex "$text_color" || fallback
+valid_hex "$background_color" || fallback
+[[ $position =~ ^(top|bottom|left|right)$ ]] || fallback
+[[ $bar_size =~ ^[0-9]+$ ]] || fallback
+command -v magick >/dev/null || fallback
+
+background_path=""
+[[ -f "$EVOSHELL_STATE/wallpaper" ]] && background_path=$(<"$EVOSHELL_STATE/wallpaper")
+background_path=$(readlink -f "$background_path" 2>/dev/null || true)
+[[ -f $background_path ]] || fallback
+
+if [[ -z $screen_size ]] && command -v hyprctl >/dev/null && command -v jq >/dev/null; then
+  screen_size=$(hyprctl monitors -j 2>/dev/null | jq -r '.[0] | "\(.width)x\(.height)"' 2>/dev/null || true)
+fi
+[[ $screen_size =~ ^([0-9]+)x([0-9]+)$ ]] || fallback
+
+screen_width=${BASH_REMATCH[1]}
+screen_height=${BASH_REMATCH[2]}
+((screen_width > 0 && screen_height > 0 && bar_size > 0)) || fallback
+
+case "$position" in
+top) crop="${screen_width}x${bar_size}+0+0" ;;
+bottom) crop="${screen_width}x${bar_size}+0+$((screen_height - bar_size))" ;;
+left) crop="${bar_size}x${screen_height}+0+0" ;;
+right) crop="${bar_size}x${screen_height}+$((screen_width - bar_size))+0" ;;
+esac
+
+# First frame only, so a video wallpaper yields one sample.
+pixel=$(magick "$background_path[0]" -auto-orient \
+  -resize "${screen_width}x${screen_height}^" \
+  -gravity center -extent "${screen_width}x${screen_height}" \
+  -gravity NorthWest -crop "$crop" +repage \
+  -resize '1x1!' -format '%[fx:int(255*r)],%[fx:int(255*g)],%[fx:int(255*b)]' info:- 2>/dev/null || true)
+[[ $pixel =~ ^([0-9]+),([0-9]+),([0-9]+)$ ]] || fallback
+
+sample=$(printf '#%02x%02x%02x' "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}" "${BASH_REMATCH[3]}")
+text_contrast=$(contrast "$text_color" "$sample")
+background_contrast=$(contrast "$background_color" "$sample")
+
+if awk -v text="$text_contrast" -v background="$background_contrast" 'BEGIN { exit !(background > text) }'; then
+  printf '%s\n' "$background_color"
+else
+  printf '%s\n' "$text_color"
+fi

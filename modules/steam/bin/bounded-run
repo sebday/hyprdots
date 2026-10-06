@@ -1,0 +1,8 @@
+#!/usr/bin/bash
+set -uo pipefail
+MAX=${MAX:-262144}
+out=$(/usr/bin/setsid -w /usr/bin/timeout -k 2 20 "$@" 2> >(/usr/bin/head -c 4096 >&2) | /usr/bin/head -c $((MAX + 1)))
+rc=$?
+if [ ${#out} -gt "$MAX" ]; then echo "output exceeded ${MAX} bytes" >&2; exit 1; fi
+[ "$rc" -eq 0 ] || exit "$rc"
+printf '%s' "$out"

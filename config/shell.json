@@ -1,0 +1,177 @@
+{
+  "version": 1,
+  "idle": {
+    "lock": 1200
+  },
+  "notifications": {
+    "durationMs": 3000,
+    "shellLogs": {
+      "enabled": true,
+      "pollIntervalMs": 5000,
+      "dedupeWindowSec": 300,
+      "userJournal": true
+    },
+    "position": "top",
+    "output": "DP-1",
+    "align": "center"
+  },
+  "panel": {
+    "side": "right"
+  },
+  "bar": {
+    "id": "evo.bar",
+    "position": "bottom",
+    "layout": {
+      "left": [
+        {
+          "id": "evo.stocks",
+          "market": "btc"
+        },
+        {
+          "id": "evo.stocks",
+          "market": "spcx"
+        },
+        {
+          "id": "evo.trading"
+        }
+      ],
+      "center": [
+        {
+          "id": "evo.tray"
+        },
+        {
+          "id": "evo.insync"
+        },
+        {
+          "id": "evo.steam"
+        },
+        {
+          "id": "evo.cursor"
+        },
+        {
+          "id": "evo.cloudflare",
+          "analyticsIntervalSec": 900
+        },
+        {
+          "id": "evo.github",
+          "repoRoots": [
+            {
+              "path": "/home/seb/projects",
+              "label": "projects"
+            },
+            {
+              "path": "/home/seb/work",
+              "label": "work"
+            }
+          ]
+        },
+        {
+          "id": "evo.panels.notifications",
+          "trayMode": true,
+          "onHover": "evo.panels.notifications"
+        },
+        {
+          "id": "evo.panels.network.stats",
+          "trayMode": true,
+          "onHover": "evo.panels.network.stats",
+          "iconOnly": true
+        },
+        {
+          "id": "evo.monitors"
+        },
+        {
+          "id": "evo.now-playing"
+        }
+      ],
+      "right": [
+        {
+          "id": "evo.weather"
+        },
+        {
+          "id": "evo.clock",
+          "format": "ddd d HH:mm",
+          "effect": false
+        }
+      ]
+    },
+    "trayWidgetOrder": [
+      "volume",
+      "media",
+      "workspaces",
+      "notifications",
+      "network"
+    ],
+    "output": "HDMI-A-1",
+    "trayWidgets": {
+      "audio": {},
+      "media": {}
+    },
+    "barWidgets": {
+      "workspaces": {
+        "enabled": true
+      }
+    },
+    "barWidgetOrder": [
+      "volume",
+      "media",
+      "workspaces",
+      "notifications",
+      "network"
+    ],
+    "barChromeOrder": [
+      "workspaces"
+    ],
+    "notificationPlacements": [
+      {
+        "output": "DP-1",
+        "position": "top",
+        "align": "center"
+      }
+    ],
+    "placements": [
+      {
+        "output": "HDMI-A-1",
+        "position": "bottom"
+      }
+    ]
+  },
+  "dashboards": {
+    "openOnStart": [
+      "evo.shopify",
+      "evo.panels.player"
+    ],
+    "braveOnStart": [
+      {
+        "url": "https://home.google.com/u/1/home/1-cb9859514d100077a7514292e70d3ce0c2419bd91e574642c34b63737d643b87/cameras/list/1-e6e317616dac9c683493bfc2faf697647c943b1b6316126c972ff4f62456926e?da=true",
+        "workspace": "10",
+        "classPattern": "^brave-home\\.google\\.com__.*cameras_list"
+      }
+    ],
+    "btopOnStart": {
+      "workspace": "10"
+    }
+  },
+  "shopify": {
+    "timezone": "Europe/London",
+    "apiUrl": "https://data.day.marketing",
+    "stores": [
+      {
+        "key": "DIY",
+        "title": "DIY",
+        "adminSlug": "diy-buildingsupplies",
+        "barPrefix": "D ",
+        "sqliteKey": "diy"
+      },
+      {
+        "key": "TGS",
+        "title": "TGS",
+        "adminSlug": "thegoodsheet-uk",
+        "barPrefix": "T ",
+        "sqliteKey": "tgs"
+      }
+    ]
+  },
+  "wallpaper": {
+    "activeDefault": "active://yuruyurau-wave"
+  }
+}

@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+# Repo scan roots for evo.github: detect candidate folders and normalize the
+# bar entry's repoRoots. The panel saves roots with shell.updateEntryInline.
+set -euo pipefail
+
+CANDIDATES=(projects Projects work Work)
+
+json_error() {
+  jq -cn --arg error "$1" '{ok: false, error: $error}'
+}
+
+normalize_roots_json() {
+  local raw="${1:-[]}"
+  jq -c --arg home "$HOME" '
+    def expand($p): if $p == "~" then $home elif ($p | startswith("~/")) then $home + $p[1:] else $p end;
+    def root_item($p; $lbl):
+      expand($p) as $path
+      | {path: $path, label: (if $lbl == "" then ($path | split("/") | last) else $lbl end)};
+    if type == "string" and length > 0 then
+      [root_item(.; "")]
+    elif type == "array" then
+      [
+        .[] |
+        if type == "string" then root_item(.; "")
+        elif type == "object" and (.path // "") != "" then
+          root_item(.path; (.label // ""))
+        else empty end
+      ]
+    else []
+    end
+  ' <<<"$raw"
+}
+
+cmd_detect() {
+  local -a lines=()
+  local -A seen_realpaths=()
+  local name path realpath line exists
+
+  for name in "${CANDIDATES[@]}"; do
+    path="$HOME/$name"
+    exists=false
+    [[ -d "$path" ]] && exists=true
+
+    realpath=""
+    if [[ "$exists" == true ]]; then
+      realpath="$(readlink -f "$path" 2>/dev/null || true)"
+      if [[ -n "$realpath" && -n "${seen_realpaths[$realpath]:-}" ]]; then
+        continue
+      fi
+      [[ -n "$realpath" ]] && seen_realpaths["$realpath"]=1
+    fi
+
+    line="$(jq -cn \
+      --arg path "$path" \
+      --arg label "$name" \
+      --argjson exists "$exists" \
+      '{path: $path, label: $label, exists: $exists}')"
+    lines+=("$line")
+  done
+
+  if ((${#lines[@]} == 0)); then
+    jq -cn '{ok: true, candidates: []}'
+    return 0
+  fi
+
+  printf '%s\n' "${lines[@]}" | jq -s '{ok: true, candidates: .}'
+}
+
+cmd_normalize() {
+  local roots
+  roots="$(normalize_roots_json "${1:-[]}" 2>/dev/null)" || {
+    json_error "invalid repoRoots JSON"
+    exit 1
+  }
+  jq -cn --argjson repoRoots "$roots" '{ok: true, repoRoots: $repoRoots}'
+}
+
+usage() {
+  cat >&2 <<'EOF'
+usage:
+  repo-settings detect
+  repo-settings normalize '<json-array>'
+EOF
+  exit 1
+}
+
+command="${1:-}"
+shift || true
+
+case "$command" in
+detect) cmd_detect ;;
+normalize) cmd_normalize "${1:-}" ;;
+*) usage ;;
+esac

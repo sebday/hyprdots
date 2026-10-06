@@ -1,3 +1,1 @@
--- Workspace 10 uses dashboard_2x2 from evoshell (hypr/dashboard-layout.lua via bootstrap).
-
-hl.workspace_rule({ workspace = "10", layout = "lua:dashboard_2x2" })
+-- Workspace 10 uses the default dwindle layout, same as the other workspaces.

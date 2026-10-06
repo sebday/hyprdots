@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "evo.sys.wallpaper",
+  "name": "Wallpaper",
+  "version": "1.0.0",
+  "author": "seb",
+  "description": "Wallpaper picker",
+  "kinds": [
+    "menu",
+    "service"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "menu": "Picker.qml",
+    "service": "Service.qml"
+  }
+}

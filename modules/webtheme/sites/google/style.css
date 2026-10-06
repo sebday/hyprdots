@@ -1,0 +1,16 @@
+:root {
+    --xhUGwc: var(--bg-primary);
+    --YLNNHc: var(--text-primary);
+    --JKqx2: var(--text-accent);
+    --TMYS9: var(--text-accent);
+    --TyVYld: var(--text-accent);
+    --IXoxUe: color-mix(in srgb, var(--text-primary) 72%, var(--bg-primary));
+    --gm3-sys-color-primary: var(--text-accent);
+    --gm3-sys-color-on-primary: var(--bg-primary);
+    --gm3-sys-color-on-surface-variant: var(--text-primary);
+}
+
+textarea.gLFyf,
+.gLFyf {
+    color: var(--text-primary) !important;
+}

@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Symlink the trading desk into the shell vendor tree.
+set -euo pipefail
+
+TRADING_ROOT="${TRADING_ROOT:-${HOME}/projects/trading-bot}"
+EVOSHELL_ROOT="${EVOSHELL_ROOT:-${HOME}/projects/hyprdots}"
+VENDOR_LINK="${EVOSHELL_ROOT}/vendor/trading"
+
+if [[ ! -f "${TRADING_ROOT}/manifest.json" ]]; then
+  echo "WARNING: trading repo missing at ${TRADING_ROOT}; clone it before using the desk" >&2
+  exit 0
+fi
+
+mkdir -p "${EVOSHELL_ROOT}/vendor"
+ln -sfn "${TRADING_ROOT}" "${VENDOR_LINK}"
+rm -f "${EVOSHELL_ROOT}/modules/trading"
+
+echo "linked trading from ${TRADING_ROOT} into ${EVOSHELL_ROOT}/vendor"

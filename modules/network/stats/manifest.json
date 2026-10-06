@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "evo.panels.network.stats",
+  "name": "Network",
+  "version": "1.0.0",
+  "author": "seb",
+  "description": "Network stats",
+  "kinds": [
+    "menu",
+    "bar-widget"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "menu": "Network.qml",
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Network",
+    "description": "Network icon and stats",
+    "category": "Status",
+    "allowMultiple": false
+  }
+}

@@ -1,0 +1,759 @@
+#!/usr/bin/env bash
+# Assemble and manage evoshell website theme CSS for Brave/Chromium.
+
+set -euo pipefail
+
+_evo_paths_lib="${EVOSHELL_LIB:-$HOME/.local/lib/evoshell/bin}/evo-paths-lib"
+if [[ -r $_evo_paths_lib ]]; then
+  # shellcheck source=/dev/null
+  source "$_evo_paths_lib"
+fi
+EVOSHELL_CONFIG=${EVOSHELL_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/evoshell}
+EVOSHELL_STATE=${EVOSHELL_STATE:-${XDG_STATE_HOME:-$HOME/.local/state}/evoshell}
+
+PLUGIN_DIR=$(cd -- "$(dirname -- "$0")/.." && pwd)
+BUNDLED_SITES=$PLUGIN_DIR/sites
+EXTENSION_SRC=$PLUGIN_DIR/extension
+HOOK_SRC=$PLUGIN_DIR/hooks/webtheme.hook
+NATIVE_HOST_SRC=$PLUGIN_DIR/bin/webtheme-host
+PLUGIN_THEMED=$PLUGIN_DIR/themed
+USER_SITES=$EVOSHELL_CONFIG/webtheme/sites
+SETTINGS=$EVOSHELL_STATE/webtheme/settings.json
+# The browser loads the unpacked extension from here (--load-extension=), so it must stay put.
+DATA_DIR=${WEBTHEME_DATA_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/evoshell/webtheme}
+RUNTIME=$DATA_DIR/extension
+NATIVE_HOST_BIN=$DATA_DIR/webtheme-host
+HOOK_DIR=$EVOSHELL_CONFIG/hooks/theme-set.d
+THEME=${EVO_THEME_DIR:-$HOME/.themes/current}
+: "${XDG_RUNTIME_DIR:?XDG_RUNTIME_DIR is required}"
+FIFO=${XDG_RUNTIME_DIR}/evo-webtheme.notify
+NATIVE_HOST_NAME=com.evo.webtheme
+EXTENSION_ID=omkdkmdalfackdbenlncaoimdpnlgcok
+EXTENSION_KEY='MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuR2sl7RIGtD8aw/tQkBSq9o8yJzV2vwnOfzyb1Vzz7uBvwuO7pKqypSvKroV+mcGj2n00QMvM79v3awEdkQ/NMv6VL1+W+e77S+Cd/DKg0qvcqlxpApZTXPkLwGZ2Y45Z6AnIL5kbhYtf6zO0LxvGOAvC/MUSyTsVMfpnSdK5humIDFV4IpWPtup002wcm+tzEbZt7RCmx1P12WzjDAtNpMfsAk7rJjH6h2zY4LZd17ZYeYE5ntZUkqKh/KufthwByoGGmS6cmTuIUf0Rdl2RTQHN8Qjg0jayorQWMptEPYfN92G79vPvk8rHMeKLHeRjMMWPq6mMu5kyZIulmtntwIDAQAB'
+
+fail() {
+  printf 'webtheme: %s\n' "$*" >&2
+  exit 1
+}
+
+need_jq() {
+  command -v jq >/dev/null || fail "jq is required"
+}
+
+emit() {
+  jq -n "$1"
+}
+
+read_global_enabled() {
+  if [[ ! -f $SETTINGS ]]; then
+    printf 'true'
+    return
+  fi
+  jq -r '.enabled != false' "$SETTINGS" 2>/dev/null || printf 'true'
+}
+
+write_global_enabled() {
+  mkdir -p "$(dirname "$SETTINGS")"
+  jq -n --argjson enabled "$1" '{enabled: $enabled}' >"$SETTINGS"
+}
+
+# Polled by content scripts the same way as revision.
+write_runtime_enabled() {
+  mkdir -p "$RUNTIME"
+  printf '%s\n' "$1" >"$RUNTIME/enabled"
+}
+
+publish_catalog() {
+  if [[ -f $RUNTIME/catalog.json ]]; then
+    patch_catalog "$@" || assemble >/dev/null
+  else
+    assemble >/dev/null
+  fi
+  date +%s >"$RUNTIME/revision"
+  notify >/dev/null
+}
+
+notify() {
+  if [[ ! -p $FIFO ]]; then
+    jq -n '{ok:true, notified:false}'
+    return 0
+  fi
+  if timeout 1 sh -c 'printf "reload\n" >"$1"' _ "$FIFO" 2>/dev/null; then
+    jq -n '{ok:true, notified:true}'
+  else
+    jq -n '{ok:true, notified:false}'
+  fi
+}
+
+load_package() {
+  local dir=$1 source=$2
+  local manifest=$dir/site.json
+  [[ -f $manifest ]] || return 1
+  local css_path=
+  [[ -f $dir/style.css ]] && css_path=$dir/style.css
+  jq -c --arg source "$source" --arg dir "$dir" --arg cssPath "$css_path" --arg fallbackId "$(basename "$dir")" '
+    def tokens:
+      if . == null then empty
+      elif type == "array" then .[]
+      elif type == "string" then (gsub("[\t\n,]+"; " ") | split(" ")[] )
+      else empty end;
+    def parse_matches:
+      [ tokens | select(. != "")
+        | if test("^https?://") then
+            if contains("*") then . else (sub("/$";"") + "/*") end
+          elif test("^[A-Za-z0-9.-]+$") then
+            "https://\(.)/*"
+          else
+            error("invalid match pattern: \(.)")
+          end
+      ];
+    . as $m
+    | ($m.id // $fallbackId) as $id
+    | if ($id | test("^[A-Za-z0-9][A-Za-z0-9._-]*$") | not) then
+        error("invalid site id \($id)")
+      else . end
+    | {
+        id: $id,
+        name: ($m.name // $id),
+        matches: ($m.matches | parse_matches),
+        enabled: (.enabled != false),
+        themeCss: (if ($m.themeCss // "") == "" then null else $m.themeCss end),
+        source: $source,
+        dir: $dir,
+        cssPath: (if $cssPath == "" then null else $cssPath end)
+      }
+  ' "$manifest"
+}
+
+scan_sites() {
+  local root=$1 source=$2 dir
+  [[ -d $root ]] || return 0
+  shopt -s nullglob
+  for dir in "$root"/*/; do
+    load_package "${dir%/}" "$source" || true
+  done
+}
+
+merged_sites() {
+  local bundled user
+  bundled=$(scan_sites "$BUNDLED_SITES" bundled | jq -s 'map({key:.id, value:.}) | from_entries')
+  user=$(scan_sites "$USER_SITES" user | jq -s 'map({key:.id, value:.}) | from_entries')
+  jq -n --argjson bundled "$bundled" --argjson user "$user" '
+    reduce ($user | to_entries[]) as $u ($bundled;
+      if has($u.key) then
+        .[$u.key] |= (
+          .name = (if $u.value.name == "" then .name else $u.value.name end)
+          | .matches = (if ($u.value.matches | length) > 0 then $u.value.matches else .matches end)
+          | .enabled = $u.value.enabled
+          | .themeCss = ($u.value.themeCss // .themeCss)
+          | if $u.value.cssPath != null then
+              .cssPath = $u.value.cssPath | .source = "override"
+            else
+              .source = "bundled"
+            end
+          | .dir = $u.value.dir
+        )
+      else
+        .[$u.key] = $u.value
+      end
+    )
+    | [.[]]
+    | sort_by(.name | ascii_downcase)
+  '
+}
+
+site_css_file() {
+  local site=$1 theme_css css_path
+  theme_css=$(jq -r '.themeCss // empty' <<<"$site")
+  if [[ -n $theme_css ]]; then
+    if [[ -f $THEME/$theme_css ]]; then
+      printf '%s' "$THEME/$theme_css"
+      return
+    fi
+    if [[ -f $RUNTIME/$theme_css ]]; then
+      printf '%s' "$RUNTIME/$theme_css"
+      return
+    fi
+    return 1
+  fi
+  css_path=$(jq -r '.cssPath // empty' <<<"$site")
+  [[ -n $css_path && -f $css_path ]] || return 1
+  printf '%s' "$css_path"
+}
+
+public_site() {
+  local site=$1 include_css=${2:-0}
+  local pub
+  pub=$(jq '{
+    id, name, matches, enabled, source, themeCss,
+    editable: (.themeCss == null)
+  }' <<<"$site")
+  if (( include_css )); then
+    local css_file
+    if css_file=$(site_css_file "$site"); then
+      pub=$(jq --rawfile css "$css_file" '. + {css: $css}' <<<"$pub")
+    else
+      pub=$(jq '. + {css: ""}' <<<"$pub")
+    fi
+  fi
+  printf '%s\n' "$pub"
+}
+
+theme_display_name() {
+  local slug
+  slug=$(tr -d '\n' <"$THEME/.theme-name" 2>/dev/null || true)
+  [[ -n $slug ]] || { printf 'Desktop theme'; return; }
+  printf '%s' "$slug" | sed -E 's/(^|-)([a-z])/\1\u\2/g; s/-/ /g'
+}
+
+# mix_hex <from> <to> <percent of to>
+mix_hex() {
+  local a=${1#\#} b=${2#\#} t=$3 i out=
+  for i in 0 2 4; do
+    out+=$(printf '%02x' $(( (16#${a:i:2} * (100 - t) + 16#${b:i:2} * t) / 100 )))
+  done
+  printf '#%s' "$out"
+}
+
+# evoshell themes carry ANSI color0..15 plus accent/mantle; derive the extra
+# names colors.css.tpl uses when a theme does not define them.
+render_colors_css() {
+  local toml=$THEME/colors.toml tpl=$PLUGIN_THEMED/colors.css.tpl key value bg fg
+  [[ -f $toml && -f $tpl ]] || return 1
+  local -A c=()
+  while IFS='=' read -r key value; do
+    key=${key//[\"\' ]/}
+    [[ $key && $key != \#* ]] || continue
+    value=${value#*[\"\']}
+    value=${value%%[\"\']*}
+    [[ $value =~ ^#[0-9A-Fa-f]{6}$ ]] || continue
+    c[$key]=$value
+  done <"$toml"
+  bg=${c[background]:-#1e1e2e}
+  fg=${c[foreground]:-#cdd6f4}
+  c[background]=$bg
+  c[foreground]=$fg
+  : "${c[accent]:=${c[color4]:-$fg}}"
+  : "${c[lighter_background]:=${c[color0]:-$(mix_hex "$bg" "$fg" 12)}}"
+  : "${c[dark_background]:=${c[mantle]:-$(mix_hex "$bg" "#000000" 25)}}"
+  : "${c[dark_foreground]:=$(mix_hex "$bg" "$fg" 60)}"
+  : "${c[bright_foreground]:=${c[color15]:-$fg}}"
+  : "${c[muted]:=$(mix_hex "$bg" "$fg" 35)}"
+  : "${c[selection]:=$(mix_hex "$bg" "$fg" 20)}"
+  local script=
+  for key in "${!c[@]}"; do
+    script+="s|{{ ${key} }}|${c[$key]}|g;"
+  done
+  sed -e "$script" "$tpl"
+}
+
+sync_theme() {
+  mkdir -p "$RUNTIME"
+  local css name changed=0
+  css=$(render_colors_css) || css=
+  if [[ -n $css && $css != "$(cat "$RUNTIME/colors.css" 2>/dev/null)" ]]; then
+    printf '%s\n' "$css" >"$RUNTIME/colors.css"
+    changed=1
+  fi
+  name=$(jq -nc --arg name "$(theme_display_name)" '{name:$name}')
+  if [[ $name != "$(cat "$RUNTIME/theme.json" 2>/dev/null)" ]]; then
+    printf '%s\n' "$name" >"$RUNTIME/theme.json"
+    changed=1
+  fi
+  if (( changed )) || [[ ! -f $RUNTIME/revision ]]; then
+    date +%s >"$RUNTIME/revision"
+    notify >/dev/null
+  fi
+}
+
+patch_catalog() {
+  local catalog=$RUNTIME/catalog.json
+  [[ -f $catalog ]] || return 1
+  local tmp
+  tmp=$(mktemp)
+  if ! jq "$@" "$catalog" >"$tmp"; then
+    rm -f "$tmp"
+    return 1
+  fi
+  mv -f "$tmp" "$catalog"
+}
+
+write_plugin_dir() {
+  mkdir -p "$(dirname "$NATIVE_HOST_BIN")"
+  printf '%s\n' "$PLUGIN_DIR" >"$(dirname "$NATIVE_HOST_BIN")/plugin-dir"
+}
+
+write_manifest() {
+  jq -n --arg key "$EXTENSION_KEY" '{
+    manifest_version: 3,
+    name: "Evo Webtheme",
+    version: "1.1.0",
+    key: $key,
+    description: "evoshell website themes. Manage site packages from the toolbar popup.",
+    permissions: ["nativeMessaging", "activeTab", "tabs", "scripting", "notifications", "storage"],
+    icons: {"16": "icon.png", "48": "icon.png", "128": "icon.png"},
+    action: {
+      default_title: "Evo Webtheme",
+      default_popup: "popup.html",
+      default_icon: {"16": "icon.png", "48": "icon.png", "128": "icon.png"}
+    },
+    background: {service_worker: "background.js"},
+    content_scripts: [
+      {
+        matches: ["<all_urls>"],
+        js: ["match.js", "content.js"],
+        run_at: "document_start",
+        all_frames: true
+      }
+    ],
+    web_accessible_resources: [
+      {
+        resources: ["catalog.json", "revision", "enabled", "theme.json", "colors.css", "sites/*"],
+        matches: ["<all_urls>"]
+      }
+    ]
+  }' >"$RUNTIME/manifest.json"
+}
+
+assemble() {
+  [[ -d $EXTENSION_SRC ]] || fail "missing extension sources: $EXTENSION_SRC"
+  mkdir -p "$RUNTIME"
+  local name
+  for name in content.js background.js match.js popup.html popup.js popup.css ui.js sites.html sites.js icon.png; do
+    [[ -f $EXTENSION_SRC/$name ]] || fail "missing $EXTENSION_SRC/$name"
+    cp -f "$EXTENSION_SRC/$name" "$RUNTIME/$name"
+  done
+  rm -rf "$RUNTIME/sites"
+  mkdir -p "$RUNTIME/sites"
+
+  local sites catalog_json site id css_name css_path theme_css count
+  sites=$(merged_sites)
+  catalog_json='[]'
+  count=0
+  while IFS= read -r site; do
+    [[ -n $site ]] || continue
+    id=$(jq -r '.id' <<<"$site")
+    theme_css=$(jq -r '.themeCss // empty' <<<"$site")
+    css_path=$(jq -r '.cssPath // empty' <<<"$site")
+    css_name=
+    if [[ -n $theme_css ]]; then
+      css_name=$theme_css
+    elif [[ -n $css_path ]]; then
+      css_name=sites/$id.css
+      cp -f "$css_path" "$RUNTIME/$css_name"
+    fi
+    [[ -n $css_name ]] || continue
+    catalog_json=$(jq --argjson site "$site" --arg css "$css_name" '
+      . + [{id: $site.id, name: $site.name, matches: $site.matches, enabled: $site.enabled, css: $css, source: $site.source}]
+    ' <<<"$catalog_json")
+    count=$((count + 1))
+  done < <(jq -c '.[]' <<<"$sites")
+
+  jq -n --argjson sites "$catalog_json" --argjson enabled "$(read_global_enabled)" '{enabled: $enabled, sites: $sites}' >"$RUNTIME/catalog.json"
+  write_runtime_enabled "$(read_global_enabled)"
+  write_manifest
+  write_plugin_dir
+  mkdir -p "$(dirname "$NATIVE_HOST_BIN")"
+  cp -f "$NATIVE_HOST_SRC" "$NATIVE_HOST_BIN"
+  chmod 755 "$NATIVE_HOST_BIN"
+  sync_theme
+  jq -n --arg runtime "$RUNTIME" --argjson sites "$count" '{ok:true, runtime:$runtime, sites:$sites}'
+}
+
+ensure_flags_file() {
+  local file=$1 ext=$2
+  [[ -f $file ]] || return 1
+  local tmp found=0 changed=0 line rest
+  tmp=$(mktemp)
+  while IFS= read -r line || [[ -n $line ]]; do
+    if [[ $line == --load-extension=* ]]; then
+      found=1
+      rest=${line#--load-extension=}
+      if [[ ,$rest, == *,$ext,* ]]; then
+        printf '%s\n' "$line" >>"$tmp"
+      else
+        printf '%s\n' "--load-extension=${rest:+$rest,}$ext" >>"$tmp"
+        changed=1
+      fi
+    else
+      printf '%s\n' "$line" >>"$tmp"
+    fi
+  done <"$file"
+  if (( ! found )); then
+    printf '%s\n' "--load-extension=$ext" >>"$tmp"
+    changed=1
+  fi
+  if (( changed )); then
+    cat "$tmp" >"$file"
+  fi
+  rm -f "$tmp"
+  return $((1 - changed))
+}
+
+ensure_flags() {
+  local ext=$RUNTIME changed=false updated='[]' missing='[]'
+  local file
+  for file in "$HOME/.config/chromium-flags.conf" "$HOME/.config/brave-flags.conf"; do
+    if [[ ! -f $file ]]; then
+      missing=$(jq --arg f "$file" '. + [$f]' <<<"$missing")
+      continue
+    fi
+    if ensure_flags_file "$file" "$ext"; then
+      changed=true
+      updated=$(jq --arg f "$file" '. + [$f]' <<<"$updated")
+    fi
+  done
+  jq -n --argjson changed "$changed" --argjson updated "$updated" --argjson missing "$missing" --arg extension "$ext" \
+    '{ok:true, flagsChanged:$changed, updated:$updated, missing:$missing, extension:$extension}'
+}
+
+# evo-theme runs $EVOSHELL_CONFIG/hooks/theme-set.d/* after a switch (see README);
+# the evo.webtheme service also re-syncs whenever the shell Theme changes.
+install_hook() {
+  [[ -f $HOOK_SRC ]] || fail "missing hook: $HOOK_SRC"
+  mkdir -p "$HOOK_DIR"
+  cp -f "$HOOK_SRC" "$HOOK_DIR/webtheme.hook"
+  chmod 755 "$HOOK_DIR/webtheme.hook"
+  jq -n --arg hook "$HOOK_DIR/webtheme.hook" '{ok:true, hook:$hook}'
+}
+
+install_native_host() {
+  [[ -f $NATIVE_HOST_SRC ]] || fail "missing native host: $NATIVE_HOST_SRC"
+  mkdir -p "$(dirname "$NATIVE_HOST_BIN")"
+  cp -f "$NATIVE_HOST_SRC" "$NATIVE_HOST_BIN"
+  chmod 755 "$NATIVE_HOST_BIN"
+  write_plugin_dir
+  local payload dest dir manifests='[]'
+  payload=$(jq -n --arg path "$NATIVE_HOST_BIN" --arg name "$NATIVE_HOST_NAME" --arg origin "chrome-extension://$EXTENSION_ID/" '{
+    name: $name,
+    description: "evoshell webtheme reload host",
+    path: $path,
+    type: "stdio",
+    allowed_origins: [$origin]
+  }')
+  for dir in \
+    "$HOME/.config/chromium" \
+    "$HOME/.config/google-chrome" \
+    "$HOME/.config/BraveSoftware/Brave-Browser"
+  do
+    mkdir -p "$dir/NativeMessagingHosts"
+    dest=$dir/NativeMessagingHosts/$NATIVE_HOST_NAME.json
+    printf '%s\n' "$payload" >"$dest"
+    manifests=$(jq --arg f "$dest" '. + [$f]' <<<"$manifests")
+  done
+  jq -n --arg host "$NATIVE_HOST_BIN" --argjson manifests "$manifests" '{ok:true, host:$host, manifests:$manifests}'
+}
+
+setup() {
+  local assembled flags hook native
+  assembled=$(assemble)
+  flags=$(ensure_flags)
+  hook=$(install_hook)
+  native=$(install_native_host)
+  jq -n --argjson assembled "$assembled" --argjson flags "$flags" --argjson hook "$hook" --argjson native "$native" '{
+    ok: true,
+    runtime: $assembled.runtime,
+    sites: $assembled.sites,
+    flagsChanged: $flags.flagsChanged,
+    updatedFlags: $flags.updated,
+    hook: $hook.hook,
+    nativeHost: $native.host
+  }'
+}
+
+cmd_list() {
+  local sites site out='[]'
+  sites=$(merged_sites)
+  while IFS= read -r site; do
+    [[ -n $site ]] || continue
+    out=$(jq --argjson site "$(public_site "$site")" '. + [$site]' <<<"$out")
+  done < <(jq -c '.[]' <<<"$sites")
+  jq -n --argjson sites "$out" --argjson enabled "$(read_global_enabled)" '{enabled: $enabled, sites: $sites}'
+}
+
+cmd_enabled() {
+  if [[ -z ${1:-} ]]; then
+    jq -n --argjson enabled "$(read_global_enabled)" '{enabled: $enabled}'
+    return
+  fi
+  local enabled
+  case ${1,,} in
+    true|1|on) enabled=true ;;
+    false|0|off) enabled=false ;;
+    *) fail "enabled must be true or false" ;;
+  esac
+  write_global_enabled "$enabled"
+  write_runtime_enabled "$enabled"
+  publish_catalog --argjson enabled "$enabled" '.enabled = $enabled'
+  jq -n --argjson enabled "$enabled" '{ok:true, enabled:$enabled}'
+}
+
+cmd_get() {
+  local want=$1 sites site
+  sites=$(merged_sites)
+  while IFS= read -r site; do
+    [[ -n $site ]] || continue
+    if [[ $(jq -r '.id' <<<"$site") == "$want" ]]; then
+      public_site "$site" 1
+      return
+    fi
+  done < <(jq -c '.[]' <<<"$sites")
+  fail "unknown site '$want'"
+}
+
+write_user_package() {
+  local site_id=$1 name=$2 matches_json=$3 enabled=$4 theme_css=$5 css_text=$6
+  [[ $site_id =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || fail "invalid site id '$site_id'"
+  local dest=$USER_SITES/$site_id
+  mkdir -p "$dest"
+  if [[ -n $theme_css && $theme_css != null ]]; then
+    jq -n --arg id "$site_id" --arg name "$name" --argjson matches "$matches_json" --argjson enabled "$enabled" --arg themeCss "$theme_css" '{
+      id: $id, name: $name, matches: $matches, enabled: $enabled, themeCss: $themeCss
+    }' >"$dest/site.json"
+  else
+    jq -n --arg id "$site_id" --arg name "$name" --argjson matches "$matches_json" --argjson enabled "$enabled" '{
+      id: $id, name: $name, matches: $matches, enabled: $enabled
+    }' >"$dest/site.json"
+    if [[ $css_text != __KEEP__ ]]; then
+      printf '%s' "$css_text" >"$dest/style.css"
+    fi
+  fi
+}
+
+parse_match_list() {
+  jq -c '
+    def tokens:
+      if . == null then empty
+      elif type == "array" then .[]
+      elif type == "string" then (gsub("[\t\n,]+"; " ") | split(" ")[] )
+      else empty end;
+    [ tokens | select(. != "")
+      | if test("^https?://") then
+          if contains("*") then . else (sub("/$";"") + "/*") end
+        elif test("^[A-Za-z0-9.-]+$") then
+          "https://\(.)/*"
+        else
+          error("invalid match pattern: \(.)")
+        end
+    ]
+  '
+}
+
+cmd_set_enabled() {
+  local site_id=$1 enabled=$2
+  local sites site
+  sites=$(merged_sites)
+  site=$(jq -c --arg id "$site_id" 'map(select(.id == $id)) | .[0]' <<<"$sites")
+  [[ $site != null ]] || fail "unknown site '$site_id'"
+  local name matches theme_css source css_path css_text=__KEEP__
+  name=$(jq -r '.name' <<<"$site")
+  matches=$(jq -c '.matches' <<<"$site")
+  theme_css=$(jq -r '.themeCss // empty' <<<"$site")
+  source=$(jq -r '.source' <<<"$site")
+  css_path=$(jq -r '.cssPath // empty' <<<"$site")
+  if [[ $source == user || $source == override ]] && [[ -n $css_path ]]; then
+    css_text=$(cat "$css_path")
+  fi
+  write_user_package "$site_id" "$name" "$matches" "$enabled" "${theme_css:-}" "$css_text"
+  publish_catalog --arg id "$site_id" --argjson enabled "$enabled" '
+    .sites = (.sites | map(if .id == $id then .enabled = $enabled else . end))
+  '
+  public_site "$(jq -c --arg id "$site_id" 'map(select(.id == $id)) | .[0]' <<<"$(merged_sites)")"
+}
+
+cmd_save() {
+  local raw
+  raw=$(cat)
+  echo "$raw" | jq -e 'type == "object"' >/dev/null || fail "expected a JSON object on stdin"
+  local matches site_id name enabled theme_css css_text current
+  matches=$(jq '.matches' <<<"$raw" | parse_match_list)
+  [[ $(jq 'length' <<<"$matches") -gt 0 ]] || fail "at least one match pattern is required"
+  site_id=$(jq -r '.id // ""' <<<"$raw")
+  if [[ -z $site_id ]]; then
+    site_id=$(jq -r '.[0] | sub("^https?://";"") | split("/")[0]' <<<"$matches")
+    site_id=$(printf '%s' "$site_id" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9._-]/-/g; s/^-*//; s/-*$//; s/--*/-/g')
+    [[ -n $site_id ]] || site_id=site
+  fi
+  current=$(jq -c --arg id "$site_id" 'map(select(.id == $id)) | .[0]' <<<"$(merged_sites)")
+  name=$(jq -r --arg fallback "$site_id" '.name // $fallback' <<<"$raw")
+  if [[ $name == null || -z $name ]]; then
+    if [[ $current != null ]]; then
+      name=$(jq -r '.name' <<<"$current")
+    else
+      name=$site_id
+    fi
+  fi
+  enabled=$(jq -c '.enabled != false' <<<"$raw")
+  theme_css=
+  if [[ $current != null ]]; then
+    theme_css=$(jq -r '.themeCss // empty' <<<"$current")
+    if [[ -z $name || $name == null ]]; then
+      name=$(jq -r '.name' <<<"$current")
+    fi
+  fi
+  if [[ -n $theme_css ]]; then
+    css_text=__KEEP__
+  elif jq -e 'has("css")' <<<"$raw" >/dev/null; then
+    css_text=$(jq -r '.css' <<<"$raw")
+  elif [[ $current != null ]]; then
+    local css_path
+    css_path=$(jq -r '.cssPath // empty' <<<"$current")
+    if [[ -n $css_path && -f $css_path ]]; then
+      css_text=$(cat "$css_path")
+    else
+      css_text=
+    fi
+  else
+    css_text=
+  fi
+  write_user_package "$site_id" "$name" "$matches" "$enabled" "${theme_css:-}" "$css_text"
+  assemble >/dev/null
+  cmd_get "$site_id"
+}
+
+site_host_from_url() {
+  local url=$1 host
+  host=${url#http://}
+  host=${host#https://}
+  host=${host%%/*}
+  if [[ $host == *@* ]]; then
+    host=${host##*@}
+  fi
+  host=${host%%:*}
+  printf '%s' "$host"
+}
+
+desktop_notify() {
+  local headline=$1 body=$2
+  local evo=${EVOSHELL_BIN:-$HOME/.local/lib/evoshell/bin}/evo-notification-send
+  if [[ -x $evo ]]; then
+    "$evo" --app-name "Webtheme" -g "󰏘" -u normal -t 8000 "$headline" "$body" >/dev/null 2>&1 || true
+  elif command -v notify-send >/dev/null 2>&1; then
+    notify-send -a "Webtheme" "$headline" "$body" >/dev/null 2>&1 || true
+  fi
+}
+
+fill_theme_prompt() {
+  local url=$1 title=$2 host slug rules=$PLUGIN_DIR/THEMEGEN.md
+  [[ -f $rules ]] || fail "missing THEMEGEN.md"
+  host=$(site_host_from_url "$url")
+  [[ -n $host ]] || fail "could not parse host from $url"
+  slug=$(printf '%s' "$host" | tr '[:upper:]' '[:lower:]' | sed 's/^www\.//; s/\.[^.]*$//; s/[^a-z0-9._-]/-/g; s/\./-/g; s/^-*//; s/-*$//; s/--*/-/g')
+  [[ -n $slug ]] || slug=site
+  [[ -n $title ]] || title=$host
+  jq -nr --rawfile rules "$rules" \
+    --arg url "$url" \
+    --arg title "$title" \
+    --arg host "$host" \
+    --arg slug "$slug" \
+    --arg user_sites "$USER_SITES" \
+    --arg plugin_dir "$PLUGIN_DIR" \
+    --arg webtheme "$PLUGIN_DIR/bin/webtheme" '
+      "Follow THEMEGEN.md and add a personal Webtheme package for this site.\n\n" +
+      "- URL: \($url)\n" +
+      "- Title: \($title)\n" +
+      "- Host: \($host)\n" +
+      "- Suggested id: \($slug)\n" +
+      "- User packages: \($user_sites)\n" +
+      "- Plugin: \($plugin_dir)\n" +
+      "- Assemble with: \($webtheme) assemble\n\n" +
+      $rules
+    '
+}
+
+cmd_theme_site() {
+  local launch=false
+  while [[ ${1:-} == --* ]]; do
+    case $1 in
+      --launch) launch=true; shift ;;
+      --) shift; break ;;
+      *) fail "unknown option $1" ;;
+    esac
+  done
+  local url=${1:-} title=${2:-} host prompt
+  [[ -n $url ]] || fail "theme-site requires a URL"
+  [[ $url =~ ^https?:// ]] || fail "URL must be http(s): $url"
+  host=$(site_host_from_url "$url")
+  [[ -n $host ]] || fail "could not parse host from $url"
+  prompt=$(fill_theme_prompt "$url" "$title")
+  if [[ $launch == true ]]; then
+    local agent=${WEBTHEME_AGENT:-cursor-agent --print --force --trust}
+    local -a agent_cmd
+    read -r -a agent_cmd <<<"$agent"
+    command -v "${agent_cmd[0]}" >/dev/null || fail "${agent_cmd[0]} is not on PATH (set WEBTHEME_AGENT)"
+    mkdir -p "$EVOSHELL_STATE/webtheme"
+    desktop_notify "Theming $host" "${agent_cmd[0]} is writing a personal package in the background."
+    (
+      cd "$PLUGIN_DIR"
+      exec "${agent_cmd[@]}" "$prompt"
+    ) </dev/null >"$EVOSHELL_STATE/webtheme/agent.log" 2>&1 &
+    disown || true
+    jq -n --arg host "$host" --arg url "$url" '{ok:true, launched:true, host:$host, url:$url}'
+    return
+  fi
+  printf '%s\n' "$prompt"
+}
+
+usage() {
+  cat <<'EOF'
+Usage: webtheme <command>
+
+Commands:
+  setup          Assemble extension, browser flags, native host, and theme-set hook
+  assemble       Rebuild the runtime extension from bundled + user site packages
+  sync-theme     Render colors.css from ~/.themes/current into the extension
+  notify         Tell open browser tabs to reload CSS
+  ensure-flags   Append --load-extension= for Chromium and Brave flags
+  install-hook   Install the theme-set hook
+  list           Print {enabled, sites} JSON
+  enabled [true|false]
+                 Get or set the global theming kill switch
+  get <id>       Print one site package, including CSS
+  set-enabled <id> <true|false>
+  save           Write a user site package from JSON on stdin
+  theme-site [--launch] <url> [title]
+                 Print THEMEGEN.md prompt, or launch $WEBTHEME_AGENT (cursor-agent) in the background
+EOF
+}
+
+main() {
+  need_jq
+  local cmd=${1:-}
+  case $cmd in
+    ""|-h|--help) usage; exit 0 ;;
+    setup) setup ;;
+    assemble) assemble ;;
+    sync-theme)
+      [[ -f $RUNTIME/manifest.json ]] || { jq -n '{ok:true, skipped:"not set up; run webtheme setup"}'; return 0; }
+      sync_theme
+      jq -n --arg runtime "$RUNTIME" '{ok:true, runtime:$runtime}' | jq --argjson n "$(notify)" '. + $n'
+      ;;
+    notify) notify ;;
+    ensure-flags) ensure_flags ;;
+    install-hook) install_hook ;;
+    list) cmd_list ;;
+    enabled)
+      cmd_enabled "${2:-}"
+      ;;
+    get)
+      [[ -n ${2:-} ]] || fail "get requires a site id"
+      cmd_get "$2"
+      ;;
+    set-enabled)
+      [[ -n ${2:-} && -n ${3:-} ]] || fail "set-enabled requires <id> <true|false>"
+      case ${3,,} in
+        true|1|on) cmd_set_enabled "$2" true ;;
+        false|0|off) cmd_set_enabled "$2" false ;;
+        *) fail "enabled must be true or false" ;;
+      esac
+      ;;
+    save) cmd_save ;;
+    theme-site)
+      shift
+      cmd_theme_site "$@"
+      ;;
+    *) fail "unknown command '$cmd'"$'\n'"$(usage)" ;;
+  esac
+}
+
+main "$@"

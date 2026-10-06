@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "evo.monitors",
+  "name": "Monitors",
+  "version": "1.0.0",
+  "author": "seb",
+  "description": "Status bar, notification daemon, and per-monitor layout controls",
+  "kinds": [
+    "bar-widget",
+    "service"
+  ],
+  "keepLoaded": true,
+  "provides": [
+    "evo.sys.notifications"
+  ],
+  "entryPoints": {
+    "barWidget": "Panel.qml",
+    "service": "Service.qml"
+  },
+  "barWidget": {
+    "displayName": "Monitors",
+    "description": "Text size, and bar or notification layout per monitor",
+    "category": "System",
+    "allowMultiple": false
+  }
+}

@@ -1,0 +1,182 @@
+#!/usr/bin/env bash
+# List git repos under configured roots with unstaged changes or unpushed commits.
+set -euo pipefail
+
+_bin_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+_settings_script="${_bin_dir}/repo-settings"
+
+_paths_lib="${EVOSHELL_LIB:-$HOME/.local/lib/evoshell/bin}/evo-paths-lib"
+# shellcheck source=/dev/null
+[[ -r $_paths_lib ]] && source "$_paths_lib"
+EVOSHELL_CACHE="${EVOSHELL_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/evoshell}"
+
+CACHE_DIR="${EVOSHELL_CACHE}/github"
+CACHE_PATH="${CACHE_DIR}/repo-dirty.json"
+CACHE_TTL="${REPO_DIRTY_CACHE_TTL:-60}"
+FORCE_REFRESH=false
+ROOTS_ARG=""
+HAVE_ROOTS=false
+
+usage() {
+  echo "usage: repo-dirty-status [--refresh] [--roots '<repoRoots json>']" >&2
+  exit 1
+}
+
+while (($#)); do
+  case "$1" in
+  --refresh) FORCE_REFRESH=true ;;
+  --roots)
+    (($# >= 2)) || usage
+    ROOTS_ARG="$2"
+    HAVE_ROOTS=true
+    shift
+    ;;
+  *) usage ;;
+  esac
+  shift
+done
+
+json_ok() {
+  jq -cn --argjson repos "$1" --argjson unconfigured "${2:-false}" --argjson repoRoots "${3:-[]}" \
+    '{ok: true, repos: $repos, unconfigured: $unconfigured, repoRoots: $repoRoots}'
+}
+
+json_error() {
+  local text="$1"
+  jq -cn --arg text "$text" '{ok: false, error: $text, repos: [], unconfigured: false}'
+}
+
+cache_read() {
+  [[ -e "$CACHE_PATH" ]] || return 1
+  local now mtime age content
+  now=$(date +%s)
+  mtime=$(stat -c %Y "$CACHE_PATH" 2>/dev/null || echo 0)
+  age=$((now - mtime))
+  (( age < CACHE_TTL )) || return 1
+  content=$(/usr/bin/dd if="$CACHE_PATH" iflag=nofollow,nonblock,count_bytes,fullblock bs=1 count=65537 status=none) || return 1
+  [ ${#content} -le 65536 ] || return 1
+  printf '%s' "$content"
+}
+
+cache_write() {
+  mkdir -p -m 700 "$CACHE_DIR" || return 1
+  [[ ! -L "$CACHE_DIR" && -d "$CACHE_DIR" ]] || return 1
+  umask 077
+  local tmp
+  tmp="$(/usr/bin/mktemp -p "$CACHE_DIR" .repo-dirty.XXXXXXXXXX)" || return 1
+  cat >"$tmp" || { rm -f -- "$tmp"; return 1; }
+  mv -f -T -- "$tmp" "$CACHE_PATH"
+}
+
+unstaged_porcelain() {
+  local dir=$1
+  git -C "$dir" status --porcelain 2>/dev/null | awk '
+    /^\?\?/ { print; next }
+    length($0) >= 2 && substr($0, 2, 1) != " " { print }
+  '
+}
+
+inspect_repo() {
+  local dir=$1 parent=$2
+  [[ -d "$dir" ]] || return 0
+  [[ -e "$dir/.git" ]] || return 0
+
+  local name unstaged unpushed ahead dirty_count=0 status_parts=()
+  name="$(basename "$dir")"
+
+  dirty_count="$(unstaged_porcelain "$dir" | wc -l | tr -d ' ')"
+  if [[ "${dirty_count:-0}" -gt 0 ]]; then
+    unstaged=true
+  else
+    unstaged=false
+    dirty_count=0
+  fi
+
+  unpushed=0
+  if git -C "$dir" rev-parse --verify '@{u}' >/dev/null 2>&1; then
+    ahead="$(git -C "$dir" rev-list --count '@{u}..HEAD' 2>/dev/null || echo 0)"
+    if [[ "${ahead:-0}" =~ ^[0-9]+$ ]] && (( ahead > 0 )); then
+      unpushed=$ahead
+      status_parts+=("${ahead} unpushed")
+    fi
+  fi
+
+  if [[ "$unstaged" == true ]]; then
+    status_parts+=("dirty")
+  fi
+
+  if [[ "$unstaged" == true || "$unpushed" -gt 0 ]]; then
+    local status branch remote last_commit
+    status="${status_parts[*]}"
+    branch="$(git -C "$dir" branch --show-current 2>/dev/null || true)"
+    remote="$(git -C "$dir" remote get-url origin 2>/dev/null || true)"
+    last_commit="$(git -C "$dir" log -1 --format='%h · %s' 2>/dev/null || true)"
+    jq -cn \
+      --arg name "$name" \
+      --arg path "$dir" \
+      --arg parent "$parent" \
+      --arg branch "$branch" \
+      --arg remote "$remote" \
+      --arg lastCommit "$last_commit" \
+      --argjson unstaged "$unstaged" \
+      --argjson dirtyCount "$dirty_count" \
+      --argjson unpushed "$unpushed" \
+      --arg status "$status" \
+      '{name: $name, path: $path, parent: $parent, branch: $branch, remote: $remote, lastCommit: $lastCommit, unstaged: $unstaged, dirtyCount: $dirtyCount, unpushed: $unpushed, status: $status}'
+  fi
+}
+
+scan_root() {
+  local root=$1 parent=$2
+  [[ -d "$root" ]] || return 0
+  local entry
+  shopt -s nullglob
+  for entry in "${root}"/*; do
+    [[ -d "$entry" ]] || continue
+    [[ "$(basename "$entry")" == .* ]] && continue
+    inspect_repo "$entry" "$parent" || true
+  done
+  shopt -u nullglob
+}
+
+# Without --roots the bar entry has no repoRoots yet, so the panel offers setup.
+if [[ "$HAVE_ROOTS" != true ]]; then
+  json_ok '[]' true '[]'
+  exit 0
+fi
+
+roots_json="$(bash "$_settings_script" normalize "$ROOTS_ARG" 2>/dev/null | jq -c '.repoRoots // empty' 2>/dev/null || true)"
+if [[ -z "$roots_json" ]]; then
+  json_error "Invalid repoRoots setting"
+  exit 0
+fi
+
+if [[ "$FORCE_REFRESH" != true ]] && cached=$(cache_read 2>/dev/null) \
+  && jq -e --argjson roots "$roots_json" '.repoRoots == $roots' >/dev/null 2>&1 <<<"$cached"; then
+  printf '%s\n' "$cached"
+  exit 0
+fi
+
+root_count="$(jq -r 'length' <<<"$roots_json")"
+
+lines=""
+if (( root_count > 0 )); then
+  while IFS=$'\t' read -r root_path root_label; do
+    [[ -n "$root_path" ]] || continue
+    [[ -z "$root_label" ]] && root_label="$(basename "$root_path")"
+    while IFS= read -r line; do
+      [[ -n "$line" ]] || continue
+      lines+="$line"$'\n'
+    done < <(scan_root "$root_path" "$root_label")
+  done < <(jq -r '.[] | [.path, (.label // "")] | @tsv' <<<"$roots_json")
+fi
+
+if [[ -z "${lines//[[:space:]]/}" ]]; then
+  output=$(json_ok '[]' false "$roots_json")
+else
+  repos=$(printf '%s' "$lines" | jq -s 'sort_by(.name)')
+  output=$(json_ok "$repos" false "$roots_json")
+fi
+
+printf '%s\n' "$output" | cache_write
+printf '%s\n' "$output"

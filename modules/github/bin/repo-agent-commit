@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# Run the configured coding agent in a repo to review changes and commit.
+set -euo pipefail
+
+_bin_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+dir=${1:?repo path required}
+[[ -d $dir && -e $dir/.git ]] || exit 1
+
+name=$(basename -- "$dir")
+prompt='Review the git changes in this repository, stage the appropriate files, and create a commit with a concise message that follows the project'\''s commit conventions. Do not push.'
+
+notify() {
+  command -v notify-send >/dev/null 2>&1 || return 0
+  local summary body
+  summary=$(printf '%s' "${1:-GitHub}" | tr -d '<>&')
+  body=$(printf '%s' "${2:-}" | tr -d '<>&')
+  notify-send -a evo.github -t "${3:-5000}" "$summary" "$body"
+}
+
+agent="${EVO_GITHUB_AGENT:-cursor-agent}"
+if ! command -v "$agent" >/dev/null 2>&1; then
+  notify "GitHub" "Could not start agent: ${agent} not found"
+  exit 1
+fi
+
+notify "GitHub" "Agent committing in ${name}…"
+
+(
+  cd -- "$dir"
+  : "${XDG_RUNTIME_DIR:?}"
+  log=$(mktemp -p "$XDG_RUNTIME_DIR" evo-github-agent.XXXXXX)
+  trap 'rm -f -- "$log"' EXIT
+  if /usr/bin/timeout -k 5 900 bash "$_bin_dir/agent-prompt" "$prompt" >"$log" 2>&1; then
+    notify "GitHub" "Commit finished in ${name}" 8000
+  else
+    err=$(tail -n 3 "$log" | tr -d '<>&' | tr '\n' ' ' | sed 's/[[:space:]]\+/ /g; s/^ //; s/ $//')
+    [[ -n $err ]] || err="agent exited with an error"
+    notify "GitHub" "Agent commit failed in ${name}: ${err}" 10000
+  fi
+) &

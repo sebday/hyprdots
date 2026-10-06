@@ -1,0 +1,60 @@
+<!doctype html>
+<html class="popup" lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Evo Webtheme</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <span class="hero-icon" aria-hidden="true">󰸌</span>
+      <div class="hero-copy">
+        <h1>Webtheme</h1>
+        <p id="meta">Loading…</p>
+      </div>
+      <span id="count" class="count">…</span>
+    </header>
+
+    <div class="stats">
+      <div class="stat"><b id="stat-enabled">0</b><span>enabled</span></div>
+      <div class="stat"><b id="stat-bundled">0</b><span>bundled</span></div>
+      <div class="stat"><b id="stat-mine">0</b><span>mine</span></div>
+      <div class="stat"><b id="stat-total">0</b><span>total</span></div>
+    </div>
+
+    <label class="toggle-row">
+      <div class="toggle-copy">
+        <strong>Theming</strong>
+        <span id="global-desc">Pause all site CSS</span>
+      </div>
+      <input id="global" type="checkbox" class="switch-input" />
+      <span class="switch" aria-hidden="true"></span>
+    </label>
+
+    <label id="site-enable" class="toggle-row" hidden>
+      <div class="toggle-copy">
+        <strong>This site</strong>
+        <span id="site-desc"></span>
+      </div>
+      <input id="site-toggle" type="checkbox" class="switch-input" />
+      <span class="switch" aria-hidden="true"></span>
+    </label>
+
+    <section id="current" class="surface" hidden>
+      <p id="current-host"></p>
+      <p id="current-status"></p>
+      <button id="theme-site" type="button" hidden>Theme this site</button>
+    </section>
+
+    <p id="notice" class="notice" hidden></p>
+    <p id="error" class="error" hidden></p>
+
+    <p class="hint">
+      <a id="all-sites" href="sites.html">Manage every package on All sites.</a>
+    </p>
+
+    <script src="ui.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>

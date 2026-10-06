@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Run one headless coding agent turn in the current directory.
+# EVO_GITHUB_AGENT picks the agent (bar setting `agent`); default cursor-agent.
+set -euo pipefail
+
+(($# > 0)) || {
+  echo "usage: agent-prompt <prompt...>" >&2
+  exit 2
+}
+prompt="$*"
+agent="${EVO_GITHUB_AGENT:-cursor-agent}"
+
+case "$agent" in
+cursor-agent) command=(cursor-agent --print --force --trust --output-format text -- "$prompt") ;;
+claude) command=(claude -p --permission-mode acceptEdits --allowedTools "Bash(git:*)" -- "$prompt") ;;
+codex) command=(codex exec --full-auto -- "$prompt") ;;
+opencode) command=(opencode run -- "$prompt") ;;
+*)
+  echo "agent-prompt: unsupported agent: $agent" >&2
+  exit 2
+  ;;
+esac
+
+command -v "${command[0]}" >/dev/null 2>&1 || {
+  echo "agent-prompt: ${command[0]} not found" >&2
+  exit 127
+}
+
+exec "${command[@]}" </dev/null

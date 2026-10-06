@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# List discovered evoshell modules as JSON: { "<id>": { dir, manifest } }.
+# Module roots: $EVOSHELL_MODULE_DIRS (colon separated), defaulting to
+# $EVOSHELL_ROOT/modules, then $EVOSHELL_CONFIG/modules.
+# Vendor checkouts (vendor/<name>/manifest.json) are included after those.
+# Earlier roots win on duplicate ids.
+
+set -euo pipefail
+
+_bin_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "${_bin_dir}/evo-paths-lib"
+
+usage() {
+    cat <<'EOF'
+usage: evo-modules [list|dirs]
+
+  list   JSON object of module id -> { dir, manifest } (default)
+  dirs   module root directories, one per line
+EOF
+}
+
+module_roots() {
+    if [[ -n "${EVOSHELL_MODULE_DIRS:-}" ]]; then
+        tr ':' '\n' <<<"${EVOSHELL_MODULE_DIRS}"
+        return
+    fi
+    local root
+    root="$(cd "${EVOSHELL_ROOT}" 2>/dev/null && pwd -P || printf '%s' "${EVOSHELL_ROOT}")"
+    printf '%s\n' "${root}/modules" "${EVOSHELL_CONFIG}/modules"
+}
+
+list_modules() {
+    local root manifest dir
+    local -a entries=() manifests=()
+    shopt -s nullglob
+    while IFS= read -r root; do
+        [[ -n "$root" && -d "$root" ]] || continue
+        manifests=("$root"/*/manifest.json "$root"/*/*/manifest.json)
+        for manifest in "${manifests[@]}"; do
+            [[ -f "$manifest" ]] || continue
+            dir="$(cd "$(dirname "$manifest")" && pwd -P)"
+            if jq -e 'type == "object" and .schemaVersion == 1 and (.id | type == "string")' "$manifest" >/dev/null 2>&1; then
+                entries+=("$(jq -c --arg dir "$dir" '{ id: .id, dir: $dir, manifest: . }' "$manifest")")
+            elif jq -e 'type == "object" and .schemaVersion == 1' "$manifest" >/dev/null 2>&1; then
+                echo "evo-modules: skipping invalid manifest ${manifest}" >&2
+            fi
+        done
+    done < <(module_roots)
+    if [[ -d "${EVOSHELL_ROOT}/vendor" ]]; then
+        for manifest in "${EVOSHELL_ROOT}/vendor"/*/manifest.json; do
+            [[ -f "$manifest" ]] || continue
+            dir="$(cd "$(dirname "$manifest")" && pwd -P)"
+            if jq -e 'type == "object" and .schemaVersion == 1 and (.id | type == "string")' "$manifest" >/dev/null 2>&1; then
+                entries+=("$(jq -c --arg dir "$dir" '{ id: .id, dir: $dir, manifest: . }' "$manifest")")
+            elif jq -e 'type == "object" and .schemaVersion == 1' "$manifest" >/dev/null 2>&1; then
+                echo "evo-modules: skipping invalid manifest ${manifest}" >&2
+            fi
+        done
+    fi
+    shopt -u nullglob
+
+    if [[ ${#entries[@]} -eq 0 ]]; then
+        echo '{}'
+        return
+    fi
+    printf '%s\n' "${entries[@]}" | jq -cs 'reduce .[] as $p ({}; if has($p.id) then . else .[$p.id] = { dir: $p.dir, manifest: $p.manifest } end)'
+}
+
+case "${1:-list}" in
+    list) list_modules ;;
+    dirs) module_roots ;;
+    -h|--help|help) usage ;;
+    *) usage >&2; exit 2 ;;
+esac

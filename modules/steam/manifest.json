@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "evo.steam",
+  "name": "Steam",
+  "version": "1.0.0",
+  "author": "seb",
+  "description": "Steam library stats and recent play history",
+  "kinds": [
+    "bar-widget",
+    "menu"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml",
+    "menu": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "Steam",
+    "description": "Installed games, playtime, and recent titles",
+    "category": "Info",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}

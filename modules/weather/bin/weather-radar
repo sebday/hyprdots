@@ -1,0 +1,516 @@
+#!/usr/bin/python3 -I
+"""RainViewer composite, sampled to a small pixel grid for evo.weather."""
+
+import json
+import os
+import re
+import stat
+import subprocess
+import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+
+MAPS_URL = "https://api.rainviewer.com/public/weather-maps.json"
+HOST_SUFFIX = ".rainviewer.com"
+HOST_EXACT = "rainviewer.com"
+GRID = 64
+ZOOM = 7
+COLOR = 6
+SIZE = 512
+WEAK_ALPHA = 28
+MAPS_MAX = 65536
+PNG_MAX = 1048576
+OUT_MAX = 131072
+PLAY_OUT_MAX = 393216
+CACHE_TTL = 180
+CACHE_NAME = "weather-radar.json"
+CACHE_PLAY = "weather-radar-play.json"
+MAX_FRAMES = 12
+FUTURE_FRAMES = 8
+STEP_SEC = 600
+PLAY_DEADLINE = 22
+LAT_RE = re.compile(r"^-?(?:90(?:\.0+)?|[0-8]?\d(?:\.\d+)?)$")
+LON_RE = re.compile(r"^-?(?:180(?:\.0+)?|(?:1[0-7]\d|[0-9]?\d)(?:\.\d+)?)$")
+
+
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def fail(message):
+    sys.stdout.write(json.dumps({"ok": False, "error": message, "cells": [], "grid": GRID}))
+    sys.stdout.write("\n")
+    sys.exit(0)
+
+
+def parse_coord(value, kind):
+    text = str(value or "")
+    if len(text) > 16:
+        fail("bad " + kind)
+    pattern = LAT_RE if kind == "lat" else LON_RE
+    if not pattern.fullmatch(text):
+        fail("bad " + kind)
+    number = float(text)
+    if kind == "lat" and not -90.0 <= number <= 90.0:
+        fail("bad lat")
+    if kind == "lon" and not -180.0 <= number <= 180.0:
+        fail("bad lon")
+    return number
+
+
+def host_ok(host):
+    parsed = urllib.parse.urlparse(host)
+    if parsed.scheme != "https" or parsed.username or parsed.password:
+        return False
+    name = (parsed.hostname or "").lower()
+    if name != HOST_EXACT and not name.endswith(HOST_SUFFIX):
+        return False
+    if parsed.port not in (None, 443):
+        return False
+    if parsed.path not in ("", "/"):
+        return False
+    return True
+
+
+def path_ok(path):
+    if not isinstance(path, str):
+        return False
+    if ".." in path or "\\" in path or "\n" in path:
+        return False
+    return bool(re.fullmatch(r"/v2/(?:radar|nowcast)/[A-Za-z0-9._-]{1,64}", path))
+
+
+def opener():
+    return urllib.request.build_opener(NoRedirect)
+
+
+def fetch_bytes(url, limit, timeout=10):
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme != "https":
+        raise ValueError("https only")
+    req = urllib.request.Request(url, method="GET")
+    with opener().open(req, timeout=max(1, min(10, timeout))) as resp:
+        data = resp.read(limit + 1)
+    if len(data) > limit:
+        raise ValueError("response too large")
+    return data
+
+
+def evoshell_cache_dir():
+    base = os.environ.get("EVOSHELL_CACHE", "").strip()
+    if not base:
+        xdg = os.environ.get("XDG_CACHE_HOME", "").strip()
+        base = os.path.join(xdg or os.path.expanduser("~/.cache"), "evoshell")
+    if not os.path.isabs(base):
+        raise PermissionError("relative cache dir")
+    return base
+
+
+def cache_dirfd():
+    base = evoshell_cache_dir()
+    os.makedirs(base, 0o700, exist_ok=True)
+    fd = os.open(base, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
+    if os.fstat(fd).st_uid != os.geteuid():
+        os.close(fd)
+        raise PermissionError("untrusted cache dir")
+    try:
+        for name in ("weather",):
+            try:
+                nfd = os.open(
+                    name,
+                    os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+                    dir_fd=fd,
+                )
+            except FileNotFoundError:
+                os.mkdir(name, 0o700, dir_fd=fd)
+                nfd = os.open(
+                    name,
+                    os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+                    dir_fd=fd,
+                )
+            os.close(fd)
+            fd = nfd
+            st = os.fstat(fd)
+            if not stat.S_ISDIR(st.st_mode) or st.st_uid != os.geteuid():
+                raise PermissionError("untrusted cache dir")
+        st = os.fstat(fd)
+        if st.st_mode & 0o077:
+            os.fchmod(fd, 0o700)
+        return fd
+    except BaseException:
+        os.close(fd)
+        raise
+
+
+def cache_read(dirfd, key, name=CACHE_NAME, limit=OUT_MAX):
+    try:
+        fd = os.open(
+            name,
+            os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC,
+            dir_fd=dirfd,
+        )
+    except FileNotFoundError:
+        return None
+    try:
+        st = os.fstat(fd)
+        if not stat.S_ISREG(st.st_mode) or st.st_uid != os.geteuid() or st.st_nlink != 1:
+            return None
+        if st.st_size > limit:
+            return None
+        if int(time.time()) - int(st.st_mtime) > CACHE_TTL:
+            return None
+        os.set_blocking(fd, True)
+        data = os.read(fd, limit + 1)
+        if len(data) > limit:
+            return None
+        payload = json.loads(data.decode("utf-8"))
+        if payload.get("cacheKey") != key:
+            return None
+        return payload
+    except (OSError, ValueError, json.JSONDecodeError):
+        return None
+    finally:
+        os.close(fd)
+
+
+def cache_write(dirfd, payload, name=CACHE_NAME, limit=OUT_MAX):
+    raw = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+    if len(raw) > limit:
+        return
+    tmp = ".weather-radar." + os.urandom(8).hex() + ".tmp"
+    fd = os.open(
+        tmp,
+        os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
+        0o600,
+        dir_fd=dirfd,
+    )
+    try:
+        os.fchmod(fd, 0o600)
+        view = memoryview(raw)
+        while view:
+            n = os.write(fd, view)
+            view = view[n:]
+        os.fsync(fd)
+        os.rename(tmp, name, src_dir_fd=dirfd, dst_dir_fd=dirfd)
+        os.fsync(dirfd)
+    except BaseException:
+        try:
+            os.unlink(tmp, dir_fd=dirfd)
+        except OSError:
+            pass
+        raise
+    finally:
+        os.close(fd)
+
+
+def downsample(png):
+    proc = subprocess.run(
+        [
+            "/usr/bin/magick",
+            "png:-",
+            "-filter",
+            "Point",
+            "-resize",
+            f"{GRID}x{GRID}!",
+            "-depth",
+            "8",
+            "RGBA:-",
+        ],
+        input=png,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        timeout=8,
+        check=False,
+    )
+    if proc.returncode != 0:
+        raise ValueError("magick failed")
+    raw = proc.stdout
+    if len(raw) != GRID * GRID * 4:
+        raise ValueError("bad raster")
+    cells = []
+    for i in range(0, len(raw), 4):
+        r, g, b, a = raw[i], raw[i + 1], raw[i + 2], raw[i + 3]
+        if a < WEAK_ALPHA:
+            cells.append([0, 0, 0, 0])
+        else:
+            cells.append([int(r), int(g), int(b), int(a)])
+    return cells
+
+
+def collect_named(maps, key):
+    radar = maps.get("radar")
+    if not isinstance(radar, dict):
+        return []
+    past = radar.get(key)
+    if not isinstance(past, list) or not past:
+        return []
+    frames = []
+    for item in past:
+        if not isinstance(item, dict):
+            continue
+        stamp = item.get("time")
+        path = item.get("path")
+        if not isinstance(stamp, (int, float)) or not path_ok(path):
+            continue
+        frames.append({"time": int(stamp), "path": path})
+    frames.sort(key=lambda item: item["time"])
+    return frames
+
+
+def collect_past(maps):
+    return collect_named(maps, "past")
+
+
+def collect_nowcast(maps):
+    return collect_named(maps, "nowcast")
+
+
+def latest_frame(maps):
+    frames = collect_past(maps)
+    return frames[-1] if frames else None
+
+
+def rain_centroid(cells):
+    tw = 0
+    cx = 0.0
+    cy = 0.0
+    wet = 0
+    for i, cell in enumerate(cells):
+        a = cell[3]
+        if a <= 0:
+            continue
+        cx += (i % GRID) * a
+        cy += (i // GRID) * a
+        tw += a
+        wet += 1
+    if tw <= 0 or wet < 4:
+        return None
+    return (cx / tw, cy / tw)
+
+
+def estimate_velocity(history):
+    pts = []
+    for cells in history:
+        pt = rain_centroid(cells)
+        if pt:
+            pts.append(pt)
+    if len(pts) < 2:
+        return (0.0, 0.0)
+    steps = len(pts) - 1
+    dx = (pts[-1][0] - pts[0][0]) / steps
+    dy = (pts[-1][1] - pts[0][1]) / steps
+    return (max(-6.0, min(6.0, dx)), max(-6.0, min(6.0, dy)))
+
+
+def shift_cells(cells, dx, dy):
+    out = [[0, 0, 0, 0] for _ in range(GRID * GRID)]
+    ox = int(round(dx))
+    oy = int(round(dy))
+    if ox == 0 and oy == 0:
+        return [cell[:] for cell in cells]
+    for i, cell in enumerate(cells):
+        if cell[3] <= 0:
+            continue
+        nx = (i % GRID) + ox
+        ny = (i // GRID) + oy
+        if 0 <= nx < GRID and 0 <= ny < GRID:
+            j = ny * GRID + nx
+            if cell[3] >= out[j][3]:
+                out[j] = cell[:]
+    return out
+
+
+def fade_cells(cells, factor):
+    if factor >= 0.99:
+        return [cell[:] for cell in cells]
+    out = []
+    for cell in cells:
+        a = int(cell[3] * factor)
+        if a < WEAK_ALPHA:
+            out.append([0, 0, 0, 0])
+        else:
+            out.append([cell[0], cell[1], cell[2], a])
+    return out
+
+
+def fetch_frame_cells(host, item, lat, lon, timeout):
+    png = fetch_bytes(frame_url(host, item["path"], lat, lon), PNG_MAX, timeout=timeout)
+    return downsample(png)
+
+
+def sparse_cells(cells):
+    out = []
+    for i, cell in enumerate(cells):
+        if cell[3]:
+            out.append([i, cell[0], cell[1], cell[2], cell[3]])
+    return out
+
+
+def frame_url(host, path, lat, lon):
+    lat_s = f"{lat:.4f}"
+    lon_s = f"{lon:.4f}"
+    return f"{host.rstrip('/')}{path}/{SIZE}/{ZOOM}/{lat_s}/{lon_s}/{COLOR}/0_1.png"
+
+
+def emit(payload):
+    sys.stdout.write(json.dumps(payload, separators=(",", ":")))
+    sys.stdout.write("\n")
+
+
+def build_latest(host, maps, lat, lon):
+    frame = latest_frame(maps)
+    if not frame:
+        fail("no frames")
+    png = fetch_bytes(frame_url(host, frame["path"], lat, lon), PNG_MAX)
+    return {
+        "ok": True,
+        "error": "",
+        "time": frame["time"],
+        "grid": GRID,
+        "zoom": ZOOM,
+        "lat": lat,
+        "lon": lon,
+        "cells": downsample(png),
+    }
+
+
+def trim_play(payload):
+    raw = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+    while len(raw) > PLAY_OUT_MAX and len(payload["frames"]) > 2:
+        payload["frames"].pop()
+        payload["time"] = payload["frames"][-1]["time"]
+        raw = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+    if len(raw) > PLAY_OUT_MAX:
+        fail("unavailable")
+    return payload
+
+
+def build_nowcast_from_tiles(host, maps, lat, lon, started):
+    latest = latest_frame(maps)
+    items = []
+    if latest:
+        items.append(latest)
+    items.extend(collect_nowcast(maps)[:MAX_FRAMES])
+    seen = set()
+    unique = []
+    for item in items:
+        if item["time"] in seen:
+            continue
+        seen.add(item["time"])
+        unique.append(item)
+    unique.sort(key=lambda item: item["time"])
+    frames = []
+    for item in unique:
+        left = PLAY_DEADLINE - (time.monotonic() - started)
+        if left < 1:
+            break
+        try:
+            cells = fetch_frame_cells(host, item, lat, lon, min(8, left))
+            frames.append({"time": item["time"], "cells": sparse_cells(cells)})
+        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, ValueError, subprocess.TimeoutExpired, OSError):
+            continue
+    return frames
+
+
+def build_nowcast_advected(host, maps, lat, lon, started):
+    past = collect_past(maps)[-4:]
+    if not past:
+        return []
+    history = []
+    for item in past:
+        left = PLAY_DEADLINE - (time.monotonic() - started)
+        if left < 1:
+            break
+        try:
+            history.append({
+                "time": item["time"],
+                "cells": fetch_frame_cells(host, item, lat, lon, min(8, left)),
+            })
+        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, ValueError, subprocess.TimeoutExpired, OSError):
+            continue
+    if not history:
+        return []
+    latest = history[-1]
+    dx, dy = estimate_velocity([item["cells"] for item in history])
+    frames = [{"time": latest["time"], "cells": sparse_cells(latest["cells"])}]
+    for step in range(1, FUTURE_FRAMES + 1):
+        factor = max(0.42, 0.9 ** step)
+        moved = fade_cells(shift_cells(latest["cells"], dx * step, dy * step), factor)
+        frames.append({
+            "time": latest["time"] + step * STEP_SEC,
+            "cells": sparse_cells(moved),
+        })
+    return frames
+
+
+def build_play(host, maps, lat, lon):
+    started = time.monotonic()
+    frames = []
+    if collect_nowcast(maps):
+        frames = build_nowcast_from_tiles(host, maps, lat, lon, started)
+    if len(frames) < 2:
+        frames = build_nowcast_advected(host, maps, lat, lon, started)
+    if len(frames) < 2:
+        fail("no frames")
+    payload = {
+        "ok": True,
+        "error": "",
+        "time": frames[-1]["time"],
+        "grid": GRID,
+        "zoom": ZOOM,
+        "lat": lat,
+        "lon": lon,
+        "frames": frames,
+    }
+    return trim_play(payload)
+
+
+def main():
+    if len(sys.argv) not in (3, 4):
+        fail("usage")
+    lat = parse_coord(sys.argv[1], "lat")
+    lon = parse_coord(sys.argv[2], "lon")
+    play = False
+    if len(sys.argv) == 4:
+        if sys.argv[3] != "play":
+            fail("usage")
+        play = True
+    key = f"{lat:.4f},{lon:.4f},z{ZOOM},g{GRID}" + (",fwd" if play else "")
+    cache_name = CACHE_PLAY if play else CACHE_NAME
+    cache_limit = PLAY_OUT_MAX if play else OUT_MAX
+    dirfd = cache_dirfd()
+    try:
+        cached = cache_read(dirfd, key, cache_name, cache_limit)
+        if cached and cached.get("ok") is True:
+            if play:
+                frames = cached.get("frames")
+                if not isinstance(frames, list) or len(frames) < 2:
+                    cached = None
+            if cached:
+                emit(cached)
+                return
+        maps_raw = fetch_bytes(MAPS_URL, MAPS_MAX)
+        maps = json.loads(maps_raw.decode("utf-8"))
+        host = maps.get("host") if isinstance(maps, dict) else None
+        if not isinstance(host, str) or not host_ok(host):
+            fail("bad host")
+        payload = build_play(host, maps, lat, lon) if play else build_latest(host, maps, lat, lon)
+        payload["cacheKey"] = key
+        if play:
+            payload = trim_play(payload)
+        try:
+            cache_write(dirfd, payload, cache_name, cache_limit)
+        except OSError:
+            pass
+        emit(payload)
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, ValueError, json.JSONDecodeError, subprocess.TimeoutExpired, OSError):
+        fail("unavailable")
+    finally:
+        os.close(dirfd)
+
+
+if __name__ == "__main__":
+    main()

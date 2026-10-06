@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "evo.lock",
+  "name": "My Lock Screen",
+  "version": "1.2.0",
+  "author": "seb",
+  "description": "Session lock and idle timer. Rewakes and heals 0x0 outputs after unlock.",
+  "kinds": [
+    "service"
+  ],
+  "keepLoaded": true,
+  "provides": [
+    "evo.sys.lock-screen.lock"
+  ],
+  "entryPoints": {
+    "service": "Service.qml"
+  }
+}

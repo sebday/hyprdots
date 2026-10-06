@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "evo.bar",
+  "name": "Bar",
+  "version": "1.0.0",
+  "author": "seb",
+  "description": "Layer-shell bar that places widgets",
+  "kinds": [
+    "bar"
+  ],
+  "entryPoints": {
+    "bar": "Bar.qml"
+  }
+}

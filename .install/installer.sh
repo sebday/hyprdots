@@ -87,6 +87,19 @@ command = "$greet_cmd"
 user = "$user"
 EOT
     sudo systemctl enable greetd
+    if ! grep -q pam_gnome_keyring.so /etc/pam.d/greetd 2>/dev/null; then
+        sudo tee /etc/pam.d/greetd >/dev/null <<'EOF'
+#%PAM-1.0
+
+auth       required     pam_securetty.so
+auth       requisite    pam_nologin.so
+auth       include      system-local-login
+auth       optional     pam_gnome_keyring.so
+account    include      system-local-login
+session    include      system-local-login
+session    optional     pam_gnome_keyring.so auto_start
+EOF
+    fi
 }
 
 # Install packages from the AUR using yay
@@ -307,6 +320,12 @@ main() {
     configure_journald
     configure_ufw
     configure_google_ads_editor
+
+    local evoshell_root="${EVOSHELL_ROOT:-${HOME}/evoshell}"
+    if [[ -x "${evoshell_root}/bin/evo-font" ]]; then
+        log "Applying default font..."
+        "${evoshell_root}/bin/evo-font" apply
+    fi
 
     log "Setup complete! Please reboot your system."
 }

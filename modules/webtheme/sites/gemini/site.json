@@ -1,0 +1,6 @@
+{
+  "id": "gemini",
+  "name": "Gemini",
+  "matches": ["https://gemini.google.com/*"],
+  "enabled": true
+}

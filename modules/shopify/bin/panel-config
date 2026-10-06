@@ -1,0 +1,113 @@
+#!/usr/bin/bash
+# Small JSON for the panel: poll minutes and theme colours.
+# Config comes from evo_shopify_config; colours from $EVO_THEME_DIR/colors.toml
+# (last path component not followed if it is a symlink).
+set -euo pipefail
+
+read_file() {
+  local file=$1 max=$2 out n
+  out=$(/usr/bin/dd if="$file" iflag=nofollow,nonblock,count_bytes,fullblock bs=1 count=$((max + 1)) status=none 2>/dev/null) || return 1
+  n=$(printf '%s' "$out" | /usr/bin/wc -c | /usr/bin/awk '{print $1}')
+  [[ "$n" =~ ^[0-9]+$ ]] || return 1
+  [[ "$n" -le "$max" ]] || return 1
+  printf '%s' "$out"
+}
+
+_bin_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=common.sh
+source "${_bin_dir}/common.sh"
+
+theme="${EVO_THEME_DIR}/colors.toml"
+
+mins=5
+cfg=$(evo_shopify_config)
+if [[ ${#cfg} -le 262144 ]]; then
+  parsed=$(printf '%s' "$cfg" | /usr/bin/jq -er 'if (.shopify.pollIntervalMinutes | type) == "number" and .shopify.pollIntervalMinutes >= 1 and .shopify.pollIntervalMinutes <= 1440 then (.shopify.pollIntervalMinutes | floor) else empty end' 2>/dev/null || true)
+  case "$parsed" in
+    ''|*[!0-9]*) ;;
+    *) mins=$parsed ;;
+  esac
+fi
+
+cyan=""
+bright_green=""
+blue=""
+yellow=""
+magenta=""
+muted=""
+foreground=""
+bright_foreground=""
+background=""
+ansi_cyan="" ansi_bright_green="" ansi_blue="" ansi_yellow="" ansi_magenta="" ansi_muted="" ansi_bright_foreground=""
+
+raw=""
+if raw=$(read_file "$theme" 16384); then
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    case "$line" in
+      ''|\#*) continue ;;
+    esac
+    key=${line%%=*}
+    val=${line#*=}
+    key=${key#"${key%%[![:space:]]*}"}
+    key=${key%"${key##*[![:space:]]}"}
+    val=${val#"${val%%[![:space:]]*}"}
+    val=${val%\"}
+    val=${val#\"}
+    val=${val%"${val##*[![:space:]]}"}
+    case "$key" in
+      cyan|bright_green|blue|yellow|magenta|muted|foreground|bright_foreground|background) ;;
+      color6|color10|color4|color3|color5|color8|color15) ;;
+      *) continue ;;
+    esac
+    case "$val" in
+      \#[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]) ;;
+      *) continue ;;
+    esac
+    case "$key" in
+      cyan) cyan=$val ;;
+      bright_green) bright_green=$val ;;
+      blue) blue=$val ;;
+      yellow) yellow=$val ;;
+      magenta) magenta=$val ;;
+      muted) muted=$val ;;
+      foreground) foreground=$val ;;
+      bright_foreground) bright_foreground=$val ;;
+      background) background=$val ;;
+      color6) ansi_cyan=$val ;;
+      color10) ansi_bright_green=$val ;;
+      color4) ansi_blue=$val ;;
+      color3) ansi_yellow=$val ;;
+      color5) ansi_magenta=$val ;;
+      color8) ansi_muted=$val ;;
+      color15) ansi_bright_foreground=$val ;;
+    esac
+  done <<<"$raw"
+fi
+
+# evoshell themes only carry ANSI color0..15; named keys win when present.
+: "${cyan:=$ansi_cyan}" "${bright_green:=$ansi_bright_green}" "${blue:=$ansi_blue}"
+: "${yellow:=$ansi_yellow}" "${magenta:=$ansi_magenta}" "${muted:=$ansi_muted}"
+: "${bright_foreground:=$ansi_bright_foreground}"
+
+/usr/bin/jq -n \
+  --argjson mins "$mins" \
+  --arg cyan "$cyan" \
+  --arg bright_green "$bright_green" \
+  --arg blue "$blue" \
+  --arg yellow "$yellow" \
+  --arg magenta "$magenta" \
+  --arg muted "$muted" \
+  --arg foreground "$foreground" \
+  --arg bright_foreground "$bright_foreground" \
+  --arg background "$background" \
+  '{pollIntervalMinutes: $mins, colors: {
+    cyan: $cyan,
+    bright_green: $bright_green,
+    blue: $blue,
+    yellow: $yellow,
+    magenta: $magenta,
+    muted: $muted,
+    foreground: $foreground,
+    bright_foreground: $bright_foreground,
+    background: $background
+  }}'

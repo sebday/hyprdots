@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "evo.side",
+  "name": "Side panel",
+  "version": "1.0.0",
+  "author": "seb",
+  "description": "Docked side panel",
+  "kinds": [
+    "panel"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "panel": "Side.qml"
+  }
+}

@@ -1,0 +1,334 @@
+#!/usr/bin/env bash
+# Remove trash, thumbnails, your temp files, clipboard history, rebuildable caches,
+# and Cursor resume chats from before today.
+# clean -f also vacuums the journal to 7 days and deletes older core dumps (sudo).
+set -euo pipefail
+
+force=0
+if [[ $# -gt 1 || (${#} -eq 1 && $1 != -f) ]]; then
+  echo "Usage: clean [-f]" >&2
+  exit 1
+fi
+if [[ ${1:-} == -f ]]; then
+  force=1
+  # Fail here, before any cleanup, if the password is wrong.
+  sudo -v
+fi
+
+cache="${XDG_CACHE_HOME:-$HOME/.cache}"
+trash="${XDG_DATA_HOME:-$HOME/.local/share}/Trash"
+bin_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+labels=()
+kinds=()
+paths=()
+bytes=()
+chat_dirs=()
+chat_busy_skipped=0
+coredump_files=()
+
+add() {
+  local label=$1 kind=$2 path=$3 size=$4
+  (( size > 0 )) || return 0
+  labels+=("$label")
+  kinds+=("$kind")
+  paths+=("$path")
+  bytes+=("$size")
+}
+
+dir_size() {
+  local path=$1
+  [[ -d $path ]] || {
+    echo 0
+    return
+  }
+  [[ -n $(find "$path" -mindepth 1 -print -quit 2>/dev/null) ]] || {
+    echo 0
+    return
+  }
+  du -sb "$path" 2>/dev/null | awk '{print $1}'
+}
+
+tmp_size() {
+  local path=$1 sum=0 size
+  [[ -d $path ]] || {
+    echo 0
+    return
+  }
+  while IFS= read -r -d '' entry; do
+    size=$(du -sb "$entry" 2>/dev/null | awk '{print $1}')
+    sum=$((sum + ${size:-0}))
+  done < <(find "$path" -mindepth 1 -maxdepth 1 -user "$USER" -print0 2>/dev/null)
+  echo "$sum"
+}
+
+# cliphist holds history. evo-clipboard clear wipes it and puts pins back.
+clipboard_size() {
+  local db=$cache/cliphist/db
+  local previews=${XDG_STATE_HOME:-$HOME/.local/state}/evoshell/clipboard-previews
+  local total=0 size=0
+  if [[ -f $db ]] && cliphist list 2>/dev/null | grep -q .; then
+    size=$(wc -c <"$db" | tr -d ' ')
+    total=$((total + size))
+  fi
+  size=$(dir_size "$previews")
+  echo $((total + size))
+}
+
+human() {
+  if command -v numfmt >/dev/null 2>&1; then
+    numfmt --to=iec --suffix=B "$1"
+  else
+    printf '%sB\n' "$1"
+  fi
+}
+
+# /resume reads ~/.config/cursor/chats (and a second copy under ~/.cursor/chats).
+# Keep a chat when its last update is today, or a process still has it open.
+declare -gA chat_busy=()
+
+cursor_chat_roots() {
+  printf '%s\n' "$HOME/.config/cursor/chats" "$HOME/.cursor/chats"
+  if [[ -n ${XDG_CONFIG_HOME:-} && $XDG_CONFIG_HOME != "$HOME/.config" ]]; then
+    printf '%s\n' "$XDG_CONFIG_HOME/cursor/chats"
+  fi
+}
+
+mark_busy_chats() {
+  local link target root rel hash rest uuid
+  local -a roots=()
+  chat_busy=()
+  while IFS= read -r root; do
+    [[ -d $root ]] || continue
+    roots+=("$root")
+  done < <(cursor_chat_roots)
+  (( ${#roots[@]} > 0 )) || return 0
+  while IFS= read -r -d '' link; do
+    target=$(readlink "$link" 2>/dev/null) || continue
+    for root in "${roots[@]}"; do
+      [[ $target == "$root"/* ]] || continue
+      rel=${target#"$root/"}
+      hash=${rel%%/*}
+      rest=${rel#*/}
+      [[ $rest != "$rel" ]] || continue
+      uuid=${rest%%/*}
+      [[ -n $hash && -n $uuid ]] || continue
+      chat_busy["$root/$hash/$uuid"]=1
+    done
+  done < <(find /proc/[0-9]*/fd /proc/[0-9]*/cwd -lname '*cursor/chats/*' -print0 2>/dev/null)
+}
+
+chat_stamp() {
+  local dir=$1 meta=$1/meta.json ms newest
+  if [[ -f $meta ]]; then
+    ms=$(sed -n 's/.*"updatedAtMs"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' "$meta" | head -n 1)
+    if [[ -z $ms ]]; then
+      ms=$(sed -n 's/.*"createdAtMs"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' "$meta" | head -n 1)
+    fi
+    if [[ -n $ms ]]; then
+      echo $((ms / 1000))
+      return
+    fi
+  fi
+  newest=$(find "$dir" -printf '%T@\n' 2>/dev/null | awk 'BEGIN {m=0} {if ($1 > m) m=$1} END {printf "%d\n", m}')
+  echo "${newest:-0}"
+}
+
+collect_cursor_chats() {
+  local today_start root dir stamp size total=0
+  today_start=$(date -d 'today 00:00:00' +%s)
+  mark_busy_chats
+  while IFS= read -r root; do
+    [[ -d $root ]] || continue
+    while IFS= read -r -d '' dir; do
+      stamp=$(chat_stamp "$dir")
+      if (( stamp == 0 || stamp >= today_start )); then
+        continue
+      fi
+      if [[ -n ${chat_busy[$dir]:-} ]]; then
+        chat_busy_skipped=$((chat_busy_skipped + 1))
+        continue
+      fi
+      size=$(du -sb "$dir" 2>/dev/null | awk '{print $1}')
+      size=${size:-0}
+      (( size > 0 )) || continue
+      chat_dirs+=("$dir")
+      total=$((total + size))
+    done < <(find "$root" -mindepth 2 -maxdepth 2 -type d -print0 2>/dev/null)
+  done < <(cursor_chat_roots)
+  if (( ${#chat_dirs[@]} > 0 )); then
+    add "cursor chats (${#chat_dirs[@]}, before today)" chats cursor-chats "$total"
+  fi
+}
+
+# Archived journals only. vacuum-time keeps the active system.journal and user-*.journal.
+journal_old_size() {
+  local cutoff=$1
+  # %b is allocated 512-byte blocks. Journal files are sparse, so apparent size overstates them.
+  find /var/log/journal -type f \( -name '*@*' -o -name '*.journal~' \) -printf '%T@ %b\n' 2>/dev/null \
+    | awk -v cutoff="$cutoff" 'BEGIN {s=0} $1 < cutoff {s+=$2} END {printf "%d\n", s * 512}'
+}
+
+collect_old_coredumps() {
+  local today_start=$1 mtime size file total=0
+  coredump_files=()
+  [[ -d /var/lib/systemd/coredump ]] || return 0
+  while IFS= read -r line; do
+    mtime=${line%% *}
+    line=${line#* }
+    size=${line%% *}
+    file=${line#* }
+    mtime=${mtime%.*}
+    (( mtime < today_start )) || continue
+    (( size > 0 )) || continue
+    coredump_files+=("$file")
+    total=$((total + size))
+  done < <(find /var/lib/systemd/coredump -maxdepth 1 -type f -printf '%T@ %s %p\n' 2>/dev/null)
+  if (( ${#coredump_files[@]} > 0 )); then
+    add "core dumps (${#coredump_files[@]}, before today)" coredumps coredumps "$total"
+  fi
+}
+
+collect_root_cleanups() {
+  local today_start week_ago journal_bytes
+  today_start=$(date -d 'today 00:00:00' +%s)
+  week_ago=$(date -d '7 days ago' +%s)
+  journal_bytes=$(journal_old_size "$week_ago")
+  add "journal (older than 7 days)" journal journal "${journal_bytes:-0}"
+  collect_old_coredumps "$today_start"
+}
+
+vacuum_journal() {
+  sudo journalctl --vacuum-time=7d
+}
+
+remove_old_coredumps() {
+  (( ${#coredump_files[@]} > 0 )) || return 0
+  sudo rm -f -- "${coredump_files[@]}"
+}
+
+clear_clipboard() {
+  local script=$bin_dir/evo-clipboard
+  if [[ -x $script ]]; then
+    bash "$script" clear || printf 'warning: could not clear clipboard history\n' >&2
+    return
+  fi
+  if command -v cliphist >/dev/null 2>&1; then
+    cliphist wipe || printf 'warning: could not clear clipboard history\n' >&2
+  fi
+}
+
+remove_cursor_chats() {
+  local dir root
+  declare -A roots=()
+  mark_busy_chats
+  for dir in "${chat_dirs[@]}"; do
+    if [[ -n ${chat_busy[$dir]:-} ]]; then
+      printf 'warning: left %s in place, a process still has it open\n' "$dir" >&2
+      continue
+    fi
+    rm -rf -- "$dir" || printf 'warning: could not remove %s\n' "$dir" >&2
+    root=$(dirname "$(dirname "$dir")")
+    roots["$root"]=1
+  done
+  for root in "${!roots[@]}"; do
+    find "$root" -mindepth 1 -maxdepth 1 -type d -empty -delete 2>/dev/null || true
+  done
+}
+
+add "$trash/files" dir "$trash/files" "$(dir_size "$trash/files")"
+add "$trash/info" dir "$trash/info" "$(dir_size "$trash/info")"
+add "$trash/expunged" dir "$trash/expunged" "$(dir_size "$trash/expunged")"
+add "$cache/thumbnails" dir "$cache/thumbnails" "$(dir_size "$cache/thumbnails")"
+add "$HOME/.thumbnails" dir "$HOME/.thumbnails" "$(dir_size "$HOME/.thumbnails")"
+add "/tmp (your files)" tmp /tmp "$(tmp_size /tmp)"
+add "/var/tmp (your files)" tmp /var/tmp "$(tmp_size /var/tmp)"
+add "clipboard (pins kept)" clipboard clipboard "$(clipboard_size)"
+add "$cache/yay" dir "$cache/yay" "$(dir_size "$cache/yay")"
+add "$cache/mesa_shader_cache" dir "$cache/mesa_shader_cache" "$(dir_size "$cache/mesa_shader_cache")"
+add "$cache/radv_builtin_shaders" dir "$cache/radv_builtin_shaders" "$(dir_size "$cache/radv_builtin_shaders")"
+
+shopt -s nullglob
+for path in "$cache"/qtshadercache-*; do
+  add "$path" dir "$path" "$(dir_size "$path")"
+done
+shopt -u nullglob
+
+add "$cache/fontconfig" dir "$cache/fontconfig" "$(dir_size "$cache/fontconfig")"
+collect_cursor_chats
+if (( force )); then
+  collect_root_cleanups
+fi
+
+if (( chat_busy_skipped > 0 )); then
+  if (( chat_busy_skipped == 1 )); then
+    echo "warning: left 1 cursor chat in place, a process still has it open" >&2
+  else
+    printf 'warning: left %d cursor chats in place, a process still has them open\n' "$chat_busy_skipped" >&2
+  fi
+fi
+
+if [[ ${#labels[@]} -eq 0 ]]; then
+  echo "Nothing to clean."
+  exit 0
+fi
+
+total=0
+for size in "${bytes[@]}"; do
+  total=$((total + size))
+done
+
+echo "clean:"
+for i in "${!labels[@]}"; do
+  printf '  %8s  %s\n' "$(human "${bytes[$i]}")" "${labels[$i]}"
+done
+printf '  %8s  total\n' "$(human "$total")"
+
+empty_dir() {
+  find "$1" -mindepth 1 -delete || printf 'warning: could not remove everything in %s\n' "$1" >&2
+}
+
+# /proc/net/unix lists the path a process bound, not the file's inode.
+# Removing that path leaves the process listening where nothing can connect.
+# Chromium's socket is /tmp/org.chromium.Chromium.<id>/SingletonSocket, so the
+# directory itself is not a socket and a top-level check would delete it.
+entry_has_open_socket() {
+  [[ -S $1 || -d $1 ]] || return 1
+  awk -v path="$1" -v prefix="$1/" 'NR > 1 {
+    sock = $0
+    sub(/^[^ ]+([ \t]+[^ \t]+){6}[ \t]+/, "", sock)
+    if (sock == path || index(sock, prefix) == 1) found = 1
+  } END { exit !found }' /proc/net/unix
+}
+
+empty_tmp() {
+  local path=$1 entry
+  while IFS= read -r -d '' entry; do
+    if entry_has_open_socket "$entry"; then
+      printf 'warning: left %s in place, a process still has it open\n' "$entry" >&2
+      continue
+    fi
+    rm -rf -- "$entry" || printf 'warning: could not remove %s\n' "$entry" >&2
+  done < <(find "$path" -mindepth 1 -maxdepth 1 -user "$USER" -print0 2>/dev/null)
+}
+
+cleaned_fonts=0
+for i in "${!labels[@]}"; do
+  case "${kinds[$i]}" in
+  dir)
+    empty_dir "${paths[$i]}"
+    [[ ${paths[$i]} == "$cache/fontconfig" ]] && cleaned_fonts=1
+    ;;
+  tmp) empty_tmp "${paths[$i]}" ;;
+  clipboard) clear_clipboard ;;
+  chats) remove_cursor_chats ;;
+  journal) vacuum_journal ;;
+  coredumps) remove_old_coredumps ;;
+  esac
+done
+
+if (( cleaned_fonts )) && command -v fc-cache >/dev/null 2>&1; then
+  fc-cache -r >/dev/null
+fi
+
+echo "Cleaned."

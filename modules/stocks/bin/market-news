@@ -1,0 +1,193 @@
+#!/usr/bin/env bash
+# One day's headlines for a single evo.stocks market.
+# Runs cursor-agent headless without --model, so the CLI selected model in
+# ~/.cursor/cli-config.json applies.
+set -uo pipefail
+
+_bin_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=common.sh
+source "${_bin_dir}/common.sh"
+
+market="${1:-}"
+case "$market" in
+  btc|spcx) ;;
+  *)
+    printf '%s\n' '{"ok":false,"items":[],"error":"Unknown market"}'
+    exit 0
+    ;;
+esac
+
+CACHE_KEY="news-${market}"
+NEWS_TTL=86400
+NEWS_MAX=32768
+
+read_model() {
+  MODEL_ID="default"
+  MODEL_NAME="Auto"
+  local cfg_path="${HOME}/.cursor/cli-config.json"
+  local cfg
+  cfg="$(evo_read_bounded "$cfg_path" 65536 2>/dev/null || true)"
+  [[ -n "$cfg" ]] || return 0
+  MODEL_ID="$(jq -r '.selectedModel.modelId // "default"' <<<"$cfg" 2>/dev/null || printf '%s' 'default')"
+  MODEL_NAME="$(jq -r '.model.displayName // "Auto"' <<<"$cfg" 2>/dev/null || printf '%s' 'Auto')"
+  [[ "$MODEL_ID" =~ ^[A-Za-z0-9._:-]+$ ]] || MODEL_ID="default"
+  [[ ${#MODEL_NAME} -le 40 ]] || MODEL_NAME="Auto"
+}
+
+emit_error() {
+  jq -cn \
+    --arg error "$1" \
+    --arg model "$MODEL_NAME" \
+    --arg modelId "$MODEL_ID" \
+    '{ok:false, items:[], error:$error, model:$model, modelId:$modelId}'
+}
+
+emit_cached() {
+  local path content
+  path="$(evo_bar_cache_path "$CACHE_KEY")"
+  content="$(evo_read_bounded "$path" "$NEWS_MAX" 2>/dev/null || true)"
+  [[ -n "${content//[[:space:]]/}" ]] || return 1
+  printf '%s\n' "$content"
+}
+
+parse_agent_json() {
+  jq -Rs \
+    --arg model "$MODEL_NAME" \
+    --arg modelId "$MODEL_ID" \
+    --arg fetchedAt "$1" \
+    '
+      def clean: gsub("[<>&]"; "") | gsub("[[:cntrl:]]"; "") | gsub("^\\s+|\\s+$"; "");
+      . as $s
+      | ($s | index("{")) as $a
+      | ($s | rindex("}")) as $b
+      | if $a == null or $b == null or $b <= $a then empty
+        else
+          ($s[$a:$b+1] | fromjson) as $obj
+          | {
+              ok: true,
+              model: $model,
+              modelId: $modelId,
+              fetchedAt: $fetchedAt,
+              items: (
+                ($obj.items // [])
+                | if type != "array" then [] else . end
+                | map(select(type == "object"))
+                | map({
+                    title: ((.title // "") | tostring | clean | .[0:110]),
+                    source: ((.source // "") | tostring | clean | .[0:40]),
+                    url: ((.url // "") | tostring | .[0:300])
+                  })
+                | map(select(
+                    .title != ""
+                    and (.url | test("^https://[^[:space:]<>\"\\\\]+$"))
+                  ))
+                | .[0:3]
+              )
+            }
+          | select(.items | length > 0)
+        end
+    '
+}
+
+prompt_for() {
+  local topic
+  case "$market" in
+    btc) topic="Bitcoin (BTC) price, market, and protocol news from the last 24 hours" ;;
+    spcx) topic="SpaceX company news from the last 24 hours. SPCX is the Trading 212 ticker for SpaceX shares" ;;
+  esac
+  printf '%s' "Search the web for ${topic}. Return only a JSON object, no markdown, shaped exactly as {\"items\":[{\"title\":\"headline under 90 characters\",\"source\":\"publisher\",\"url\":\"https://example.com\"}]}. Exactly 3 items. https URLs only. Do not edit files or run commands."
+}
+
+prepare_workspace() {
+  local dir="${EVOSHELL_CACHE}/stocks/news-workspace-${market}"
+  mkdir -p -m 700 -- "$dir" || return 1
+  [[ ! -L "$dir" && -d "$dir" ]] || return 1
+  [[ "$(stat -c %u "$dir")" == "$(id -u)" ]] || return 1
+  find "$dir" -mindepth 1 -maxdepth 1 -type f -delete 2>/dev/null || true
+  find "$dir" -mindepth 1 -maxdepth 1 ! -type f -exec rm -rf -- {} + 2>/dev/null || true
+  printf '%s' "$dir"
+}
+
+fail_reason=""
+
+fetch_news() {
+  local agent_bin workspace prompt raw parsed fetched_at
+  agent_bin="$(command -v cursor-agent || true)"
+  if [[ ! -x "$agent_bin" ]]; then
+    fail_reason="cursor-agent is not on PATH"
+    return 1
+  fi
+  workspace="$(prepare_workspace)" || {
+    fail_reason="News workspace unavailable"
+    return 1
+  }
+  prompt="$(prompt_for)"
+  fetched_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  # --mode ask is read-only. --yolo is what approves web search on an
+  # unattended run; autoAcceptWebSearch is off in the CLI config.
+  # No --model: cursor-agent uses the selected CLI model (Auto / default).
+  raw="$(
+    cd "$workspace" &&
+      /usr/bin/timeout -k 5 150 \
+        "$agent_bin" \
+        --print \
+        --mode ask \
+        --yolo \
+        --trust \
+        --output-format text \
+        --workspace "$workspace" \
+        -- "$prompt" \
+      2>/dev/null | /usr/bin/head -c $((NEWS_MAX + 1))
+  )" || true
+  if ((${#raw} > NEWS_MAX)); then
+    fail_reason="News response too large"
+    return 1
+  fi
+  parsed="$(parse_agent_json "$fetched_at" <<<"$raw" 2>/dev/null || true)"
+  if [[ -z "${parsed//[[:space:]]/}" ]]; then
+    fail_reason="No headlines"
+    return 1
+  fi
+  printf '%s\n' "$parsed" | evo_bar_cache_write "$CACHE_KEY" || true
+  printf '%s\n' "$parsed"
+}
+
+read_model
+
+if cached="$(evo_bar_cache_read "$CACHE_KEY" "$NEWS_TTL" 2>/dev/null)"; then
+  printf '%s\n' "$cached"
+  exit 0
+fi
+
+lock_dir="${EVO_BAR_CACHE_DIR}"
+evo_private_dir "$lock_dir" || {
+  emit_error "Cache directory unavailable"
+  exit 0
+}
+lock_path="${lock_dir}/.${CACHE_KEY}.lock"
+if [[ -L "$lock_path" ]]; then
+  emit_error "News lock unavailable"
+  exit 0
+fi
+exec 9>"$lock_path" || {
+  emit_error "News lock unavailable"
+  exit 0
+}
+if ! flock -w 180 9; then
+  emit_cached || emit_error "News refresh busy"
+  exit 0
+fi
+
+if cached="$(evo_bar_cache_read "$CACHE_KEY" "$NEWS_TTL" 2>/dev/null)"; then
+  printf '%s\n' "$cached"
+  exit 0
+fi
+
+if fetch_news; then
+  exit 0
+fi
+if emit_cached; then
+  exit 0
+fi
+emit_error "${fail_reason:-No headlines}"
+exit 0
