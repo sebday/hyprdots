@@ -46,10 +46,10 @@ function systemSectionLayout(home, binOverride, extensionPanels) {
         },
         right: [
             { title: "Reference", icon: "󰋗", entries: pick([
-                "Bindings", "Shell commands", "Screenshot theme previews"
+                "Shell commands"
             ]) },
             { title: "Session", icon: "󰍃", entries: pick([
-                "Lock", "Restart shell", "Clear cache", "Reboot", "Shutdown"
+                "Lock", "Restart shell", "Reboot", "Shutdown"
             ]) }
         ]
     }
@@ -73,12 +73,9 @@ function systemEntries(home, binOverride) {
         { name: "Calculator", icon: "󰪚", keywords: ["calc", "calculator", "math"], command: ipc(home, "toggle evo.calculator") },
         { name: "Clipboard", icon: "󰅍", keywords: ["clipboard", "copy", "paste"], command: ipc(home, "toggle evo.side.clipboard") },
         { name: "Screenshot", icon: "󰆴", keywords: ["screenshot", "capture", "omasnap"], command: "omasnap" },
-        { name: "Screenshot theme previews", icon: "󰸌", keywords: ["theme", "preview", "screenshot", "carousel", "wallpaper"], command: lib + "/evo-theme-previews" },
-        { name: "Bindings", icon: "󰌌", keywords: ["bindings", "shortcuts", "keys", "hotkeys", "hyprland", "keybindings"], submenu: "bindings" },
         { name: "Shell commands", icon: "󰆍", keywords: ["shell", "ipc", "commands", "evo", "quickshell"], submenu: "shell" },
         { name: "Lock", icon: "󰌾", keywords: ["lock", "screen"], command: evo + " system lock" },
         { name: "Restart shell", icon: "󰑐", keywords: ["evo", "shell", "bar", "quickshell", "refresh"], command: evo + " system restart" },
-        { name: "Clear cache", icon: "󰃢", keywords: ["cache", "clear", "bar"], command: lib + "/clean" },
         { name: "Reboot", icon: "󰐥", keywords: ["reboot", "restart", "system"], command: evo + " system reboot" },
         { name: "Shutdown", icon: "󰐥", keywords: ["shutdown", "poweroff", "off"], command: evo + " system shutdown" }
     ]

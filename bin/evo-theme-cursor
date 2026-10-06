@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail
-# Write a local Cursor color theme from the active colors.toml and select it.
+# Write live Cursor colour overrides from the active colors.toml.
+# workbench.colorCustomizations updates an open window. A fixed extension
+# name does not, so this script no longer rewrites local.evoshell-theme.
 #
 # USAGE:
 #   evo-theme-cursor apply
@@ -9,11 +11,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
 source "$SCRIPT_DIR/evo-theme-lib"
 
-THEME_LABEL="Evoshell"
-EXT_ID="local.evoshell-theme"
-EXT_DIR="${HOME}/.cursor/extensions/${EXT_ID}"
+STALE_THEME_LABEL="Evoshell"
 SETTINGS_PATH="${HOME}/.config/Cursor/User/settings.json"
-EXTENSIONS_PATH="${HOME}/.cursor/extensions/extensions.json"
+BASE_DARK_THEME="Cursor Dark"
+BASE_LIGHT_THEME="Cursor Light"
 
 apply_cursor_theme() {
     local current="${CURRENT_PATH:-$THEME_DIR/current}"
@@ -21,26 +22,17 @@ apply_cursor_theme() {
 
     [[ -f "$toml" ]] || return 0
 
-    python3 - "$toml" "$EXT_DIR" "$SETTINGS_PATH" "$EXTENSIONS_PATH" "$THEME_LABEL" "$EXT_ID" <<'PY'
+    python3 - "$toml" "$SETTINGS_PATH" "$STALE_THEME_LABEL" "$BASE_DARK_THEME" "$BASE_LIGHT_THEME" <<'PY'
 import json
 import pathlib
 import sys
+import tomllib
 
-toml_path, ext_dir, settings_path, extensions_path, label, ext_id = sys.argv[1:]
-ext_dir = pathlib.Path(ext_dir)
+toml_path, settings_path, stale_label, base_dark, base_light = sys.argv[1:]
 settings_path = pathlib.Path(settings_path)
-extensions_path = pathlib.Path(extensions_path)
 
-colors = {}
-for line in pathlib.Path(toml_path).read_text().splitlines():
-    line = line.split("#", 1)[0].strip()
-    if not line or "=" not in line:
-        continue
-    key, value = line.split("=", 1)
-    key = key.strip()
-    value = value.strip().strip('"').strip("'")
-    if key and value:
-        colors[key] = value
+raw = tomllib.loads(pathlib.Path(toml_path).read_text())
+colors = {key: value for key, value in raw.items() if isinstance(value, str)}
 
 def need(key, fallback):
     value = colors.get(key) or fallback
@@ -77,15 +69,8 @@ def lum(hex_color):
     return 0.2126 * r + 0.7152 * g + 0.0722 * b
 
 ui_theme = "vs" if lum(bg) > 140 else "vs-dark"
-body = pathlib.Path(toml_path).read_bytes()
-version = "1.0." + str(sum(body) % 1000000000)
 
-theme = {
-    "name": label,
-    "$schema": "vscode://schemas/color-theme",
-    "type": "light" if ui_theme == "vs" else "dark",
-    "semanticHighlighting": True,
-    "colors": {
+workbench_colors = {
         "foreground": fg,
         "disabledForeground": muted,
         "focusBorder": accent + "80",
@@ -178,7 +163,9 @@ theme = {
         "terminal.ansiBrightMagenta": bright_magenta,
         "terminal.ansiBrightCyan": bright_cyan,
         "terminal.ansiBrightWhite": bright_fg,
+        "breadcrumb.background": bg,
         "breadcrumb.foreground": muted,
+        "breadcrumb.focusForeground": fg,
         "breadcrumb.activeSelectionForeground": fg,
         "minimap.background": bg,
         "peekView.border": accent,
@@ -186,85 +173,46 @@ theme = {
         "peekViewResult.background": mantle,
         "notification.background": mantle,
         "notification.foreground": fg,
-    },
-    "tokenColors": [
-        {"scope": ["comment", "punctuation.definition.comment"], "settings": {"foreground": muted, "fontStyle": "italic"}},
-        {"scope": ["string", "constant.other.symbol"], "settings": {"foreground": green}},
-        {"scope": ["constant.numeric", "constant.language"], "settings": {"foreground": yellow}},
-        {"scope": ["keyword", "storage", "storage.type"], "settings": {"foreground": magenta}},
-        {"scope": ["entity.name.function", "support.function"], "settings": {"foreground": blue}},
-        {"scope": ["entity.name.type", "entity.name.class", "support.type", "support.class"], "settings": {"foreground": yellow}},
-        {"scope": ["variable", "variable.other"], "settings": {"foreground": fg}},
-        {"scope": ["entity.name.tag", "punctuation.definition.tag"], "settings": {"foreground": red}},
-        {"scope": ["support.type.property-name", "entity.other.attribute-name"], "settings": {"foreground": cyan}},
-        {"scope": ["keyword.operator"], "settings": {"foreground": cyan}},
-    ],
-    "semanticTokenColors": {
-        "comment": {"foreground": muted, "fontStyle": "italic"},
-        "string": green,
-        "number": yellow,
-        "keyword": magenta,
-        "function": blue,
-        "method": blue,
-        "type": yellow,
-        "class": yellow,
-        "variable": fg,
-        "parameter": cyan,
-        "property": cyan,
-    },
 }
 
-theme_dir = ext_dir / "themes"
-theme_dir.mkdir(parents=True, exist_ok=True)
-theme_file = theme_dir / "evoshell-color-theme.json"
-theme_file.write_text(json.dumps(theme, indent=2) + "\n")
-
-package = {
-    "name": "evoshell-theme",
-    "displayName": label,
-    "description": "Evoshell color theme",
-    "publisher": "local",
-    "version": version,
-    "engines": {"vscode": "^1.70.0"},
-    "categories": ["Themes"],
-    "contributes": {
-        "themes": [{
-            "label": label,
-            "uiTheme": ui_theme,
-            "path": "./themes/evoshell-color-theme.json",
-            "_watch": True,
-        }]
-    },
-}
-(ext_dir / "package.json").write_text(json.dumps(package, indent=2) + "\n")
-
-extensions = []
-if extensions_path.is_file():
-    try:
-        loaded = json.loads(extensions_path.read_text() or "[]")
-        if isinstance(loaded, list):
-            extensions = loaded
-    except json.JSONDecodeError:
-        extensions = []
-extensions = [
-    item for item in extensions
-    if not (isinstance(item, dict) and str((item.get("identifier") or {}).get("id") or "") == ext_id)
+token_colors = [
+    {"scope": ["comment", "punctuation.definition.comment"], "settings": {"foreground": muted, "fontStyle": "italic"}},
+    {"scope": ["string", "constant.other.symbol"], "settings": {"foreground": green}},
+    {"scope": ["constant.numeric", "constant.language"], "settings": {"foreground": yellow}},
+    {"scope": ["keyword", "storage", "storage.type"], "settings": {"foreground": magenta}},
+    {"scope": ["entity.name.function", "support.function"], "settings": {"foreground": blue}},
+    {"scope": ["entity.name.type", "entity.name.class", "support.type", "support.class"], "settings": {"foreground": yellow}},
+    {"scope": ["variable", "variable.other"], "settings": {"foreground": fg}},
+    {"scope": ["entity.name.tag", "punctuation.definition.tag"], "settings": {"foreground": red}},
+    {"scope": ["support.type.property-name", "entity.other.attribute-name"], "settings": {"foreground": cyan}},
+    {"scope": ["keyword.operator"], "settings": {"foreground": cyan}},
 ]
-fs_path = str(ext_dir)
-extensions.append({
-    "identifier": {"id": ext_id},
-    "version": version,
-    "location": {
-        "$mid": 1,
-        "fsPath": fs_path,
-        "external": "file://" + fs_path,
-        "path": fs_path,
-        "scheme": "file",
-    },
-    "relativeLocation": ext_dir.name,
-})
-extensions_path.parent.mkdir(parents=True, exist_ok=True)
-extensions_path.write_text(json.dumps(extensions, indent=2) + "\n")
+semantic_tokens = {
+    "comment": {"foreground": muted, "fontStyle": "italic"},
+    "string": green,
+    "number": yellow,
+    "keyword": magenta,
+    "function": blue,
+    "method": blue,
+    "type": yellow,
+    "class": yellow,
+    "variable": fg,
+    "parameter": cyan,
+    "property": cyan,
+}
+
+def semantic_rule(value):
+    if isinstance(value, str):
+        return value
+    rule = {}
+    if value.get("foreground"):
+        rule["foreground"] = value["foreground"]
+    style = str(value.get("fontStyle") or "")
+    if "italic" in style:
+        rule["italic"] = True
+    if "bold" in style:
+        rule["bold"] = True
+    return rule
 
 settings = {}
 if settings_path.is_file():
@@ -275,11 +223,27 @@ if settings_path.is_file():
     except json.JSONDecodeError as exc:
         sys.stderr.write(f"evo-theme-cursor: {settings_path} is not JSON ({exc}); left unchanged\n")
         sys.exit(1)
-settings["workbench.colorTheme"] = label
-if ui_theme == "vs":
-    settings["workbench.preferredLightColorTheme"] = label
-else:
-    settings["workbench.preferredDarkColorTheme"] = label
+
+base = base_light if ui_theme == "vs" else base_dark
+settings["workbench.colorTheme"] = base
+settings["workbench.preferredDarkColorTheme"] = base_dark
+if ui_theme == "vs" or settings.get("workbench.preferredLightColorTheme") == stale_label:
+    settings["workbench.preferredLightColorTheme"] = base_light
+settings["workbench.colorCustomizations"] = workbench_colors
+settings["editor.tokenColorCustomizations"] = {
+    "textMateRules": token_colors,
+    "comments": semantic_rule(semantic_tokens["comment"]),
+    "strings": semantic_rule(semantic_tokens["string"]),
+    "numbers": semantic_rule(semantic_tokens["number"]),
+    "keywords": semantic_rule(semantic_tokens["keyword"]),
+    "functions": semantic_rule(semantic_tokens["function"]),
+    "types": semantic_rule(semantic_tokens["type"]),
+    "variables": semantic_rule(semantic_tokens["variable"]),
+}
+settings["editor.semanticTokenColorCustomizations"] = {
+    "enabled": True,
+    "rules": {name: semantic_rule(value) for name, value in semantic_tokens.items()},
+}
 settings_path.parent.mkdir(parents=True, exist_ok=True)
 settings_path.write_text(json.dumps(settings, indent=4) + "\n")
 PY

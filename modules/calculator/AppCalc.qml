@@ -177,6 +177,7 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
+        anchors.bottom: parent.bottom
         spacing: Theme.spacingL
 
         SectionPanel {
@@ -217,6 +218,7 @@ Item {
         SectionPanel {
             legendBackground: Theme.background
             label: ""
+            fillHeight: true
 
             HoverPanelLabelPill {
                 text: "History"
@@ -226,14 +228,11 @@ Item {
 
             Item {
                 Layout.fillWidth: true
-                Layout.preferredHeight: historyView.height
+                Layout.fillHeight: true
 
                 ListView {
                     id: historyView
-                    width: parent.width
-                    height: count === 0
-                        ? root.historyFontSize + 8
-                        : Math.min(contentHeight, root.historyFontSize * 8)
+                    anchors.fill: parent
                     clip: true
                     model: root.entries
                     boundsBehavior: Flickable.StopAtBounds

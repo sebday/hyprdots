@@ -1,26 +1,26 @@
-$1                           -`
-$1                          .o+`
-$1                          .o+`
+$1                          -`
+$1                         .o+`
 $1                        `oooo/
-$1                      `+oooooo:
+$1                       `+ooooo:
+$1                      `+ooooooo:
 $1                     `+ooooooooo:
-$1                     `+ooooooooo:
-$1                     -+ooooooooo+:
-$1                     `/:-:++oooooo+:
-$1                     `/:-:++oooooo+:
-$1                 `/++++++/++++++++++:
-$1               `/++++++++++++++++++++:
-$1              `/++++ooooooooooooooooooo/`
-$1              `/++++ooooooooooooooooooo/`
-$1             ./oooossssssoo++ossssssssso+`
-$1            .ooossssssssoo-````/osssssssss+`
-$1          -ossssssssso.         :sssssssssso.
-$1          -ossssssssso.         :sssssssssso.
-$1         :oossssssssss/           osssssso++++.
-$1       /ossssssssssss/            +ssssssoooo/-
-$1       /ossssssssssss/            +ssssssoooo/-
-$1     `/oossssssssoo+/:-            -:/+osssssso+-
-$1   `+sssoo+:-`                          `.-/+oosso:
-$1 `++:.                                         `-/+/
-$1 `++:.                                         `-/+/
-$1 .`                                               `/
+$1                    -+oooooooooo+:
+$1                   -+oooooooooooo+:
+$1                  `/:-:++ooooooooo+:
+$1                 `/++++/++++++++++++:
+$1                `/+++++++++++++++++++:
+$1               `/+++++++++++++++++++++:
+$1              `/++++oooooooooooooooooo/`
+$1             ./oooooooooooooooooooooooo+`
+$1            ./oooossssssoo++osssssssssso+`
+$1           .oossssssssso-````/ossssssssss+`
+$1          -ossssssssso.        :sssssssssso.
+$1         :ossssssssss/          ossssssso+++.
+$1        /osssssssssss/          +sssssssoooo/-
+$1       `/osssssssssss/          +ssssssssoooo/-
+$1      `/osssssssso+/:-          -:/+osssssssso+-
+$1     `+ossssssso+:-`              `.-:/+ossssso+:
+$1    `+sssssso+:-`                    `.-/+osssso+:
+$1   `+osso+:-`                            `.-/+osso:
+$1  `+++:.                                      `-/++/
+$1  .`                                              `/

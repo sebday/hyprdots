@@ -83,12 +83,6 @@ wallpapers)
         fi
     fi
     ;;
-bindings)
-    bindings_file="$home/.config/hypr/bindings.lua"
-    evoshell_root="${EVOSHELL_ROOT:-$home/projects/hyprdots}"
-    [[ -f "$bindings_file" || -f "$evoshell_root/hypr/bindings.lua" ]] || exit 0
-    menu_list_bindings "$bindings_file" "$home"
-    ;;
 shell)
     menu_list_shell "$home" "$script_dir"
     ;;
@@ -96,7 +90,7 @@ icons)
     menu_list_icons "$home" "${EVO_ICON_THEME:-evo-current}"
     ;;
 *)
-    echo "usage: $0 themes|wallpapers|bindings|shell|icons" >&2
+    echo "usage: $0 themes|wallpapers|shell|icons" >&2
     exit 1
     ;;
 esac

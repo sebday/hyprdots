@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
@@ -497,35 +498,54 @@ Item {
           // Narrower than two of those, stack the sites instead of squeezing them.
           readonly property int columnMin: Theme.space(480)
           readonly property bool stacked: count > 1 && width < columnMin * count + gap
+          // Each stacked store keeps the full side-by-side column height.
+          readonly property int slot: height
 
-          Repeater {
-            model: root.columns
+          onStackedChanged: if (!stacked) colScroll.contentY = 0
 
-            StoreColumn {
-              required property var modelData
-              required property int index
+          Flickable {
+            id: colScroll
+            anchors.fill: parent
+            clip: true
+            contentWidth: width
+            contentHeight: cols.stacked
+              ? cols.count * cols.slot + cols.gap * (cols.count - 1)
+              : height
+            interactive: cols.stacked
+            boundsBehavior: Flickable.StopAtBounds
+            flickableDirection: Flickable.VerticalFlick
+            onContentHeightChanged: if (!cols.stacked) contentY = 0
 
-              readonly property int span: Math.max(1, cols.count)
-              readonly property int slot: cols.stacked
-                ? Math.max(1, Math.floor((cols.height - cols.gap * (span - 1)) / span))
-                : cols.height
+            ScrollBar.vertical: ScrollBar {
+              policy: cols.stacked ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
+            }
 
-              x: cols.stacked ? 0 : index * (width + cols.gap)
-              y: cols.stacked ? index * (height + cols.gap) : 0
-              width: cols.stacked
-                ? cols.width
-                : Math.max(1, Math.floor((cols.width - cols.gap * (span - 1)) / span))
-              height: slot
-              payload: root.payloads[modelData.store.key] || null
-              metric: root.metric
-              borderColor: Model.storeColor(modelData.store.key, modelData.index, root.palette, root.fallbackAccent)
-              backgroundColor: root.colBg
-              mutedColor: root.colMuted
-              textColor: root.colText
-              brightColor: root.colBright
-              warnColor: root.colWarn
-              fontFamily: root.fontFamily
-              onMetricChosen: function(id) { root.chooseMetric(id) }
+            Repeater {
+              model: root.columns
+
+              StoreColumn {
+                required property var modelData
+                required property int index
+
+                readonly property int span: Math.max(1, cols.count)
+
+                x: cols.stacked ? 0 : index * (width + cols.gap)
+                y: cols.stacked ? index * (height + cols.gap) : 0
+                width: cols.stacked
+                  ? colScroll.width
+                  : Math.max(1, Math.floor((colScroll.width - cols.gap * (span - 1)) / span))
+                height: cols.slot
+                payload: root.payloads[modelData.store.key] || null
+                metric: root.metric
+                borderColor: Model.storeColor(modelData.store.key, modelData.index, root.palette, root.fallbackAccent)
+                backgroundColor: root.colBg
+                mutedColor: root.colMuted
+                textColor: root.colText
+                brightColor: root.colBright
+                warnColor: root.colWarn
+                fontFamily: root.fontFamily
+                onMetricChosen: function(id) { root.chooseMetric(id) }
+              }
             }
           }
         }

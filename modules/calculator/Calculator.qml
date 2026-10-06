@@ -53,8 +53,10 @@ Item {
         visible: root.opened
         screen: root.openScreen
         color: Theme.background
-        implicitWidth: Theme.clipboardPanelWidth
-        implicitHeight: Math.max(1, calcContent.implicitHeight + Theme.overlayTopInset + Theme.overlayMargin)
+        implicitWidth: 300
+        implicitHeight: 275
+        width: 300
+        height: 275
 
         // Super+W closes the toplevel. Escape goes through the input.
         onClosed: {
@@ -67,9 +69,11 @@ Item {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
+            anchors.bottom: parent.bottom
             anchors.leftMargin: Theme.overlaySideInset
             anchors.rightMargin: Theme.overlaySideInset
             anchors.topMargin: Theme.overlayTopInset
+            anchors.bottomMargin: Theme.overlayMargin
             host: root
             shell: root.shell
         }

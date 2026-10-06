@@ -151,7 +151,6 @@ Item {
     readonly property string evoshellBin: shell ? shell.evoshellBin : Util.evoshellBinPath(home, null)
     readonly property string hyprScript: Util.evoshellScript(home, shell, "evo-hyprland")
     readonly property string placeholderText: {
-        if (submenu === "bindings") return "Search bindings…"
         if (submenu === "shell") return "Search shell commands…"
         if (submenu === "session") return "Lock, reboot, or shut down…"
         if (programsListMode) return "Launch a program or panel…"
@@ -160,7 +159,6 @@ Item {
     }
 
     readonly property string menuPanelLegendText: {
-        if (submenu === "bindings") return "Bindings"
         if (submenu === "shell") return "Shell commands"
         if (submenu === "session") return "Shutdown"
         if (powerSearchMode) return "Run"
@@ -169,7 +167,6 @@ Item {
         return "Menu"
     }
     readonly property string menuPanelLegendIcon: {
-        if (submenu === "bindings") return "󰌌"
         if (submenu === "shell") return "󰆍"
         if (submenu === "session") return "󰐥"
         if (powerSearchMode) return "󰜎"
@@ -178,7 +175,7 @@ Item {
         return "󰍉"
     }
 
-    readonly property bool infoListMode: submenu === "bindings" || submenu === "shell"
+    readonly property bool infoListMode: submenu === "shell"
     readonly property int screenWidth: panel.width > 0
         ? panel.width
         : (Quickshell.screens.length > 0 ? Quickshell.screens[0].width : 1920)
@@ -888,7 +885,7 @@ Item {
                         keys: e.keys || e.command || "",
                         detail: e.detail || "",
                         files: e.files || "",
-                        icon: root.submenu === "bindings" ? "󰌌" : "󰆍"
+                        icon: "󰆍"
                     }
                 }
                 return {
@@ -995,7 +992,7 @@ Item {
         dynamicEntries = []
         dynamicEntryKind = kind
         var listScript = Util.evoshellScript(home, shell, "evo-menu-list")
-        if (kind !== "themes" && kind !== "wallpaper" && kind !== "bindings" && kind !== "shell") {
+        if (kind !== "themes" && kind !== "wallpaper" && kind !== "shell") {
             dynamicLoading = false
             dynamicEntryKind = ""
             return
@@ -1010,7 +1007,7 @@ Item {
     function parseDynamicLines(raw) {
         var lines = String(raw || "").split("\n")
         var out = []
-        var infoMode = root.dynamicEntryKind === "bindings" || root.dynamicEntryKind === "shell"
+        var infoMode = root.dynamicEntryKind === "shell"
         for (var i = 0; i < lines.length; i++) {
             var line = lines[i].trim()
             if (!line) continue

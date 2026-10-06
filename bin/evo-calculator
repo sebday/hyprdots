@@ -8,8 +8,7 @@ _bin_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${_bin_dir}/evo-paths-lib"
 
 HISTORY_FILE="${EVOSHELL_STATE}/apps/calc-history.json"
-MAX_ITEMS=100
-HISTORY_LIMIT=50
+HISTORY_KEEP=5
 
 mkdir -p "${EVOSHELL_STATE}/apps"
 
@@ -44,13 +43,26 @@ eval_expr() {
     printf '%s\n' "$result"
 }
 
+trim_history() {
+    local tmp
+    [[ -f "$HISTORY_FILE" ]] || return 0
+    tmp="$(mktemp)"
+    if ! jq --argjson max "$HISTORY_KEEP" '
+        if type == "array" then .[-$max:] else [] end
+    ' "$HISTORY_FILE" >"$tmp" 2>/dev/null; then
+        rm -f "$tmp"
+        return 0
+    fi
+    mv "$tmp" "$HISTORY_FILE"
+}
+
 history_list() {
-    local limit="$HISTORY_LIMIT"
     if [[ ! -f "$HISTORY_FILE" ]]; then
         return 0
     fi
-    jq -r --argjson limit "$limit" '
-        if type == "array" then .[-$limit:] else [] end
+    trim_history
+    jq -r '
+        if type == "array" then . else [] end
         | .[]
         | select(type == "object")
         | select((.expr // "") != "")
@@ -64,7 +76,7 @@ add_history() {
     [[ -n "$expr" && -n "$result" ]] || return 1
     tmp="$(mktemp)"
     if [[ -f "$HISTORY_FILE" ]]; then
-        jq --arg expr "$expr" --arg result "$result" --argjson max "$MAX_ITEMS" '
+        jq --arg expr "$expr" --arg result "$result" --argjson max "$HISTORY_KEEP" '
             (if type == "array" then . else [] end)
             + [{expr: $expr, result: $result}]
             | .[-$max:]

@@ -151,7 +151,7 @@ Singleton {
     }
     readonly property bool roundingOn: looksData.roundingOn === true
     readonly property bool gapsOn: looksData.gapsOn === true
-    readonly property int gapsOut: gapsOn ? 20 : 0
+    readonly property int gapsOut: gapsOn ? 16 : 0
     readonly property int shellCornerRadiusPx: {
         var value = looksData.rounding
         if (value !== undefined && value !== null && value !== "") {
@@ -380,7 +380,7 @@ Singleton {
     }
     readonly property real uiScale: Math.max(1 / 12, uiBaseSize / 12)
     readonly property int cornerRadius: panelCornerRadius
-    readonly property int popupMargin: gapsOn ? 10 : 5
+    readonly property int popupMargin: gapsOn ? 8 : 5
     property bool reduceMotion: false
 
     function uiPx(mult) {

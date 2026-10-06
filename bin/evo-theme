@@ -8,7 +8,7 @@ set -e
 #   evo-theme refresh        - Regenerate configs for current theme
 #   evo-theme wallpaper      - Open wallpaper picker
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 # shellcheck source=/dev/null
 source "$SCRIPT_DIR/evo-paths-lib"
 # shellcheck source=/dev/null

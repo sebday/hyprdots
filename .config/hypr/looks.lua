@@ -39,8 +39,8 @@ local function evoshell_looks()
 		end
 	end
 	if flag("gapsOn") then
-		looks.gaps_in = 10
-		looks.gaps_out = 20
+		looks.gaps_in = 8
+		looks.gaps_out = 16
 	end
 	local animations = flag("animationsOn")
 	if animations ~= nil then

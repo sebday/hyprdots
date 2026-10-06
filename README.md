@@ -37,30 +37,6 @@ In `brave://settings/appearance` set the theme to *GTK*.
 
 The [webtheme](modules/webtheme/README.md) extension themes websites in Brave.
 
-## Configuration
-
-`EVOSHELL_ROOT` is this checkout, recorded in `~/.config/evoshell/environment`.
-
-| Layer | Path | Contents |
-|-------|------|----------|
-| Shell | `config/shell.json` | Bar layout and per-monitor placement, notifications, idle, dashboards, Shopify, wallpaper |
-| Settings | `$EVOSHELL_CONFIG/` (`~/.config/evoshell`) | `ui.json`, `font.json`, `hypr-looks.json` |
-| State | `$EVOSHELL_STATE/` (`~/.local/state/evoshell`) | Session, `theme.json`, wallpaper, notification history, weather location |
-| Cache | `$EVOSHELL_CACHE/` (`~/.cache/evoshell`) | Bar poller cache, menu thumbnails, chart history |
-| Secrets | `pass` | API tokens under `evoshell/` |
-
-`evo-config` writes `config/shell.json`. `evo-layout` writes bar and notification placement there, and UI scale into `ui.json`. Settings in the system menu edits the same files. Do not put tokens in JSON.
-
-## Dev
-
-```bash
-EVOSHELL_BIN=$PWD/bin
-evo system restart
-journalctl --user -t evoshell -f
-```
-
-Plugin ids, IPC, and reload rules are in [AGENTS.md](AGENTS.md).
-
 ## Themes
 
 ### Catppuccin
@@ -98,3 +74,27 @@ Plugin ids, IPC, and reload rules are in [AGENTS.md](AGENTS.md).
 
 ### Vanta Black
 [![screenshot](themes/vantablack/preview.png)](themes/vantablack/preview.png)
+
+## Configuration
+
+`EVOSHELL_ROOT` is this checkout, recorded in `~/.config/evoshell/environment`.
+
+| Layer | Path | Contents |
+|-------|------|----------|
+| Shell | `config/shell.json` | Bar layout and per-monitor placement, notifications, idle, dashboards, Shopify, wallpaper |
+| Settings | `$EVOSHELL_CONFIG/` (`~/.config/evoshell`) | `ui.json`, `font.json`, `hypr-looks.json` |
+| State | `$EVOSHELL_STATE/` (`~/.local/state/evoshell`) | Session, `theme.json`, wallpaper, notification history, weather location |
+| Cache | `$EVOSHELL_CACHE/` (`~/.cache/evoshell`) | Bar poller cache, menu thumbnails, chart history |
+| Secrets | `pass` | API tokens under `evoshell/` |
+
+`evo-config` writes `config/shell.json`. `evo-layout` writes bar and notification placement there, and UI scale into `ui.json`. Settings in the system menu edits the same files. Do not put tokens in JSON.
+
+## Dev
+
+```bash
+EVOSHELL_BIN=$PWD/bin
+evo system restart
+journalctl --user -t evoshell -f
+```
+
+Plugin ids, IPC, and reload rules are in [AGENTS.md](AGENTS.md).
