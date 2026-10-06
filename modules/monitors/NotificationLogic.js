@@ -54,15 +54,20 @@ function summaryStartsWithGlyph(summary) {
   return spaces >= 2
 }
 
+function isShellAction(appName) {
+  var name = String(appName || "")
+  return name === "evoshell-action" || name === "omarchy-action"
+}
+
 function shouldBypassDnd(notification, criticalUrgency) {
   var appName = String((notification && notification.appName) || "")
-  if (appName === "omarchy-action") return true
+  if (isShellAction(appName)) return true
   return appName === "notify-send" && notification && notification.urgency === criticalUrgency
 }
 
 function isEphemeralApp(appName) {
   var name = String(appName || "")
-  return name === "notify-send" || name === "omarchy-action"
+  return name === "notify-send" || isShellAction(name)
 }
 
 function stringHint(hints, name) {
@@ -77,19 +82,20 @@ function stringHint(hints, name) {
 }
 
 function glyphFromHints(hints) {
-  return stringHint(hints, "omarchy-glyph")
+  return stringHint(hints, "evoshell-glyph") || stringHint(hints, "omarchy-glyph")
 }
 
-// The click action: a JSON argv string from omarchy-notification-send
-// --exec. Carried as data so a toast restored after a shell restart stays
-// clickable (a libnotify action can't — its sender is gone). Run via
-// Util.execArgv as bash positional parameters, never a shell string, so
-// attacker-controlled values (a title, a filename) can't become commands.
+// The click action is a JSON argv. evo-notification-send stores it as
+// evoshell-exec-argv; older toasts used omarchy-exec-argv. Carried as data so
+// a toast restored after a shell restart stays clickable (a libnotify action
+// can't — its sender is gone). Run via Util.execArgv as bash positional
+// parameters, never a shell string, so attacker-controlled values (a title, a
+// filename) can't become commands.
 function execArgvFromHints(hints) {
-  return stringHint(hints, "omarchy-exec-argv")
+  return stringHint(hints, "evoshell-exec-argv") || stringHint(hints, "omarchy-exec-argv")
 }
 
-// Validate a persisted omarchy-exec-argv into a runnable argv, or null. This is
+// Validate a persisted exec-argv hint into a runnable argv, or null. This is
 // a STRUCTURAL check only: it fails closed on a malformed hint (non-array, a
 // non-string or empty program, or a leading-dash program that argv would read as
 // an option). It does not judge intent — a well-formed ["bash","-c",…] is
@@ -255,7 +261,7 @@ function popupFileName(entry) {
 // ---------------------------------------------------- persisted images
 //
 // A notification's images only exist while it is live: Chromium-family
-// senders (all Omarchy web apps) delete their scoped /tmp files on close,
+// senders delete their scoped /tmp files on close,
 // and image-data hints surface as in-process image:// URLs that die with
 // the server object. Persisted entries therefore reference their own
 // copies, named by the entry's file stem so cleanup can find them from

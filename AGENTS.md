@@ -13,7 +13,7 @@ EVOSHELL_STATE="${EVOSHELL_STATE:-${XDG_STATE_HOME:-$HOME/.local/state}/evoshell
 EVOSHELL_CACHE="${EVOSHELL_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/evoshell}"
 ```
 
-Resolved in [`bin/evo-paths-lib`](bin/evo-paths-lib) and [`commons/Util.qml`](commons/Util.qml). Secrets go through [`bin/evo-secrets-lib`](bin/evo-secrets-lib) (`evoshell/` first, then `omarchy/`). Config layout is in [README.md](README.md). Hyprland loads `hypr/` via `package.path` ([`hypr/README.md`](hypr/README.md)). Keybindings live in [`hypr/bindings.lua`](hypr/bindings.lua).
+Resolved in [`bin/evo-paths-lib`](bin/evo-paths-lib) and [`commons/Util.qml`](commons/Util.qml). Secrets go through [`bin/evo-secrets-lib`](bin/evo-secrets-lib) (`pass` prefix `evoshell/`). Config layout is in [README.md](README.md). Hyprland loads `hypr/` via `package.path` ([`hypr/README.md`](hypr/README.md)). Keybindings live in [`hypr/bindings.lua`](hypr/bindings.lua).
 
 ## Layout
 

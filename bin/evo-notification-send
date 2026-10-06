@@ -18,7 +18,7 @@ options:
   -t, --timeout MS      dismiss after milliseconds (default: from config or 5000)
   -g, --glyph GLYPH     nerd-font / unicode icon hint for toast art slot
   --image PATH          image-path hint (and -i when file exists)
-  --exec CMD            shell command to run on left-click (evoshell-exec hint)
+  --exec CMD            shell command to run on left-click (evoshell-exec-argv hint)
   --silent              no-op success (for callers with a quiet flag)
   --probe               expiring dbus ping (internal; evo-brave-launch only)
   -h, --help            show this help
@@ -189,7 +189,8 @@ if [[ -n "$image" ]]; then
 fi
 
 if [[ -n "$exec_command" ]]; then
-  notify_args+=(-h "string:evoshell-exec:$exec_command")
+  exec_argv="$(jq -nc --arg cmd "$exec_command" '["bash","-c",$cmd]')"
+  notify_args+=(-h "string:evoshell-exec-argv:$exec_argv")
 fi
 
 if [[ -n "$body" ]]; then

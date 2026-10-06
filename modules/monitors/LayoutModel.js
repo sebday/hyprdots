@@ -187,7 +187,7 @@ function applyNotificationsPlacements(mutator, placements) {
   mutator(function(config) { writeNotificationPlacements(config, placements) })
 }
 
-function resetOmarchyLayout(mutator, screens) {
+function resetDefaultLayout(mutator, screens) {
   var names = screenNames(screens)
   var layout = { barPlacements: [], notificationsPlacements: [] }
   for (var i = 0; i < names.length; i++) {

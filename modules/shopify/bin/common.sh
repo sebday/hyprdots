@@ -39,7 +39,7 @@ evo_worker_api_token() {
     source "$lib"
     token="$(evo_pass_show_rel ecommerce-data/api-token 2>/dev/null || true)"
   else
-    token="$(pass show omarchy/ecommerce-data/api-token 2>/dev/null || true)"
+    token="$(pass show evoshell/ecommerce-data/api-token 2>/dev/null || true)"
   fi
   [[ -n "$token" ]] || return 1
   case "$token" in *'"'*|*\\*|$'\n'*) return 1 ;; esac

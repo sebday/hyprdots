@@ -22,7 +22,7 @@ The session cookie goes to `curl` on stdin, never in argv.
 
 ## How it collects
 
-`bin/cursor-usage-collect [--force] [--limits-only]` fetches usage and prints one agent usage record (schema 1, the shape Omarchy's agents panel used, plus billing cycle fields). It caches for 5 minutes in `$EVOSHELL_CACHE/cursor/record.json`.
+`bin/cursor-usage-collect [--force] [--limits-only]` fetches usage and prints one agent usage record (schema 1, plus billing cycle fields). It caches for 5 minutes in `$EVOSHELL_CACHE/cursor/record.json`.
 
 `bin/cursor-usage [--force]` runs the collector, publishes the record to `$EVOSHELL_STATE/cursor/usage.json`, and prints the panel payload. The panel calls it on load, when opened, every `refreshIntervalSec`, and with `--force` on right-click or IPC `refresh`. No systemd timer is needed.
 

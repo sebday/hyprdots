@@ -156,7 +156,7 @@ Panel {
     }
     if (chosen.length === 0 && screens.length > 0 && screens[0])
       chosen = [screens[0]]
-    var layout = LayoutModel.resetOmarchyLayout(
+    var layout = LayoutModel.resetDefaultLayout(
       function(mutator) { root.mutateShellConfig(mutator) },
       chosen
     )

@@ -163,7 +163,7 @@ bars_from_cache() {
 
 if [[ -z "${T212_API_KEY:-}" || -z "${T212_API_SECRET:-}" ]]; then
   bars_from_cache
-  json_out "SPCX —" "Set T212_API_KEY and T212_API_SECRET in pass (omarchy/trading212/*)" "" "$BARS_JSON" "Trading 212" "$(quote_json_from_bars)" "$PERIOD_JSON" '{}'
+  json_out "SPCX —" "Set T212_API_KEY and T212_API_SECRET in pass (evoshell/trading212/*)" "" "$BARS_JSON" "Trading 212" "$(quote_json_from_bars)" "$PERIOD_JSON" '{}'
   exit 0
 fi
 

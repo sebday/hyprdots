@@ -1,6 +1,6 @@
 # Theme a personal Webtheme site
 
-Add **one** user package under `~/.config/omarchy/webtheme/sites/<id>/` so the current Omarchy palette applies on this host. Do not add a bundled package. Do not edit files under this plugin’s `sites/` directory or anything in `/usr/share/omarchy/`.
+Add **one** user package under `~/.config/evoshell/webtheme/sites/<id>/` so the current palette applies on this host. Do not add a bundled package. Do not edit files under this module’s `sites/` directory.
 
 Work from the plugin repo (this directory). After writing the package, run `./bin/webtheme assemble` so open Brave/Chromium tabs hotload the CSS. No browser restart.
 
@@ -13,7 +13,7 @@ If this host already has a **user** package, update that package instead of crea
 ## Layout
 
 ```
-~/.config/omarchy/webtheme/sites/<id>/
+~/.config/evoshell/webtheme/sites/<id>/
   site.json
   style.css
 ```
@@ -36,7 +36,7 @@ If this host already has a **user** package, update that package instead of crea
 
 ## CSS contract
 
-`style.css` must remap the **site’s existing tokens** onto Omarchy web variables from `themed/colors.css.tpl`:
+`style.css` must remap the **site’s existing tokens** onto the theme variables from `themed/colors.css.tpl`:
 
 | Token | Use |
 | --- | --- |
@@ -56,7 +56,7 @@ Those variables are injected by the extension as `colors.css` on matching tabs. 
 Copy the density of bundled examples:
 
 - GitHub (`sites/github/style.css`): a few upstream tokens, not a restyle of every component.
-- omarchy.org (`sites/omarchy/style.css`): map the site’s own `--color-*` names onto Omarchy vars.
+- omarchy.org (`sites/omarchy/style.css`): map the site’s own `--color-*` names onto the theme vars.
 - Grok / YouTube: override the background tokens the app already uses; `!important` only when the site’s stylesheet wins without it.
 
 Prefer:
@@ -76,4 +76,4 @@ If you can read the live page, inspect computed custom properties and map those.
 
 1. Write `site.json` and `style.css`.
 2. Run `./bin/webtheme assemble`.
-3. Stop. Do not commit, push, install packages, touch browser flags, or edit the unpacked runtime under `~/.local/share/omarchy/webtheme/extension/` by hand.
+3. Stop. Do not commit, push, install packages, touch browser flags, or edit the unpacked runtime under `~/.local/share/evoshell/webtheme/extension/` by hand.

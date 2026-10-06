@@ -254,7 +254,7 @@ Item {
   function showOsd(actionLabel, iconName, player) {
     if (!shell) return
     var p = player || activePlayer
-    // evoplayer sends omarchy notifications from its daemon; skip the media OSD.
+    // evoplayer sends desktop notifications from its daemon; skip the media OSD.
     if (Model.isEvoplayer(p)) return
     shell.summon("evo.osd", JSON.stringify({
       icon: iconName || "media",

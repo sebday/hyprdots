@@ -5,7 +5,7 @@
 # Config (evoshell shell config `shopify` block, see evo_shopify_config):
 #   apiUrl    — HTTPS Worker base URL
 #   timezone, stores, pollIntervalMinutes
-#   token via pass (omarchy/ecommerce-data/api-token, or evoshell/ if migrated)
+#   token via pass (evoshell/ecommerce-data/api-token)
 #
 # Worker routes used:
 #   GET  /v1/sites

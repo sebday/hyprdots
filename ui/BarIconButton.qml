@@ -8,7 +8,7 @@ WidgetButton {
   property Component iconComponent: null
   property real slotSize: Theme.bar.iconSlot
   property real opticalSize: Theme.bar.iconCanvas
-  property bool debugOpticalBounds: Quickshell.env("OMARCHY_DEBUG_BAR_ICONS") === "1"
+  property bool debugOpticalBounds: Quickshell.env("EVOSHELL_DEBUG_BAR_ICONS") === "1"
   // Measured against the slot, which the open-panel underline centers on.
   readonly property real opticalCenterErrorX: glyph.visible ? opticalCanvas.x + glyph.paintedCenterX - root.width / 2 : 0
   readonly property real glyphPaintedWidth: glyph.visible ? glyph.tightWidth : 0

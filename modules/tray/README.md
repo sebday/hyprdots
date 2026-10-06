@@ -1,15 +1,5 @@
 # evo.tray
 
-Omarchy shell plugin `evo.tray`.
-
-## Removing
-
-```bash
-omarchy plugin remove evo.tray
-```
-
-That deletes the plugin directory. It does not delete:
-
-- nothing beyond the plugin directory
+System tray for the bar. Add the widget from the bar layout editor.
 
 Network: none.

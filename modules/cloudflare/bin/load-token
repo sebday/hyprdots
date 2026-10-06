@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Load the Cloudflare read token from pass.
-# Store name is omarchy/cloudflare/read-all; evoshell/cloudflare/token is the alias.
+# Store name is evoshell/cloudflare/read-all; cloudflare/token is the alias.
 set -euo pipefail
 
 command -v pass >/dev/null 2>&1 || exit 0
@@ -11,7 +11,7 @@ if [[ -r "$lib" ]]; then
   source "$lib"
   value="$(evo_secrets_get CLOUDFLARE_API_TOKEN 2>/dev/null || true)"
 else
-  value="$(pass show omarchy/cloudflare/read-all 2>/dev/null || true)"
+  value="$(pass show evoshell/cloudflare/read-all 2>/dev/null || true)"
 fi
 if [[ -n "$value" ]]; then
   printf '%s' "$value"

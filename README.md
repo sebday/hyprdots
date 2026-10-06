@@ -47,7 +47,7 @@ Auto loaded through my Brave sync [OrangeMonkey](https://chromewebstore.google.c
 | Settings | `$EVOSHELL_CONFIG/` | `ui.json`, `media.json`, `font.json`, `hypr-looks.json` |
 | State | `$EVOSHELL_STATE/` | Session, `theme.json`, wallpaper, library index, notification history, weather location |
 | Cache | `$EVOSHELL_CACHE/` | Bar poller cache, menu previews, chart history |
-| Secrets | `pass` | API tokens. `evoshell/` is tried first, then `omarchy/` |
+| Secrets | `pass` | API tokens under `evoshell/` |
 
 `evo-config` and `evo-layout` write `config/shell.json`. Most of it is also editable from Settings in the system menu. Do not put tokens in JSON.
 

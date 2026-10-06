@@ -15,3 +15,12 @@ require("hypr.qconsole")
 require("hypr.menu-special")
 require("hypr.float-workspace")
 require("hypr.looks")
+
+-- Calculator is a normal toplevel so it can be dragged. Title is set by
+-- modules/calculator/Calculator.qml. center applies once, on map.
+hl.window_rule({
+	name = "evo-calculator",
+	match = { title = "^Calculator$" },
+	float = true,
+	center = true,
+})

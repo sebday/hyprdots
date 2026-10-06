@@ -134,20 +134,31 @@ Item {
       id: panel
       required property var modelData
       readonly property string screenName: modelData ? String(modelData.name || "") : ""
-      readonly property string focusedName: {
+      // Qt names screens by model, so three identical panels never match a
+      // Hyprland connector like "DP-1". Fall back to layout position.
+      function focusedScreen() {
+        var screens = Quickshell.screens
         var monitor = Hyprland.focusedMonitor
-        return monitor ? String(monitor.name || "") : ""
-      }
-      readonly property bool focusMatchesScreen: {
-        if (focusedName === "") return false
-        for (var i = 0; i < Quickshell.screens.length; i++) {
-          if (String(Quickshell.screens[i].name || "") === focusedName) return true
+        if (!monitor)
+          return screens.length > 0 ? screens[0] : null
+        var name = String(monitor.name || "")
+        for (var i = 0; i < screens.length; i++) {
+          if (screens[i] && String(screens[i].name || "") === name)
+            return screens[i]
         }
-        return false
+        for (var j = 0; j < screens.length; j++) {
+          var screen = screens[j]
+          if (screen && screen.x === monitor.x && screen.y === monitor.y)
+            return screen
+        }
+        return screens.length > 0 ? screens[0] : null
       }
-      readonly property bool showHere: focusMatchesScreen
-        ? screenName === focusedName
-        : Quickshell.screens.length > 0 && screenName === String(Quickshell.screens[0].name || "")
+      readonly property bool showHere: {
+        var target = focusedScreen()
+        if (!target || !modelData) return false
+        return modelData === target
+          || (modelData.x === target.x && modelData.y === target.y)
+      }
 
       screen: modelData
       visible: root.opened && showHere

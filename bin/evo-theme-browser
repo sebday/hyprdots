@@ -1,6 +1,6 @@
 #!/bin/bash
 set -euo pipefail
-# Apply Omarchy-style Chromium/Brave managed policy theme colors (no GTK reload).
+# Apply Chromium/Brave managed policy theme colors (no GTK reload).
 #
 # USAGE:
 #   evo-theme-browser apply

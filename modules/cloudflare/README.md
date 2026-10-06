@@ -1,15 +1,10 @@
-# Omarchy Cloudflare Plugin
+# Cloudflare
 
 ![Bar panel](preview.png)
 
 Bar widget for Cloudflare account resources, usage meters, recent deploys, and quick links into the dashboard.
 
-## Install
-
-```bash
-omarchy plugin add https://github.com/sebday/omarchy-cloudflare.git
-omarchy plugin enable evo.cloudflare
-```
+This module ships with evoshell. The plugin id is `evo.cloudflare`.
 
 ## Requirements
 
@@ -21,14 +16,14 @@ omarchy plugin enable evo.cloudflare
 The bar loads a Cloudflare API token from:
 
 ```bash
-pass insert omarchy/cloudflare/read-all
+pass insert evoshell/cloudflare/read-all
 ```
 
 Use a token with read access to Workers, Pages, R2, D1, Queues, KV, and Zones. Cache purge actions need the Cache Purge permission on the relevant zone.
 
 ## Settings
 
-Widget options live on the bar layout entry in `~/.config/omarchy/shell.json`:
+Widget options live on the bar layout entry in `config/shell.json`:
 
 ```json
 {
@@ -50,19 +45,12 @@ Set usage limits above zero to show Workers requests, R2 storage, and D1 rows re
 ## IPC
 
 ```bash
-omarchy-shell shell toggle evo.cloudflare '{}'
-omarchy-shell evo.cloudflare refresh
+evo ipc shell toggle evo.cloudflare
+evo ipc evo.cloudflare refresh
 ```
 
+Removing the module does not delete:
 
-## Removing
-
-```bash
-omarchy plugin remove evo.cloudflare
-```
-
-That deletes the plugin directory. It does not delete:
-
-- `pass` entry `omarchy/cloudflare/read-all`
+- `pass` entry `evoshell/cloudflare/read-all`
 
 Network: https://api.cloudflare.com and https://dash.cloudflare.com.

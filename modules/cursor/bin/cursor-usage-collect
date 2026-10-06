@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Print one agent usage record for Cursor (schemaVersion 1, same shape as the
-# Omarchy agents records, plus billing cycle fields for evo.cursor).
+# Agent usage records, plus billing cycle fields for evo.cursor).
 # Auth is the session Cursor already stores on this machine. The cookie goes
 # to curl on stdin, never in argv.
 set -euo pipefail

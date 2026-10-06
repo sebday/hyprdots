@@ -14,7 +14,7 @@ Item {
   property var settingsOverride: null
 
   readonly property string tokenScript: Qt.resolvedUrl("bin/load-token").toString().replace("file://", "")
-  readonly property string passTokenPath: "evoshell/cloudflare/read-all or omarchy/cloudflare/read-all"
+  readonly property string passTokenPath: "evoshell/cloudflare/read-all"
   property string passToken: ""
   property bool passTokenLoaded: false
   property string token: ""

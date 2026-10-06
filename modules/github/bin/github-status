@@ -88,7 +88,7 @@ load_token() {
     source "$lib"
     value="$(evo_secrets_get GITHUB_TOKEN 2>/dev/null || true)"
   else
-    value="$(pass show omarchy/github/token 2>/dev/null || true)"
+    value="$(pass show evoshell/github/token 2>/dev/null || true)"
   fi
   if [[ -n "$value" ]]; then
     TOKEN="$value"

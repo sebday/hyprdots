@@ -1,4 +1,4 @@
-# Omarchy stocks plugin
+# Stocks
 
 ![Bar panel](preview.png)
 
@@ -8,7 +8,7 @@ Prices refresh every 5 minutes, including the figure on the bar. Headlines refre
 
 ## Two icons
 
-Place one layout entry per market in `~/.config/omarchy/shell.json`:
+Place one layout entry per market in `config/shell.json`:
 
 ```json
 { "id": "evo.stocks", "market": "btc" },
@@ -17,14 +17,9 @@ Place one layout entry per market in `~/.config/omarchy/shell.json`:
 
 ## Headlines
 
-`bin/market-news` asks the Omarchy default agent for three headlines and caches them for 24 hours. `omarchy agent` opens a terminal, so the script runs that same agent headless (`cursor-agent --print --mode ask`). It does not pass `--model`. Cursor then uses the model selected in `~/.cursor/cli-config.json`. An untouched CLI config selects Auto, model id `default`.
+`bin/market-news` asks for three headlines and caches them for 24 hours. It runs `cursor-agent --print --mode ask` and does not pass `--model`. Cursor then uses the model selected in `~/.cursor/cli-config.json`. An untouched CLI config selects Auto, model id `default`.
 
-## Install
-
-```bash
-omarchy plugin add https://github.com/sebday/omarchy-stocks.git
-omarchy plugin enable evo.stocks
-```
+This module ships with evoshell. The plugin id is `evo.stocks`. Widget ids are `evo.stocks.btc` and `evo.stocks.spcx`.
 
 ## Requirements
 
@@ -37,31 +32,24 @@ omarchy plugin enable evo.stocks
 Store credentials in `pass`:
 
 ```bash
-pass insert omarchy/kraken/api-key
-pass insert omarchy/kraken/api-secret
-pass insert omarchy/trading212/api-key
-pass insert omarchy/trading212/api-secret
+pass insert evoshell/kraken/api-key
+pass insert evoshell/kraken/api-secret
+pass insert evoshell/trading212/api-key
+pass insert evoshell/trading212/api-secret
 ```
 
 ## IPC
 
 ```bash
-omarchy-shell evo.stocks.btc toggle
-omarchy-shell evo.stocks.spcx toggle
-omarchy-shell evo.stocks.btc refresh
-omarchy-shell evo.stocks.spcx refresh
+evo ipc evo.stocks.btc toggle
+evo ipc evo.stocks.spcx toggle
+evo ipc evo.stocks.btc refresh
+evo ipc evo.stocks.spcx refresh
 ```
 
+Removing the module does not delete:
 
-## Removing
-
-```bash
-omarchy plugin remove evo.stocks
-```
-
-That deletes the plugin directory. It does not delete:
-
-- `~/.cache/omarchy/bar/` and `~/.cache/omarchy/bar-history/`
-- `pass` entries under `omarchy/kraken/` and `omarchy/trading212/`
+- `~/.cache/evoshell/stocks/`
+- `pass` entries under `evoshell/kraken/` and `evoshell/trading212/`
 
 Network: https://api.kraken.com, https://query1.finance.yahoo.com, https://live.trading212.com, and the default agent's API for the daily headlines.

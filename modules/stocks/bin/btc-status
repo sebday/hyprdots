@@ -286,7 +286,7 @@ fi
 POSITION_JSON='{}'
 KRAKEN_ERR=""
 if [[ -z "${KRAKEN_API_KEY:-}" || -z "${KRAKEN_SECRET:-}" ]]; then
-  KRAKEN_ERR="set KRAKEN_API_KEY and KRAKEN_SECRET in pass (omarchy/kraken/*)"
+  KRAKEN_ERR="set KRAKEN_API_KEY and KRAKEN_SECRET in pass (evoshell/kraken/*)"
 else
   POSITION_JSON=$(kraken_position_json "$LAST" "$GBP_LAST" 2>/dev/null) || {
     KRAKEN_ERR="kraken api request failed"
