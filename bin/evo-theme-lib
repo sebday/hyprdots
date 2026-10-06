@@ -551,15 +551,6 @@ themes_sync_evo_shell() {
     theme_timing_step "theme.json write done"
 }
 
-themes_sync_icon_theme_gsettings() {
-    local current
-    current=$(gsettings get org.gnome.desktop.interface icon-theme 2>/dev/null || true)
-    [[ "$current" == "'$EVO_ICON_THEME'" ]] && return 0
-    (
-        gsettings set org.gnome.desktop.interface icon-theme "$EVO_ICON_THEME" 2>/dev/null || true
-    ) &
-}
-
 themes_sync_icon_theme_force_reload() {
     gsettings set org.gnome.desktop.interface icon-theme "" 2>/dev/null || true
     sleep 0.05

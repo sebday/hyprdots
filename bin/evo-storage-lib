@@ -6,14 +6,12 @@ _evo_storage_lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${_evo_storage_lib_dir}/evo-paths-lib"
 
 UI_CONFIG_JSON="${EVOSHELL_CONFIG}/ui.json"
-SESSION_JSON="${EVOSHELL_STATE}/session.json"
 WEATHER_CONFIG_JSON="${EVOSHELL_CONFIG}/weather.json"
 FONT_CONFIG_JSON="${EVOSHELL_CONFIG}/font.json"
 HYPR_LOOKS_JSON="${EVOSHELL_CONFIG}/hypr-looks.json"
 MENU_CACHE_DIR="${EVOSHELL_CACHE}/menu-cache"
 BAR_HISTORY_DIR="${EVOSHELL_CACHE}/bar-history"
 
-INSYNC_ACCOUNTS_JSON="${EVOSHELL_CACHE}/insync-accounts.json"
 OBSIDIAN_CONFIG="${HOME}/.config/obsidian/obsidian.json"
 
 obsidian_vault_paths() {
@@ -54,29 +52,4 @@ merge_ui_config_json() {
     local current
     current="$(read_ui_config_json)"
     write_ui_config_json "$(jq -c "$jq_filter" "$@" <<<"$current")"
-}
-
-read_session_json() {
-    if [[ -f "$SESSION_JSON" ]] && [[ -s "$SESSION_JSON" ]] && jq -e 'type == "object"' "$SESSION_JSON" >/dev/null 2>&1; then
-        cat "$SESSION_JSON"
-    else
-        echo '{}'
-    fi
-}
-
-write_session_json() {
-    local json="$1"
-    mkdir -p "$EVOSHELL_STATE"
-    local tmp
-    tmp="$(mktemp)"
-    printf '%s' "$json" >"$tmp"
-    mv "$tmp" "$SESSION_JSON"
-}
-
-merge_session_json() {
-    local jq_filter="$1"
-    shift
-    local current
-    current="$(read_session_json)"
-    write_session_json "$(jq -c "$jq_filter" "$@" <<<"$current")"
 }

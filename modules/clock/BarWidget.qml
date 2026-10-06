@@ -130,6 +130,7 @@ BarWidget {
   }
 
   IpcHandler {
+    enabled: root.ownsIpc
     target: "evo.clock"
 
     function refresh(): void { root.refresh() }

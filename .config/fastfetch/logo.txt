@@ -1,26 +1,26 @@
-$1                    -`
-$1                   .o+`
-$1                   .o+`
-$1                  `ooo/
-$1                 `+oooo:
-$1                `+oooooo:
-$1                `+oooooo:
-$1                -+oooooo+:
-$1              `/:-:++oooo+:
-$1              `/:-:++oooo+:
-$1             `/++++/+++++++:
-$1            `/++++++++++++++:
-$1           `/+++ooooooooooooo/`
-$1           `/+++ooooooooooooo/`
-$1          ./ooosssso++osssssso+`
-$1         .oossssso-````/ossssss+`
-$1        -osssssso.      :ssssssso.
-$1        -osssssso.      :ssssssso.
-$1       :osssssss/        osssso+++.
-$1      /ossssssss/        +ssssooo/-
-$1      /ossssssss/        +ssssooo/-
-$1    `/ossssso+/:-        -:/+osssso+-
-$1   `+sso+:-`                 `.-/+oso:
-$1  `++:.                           `-/+/
-$1  `++:.                           `-/+/
-$1  .`                                 `/
+$1                           -`
+$1                          .o+`
+$1                          .o+`
+$1                        `oooo/
+$1                      `+oooooo:
+$1                     `+ooooooooo:
+$1                     `+ooooooooo:
+$1                     -+ooooooooo+:
+$1                     `/:-:++oooooo+:
+$1                     `/:-:++oooooo+:
+$1                 `/++++++/++++++++++:
+$1               `/++++++++++++++++++++:
+$1              `/++++ooooooooooooooooooo/`
+$1              `/++++ooooooooooooooooooo/`
+$1             ./oooossssssoo++ossssssssso+`
+$1            .ooossssssssoo-````/osssssssss+`
+$1          -ossssssssso.         :sssssssssso.
+$1          -ossssssssso.         :sssssssssso.
+$1         :oossssssssss/           osssssso++++.
+$1       /ossssssssssss/            +ssssssoooo/-
+$1       /ossssssssssss/            +ssssssoooo/-
+$1     `/oossssssssoo+/:-            -:/+osssssso+-
+$1   `+sssoo+:-`                          `.-/+oosso:
+$1 `++:.                                         `-/+/
+$1 `++:.                                         `-/+/
+$1 .`                                               `/

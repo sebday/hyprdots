@@ -584,16 +584,8 @@ menu_list_shell() {
         case "$1" in
         evo.sys.menu) echo "Shows or hides the system menu overlay." ;;
         evo.calculator) echo "Shows or hides the calculator overlay." ;;
-        evo.sys.settings) echo "Shows or hides the evoshell settings overlay." ;;
-        evo.panels.cursor) echo "Shows or hides the Cursor agent overlay." ;;
-        evo.panels.weather) echo "Shows or hides the weather overlay." ;;
         evo.panels.network.stats) echo "Shows or hides the network status overlay." ;;
-        evo.panels.media.now-playing) echo "Shows or hides the media player overlay." ;;
-        evo.panels.github) echo "Shows or hides the GitHub activity overlay." ;;
-        evo.panels.stocks) echo "Shows or hides the stocks overlay." ;;
-        evo.panels.cloudflare) echo "Shows or hides the Cloudflare overlay." ;;
-        evo.panels.insync) echo "Shows or hides the Insync overlay." ;;
-        evo.panels.steam) echo "Shows or hides the Steam overlay." ;;
+        evo.panels.notifications) echo "Shows or hides the notification history overlay." ;;
         evo.sys.themes) echo "Shows or hides the theme switcher overlay." ;;
         evo.sys.wallpaper) echo "Shows or hides the wallpaper switcher overlay." ;;
         evo.side.clipboard) echo "Shows or hides the clipboard history overlay." ;;
@@ -608,20 +600,26 @@ menu_list_shell() {
         esac
     }
 
-    local plugins=(
-        evo.sys.menu evo.calculator evo.sys.settings evo.panels.cursor
-        evo.panels.weather evo.panels.network.stats
-        evo.panels.media.now-playing evo.panels.github evo.panels.stocks
-        evo.panels.cloudflare evo.panels.insync evo.panels.steam
-        evo.sys.themes evo.sys.wallpaper evo.side.clipboard
-    )
-    local dashboards=(evo.panels.player)
-    if [[ -f "${EVOSHELL_CONFIG}/modules/manifest.json" ]]; then
-        while IFS= read -r dash_id; do
-            [[ -n "$dash_id" && "$dash_id" != "evo.panels.player" ]] || continue
-            dashboards+=("$dash_id")
-        done < <(jq -r '.dashboardIds[]?' "${EVOSHELL_CONFIG}/modules/manifest.json" 2>/dev/null || true)
-    fi
+    local -a plugins=() dashboards=(evo.panels.player)
+    local modules_json id kind
+    declare -A plugin_seen=() dashboard_seen=([evo.panels.player]=1)
+    modules_json="$("$bin/evo-modules" list 2>/dev/null || printf '%s' '{}')"
+    while IFS=$'\t' read -r id kind; do
+        [[ -n "$id" && -n "$kind" ]] || continue
+        case "$kind" in
+        dashboard)
+            [[ -n "${dashboard_seen[$id]+x}" ]] && continue
+            dashboard_seen[$id]=1
+            dashboards+=("$id")
+            ;;
+        menu|panel|overlay|bar-widget)
+            [[ "$id" == "evo.bar" ]] && continue
+            [[ -n "${plugin_seen[$id]+x}" ]] && continue
+            plugin_seen[$id]=1
+            plugins+=("$id")
+            ;;
+        esac
+    done < <(jq -r 'to_entries[] | .key as $id | .value.manifest.kinds[]? | [$id, .] | @tsv' <<<"$modules_json")
 
     _menu_list_emit "Ping shell" "$ipc shell ping" "$(_menu_list_used 'shell ping' && echo true || echo false)" \
         "Checks whether evo ipc can reach the running Quickshell process."
@@ -772,17 +770,3 @@ menu_list_icons() {
     done
 }
 
-# Convert bindings TSV lines to JSON array (Menu.qml parseDynamicLines shape).
-menu_list_bindings_to_json() {
-    jq -Rn '
-        [inputs
-         | select(length > 0)
-         | split("\t")
-         | {
-             name: .[0],
-             keys: .[1],
-             detail: (.[2] // ""),
-             files: (.[3] // "")
-           }]
-    '
-}

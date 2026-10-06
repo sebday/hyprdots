@@ -55,8 +55,7 @@ function summaryStartsWithGlyph(summary) {
 }
 
 function isShellAction(appName) {
-  var name = String(appName || "")
-  return name === "evoshell-action" || name === "omarchy-action"
+  return String(appName || "") === "evoshell-action"
 }
 
 function shouldBypassDnd(notification, criticalUrgency) {
@@ -82,17 +81,16 @@ function stringHint(hints, name) {
 }
 
 function glyphFromHints(hints) {
-  return stringHint(hints, "evoshell-glyph") || stringHint(hints, "omarchy-glyph")
+  return stringHint(hints, "evoshell-glyph")
 }
 
 // The click action is a JSON argv. evo-notification-send stores it as
-// evoshell-exec-argv; older toasts used omarchy-exec-argv. Carried as data so
-// a toast restored after a shell restart stays clickable (a libnotify action
-// can't — its sender is gone). Run via Util.execArgv as bash positional
-// parameters, never a shell string, so attacker-controlled values (a title, a
-// filename) can't become commands.
+// evoshell-exec-argv. Carried as data so a toast restored after a shell
+// restart stays clickable (a libnotify action can't — its sender is gone).
+// Run via Util.execArgv as bash positional parameters, never a shell string,
+// so attacker-controlled values (a title, a filename) can't become commands.
 function execArgvFromHints(hints) {
-  return stringHint(hints, "evoshell-exec-argv") || stringHint(hints, "omarchy-exec-argv")
+  return stringHint(hints, "evoshell-exec-argv")
 }
 
 // Validate a persisted exec-argv hint into a runnable argv, or null. This is

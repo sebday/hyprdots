@@ -13,8 +13,17 @@ Item {
   id: root
 
   property QtObject bar: null
+  property var barPanel: null
   property string moduleName: ""
   property var settings: ({})
+
+  // One bar surface per monitor would otherwise register the same IPC target
+  // several times. Only the surface on the configured output owns the target.
+  readonly property bool ownsIpc: {
+    if (!bar || typeof bar.screenOwnsIpc !== "function" || !barPanel || !barPanel.screen)
+      return false
+    return bar.screenOwnsIpc(String(barPanel.screen.name || ""))
+  }
 
   // Bar geometry, lifted off the host. Widgets read these constantly to pick
   // between horizontal/vertical layouts; defining them on the base keeps the

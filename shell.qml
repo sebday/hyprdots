@@ -29,13 +29,7 @@ ShellRoot {
         version: 1,
         idle: { lock: 900 },
         notifications: {
-            durationMs: 3000,
-            shellLogs: {
-                enabled: true,
-                pollIntervalMs: 5000,
-                dedupeWindowSec: 300,
-                userJournal: true
-            }
+            durationMs: 3000
         },
         bar: {
             id: "evo.bar",

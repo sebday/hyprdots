@@ -486,11 +486,17 @@ Item {
           horizontalAlignment: Text.AlignHCenter
         }
 
-        Row {
+        Item {
           id: cols
           anchors.fill: parent
-          spacing: Theme.space(16)
           visible: root.columns.length > 0
+
+          readonly property int count: root.columns.length
+          readonly property int gap: Theme.space(16)
+          // One store needs about this much width for the four channel labels.
+          // Narrower than two of those, stack the sites instead of squeezing them.
+          readonly property int columnMin: Theme.space(480)
+          readonly property bool stacked: count > 1 && width < columnMin * count + gap
 
           Repeater {
             model: root.columns
@@ -499,8 +505,17 @@ Item {
               required property var modelData
               required property int index
 
-              width: Math.max(1, (cols.width - cols.spacing * Math.max(0, root.columns.length - 1)) / Math.max(1, root.columns.length))
-              height: cols.height
+              readonly property int span: Math.max(1, cols.count)
+              readonly property int slot: cols.stacked
+                ? Math.max(1, Math.floor((cols.height - cols.gap * (span - 1)) / span))
+                : cols.height
+
+              x: cols.stacked ? 0 : index * (width + cols.gap)
+              y: cols.stacked ? index * (height + cols.gap) : 0
+              width: cols.stacked
+                ? cols.width
+                : Math.max(1, Math.floor((cols.width - cols.gap * (span - 1)) / span))
+              height: slot
               payload: root.payloads[modelData.store.key] || null
               metric: root.metric
               borderColor: Model.storeColor(modelData.store.key, modelData.index, root.palette, root.fallbackAccent)

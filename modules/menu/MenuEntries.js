@@ -30,7 +30,7 @@ function systemSectionLayout(home, binOverride, extensionPanels) {
     }
 
     var panelEntries = pick([
-        "Themes", "Wallpaper", "Music", "Library",
+        "Themes", "Wallpaper", "Music",
         "Calculator", "Clipboard"
     ])
     if (extensionPanels && extensionPanels.length) {
@@ -46,10 +46,10 @@ function systemSectionLayout(home, binOverride, extensionPanels) {
         },
         right: [
             { title: "Reference", icon: "󰋗", entries: pick([
-                "Bindings", "Shell commands", "Annotate screenshot", "Screenshot theme previews"
+                "Bindings", "Shell commands", "Screenshot theme previews"
             ]) },
             { title: "Session", icon: "󰍃", entries: pick([
-                "Lock", "Restart shell", "Clear cache", "Backup", "Reboot", "Shutdown"
+                "Lock", "Restart shell", "Clear cache", "Reboot", "Shutdown"
             ]) }
         ]
     }
@@ -78,8 +78,7 @@ function systemEntries(home, binOverride) {
         { name: "Shell commands", icon: "󰆍", keywords: ["shell", "ipc", "commands", "evo", "quickshell"], submenu: "shell" },
         { name: "Lock", icon: "󰌾", keywords: ["lock", "screen"], command: evo + " system lock" },
         { name: "Restart shell", icon: "󰑐", keywords: ["evo", "shell", "bar", "quickshell", "refresh"], command: evo + " system restart" },
-        { name: "Clear cache", icon: "󰃢", keywords: ["cache", "clear", "bar"], command: lib + "/evo-bar-cache clear" },
-        { name: "Backup", icon: "󰁯", keywords: ["backup", "save", "config"], command: lib + "/evo-backup" },
+        { name: "Clear cache", icon: "󰃢", keywords: ["cache", "clear", "bar"], command: lib + "/clean" },
         { name: "Reboot", icon: "󰐥", keywords: ["reboot", "restart", "system"], command: evo + " system reboot" },
         { name: "Shutdown", icon: "󰐥", keywords: ["shutdown", "poweroff", "off"], command: evo + " system shutdown" }
     ]

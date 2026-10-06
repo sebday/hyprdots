@@ -5,14 +5,12 @@
 // @match       https://x.com/*
 // @match       https://github.com/*
 // @match       https://soundcloud.com/*
-// @match       https://home.google.com/*
 // @match       https://www.youtube.com/*
 // @match       https://grok.com/*
 // @match       https://gemini.google.com/*
 // @match       https://diy.day.marketing/*
 // @match       https://tgs.day.marketing/*
 // @match       https://sebday.dev/*
-// @match       https://ads.google.com/*
 // @match       https://web.telegram.org/*
 // @grant       GM_xmlhttpRequest
 // @grant       GM_getValue
@@ -31,7 +29,6 @@
         'x.com': 'x.css',
         'github.com': 'github.css',
         'soundcloud.com': 'soundcloud.css',
-        'home.google.com': 'googlehome.css',
         'www.youtube.com': 'youtube.css',
         'grok.com': 'grok.css',
         'gemini.google.com': 'gemini.css',

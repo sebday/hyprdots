@@ -49,15 +49,6 @@ patch_overrides_reload() {
     reload_shell_config
 }
 
-homeassistant_config() {
-    merged_config | jq -c '.homeAssistant // {}'
-}
-
-patch_homeassistant() {
-    local ha_json="$1"
-    patch_overrides_reload --argjson ha "$ha_json" '.homeAssistant = $ha'
-}
-
 wallpaper_personal_dir() {
     merged_config | jq -r '.wallpaper.personalDir // ""'
 }

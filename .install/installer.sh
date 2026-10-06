@@ -1,10 +1,11 @@
 #!/bin/bash
 # To install, run: wget -qO- sebday.dev/installer | bash
 
-# Exit immediately if a command exits with a non-zero status.
-set -e
+set -euo pipefail
 
-INSTALL_DIR="${HOME}/.install"
+EVOSHELL_ROOT="${HOME}/projects/hyprdots"
+INSTALL_DIR="${EVOSHELL_ROOT}/.install"
+export EVOSHELL_ROOT
 
 log() {
     echo "--- $1 ---"
@@ -13,17 +14,18 @@ log() {
 # Install script dependencies
 install_dependencies() {
     log "Installing script dependencies..."
-    sudo pacman -Syu --noconfirm git base-devel rsync curl jq fuse2
+    sudo pacman -Syu --noconfirm git base-devel curl jq fuse3
 }
 
 # Clone the dotfiles repository and set it up.
 clone_dotfiles() {
-    log "Cloning and setting up dotfiles..."
-    local temp_clone_dir
-    temp_clone_dir=$(mktemp -d)
-    git clone https://github.com/sebday/hyprdots.git "$temp_clone_dir"
-    rsync -av "$temp_clone_dir/" "$HOME/"
-    rm -rf "$temp_clone_dir"
+    if [[ -d "${EVOSHELL_ROOT}/.git" ]]; then
+        log "hyprdots already present at ${EVOSHELL_ROOT}"
+        return 0
+    fi
+    log "Cloning hyprdots into ${EVOSHELL_ROOT}..."
+    mkdir -p "$(dirname "$EVOSHELL_ROOT")"
+    git clone https://github.com/sebday/hyprdots.git "$EVOSHELL_ROOT"
 }
 
 clone_companion_repo() {
@@ -172,12 +174,11 @@ install_hypr_bin() {
 
 link_evoshell() {
     log "Linking evoshell..."
-    local evoshell_root="${EVOSHELL_ROOT:-${HOME}}"
-    if [[ ! -f "${evoshell_root}/shell.qml" ]]; then
-        echo "evoshell not found at ${evoshell_root}; set EVOSHELL_ROOT to the checkout that contains shell.qml"
+    if [[ ! -f "${EVOSHELL_ROOT}/shell.qml" ]]; then
+        echo "evoshell not found at ${EVOSHELL_ROOT}"
         exit 1
     fi
-    bash "${evoshell_root}/scripts/install"
+    bash "${EVOSHELL_ROOT}/scripts/install"
 }
 
 link_evoplayer() {
@@ -317,13 +318,12 @@ main() {
 
     install_dependencies
     clone_dotfiles
-    cd "$HOME"
-    install_hypr_bin
-    link_evoshell
-    link_evoplayer
     install_pacman_packages
     install_yay
     install_aur_packages
+    install_hypr_bin
+    link_evoshell
+    link_evoplayer
     configure_greetd
     install_mise_tools
     set_boot_screen
@@ -334,10 +334,9 @@ main() {
     configure_ufw
     configure_google_ads_editor
 
-    local evoshell_root="${EVOSHELL_ROOT:-${HOME}}"
-    if [[ -x "${evoshell_root}/bin/evo-font" ]]; then
+    if [[ -x "${EVOSHELL_ROOT}/bin/evo-font" ]]; then
         log "Applying default font..."
-        "${evoshell_root}/bin/evo-font" apply
+        "${EVOSHELL_ROOT}/bin/evo-font" apply
     fi
 
     log "Setup complete! Please reboot your system."

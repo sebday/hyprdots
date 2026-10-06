@@ -126,6 +126,7 @@ BarWidget {
   }
 
   IpcHandler {
+    enabled: root.ownsIpc
     target: "evo.cursor"
 
     function refresh(): void { root.refresh() }

@@ -220,7 +220,6 @@ Singleton {
     // Bar poll intervals (fixed; not user-configurable)
     readonly property int pollGithubSec: 60
     readonly property int pollCloudflareSec: 60
-    readonly property int pollHomeAssistantSec: 60
     readonly property int pollWeatherSec: 300
     readonly property int pollNetworkSec: 2
 
@@ -315,7 +314,6 @@ Singleton {
     readonly property int panelSectionSpacing: 14
     readonly property int hoverPanelContentPad: 16
     readonly property int panelContentPad: 10
-    readonly property int panelDockPad: panelContentPad + spacingS
     readonly property int hoverPanelMargin: 16
     readonly property int hoverPanelTopPad: hoverPanelMargin - 10
     readonly property int hoverPanelBorderWidth: 2

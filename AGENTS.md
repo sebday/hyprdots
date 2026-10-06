@@ -57,7 +57,7 @@ Do not start extra Quickshell instances. Do not commit pass secrets or machine-s
 
 ## UI check
 
-After a visual change: `evo system restart`, confirm `journalctl --user -t evoshell` has no new QML errors, exercise the changed surface, and screenshot with `grim`.
+After a visual change: `evo system restart`, confirm `journalctl --user -t evoshell` has no new QML errors, exercise the changed surface, and screenshot with `omasnap`.
 
 ## Evoplayer
 

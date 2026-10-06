@@ -22,11 +22,36 @@ DEFAULT_ICON_BUTTON_BG="#d3dae3"
 
 TEXT_SOURCE_HEXES=(dfdfdf 5c616c 6e6e6e)
 HIGHLIGHT_SOURCE_HEXES=(5294e2 4285f4)
-BUTTON_BG_SOURCE_HEX=(d3dae3)
+# Papirus folder front is #5294e2. The tab and the dark detail stay these blues
+# unless they are scaled from the same highlight.
+HIGHLIGHT_BASE_HEX=5294e2
+FOLDER_BACK_SOURCE_HEX=4877b1
+FOLDER_SHADE_SOURCE_HEX=1d344f
+BUTTON_BG_SOURCE_HEX=d3dae3
 
 hex_strip() {
     local value="$1"
     printf '%s' "${value#\#}" | tr '[:upper:]' '[:lower:]'
+}
+
+# Scale $3 by the per-channel ratio of $2 / $1. Keeps Papirus's folder shading.
+scale_hex() {
+    local base="$1" sample="$2" dest="$3"
+    local i out="" base_c sample_c dest_c value
+
+    out=""
+    for i in 0 2 4; do
+        base_c=$((16#${base:i:2}))
+        sample_c=$((16#${sample:i:2}))
+        dest_c=$((16#${dest:i:2}))
+        value=$((dest_c * sample_c / base_c))
+        if (( value > 255 )); then
+            value=255
+        fi
+        printf -v value '%02x' "$value"
+        out+="$value"
+    done
+    printf '%s' "$out"
 }
 
 ensure_base() {
@@ -53,6 +78,8 @@ read_icon_colors() {
     ICON_TEXT_HEX=$(hex_strip "$ICON_TEXT")
     ICON_HIGHLIGHT_HEX=$(hex_strip "$ICON_HIGHLIGHT")
     ICON_BUTTON_BG_HEX=$(hex_strip "$ICON_BUTTON_BG")
+    ICON_FOLDER_BACK_HEX=$(scale_hex "$HIGHLIGHT_BASE_HEX" "$FOLDER_BACK_SOURCE_HEX" "$ICON_HIGHLIGHT_HEX")
+    ICON_FOLDER_SHADE_HEX=$(scale_hex "$HIGHLIGHT_BASE_HEX" "$FOLDER_SHADE_SOURCE_HEX" "$ICON_HIGHLIGHT_HEX")
 }
 
 stamp_for_theme() {
@@ -62,7 +89,9 @@ stamp_for_theme() {
 
     read_icon_colors "$toml"
     pkg_ver=$(pacman -Q papirus-icon-theme 2>/dev/null || echo "unknown")
-    printf '%s|%s|%s|%s' "$ICON_TEXT_HEX" "$ICON_HIGHLIGHT_HEX" "$ICON_BUTTON_BG_HEX" "$pkg_ver" \
+    printf '%s|%s|%s|%s|%s|%s' \
+        "$ICON_TEXT_HEX" "$ICON_HIGHLIGHT_HEX" "$ICON_FOLDER_BACK_HEX" "$ICON_FOLDER_SHADE_HEX" \
+        "$ICON_BUTTON_BG_HEX" "$pkg_ver" \
         | sha256sum | awk '{print $1}'
 }
 
@@ -78,8 +107,7 @@ is_current_theme_slug() {
     [[ "$current" == "$slug" ]]
 }
 
-recolor_svgs() {
-    local target_dir="$1"
+write_recolor_sed() {
     local sed_script hex
 
     sed_script=$(mktemp)
@@ -89,15 +117,22 @@ recolor_svgs() {
     for hex in "${HIGHLIGHT_SOURCE_HEXES[@]}"; do
         printf 's/#%s/#%s/gi\n' "$hex" "$ICON_HIGHLIGHT_HEX" >>"$sed_script"
     done
+    printf 's/#%s/#%s/gi\n' "$FOLDER_BACK_SOURCE_HEX" "$ICON_FOLDER_BACK_HEX" >>"$sed_script"
+    printf 's/#%s/#%s/gi\n' "$FOLDER_SHADE_SOURCE_HEX" "$ICON_FOLDER_SHADE_HEX" >>"$sed_script"
     printf 's/#%s/#%s/gi\n' "$BUTTON_BG_SOURCE_HEX" "$ICON_BUTTON_BG_HEX" >>"$sed_script"
-    find "$target_dir" -name '*.svg' -type f -exec sed -i -f "$sed_script" {} +
-    rm -f "$sed_script"
+    printf '%s' "$sed_script"
+}
+
+recolor_svg_set() {
+    local sed_script="$1"
+    shift
+    find "$@" -name '*.svg' -type f -exec sed -i -f "$sed_script" {} +
 }
 
 build_theme_icons() {
     local slug="$1"
     local toml="$THEME_DIR/$slug/colors.toml"
-    local cache_dir stamp expected_stamp
+    local cache_dir stamp expected_stamp sed_script
 
     ensure_base
     [[ -f "$toml" ]] || {
@@ -119,9 +154,24 @@ build_theme_icons() {
     fi
 
     mkdir -p "$CACHE_ROOT"
-    rsync -aL --delete "$PAPIRUS_BASE/" "$cache_dir/"
+    # Drop a previous -aL copy. Those trees duplicate every @2x size as real files.
+    find "$cache_dir" -mindepth 1 ! -name '.lock' -delete
+    # Keep in-tree symlinks (@2x, folder.svg -> folder-blue.svg). Copy links that
+    # point at Papirus so recolor does not edit the system theme.
+    rsync -a --delete --copy-unsafe-links "$PAPIRUS_BASE/" "$cache_dir/"
     sed -i "s/^Name=.*/Name=$ICON_THEME_NAME/" "$cache_dir/index.theme"
-    recolor_svgs "$cache_dir"
+
+    sed_script=$(write_recolor_sed)
+    # Places first so folder icons can switch before the rest of Papirus finishes.
+    recolor_svg_set "$sed_script" "$cache_dir" -path '*/places/*'
+    gtk-update-icon-cache -f "$cache_dir"
+    if is_current_theme_slug "$slug"; then
+        link_active_theme "$slug"
+        themes_sync_icon_theme_force_reload
+    fi
+    recolor_svg_set "$sed_script" "$cache_dir" ! -path '*/places/*'
+    rm -f "$sed_script"
+
     printf '%s' "$expected_stamp" >"$stamp"
     gtk-update-icon-cache -f "$cache_dir"
 }

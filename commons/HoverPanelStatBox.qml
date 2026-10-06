@@ -43,7 +43,7 @@ Item {
     signal clicked()
     signal toggleClicked()
 
-    readonly property int legendHang: fieldsetLabel ? Math.round(legendChip.height / 2) : 0
+    readonly property int legendHang: fieldsetLabel ? Math.round(Theme.font.caption / 2) : 0
 
     Layout.fillWidth: true
     implicitWidth: panel.implicitWidth

@@ -99,13 +99,6 @@ Item {
     property int weatherLocationPopupWidth: 0
     property var secretsStatus: ({})
     property bool secretsReady: false
-    property var haEnabledLightAreas: []
-    property var haEnabledClimateEntities: []
-    property bool haReady: false
-    property var haAreaOptions: []
-    property var haClimateOptions: []
-    property string haDiscoveryError: ""
-    property bool haDiscoveryReady: false
     property bool packagesLoading: false
     property bool packagesReady: false
     property string packagesError: ""
@@ -126,7 +119,7 @@ Item {
         || uiToggleProc.running
         || weatherSetProc.running
         || wallpaperPersonalDirSetProc.running || wallpaperPersonalDirPickProc.running
-        || haSaveProc.running || idleSetProc.running
+        || idleSetProc.running
         || trayToggleProc.running || trayOrderSetProc.running
     readonly property bool active: host && host.opened
         && (host.activeModule === "settings" || host.settingsEmbedded === true)
@@ -687,50 +680,6 @@ Item {
         }
     }
 
-    function saveHomeAssistantConfig() {
-        if (settingsBusy || !haDiscoveryReady)
-            return
-        var areas = []
-        var climates = []
-        var i
-        for (i = 0; i < haAreaOptions.length; i++) {
-            if (haAreaOptions[i].enabled)
-                areas.push(String(haAreaOptions[i].name || ""))
-        }
-        for (i = 0; i < haClimateOptions.length; i++) {
-            if (haClimateOptions[i].enabled)
-                climates.push(String(haClimateOptions[i].entityId || ""))
-        }
-        haSaveProc.areasJson = JSON.stringify(areas)
-        haSaveProc.climatesJson = JSON.stringify(climates)
-        haSaveProc.running = true
-    }
-
-    function syncHaToggleStateFromConfig() {
-        if (haAreaOptions.length > 0) {
-            var enabledAreas = {}
-            var i
-            for (i = 0; i < haEnabledLightAreas.length; i++)
-                enabledAreas[String(haEnabledLightAreas[i])] = true
-            haAreaOptions = haAreaOptions.map(function(row) {
-                return { name: row.name, enabled: enabledAreas[row.name] === true }
-            })
-        }
-        if (haClimateOptions.length > 0) {
-            var enabledClimates = {}
-            var j
-            for (j = 0; j < haEnabledClimateEntities.length; j++)
-                enabledClimates[String(haEnabledClimateEntities[j])] = true
-            haClimateOptions = haClimateOptions.map(function(row) {
-                return {
-                    entityId: row.entityId,
-                    name: row.name,
-                    enabled: enabledClimates[row.entityId] === true
-                }
-            })
-        }
-    }
-
     function loadPackagesBreakdown() {
         if (packagesLoading)
             return
@@ -764,28 +713,6 @@ Item {
             packagesOrphans = []
             packagesReady = false
         }
-    }
-
-    function setHaAreaEnabled(index, enabled) {
-        if (index < 0 || index >= haAreaOptions.length)
-            return
-        var next = haAreaOptions.slice()
-        next[index] = { name: next[index].name, enabled: enabled === true }
-        haAreaOptions = next
-        saveHomeAssistantConfig()
-    }
-
-    function setHaClimateEnabled(index, enabled) {
-        if (index < 0 || index >= haClimateOptions.length)
-            return
-        var next = haClimateOptions.slice()
-        next[index] = {
-            entityId: next[index].entityId,
-            name: next[index].name,
-            enabled: enabled === true
-        }
-        haClimateOptions = next
-        saveHomeAssistantConfig()
     }
 
     function setIdleLockMin(lockMin) {
@@ -893,16 +820,6 @@ Item {
             return secretEntryDetail(data.cursor)
         if (name === "cloudflare")
             return secretEntryDetail(data.cloudflare)
-        if (name === "homeAssistant") {
-            var ha = data.homeAssistant
-            if (!ha)
-                return ""
-            var urlOk = ha.url && ha.url.configured
-            var tokenOk = ha.token && ha.token.configured
-            if (urlOk && tokenOk)
-                return "Configured"
-            return "Missing"
-        }
         return ""
     }
 
@@ -914,20 +831,6 @@ Item {
         } catch (e) {
             root.secretsStatus = ({})
             root.secretsReady = false
-        }
-    }
-
-    function parseHaConfig(raw) {
-        try {
-            var data = JSON.parse(String(raw || "{}"))
-            var areas = Array.isArray(data.lightAreas) ? data.lightAreas : []
-            var climates = Array.isArray(data.climateEntities) ? data.climateEntities : []
-            root.haEnabledLightAreas = areas.slice()
-            root.haEnabledClimateEntities = climates.slice()
-            root.syncHaToggleStateFromConfig()
-            root.haReady = true
-        } catch (e) {
-            root.haReady = false
         }
     }
 
@@ -1130,16 +1033,6 @@ Item {
         interval: 300
         repeat: false
         onTriggered: root.runWeatherSearch()
-    }
-
-    Process {
-        id: haSaveProc
-        property string areasJson: "[]"
-        property string climatesJson: "[]"
-        command: ["bash", root.configScript, "homeassistant", "set-fields", haSaveProc.areasJson, haSaveProc.climatesJson]
-        stdout: StdioCollector {
-            onStreamFinished: root.parseHaConfig(text)
-        }
     }
 
     Process {

@@ -17,6 +17,10 @@ Panel {
   height: implicitHeight
   ipcTarget: "evo.monitors"
   manageIpc: false
+  property var barPanel: null
+  readonly property bool ownsIpc: bar && barPanel && barPanel.screen && typeof bar.screenOwnsIpc === "function"
+      ? bar.screenOwnsIpc(String(barPanel.screen.name || ""))
+      : false
 
   readonly property string focusedMonitor: Hyprland.focusedMonitor ? String(Hyprland.focusedMonitor.name || "") : ""
   // The output last clicked in the layout picker; the hero label names it.
@@ -43,6 +47,7 @@ Panel {
   }
 
   IpcHandler {
+    enabled: root.ownsIpc
     target: "evo.monitors"
 
     function open() { root.open() }

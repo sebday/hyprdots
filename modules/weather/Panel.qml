@@ -688,23 +688,28 @@ Panel {
     if (radarHistoryProc.running) radarHistoryProc.signal(15)
   }
 
+  Component.onCompleted: root.refresh()
+
   onOpenedChanged: {
-    if (!root.opened)
+    if (!root.opened) {
       root.radarFrameIndex = -1
-    else
+      refreshTimer.stop()
+    } else {
+      root.refresh()
       root.refreshRadar()
+      refreshTimer.start()
+    }
   }
 
   Timer {
     id: refreshTimer
     interval: root.refreshMinutes * 60 * 1000
-    running: true
     repeat: true
-    triggeredOnStart: true
     onTriggered: root.refresh()
   }
 
   IpcHandler {
+    enabled: !!root.hostWidget && root.hostWidget.ownsIpc
     target: root.ipcTarget
 
     function open(): void { root.openFromHotkey() }

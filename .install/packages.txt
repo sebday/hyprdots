@@ -36,6 +36,9 @@ bc
 jq
 ufw
 rsync
+neovim
+fuse3
+wiremix
 btop
 nvtop
 fastfetch

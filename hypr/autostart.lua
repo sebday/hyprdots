@@ -5,5 +5,5 @@ local evoshell_bin = os.getenv("EVOSHELL_BIN") or (home .. "/.local/lib/evoshell
 
 hl.on("hyprland.start", function()
 	hl.exec_cmd("systemctl --user start evoshell.service")
-	hl.exec_cmd("bash -c 'sleep 5 && " .. evoshell_bin .. "/evo-panel-hypr restore-dashboards evo.shopify evo.panels.player'")
+	hl.exec_cmd("bash -c 'sleep 5 && " .. evoshell_bin .. "/evo-panel-hypr restore-dashboards'")
 end)

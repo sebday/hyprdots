@@ -342,7 +342,7 @@ cmd_lock() {
 
 wayland_session_id() {
     loginctl list-sessions --no-legend 2>/dev/null \
-        | awk '$3 == "seb" && $4 == "wayland" { print $1; exit }'
+        | awk -v user="$(id -un)" '$3 == user && $4 == "wayland" { print $1; exit }'
 }
 
 cmd_unlock() {

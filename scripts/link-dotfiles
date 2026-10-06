@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# Symlink tracked dotfiles from this checkout into $HOME.
+# Existing real files and directories are moved aside to *.pre-link.
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+config_src="${root}/.config"
+home_config="${HOME}/.config"
+
+link_path() {
+  local target="$1"
+  local source="$2"
+  mkdir -p "$(dirname "$target")"
+  if [[ -L "$target" ]]; then
+    ln -sfn "$source" "$target"
+    return 0
+  fi
+  if [[ -e "$target" ]]; then
+    local backup="${target}.pre-link"
+    if [[ -e "$backup" ]]; then
+      echo "link-dotfiles: ${backup} already exists; leaving ${target}" >&2
+      exit 1
+    fi
+    mv "$target" "$backup"
+  fi
+  ln -sfn "$source" "$target"
+}
+
+seed_file() {
+  local source="$1"
+  local target="$2"
+  [[ -f "$source" ]] || return 0
+  [[ -e "$target" ]] && return 0
+  mkdir -p "$(dirname "$target")"
+  cp "$source" "$target"
+}
+
+for dir in hypr bash nvim ghostty fastfetch imv lazygit mise; do
+  link_path "${home_config}/${dir}" "${config_src}/${dir}"
+done
+
+link_path "${home_config}/brave-flags.conf" "${config_src}/brave-flags.conf"
+link_path "${HOME}/.bashrc" "${root}/.bashrc"
+link_path "${home_config}/evoshell/wallpapers" "${config_src}/evoshell/wallpapers"
+
+# ui.json, hypr-looks.json, font.json, and weather.json are rewritten at runtime.
+# modules/ stays a real directory: link-runtime puts the commons symlink and a
+# local manifest there.
+for name in ui.json hypr-looks.json font.json weather.json; do
+  seed_file "${config_src}/evoshell/${name}" "${home_config}/evoshell/${name}"
+done
+
+echo "linked dotfiles from ${root} into ${HOME}"

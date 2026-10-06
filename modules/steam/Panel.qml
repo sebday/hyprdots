@@ -144,6 +144,7 @@ Panel {
 
 
   IpcHandler {
+    enabled: !!root.hostWidget && root.hostWidget.ownsIpc
     target: root.ipcTarget
 
     function open(): void { root.openFromHotkey() }

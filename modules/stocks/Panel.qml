@@ -296,6 +296,7 @@ Panel {
     active: root.market !== ""
     sourceComponent: Component {
       IpcHandler {
+        enabled: !!root.hostWidget && root.hostWidget.ownsIpc
         target: "evo.stocks." + root.market
 
         function open(): void { root.openFromHotkey() }

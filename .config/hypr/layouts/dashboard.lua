@@ -1,1 +1,0 @@
--- Workspace 10 uses the default dwindle layout, same as the other workspaces.

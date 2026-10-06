@@ -23,7 +23,7 @@ Item {
   // crossing the track shows). Purely visual — snapping is the caller's job via
   // `integer`/`step` or an index-based value. Default 0 leaves the track plain.
   property int tickCount: 0
-  property color tickColor: bar ? bar.background : Theme.background
+  property color tickColor: Theme.background
 
   onValueChanged: if (!dragging) liveValue = value
 

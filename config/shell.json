@@ -5,12 +5,6 @@
   },
   "notifications": {
     "durationMs": 3000,
-    "shellLogs": {
-      "enabled": true,
-      "pollIntervalMs": 5000,
-      "dedupeWindowSec": 300,
-      "userJournal": true
-    },
     "position": "top",
     "output": "DP-1",
     "align": "center"
@@ -136,17 +130,7 @@
     "openOnStart": [
       "evo.shopify",
       "evo.panels.player"
-    ],
-    "braveOnStart": [
-      {
-        "url": "https://home.google.com/u/1/home/1-cb9859514d100077a7514292e70d3ce0c2419bd91e574642c34b63737d643b87/cameras/list/1-e6e317616dac9c683493bfc2faf697647c943b1b6316126c972ff4f62456926e?da=true",
-        "workspace": "10",
-        "classPattern": "^brave-home\\.google\\.com__.*cameras_list"
-      }
-    ],
-    "btopOnStart": {
-      "workspace": "10"
-    }
+    ]
   },
   "shopify": {
     "timezone": "Europe/London",

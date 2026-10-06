@@ -1,5 +1,5 @@
 gui:
-  sidePanelWidth: 1.0
+  sidePanelWidth: 0.333
 
 os:
   editPreset: nvim

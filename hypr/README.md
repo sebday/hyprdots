@@ -14,4 +14,4 @@ require("hypr.init")
 
 All Hyprland keybindings (evoshell panels, volume/media keys, window management, app launchers) live in [`bindings.lua`](bindings.lua). You do not need a separate `~/.config/hypr/bindings.lua` unless you want extra machine-specific binds on top.
 
-Evoshell overlays dismiss with **Esc** (menu and library keep contextual back/clear before close).
+Evoshell overlays dismiss with **Esc** (the menu keeps contextual back/clear before close).

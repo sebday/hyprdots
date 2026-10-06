@@ -292,7 +292,30 @@ Scope {
     }
 
     function moduleWidgets(pluginId) {
-        return []
+        var id = String(pluginId || "")
+        var out = []
+        var i
+        for (i = 0; i < moduleSlots.length; i++) {
+            var item = moduleSlots[i] && moduleSlots[i].activeItem
+            if (item && String(item.moduleName || "") === id)
+                out.push(item)
+        }
+        return out
+    }
+
+    // IPC targets are process-wide. When a bar exists on more than one screen,
+    // only the configured output (or the first screen) should register them.
+    function screenOwnsIpc(screenName) {
+        var name = String(screenName || "")
+        if (!name)
+            return false
+        var output = barOutput
+        if (output)
+            return name === output
+        var screens = Quickshell.screens
+        if (!screens || screens.length === 0)
+            return false
+        return name === String(screens[0].name || "")
     }
 
     function placementOutput() {

@@ -48,11 +48,6 @@ hl.window_rule({
 })
 
 hl.window_rule({
-	name = "floating-window-monitor",
-	match = { tag = "floating-window" },
-})
-
-hl.window_rule({
 	name = "rename-window-size",
 	match = {
 		tag = "floating-window",
@@ -84,11 +79,6 @@ hl.window_rule({
 	name = "main-window-size",
 	match = { tag = "main-window" },
 	size = { 1600, 900 },
-})
-
-hl.window_rule({
-	name = "main-window-monitor",
-	match = { tag = "main-window" },
 })
 
 hl.window_rule({
@@ -133,8 +123,8 @@ local function window_size(win)
 	if not win then
 		return 0, 0
 	end
-	local w = win.width or (win.size and win.size.w) or 0
-	local h = win.height or (win.size and win.size.h) or 0
+	local w = win.width or (win.size and (win.size.x or win.size.w)) or 0
+	local h = win.height or (win.size and (win.size.y or win.size.h)) or 0
 	return w, h
 end
 
@@ -150,13 +140,6 @@ local function is_btop_window(win)
 	return class == "TUI.tiled" or class == "com.mitchellh.ghostty"
 end
 
-local function is_google_home_cameras_brave(win)
-	if not win or not win.class then
-		return false
-	end
-	return win.class:match("^brave%-home%.google%.com__.*cameras_list") ~= nil
-end
-
 local function is_dashboard_window(win)
 	if not win or win.class ~= "org.quickshell" then
 		return false
@@ -168,7 +151,7 @@ local function is_dashboard_window(win)
 end
 
 local function is_ws10_allowed_window(win)
-	return is_dashboard_window(win) or is_google_home_cameras_brave(win) or is_btop_window(win)
+	return is_dashboard_window(win) or is_btop_window(win)
 end
 
 local function evict_non_dashboard_from_ws10(win)
@@ -248,9 +231,6 @@ local function brave_app_to_floating(win)
 		return
 	end
 	if not is_brave_window(win) or not win.class:match("^brave%-.-__") then
-		return
-	end
-	if is_google_home_cameras_brave(win) then
 		return
 	end
 	hl.timer(function()

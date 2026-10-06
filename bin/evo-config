@@ -14,7 +14,6 @@ usage:
   evo-config get <jq-filter>
   evo-config patch '<jq-filter>' [jq args...]
   evo-config dashboards get|set <id> [on|off]|toggle <id> [on|off]
-  evo-config homeassistant get|set '<json>'|set-fields <light-areas-csv> <climate-entities-csv>
   evo-config shopify get|set '<json>'|set-paths <sqliteDir> <remote> <timezone>
   evo-config idle get|set-fields <lock-min>
   evo-config wallpaper get|set-personal-dir <path>|pick-personal-dir
@@ -63,42 +62,6 @@ cmd_dashboards_set() {
 cmd_dashboards_toggle() {
     local id="$1" on="$2"
     cmd_dashboards_set "$id" "$([[ "$on" == "true" ]] && echo on || echo off)"
-}
-
-cmd_homeassistant_get() {
-    homeassistant_config
-}
-
-cmd_homeassistant_set() {
-    local json="${1:-}"
-    [[ -n "$json" ]] || json="$(cat)"
-    jq -e 'type == "object"' <<<"$json" >/dev/null 2>&1 || {
-        echo '{"ok":false,"error":"expected object"}' >&2
-        exit 1
-    }
-    patch_homeassistant "$json"
-    jq -n --argjson config "$(homeassistant_config)" '{ok:true,homeAssistant:$config}'
-}
-
-cmd_homeassistant_set_fields() {
-    local areas_arg="${1:-[]}"
-    local climates_arg="${2:-[]}"
-    local base areas climates
-    base="$(homeassistant_config)"
-    if [[ "$areas_arg" == \[* ]]; then
-        areas="$areas_arg"
-    else
-        areas="$(printf '%s' "$areas_arg" | jq -R 'split(",") | map(gsub("^[[:space:]]+|[[:space:]]+$"; "")) | map(select(length > 0))')"
-    fi
-    if [[ "$climates_arg" == \[* ]]; then
-        climates="$climates_arg"
-    else
-        climates="$(printf '%s' "$climates_arg" | jq -R 'split(",") | map(gsub("^[[:space:]]+|[[:space:]]+$"; "")) | map(select(length > 0))')"
-    fi
-    patch_overrides_reload --argjson ha "$(jq -c --argjson lightAreas "$areas" --argjson climateEntities "$climates" \
-        '.lightAreas = $lightAreas | .climateEntities = $climateEntities' <<<"$base")" \
-        '.homeAssistant = $ha'
-    cmd_homeassistant_get
 }
 
 cmd_shopify_get() {
@@ -303,14 +266,6 @@ dashboards)
         [[ -n "$id" ]] || usage
         cmd_dashboards_toggle "$id" "$([[ "$on" == off ]] && echo false || echo true)"
         ;;
-    *) usage ;;
-    esac
-    ;;
-homeassistant)
-    case "$action" in
-    get) cmd_homeassistant_get ;;
-    set) cmd_homeassistant_set "${1:-}" ;;
-    set-fields) cmd_homeassistant_set_fields "${1:-}" "${2:-}" ;;
     *) usage ;;
     esac
     ;;
