@@ -2,6 +2,7 @@ import Quickshell
 import QtQuick
 import QtQuick.Layouts
 import qs.commons
+import qs.ui
 import "."
 
 Item {
@@ -17,37 +18,48 @@ Item {
     readonly property int titleFont: Theme.fontSizeM
     readonly property int maxListHeight: 420
 
-    property string filterSource: "all"
+    property string filterSource: "system"
+
+    function isWebEntry(item) {
+        var src = String((item && item.source) || "")
+        if (src === "web")
+            return true
+        var blob = (String((item && item.app) || "") + "\n" + String((item && item.appIcon) || "")).toLowerCase()
+        return blob.indexOf("chrom") >= 0 || blob.indexOf("brave") >= 0
+            || blob.indexOf("vivaldi") >= 0 || blob.indexOf("microsoft-edge") >= 0
+            || blob.indexOf("opera") >= 0
+    }
+
+    function isMessageEntry(item) {
+        var src = String((item && item.source) || "")
+        if (src === "telegram" || src === "android")
+            return true
+        var blob = (String((item && item.app) || "") + "\n" + String((item && item.appIcon) || "")).toLowerCase()
+        return blob.indexOf("telegram") >= 0
+    }
+
+    function isSystemEntry(item) {
+        if (!item || isWebEntry(item) || isMessageEntry(item))
+            return false
+        var src = String(item.source || "")
+        return src === "" || src === "system" || src === "shell" || src === "journal"
+    }
 
     readonly property var filteredEntries: {
         var out = []
-        var filter = String(filterSource || "all")
+        var filter = String(filterSource || "system")
         for (var i = 0; i < historyEntries.length; i++) {
             var item = historyEntries[i]
             if (!item)
                 continue
             var hidden = item.hidden === true
             if (filter === "hidden") {
-                if (hidden)
+                if (hidden && isSystemEntry(item))
                     out.push(item)
                 continue
             }
-            if (hidden)
+            if (hidden || !isSystemEntry(item))
                 continue
-            if (filter === "messages") {
-                var src = String(item.source || "")
-                if (src !== "telegram" && src !== "android")
-                    continue
-            } else if (filter === "web") {
-                if (String(item.source || "") !== "web")
-                    continue
-            } else if (filter === "system") {
-                var systemSrc = String(item.source || "")
-                if (systemSrc !== "system" && systemSrc !== "shell" && systemSrc !== "journal")
-                    continue
-            } else if (filter !== "all" && String(item.source || "") !== filter) {
-                continue
-            }
             out.push(item)
         }
         return out
@@ -61,51 +73,27 @@ Item {
         return "No notifications"
     }
 
-    readonly property bool hasClearableEntries: {
-        for (var i = 0; i < historyEntries.length; i++) {
-            if (historyEntries[i] && historyEntries[i].hidden !== true)
-                return true
-        }
-        return false
-    }
+    readonly property bool hasClearableEntries: countSystem > 0
 
     function entryCount(filter) {
-        var id = String(filter || "all")
+        var id = String(filter || "system")
         var n = 0
         for (var i = 0; i < historyEntries.length; i++) {
             var item = historyEntries[i]
-            if (!item)
+            if (!item || !isSystemEntry(item))
                 continue
             var hidden = item.hidden === true
             if (id === "hidden") {
                 if (hidden)
                     n++
-                continue
-            }
-            if (hidden)
-                continue
-            if (id === "messages") {
-                var src = String(item.source || "")
-                if (src === "telegram" || src === "android")
-                    n++
-            } else if (id === "web") {
-                if (String(item.source || "") === "web")
-                    n++
-            } else if (id === "system") {
-                var systemSrc = String(item.source || "")
-                if (systemSrc === "system" || systemSrc === "shell" || systemSrc === "journal")
-                    n++
-            } else {
+            } else if (!hidden) {
                 n++
             }
         }
         return n
     }
 
-    readonly property int countAll: entryCount("all")
     readonly property int countSystem: entryCount("system")
-    readonly property int countMessages: entryCount("messages")
-    readonly property int countWeb: entryCount("web")
     readonly property int countHidden: entryCount("hidden")
 
     implicitHeight: column.implicitHeight
@@ -205,30 +193,40 @@ Item {
         width: root.hoverPanelWidth
         spacing: Theme.hoverPanelSectionSpacing
 
+        PanelHero {
+            Layout.fillWidth: true
+            title: "Notifications"
+            meta: root.countSystem === 1 ? "1 notification" : root.countSystem + " notifications"
+            foreground: Theme.foreground
+            fontFamily: Theme.fontFamily
+
+            iconComponent: Component {
+                Text {
+                    textFormat: Text.PlainText
+                    text: "󰂚"
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.font.display
+                    opacity: 0.92
+                }
+            }
+        }
+
         SectionPanel {
             label: ""
             Layout.fillWidth: true
             contentPad: Theme.hoverPanelContentPad
             legendBackground: Theme.background
 
-            HoverPanelLabelPill {
-                text: "Notifications"
-                icon: "󰂚"
-                fontSize: Theme.font.caption
-            }
-
             GridLayout {
                 Layout.fillWidth: true
-                columns: 5
+                columns: 2
                 columnSpacing: Theme.spacingS
                 rowSpacing: Theme.spacingS
 
                 Repeater {
                     model: [
-                        { id: "all", label: "all", value: root.countAll },
                         { id: "system", label: "system", value: root.countSystem },
-                        { id: "web", label: "web", value: root.countWeb },
-                        { id: "messages", label: "messages", value: root.countMessages },
                         { id: "hidden", label: "hidden", value: root.countHidden }
                     ]
 

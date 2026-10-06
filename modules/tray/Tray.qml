@@ -253,32 +253,30 @@ BarWidget {
       id: horizontalTrayRoot
 
       readonly property int pinnedWidth: pinnedRow.implicitWidth
-      readonly property int drawerBlockWidth: root.allItems.length > 0 ? expandIcon.implicitWidth + root.drawerExtent : 0
+      readonly property int chevronWidth: root.drawerCount > 0 ? expandIcon.implicitWidth : 0
+      // Width the drawer still has not revealed. It hangs off the leading edge
+      // so bar centering uses the chevron and pinned icons, not hidden ones.
+      readonly property int unrevealed: Math.max(0, root.drawerExtent - root.revealExtent)
+      readonly property int drawerBlockWidth: chevronWidth + root.drawerExtent
 
-      implicitWidth: pinnedWidth + drawerBlockWidth
+      implicitWidth: chevronWidth + root.revealExtent + pinnedWidth
       implicitHeight: root.barSize
 
-      // Mask out the empty area the collapsed drawer reserves for its slide-in,
-      // so hovering it doesn't trigger expand and clicks pass through.
+      // The unrevealed drawer sits at negative x. Ignore it so hovering that
+      // gap does not expand the tray and clicks pass through.
       containmentMask: QtObject {
         function contains(point: point): bool {
           if (point.y < 0 || point.y > horizontalTrayRoot.height) return false
-          // Drawer reveals leftward; chevron sits at the right end when collapsed
-          // and slides left as it opens. The visible region starts at the chevron.
-          var chevronX = root.drawerExtent - root.revealExtent
-          if (point.x >= chevronX && point.x <= horizontalTrayRoot.drawerBlockWidth) return true
-          // Pinned items, placed to the right of the drawer block.
-          var pinnedStart = horizontalTrayRoot.drawerBlockWidth
-          return point.x >= pinnedStart && point.x <= horizontalTrayRoot.implicitWidth
+          return point.x >= 0 && point.x <= horizontalTrayRoot.implicitWidth
         }
       }
 
       Item {
         id: drawerArea
-        x: 0
+        x: -horizontalTrayRoot.unrevealed
         width: horizontalTrayRoot.drawerBlockWidth
         height: root.barSize
-        visible: root.allItems.length > 0
+        visible: root.drawerCount > 0
 
         HoverHandler {
           onHoveredChanged: root.expanded = hovered
@@ -324,7 +322,7 @@ BarWidget {
         x: drawerArea.x + horizontalTrayRoot.drawerBlockWidth
         anchors.verticalCenter: parent.verticalCenter
         spacing: root.trayItemGap
-        leftPadding: root.pinnedItems.length > 0 && root.allItems.length > 0 ? root.trayJoinGap : 0
+        leftPadding: root.pinnedItems.length > 0 && root.drawerCount > 0 ? root.trayJoinGap : 0
         Repeater {
           model: root.pinnedItems
           TrayItem {}
@@ -340,27 +338,26 @@ BarWidget {
       id: verticalTrayRoot
 
       readonly property int pinnedHeight: pinnedCol.implicitHeight
-      readonly property int drawerBlockHeight: root.allItems.length > 0 ? expandIcon.implicitHeight + root.drawerExtent : 0
+      readonly property int chevronHeight: root.drawerCount > 0 ? expandIcon.implicitHeight : 0
+      readonly property int unrevealed: Math.max(0, root.drawerExtent - root.revealExtent)
+      readonly property int drawerBlockHeight: chevronHeight + root.drawerExtent
 
       implicitWidth: root.barSize
-      implicitHeight: pinnedHeight + drawerBlockHeight
+      implicitHeight: chevronHeight + root.revealExtent + pinnedHeight
 
       containmentMask: QtObject {
         function contains(point: point): bool {
           if (point.x < 0 || point.x > verticalTrayRoot.width) return false
-          var chevronY = root.drawerExtent - root.revealExtent
-          if (point.y >= chevronY && point.y <= verticalTrayRoot.drawerBlockHeight) return true
-          var pinnedStart = verticalTrayRoot.drawerBlockHeight
-          return point.y >= pinnedStart && point.y <= verticalTrayRoot.implicitHeight
+          return point.y >= 0 && point.y <= verticalTrayRoot.implicitHeight
         }
       }
 
       Item {
         id: drawerArea
-        y: 0
+        y: -verticalTrayRoot.unrevealed
         width: root.barSize
         height: verticalTrayRoot.drawerBlockHeight
-        visible: root.allItems.length > 0
+        visible: root.drawerCount > 0
 
         HoverHandler {
           onHoveredChanged: root.expanded = hovered
@@ -407,7 +404,7 @@ BarWidget {
         y: drawerArea.y + verticalTrayRoot.drawerBlockHeight
         anchors.horizontalCenter: parent.horizontalCenter
         spacing: root.trayItemGap
-        topPadding: root.pinnedItems.length > 0 && root.allItems.length > 0 ? root.trayJoinGap : 0
+        topPadding: root.pinnedItems.length > 0 && root.drawerCount > 0 ? root.trayJoinGap : 0
         Repeater {
           model: root.pinnedItems
           TrayItem {}

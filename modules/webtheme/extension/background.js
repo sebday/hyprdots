@@ -69,16 +69,8 @@ function sendNative(msg) {
   return queued;
 }
 
-function applyBadge(payload) {
-  const enabled = payload && payload.enabled !== false;
-  const sites = payload && Array.isArray(payload.sites) ? payload.sites : [];
-  let count = 0;
-  for (let i = 0; i < sites.length; i++) {
-    if (sites[i] && sites[i].enabled !== false) count += 1;
-  }
-  const text = enabled && count > 0 ? String(count) : "";
-  chrome.action.setBadgeBackgroundColor({ color: "#7aa2f7" });
-  chrome.action.setBadgeText({ text });
+function applyBadge() {
+  chrome.action.setBadgeText({ text: "" });
 }
 
 function extText(path, bust) {
@@ -163,7 +155,7 @@ async function readCatalog() {
   applyOverlay(catalog, await loadOverlay());
   const enabledText = await extText("enabled", bust).catch(() => "");
   applyEnabledFlag(catalog, enabledText);
-  applyBadge(catalog);
+  applyBadge();
   await resolveThemeJobs(catalog);
   return catalog;
 }

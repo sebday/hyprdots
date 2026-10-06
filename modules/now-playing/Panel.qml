@@ -601,43 +601,13 @@ Panel {
           Repeater {
             model: root.dashCells
 
-            BorderSurface {
+            HoverPanelStatBox {
               required property var modelData
               Layout.fillWidth: true
-              implicitHeight: dashCol.implicitHeight + Theme.spacing.lg * 2
-              color: Theme.popups.background
-              borderSpec: Border.surfaceSpec("popups", "border", Theme.popups.border, 1)
-              radius: Theme.cornerRadius
-
-              Column {
-                id: dashCol
-                anchors.centerIn: parent
-                width: parent.width - Theme.spacing.lg * 2
-                spacing: Theme.spacing.labelGap
-
-                Text {
-                  textFormat: Text.PlainText
-                  width: parent.width
-                  text: root.dashValue(modelData.key)
-                  color: root.accent
-                  font.family: root.fontFamily
-                  font.pixelSize: Theme.font.title
-                  font.bold: true
-                  horizontalAlignment: Text.AlignHCenter
-                  elide: Text.ElideRight
-                }
-
-                Text {
-                  textFormat: Text.PlainText
-                  width: parent.width
-                  text: modelData.label
-                  color: root.dim
-                  font.family: root.fontFamily
-                  font.pixelSize: Theme.font.caption
-                  horizontalAlignment: Text.AlignHCenter
-                  elide: Text.ElideRight
-                }
-              }
+              value: root.dashValue(modelData.key)
+              label: modelData.label
+              valueColor: root.accent
+              valueFontSize: Theme.font.title
             }
           }
         }

@@ -2,7 +2,7 @@
 # Symlink the trading desk into the shell vendor tree.
 set -euo pipefail
 
-TRADING_ROOT="${TRADING_ROOT:-${HOME}/projects/trading-bot}"
+TRADING_ROOT="${TRADING_ROOT:-${HOME}/projects/tradingbot}"
 EVOSHELL_ROOT="${EVOSHELL_ROOT:-${HOME}/projects/hyprdots}"
 VENDOR_LINK="${EVOSHELL_ROOT}/vendor/trading"
 

@@ -22,7 +22,6 @@ Item {
     readonly property string hyprScript: Util.evoshellScript(Quickshell.env("HOME"), shell, "evo-hyprland")
     readonly property string barScript: Util.evoshellScript(Quickshell.env("HOME"), shell, "evo-layout")
     readonly property string fontScript: Util.evoshellScript(Quickshell.env("HOME"), shell, "evo-font")
-    readonly property string mediaScript: Util.evoshellScript(Quickshell.env("HOME"), shell, "evo-bar-library")
     readonly property string configScript: Util.evoshellScript(Quickshell.env("HOME"), shell, "evo-config")
     readonly property string weatherScript: {
         var dir = shell && shell.shellDir ? String(shell.shellDir) : String(Quickshell.shellDir)
@@ -84,10 +83,6 @@ Item {
     property bool fieldsetRoundingOn: true
     property string fontFamily: "CaskaydiaMono Nerd Font"
     property var fontFamilies: []
-    property string mediaTvRoot: ""
-    property string mediaFilmsRoot: ""
-    property bool mediaReady: false
-    property bool suppressMediaPathCommit: false
     property bool hyprReady: false
     property bool uiReady: false
     property bool fontReady: false
@@ -127,9 +122,7 @@ Item {
     property bool trayReady: false
     readonly property bool ready: hyprReady && fontReady
     readonly property bool fontBusy: fontSetProc.running
-    readonly property bool mediaBusy: mediaTvSetProc.running || mediaFilmsSetProc.running
-        || mediaTvPickProc.running || mediaFilmsPickProc.running
-    readonly property bool settingsBusy: fontBusy || mediaBusy || hyprToggleProc.running || hyprSetProc.running
+    readonly property bool settingsBusy: fontBusy || hyprToggleProc.running || hyprSetProc.running
         || uiToggleProc.running
         || weatherSetProc.running
         || wallpaperPersonalDirSetProc.running || wallpaperPersonalDirPickProc.running
@@ -231,8 +224,7 @@ Item {
         case 2: return integrationsColumn
         case 3: return wallpapersTab
         case 4: return weatherTab
-        case 5: return mediaTab
-        case 6: return packagesTabColumn
+        case 5: return packagesTabColumn
         default: return null
         }
     }
@@ -244,8 +236,7 @@ Item {
         case 2: return integrationsTabScroll
         case 3: return wallpapersTabScroll
         case 4: return weatherTabScroll
-        case 5: return mediaTabScroll
-        case 6: return packagesTabScroll
+        case 5: return packagesTabScroll
         default: return null
         }
     }
@@ -382,7 +373,6 @@ Item {
         runJsonScript(["bash", fontScript, "get"], function(text) { root.parseFontState(text) })
         runJsonScript(["bash", fontScript, "list"], function(text) { root.parseFontList(text) })
         runJsonScript(["bash", barScript, "ui", "get"], function(text) { root.parseUiState(text) })
-        runJsonScript(["bash", mediaScript, "settings", "get"], function(text) { root.parseMediaSettings(text) })
         runJsonScript(["bash", weatherScript, "settings", "get"], function(text) { root.parseWeatherSettings(text) })
         runJsonScript(["bash", configScript, "wallpaper", "get"], function(text) { root.parseWallpaperConfig(text) })
         runJsonScript(["bash", configScript, "secrets", "status", "--json"], function(text) { root.parseSecretsStatus(text) })
@@ -415,26 +405,6 @@ Item {
         fontSetProc.running = true
     }
 
-    function setMediaTvRoot(path) {
-        if (!mediaReady || settingsBusy)
-            return
-        mediaTvSetProc.path = String(path || "")
-        mediaTvSetProc.running = true
-    }
-
-    function setMediaFilmsRoot(path) {
-        if (!mediaReady || settingsBusy)
-            return
-        mediaFilmsSetProc.path = String(path || "")
-        mediaFilmsSetProc.running = true
-    }
-
-    function finishMediaPick(raw) {
-        suppressMediaPathCommit = false
-        if (raw !== undefined && String(raw || "").trim())
-            parseMediaSettings(raw)
-    }
-
     function dismissHostForExternalDialog() {
         if (host && typeof host.dismiss === "function")
             host.dismiss()
@@ -449,20 +419,6 @@ Item {
         Qt.callLater(function() {
             pickProc.running = true
         })
-    }
-
-    function pickMediaTv() {
-        if (!mediaReady || settingsBusy)
-            return
-        suppressMediaPathCommit = true
-        startExternalPicker(mediaTvPickProc)
-    }
-
-    function pickMediaFilms() {
-        if (!mediaReady || settingsBusy)
-            return
-        suppressMediaPathCommit = true
-        startExternalPicker(mediaFilmsPickProc)
     }
 
     function openThemePicker() {
@@ -600,19 +556,6 @@ Item {
             root.fontFamilies = Array.isArray(data.families) ? data.families : []
         } catch (e) {
             root.fontFamilies = []
-        }
-    }
-
-    function parseMediaSettings(raw) {
-        try {
-            var data = JSON.parse(String(raw || "{}"))
-            root.mediaTvRoot = data.tvRoot ? String(data.tvRoot) : ""
-            root.mediaFilmsRoot = data.filmsRoot ? String(data.filmsRoot) : ""
-            root.mediaReady = data.ok === true
-        } catch (e) {
-            root.mediaTvRoot = ""
-            root.mediaFilmsRoot = ""
-            root.mediaReady = false
         }
     }
 
@@ -1142,50 +1085,6 @@ Item {
     }
 
     Process {
-        id: mediaTvSetProc
-        property string path: ""
-        command: ["bash", "-lc",
-            Util.shellQuote(root.mediaScript) + " settings set tv " + Util.shellQuote(mediaTvSetProc.path)
-        ]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                if (String(text || "").trim())
-                    root.parseMediaSettings(text)
-            }
-        }
-    }
-
-    Process {
-        id: mediaFilmsSetProc
-        property string path: ""
-        command: ["bash", "-lc",
-            Util.shellQuote(root.mediaScript) + " settings set films " + Util.shellQuote(mediaFilmsSetProc.path)
-        ]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                if (String(text || "").trim())
-                    root.parseMediaSettings(text)
-            }
-        }
-    }
-
-    Process {
-        id: mediaTvPickProc
-        command: ["bash", root.mediaScript, "settings", "pick", "tv"]
-        stdout: StdioCollector {
-            onStreamFinished: root.finishMediaPick(text)
-        }
-    }
-
-    Process {
-        id: mediaFilmsPickProc
-        command: ["bash", root.mediaScript, "settings", "pick", "films"]
-        stdout: StdioCollector {
-            onStreamFinished: root.finishMediaPick(text)
-        }
-    }
-
-    Process {
         id: weatherSetProc
         property string query: ""
         command: ["bash", root.weatherScript, "settings", "set", weatherSetProc.query]
@@ -1277,7 +1176,6 @@ Item {
         { label: "Widgets", icon: "󰒓" },
         { label: "Wallpapers", icon: "󰏘" },
         { label: "Weather", icon: "󰖕" },
-        { label: "Media", icon: "󰿯" },
         { label: "Packages", icon: "󰏖" }
     ], shell ? shell.pluginOverlay : null)
 
@@ -1321,7 +1219,7 @@ Item {
                     root.closeWeatherLocationPicker()
                 root.settingsKeyIndex = 0
                 Qt.callLater(root.rebuildSettingsNav)
-                if (settingsTabs.currentIndex === 6)
+                if (settingsTabs.currentIndex === 5)
                     root.loadPackagesBreakdown()
             }
         }
@@ -1560,22 +1458,6 @@ Item {
 
                 WeatherTab {
                     id: weatherTab
-                    width: parent.width
-                    module: root
-                }
-            }
-
-            Flickable {
-                id: mediaTabScroll
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                clip: true
-                boundsBehavior: Flickable.StopAtBounds
-                contentWidth: width
-                contentHeight: mediaTab.implicitHeight
-
-                MediaTab {
-                    id: mediaTab
                     width: parent.width
                     module: root
                 }

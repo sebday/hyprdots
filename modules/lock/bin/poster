@@ -1,7 +1,6 @@
 #!/bin/bash
 # One cached frame of a video wallpaper, shared by all lock outputs.
 # usage: poster <video> <cache dir>
-# Adapted from Omarchy's shell/plugins/lock/poster.sh (MIT).
 set -euo pipefail
 
 source_path=$1

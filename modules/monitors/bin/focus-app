@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 # Focus the first Hyprland window whose class matches <app-name> (case-insensitive).
-# Adapted from Omarchy's omarchy-hyprland-focus-app (MIT).
 
 set -euo pipefail
 

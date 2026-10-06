@@ -2,7 +2,6 @@
 # Pick the more legible of two bar text colours over the wallpaper strip under
 # a transparent bar. Prints one #rrggbb; falls back to the text colour.
 # usage: bar-text-color <top|bottom|left|right> <bar-px> <text-hex> <background-hex> [<WxH>]
-# Adapted from Omarchy's omarchy-bar-text-color (MIT).
 
 set -euo pipefail
 

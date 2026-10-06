@@ -52,10 +52,23 @@ BarWidget {
   readonly property bool iconMuted: panelLoader.item ? panelLoader.item.iconMuted === true : false
   readonly property string tooltip: panelLoader.item ? panelLoader.item.barTooltip : "Now playing"
 
+  function showVolumeOsd(volume, muted) {
+    var shell = bar && bar.shell
+    if (!shell || typeof shell.summon !== "function") return
+    var pct = Math.round(volume * 100)
+    shell.summon("evo.osd", JSON.stringify({
+      icon: muted ? "volume-muted" : "",
+      value: muted ? 0 : Math.min(pct, 100),
+      max: 100,
+      progressText: muted ? "Muted" : pct + "%"
+    }))
+  }
+
   function setOutputVolume(v) {
     if (!sink || !sink.audio) return outputVolume
     var volume = Math.max(0, Math.min(1, v))
     sink.audio.volume = volume
+    showVolumeOsd(volume, sink.audio.muted)
     return volume
   }
 

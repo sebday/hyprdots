@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # Returns true when the compositor holds a session lock.
-# Adapted from Omarchy's omarchy-hyprland-session-locked (MIT).
 
 # Hyprland reports no lock state directly, but an active ext-session-lock is one
 # of the reasons a monitor cannot go solitary: LOCK in solitaryBlockedBy. It
