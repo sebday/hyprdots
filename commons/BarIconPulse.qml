@@ -3,8 +3,10 @@ import QtQuick
 Item {
     id: root
 
-    property Item target: null
     property bool running: false
+    property real pulseOpacity: 1
+    property Item target: null
+    property bool bindColor: false
     property color restColor: Theme.barIconColor
     property color activeColor: Theme.barIconColorActive
 
@@ -12,16 +14,14 @@ Item {
         target: root.target
         property: "color"
         value: root.running ? root.activeColor : root.restColor
-        when: root.target !== null
+        when: root.bindColor && root.target !== null
     }
 
-    SequentialAnimation {
-        running: root.running && root.target
+    SequentialAnimation on pulseOpacity {
+        running: root.running
         loops: Animation.Infinite
 
         NumberAnimation {
-            target: root.target
-            property: "opacity"
             from: Theme.barIconPulseMin
             to: Theme.barIconPulseMax
             duration: Theme.barIconPulseDuration
@@ -29,12 +29,12 @@ Item {
         }
 
         NumberAnimation {
-            target: root.target
-            property: "opacity"
             from: Theme.barIconPulseMax
             to: Theme.barIconPulseMin
             duration: Theme.barIconPulseDuration
             easing.type: Easing.InOutSine
         }
     }
+
+    onRunningChanged: if (!running) pulseOpacity = 1
 }

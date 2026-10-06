@@ -66,10 +66,10 @@ Panel {
   readonly property color cycleColor: Model.cycleColor(detail, palette)
   readonly property color cursorColor: detail.cursorColor || palette[2]
   readonly property color otherColor: detail.otherColor || palette[4]
-  readonly property color themeGreen: hostWidget ? hostWidget.themeGreen : "#a6e3a1"
-  readonly property color themeBlue: hostWidget ? hostWidget.themeBlue : "#89b4fa"
-  readonly property color themeOrange: hostWidget ? hostWidget.themeOrange : "#fab387"
-  readonly property color themeRed: hostWidget ? hostWidget.themeRed : "#f38ba8"
+  readonly property color themeGreen: hostWidget ? hostWidget.themeGreen : Theme.ansiFallback("green")
+  readonly property color themeBlue: hostWidget ? hostWidget.themeBlue : Theme.ansiFallback("blue")
+  readonly property color themeOrange: hostWidget ? hostWidget.themeOrange : Theme.ansiFallback("orange")
+  readonly property color themeRed: hostWidget ? hostWidget.themeRed : Theme.ansiFallback("red")
   readonly property color cursorGaugeColor: Model.usageStageColor(shownCursorPercent, themeGreen, themeBlue, themeOrange, themeRed)
   readonly property color otherGaugeColor: Model.usageStageColor(shownOtherPercent, themeGreen, themeBlue, themeOrange, themeRed)
   readonly property int cycleDaysUsed: parseInt(data.cycleDaysUsed, 10) || 0

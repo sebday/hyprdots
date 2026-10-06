@@ -23,7 +23,7 @@ Panel {
   readonly property color dim: Qt.darker(foreground, 1.4)
   readonly property color surface: Theme.popups.background
   readonly property string fontFamily: bar ? bar.fontFamily : Theme.font.family
-  readonly property var palette: Model.heatmapColors(accent)
+  readonly property var palette: Theme.heatmapColors
 
   property bool loading: false
   property var data: null
@@ -181,7 +181,8 @@ Panel {
 
   function refresh(force) {
     refreshGithub(force === true)
-    refreshRepos(force === true)
+    if (force === true || root.opened)
+      refreshRepos(force === true)
   }
 
   function refreshGithub(forceRefresh) {
@@ -189,8 +190,7 @@ Panel {
     if (!hasData) loading = true
     var cmd = ["bash", statusScript]
     if (forceRefresh === true) cmd.push("--refresh")
-    statusProc.command = cmd
-    statusProc.running = true
+    statusProc.run(cmd)
   }
 
   function refreshRepos(forceRefresh) {
@@ -201,8 +201,7 @@ Panel {
     // savedRepoRoots covers the gap until config/shell.json reaches `settings`.
     var roots = setting("repoRoots", savedRepoRoots)
     if (roots !== undefined && roots !== null) cmd.push("--roots", JSON.stringify(roots))
-    repoProc.command = cmd
-    repoProc.running = true
+    repoProc.run(cmd)
   }
 
   function applyRepoPayload(raw) {
@@ -347,7 +346,6 @@ Panel {
   Component.onCompleted: {
     data = emptyData()
     refreshGithub()
-    refreshRepos()
   }
 
   onOpenedChanged: if (opened) {
@@ -361,45 +359,23 @@ Panel {
     expandedRepoPath = ""
   }
 
-  Process {
+  JsonPollRunner {
     id: statusProc
-    onStarted: { stdoutBuf = ""; stderrBuf = "" }
-
-    property string stdoutBuf: ""
-    property string stderrBuf: ""
-    stdout: SplitParser {
-      splitMarker: ""
-      onRead: function(chunk) {
-        statusProc.stdoutBuf += chunk
-        if (statusProc.stdoutBuf.length > 262144) {
-          statusProc.signal(15)
-          statusProc.stdoutBuf = ""
+    autoStart: false
+    active: false
+    onExited: function(exitCode, stdoutText, stderrText) {
+      var raw = String(stdoutText || "").trim()
+      if (!raw) {
+        root.loading = false
+        if (!root.hasData) {
+          root.applyPayload('{"class":"error","text":"No data"}')
+          root.statusText = "No data"
         }
+        return
       }
-    }
-    stderr: SplitParser {
-      splitMarker: ""
-      onRead: function(chunk) {
-        statusProc.stderrBuf += chunk
-        if (statusProc.stderrBuf.length > 4096) {
-          statusProc.signal(15)
-          statusProc.stderrBuf = ""
-        }
-      }
-    }
-      onExited: function(exitCode) {
-      var raw = String(stdoutBuf || "").trim()
-        if (!raw) {
-          root.loading = false
-          if (!root.hasData) {
-            root.applyPayload('{"class":"error","stdoutBuf":"No data"}')
-            root.statusText = "No data"
-          }
-          return
-        }
-        root.applyPayload(raw)
-      if (String(stderrBuf || "").trim() !== "" && !root.hasData)
-          root.applyPayload(String(stderrBuf || ""))
+      root.applyPayload(raw)
+      if (String(stderrText || "").trim() !== "" && !root.hasData)
+        root.applyPayload(String(stderrText || ""))
     }
   }
 
@@ -411,41 +387,20 @@ Panel {
     onTriggered: root.refresh()
   }
 
-  Process {
+  JsonPollRunner {
     id: repoProc
-    onStarted: { stdoutBuf = ""; stderrBuf = "" }
-
-    property string stdoutBuf: ""
-    property string stderrBuf: ""
-    stdout: SplitParser {
-      splitMarker: ""
-      onRead: function(chunk) {
-        repoProc.stdoutBuf += chunk
-        if (repoProc.stdoutBuf.length > 262144) {
-          repoProc.signal(15)
-          repoProc.stdoutBuf = ""
-        }
+    autoStart: false
+    active: false
+    onExited: function(exitCode, stdoutText, stderrText) {
+      var err = String(stderrText || "").trim()
+      var raw = String(stdoutText || "").trim()
+      if (exitCode !== 0 || !raw) {
+        root.repoLoading = false
+        if (err)
+          root.applyRepoPayload('{"ok":false,"error":"' + err.replace(/"/g, '\\"') + '"}')
+        return
       }
-    }
-    stderr: SplitParser {
-      splitMarker: ""
-      onRead: function(chunk) {
-        repoProc.stderrBuf += chunk
-        if (repoProc.stderrBuf.length > 4096) {
-          repoProc.signal(15)
-          repoProc.stderrBuf = ""
-        }
-      }
-    }
-      onExited: function(exitCode) {
-      var raw = String(stdoutBuf || "").trim()
-        if (!raw) {
-          root.repoLoading = false
-          return
-        }
-        root.applyRepoPayload(raw)
-      if (String(stderrBuf || "").trim() !== "" && root.repoLoading)
-          root.applyRepoPayload('{"ok":false,"error":"' + String(stderrBuf).replace(/"/g, '\\"') + '"}')
+      root.applyRepoPayload(raw)
     }
   }
 

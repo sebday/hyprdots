@@ -5,11 +5,11 @@ Item {
   id: root
 
   property var cells: []
-  property color accent: "#89dceb"
-  property color backgroundColor: "#1a1b26"
-  property color mutedColor: "#565f89"
-  property color textColor: "#a9b1d6"
-  property color downColor: "#f7768e"
+  property color accent: Theme.accent
+  property color backgroundColor: Theme.background
+  property color mutedColor: Theme.muted
+  property color textColor: Theme.foreground
+  property color downColor: Theme.urgent
   property string fontFamily: "monospace"
 
   signal chosen(string id)

@@ -176,6 +176,37 @@ Singleton {
     readonly property color heatmap3: mixColors(mantle, accent, 0.8)
     readonly property color heatmap4: accent
     readonly property var heatmapColors: [heatmap0, heatmap1, heatmap2, heatmap3, heatmap4]
+
+    function ansiFallback(slot) {
+        switch (String(slot || "")) {
+        case "green":
+        case "color2":
+            return mixColors(accent, foreground, 0.25)
+        case "yellow":
+        case "color3":
+            return mixColors(foreground, urgent, 0.35)
+        case "orange":
+        case "color11":
+            return mixColors(urgent, accent, 0.4)
+        case "red":
+        case "color1":
+            return urgent
+        case "blue":
+        case "purple":
+        case "color4":
+            return accent
+        case "magenta":
+        case "pink":
+        case "mauve":
+        case "color5":
+            return highlight
+        case "cyan":
+        case "color6":
+            return mixColors(accent, foreground, 0.45)
+        default:
+            return foreground
+        }
+    }
     readonly property color recapArtistsTint: mixColors(mantle, accent, 0.52)
     readonly property color recapAlbumsTint: mixColors(mantle, urgent, 0.52)
     readonly property color recapTracksTint: mixColors(mantle, highlight, 0.52)

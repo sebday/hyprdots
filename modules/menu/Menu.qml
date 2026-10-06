@@ -35,13 +35,11 @@ Item {
     readonly property bool previewTileMode: submenu === "themes" || submenu === "wallpaper"
     readonly property bool boxTileMode: previewTileMode
     readonly property bool framedMode: !previewTileMode
-    readonly property bool sectionMenuMode: false
     readonly property bool powerSearchMode: powerMenuMode && filterText.trim() !== ""
     readonly property bool programsTabActive: powerMenuMode && menuTabIndex === 0 && !powerSearchMode
     readonly property bool programsListMode: programsTabActive || powerSearchMode
     readonly property bool showMainMenuTabs: powerMenuMode
     readonly property bool showSettingsTab: powerMenuMode && menuTabIndex > 0 && !powerSearchMode
-    readonly property var sectionColumnOrder: ["programs", "games", "panels", "right"]
     readonly property var mainTabModel: [
         { label: "Programs", icon: "󰀻" },
         { label: "Looks", icon: "󰒠" },
@@ -50,13 +48,8 @@ Item {
         { label: "Wallpapers", icon: "󰏘" },
         { label: "Weather", icon: "󰖕" },
         { label: "Media", icon: "󰿯" },
-        { label: "Packages", icon: "󰏖" },
-        { label: "Player", icon: "󰎆" }
+        { label: "Packages", icon: "󰏖" }
     ]
-    property var sectionLayoutPrograms: []
-    property var sectionLayoutGames: []
-    property var sectionLayoutPanels: []
-    property var sectionLayoutRight: []
     readonly property string previewFallbackIcon: submenu === "wallpaper" ? "󰏘" : "󰸌"
     readonly property int tileWidth: 160
     readonly property int tileHeight: 160
@@ -194,10 +187,6 @@ Item {
         : Theme.systemPanelWidth
     readonly property int infoListFontSize: Theme.fontSizeS
     readonly property int infoListRowHeight: 40
-    readonly property int powerLinkRowHeight: 36
-    readonly property int powerLinkIconSize: 18
-    readonly property int powerSectionChrome: 36
-    readonly property int powerSectionSpacing: Theme.hoverPanelSectionSpacing
     readonly property int framedFilterChromeHeight: listFilterHeight
     readonly property int framedColumnSpacing: Theme.hoverPanelSectionSpacing
     readonly property int infoDetailHeight: 96
@@ -465,74 +454,10 @@ Item {
         if (next < 0) next = count - 1
         else if (next >= count) next = 0
         selectedIndex = next
-        if (framedMode && !sectionMenuMode)
+        if (framedMode)
             entryList.positionViewAtIndex(selectedIndex, ListView.Contain)
         else if (previewTileMode)
             ensureGridSelectionVisible()
-        else if (sectionMenuMode)
-            ensureSectionSelectionVisible()
-    }
-
-    function stampPowerSection(section, globalIndex) {
-        if (!section)
-            return { section: null, nextIndex: globalIndex }
-        var entries = section.entries.map(MenuEntries.mapEntry)
-        if (entries.length === 0)
-            return { section: null, nextIndex: globalIndex }
-        var stamped = []
-        for (var j = 0; j < entries.length; j++) {
-            var entry = entries[j]
-            entry.globalIndex = globalIndex
-            globalIndex++
-            stamped.push(entry)
-        }
-        return {
-            section: {
-                title: section.title,
-                icon: section.icon,
-                entries: stamped
-            },
-            nextIndex: globalIndex
-        }
-    }
-
-    function stampAppSection(section, globalIndex) {
-        if (!section || !section.entries || section.entries.length === 0)
-            return { section: null, nextIndex: globalIndex }
-        var stamped = []
-        for (var j = 0; j < section.entries.length; j++) {
-            var entry = section.entries[j]
-            stamped.push({
-                kind: entry.kind,
-                name: entry.name,
-                id: entry.id,
-                entryRef: entry.entryRef,
-                iconSource: entry.iconSource || "",
-                icon: entry.icon || "󰀻",
-                globalIndex: globalIndex
-            })
-            globalIndex++
-        }
-        return {
-            section: {
-                title: section.title,
-                icon: section.icon,
-                entries: stamped
-            },
-            nextIndex: globalIndex
-        }
-    }
-
-    function isGameApp(app) {
-        if (!app || !app.entryRef || !app.entryRef.categories)
-            return false
-        var cats = app.entryRef.categories
-        for (var i = 0; i < cats.length; i++) {
-            var cat = String(cats[i] || "").toLowerCase()
-            if (cat === "game" || cat.startsWith("game"))
-                return true
-        }
-        return false
     }
 
     function programRunCount(id) {
@@ -562,8 +487,6 @@ Item {
         }
         if (root.programsListMode || root.powerSearchMode)
             root.syncVisibleEntries()
-        else if (root.sectionMenuMode)
-            root.rebuildSectionMenuLayout()
     }
 
     function saveProgramRuns() {
@@ -596,247 +519,6 @@ Item {
                 return cb - ca
             return String(a.name || "").localeCompare(String(b.name || ""))
         })
-    }
-
-    function appsByKind(games) {
-        var apps = sortedApps()
-        var out = []
-        for (var i = 0; i < apps.length; i++) {
-            if (isGameApp(apps[i]) === games)
-                out.push(apps[i])
-        }
-        return out
-    }
-
-    function rebuildSectionMenuLayout() {
-        if (!sectionMenuMode) {
-            sectionLayoutPrograms = []
-            sectionLayoutGames = []
-            sectionLayoutPanels = []
-            sectionLayoutRight = []
-            rebuildSizingEntryCount()
-            return
-        }
-        var extensionPanels = shell ? shell.extensionSystemMenuPanels : []
-        var raw = MenuEntries.systemSectionLayout(home, evoshellBin, extensionPanels)
-        var globalIndex = 0
-        var programsResult = stampAppSection({
-            title: "Programs",
-            icon: "󰀻",
-            entries: appsByKind(false)
-        }, globalIndex)
-        globalIndex = programsResult.nextIndex
-        var gamesResult = stampAppSection({
-            title: "Games",
-            icon: "󰊗",
-            entries: appsByKind(true)
-        }, globalIndex)
-        globalIndex = gamesResult.nextIndex
-        var panelsResult = stampPowerSection(raw.panels, globalIndex)
-        globalIndex = panelsResult.nextIndex
-        var right = []
-        for (var i = 0; i < raw.right.length; i++) {
-            var result = stampPowerSection(raw.right[i], globalIndex)
-            globalIndex = result.nextIndex
-            if (result.section)
-                right.push(result.section)
-        }
-        sectionLayoutPrograms = programsResult.section ? [programsResult.section] : []
-        sectionLayoutGames = gamesResult.section ? [gamesResult.section] : []
-        sectionLayoutPanels = panelsResult.section ? [panelsResult.section] : []
-        sectionLayoutRight = right
-        rebuildSizingEntryCount()
-    }
-
-    function sectionMenuLayout() {
-        return {
-            programs: sectionLayoutPrograms,
-            games: sectionLayoutGames,
-            panels: sectionLayoutPanels,
-            right: sectionLayoutRight
-        }
-    }
-
-    function sectionMenuEntries() {
-        var layout = sectionMenuLayout()
-        var sections = []
-        for (var c = 0; c < sectionColumnOrder.length; c++)
-            sections = sections.concat(layout[sectionColumnOrder[c]])
-        return sections
-    }
-
-    function powerSectionEntries() {
-        return sectionMenuEntries()
-    }
-
-    function layoutColumnSections(layout, column) {
-        return layout[column] || []
-    }
-
-    function sectionPosFromGlobal(globalIdx) {
-        var layout = sectionMenuLayout()
-        var idx = 0
-        for (var c = 0; c < sectionColumnOrder.length; c++) {
-            var column = sectionColumnOrder[c]
-            var sections = layoutColumnSections(layout, column)
-            for (var s = 0; s < sections.length; s++) {
-                var section = sections[s]
-                for (var e = 0; e < section.entries.length; e++) {
-                    if (idx === globalIdx)
-                        return {
-                            column: column,
-                            sectionIndex: s,
-                            entryIndex: e,
-                            sections: sections
-                        }
-                    idx++
-                }
-            }
-        }
-        return null
-    }
-
-    function globalFromSectionPos(column, sectionIndex, entryIndex) {
-        var layout = sectionMenuLayout()
-        var idx = 0
-        for (var c = 0; c < sectionColumnOrder.length; c++) {
-            var col = sectionColumnOrder[c]
-            var sections = layoutColumnSections(layout, col)
-            if (col === column) {
-                for (var s = 0; s < sectionIndex; s++)
-                    idx += sections[s].entries.length
-                return idx + entryIndex
-            }
-            for (var s2 = 0; s2 < sections.length; s2++)
-                idx += sections[s2].entries.length
-        }
-        return 0
-    }
-
-    function sectionHeight(section) {
-        if (!section || !section.entries)
-            return powerSectionChrome
-        return powerSectionChrome + section.entries.length * powerLinkRowHeight + 8
-    }
-
-    function columnEntryY(sections, sectionIndex, entryIndex) {
-        var y = 0
-        for (var s = 0; s < sectionIndex; s++)
-            y += sectionHeight(sections[s]) + powerSectionSpacing
-        return y + powerSectionChrome + entryIndex * powerLinkRowHeight
-    }
-
-    function columnFlatIndex(sections, sectionIndex, entryIndex) {
-        var flat = 0
-        for (var s = 0; s < sectionIndex; s++)
-            flat += sections[s].entries.length
-        return flat + entryIndex
-    }
-
-    function sectionPosFromColumnFlat(sections, column, flat) {
-        var walk = 0
-        for (var s = 0; s < sections.length; s++) {
-            var count = sections[s].entries.length
-            if (flat < walk + count)
-                return globalFromSectionPos(column, s, flat - walk)
-            walk += count
-        }
-        return -1
-    }
-
-    function columnEntryCount(sections) {
-        var total = 0
-        for (var s = 0; s < sections.length; s++)
-            total += sections[s].entries.length
-        return total
-    }
-
-    function moveSectionSelection(dx, dy) {
-        if (visibleEntries.length <= 0)
-            return
-        var pos = sectionPosFromGlobal(selectedIndex)
-        if (!pos)
-            return
-
-        var layout = sectionMenuLayout()
-
-        if (dy !== 0) {
-            var flat = columnFlatIndex(pos.sections, pos.sectionIndex, pos.entryIndex)
-            var columnCount = columnEntryCount(pos.sections)
-            if (columnCount <= 0)
-                return
-            flat = (flat + dy + columnCount) % columnCount
-            var next = sectionPosFromColumnFlat(pos.sections, pos.column, flat)
-            if (next >= 0)
-                selectedIndex = next
-            ensureSectionSelectionVisible()
-            return
-        }
-
-        if (dx === 0)
-            return
-
-        var colIdx = sectionColumnOrder.indexOf(pos.column)
-        if (colIdx < 0)
-            return
-        var step = dx > 0 ? 1 : -1
-        for (var attempt = 0; attempt < sectionColumnOrder.length - 1; attempt++) {
-            colIdx += step
-            if (colIdx < 0 || colIdx >= sectionColumnOrder.length)
-                return
-            var otherColumn = sectionColumnOrder[colIdx]
-            var otherSections = layoutColumnSections(layout, otherColumn)
-            if (otherSections.length === 0 || columnEntryCount(otherSections) === 0)
-                continue
-
-            var currentY = columnEntryY(pos.sections, pos.sectionIndex, pos.entryIndex)
-            var bestIdx = -1
-            var bestDist = Infinity
-            for (var os = 0; os < otherSections.length; os++) {
-                for (var oe = 0; oe < otherSections[os].entries.length; oe++) {
-                    var y = columnEntryY(otherSections, os, oe)
-                    var dist = Math.abs(y - currentY)
-                    if (dist < bestDist) {
-                        bestDist = dist
-                        bestIdx = globalFromSectionPos(otherColumn, os, oe)
-                    }
-                }
-            }
-            if (bestIdx >= 0) {
-                selectedIndex = bestIdx
-                ensureSectionSelectionVisible()
-            }
-            return
-        }
-    }
-
-    function sectionSelectedRowY() {
-        var layout = sectionMenuLayout()
-        var idx = 0
-        for (var c = 0; c < sectionColumnOrder.length; c++) {
-            var column = sectionColumnOrder[c]
-            var sections = layoutColumnSections(layout, column)
-            for (var s = 0; s < sections.length; s++) {
-                var section = sections[s]
-                for (var e = 0; e < section.entries.length; e++) {
-                    if (idx === selectedIndex)
-                        return columnEntryY(sections, s, e)
-                    idx++
-                }
-            }
-        }
-        return 0
-    }
-
-    function ensureSectionSelectionVisible() {
-        if (!sectionMenuMode)
-            return
-        var itemTop = sectionSelectedRowY()
-        var itemBottom = itemTop + powerLinkRowHeight
-        if (itemTop < sectionListFlickable.contentY)
-            sectionListFlickable.contentY = itemTop
-        else if (itemBottom > sectionListFlickable.contentY + sectionListFlickable.height)
-            sectionListFlickable.contentY = Math.max(0, itemBottom - sectionListFlickable.height)
     }
 
     function ensureGridSelectionVisible() {
@@ -893,7 +575,6 @@ Item {
                 return
         }
         if (previewTileMode) moveGridSelection(-1, 0)
-        else if (sectionMenuMode) moveSectionSelection(-1, 0)
     }
 
     function handlePreviewRight() {
@@ -913,7 +594,6 @@ Item {
                 return
         }
         if (previewTileMode) moveGridSelection(1, 0)
-        else if (sectionMenuMode) moveSectionSelection(1, 0)
     }
 
     function handlePreviewUp() {
@@ -928,7 +608,6 @@ Item {
             return
         }
         if (previewTileMode) moveGridSelection(0, -1)
-        else if (sectionMenuMode) moveSectionSelection(0, -1)
         else if (framedMode) moveSelection(-1)
     }
 
@@ -944,7 +623,6 @@ Item {
             return
         }
         if (previewTileMode) moveGridSelection(0, 1)
-        else if (sectionMenuMode) moveSectionSelection(0, 1)
         else if (framedMode) moveSelection(1)
     }
 
@@ -996,9 +674,7 @@ Item {
             return
         }
         selectedIndex = MenuEntries.bestMatchIndex(visibleEntries, q)
-        if (sectionMenuMode)
-            Qt.callLater(root.ensureSectionSelectionVisible)
-        else if (framedMode && entryList && (infoListMode || powerSearchMode))
+        if (framedMode && entryList && (infoListMode || powerSearchMode))
             entryList.positionViewAtIndex(selectedIndex, ListView.Contain)
     }
 
@@ -1011,26 +687,21 @@ Item {
     }
 
     onFilterTextChanged: {
-        rebuildSectionMenuLayout()
         refreshVisibleEntries()
         focusBestSearchMatch()
     }
     onSelectedIndexChanged: {
-        if (sectionMenuMode)
-            Qt.callLater(root.ensureSectionSelectionVisible)
-        else if (framedMode && entryList && (infoListMode || powerSearchMode))
+        if (framedMode && entryList && (infoListMode || powerSearchMode))
             entryList.positionViewAtIndex(selectedIndex, ListView.Contain)
     }
     onSubmenuChanged: {
         selectedIndex = 0
         refreshVisibleEntries()
-        rebuildSectionMenuLayout()
     }
     onModeChanged: {
         refreshCommandEntries()
         selectedIndex = 0
         refreshVisibleEntries()
-        rebuildSectionMenuLayout()
     }
     onCommandEntriesChanged: refreshVisibleEntries()
     onDynamicEntriesChanged: {
@@ -1091,7 +762,7 @@ Item {
         root.cachedApps = rebuilt
         root.appIconEpoch++
         root.visibleEntries = root.filteredEntries()
-        rebuildSectionMenuLayout()
+        rebuildSizingEntryCount()
     }
 
     function entryGlyphIcon(entry) {
@@ -1121,7 +792,7 @@ Item {
         }
         cachedApps = list
         loadAppIcons()
-        rebuildSectionMenuLayout()
+        rebuildSizingEntryCount()
     }
 
     function loadAppIcons() {
@@ -1376,113 +1047,6 @@ Item {
         })
     }
 
-    component PowerMenuSection: SectionPanel {
-        required property var sectionData
-
-        Layout.fillWidth: true
-        Layout.fillHeight: false
-        Layout.alignment: Qt.AlignTop
-        visible: sectionData !== null
-        notchLegend: true
-        legendText: sectionData ? sectionData.title : ""
-        legendIcon: sectionData ? sectionData.icon : ""
-        legendBackground: Theme.background
-        label: ""
-        sectionSpacing: 4
-
-        ColumnLayout {
-            Layout.fillWidth: true
-            spacing: 2
-
-            Repeater {
-                model: sectionData ? sectionData.entries : []
-
-                Rectangle {
-                    required property var modelData
-                    required property int index
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: root.powerLinkRowHeight
-                    radius: Theme.fieldsetCornerRadius
-                    color: powerRowMouse.containsMouse || powerGlobalIndex === root.selectedIndex
-                        ? Theme.withOpacity(Theme.panelMantle, 0.95)
-                        : "transparent"
-                    opacity: root.entrySearchOpacity(modelData, powerGlobalIndex)
-
-                    readonly property int powerGlobalIndex: modelData.globalIndex
-
-                    RowLayout {
-                        anchors.fill: parent
-                        anchors.leftMargin: 8
-                        anchors.rightMargin: 8
-                        spacing: 10
-
-                        Item {
-                            Layout.preferredWidth: root.powerLinkIconSize
-                            Layout.preferredHeight: root.powerLinkIconSize
-                            Layout.alignment: Qt.AlignVCenter
-                            readonly property string rowIconSource: {
-                                if (modelData.kind !== "app")
-                                    return ""
-                                var _epoch = root.appIconEpoch
-                                return root.entryIconSource(modelData)
-                            }
-
-                            Image {
-                                id: rowIconImage
-                                anchors.fill: parent
-                                visible: parent.rowIconSource.length > 0
-                                    && status !== Image.Error
-                                source: Util.normalizeIconSource(parent.rowIconSource)
-                                fillMode: Image.PreserveAspectFit
-                                smooth: true
-                                asynchronous: true
-                                cache: true
-                                sourceSize: Qt.size(
-                                    root.powerLinkIconSize * 2, root.powerLinkIconSize * 2)
-                            }
-
-                            Text {
-                                anchors.centerIn: parent
-                                visible: modelData.kind !== "app"
-                                    || parent.rowIconSource.length === 0
-                                    || rowIconImage.status === Image.Error
-                                text: modelData.icon || "󰍉"
-                                color: powerGlobalIndex === root.selectedIndex
-                                    ? Theme.accent : Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: root.powerLinkIconSize
-                                font.bold: Theme.fontBold
-                            }
-                        }
-
-                        Text {
-                            Layout.fillWidth: true
-                            Layout.alignment: Qt.AlignVCenter
-                            text: modelData.name
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: root.programEntryFontSize
-                            font.bold: Theme.fontBold
-                            elide: Text.ElideRight
-                        }
-                    }
-
-                    MouseArea {
-                        id: powerRowMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onEntered: root.selectedIndex = powerGlobalIndex
-                        onClicked: {
-                            root.selectedIndex = powerGlobalIndex
-                            root.activateEntry(modelData)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     Process {
         id: menuSpecialProc
     }
@@ -1706,7 +1270,7 @@ Item {
                 }
 
                 Text {
-                    visible: (root.programsListMode || root.sectionMenuMode) && !root.dynamicLoading && root.visibleEntries.length === 0
+                    visible: root.programsListMode && !root.dynamicLoading && root.visibleEntries.length === 0
                     Layout.alignment: Qt.AlignHCenter
                     text: root.filterText.trim() === "" ? "No entries" : "No matches"
                     color: Theme.foreground
@@ -1716,105 +1280,10 @@ Item {
                     opacity: Theme.opacityMuted
                 }
 
-                Flickable {
-                    id: sectionListFlickable
-                    visible: root.sectionMenuMode && root.visibleEntries.length > 0
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: root.powerMenuViewportHeight
-                    clip: true
-                    boundsBehavior: Flickable.StopAtBounds
-                    contentWidth: width
-                    contentHeight: sectionColumn.height
-
-                    Item {
-                        id: sectionColumn
-                        width: parent.width
-                        height: Math.max(
-                            programsSectionsColumn.implicitHeight,
-                            gamesSectionsColumn.implicitHeight,
-                            panelsSectionsColumn.implicitHeight,
-                            rightSectionsColumn.implicitHeight)
-
-                        RowLayout {
-                            anchors.top: parent.top
-                            anchors.left: parent.left
-                            anchors.right: parent.right
-                            spacing: root.powerSectionSpacing
-
-                            ColumnLayout {
-                                id: programsSectionsColumn
-                                Layout.fillWidth: true
-                                Layout.preferredWidth: 1
-                                Layout.alignment: Qt.AlignTop
-                                spacing: root.powerSectionSpacing
-
-                                Repeater {
-                                    model: root.sectionLayoutPrograms
-
-                                    PowerMenuSection {
-                                        required property var modelData
-                                        sectionData: modelData
-                                    }
-                                }
-                            }
-
-                            ColumnLayout {
-                                id: gamesSectionsColumn
-                                Layout.fillWidth: true
-                                Layout.preferredWidth: 1
-                                Layout.alignment: Qt.AlignTop
-                                spacing: root.powerSectionSpacing
-
-                                Repeater {
-                                    model: root.sectionLayoutGames
-
-                                    PowerMenuSection {
-                                        required property var modelData
-                                        sectionData: modelData
-                                    }
-                                }
-                            }
-
-                            ColumnLayout {
-                                id: panelsSectionsColumn
-                                Layout.fillWidth: true
-                                Layout.preferredWidth: 1
-                                Layout.alignment: Qt.AlignTop
-                                spacing: root.powerSectionSpacing
-
-                                Repeater {
-                                    model: root.sectionLayoutPanels
-
-                                    PowerMenuSection {
-                                        required property var modelData
-                                        sectionData: modelData
-                                    }
-                                }
-                            }
-
-                            ColumnLayout {
-                                id: rightSectionsColumn
-                                Layout.fillWidth: true
-                                Layout.preferredWidth: 1
-                                Layout.alignment: Qt.AlignTop
-                                spacing: root.powerSectionSpacing
-
-                                Repeater {
-                                    model: root.sectionLayoutRight
-
-                                    PowerMenuSection {
-                                        required property var modelData
-                                        sectionData: modelData
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
 
                 ListView {
                     id: entryList
-                    visible: root.framedMode && !root.sectionMenuMode && !root.showSettingsTab
+                    visible: root.framedMode && !root.showSettingsTab
                     Layout.fillWidth: true
                     Layout.preferredHeight: root.programsListMode
                         ? root.programsViewportHeight
@@ -2079,21 +1548,13 @@ Item {
         target: DesktopEntries
         function onApplicationsChanged() {
             rebuildAppCache()
-            if (sectionMenuMode || programsListMode)
+            if (programsListMode)
                 syncVisibleEntries()
-        }
-    }
-
-    Connections {
-        target: shell
-        function onPluginOverlayChanged() {
-            rebuildSectionMenuLayout()
         }
     }
 
     Component.onCompleted: {
         refreshCommandEntries()
-        rebuildSectionMenuLayout()
         rebuildSizingEntryCount()
         Qt.callLater(rebuildAppCache)
         Qt.callLater(warmPreviewCache)

@@ -6,7 +6,6 @@ import Quickshell.Io
 import qs.commons
 import qs.ui
 import "Model.js" as Model
-import "components"
 
 Panel {
   id: root
@@ -35,7 +34,7 @@ Panel {
   property var spcxData: ({})
 
   readonly property var btc: Model.marketSection(btcData, "BTC", "https://www.tradingview.com/symbols/BTCUSD/", accent, chartHistoryDays)
-  readonly property var spcx: Model.marketSection(spcxData, "SPCX", "https://app.trading212.com/", "#f9e2af", chartHistoryDays)
+  readonly property var spcx: Model.marketSection(spcxData, "SPCX", "https://app.trading212.com/", Theme.highlight, chartHistoryDays)
 
   readonly property string market: {
     var raw = settings && settings.market !== undefined && settings.market !== null
@@ -526,14 +525,12 @@ Panel {
 
       SparklineChart {
         anchors.fill: parent
-        active: root.opened
         style: "candlestick"
         bullishColor: market.chartColor || root.accent
         bearishColor: root.urgent
         chartHeight: root.chartBlockHeight
         bars: market.bars || []
         showEmptyLabel: false
-        fontFamily: root.fontFamily
         opacity: (market.bars || []).length > 0 ? 1 : 0.18
 
         Behavior on opacity {

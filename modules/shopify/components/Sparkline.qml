@@ -1,10 +1,11 @@
 import QtQuick
+import qs.commons
 
 Canvas {
   id: root
 
   property var points: []
-  property color strokeColor: "#b9f27c"
+  property color strokeColor: Theme.ansiFallback("green")
 
   readonly property real dpr: Math.max(1, Screen.devicePixelRatio)
 

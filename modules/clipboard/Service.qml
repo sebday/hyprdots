@@ -15,5 +15,16 @@ Item {
     Process {
         id: watchProc
         command: ["bash", root.script, "watch"]
+        onExited: restartTimer.restart()
+    }
+
+    Timer {
+        id: restartTimer
+        interval: 2000
+        repeat: false
+        onTriggered: {
+            if (!watchProc.running)
+                watchProc.running = true
+        }
     }
 }

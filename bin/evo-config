@@ -14,7 +14,7 @@ usage:
   evo-config get <jq-filter>
   evo-config patch '<jq-filter>' [jq args...]
   evo-config dashboards get|set <id> [on|off]|toggle <id> [on|off]
-  evo-config homeassistant get|set '<json>'|set-fields <light-areas-csv> <climate-entities-csv>|areas
+  evo-config homeassistant get|set '<json>'|set-fields <light-areas-csv> <climate-entities-csv>
   evo-config shopify get|set '<json>'|set-paths <sqliteDir> <remote> <timezone>
   evo-config idle get|set-fields <lock-min>
   evo-config wallpaper get|set-personal-dir <path>|pick-personal-dir
@@ -99,30 +99,6 @@ cmd_homeassistant_set_fields() {
         '.lightAreas = $lightAreas | .climateEntities = $climateEntities' <<<"$base")" \
         '.homeAssistant = $ha'
     cmd_homeassistant_get
-}
-
-cmd_homeassistant_areas() {
-    local ha_script="${EVOSHELL_BIN}/evo-bar-home-assistant"
-    [[ -x "$ha_script" ]] || ha_script="${_bin_dir}/evo-bar-home-assistant"
-    local raw config enabled_areas enabled_climates
-    config="$(cmd_homeassistant_get)"
-    enabled_areas="$(jq -c '.lightAreas // []' <<<"$config")"
-    enabled_climates="$(jq -c '.climateEntities // []' <<<"$config")"
-    raw="$("$ha_script" discover 2>/dev/null || true)"
-    if ! jq -e '.ok == true' <<<"$raw" >/dev/null 2>&1; then
-        jq -n \
-            --arg error "$(jq -r '.error // "not configured"' <<<"${raw:-\{\}}")" \
-            --argjson enabledLightAreas "$enabled_areas" \
-            --argjson enabledClimateEntities "$enabled_climates" \
-            '{ok:false,error:$error,areas:[],climates:[],enabledLightAreas:$enabledLightAreas,enabledClimateEntities:$enabledClimateEntities}'
-        return 0
-    fi
-    jq -n \
-        --argjson areas "$(jq -c '.areas // []' <<<"$raw")" \
-        --argjson climates "$(jq -c '.climates // []' <<<"$raw")" \
-        --argjson enabledLightAreas "$enabled_areas" \
-        --argjson enabledClimateEntities "$enabled_climates" \
-        '{ok:true,areas:$areas,climates:$climates,enabledLightAreas:$enabledLightAreas,enabledClimateEntities:$enabledClimateEntities}'
 }
 
 cmd_shopify_get() {
@@ -335,7 +311,6 @@ homeassistant)
     get) cmd_homeassistant_get ;;
     set) cmd_homeassistant_set "${1:-}" ;;
     set-fields) cmd_homeassistant_set_fields "${1:-}" "${2:-}" ;;
-    areas) cmd_homeassistant_areas ;;
     *) usage ;;
     esac
     ;;

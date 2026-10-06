@@ -7,12 +7,12 @@ Item {
 
   property var payload: null
   property string metric: "revenue"
-  property color borderColor: "#89dceb"
-  property color backgroundColor: "#1a1b26"
-  property color mutedColor: "#565f89"
-  property color textColor: "#a9b1d6"
-  property color brightColor: "#c0caf5"
-  property color warnColor: "#f7768e"
+  property color borderColor: Theme.accent
+  property color backgroundColor: Theme.background
+  property color mutedColor: Theme.muted
+  property color textColor: Theme.foreground
+  property color brightColor: Theme.foreground
+  property color warnColor: Theme.urgent
   property string fontFamily: "monospace"
 
   signal metricChosen(string id)

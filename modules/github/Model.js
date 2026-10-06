@@ -15,19 +15,6 @@ function plain(value, maxLen) {
   return out
 }
 
-var DEFAULT_HEATMAP_COLORS = ["#45475a", "#89b4fa", "#74c7ec", "#89dceb", "#cba6f7"]
-
-function heatmapColors(accent) {
-  var accentColor = String(accent || "#89b4fa")
-  return [
-    DEFAULT_HEATMAP_COLORS[0],
-    accentColor,
-    DEFAULT_HEATMAP_COLORS[2],
-    DEFAULT_HEATMAP_COLORS[3],
-    DEFAULT_HEATMAP_COLORS[4]
-  ]
-}
-
 function contributionLevel(count) {
   var n = parseInt(count, 10) || 0
   if (n >= 30) return 4
@@ -38,8 +25,9 @@ function contributionLevel(count) {
 }
 
 function contributionColor(count, colors) {
-  var palette = colors && colors.length ? colors : DEFAULT_HEATMAP_COLORS
-  return palette[contributionLevel(count)] || palette[1]
+  var palette = colors && colors.length ? colors : []
+  var level = contributionLevel(count)
+  return palette[level] || palette[1] || palette[0] || ""
 }
 
 function trendLevel(count, max) {

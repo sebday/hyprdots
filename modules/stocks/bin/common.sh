@@ -5,51 +5,37 @@ _evo_paths_lib="${EVOSHELL_LIB:-$HOME/.local/lib/evoshell/bin}/evo-paths-lib"
 [[ -r "$_evo_paths_lib" ]] || _evo_paths_lib="${EVOSHELL_BIN:-}/evo-paths-lib"
 # shellcheck source=/dev/null
 [[ -r "$_evo_paths_lib" ]] && source "$_evo_paths_lib"
+# Module scripts live outside bin/; fall back to the installed lib.
+for _lib in \
+  "${EVOSHELL_BIN:-}/evo-secrets-lib" \
+  "${EVOSHELL_ROOT:-}/bin/evo-secrets-lib" \
+  "${EVOSHELL_LIB:-$HOME/.local/lib/evoshell/bin}/evo-secrets-lib"; do
+  [[ -r "$_lib" ]] || continue
+  # shellcheck source=/dev/null
+  source "$_lib"
+  break
+done
+for _lib in \
+  "${EVOSHELL_BIN:-}/evo-storage-lib" \
+  "${EVOSHELL_ROOT:-}/bin/evo-storage-lib" \
+  "${EVOSHELL_LIB:-$HOME/.local/lib/evoshell/bin}/evo-storage-lib"; do
+  [[ -r "$_lib" ]] || continue
+  # shellcheck source=/dev/null
+  source "$_lib"
+  break
+done
+unset _lib
 EVOSHELL_CACHE="${EVOSHELL_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/evoshell}"
 
 EVO_BAR_CACHE_DIR="${EVO_BAR_CACHE_DIR:-${EVOSHELL_CACHE}/stocks/bar}"
-BAR_HISTORY_DIR="${BAR_HISTORY_DIR:-${EVOSHELL_CACHE}/stocks/history}"
 EVO_BAR_THEME_CSS="${EVO_BAR_THEME_CSS:-$HOME/.themes/current/evo-bar.css}"
 
 declare -gA GITHUB_COLORS=()
 
-evo_bar_history_path() {
-  mkdir -p "$BAR_HISTORY_DIR"
-  printf '%s/%s-history.json' "$BAR_HISTORY_DIR" "$1"
-}
-
-evo_secrets_get() {
-  local key="$1"
-  local rel="$2"
-  local value prefix
-  local -a prefixes=()
-  command -v pass >/dev/null 2>&1 || return 1
-  # Credentials on this machine live under omarchy/. Keep evoshell/ first so a
-  # migrated store still wins.
-  prefixes+=("${EVOSHELL_PASS_PREFIX:-evoshell}")
-  [[ "${prefixes[0]}" == "omarchy" ]] || prefixes+=(omarchy)
-  for prefix in "${prefixes[@]}"; do
-    [[ -n "$prefix" ]] || continue
-    value="$(pass show "${prefix}/${rel}" 2>/dev/null || true)"
-    if [[ -n "$value" ]]; then
-      printf '%s' "$value"
-      return 0
-    fi
-  done
-  return 1
-}
-
 evo_bar_load_secrets() {
   local key value
-  declare -A _secret_paths=(
-    [KRAKEN_API_KEY]="kraken/api-key"
-    [KRAKEN_SECRET]="kraken/api-secret"
-    [T212_API_KEY]="trading212/api-key"
-    [T212_API_SECRET]="trading212/api-secret"
-  )
   for key in "$@"; do
-    [[ -n "${_secret_paths[$key]:-}" ]] || continue
-    value="$(evo_secrets_get "$key" "${_secret_paths[$key]}")" || continue
+    value="$(evo_secrets_get "$key")" || continue
     printf -v "$key" '%s' "$value"
   done
 }

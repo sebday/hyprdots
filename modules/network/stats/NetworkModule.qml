@@ -405,7 +405,7 @@ Item {
                         ? root.formatRate(root.networkDownloadRate)
                         : "--"
                     label: "download"
-                    valueColor: "#a6e3a1"
+                    valueColor: Theme.ansiFallback("green")
                     valueFontSize: Theme.fontSizeXl
                 }
 
@@ -444,7 +444,7 @@ Item {
                         bars: root.downHistory
                         secondaryBars: root.upHistory
                         style: "line"
-                        lineColor: "#a6e3a1"
+                        lineColor: Theme.ansiFallback("green")
                         secondaryLineColor: Theme.urgent
                         chartHeight: height
                     }

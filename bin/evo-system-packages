@@ -35,7 +35,6 @@ collect_reference_files() {
 
   for candidate in \
     "${EVOSHELL_ROOT}/.install/packages.txt" \
-    "${EVOSHELL_ROOT}/../hyprdots/.install/packages.txt" \
     "${HOME}/projects/hyprdots/.install/packages.txt"; do
     [[ -f "$candidate" ]] || continue
     resolved="$(readlink -f "$candidate" 2>/dev/null || printf '%s' "$candidate")"

@@ -255,8 +255,6 @@ ShellRoot {
             return ""
         if (metaOrPath.dir)
             return Util.fileUrl(metaOrPath.dir + "/" + rel)
-        if (metaOrPath.root === "plugins")
-            return configDir + "/modules/" + rel
         return shellDir + "/" + rel
     }
 
@@ -268,7 +266,7 @@ ShellRoot {
     function syncServices() {
         for (var id in pluginTable) {
             var meta = pluginTable[id]
-            if (!meta || meta.kinds.indexOf("service") === -1) continue
+            if (!PluginManifest.hasKind(meta, "service")) continue
             if (_services[id]) continue
             if (!pluginsDiscovered && meta.dir) continue
             if (isProvidedByPlugin(id)) continue
@@ -430,9 +428,6 @@ ShellRoot {
         // evoplayer still asks the shell to toggle evo.player.
         if (pluginId === "evo.player")
             return "evo.panels.player"
-        // Older Hyprland binds toggle the docked side panel.
-        if (pluginId === "evo.side")
-            return "evo.calculator"
         return pluginId
     }
 
@@ -472,7 +467,7 @@ ShellRoot {
 
     function requestDashboardOpen(pluginId) {
         var meta = pluginTable[pluginId]
-        if (!meta || meta.kinds.indexOf("dashboard") === -1)
+        if (!PluginManifest.hasKind(meta, "dashboard"))
             return false
 
         var next = ({})
@@ -563,7 +558,7 @@ ShellRoot {
             return requestDashboardOpen(pluginId)
         var meta = pluginTable[pluginId]
         if (!meta) return false
-        if (meta.kinds.indexOf("menu") !== -1 || meta.kinds.indexOf("panel") !== -1) {
+        if (PluginManifest.hasKind(meta, "menu") || PluginManifest.hasKind(meta, "panel")) {
             var next = ({})
             for (var k in openPanelIds) next[k] = openPanelIds[k]
             next[pluginId] = true

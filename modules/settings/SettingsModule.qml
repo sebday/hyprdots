@@ -24,7 +24,10 @@ Item {
     readonly property string fontScript: Util.evoshellScript(Quickshell.env("HOME"), shell, "evo-font")
     readonly property string mediaScript: Util.evoshellScript(Quickshell.env("HOME"), shell, "evo-bar-library")
     readonly property string configScript: Util.evoshellScript(Quickshell.env("HOME"), shell, "evo-config")
-    readonly property string weatherScript: Util.evoshellScript(Quickshell.env("HOME"), shell, "evo-bar-weather")
+    readonly property string weatherScript: {
+        var dir = shell && shell.shellDir ? String(shell.shellDir) : String(Quickshell.shellDir)
+        return dir + "/modules/weather/bin/weather-location"
+    }
     readonly property string packagesScript: Util.evoshellScript(Quickshell.env("HOME"), shell, "evo-system-packages")
     readonly property string fontStatePath: Util.configPath(home, "font.json")
     readonly property string themeNamePath: Quickshell.env("HOME") + "/.themes/current/.theme-name"
@@ -32,7 +35,6 @@ Item {
     readonly property string home: Quickshell.env("HOME")
     // Empty until vendor/evoplayer settings exist. A direct type import
     // fails the whole settings module, which takes the system menu with it.
-    readonly property string playerSettingsSource: ""
     readonly property string wallpaperStatePath: Util.statePath(home, "wallpaper")
 
     property var themeEntries: []
@@ -102,8 +104,6 @@ Item {
     property int weatherLocationPopupWidth: 0
     property var secretsStatus: ({})
     property bool secretsReady: false
-    property string haLightAreas: ""
-    property string haClimateEntities: ""
     property var haEnabledLightAreas: []
     property var haEnabledClimateEntities: []
     property bool haReady: false
@@ -233,7 +233,6 @@ Item {
         case 4: return weatherTab
         case 5: return mediaTab
         case 6: return packagesTabColumn
-        case 7: return playerSettingsHost
         default: return null
         }
     }
@@ -247,7 +246,6 @@ Item {
         case 4: return weatherTabScroll
         case 5: return mediaTabScroll
         case 6: return packagesTabScroll
-        case 7: return playerTabScroll
         default: return null
         }
     }
@@ -339,18 +337,57 @@ Item {
         return String(label || "").toLowerCase().indexOf(q) >= 0
     }
 
+    property var jsonJobs: []
+
+    function runJsonScript(command, applyFn) {
+        var key = JSON.stringify(command || [])
+        if (jsonScriptProc.running && JSON.stringify(jsonScriptProc.command) === key)
+            return
+        for (var i = 0; i < jsonJobs.length; i++) {
+            if (JSON.stringify(jsonJobs[i].command) === key)
+                return
+        }
+        var jobs = jsonJobs.slice()
+        jobs.push({ command: command, apply: applyFn })
+        jsonJobs = jobs
+        if (!jsonScriptProc.running)
+            startNextJsonJob()
+    }
+
+    function startNextJsonJob() {
+        if (jsonJobs.length === 0)
+            return
+        var job = jsonJobs[0]
+        jsonScriptProc.applyFn = job.apply
+        jsonScriptProc.command = job.command
+        jsonScriptProc.running = true
+    }
+
+    function finishJsonJob(text) {
+        var jobs = jsonJobs.slice()
+        var job = jobs.shift()
+        jsonJobs = jobs
+        if (job && job.apply)
+            job.apply(text)
+        if (jsonJobs.length > 0)
+            Qt.callLater(startNextJsonJob)
+    }
+
     function refresh() {
         Theme.reloadLooks()
-        if (!loadHyprProc.running) loadHyprProc.running = true
-        if (!loadFontProc.running) loadFontProc.running = true
-        if (!loadFontListProc.running) loadFontListProc.running = true
-        if (!loadUiProc.running) loadUiProc.running = true
-        if (!loadMediaProc.running) loadMediaProc.running = true
-        if (!loadWeatherProc.running) loadWeatherProc.running = true
-        if (!loadWallpaperConfigProc.running) loadWallpaperConfigProc.running = true
-        if (!loadSecretsProc.running) loadSecretsProc.running = true
-        if (!loadIdleProc.running) loadIdleProc.running = true
-        if (!loadTrayProc.running) loadTrayProc.running = true
+        runJsonScript(["bash", hyprScript, "get"], function(text) {
+            root.parseHyprState(text)
+            Theme.reloadLooks()
+        })
+        runJsonScript(["bash", fontScript, "get"], function(text) { root.parseFontState(text) })
+        runJsonScript(["bash", fontScript, "list"], function(text) { root.parseFontList(text) })
+        runJsonScript(["bash", barScript, "ui", "get"], function(text) { root.parseUiState(text) })
+        runJsonScript(["bash", mediaScript, "settings", "get"], function(text) { root.parseMediaSettings(text) })
+        runJsonScript(["bash", weatherScript, "settings", "get"], function(text) { root.parseWeatherSettings(text) })
+        runJsonScript(["bash", configScript, "wallpaper", "get"], function(text) { root.parseWallpaperConfig(text) })
+        runJsonScript(["bash", configScript, "secrets", "status", "--json"], function(text) { root.parseSecretsStatus(text) })
+        runJsonScript(["bash", configScript, "idle", "get"], function(text) { root.parseIdleState(text) })
+        runJsonScript(["bash", configScript, "tray", "get"], function(text) { root.parseTrayState(text) })
     }
 
     function toggleHypr(key) {
@@ -505,10 +542,8 @@ Item {
     function onActivated() {
         themeNameFile.reload()
         wallpaperStateFile.reload()
-        if (!loadThemeListProc.running)
-            loadThemeListProc.running = true
-        if (!loadWallpaperListProc.running)
-            loadWallpaperListProc.running = true
+        runJsonScript([themeListScript, "themes"], function(text) { root.parseThemeList(text) })
+        runJsonScript([themeListScript, "wallpapers"], function(text) { root.parseWallpaperList(text) })
         refresh()
         Qt.callLater(function() {
             root.forceActiveFocus()
@@ -753,27 +788,13 @@ Item {
         }
     }
 
-    function refreshHomeAssistantService() {
-        if (!shell)
-            return
-        var ha = shell.serviceFor("evo.panels.homeassistant")
-        if (ha && typeof ha.refresh === "function")
-            ha.refresh(true)
-    }
-
-    function loadHaDiscovery() {
-        if (settingsBusy)
-            return
-        loadHaAreasProc.running = true
-    }
-
     function loadPackagesBreakdown() {
         if (packagesLoading)
             return
         packagesLoading = true
         packagesReady = false
         packagesError = ""
-        loadPackagesProc.running = true
+        runJsonScript(["bash", packagesScript, "breakdown"], function(text) { root.parsePackagesBreakdown(text) })
     }
 
     function parsePackagesBreakdown(raw) {
@@ -960,56 +981,11 @@ Item {
             var climates = Array.isArray(data.climateEntities) ? data.climateEntities : []
             root.haEnabledLightAreas = areas.slice()
             root.haEnabledClimateEntities = climates.slice()
-            root.haLightAreas = areas.join(", ")
-            root.haClimateEntities = climates.join(", ")
             root.syncHaToggleStateFromConfig()
             root.haReady = true
         } catch (e) {
             root.haReady = false
         }
-    }
-
-    function parseHaDiscovery(raw) {
-        try {
-            var data = JSON.parse(String(raw || "{}"))
-            if (data.ok !== true) {
-                haDiscoveryError = String(data.error || "Home Assistant unavailable")
-                haAreaOptions = []
-                haClimateOptions = []
-                haDiscoveryReady = false
-                return
-            }
-            haDiscoveryError = ""
-            var enabledAreas = {}
-            var enabledClimates = {}
-            var enabledAreaList = Array.isArray(data.enabledLightAreas) ? data.enabledLightAreas : []
-            var enabledClimateList = Array.isArray(data.enabledClimateEntities) ? data.enabledClimateEntities : []
-            var i
-            for (i = 0; i < enabledAreaList.length; i++)
-                enabledAreas[String(enabledAreaList[i])] = true
-            for (i = 0; i < enabledClimateList.length; i++)
-                enabledClimates[String(enabledClimateList[i])] = true
-            haAreaOptions = (Array.isArray(data.areas) ? data.areas : []).map(function(name) {
-                var key = String(name || "")
-                return { name: key, enabled: enabledAreas[key] === true }
-            })
-            haClimateOptions = (Array.isArray(data.climates) ? data.climates : []).map(function(row) {
-                var entityId = String(row.entityId || "")
-                return {
-                    entityId: entityId,
-                    name: String(row.name || entityId),
-                    enabled: enabledClimates[entityId] === true
-                }
-            })
-            haDiscoveryReady = true
-        } catch (e) {
-            haDiscoveryError = "Could not load Home Assistant areas"
-            haAreaOptions = []
-            haClimateOptions = []
-            haDiscoveryReady = false
-        }
-        if (root.compactLayout)
-            Qt.callLater(root.rebuildSettingsNav)
     }
 
     function parseIdleState(raw) {
@@ -1086,31 +1062,6 @@ Item {
         return String(text || "").split(",").map(function(s) { return s.trim() }).filter(function(s) { return s !== "" })
     }
 
-    Process {
-        id: loadHyprProc
-        command: ["bash", root.hyprScript, "get"]
-        stdout: StdioCollector {
-            onStreamFinished: root.parseHyprState(text)
-        }
-        onExited: Theme.reloadLooks()
-    }
-
-    Process {
-        id: loadUiProc
-        command: ["bash", root.barScript, "ui", "get"]
-        stdout: StdioCollector {
-            onStreamFinished: root.parseUiState(text)
-        }
-    }
-
-    Process {
-        id: loadFontProc
-        command: ["bash", root.fontScript, "get"]
-        stdout: StdioCollector {
-            onStreamFinished: root.parseFontState(text)
-        }
-    }
-
     FileView {
         id: fontStateFile
         path: root.fontStatePath
@@ -1145,26 +1096,10 @@ Item {
     }
 
     Process {
-        id: loadThemeListProc
-        command: [root.themeListScript, "themes"]
+        id: jsonScriptProc
+        property var applyFn: null
         stdout: StdioCollector {
-            onStreamFinished: root.parseThemeList(text)
-        }
-    }
-
-    Process {
-        id: loadWallpaperListProc
-        command: [root.themeListScript, "wallpapers"]
-        stdout: StdioCollector {
-            onStreamFinished: root.parseWallpaperList(text)
-        }
-    }
-
-    Process {
-        id: loadFontListProc
-        command: ["bash", root.fontScript, "list"]
-        stdout: StdioCollector {
-            onStreamFinished: root.parseFontList(text)
+            onStreamFinished: root.finishJsonJob(text)
         }
     }
 
@@ -1203,14 +1138,6 @@ Item {
         command: ["bash", root.fontScript, "set", fontSetProc.key, fontSetProc.value]
         stdout: StdioCollector {
             onStreamFinished: root.parseFontState(text)
-        }
-    }
-
-    Process {
-        id: loadMediaProc
-        command: ["bash", root.mediaScript, "settings", "get"]
-        stdout: StdioCollector {
-            onStreamFinished: root.parseMediaSettings(text)
         }
     }
 
@@ -1259,27 +1186,11 @@ Item {
     }
 
     Process {
-        id: loadWeatherProc
-        command: ["bash", root.weatherScript, "settings", "get"]
-        stdout: StdioCollector {
-            onStreamFinished: root.parseWeatherSettings(text)
-        }
-    }
-
-    Process {
         id: weatherSetProc
         property string query: ""
         command: ["bash", root.weatherScript, "settings", "set", weatherSetProc.query]
         stdout: StdioCollector {
             onStreamFinished: root.parseWeatherSettings(text)
-        }
-    }
-
-    Process {
-        id: loadWallpaperConfigProc
-        command: ["bash", root.configScript, "wallpaper", "get"]
-        stdout: StdioCollector {
-            onStreamFinished: root.parseWallpaperConfig(text)
         }
     }
 
@@ -1290,8 +1201,7 @@ Item {
         stdout: StdioCollector {
             onStreamFinished: {
                 root.parseWallpaperConfig(text)
-                if (!loadWallpaperListProc.running)
-                    loadWallpaperListProc.running = true
+                root.runJsonScript([root.themeListScript, "wallpapers"], function(raw) { root.parseWallpaperList(raw) })
             }
         }
     }
@@ -1302,8 +1212,7 @@ Item {
         stdout: StdioCollector {
             onStreamFinished: {
                 root.parseWallpaperConfig(text)
-                if (!loadWallpaperListProc.running)
-                    loadWallpaperListProc.running = true
+                root.runJsonScript([root.themeListScript, "wallpapers"], function(raw) { root.parseWallpaperList(raw) })
             }
         }
     }
@@ -1325,55 +1234,12 @@ Item {
     }
 
     Process {
-        id: loadSecretsProc
-        command: ["bash", root.configScript, "secrets", "status", "--json"]
-        stdout: StdioCollector {
-            onStreamFinished: root.parseSecretsStatus(text)
-        }
-    }
-
-    Process {
-        id: loadHaProc
-        command: ["bash", root.configScript, "homeassistant", "get"]
-        stdout: StdioCollector {
-            onStreamFinished: root.parseHaConfig(text)
-        }
-    }
-
-    Process {
         id: haSaveProc
         property string areasJson: "[]"
         property string climatesJson: "[]"
         command: ["bash", root.configScript, "homeassistant", "set-fields", haSaveProc.areasJson, haSaveProc.climatesJson]
         stdout: StdioCollector {
-            onStreamFinished: {
-                root.parseHaConfig(text)
-                root.refreshHomeAssistantService()
-            }
-        }
-    }
-
-    Process {
-        id: loadHaAreasProc
-        command: ["bash", root.configScript, "homeassistant", "areas"]
-        stdout: StdioCollector {
-            onStreamFinished: root.parseHaDiscovery(text)
-        }
-    }
-
-    Process {
-        id: loadPackagesProc
-        command: ["bash", root.packagesScript, "breakdown"]
-        stdout: StdioCollector {
-            onStreamFinished: root.parsePackagesBreakdown(text)
-        }
-    }
-
-    Process {
-        id: loadIdleProc
-        command: ["bash", root.configScript, "idle", "get"]
-        stdout: StdioCollector {
-            onStreamFinished: root.parseIdleState(text)
+            onStreamFinished: root.parseHaConfig(text)
         }
     }
 
@@ -1383,14 +1249,6 @@ Item {
         command: ["bash", root.configScript, "idle", "set-fields", String(idleSetProc.lockMin)]
         stdout: StdioCollector {
             onStreamFinished: root.parseIdleState(text)
-        }
-    }
-
-    Process {
-        id: loadTrayProc
-        command: ["bash", root.configScript, "tray", "get"]
-        stdout: StdioCollector {
-            onStreamFinished: root.parseTrayState(text)
         }
     }
 
@@ -1420,8 +1278,7 @@ Item {
         { label: "Wallpapers", icon: "󰏘" },
         { label: "Weather", icon: "󰖕" },
         { label: "Media", icon: "󰿯" },
-        { label: "Packages", icon: "󰏖" },
-        { label: "Player", icon: "󰎆" }
+        { label: "Packages", icon: "󰏖" }
     ], shell ? shell.pluginOverlay : null)
 
     property alias weatherLocationRow: weatherTab.weatherLocationRow
@@ -1466,9 +1323,6 @@ Item {
                 Qt.callLater(root.rebuildSettingsNav)
                 if (settingsTabs.currentIndex === 6)
                     root.loadPackagesBreakdown()
-                if (settingsTabs.currentIndex === 7 && playerSettingsHost.item
-                        && playerSettingsHost.item.loadPlayerSettings)
-                    playerSettingsHost.item.loadPlayerSettings()
             }
         }
 
@@ -1902,22 +1756,6 @@ Item {
                 }
             }
 
-            Flickable {
-                id: playerTabScroll
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                clip: true
-                boundsBehavior: Flickable.StopAtBounds
-                contentWidth: width
-                contentHeight: Math.max(height, playerSettingsHost.implicitHeight)
-
-                Loader {
-                    id: playerSettingsHost
-                    width: parent.width
-                    active: playerSettingsSource !== ""
-                    source: playerSettingsSource
-                }
-            }
         }
         }
     }

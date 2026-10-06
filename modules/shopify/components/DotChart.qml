@@ -7,9 +7,9 @@ Canvas {
   property var bars: []
   property var compareBars: []
   property string chartStyle: "bar"
-  property color accent: "#89dceb"
-  property color bright: "#c0caf5"
-  property color muted: "#565f89"
+  property color accent: Theme.accent
+  property color bright: Theme.foreground
+  property color muted: Theme.muted
 
   readonly property real dpr: Math.max(1, Screen.devicePixelRatio)
 

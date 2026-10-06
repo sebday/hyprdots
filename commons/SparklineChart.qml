@@ -13,7 +13,7 @@ Item {
     property bool fillWidth: true
     property bool showEmptyLabel: true
     property color lineColor: Theme.accent
-    property color secondaryLineColor: "#a6e3a1"
+    property color secondaryLineColor: Theme.ansiFallback("green")
     property color bullishColor: Theme.accent
     property color bearishColor: Theme.urgent
     property int lineWidth: 2

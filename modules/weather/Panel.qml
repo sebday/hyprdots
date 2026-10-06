@@ -214,7 +214,8 @@ Panel {
     // to wait for the slow wttr response. Without them it's a no-op until
     // wttr reports the detected area.
     refreshDailyForecast(null)
-    root.refreshRadar()
+    if (root.opened)
+      root.refreshRadar()
   }
 
   function radarLatLon() {
@@ -690,6 +691,8 @@ Panel {
   onOpenedChanged: {
     if (!root.opened)
       root.radarFrameIndex = -1
+    else
+      root.refreshRadar()
   }
 
   Timer {

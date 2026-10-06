@@ -62,58 +62,10 @@ Singleton {
         Quickshell.execDetached(["bash", "-lc", 'exec "$@"', "bash"].concat(argv))
     }
 
-    function parseModuleJson(raw) {
-        var text = String(raw || "").trim()
-        if (!text)
-            return {}
-        var lines = text.split("\n")
-        try {
-            return JSON.parse(lines[lines.length - 1])
-        } catch (e) {
-            return { text: text }
-        }
-    }
-
     function cloneJson(value) {
         if (value === undefined)
             return undefined
         return JSON.parse(JSON.stringify(value))
-    }
-
-    function canonicalWidgetId(id) {
-        return String(id || "")
-    }
-
-    function normalizeLayoutEntry(entry) {
-        if (typeof entry === "string")
-            return { id: canonicalWidgetId(entry) }
-        if (isPlainObject(entry) && entry.id) {
-            var copy = cloneJson(entry)
-            copy.id = canonicalWidgetId(copy.id)
-            return copy
-        }
-        return null
-    }
-
-    function normalizeLayoutSection(list) {
-        if (!Array.isArray(list))
-            return []
-        var out = []
-        for (var i = 0; i < list.length; i++) {
-            var e = normalizeLayoutEntry(list[i])
-            if (e)
-                out.push(e)
-        }
-        return out
-    }
-
-    function normalizeLayout(layout) {
-        var src = isPlainObject(layout) ? layout : {}
-        return {
-            left: normalizeLayoutSection(src.left),
-            center: normalizeLayoutSection(src.center),
-            right: normalizeLayoutSection(src.right)
-        }
     }
 
     function localPath(url) {
@@ -224,14 +176,6 @@ Singleton {
         return evoCommand(home, ipcArgs)
     }
 
-    function evoshellShellIpc(home, shell, ipcArgs) {
-        var cmd = evoshellIpcCommand(home, shell, ["shell"])
-        var parts = String(ipcArgs || "").trim().split(/\s+/).filter(function(p) { return p !== "" })
-        for (var i = 0; i < parts.length; i++)
-            cmd.push(parts[i])
-        return cmd
-    }
-
     function hoverPanelCacheRead(shell, cacheKey) {
         if (!shell || !cacheKey)
             return null
@@ -251,12 +195,6 @@ Singleton {
         if (shell.hoverPanelId !== id && !shell.isHoverPanelPinned(id))
             return false
         return shell.toggleHoverPanelPinFromBar(id)
-    }
-
-    function openEvoplayerDashboardIfClosed(shell) {
-        if (!shell || shell.isPluginOpen("evo.panels.player"))
-            return
-        shell.summon("evo.panels.player", "")
     }
 
     function openBarPanelFromClick(shell, popupId, item, barPanel) {
@@ -289,12 +227,6 @@ Singleton {
                 return screen
         }
         return null
-    }
-
-    function barOutputName(shell, fallbackOutput) {
-        if (shell && shell.barConfig && shell.barConfig.output)
-            return String(shell.barConfig.output).trim()
-        return String(fallbackOutput || "").trim()
     }
 
     function steamThemedIconName(name) {

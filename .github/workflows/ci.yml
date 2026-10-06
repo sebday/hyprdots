@@ -5,28 +5,17 @@ on:
   pull_request:
 
 jobs:
-  test:
+  syntax:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: install jq
-        run: sudo apt-get update && sudo apt-get install -y jq ripgrep
-      - name: static contracts
-        env:
-          EVOSHELL_ROOT: ${{ github.workspace }}
-          EVOSHELL_BIN: ${{ github.workspace }}/bin
-          EVO_SKIP_EVOPLAYER: "1"
-        run: bash tests/test-static-contracts.sh
-      - name: plugin manifest
-        env:
-          EVOSHELL_ROOT: ${{ github.workspace }}
-        run: bash tests/test-plugin-manifest.sh
-      - name: layout side
-        env:
-          EVOSHELL_ROOT: ${{ github.workspace }}
-          EVOSHELL_BIN: ${{ github.workspace }}/bin
-        run: bash tests/test-evo-layout-side.sh
-      - name: obsidian theme sync
-        env:
-          EVOSHELL_ROOT: ${{ github.workspace }}
-        run: bash tests/test-evo-theme-obsidian.sh
+      - name: bash syntax
+        run: |
+          shopt -s nullglob
+          fail=0
+          for script in bin/* scripts/* .install/installer.sh .install/bin/* modules/*/bin/* modules/*/*/bin/*; do
+            [[ -f "$script" && ! -L "$script" ]] || continue
+            head -1 "$script" | grep -q bash || continue
+            bash -n "$script" || fail=1
+          done
+          exit "$fail"

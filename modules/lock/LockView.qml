@@ -131,7 +131,7 @@ Item {
     Rectangle {
       anchors.fill: feedLoader
       visible: root.video
-      color: "#22000000"
+      color: Theme.withOpacity(Theme.background, 0.13)
     }
 
     MouseArea {

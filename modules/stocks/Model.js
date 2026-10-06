@@ -1,4 +1,5 @@
 .pragma library
+.import qs.commons as Commons
 
 
 function plain(value, maxLen) {
@@ -16,14 +17,7 @@ function plain(value, maxLen) {
 }
 
 function formatRevenue(val, symbol) {
-  var n = Math.round(parseFloat(val) || 0)
-  var s = String(n)
-  var out = ""
-  for (var i = 0; i < s.length; i++) {
-    if (i > 0 && (s.length - i) % 3 === 0) out += ","
-    out += s.charAt(i)
-  }
-  return String(symbol || "£") + out
+  return Commons.Format.formatRevenue(val, symbol)
 }
 
 function fmtUsd(val) {

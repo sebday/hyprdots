@@ -4,23 +4,6 @@ import Quickshell
 import QtQuick
 
 Singleton {
-    function formatDay(iso) {
-        if (!iso) return ""
-        var parts = String(iso).split("-")
-        if (parts.length < 3) return String(iso)
-        var d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10))
-        var days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-        return days[d.getDay()] + " " + d.getDate()
-    }
-
-    function headerLines(parts, fallback) {
-        if (!parts || parts.length === 0)
-            return fallback
-        if (parts.length === 1)
-            return parts[0]
-        return parts[0] + "\n" + parts.slice(1).join(" · ")
-    }
-
     function formatRevenue(val, symbol) {
         var n = Math.round(parseFloat(val) || 0)
         var s = String(n)
@@ -49,25 +32,5 @@ Singleton {
         if (p >= 40)
             return Theme.mixColors(Theme.accent, Theme.urgent, (p - 40) / 40)
         return Theme.mixColors(Theme.foreground, Theme.accent, p / 40)
-    }
-
-    function loadPercentColor(percent) {
-        var p = Number(percent)
-        if (isNaN(p))
-            return Theme.foreground
-        p = Math.max(0, Math.min(100, p))
-        if (p <= 50)
-            return Theme.mixColors(Theme.foreground, Theme.accent, p / 50)
-        return Theme.mixColors(Theme.accent, Theme.urgent, (p - 50) / 50)
-    }
-
-    function contributionColor(count) {
-        var n = parseInt(count, 10) || 0
-        var level = 0
-        if (n >= 30) level = 4
-        else if (n >= 18) level = 3
-        else if (n >= 10) level = 2
-        else if (n >= 1) level = 1
-        return Theme.heatmapColors[level]
     }
 }

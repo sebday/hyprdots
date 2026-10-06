@@ -13,10 +13,23 @@ Item {
     property var value: ({})
     property bool loading: false
     property bool active: true
+    property bool autoStart: true
     property string cacheKey: ""
     property bool keepStale: true
+    property int maxStdoutBytes: 262144
+    readonly property bool running: proc.running
 
     signal polled(var json)
+    signal exited(int exitCode, string stdoutText, string stderrText)
+
+    function run(command) {
+        if (!command || command.length === 0 || proc.running)
+            return false
+        proc.execCommand = command
+        startPollWatchdog()
+        proc.running = true
+        return true
+    }
 
     function parseJson(raw) {
         try {
@@ -79,19 +92,47 @@ Item {
 
     Process {
         id: proc
-        command: root.command
-        stdout: StdioCollector {
-            onStreamFinished: {
-                root.stopPollWatchdog()
-                root.loading = false
-                root.value = root.parseJson(text)
+        property var execCommand: root.command
+        command: execCommand
+        onStarted: {
+            stdoutBuf = ""
+            stderrBuf = ""
+        }
+
+        property string stdoutBuf: ""
+        property string stderrBuf: ""
+
+        stdout: SplitParser {
+            splitMarker: ""
+            onRead: function(chunk) {
+                proc.stdoutBuf += chunk
+                if (proc.stdoutBuf.length > root.maxStdoutBytes) {
+                    proc.signal(15)
+                    proc.stdoutBuf = ""
+                }
+            }
+        }
+        stderr: SplitParser {
+            splitMarker: ""
+            onRead: function(chunk) {
+                proc.stderrBuf += chunk
+                if (proc.stderrBuf.length > 4096) {
+                    proc.signal(15)
+                    proc.stderrBuf = ""
+                }
+            }
+        }
+        onExited: function(exitCode) {
+            root.stopPollWatchdog()
+            root.loading = false
+            var out = String(proc.stdoutBuf || "")
+            var err = String(proc.stderrBuf || "")
+            root.exited(exitCode, out, err)
+            if (exitCode === 0 && String(out).trim() !== "") {
+                root.value = root.parseJson(out)
                 root.publishCache(root.value)
                 root.polled(root.value)
             }
-        }
-        onExited: {
-            root.stopPollWatchdog()
-            root.loading = false
         }
     }
 
@@ -119,6 +160,8 @@ Item {
             restoreFromCache()
     }
     onActiveChanged: {
+        if (!autoStart)
+            return
         if (active) {
             if (!hasValue())
                 restoreFromCache()
@@ -130,6 +173,8 @@ Item {
     }
 
     Component.onCompleted: {
+        if (!autoStart)
+            return
         if (!hasValue())
             restoreFromCache()
         if (active)

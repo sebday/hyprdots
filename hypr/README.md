@@ -5,7 +5,7 @@ Evoshell hypr modules live in this directory. Hyprland loads them via `package.p
 Add to `hyprland.lua`:
 
 ```lua
-local evoshell_root = os.getenv("EVOSHELL_ROOT") or (os.getenv("HOME") .. "/projects/evoshell")
+local evoshell_root = os.getenv("EVOSHELL_ROOT") or (os.getenv("HOME") .. "/projects/hyprdots")
 dofile(evoshell_root .. "/hypr/bootstrap.lua")
 require("hypr.init")
 ```

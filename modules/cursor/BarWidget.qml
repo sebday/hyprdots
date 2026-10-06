@@ -56,10 +56,10 @@ BarWidget {
   readonly property bool iconMuted: panelLoader.item ? panelLoader.item.iconMuted === true : false
   readonly property string tooltip: panelLoader.item ? panelLoader.item.barTooltip : "Cursor usage"
   readonly property string valueText: panelLoader.item ? panelLoader.item.barValue : ""
-  property color themeGreen: "#a6e3a1"
-  property color themeBlue: "#89b4fa"
-  property color themeOrange: "#fab387"
-  property color themeRed: "#f38ba8"
+  property color themeGreen: Theme.ansiFallback("green")
+  property color themeBlue: Theme.ansiFallback("blue")
+  property color themeOrange: Theme.ansiFallback("orange")
+  property color themeRed: Theme.ansiFallback("red")
   readonly property real openPanelIndicatorWidth: button.usageWidth
 
   function loadThemeColors(raw) {
@@ -78,10 +78,10 @@ BarWidget {
       else if (match[1] === "yellow") yellow = match[2]
       else if (match[1] === "red") red = match[2]
     }
-    themeGreen = green || "#a6e3a1"
-    themeBlue = blue || "#89b4fa"
-    themeOrange = orange || yellow || "#fab387"
-    themeRed = red || "#f38ba8"
+    themeGreen = green || Theme.ansiFallback("green")
+    themeBlue = blue || Theme.ansiFallback("blue")
+    themeOrange = orange || yellow || Theme.ansiFallback("orange")
+    themeRed = red || Theme.ansiFallback("red")
   }
 
   // evo-theme swaps ~/.themes/current wholesale, so a watch on colors.toml
@@ -148,22 +148,19 @@ BarWidget {
     useActiveColor: root.iconError
     dimmed: root.iconMuted && !root.iconError
     tooltipText: Model.plain(root.tooltip)
-    opacity: root.iconBusy && !root.iconError ? pulseOpacity : 1
-    property real pulseOpacity: 1
+    opacity: root.iconBusy && !root.iconError ? iconPulse.pulseOpacity : 1
     readonly property real usageWidth: contentRow.implicitWidth
+
+    BarIconPulse {
+      id: iconPulse
+      running: root.iconBusy && !root.iconError
+    }
 
     UsageCircle {
       id: contentRow
       anchors.centerIn: parent
       fontFamily: button.fontFamily
       color: button.foreground
-    }
-
-    SequentialAnimation on pulseOpacity {
-      running: root.iconBusy && !root.iconError
-      loops: Animation.Infinite
-      NumberAnimation { from: 1.0; to: 0.42; duration: 880; easing.type: Easing.InOutSine }
-      NumberAnimation { from: 0.42; to: 1.0; duration: 880; easing.type: Easing.InOutSine }
     }
 
     onPressed: function(b) {

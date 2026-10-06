@@ -5,12 +5,12 @@ Item {
   id: root
 
   property var cards: []
-  property color borderColor: "#414868"
-  property color backgroundColor: "#1a1b26"
-  property color mutedColor: "#565f89"
-  property color textColor: "#a9b1d6"
-  property color upColor: "#b9f27c"
-  property color downColor: "#f7768e"
+  property color borderColor: Theme.foregroundBorder
+  property color backgroundColor: Theme.background
+  property color mutedColor: Theme.muted
+  property color textColor: Theme.foreground
+  property color upColor: Theme.ansiFallback("green")
+  property color downColor: Theme.urgent
   property string fontFamily: "monospace"
 
   function toneColor(tone) {

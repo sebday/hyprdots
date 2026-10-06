@@ -1,5 +1,7 @@
+.import qs.commons as Commons
+
 function clamp(value, min, max) {
-  return Math.max(min, Math.min(max, value))
+  return Commons.Util.clamp(value, min, max)
 }
 
 // The widest glyph `iconFor` can return. The progress OSD sizes its icon

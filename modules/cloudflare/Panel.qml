@@ -23,12 +23,12 @@ Panel {
   readonly property color urgent: bar ? bar.urgent : Theme.urgent
   readonly property color accent: Theme.accent
   readonly property color dim: Qt.darker(foreground, 1.4)
-  property color themeGreen: "#50fa7b"
-  property color themeYellow: "#f1fa8c"
-  property color themeOrange: "#ffb86c"
-  property color themeMagenta: "#ff79c6"
-  property color themeBlue: "#bd93f9"
-  property color themeCyan: "#8be9fd"
+  property color themeGreen: Theme.ansiFallback("green")
+  property color themeYellow: Theme.ansiFallback("yellow")
+  property color themeOrange: Theme.ansiFallback("orange")
+  property color themeMagenta: Theme.ansiFallback("magenta")
+  property color themeBlue: Theme.ansiFallback("blue")
+  property color themeCyan: Theme.ansiFallback("cyan")
 
   function loadThemeColors(raw) {
     var found = {}
@@ -38,12 +38,12 @@ Panel {
       if (match) found[match[1]] = match[2]
     }
     // evoshell themes only carry ANSI color0..15; named keys win when present.
-    themeGreen = found.green || found.color2 || "#50fa7b"
-    themeYellow = found.yellow || found.color3 || "#f1fa8c"
-    themeOrange = found.orange || found.color11 || "#ffb86c"
-    themeMagenta = found.magenta || found.pink || found.mauve || found.color5 || "#ff79c6"
-    themeBlue = found.blue || found.purple || found.color4 || "#bd93f9"
-    themeCyan = found.cyan || found.color6 || accent
+    themeGreen = found.green || found.color2 || Theme.ansiFallback("green")
+    themeYellow = found.yellow || found.color3 || Theme.ansiFallback("yellow")
+    themeOrange = found.orange || found.color11 || Theme.ansiFallback("orange")
+    themeMagenta = found.magenta || found.pink || found.mauve || found.color5 || Theme.ansiFallback("magenta")
+    themeBlue = found.blue || found.purple || found.color4 || Theme.ansiFallback("blue")
+    themeCyan = found.cyan || found.color6 || Theme.ansiFallback("cyan")
   }
 
   property FileView themeColorsFile: FileView {

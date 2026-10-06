@@ -65,12 +65,11 @@ _menu_list_plugin_paths() {
 }
 
 _menu_list_bindings_awk() {
-    awk -v home="$1" -v evoshell_bindings_path="$2" -v personal_bindings_path="$3" -v evoshell="$4" -f - <<'AWK'
+    awk -v home="$1" -v evoshell_bindings_path="$2" -v personal_bindings_path="$3" -v evoshell="$4" -v evoshell_bin="$5" -f - <<'AWK'
 BEGIN {
     bin = home "/.local/lib/evoshell/bin"
-    if (evoshell != "") {
-        bin = evoshell
-    }
+    if (evoshell_bin != "")
+        bin = evoshell_bin
     shell_ipc = bin "/_ipc"
     vars["bin"] = bin
     vars["shell_ipc"] = shell_ipc
@@ -465,19 +464,20 @@ AWK
 menu_list_bindings() {
     local personal_file="${1:-}"
     local home="$2"
-    local evoshell="${EVOSHELL_ROOT:-$home/projects/evoshell}"
+    local evoshell="${EVOSHELL_ROOT:-$home/projects/hyprdots}"
     local evoshell_bindings="$evoshell/hypr/bindings.lua"
     local personal_path="-"
+    local bin="${EVOSHELL_BIN:-$home/.local/lib/evoshell/bin}"
     [[ -n "$personal_file" && -f "$personal_file" ]] && personal_path="$personal_file"
     [[ -f "$evoshell_bindings" ]] || evoshell_bindings="-"
-    _menu_list_bindings_awk "$home" "$evoshell_bindings" "$personal_path" "$evoshell"
+    _menu_list_bindings_awk "$home" "$evoshell_bindings" "$personal_path" "$evoshell" "$bin"
 }
 
 menu_list_shell() {
     local home="$1" script_dir="$2"
     local ipc="evo ipc"
-    local evoshell="${EVOSHELL_ROOT:-$home/projects/evoshell}"
-local bin="${EVOSHELL_BIN:-${EVOSHELL_ROOT:-$HOME/projects/evoshell}/bin}"
+    local evoshell="${EVOSHELL_ROOT:-$home/projects/hyprdots}"
+    local bin="${EVOSHELL_BIN:-$home/.local/lib/evoshell/bin}"
     local ipc_bin="${bin}/_ipc"
     local corpus="" chunk path bn
 

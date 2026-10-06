@@ -1,4 +1,5 @@
 .pragma library
+.import qs.commons as Commons
 
 var MAX_STORES = 16
 var MAX_BARS = 400
@@ -324,9 +325,7 @@ function commaInt(n) {
 }
 
 function formatRevenue(val, symbol) {
-  var n = finite(val)
-  if (!isFinite(n)) n = 0
-  return (symbol || "£") + commaInt(n)
+  return Commons.Format.formatRevenue(val, symbol)
 }
 
 function formatMoney(val, symbol) {

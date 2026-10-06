@@ -22,5 +22,3 @@ WidgetButton 1.0 WidgetButton.qml
 BackgroundMedia 1.0 BackgroundMedia.qml
 CursorSurface 1.0 CursorSurface.qml
 KeyboardPanel 1.0 KeyboardPanel.qml
-PointerMoveGate 1.0 PointerMoveGate.qml
-ScreenMoveRemap 1.0 ScreenMoveRemap.qml

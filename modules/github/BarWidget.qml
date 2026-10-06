@@ -74,14 +74,11 @@ BarWidget {
     useActiveColor: root.iconError
     dimmed: root.iconMuted && !root.iconError && !root.iconBusy
     tooltipText: Model.plain(root.tooltip)
-    opacity: root.iconBusy && !root.iconError && !root.iconMuted ? pulseOpacity : 1
-    property real pulseOpacity: 1
+    opacity: root.iconBusy && !root.iconError && !root.iconMuted ? iconPulse.pulseOpacity : 1
 
-    SequentialAnimation on pulseOpacity {
+    BarIconPulse {
+      id: iconPulse
       running: root.iconBusy && !root.iconError && !root.iconMuted
-      loops: Animation.Infinite
-      NumberAnimation { from: 1.0; to: 0.42; duration: 880; easing.type: Easing.InOutSine }
-      NumberAnimation { from: 0.42; to: 1.0; duration: 880; easing.type: Easing.InOutSine }
     }
 
     onPressed: function() {

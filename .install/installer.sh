@@ -113,9 +113,14 @@ EOF
 # Install packages from the AUR using yay
 install_aur_packages() {
     log "Installing AUR packages from packages-aur.txt..."
-    local aur_packages
-    aur_packages=$(grep -vE '^#|^$' "${INSTALL_DIR}/packages-aur.txt" | tr '\n' ' ')
-    yay -Sy --noconfirm $aur_packages
+    local -a aur_packages=()
+    local pkg
+    while IFS= read -r pkg; do
+        [[ -z "$pkg" ]] && continue
+        aur_packages+=("$pkg")
+    done < <(grep -vE '^#|^$' "${INSTALL_DIR}/packages-aur.txt")
+    ((${#aur_packages[@]})) || return 0
+    yay -Sy --noconfirm "${aur_packages[@]}"
 }
 
 # Set the Plymouth boot screen theme.
@@ -167,9 +172,9 @@ install_hypr_bin() {
 
 link_evoshell() {
     log "Linking evoshell..."
-    local evoshell_root="${EVOSHELL_ROOT:-${HOME}/evoshell}"
+    local evoshell_root="${EVOSHELL_ROOT:-${HOME}}"
     if [[ ! -f "${evoshell_root}/shell.qml" ]]; then
-        echo "evoshell not found at ${evoshell_root}; set EVOSHELL_ROOT to the embedded evoshell/ directory"
+        echo "evoshell not found at ${evoshell_root}; set EVOSHELL_ROOT to the checkout that contains shell.qml"
         exit 1
     fi
     bash "${evoshell_root}/scripts/install"
@@ -329,7 +334,7 @@ main() {
     configure_ufw
     configure_google_ads_editor
 
-    local evoshell_root="${EVOSHELL_ROOT:-${HOME}/evoshell}"
+    local evoshell_root="${EVOSHELL_ROOT:-${HOME}}"
     if [[ -x "${evoshell_root}/bin/evo-font" ]]; then
         log "Applying default font..."
         "${evoshell_root}/bin/evo-font" apply

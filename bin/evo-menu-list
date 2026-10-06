@@ -85,7 +85,7 @@ wallpapers)
     ;;
 bindings)
     bindings_file="$home/.config/hypr/bindings.lua"
-    evoshell_root="${EVOSHELL_ROOT:-$home/projects/evoshell}"
+    evoshell_root="${EVOSHELL_ROOT:-$home/projects/hyprdots}"
     [[ -f "$bindings_file" || -f "$evoshell_root/hypr/bindings.lua" ]] || exit 0
     menu_list_bindings "$bindings_file" "$home"
     ;;

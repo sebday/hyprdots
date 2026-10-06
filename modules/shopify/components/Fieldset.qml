@@ -6,10 +6,10 @@ Item {
 
   property string legend: ""
   property int number: 0
-  property color borderColor: "#89dceb"
+  property color borderColor: Theme.accent
   property color legendColor: borderColor
-  property color backgroundColor: "#1a1b26"
-  property color mutedColor: "#565f89"
+  property color backgroundColor: Theme.background
+  property color mutedColor: Theme.muted
   property string fontFamily: "monospace"
   property string bottomLeft: ""
 

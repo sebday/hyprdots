@@ -356,7 +356,7 @@ process_theme_template() {
 # Install stable ~/.config/hypr/theme.lua once (reads accent from state; never rewrite on switch).
 themes_ensure_hypr_theme_lua() {
     local dest="${HOME}/.config/hypr/theme.lua"
-    local root="${EVOSHELL_ROOT:-$HOME/projects/evoshell}"
+    local root="${EVOSHELL_ROOT:-$HOME/projects/hyprdots}"
     local src="$root/hypr/theme.lua"
 
     [[ -f "$src" ]] || return 0

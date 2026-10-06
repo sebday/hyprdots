@@ -22,10 +22,6 @@ Item {
     readonly property string trayDisplay: {
         if (settings.trayDisplay)
             return String(settings.trayDisplay)
-        if (hoverPanelId === "evo.panels.cursor")
-            return "dial"
-        if (hoverPanelId === "evo.panels.weather")
-            return "icon"
         return "text"
     }
     readonly property real trayDialPercent: {
@@ -42,11 +38,7 @@ Item {
     property var lastPayload: null
     property bool polling: false
     property bool hideWhenEmpty: settings.hideEmpty === true || settings.hideEmptyText === true
-    readonly property int pollIntervalSec: {
-        if (hoverPanelId === "evo.panels.weather")
-            return Theme.pollWeatherSec
-        return Math.max(1, parseInt(settings.interval, 10) || 5)
-    }
+    readonly property int pollIntervalSec: Math.max(1, parseInt(settings.interval, 10) || 5)
 
     readonly property string tooltipText: lastPayload && lastPayload.tooltip
         ? String(lastPayload.tooltip).trim()
@@ -109,9 +101,9 @@ Item {
     readonly property color trayDialColor: {
         if (polling)
             return Theme.barIconColor
-        if (hoverPanelId === "evo.panels.weather" && lastPayload && lastPayload.current)
+        if (lastPayload && lastPayload.current)
             return Format.tempColor(lastPayload.current.temp)
-        if (hoverPanelId === "evo.panels.cursor" && lastPayload && lastPayload.cursorPercent !== undefined)
+        if (lastPayload && lastPayload.cursorPercent !== undefined)
             return Format.usagePercentColor(lastPayload.cursorPercent)
         return Theme.barIconColor
     }

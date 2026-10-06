@@ -106,11 +106,6 @@ link_plugin_overlays() {
   local modules_dir="${HOME}/.config/evoshell/modules"
   mkdir -p "$modules_dir" "$EVOSHELL_LIB"
   link_path "${modules_dir}/commons" "${EVOSHELL_ROOT}/commons"
-  if [[ -x "${modules_dir}/shopify/bin/evo-panel-shopify" ]]; then
-    link_path "${EVOSHELL_LIB}/evo-panel-shopify" "${modules_dir}/shopify/bin/evo-panel-shopify"
-  else
-    rm -f "${EVOSHELL_LIB}/evo-panel-shopify"
-  fi
 }
 
 migrate_themes_dir() {

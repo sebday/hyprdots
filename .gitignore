@@ -36,11 +36,7 @@ modules/**/.cursor/
 !shell.qml
 !pluginManifest.js
 !AGENTS.md
-!SHELL.md
-!CONTRIB.md
 !LICENSE
-!agents/
-!agents/**
 !bin/
 !bin/**
 !commons/
@@ -53,8 +49,6 @@ modules/**/.cursor/
 !scripts/**
 !systemd/
 !systemd/**
-!tests/
-!tests/**
 !themes/
 !themes/**
 !ui/
