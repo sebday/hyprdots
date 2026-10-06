@@ -17,14 +17,13 @@ Item {
     property int historyRecallIndex: -1
     property var exprHistory: []
 
-    readonly property color legendBackground: host && host.fieldsetLegendBackground !== undefined
-        ? host.fieldsetLegendBackground
-        : Theme.background
-
     readonly property string script: Util.evoshellScript(Quickshell.env("HOME"), shell, "evo-calculator")
     readonly property int inputFontSize: Theme.fontSize6xl
     readonly property int historyFontSize: Theme.fontSizeL
-    readonly property bool active: host && host.opened && host.activeModule === "calc"
+    readonly property bool active: host && host.opened
+
+    implicitWidth: body.implicitWidth
+    implicitHeight: body.implicitHeight
 
     function refreshHistory() {
         if (!historyProc.running) historyProc.running = true
@@ -121,18 +120,11 @@ Item {
     function onActivated(focusTarget) {
         historyRecallIndex = -1
         refreshHistory()
-        tasksBlock.onActivated()
-        if (focusTarget === "tasks")
-            tasksBlock.focusNewTask()
-        else
-            focusInput()
+        focusInput()
     }
 
     onActiveChanged: {
-        if (!active) return
-        if (host && host.focusTarget === "tasks")
-            tasksBlock.focusNewTask()
-        else
+        if (active)
             focusInput()
     }
 
@@ -181,15 +173,14 @@ Item {
     }
 
     ColumnLayout {
+        id: body
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        anchors.bottom: parent.bottom
         spacing: Theme.spacingL
 
         SectionPanel {
-            id: calculatorPanel
-            legendBackground: root.legendBackground
+            legendBackground: Theme.background
             label: ""
 
             HoverPanelLabelPill {
@@ -224,7 +215,7 @@ Item {
         }
 
         SectionPanel {
-            legendBackground: root.legendBackground
+            legendBackground: Theme.background
             label: ""
 
             HoverPanelLabelPill {
@@ -284,15 +275,6 @@ Item {
                     opacity: 0.5
                 }
             }
-        }
-
-        AppTasks {
-            id: tasksBlock
-            host: root.host
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            Layout.preferredHeight: 0
-            Layout.minimumHeight: 80
         }
     }
 }

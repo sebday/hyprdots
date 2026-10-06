@@ -354,12 +354,6 @@ function related_files_for_binding(dispatcher, source_path,    files, n, d, m, e
                     if (pp[i] != "")
                         files[++n] = unshorten(pp[i])
             }
-            if (match(cmd, /shell toggle evo\.panel/)) {
-                split(plugin_paths("evo.side"), pp, "|")
-                for (i in pp)
-                    if (pp[i] != "")
-                        files[++n] = unshorten(pp[i])
-            }
             if (match(cmd, /shell toggle (evo\.[^[:space:]]+)/, pm)) {
                 split(plugin_paths(pm[1]), pp, "|")
                 for (i in pp)
@@ -558,10 +552,6 @@ local bin="${EVOSHELL_BIN:-${EVOSHELL_ROOT:-$HOME/projects/evoshell}/bin}"
             while IFS= read -r p; do
                 [[ -n "$p" ]] && files+=("$p")
             done < <(_menu_list_plugin_paths "$evoshell" "evo.sys.menu")
-        elif [[ "$cmd" =~ shell[[:space:]]toggle[[:space:]]evo\.panel ]]; then
-            while IFS= read -r p; do
-                [[ -n "$p" ]] && files+=("$p")
-            done < <(_menu_list_plugin_paths "$evoshell" "evo.side")
         else
             local pat plugin
             for pat in \
@@ -593,7 +583,7 @@ local bin="${EVOSHELL_BIN:-${EVOSHELL_ROOT:-$HOME/projects/evoshell}/bin}"
     _menu_list_plugin_detail() {
         case "$1" in
         evo.sys.menu) echo "Shows or hides the system menu overlay." ;;
-        evo.side) echo "Shows or hides a side panel (calc, tasks)." ;;
+        evo.calculator) echo "Shows or hides the calculator overlay." ;;
         evo.sys.settings) echo "Shows or hides the evoshell settings overlay." ;;
         evo.panels.cursor) echo "Shows or hides the Cursor agent overlay." ;;
         evo.panels.weather) echo "Shows or hides the weather overlay." ;;
@@ -619,7 +609,7 @@ local bin="${EVOSHELL_BIN:-${EVOSHELL_ROOT:-$HOME/projects/evoshell}/bin}"
     }
 
     local plugins=(
-        evo.sys.menu evo.side evo.sys.settings evo.panels.cursor
+        evo.sys.menu evo.calculator evo.sys.settings evo.panels.cursor
         evo.panels.weather evo.panels.network.stats
         evo.panels.media.now-playing evo.panels.github evo.panels.stocks
         evo.panels.cloudflare evo.panels.insync evo.panels.steam

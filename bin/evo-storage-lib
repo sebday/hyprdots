@@ -61,7 +61,7 @@ read_session_json() {
     if [[ -f "$SESSION_JSON" ]] && [[ -s "$SESSION_JSON" ]] && jq -e 'type == "object"' "$SESSION_JSON" >/dev/null 2>&1; then
         cat "$SESSION_JSON"
     else
-        echo '{"sidePanel":{"open":false,"module":"calc","focus":""}}'
+        echo '{}'
     fi
 }
 

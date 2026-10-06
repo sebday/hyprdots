@@ -32,10 +32,6 @@ set_bar_layout() {
         '.bar.output = $output | .bar.position = $position'
 }
 
-read_panel_state() {
-    merged_config | jq -c '{panelOnRight: ((.panel.side // "left") == "right")}'
-}
-
 read_notifications_state() {
     merged_config | jq -c '{output: (.notifications.output // ""), position: (.notifications.position // "bottom")}'
 }
@@ -57,15 +53,6 @@ set_notifications_layout() {
         '.notifications.output = $output | .notifications.position = $position'
 }
 
-write_panel_side() {
-    local on_right="$1"
-    if [[ "$on_right" == "true" ]]; then
-        "${_bin_dir}/evo-config" panel set right >/dev/null
-    else
-        "${_bin_dir}/evo-config" panel set left >/dev/null
-    fi
-}
-
 read_ui_state() {
     jq -c '{fieldsetRounding: (.fieldsetRounding != false)}' <<<"$(read_ui_config_json)"
 }
@@ -80,27 +67,6 @@ set_ui_base_size() {
     [[ "$px" =~ ^[0-9]+$ ]] || usage
     (( px >= 8 && px <= 32 )) || usage
     merge_ui_config_json --argjson uiBaseSize "$px" '.uiBaseSize = $uiBaseSize'
-}
-
-read_side_state() {
-    jq -c '{
-        open: (.sidePanel.open // false),
-        module: (.sidePanel.module // "calc"),
-        focus: (.sidePanel.focus // "")
-    }' <<<"$(read_session_json)"
-}
-
-set_side_state() {
-    local json="$1"
-    if ! jq -e 'type == "object"' <<<"$json" >/dev/null 2>&1; then
-        echo "invalid side state json" >&2
-        exit 1
-    fi
-    merge_session_json --argjson sp "$json" '.sidePanel = {
-        open: ($sp.open // false),
-        module: ($sp.module // "calc"),
-        focus: ($sp.focus // "")
-    }'
 }
 
 toggle_fieldset_rounding() {
@@ -119,10 +85,8 @@ usage() {
     cat >&2 <<'EOF'
 usage:
   evo-layout bar get|set <output> <top|bottom>|toggle|reset
-  evo-layout panel get|toggle
   evo-layout notifications get|set <output> <top|bottom>|toggle
   evo-layout ui get|toggle fieldsetRounding|set baseSize <px>
-  evo-layout side get|set <json>
 EOF
     exit 1
 }
@@ -161,27 +125,6 @@ bar)
         write_bar_layout_reset
         reload_shell_config
         read_bar_state
-        ;;
-    *)
-        usage
-        ;;
-    esac
-    ;;
-panel)
-    case "$action" in
-    get)
-        read_panel_state
-        ;;
-    toggle | toggle-side)
-        current="$(read_panel_state)"
-        on="$(jq -r 'if .panelOnRight then "true" else "false" end' <<<"$current")"
-        if [[ "$on" == "true" ]]; then
-            write_panel_side false
-        else
-            write_panel_side true
-        fi
-        reload_shell_config
-        read_panel_state
         ;;
     *)
         usage
@@ -246,24 +189,6 @@ ui)
             usage
             ;;
         esac
-        ;;
-    *)
-        usage
-        ;;
-    esac
-    ;;
-side)
-    case "$action" in
-    get)
-        read_side_state
-        ;;
-    set)
-        json="${3:-}"
-        if [[ -z "$json" ]]; then
-            usage
-        fi
-        set_side_state "$json"
-        read_side_state
         ;;
     *)
         usage

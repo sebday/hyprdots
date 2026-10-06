@@ -46,7 +46,7 @@ Monitor output, Home Assistant entities, Shopify stores, and startup dashboards 
 | Cache | `$EVOSHELL_CACHE/` | Bar poller cache, menu previews, bar chart history, Evoplayer art |
 | Secrets | `pass` (`evoshell/github/token`, `home-assistant/*`, …) | API tokens and URLs — not in JSON |
 
-Writers: `evo-layout` (bar/notifications/panel side), `evo-config` (integrations, startup, idle, tray widgets), feature CLIs (`evo-bar-weather settings`, `evo-tasks settings`, …).
+Writers: `evo-layout` (bar/notifications), `evo-config` (integrations, startup, idle, tray widgets), feature CLIs (`evo-bar-weather settings`, …).
 
 Settings panel also covers idle lock timer and bar tray widget toggles or poll intervals. Advanced bar layout structure (adding widgets, custom `onClick` handlers) stays in `config/shell.json`.
 
@@ -64,7 +64,7 @@ Settings panel also covers idle lock timer and bar tray widget toggles or poll i
 
 | File / dir | Contents |
 |------|----------|
-| `session.json` | Side panel open state, module, focus |
+| `session.json` | Session restore |
 | `theme.json` | Generated colour tokens for `commons/Theme.qml` |
 | `wallpaper/` | Current wallpaper state |
 | `media-library.json`, `media-plays.json` | Film/TV library index and play history |
@@ -95,7 +95,6 @@ EVOSHELL_ROOT=$PWD EVOSHELL_BIN=$PWD/bin EVO_SKIP_EVOPLAYER=1 bash tests/test-st
 bash tests/test-plugin-manifest.sh
 bash tests/test-evo-layout-side.sh
 bash tests/test-evo-theme-obsidian.sh
-bash tests/test-evo-tasks-vault.sh
 bash tests/test-evo-config.sh
 evo system restart
 journalctl --user -t evoshell -f

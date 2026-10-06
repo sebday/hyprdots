@@ -14,13 +14,6 @@ function ipc(home, args) {
     return evoBin(home) + " ipc shell " + args
 }
 
-function panelToggle(home, module, focus) {
-    var payload = { module: module }
-    if (focus)
-        payload.focus = focus
-    return ipc(home, "toggle evo.side '" + JSON.stringify(payload) + "'")
-}
-
 function systemSectionLayout(home, binOverride, extensionPanels) {
     var entries = systemEntries(home, binOverride)
     var byName = {}
@@ -38,7 +31,7 @@ function systemSectionLayout(home, binOverride, extensionPanels) {
 
     var panelEntries = pick([
         "Themes", "Wallpaper", "Music", "Library",
-        "Calculator", "Tasks", "Clipboard"
+        "Calculator", "Clipboard"
     ])
     if (extensionPanels && extensionPanels.length) {
         for (var k = 0; k < extensionPanels.length; k++)
@@ -77,8 +70,7 @@ function systemEntries(home, binOverride) {
         { name: "Themes", icon: "󰸌", keywords: ["theme", "colours", "gtk"], command: ipc(home, "toggle evo.sys.themes") },
         { name: "Wallpaper", icon: "󰏘", keywords: ["wallpaper", "background"], command: ipc(home, "toggle evo.sys.wallpaper") },
         { name: "Music", icon: "󰎈", keywords: ["music", "player", "mpv"], command: ipc(home, "toggle evo.panels.player") },
-        { name: "Calculator", icon: "󰪚", keywords: ["calc", "calculator", "math"], command: panelToggle(home, "calc", "") },
-        { name: "Tasks", icon: "󰄴", keywords: ["tasks", "todo", "list"], command: panelToggle(home, "calc", "tasks") },
+        { name: "Calculator", icon: "󰪚", keywords: ["calc", "calculator", "math"], command: ipc(home, "toggle evo.calculator") },
         { name: "Clipboard", icon: "󰅍", keywords: ["clipboard", "copy", "paste"], command: ipc(home, "toggle evo.side.clipboard") },
         { name: "Screenshot", icon: "󰆴", keywords: ["screenshot", "capture", "omasnap"], command: "omasnap" },
         { name: "Screenshot theme previews", icon: "󰸌", keywords: ["theme", "preview", "screenshot", "carousel", "wallpaper"], command: lib + "/evo-theme-previews" },

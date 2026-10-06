@@ -14,7 +14,6 @@ usage:
   evo-config get <jq-filter>
   evo-config patch '<jq-filter>' [jq args...]
   evo-config dashboards get|set <id> [on|off]|toggle <id> [on|off]
-  evo-config panel get|set left|right
   evo-config homeassistant get|set '<json>'|set-fields <light-areas-csv> <climate-entities-csv>|areas
   evo-config shopify get|set '<json>'|set-paths <sqliteDir> <remote> <timezone>
   evo-config idle get|set-fields <lock-min>
@@ -64,20 +63,6 @@ cmd_dashboards_set() {
 cmd_dashboards_toggle() {
     local id="$1" on="$2"
     cmd_dashboards_set "$id" "$([[ "$on" == "true" ]] && echo on || echo off)"
-}
-
-cmd_panel_get() {
-    merged_config | jq -c '{side: (.panel.side // "left")}'
-}
-
-cmd_panel_set() {
-    local side="${1:-}"
-    case "$side" in
-    left | right) ;;
-    *) usage ;;
-    esac
-    patch_overrides_reload --arg side "$side" '.panel.side = $side'
-    cmd_panel_get
 }
 
 cmd_homeassistant_get() {
@@ -341,21 +326,6 @@ dashboards)
         on="${2:-on}"
         [[ -n "$id" ]] || usage
         cmd_dashboards_toggle "$id" "$([[ "$on" == off ]] && echo false || echo true)"
-        ;;
-    *) usage ;;
-    esac
-    ;;
-panel)
-    case "$action" in
-    get) cmd_panel_get ;;
-    set) cmd_panel_set "${1:-}" ;;
-    toggle)
-        current="$(cmd_panel_get | jq -r '.side // "left"')"
-        if [[ "$current" == "right" ]]; then
-            cmd_panel_set left
-        else
-            cmd_panel_set right
-        fi
         ;;
     *) usage ;;
     esac

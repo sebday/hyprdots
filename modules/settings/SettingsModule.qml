@@ -23,7 +23,6 @@ Item {
     readonly property string barScript: Util.evoshellScript(Quickshell.env("HOME"), shell, "evo-layout")
     readonly property string fontScript: Util.evoshellScript(Quickshell.env("HOME"), shell, "evo-font")
     readonly property string mediaScript: Util.evoshellScript(Quickshell.env("HOME"), shell, "evo-bar-library")
-    readonly property string tasksScript: Util.evoshellScript(Quickshell.env("HOME"), shell, "evo-tasks")
     readonly property string configScript: Util.evoshellScript(Quickshell.env("HOME"), shell, "evo-config")
     readonly property string weatherScript: Util.evoshellScript(Quickshell.env("HOME"), shell, "evo-bar-weather")
     readonly property string packagesScript: Util.evoshellScript(Quickshell.env("HOME"), shell, "evo-system-packages")
@@ -82,7 +81,6 @@ Item {
     property int inactiveOpacityPercent: 88
     property bool fieldsetRoundingOn: true
     property string fontFamily: "CaskaydiaMono Nerd Font"
-    property int fontScalePercent: 100
     property var fontFamilies: []
     property string mediaTvRoot: ""
     property string mediaFilmsRoot: ""
@@ -91,10 +89,6 @@ Item {
     property bool hyprReady: false
     property bool uiReady: false
     property bool fontReady: false
-    property string tasksFile: ""
-    property bool tasksReady: false
-    property string panelSide: "left"
-    property bool panelSideReady: false
     property string weatherLocation: ""
     property string personalWallpaperDir: ""
     property bool weatherReady: false
@@ -137,7 +131,7 @@ Item {
         || mediaTvPickProc.running || mediaFilmsPickProc.running
     readonly property bool settingsBusy: fontBusy || mediaBusy || hyprToggleProc.running || hyprSetProc.running
         || uiToggleProc.running
-        || panelSetProc.running || weatherSetProc.running
+        || weatherSetProc.running
         || wallpaperPersonalDirSetProc.running || wallpaperPersonalDirPickProc.running
         || haSaveProc.running || idleSetProc.running
         || trayToggleProc.running || trayOrderSetProc.running
@@ -352,8 +346,6 @@ Item {
         if (!loadFontListProc.running) loadFontListProc.running = true
         if (!loadUiProc.running) loadUiProc.running = true
         if (!loadMediaProc.running) loadMediaProc.running = true
-        if (!loadTasksProc.running) loadTasksProc.running = true
-        if (!loadPanelProc.running) loadPanelProc.running = true
         if (!loadWeatherProc.running) loadWeatherProc.running = true
         if (!loadWallpaperConfigProc.running) loadWallpaperConfigProc.running = true
         if (!loadSecretsProc.running) loadSecretsProc.running = true
@@ -587,24 +579,6 @@ Item {
             root.mediaFilmsRoot = ""
             root.mediaReady = false
         }
-    }
-
-    function parseTasksSettings(raw) {
-        try {
-            var data = JSON.parse(String(raw || "{}"))
-            root.tasksFile = String(data.tasksFile || "")
-            root.tasksReady = data.ok === true
-        } catch (e) {
-            root.tasksFile = ""
-            root.tasksReady = false
-        }
-    }
-
-    function togglePanelSide() {
-        if (!panelSideReady || settingsBusy)
-            return
-        panelSetProc.side = root.panelSide === "right" ? "left" : "right"
-        panelSetProc.running = true
     }
 
     function setWeatherLocation(query) {
@@ -915,16 +889,6 @@ Item {
         trayToggleProc.widget = PluginManifest.normalizeTrayWidgetId(name)
         trayToggleProc.enabled = enabled
         trayToggleProc.running = true
-    }
-
-    function parsePanelSideState(raw) {
-        try {
-            var data = JSON.parse(String(raw || "{}"))
-            root.panelSide = String(data.side || "left") === "right" ? "right" : "left"
-            root.panelSideReady = true
-        } catch (e) {
-            root.panelSideReady = false
-        }
     }
 
     function parseWeatherSettings(raw) {
@@ -1291,31 +1255,6 @@ Item {
         command: ["bash", root.mediaScript, "settings", "pick", "films"]
         stdout: StdioCollector {
             onStreamFinished: root.finishMediaPick(text)
-        }
-    }
-
-    Process {
-        id: loadTasksProc
-        command: ["bash", root.tasksScript, "settings", "get"]
-        stdout: StdioCollector {
-            onStreamFinished: root.parseTasksSettings(text)
-        }
-    }
-
-    Process {
-        id: loadPanelProc
-        command: ["bash", root.configScript, "panel", "get"]
-        stdout: StdioCollector {
-            onStreamFinished: root.parsePanelSideState(text)
-        }
-    }
-
-    Process {
-        id: panelSetProc
-        property string side: "left"
-        command: ["bash", root.configScript, "panel", "set", panelSetProc.side]
-        stdout: StdioCollector {
-            onStreamFinished: root.parsePanelSideState(text)
         }
     }
 

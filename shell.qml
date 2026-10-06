@@ -37,7 +37,6 @@ ShellRoot {
                 userJournal: true
             }
         },
-        panel: { side: "left" },
         bar: {
             id: "evo.bar",
             position: "bottom",
@@ -431,6 +430,9 @@ ShellRoot {
         // evoplayer still asks the shell to toggle evo.player.
         if (pluginId === "evo.player")
             return "evo.panels.player"
+        // Older Hyprland binds toggle the docked side panel.
+        if (pluginId === "evo.side")
+            return "evo.calculator"
         return pluginId
     }
 

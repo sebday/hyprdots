@@ -1,15 +1,15 @@
 {
   "schemaVersion": 1,
-  "id": "evo.side",
-  "name": "Side panel",
+  "id": "evo.calculator",
+  "name": "Calculator",
   "version": "1.0.0",
   "author": "seb",
-  "description": "Docked side panel",
+  "description": "Floating calculator",
   "kinds": [
-    "panel"
+    "menu"
   ],
   "keepLoaded": true,
   "entryPoints": {
-    "panel": "Side.qml"
+    "menu": "Calculator.qml"
   }
 }

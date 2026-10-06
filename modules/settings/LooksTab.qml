@@ -253,17 +253,6 @@ Item {
                     module.setFont("family", family)
                 }
             }
-
-            SliderSetting {
-                Layout.fillWidth: true
-                label: "UI scale"
-                value: module.fontScalePercent
-                valueSuffix: "%"
-                minimum: 50
-                maximum: 150
-                step: 10
-                enabled: false
-            }
         }
     }
 }

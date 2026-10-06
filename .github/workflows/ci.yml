@@ -30,7 +30,3 @@ jobs:
         env:
           EVOSHELL_ROOT: ${{ github.workspace }}
         run: bash tests/test-evo-theme-obsidian.sh
-      - name: tasks vault detection
-        env:
-          EVOSHELL_ROOT: ${{ github.workspace }}
-        run: bash tests/test-evo-tasks-vault.sh

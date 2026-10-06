@@ -34,7 +34,7 @@ Shell config is `$EVOSHELL_ROOT/config/shell.json`, with built-in fallbacks in `
 | Store | Examples | Set via |
 |-------|----------|---------|
 | `config/shell.json` | monitors, `dashboards.openOnStart`, HA entity lists, idle timers, bar tray widgets | Settings panel, `evo-config`, `evo-layout` |
-| State | TV/films paths, weather location, side panel open | Settings panel, `evo-tasks`, `evo-bar-library`, `evo-bar-weather` |
+| State | TV/films paths, weather location | Settings panel, `evo-bar-library`, `evo-bar-weather` |
 | pass | GitHub, Cursor, Cloudflare tokens | `omarchy/...` in the password store (`evo-config secrets status`) |
 
 Feature scripts live in `$EVOSHELL_LIB` (`_system`, `_ipc`, `evo-bar-*`, etc.). Public CLI: `~/.local/bin/evo`. Path defaults in [`bin/evo-paths-lib`](bin/evo-paths-lib). Player binary: `~/.local/lib/evoplayer/evoplayer`.
@@ -86,17 +86,12 @@ Panel UIs opened from bar icons (hover popups).
 
 Dashboards load on demand via `Loader`s in `shell.qml` (built-in player + optional `$EVOSHELL_CONFIG/modules/` overlays).
 
-### Evoside (`evo.side.*`)
+### Floating panels
 
-Docked side panel and clipboard.
-
-- `modules/side/Side.qml` — dock host (`evo.side`)
-- `modules/side/calculator/` — calculator + tasks UI (`AppCalc`, `AppTasks`); opened with `{"module":"calc"}` or `{"module":"calc","focus":"tasks"}`
+- `modules/calculator/` — calculator overlay (`evo.calculator`), centered like the clipboard
 - `modules/clipboard/` — clipboard history popup (`evo.side.clipboard`)
 
-Only `calc` is a dock module id. Tasks is a focus target inside the calculator panel, not a separate dock module.
-
-Side position (`left`/`right`) persists in `config/shell.json` (`panel.side`) via Settings or `evo-config panel set`. Open state, module, and focus persist in `$EVOSHELL_STATE/session.json` (`sidePanel`) and restore on evoshell startup. UI prefs (fieldset rounding) live in `$EVOSHELL_CONFIG/ui.json`. Obsidian themes sync to all vaults in `~/.config/obsidian/obsidian.json` on theme switch. Tasks persist in `$EVOSHELL_STATE/apps/tasks.json`.
+UI prefs (fieldset rounding) live in `$EVOSHELL_CONFIG/ui.json`. Obsidian themes sync to all vaults in `~/.config/obsidian/obsidian.json` on theme switch.
 
 ### Evosys (`evo.sys.*`)
 
@@ -124,8 +119,8 @@ Shared QML: `Theme`, `BarHoverPanel`, `CenteredOverlay`, `FramedPanel`, charts, 
 |------|----------|-------|
 | `service` | `evo.sys.media.audio`, `evo.sys.notifications`, `evo.panels.player.monitor` | Background IPC/state; loaded at startup |
 | `bar` | `evo.bar` | Bar host |
-| `menu` | `evo.panels.weather`, `evo.sys.settings` | Hover popup or centered overlay; `open`/`close` |
-| `panel` | `evo.side` | Docked side panel |
+| `menu` | `evo.calculator`, `evo.sys.settings` | Centered overlay or hover popup; `open`/`close` |
+| `panel` | `evo.osd` | Layer-shell surface such as the on-screen display |
 | `dashboard` | `evo.panels.player` | `FloatingWindow`; lazy-loaded |
 
 Plugin ids use product prefixes: `evo.bar.*`, `evo.panels.*`, `evo.side.*`, `evo.sys.*`.
@@ -147,8 +142,7 @@ Evoshell overlays close with **Esc** (system menu and media library step back or
 | Super+Return | Terminal |
 | Super+Alt+Return | Quake console (`special:qconsole`) |
 | Super+W | Close active window |
-| Super+C | Calculator (`evo.side` → `calc`) |
-| Super+N | Tasks (`evo.side` → `calc`, focus `tasks`) |
+| Super+C | Calculator (`evo.calculator`) |
 | Super+V | Clipboard (`evo.side.clipboard`) |
 | Super+Home | Wallpaper (`evo.sys.wallpaper`) |
 | Super+Alt+Home | Themes (`evo.sys.themes`) |
@@ -166,7 +160,6 @@ Volume keys call `evo ipc evo.sys.media.audio` (`stepUp`, `stepDown`, `toggleMut
 - `idle` — lock timeout (seconds)
 - `notifications` — toast `output`, `position` (`top`/`bottom`), optional `durationMs`, optional `shellLogs` (`enabled`, `pollIntervalMs`, `dedupeWindowSec`, `userJournal`)
 - `bar` — `output`, `position`, `layout.left|center|right` widget entries
-- `panel.side` — dock side (`left`/`right`)
 - `dashboards.openOnStart` — optional fallback list for `evo-panel-hypr restore-dashboards` (Hypr autostart usually passes explicit ids)
 
 Bar entries are module ids (`evo.clock`) or `type: "command"` pollers with `exec`, `interval`, `onHover`, `onClick`.
@@ -184,7 +177,6 @@ Common feature scripts:
 | `evo ipc` | Quickshell IPC wrapper |
 | `evo system` | Shell supervisor, lock, restart, power |
 | `evoplayer` | Music library and playback (separate repo; see below) |
-| `evo-tasks` | Task list backing store |
 | `evo-calculator` | Calculator history/eval |
 | `evo-clipboard` | Clipboard history |
 | `evo-wallpaper` | Wallpaper apply/list |
@@ -284,7 +276,6 @@ bash ~/projects/evoplayer/scripts/install
 bash tests/test-plugin-manifest.sh
 bash tests/test-evo-layout-side.sh
 bash tests/test-evo-theme-obsidian.sh
-bash tests/test-evo-tasks-vault.sh
 bash ~/projects/evoplayer/tests/test-evoplayer-art
 bash ~/projects/evoplayer/tests/test-evoplayer-cli
 bash tests/test-static-contracts.sh
