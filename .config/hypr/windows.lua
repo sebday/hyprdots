@@ -48,6 +48,17 @@ hl.window_rule({
 })
 
 hl.window_rule({
+	name = "file-dialog-size",
+	match = {
+		title = "^(Open.*|Save.*|.*wants to save.*|.*wants to open.*)",
+	},
+	float = true,
+	center = true,
+	size = { "monitor_w * 0.5", "monitor_h * 0.5" },
+	max_size = { "monitor_w * 0.5", "monitor_h * 0.5" },
+})
+
+hl.window_rule({
 	name = "rename-window-size",
 	match = {
 		tag = "floating-window",

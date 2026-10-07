@@ -351,7 +351,7 @@ Singleton {
     readonly property int settingsPanelWidth: systemPanelWidth
     readonly property int systemMenuWidth: systemMenuPanelWidth
     readonly property int clipboardPanelWidth: Math.round(systemPanelWidth / 2)
-    readonly property int barHeight: 32
+    readonly property int barHeight: 28
     readonly property int barPaddingX: 16
     readonly property int barGap: 8
     readonly property int barSectionGap: 14
