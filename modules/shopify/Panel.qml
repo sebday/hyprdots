@@ -415,8 +415,10 @@ Item {
 
     Item {
       id: keyCatcher
+      // Same outer inset as the player panel.
+      readonly property int panelPad: 16
       anchors.fill: parent
-      anchors.margins: Theme.space(14)
+      anchors.margins: panelPad
       focus: true
 
       MouseArea {
@@ -500,16 +502,31 @@ Item {
           readonly property bool stacked: count > 1 && width < columnMin * count + gap
           // Each stacked store keeps the full side-by-side column height.
           readonly property int slot: height
+          // Titles are centred on the top border and paint into the window
+          // padding. Extend the clip up into it so they stay whole without
+          // moving the cards.
+          readonly property int legendOverhang: Math.min(
+            keyCatcher.panelPad,
+            Math.ceil(legendMetrics.height / 2) + 1
+          )
+
+          FontMetrics {
+            id: legendMetrics
+            font.family: root.fontFamily
+            font.pixelSize: Theme.font.bodySmall
+            font.bold: true
+          }
 
           onStackedChanged: if (!stacked) colScroll.contentY = 0
 
           Flickable {
             id: colScroll
             anchors.fill: parent
+            anchors.topMargin: -cols.legendOverhang
             clip: true
             contentWidth: width
             contentHeight: cols.stacked
-              ? cols.count * cols.slot + cols.gap * (cols.count - 1)
+              ? cols.legendOverhang + cols.count * cols.slot + cols.gap * (cols.count - 1)
               : height
             interactive: cols.stacked
             boundsBehavior: Flickable.StopAtBounds
@@ -530,7 +547,7 @@ Item {
                 readonly property int span: Math.max(1, cols.count)
 
                 x: cols.stacked ? 0 : index * (width + cols.gap)
-                y: cols.stacked ? index * (height + cols.gap) : 0
+                y: cols.legendOverhang + (cols.stacked ? index * (cols.slot + cols.gap) : 0)
                 width: cols.stacked
                   ? colScroll.width
                   : Math.max(1, Math.floor((colScroll.width - cols.gap * (span - 1)) / span))

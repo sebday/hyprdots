@@ -15,8 +15,7 @@ Item {
     property string filterText: ""
     property string mode: "power"
     property string submenu: ""
-    property int menuTabIndex: 0
-    property int menuFocusColumn: 1
+    property string menuPanel: "programs"
     property var commandEntries: []
     property var dynamicEntries: []
     property string dynamicEntryKind: ""
@@ -36,20 +35,10 @@ Item {
     readonly property bool boxTileMode: previewTileMode
     readonly property bool framedMode: !previewTileMode
     readonly property bool powerSearchMode: powerMenuMode && filterText.trim() !== ""
-    readonly property bool programsTabActive: powerMenuMode && menuTabIndex === 0 && !powerSearchMode
-    readonly property bool programsListMode: programsTabActive || powerSearchMode
-    readonly property bool showMainMenuTabs: powerMenuMode
-    readonly property bool showSettingsTab: powerMenuMode && menuTabIndex > 0 && !powerSearchMode
-    readonly property var mainTabModel: [
-        { label: "Programs", icon: "󰀻" },
-        { label: "Looks", icon: "󰒠" },
-        { label: "Displays", icon: "󰍹" },
-        { label: "Widgets", icon: "󰒓" },
-        { label: "Wallpapers", icon: "󰏘" },
-        { label: "Weather", icon: "󰖕" },
-        { label: "Media", icon: "󰿯" },
-        { label: "Packages", icon: "󰏖" }
-    ]
+    readonly property bool programsPanel: powerMenuMode && menuPanel === "programs" && !powerSearchMode
+    readonly property bool programsListMode: programsPanel || powerSearchMode
+    readonly property bool showSettingsTab: powerMenuMode && !powerSearchMode
+        && (menuPanel === "looks" || menuPanel === "packages")
     readonly property string previewFallbackIcon: submenu === "wallpaper" ? "󰏘" : "󰸌"
     readonly property int tileWidth: 160
     readonly property int tileHeight: 160
@@ -75,7 +64,7 @@ Item {
     readonly property int appIconSourceSize: 128
     readonly property string menuHeaderIcon: "󰣇"
     readonly property string menuHeaderTitle: "Evo shell"
-    readonly property string menuHeaderSubtitle: "Programs · looks · displays · widgets · weather"
+    readonly property string menuHeaderSubtitle: "Programs · looks · packages"
 
     readonly property int previewGridColumns: 5
     readonly property int previewColumnCount: gridColumnCount
@@ -161,17 +150,19 @@ Item {
     readonly property string menuPanelLegendText: {
         if (submenu === "shell") return "Shell commands"
         if (submenu === "session") return "Shutdown"
+        if (showSettingsTab && menuPanel === "packages") return "Packages"
+        if (showSettingsTab) return "Looks"
         if (powerSearchMode) return "Run"
-        if (powerMenuMode && menuTabIndex >= 0 && menuTabIndex < mainTabModel.length)
-            return mainTabModel[menuTabIndex].label
+        if (programsListMode) return "Programs"
         return "Menu"
     }
     readonly property string menuPanelLegendIcon: {
         if (submenu === "shell") return "󰆍"
         if (submenu === "session") return "󰐥"
+        if (showSettingsTab && menuPanel === "packages") return "󰏖"
+        if (showSettingsTab) return "󰒠"
         if (powerSearchMode) return "󰜎"
-        if (powerMenuMode && menuTabIndex >= 0 && menuTabIndex < mainTabModel.length)
-            return mainTabModel[menuTabIndex].icon
+        if (programsListMode) return "󰀻"
         return "󰍉"
     }
 
@@ -250,6 +241,8 @@ Item {
     function appendFilterText(text) {
         if (!text)
             return
+        if (root.menuPanel !== "programs")
+            root.menuPanel = "programs"
         root.filterText = root.filterText + text
         if (filterField.text !== root.filterText)
             filterField.text = root.filterText
@@ -263,96 +256,45 @@ Item {
             filterField.text = root.filterText
     }
 
-    function activateMainMenuTab(index) {
-        var tab = Math.max(0, Math.min(root.mainTabModel.length - 1, index))
-        if (tab === root.menuTabIndex)
-            return
-        root.menuTabIndex = tab
-        root.onMainMenuTabActivated(tab)
-    }
-
-    function moveMenuTabSelection(delta) {
-        if (!root.showMainMenuTabs)
-            return
-        var count = root.mainTabModel.length
-        if (count <= 0)
-            return
-        var next = (root.menuTabIndex + delta + count) % count
-        root.activateMainMenuTab(next)
-    }
-
-    function setMenuFocusColumn(column) {
-        var col = column === 0 ? 0 : 1
-        if (col === root.menuFocusColumn)
-            return
-        root.menuFocusColumn = col
-        if (col === 0) {
-            if (root.showSettingsTab) {
-                embeddedSettings.releaseTextFocus()
-                embeddedSettings.clearSettingsNavHighlights()
-            }
-            return
-        }
-        if (root.showSettingsTab) {
-            embeddedSettings.rebuildSettingsNav()
-            embeddedSettings.applySettingsKeyFocus()
-        }
-    }
-
-    function menuColumnNavActive() {
-        return root.powerMenuMode && root.framedMode && root.showMainMenuTabs
-    }
-
-    function cycleMainMenuTab(backward) {
-        if (!root.showMainMenuTabs)
-            return
-        var count = root.mainTabModel.length
-        var next = backward
-            ? (root.menuTabIndex + count - 1) % count
-            : (root.menuTabIndex + 1) % count
-        root.activateMainMenuTab(next)
-    }
-
-    function parseMenuTabIndex(payload) {
-        if (!payload || payload.tab === undefined || payload.tab === null)
-            return 0
+    function parseMenuPanel(payload) {
+        if (!payload)
+            return "programs"
         var tab = payload.tab
-        if (typeof tab === "number") {
-            if (tab >= 1)
-                tab = tab - 1
-            return Math.max(0, Math.min(root.mainTabModel.length - 1, tab))
+        if (tab === undefined || tab === null) {
+            if (payload.panel)
+                tab = payload.panel
+            else
+                return "programs"
         }
         var name = String(tab).toLowerCase()
-        if (name === "programs" || name === "runner" || name === "apps" || name === "0")
-            return 0
         if (name === "looks" || name === "settings" || name === "1")
-            return 1
-        if (name === "displays" || name === "display" || name === "2")
-            return 2
-        if (name === "widgets" || name === "integrations" || name === "3")
-            return 3
-        if (name === "wallpapers" || name === "personal wallpapers" || name === "4")
-            return 4
-        if (name === "weather" || name === "5")
-            return 5
-        if (name === "media" || name === "6")
-            return 6
+            return "looks"
         if (name === "packages" || name === "system-packages" || name === "systempackages" || name === "7")
-            return 7
-        if (name === "player" || name === "8")
-            return 8
-        return 0
+            return "packages"
+        return "programs"
     }
 
-    function onMainMenuTabActivated(index) {
-        if (index === 0) {
-            syncVisibleEntries()
-            focusSearchField()
-            return
-        }
-        embeddedSettings.onActivated()
-        if (index === 7)
-            embeddedSettings.loadPackagesBreakdown()
+    function showProgramsPanel() {
+        menuPanel = "programs"
+        filterText = ""
+        if (filterField.text !== "")
+            filterField.text = ""
+        selectedIndex = 0
+        syncVisibleEntries()
+        focusSearchField()
+    }
+
+    function showSettingsPanel(name) {
+        menuPanel = name === "packages" ? "packages" : "looks"
+        filterText = ""
+        if (filterField.text !== "")
+            filterField.text = ""
+        selectedIndex = 0
+        Qt.callLater(function() {
+            embeddedSettings.onActivated()
+            if (root.menuPanel === "packages")
+                embeddedSettings.loadPackagesBreakdown()
+        })
     }
 
     function syncMenuSpecialWorkspace(show) {
@@ -369,21 +311,20 @@ Item {
             submenu = String(payload.submenu || "")
             if (rawMode === "runner") {
                 mode = "power"
-                menuTabIndex = 0
+                menuPanel = "programs"
             } else {
                 mode = rawMode
-                menuTabIndex = parseMenuTabIndex(payload)
+                menuPanel = parseMenuPanel(payload)
             }
         } catch (e) {
             mode = "power"
             submenu = ""
-            menuTabIndex = 0
+            menuPanel = "programs"
         }
         filterText = ""
         if (filterField.text !== "")
             filterField.text = ""
         selectedIndex = 0
-        menuFocusColumn = 1
         refreshCommandEntries()
         if (submenu === "session") loadSessionEntries()
         else if (submenu) loadDynamicEntries(submenu)
@@ -400,7 +341,14 @@ Item {
             root.previewAreaMaxWidth = panel.previewAreaMaxWidth
             root.previewAreaMaxHeight = panel.previewAreaMaxHeight
             if (powerMenuMode) {
-                onMainMenuTabActivated(menuTabIndex)
+                if (menuPanel === "programs") {
+                    syncVisibleEntries()
+                    focusSearchField()
+                } else {
+                    embeddedSettings.onActivated()
+                    if (menuPanel === "packages")
+                        embeddedSettings.loadPackagesBreakdown()
+                }
             }
         })
     }
@@ -413,7 +361,7 @@ Item {
     function reopen(payloadJson) {
         if (!opened)
             return false
-        var parsed = { mode: mode, submenu: submenu, tab: menuTabIndex }
+        var parsed = { mode: mode, submenu: submenu, tab: menuPanel }
         try {
             parsed = JSON.parse(payloadJson || "{}")
         } catch (e) {}
@@ -421,8 +369,8 @@ Item {
         if (nextMode === "runner")
             nextMode = "power"
         var nextSubmenu = String(parsed.submenu || "")
-        var nextTab = String(parsed.mode || "") === "runner" ? 0 : parseMenuTabIndex(parsed)
-        if (nextMode === mode && nextSubmenu === submenu && nextTab === menuTabIndex)
+        var nextPanel = String(parsed.mode || "") === "runner" ? "programs" : parseMenuPanel(parsed)
+        if (nextMode === mode && nextSubmenu === submenu && nextPanel === menuPanel)
             return false
         open(payloadJson)
         return true
@@ -434,11 +382,10 @@ Item {
         root.syncMenuSpecialWorkspace(false)
         filterText = ""
         submenu = ""
-        menuTabIndex = 0
+        menuPanel = "programs"
         dynamicEntries = []
         dynamicEntryKind = ""
         selectedIndex = 0
-        menuFocusColumn = 1
     }
 
     function moveSelection(delta) {
@@ -560,13 +507,6 @@ Item {
     }
 
     function handlePreviewLeft() {
-        if (root.menuColumnNavActive()) {
-            if (root.menuFocusColumn === 1) {
-                root.setMenuFocusColumn(0)
-                return
-            }
-            return
-        }
         if (showSettingsTab && !embeddedSettings.focusInTextInput()) {
             if (embeddedSettings.adjustSettingsNavHorizontal(-1))
                 return
@@ -575,17 +515,6 @@ Item {
     }
 
     function handlePreviewRight() {
-        if (root.menuColumnNavActive()) {
-            if (root.menuFocusColumn === 0) {
-                root.setMenuFocusColumn(1)
-                return
-            }
-            if (showSettingsTab && !embeddedSettings.focusInTextInput()) {
-                if (embeddedSettings.adjustSettingsNavHorizontal(1))
-                    return
-            }
-            return
-        }
         if (showSettingsTab && !embeddedSettings.focusInTextInput()) {
             if (embeddedSettings.adjustSettingsNavHorizontal(1))
                 return
@@ -594,10 +523,6 @@ Item {
     }
 
     function handlePreviewUp() {
-        if (root.menuColumnNavActive() && root.menuFocusColumn === 0) {
-            root.moveMenuTabSelection(-1)
-            return
-        }
         if (showSettingsTab) {
             if (embeddedSettings.focusInTextInput())
                 return
@@ -609,10 +534,6 @@ Item {
     }
 
     function handlePreviewDown() {
-        if (root.menuColumnNavActive() && root.menuFocusColumn === 0) {
-            root.moveMenuTabSelection(1)
-            return
-        }
         if (showSettingsTab) {
             if (embeddedSettings.focusInTextInput())
                 return
@@ -650,8 +571,8 @@ Item {
             selectedIndex = 0
         } else if (showSettingsTab && embeddedSettings.focusInTextInput()) {
             embeddedSettings.releaseTextFocus()
-        } else if (showSettingsTab && embeddedSettings.weatherLocationPickerOpen) {
-            embeddedSettings.weatherLocationPickerOpen = false
+        } else if (showSettingsTab) {
+            showProgramsPanel()
         } else {
             dismiss()
         }
@@ -823,7 +744,7 @@ Item {
         if (submenu) {
             count = dynamicEntries.length
         } else if (mode === "power") {
-            count = (powerSearchMode || menuTabIndex === 0) ? visibleEntries.length : 0
+            count = (powerSearchMode || menuPanel === "programs") ? visibleEntries.length : 0
         } else {
             count = visibleEntries.length
         }
@@ -899,7 +820,7 @@ Item {
             })
         }
         var out = []
-        if (mode === "power" && (filterText.trim() !== "" || menuTabIndex === 0))
+        if (mode === "power" && (filterText.trim() !== "" || menuPanel === "programs"))
             return runnerStyleEntries()
         if (mode === "power")
             return []
@@ -961,6 +882,10 @@ Item {
                 root.previewAreaMaxHeight = panel.previewAreaMaxHeight
                 root.focusSearchField()
             })
+            return
+        }
+        if (entry.kind === "panel" && entry.panel) {
+            showSettingsPanel(entry.panel)
             return
         }
         if (entry.kind === "info")
@@ -1153,14 +1078,8 @@ Item {
                     event.accepted = true
                     return
                 }
-                if (event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab) {
-                    if (!root.showMainMenuTabs)
-                        return
-                    root.cycleMainMenuTab(event.modifiers & Qt.ShiftModifier
-                        || event.key === Qt.Key_Backtab)
-                    event.accepted = true
+                if (event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab)
                     return
-                }
                 if (event.key === Qt.Key_Backspace) {
                     if (root.showSettingsTab && embeddedSettings.focusInTextInput())
                         return
@@ -1193,37 +1112,9 @@ Item {
                 anchors.margins: root.menuPanelOuterPad
                 spacing: Theme.spacingM
 
-                SectionPanel {
-                    id: menuListFieldset
-                    visible: root.showMainMenuTabs
-                    Layout.fillWidth: true
-                    Layout.preferredWidth: 34
-                    Layout.alignment: Qt.AlignTop | Qt.AlignLeft
-                    notchLegend: true
-                    legendText: "Menu"
-                    legendIcon: "󰍉"
-                    legendBackground: Theme.background
-                    label: ""
-                    contentPad: root.menuFieldsetPad
-                    sectionSpacing: 0
-
-                    SettingsTabBar {
-                        id: mainMenuTabs
-                        vertical: true
-                        Layout.fillWidth: true
-                        tabs: root.mainTabModel
-                        currentIndex: root.menuTabIndex
-                        onTabActivated: function(index) {
-                            root.menuFocusColumn = 0
-                            root.activateMainMenuTab(index)
-                        }
-                    }
-                }
-
                 Item {
                     id: menuEntryHost
                     Layout.fillWidth: true
-                    Layout.preferredWidth: 66
                     Layout.fillHeight: true
                     Layout.alignment: Qt.AlignTop
                     clip: false
@@ -1233,7 +1124,7 @@ Item {
                         visible: root.showSettingsTab
                         anchors.fill: parent
                         showTabBar: false
-                        tabIndex: root.menuTabIndex > 0 ? root.menuTabIndex - 1 : 0
+                        tabIndex: root.menuPanel === "packages" ? 1 : 0
                         menuFilterText: root.filterText
                         host: settingsHost
                         shell: root.shell
@@ -1538,7 +1429,12 @@ Item {
         property string activeModule: "settings"
         property bool settingsEmbedded: root.showSettingsTab
         property int width: menuEntryHost.width
-        function dismiss() { root.dismiss() }
+        function dismiss() {
+            if (root.showSettingsTab)
+                root.showProgramsPanel()
+            else
+                root.dismiss()
+        }
     }
 
     Connections {

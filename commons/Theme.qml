@@ -335,7 +335,7 @@ Singleton {
     readonly property int systemPanelWidth: 800
     readonly property int systemMenuPanelWidth: 480
     readonly property real menuPanelHeightRatio: 0.5
-    readonly property real menuPanelWidthRatio: 0.25
+    readonly property int menuPanelWidthPx: 400
     readonly property int settingsSideTabWidth: 152
     readonly property int settingsSideTabIconWidth: 24
     readonly property int systemMenuPanelHeight: 600
@@ -346,8 +346,7 @@ Singleton {
     }
 
     function menuPanelWidth(screenWidth) {
-        var w = screenWidth > 0 ? screenWidth : 1920
-        return Math.round(w * menuPanelWidthRatio)
+        return menuPanelWidthPx
     }
     readonly property int settingsPanelWidth: systemPanelWidth
     readonly property int systemMenuWidth: systemMenuPanelWidth

@@ -18,4 +18,3 @@ local function toggle_workspace_split()
 	end
 end
 
-hl.bind("SUPER + S", toggle_workspace_split, { description = "Toggle split ratio 50/66" })

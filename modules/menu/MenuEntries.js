@@ -49,7 +49,7 @@ function systemSectionLayout(home, binOverride, extensionPanels) {
                 "Shell commands"
             ]) },
             { title: "Session", icon: "󰍃", entries: pick([
-                "Lock", "Restart shell", "Reboot", "Shutdown"
+                "Looks", "Packages", "Lock", "Restart shell", "Reboot", "Shutdown"
             ]) }
         ]
     }
@@ -74,6 +74,8 @@ function systemEntries(home, binOverride) {
         { name: "Clipboard", icon: "󰅍", keywords: ["clipboard", "copy", "paste"], command: ipc(home, "toggle evo.side.clipboard") },
         { name: "Screenshot", icon: "󰆴", keywords: ["screenshot", "capture", "omasnap"], command: "omasnap" },
         { name: "Shell commands", icon: "󰆍", keywords: ["shell", "ipc", "commands", "evo", "quickshell"], submenu: "shell" },
+        { name: "Looks", icon: "󰒠", keywords: ["looks", "theme", "font", "appearance"], panel: "looks" },
+        { name: "Packages", icon: "󰏖", keywords: ["packages", "pacman", "installed"], panel: "packages" },
         { name: "Lock", icon: "󰌾", keywords: ["lock", "screen"], command: evo + " system lock" },
         { name: "Restart shell", icon: "󰑐", keywords: ["evo", "shell", "bar", "quickshell", "refresh"], command: evo + " system restart" },
         { name: "Reboot", icon: "󰐥", keywords: ["reboot", "restart", "system"], command: evo + " system reboot" },
@@ -83,13 +85,14 @@ function systemEntries(home, binOverride) {
 
 function mapEntry(entry) {
     return {
-        kind: entry.submenu ? "submenu" : (entry.mode ? "mode" : "command"),
+        kind: entry.panel ? "panel" : (entry.submenu ? "submenu" : (entry.mode ? "mode" : "command")),
         name: entry.name,
         icon: entry.icon,
         keywords: entry.keywords || [],
         command: entry.command || "",
         submenu: entry.submenu || "",
-        mode: entry.mode || ""
+        mode: entry.mode || "",
+        panel: entry.panel || ""
     }
 }
 

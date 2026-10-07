@@ -1,6 +1,3 @@
 module settings
 SettingsModule 1.0 SettingsModule.qml
 LooksTab 1.0 LooksTab.qml
-DisplaysTab 1.0 DisplaysTab.qml
-WeatherTab 1.0 WeatherTab.qml
-WallpapersTab 1.0 WallpapersTab.qml

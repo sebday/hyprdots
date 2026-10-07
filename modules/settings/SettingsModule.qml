@@ -213,11 +213,7 @@ Item {
     function activeTabContent() {
         switch (settingsTabs.currentIndex) {
         case 0: return looksTab
-        case 1: return displaysTab
-        case 2: return integrationsColumn
-        case 3: return wallpapersTab
-        case 4: return weatherTab
-        case 5: return packagesTabColumn
+        case 1: return packagesTabColumn
         default: return null
         }
     }
@@ -225,11 +221,7 @@ Item {
     function activeTabFlickable() {
         switch (settingsTabs.currentIndex) {
         case 0: return looksTabScroll
-        case 1: return displaysTabScroll
-        case 2: return integrationsTabScroll
-        case 3: return wallpapersTabScroll
-        case 4: return weatherTabScroll
-        case 5: return packagesTabScroll
+        case 1: return packagesTabScroll
         default: return null
         }
     }
@@ -1063,16 +1055,10 @@ Item {
         }
     }
 
-    readonly property var looksTabModel: PluginManifest.extensionSettingsTabs([
+    readonly property var looksTabModel: [
         { label: "Looks", icon: "󰒠" },
-        { label: "Displays", icon: "󰍹" },
-        { label: "Widgets", icon: "󰒓" },
-        { label: "Wallpapers", icon: "󰏘" },
-        { label: "Weather", icon: "󰖕" },
         { label: "Packages", icon: "󰏖" }
-    ], shell ? shell.pluginOverlay : null)
-
-    property alias weatherLocationRow: weatherTab.weatherLocationRow
+    ]
 
     implicitHeight: parent && parent.height > 0 ? parent.height : settingsLayout.implicitHeight
     implicitWidth: root.compactLayout
@@ -1108,11 +1094,9 @@ Item {
         Connections {
             target: settingsTabs
             function onCurrentIndexChanged() {
-                if (settingsTabs.currentIndex !== 4)
-                    root.closeWeatherLocationPicker()
                 root.settingsKeyIndex = 0
                 Qt.callLater(root.rebuildSettingsNav)
-                if (settingsTabs.currentIndex === 5)
+                if (settingsTabs.currentIndex === 1)
                     root.loadPackagesBreakdown()
             }
         }
@@ -1140,221 +1124,6 @@ Item {
                 }
             }
 
-            Flickable {
-                id: displaysTabScroll
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                clip: true
-                boundsBehavior: Flickable.StopAtBounds
-                contentWidth: width
-                contentHeight: displaysTab.implicitHeight
-
-                DisplaysTab {
-                    id: displaysTab
-                    width: parent.width
-                    module: root
-                }
-            }
-
-            Flickable {
-                id: integrationsTabScroll
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                clip: true
-                boundsBehavior: Flickable.StopAtBounds
-                contentWidth: width
-                contentHeight: integrationsColumn.implicitHeight
-
-                ColumnLayout {
-                    id: integrationsColumn
-                    width: parent.width
-                    spacing: Theme.hoverPanelSectionSpacing
-
-                    SectionPanel {
-                        visible: root.sectionFilterVisible("Bar widgets")
-                        Layout.fillWidth: true
-                        notchLegend: true
-                        legendText: "Bar widgets"
-                        legendIcon: "󰝲"
-                        legendBackground: Theme.background
-                        label: ""
-
-                                Text {
-                                    Layout.fillWidth: true
-                                    text: "Drag rows to reorder widgets in the bar"
-                                    color: Theme.foreground
-                                    font.family: Theme.fontFamily
-                                    font.pixelSize: Theme.fontSizeXs
-                                    opacity: Theme.opacityMuted
-                                    wrapMode: Text.WordWrap
-                                }
-
-                                ListView {
-                                    id: trayWidgetList
-                                    Layout.fillWidth: true
-                                    Layout.preferredHeight: contentHeight
-                                    clip: true
-                                    spacing: Theme.spacing2
-                                    boundsBehavior: Flickable.StopAtBounds
-                                    interactive: dragIndex < 0
-                                    model: root.barWidgetOrderIds
-
-                                    property int dragIndex: -1
-                                    property int dropIndex: -1
-
-                                    delegate: Item {
-                                        id: trayWidgetRow
-                                        required property int index
-                                        required property string modelData
-
-                                        readonly property string widgetId: String(modelData || "")
-                                        readonly property bool isChromeWidget: root.isBarChromeWidget(trayWidgetRow.widgetId)
-                                        readonly property bool rowEnabled: root.trayReady && !settingsBusy
-
-                                        width: trayWidgetList.width
-                                        height: Math.max(32, trayWidgetRowLayout.implicitHeight + 4)
-                                        opacity: trayWidgetList.dragIndex === index ? 0.55 : 1
-
-                                        Rectangle {
-                                            anchors.top: parent.top
-                                            width: parent.width
-                                            height: 2
-                                            color: Theme.accent
-                                            visible: trayWidgetList.dragIndex >= 0
-                                                && trayWidgetList.dropIndex === index
-                                                && trayWidgetList.dropIndex !== trayWidgetList.dragIndex
-                                        }
-
-                                        RowLayout {
-                                            id: trayWidgetRowLayout
-                                            anchors.left: parent.left
-                                            anchors.right: parent.right
-                                            anchors.verticalCenter: parent.verticalCenter
-                                            spacing: Theme.spacingS
-
-                                            Item {
-                                                Layout.preferredWidth: 22
-                                                Layout.preferredHeight: 28
-
-                                                Text {
-                                                    anchors.centerIn: parent
-                                                    text: "󰇅"
-                                                    color: Theme.foreground
-                                                    font.family: Theme.fontFamily
-                                                    font.pixelSize: Theme.fontSizeL
-                                                    opacity: trayDragMouse.enabled
-                                                        ? (trayDragMouse.drag.active || trayDragMouse.pressed
-                                                            ? 1 : (trayDragMouse.containsMouse ? 0.72 : 0.35))
-                                                        : 0.2
-                                                }
-
-                                                MouseArea {
-                                                    id: trayDragMouse
-                                                    anchors.fill: parent
-                                                    hoverEnabled: true
-                                                    cursorShape: Qt.SizeAllCursor
-                                                    preventStealing: true
-                                                    enabled: trayWidgetRow.rowEnabled
-                                                    drag.target: trayDragLift
-                                                    drag.axis: Drag.YAxis
-                                                    drag.threshold: 6
-
-                                                    Item {
-                                                        id: trayDragLift
-                                                        anchors.horizontalCenter: parent.horizontalCenter
-                                                        width: 1
-                                                        height: parent.height
-                                                    }
-
-                                                    onPressed: function(mouse) {
-                                                        trayWidgetList.dragIndex = trayWidgetRow.index
-                                                        trayWidgetList.dropIndex = trayWidgetRow.index
-                                                    }
-
-                                                    onPositionChanged: function(mouse) {
-                                                        if (!drag.active || trayWidgetList.dragIndex < 0)
-                                                            return
-                                                        var pos = mapToItem(trayWidgetList.contentItem, width / 2, mouse.y)
-                                                        var target = trayWidgetList.indexAt(pos.x, pos.y)
-                                                        if (target < 0)
-                                                            return
-                                                        trayWidgetList.dropIndex = target
-                                                    }
-
-                                                    onReleased: function(mouse) {
-                                                        if (trayWidgetList.dragIndex >= 0
-                                                                && trayWidgetList.dropIndex >= 0
-                                                                && trayWidgetList.dropIndex !== trayWidgetList.dragIndex)
-                                                            root.moveBarWidget(
-                                                                trayWidgetList.dragIndex,
-                                                                trayWidgetList.dropIndex)
-                                                        trayDragLift.y = 0
-                                                        trayWidgetList.dragIndex = -1
-                                                        trayWidgetList.dropIndex = -1
-                                                    }
-
-                                                    onCanceled: {
-                                                        trayDragLift.y = 0
-                                                        trayWidgetList.dragIndex = -1
-                                                        trayWidgetList.dropIndex = -1
-                                                    }
-                                                }
-                                            }
-
-                                            ToggleRow {
-                                                Layout.fillWidth: true
-                                                icon: root.barWidgetIcon(trayWidgetRow.widgetId)
-                                                label: root.barWidgetLabel(trayWidgetRow.widgetId)
-                                                detail: !trayWidgetRow.isChromeWidget && root.trayWidgetShowSecret(trayWidgetRow.widgetId)
-                                                    ? root.secretDetail(trayWidgetRow.widgetId) : ""
-                                                detailInline: !trayWidgetRow.isChromeWidget && root.trayWidgetShowSecret(trayWidgetRow.widgetId)
-                                                checked: root.barWidgetEnabled(trayWidgetRow.widgetId)
-                                                enabled: trayWidgetRow.rowEnabled
-                                                onToggled: root.toggleBarWidget(
-                                                    trayWidgetRow.widgetId,
-                                                    !root.barWidgetEnabled(trayWidgetRow.widgetId))
-                                            }
-                                        }
-                                    }
-                                }
-                    }
-                }
-            }
-
-            Flickable {
-                id: wallpapersTabScroll
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                clip: true
-                boundsBehavior: Flickable.StopAtBounds
-                contentWidth: width
-                contentHeight: wallpapersTab.implicitHeight
-
-                WallpapersTab {
-                    id: wallpapersTab
-                    width: parent.width
-                    module: root
-                }
-            }
-
-            Flickable {
-                id: weatherTabScroll
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                clip: true
-                boundsBehavior: Flickable.StopAtBounds
-                contentWidth: width
-                contentHeight: weatherTab.implicitHeight
-
-                onContentYChanged: root.repositionWeatherLocationPopup()
-                onWidthChanged: root.repositionWeatherLocationPopup()
-
-                WeatherTab {
-                    id: weatherTab
-                    width: parent.width
-                    module: root
-                }
-            }
 
             Flickable {
                 id: packagesTabScroll
@@ -1535,119 +1304,4 @@ Item {
         }
     }
 
-    MouseArea {
-        z: 500
-        anchors.fill: parent
-        visible: root.weatherLocationPickerOpen
-        enabled: root.weatherLocationPickerOpen
-        onClicked: root.closeWeatherLocationPicker()
-    }
-
-    Rectangle {
-        id: weatherLocationPopup
-        z: 501
-        visible: root.weatherLocationPickerOpen
-        x: root.weatherLocationPopupX
-        y: root.weatherLocationPopupY
-        width: Math.max(220, root.weatherLocationPopupWidth)
-        radius: Theme.radiusL
-        color: Theme.panelMantle
-        border.color: Theme.foregroundPickerBorder
-        border.width: 1
-        implicitHeight: visible
-            ? Math.min(220, weatherLocationSearchInput.implicitHeight + weatherLocationResults.contentHeight + 24)
-            : 0
-        clip: true
-
-        ColumnLayout {
-            anchors.fill: parent
-            anchors.margins: 8
-            spacing: 6
-
-            Rectangle {
-                Layout.fillWidth: true
-                implicitHeight: 30
-                radius: Theme.radiusL
-                color: Theme.foregroundWash
-                border.color: Theme.foregroundDivider
-                border.width: 1
-
-                TextField {
-                    id: weatherLocationSearchInput
-                    anchors.fill: parent
-                    anchors.leftMargin: 4
-                    anchors.rightMargin: 4
-                    color: Theme.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSizeS
-                    selectionColor: Theme.accent
-                    selectedTextColor: Theme.mantle
-                    verticalAlignment: TextInput.AlignVCenter
-                    clip: true
-                    enabled: root.weatherReady
-                    text: root.weatherSearchQuery
-                    placeholderText: "Search city…"
-                    background: Item {}
-                    onTextChanged: {
-                        root.weatherSearchQuery = text
-                        root.queueWeatherSearch()
-                    }
-                    Keys.onEscapePressed: root.closeWeatherLocationPicker()
-                }
-            }
-
-            Text {
-                Layout.fillWidth: true
-                visible: root.weatherSearchBusy
-                text: "Searching…"
-                color: Theme.foreground
-                font.family: Theme.fontFamily
-                font.pixelSize: Theme.fontSizeXs
-                opacity: Theme.opacityMuted
-            }
-
-            ListView {
-                id: weatherLocationResults
-                Layout.fillWidth: true
-                Layout.preferredHeight: Math.min(160, Math.max(28, count * 28))
-                clip: true
-                boundsBehavior: Flickable.StopAtBounds
-                model: root.weatherSearchResults
-                spacing: 2
-
-                delegate: Item {
-                    required property var modelData
-                    required property int index
-                    width: weatherLocationResults.width
-                    height: 28
-
-                    Rectangle {
-                        anchors.fill: parent
-                        radius: Theme.radiusS
-                        color: resultMouse.containsMouse ? Theme.foregroundHoverWash : "transparent"
-                    }
-
-                    Text {
-                        anchors.fill: parent
-                        anchors.leftMargin: 6
-                        anchors.rightMargin: 6
-                        verticalAlignment: Text.AlignVCenter
-                        text: String(modelData.label || modelData.name || "")
-                        color: Theme.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSizeS
-                        elide: Text.ElideRight
-                    }
-
-                    MouseArea {
-                        id: resultMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.pickWeatherLocation(modelData)
-                    }
-                }
-            }
-        }
-    }
 }
