@@ -32,8 +32,8 @@ This module ships with evoshell. The plugin id is `evo.stocks`. Widget ids are `
 Store credentials in `pass`:
 
 ```bash
-pass insert evoshell/kraken/api-key
-pass insert evoshell/kraken/api-secret
+pass insert evoshell/kraken/panel-key
+pass insert evoshell/kraken/panel-secret
 pass insert evoshell/trading212/api-key
 pass insert evoshell/trading212/api-secret
 ```

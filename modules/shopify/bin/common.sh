@@ -111,10 +111,14 @@ evo_private_dir() {
 }
 
 evo_read_bounded() {
-  local file="$1" max="${2:-65536}" data
-  [[ -e "$file" ]] || return 1
-  data=$(/usr/bin/dd if="$file" iflag=nofollow,nonblock,count_bytes,fullblock bs=1 count=$((max + 1)) status=none) || return 1
-  [ ${#data} -le "$max" ] || return 1
+  local file="$1" max="${2:-262144}" size data
+  [[ -e "$file" && ! -L "$file" ]] || return 1
+  size=$(stat -c %s "$file" 2>/dev/null) || return 1
+  [[ "$size" =~ ^[0-9]+$ ]] || return 1
+  (( size <= max )) || return 1
+  # Command substitution drops trailing newlines, so a size check on $data
+  # would accept a file cut off at the next newline.
+  data=$(/usr/bin/dd if="$file" iflag=nofollow,nonblock,count_bytes,fullblock bs=1 count="$size" status=none) || return 1
   printf '%s' "$data"
 }
 

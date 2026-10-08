@@ -53,8 +53,26 @@ Item {
         return out
     }
 
+    function stripInput(value) {
+        return String(value || "").replace(/[,£$]/g, "")
+    }
+
+    function strippedBefore(value, pos) {
+        var n = 0
+        var i
+        var limit = Math.min(pos, value.length)
+        for (i = 0; i < limit; i++) {
+            var ch = value.charAt(i)
+            if (ch === "," || ch === "£" || ch === "$")
+                n++
+        }
+        return n
+    }
+
     function submit() {
-        var expr = inputField.text.trim()
+        var expr = stripInput(inputField.text).trim()
+        if (inputField.text !== expr)
+            inputField.text = expr
         if (!expr || evalProc.running) return
         pendingExpr = expr
         evalProc.running = true
@@ -159,8 +177,9 @@ Item {
                 if (result && result !== "error") {
                     root.saveEntry(expr, result)
                     root.copyResult(result)
+                    inputField.text = result
+                    inputField.cursorPosition = inputField.text.length
                 }
-                inputField.text = ""
                 inputField.forceActiveFocus()
             }
         }
@@ -202,6 +221,16 @@ Item {
                 selectionColor: Theme.accent
                 selectedTextColor: Theme.background
                 clip: false
+
+                onTextEdited: {
+                    if (text.indexOf(",") < 0 && text.indexOf("£") < 0 && text.indexOf("$") < 0)
+                        return
+                    var pos = cursorPosition
+                    var removed = root.strippedBefore(text, pos)
+                    var cleaned = root.stripInput(text)
+                    text = cleaned
+                    cursorPosition = Math.max(0, Math.min(cleaned.length, pos - removed))
+                }
 
                 Keys.onPressed: function(event) {
                     if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
