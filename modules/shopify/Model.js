@@ -6,7 +6,7 @@ var MAX_BARS = 400
 var MAX_TEXT = 80
 
 var KPI_ORDER = [
-  "revenue", "orders", "cos", "cvr", "aov",
+  "revenue", "orders", "cos", "refunds", "cvr", "aov",
   "sessions", "spend"
 ]
 
@@ -18,6 +18,7 @@ var CHARTS = {
   aov: { id: "aov", label: "AoV", valueKind: "currency", chartStyle: "line" },
   cos: { id: "cos", label: "CoS", valueKind: "percent", chartStyle: "line" },
   spend: { id: "spend", label: "ad spend", valueKind: "currency", chartStyle: "line" },
+  refunds: { id: "refunds", label: "refunds", valueKind: "currency", chartStyle: "line" },
   periodPrev: { id: "periodPrev", label: "prev", valueKind: "currency", chartStyle: "bar" },
   periodRevenue: { id: "periodRevenue", label: "revenue", valueKind: "currency", chartStyle: "bar" },
   forecast: { id: "forecast", label: "forecast", valueKind: "currency", chartStyle: "bar" }
@@ -112,7 +113,7 @@ function emptyChannelBars() {
 function emptyPrevDaily() {
   return {
     revenue: [], orders: [], sessions: [], spend: [],
-    cvr: [], aov: [], cos: []
+    cvr: [], aov: [], cos: [], refunds: []
   }
 }
 
@@ -121,8 +122,8 @@ function emptyPayload() {
     ok: false,
     error: "No data",
     symbol: "£",
-    today: { date: "", calendarDate: "", revenue: 0, orders: 0, sessions: 0, cos: "", spend: null, cvr: null },
-    period: { days: 0, revenue: 0, prevRevenue: 0, orders: 0, sessions: 0, spend: 0 },
+    today: { date: "", calendarDate: "", revenue: 0, orders: 0, sessions: 0, cos: "", spend: null, cvr: null, refunds: null },
+    period: { days: 0, revenue: 0, prevRevenue: 0, orders: 0, sessions: 0, spend: 0, refunds: null, prevRefunds: null },
     channels: emptyChannels(),
     channelBars: emptyChannelBars(),
     prevDaily: emptyPrevDaily(),
@@ -133,7 +134,8 @@ function emptyPayload() {
     spendBars: [],
     cvrBars: [],
     aovBars: [],
-    cosBars: []
+    cosBars: [],
+    refundBars: []
   }
 }
 
@@ -167,7 +169,8 @@ function normalizePayload(json) {
   var cvrBars = barsOf(json.cvrBars)
   var aovBars = barsOf(json.aovBars)
   var cosBars = barsOf(json.cosBars)
-  if (!bars || !orderBars || !sessionBars || !spendBars || !cvrBars || !aovBars || !cosBars)
+  var refundBars = barsOf(json.refundBars)
+  if (!bars || !orderBars || !sessionBars || !spendBars || !cvrBars || !aovBars || !cosBars || !refundBars)
     return empty
 
   var today = json.todayDetail && typeof json.todayDetail === "object" ? json.todayDetail : {}
@@ -187,7 +190,8 @@ function normalizePayload(json) {
   var prevCvr = barsOf(prevIn.cvr)
   var prevAov = barsOf(prevIn.aov)
   var prevCos = barsOf(prevIn.cos)
-  if (!prevRevenue || !prevOrders || !prevSessions || !prevSpend || !prevCvr || !prevAov || !prevCos)
+  var prevRefunds = barsOf(prevIn.refunds)
+  if (!prevRevenue || !prevOrders || !prevSessions || !prevSpend || !prevCvr || !prevAov || !prevCos || !prevRefunds)
     return empty
 
   var channels = json.channels && typeof json.channels === "object" ? json.channels : {}
@@ -211,7 +215,8 @@ function normalizePayload(json) {
       sessions: Math.max(0, intOf(today.sessions)),
       cos: plain(today.cos, 16),
       spend: finiteOrNull(today.spend),
-      cvr: finiteOrNull(today.cvr)
+      cvr: finiteOrNull(today.cvr),
+      refunds: finiteOrNull(today.refunds)
     },
     period: {
       days: days,
@@ -219,7 +224,9 @@ function normalizePayload(json) {
       prevRevenue: finite(period.prevRevenue) || 0,
       orders: Math.max(0, intOf(period.orders)),
       sessions: Math.max(0, intOf(period.sessions)),
-      spend: finite(period.spend) || 0
+      spend: finite(period.spend) || 0,
+      refunds: finiteOrNull(period.refunds),
+      prevRefunds: finiteOrNull(period.prevRefunds)
     },
     channels: {
       paid: Math.max(0, finite(channels.paid) || 0),
@@ -244,7 +251,8 @@ function normalizePayload(json) {
       spend: prevSpend,
       cvr: prevCvr,
       aov: prevAov,
-      cos: prevCos
+      cos: prevCos,
+      refunds: prevRefunds
     },
     month: { forecastRevenue: Math.max(0, finite(month.forecastRevenue) || 0) },
     bars: bars,
@@ -253,7 +261,8 @@ function normalizePayload(json) {
     spendBars: spendBars,
     cvrBars: cvrBars,
     aovBars: aovBars,
-    cosBars: cosBars
+    cosBars: cosBars,
+    refundBars: refundBars
   }
 
   var revenue = finite(json.revenue) || 0
@@ -344,6 +353,12 @@ function formatInt(n) {
   return commaInt(v)
 }
 
+function formatRefund(val, symbol) {
+  var n = finite(val)
+  if (!isFinite(n)) return "—"
+  return formatRevenue(n, symbol)
+}
+
 function formatAov(detail, symbol) {
   if (!detail || !detail.orders) return "—"
   return formatRevenue(detail.revenue / detail.orders, symbol)
@@ -389,6 +404,7 @@ function barsFor(payload, id) {
   if (id === "aov") return p.aovBars
   if (id === "cos") return p.cosBars
   if (id === "spend") return p.spendBars
+  if (id === "refunds") return p.refundBars || []
   return p.bars
 }
 
@@ -401,6 +417,7 @@ function prevBarsFor(payload, id) {
   if (id === "aov") return prev.aov
   if (id === "cos") return prev.cos
   if (id === "spend") return prev.spend
+  if (id === "refunds") return prev.refunds || []
   return prev.revenue
 }
 
@@ -447,15 +464,20 @@ function chartFigure(payload, metricId) {
     return period.revenue > 0 ? formatPct(period.spend / period.revenue) : "—"
   if (metricId === "cvr")
     return period.sessions > 0 ? formatPct(period.orders / period.sessions) : "—"
+  if (metricId === "refunds") return formatRefund(period.refunds, cur)
   return ""
 }
 
 function chartChange(payload, metricId) {
-  if (metricId !== "revenue") return { text: "", tone: "up" }
+  if (metricId !== "revenue" && metricId !== "refunds") return { text: "", tone: "up" }
   var p = asPayload(payload)
-  var delta = pctDelta(p.period.revenue, p.period.prevRevenue)
+  var current = metricId === "refunds" ? p.period.refunds : p.period.revenue
+  var previous = metricId === "refunds" ? p.period.prevRefunds : p.period.prevRevenue
+  var delta = pctDelta(current, previous)
+  var higherIsWorse = metricId === "refunds"
   var tone = "up"
-  if (delta !== null && Math.abs(delta) >= 0.05 && delta < 0) tone = "down"
+  if (delta !== null && Math.abs(delta) >= 0.05)
+    tone = (higherIsWorse ? delta > 0 : delta < 0) ? "down" : "up"
   return { text: formatDelta(delta), tone: tone }
 }
 
@@ -520,6 +542,7 @@ function todayPoint(detail, id) {
     if (!detail.revenue || detail.spend === null || detail.spend === undefined) return null
     return detail.spend / detail.revenue
   }
+  if (id === "refunds") return finiteOrNull(detail.refunds)
   return null
 }
 
@@ -541,6 +564,7 @@ function kpiCells(payload, metricId) {
     ["revenue", "Rev.", formatRevenue(d.revenue, cur)],
     ["orders", "Orders", formatInt(d.orders)],
     ["cos", "CoS", dashIfEmpty(d.cos)],
+    ["refunds", "Refunds", formatRefund(d.refunds, cur)],
     ["cvr", "CvR", formatPct(d.cvr)],
     ["aov", "AoV", formatAov(d, cur)],
     ["sessions", "Sess.", formatInt(d.sessions)],
@@ -551,7 +575,7 @@ function kpiCells(payload, metricId) {
     var spec = specs[i]
     var series = withToday(barsFor(p, spec[0]), d, spec[0])
     var delta = seriesDelta(series)
-    var higherIsWorse = spec[0] === "cos" || spec[0] === "spend"
+    var higherIsWorse = spec[0] === "cos" || spec[0] === "spend" || spec[0] === "refunds"
     var tone = "up"
     if (delta !== null && Math.abs(delta) >= 0.05)
       tone = (higherIsWorse ? delta > 0 : delta < 0) ? "down" : "up"

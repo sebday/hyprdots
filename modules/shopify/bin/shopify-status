@@ -185,6 +185,11 @@ summary_to_store_payload() {
         end;
       def sumkey($rows; $key): ([$rows[] | money(.[$key])] | add // 0);
       def spark($rows; $key): [$rows[] | { date: (.dt // ""), value: money(.[$key]) }];
+      def money_or_null($v): if $v == null then null else money($v) end;
+      def refund_or_null($row):
+        if $row == null or ($row | type) != "object" then null else money_or_null($row.refunds) end;
+      def refund_on($rows; $dt):
+        (refund_or_null([ $rows[] | select((.dt // "") == $dt) ] | last) // 0);
       def series($daily; $values; $orders):
         ($values | map(num(.)) | max // 0) as $max
         | [range(0; $daily | length)]
@@ -212,8 +217,10 @@ summary_to_store_payload() {
       | [ $factRows[] | select($curFrom != "" and (.dt // "") != "" and (.dt // "") < $curFrom) ] as $prevFacts
       | ([ $factRows[] | select($calendarToday != "" and (.dt // "") == $calendarToday) ] | last) as $liveRow
       | (($daily | map(select(.dt == $periodTo)) | last) // $daily[-1] // {}) as $periodEnd
+      | ([ $factRows[] | select((.dt // "") == ($periodEnd.dt // "")) ] | last) as $endFact
       | (
-          if $liveRow == null then $periodEnd
+          if $liveRow == null then
+            $periodEnd + { refunds: refund_or_null($endFact) }
           else
             (num($liveRow.revenue)) as $rev
             | (num($liveRow.orders)) as $ord
@@ -225,6 +232,7 @@ summary_to_store_payload() {
                 orders: $ord,
                 sessions: $ses,
                 spend: $spend,
+                refunds: refund_or_null($liveRow),
                 cvr: (if $ses > 0 then ($ord / $ses) else num($liveRow.cvr) end),
                 cos_pct: (if $rev > 0 then (((($spend / $rev) * 1000) | round) / 10) else 0 end)
               }
@@ -247,7 +255,8 @@ summary_to_store_payload() {
             sessions: num($today.sessions),
             cos: $cos_str,
             spend: money($today.spend),
-            cvr: num($today.cvr)
+            cvr: num($today.cvr),
+            refunds: $today.refunds
           },
           period: {
             days: num(.period_days),
@@ -255,7 +264,9 @@ summary_to_store_payload() {
             prevRevenue: money(.prev_period.revenue),
             orders: num(.period.orders),
             sessions: num(.period.sessions),
-            spend: money(.period.spend)
+            spend: money(.period.spend),
+            refunds: money_or_null(.period.refunds),
+            prevRefunds: money_or_null(.prev_period.refunds)
           },
           channels: {
             paid: money(.channels.paid),
@@ -286,7 +297,8 @@ summary_to_store_payload() {
             cos: [$prevFacts[] | {
               date: (.dt // ""),
               value: (if num(.revenue) > 0 then (num(.google_spend) / num(.revenue)) else 0 end)
-            }]
+            }],
+            refunds: [$prevFacts[] | { date: (.dt // ""), value: (money_or_null(.refunds) // 0) }]
           },
           month: {
             mtdRevenue: money($mtd),
@@ -300,7 +312,12 @@ summary_to_store_payload() {
           spendBars: series($daily; [$daily[] | money(.spend)]; [$daily[].orders]),
           cvrBars: series($daily; [$daily[].cvr]; [$daily[].orders]),
           aovBars: series($daily; [$daily[] | money(.aov)]; [$daily[].orders]),
-          cosBars: series($daily; [$daily[] | money(num(.cos_pct) / 100)]; [$daily[].orders])
+          cosBars: series($daily; [$daily[] | money(num(.cos_pct) / 100)]; [$daily[].orders]),
+          refundBars: (
+            if ($curFacts | length) == 0 then []
+            else series($daily; [$daily[] | refund_on($curFacts; .dt)]; [$daily[].orders])
+            end
+          )
         }
     ' <<<"$1"
 }

@@ -21,8 +21,9 @@ Item {
 
   function cellsForRow(row) {
     var all = root.cells || []
-    var start = row === 0 ? 0 : 3
-    var end = row === 0 ? Math.min(3, all.length) : all.length
+    var top = 4
+    var start = row === 0 ? 0 : top
+    var end = row === 0 ? Math.min(top, all.length) : all.length
     var out = []
     for (var i = start; i < end; i++) out.push(all[i])
     return out
