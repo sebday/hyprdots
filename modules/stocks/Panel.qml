@@ -52,12 +52,13 @@ Panel {
   readonly property bool iconBusy: activeLoading && !(activeData && activeData.ok === true)
   readonly property bool iconMuted: false
   readonly property string barTooltip: market === "" ? "" : Model.plain(Model.marketTooltip(spcxMarket ? "SPCX" : "BTC", activeData))
+  readonly property string marketName: spcxMarket ? "SPCX" : "BTC"
+  readonly property string barAmount: market === "" ? "" : Model.barAmount(marketName, activeData)
+  readonly property string barIcon: barAmount !== "" ? Model.marketSymbolIcon(marketName) : ""
   readonly property string barValue: {
     if (market === "") return ""
-    var name = spcxMarket ? "SPCX" : "BTC"
-    var priced = Model.barPrice(name, activeData)
-    if (priced !== "") return priced
-    return Model.plain(Model.marketSymbolIcon(name))
+    if (barAmount !== "") return barAmount
+    return Model.plain(Model.marketSymbolIcon(marketName))
   }
 
   readonly property string btcScript: Qt.resolvedUrl("bin/btc-status").toString().replace("file://", "")

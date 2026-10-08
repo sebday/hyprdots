@@ -6,6 +6,9 @@ Item {
 
   property var bar: null
   property string text: ""
+  // Drawn before `text`, sized to the glyph's ink so a wide icon does not
+  // eat the space before the value. Empty for labels that are text only.
+  property string leadingIcon: ""
   property string fontFamily: bar ? bar.fontFamily : Theme.font.family
   property real fontSize: Theme.font.body
   property color foreground: bar ? bar.barForeground : Theme.foreground
@@ -59,26 +62,95 @@ Item {
   readonly property real scaledHorizontalMargin: Theme.spaceReal(horizontalMargin)
   readonly property real scaledVerticalPadding: Theme.spaceReal(verticalPadding)
   readonly property bool tooltipHovered: visible && interactive && !concealed && mouseArea.containsMouse
+  readonly property color labelColor: active && useActiveColor ? activeColor : foreground
+  readonly property bool showLeadingIcon: leadingIcon !== "" && !vertical
+  // Fixed gap after the icon ink. A measured space comes back as zero width,
+  // which pulls the value flush against the glyph.
+  readonly property real iconGap: Theme.spacing.md
+  readonly property real iconBoxWidth: Math.max(
+    iconMetrics.width,
+    iconMetrics.tightBoundingRect.x + iconMetrics.tightBoundingRect.width)
+  readonly property real contentWidth: showLeadingIcon ? iconRow.implicitWidth : label.implicitWidth
   // Width of the painted label, for bar chrome that wants to line up with the
   // text rather than with the slot it sits in. Zero on icon-only buttons.
-  readonly property real labelWidth: label.visible ? label.implicitWidth : 0
+  readonly property real labelWidth: showLeadingIcon
+    ? iconRow.implicitWidth
+    : (label.visible ? label.implicitWidth : 0)
 
   visible: hasVisualContent || keepSpace
   opacity: !hasVisualContent || concealed ? 0 : (dimmed ? 0.45 : 1)
-  implicitWidth: fixedWidth > 0 ? fixedWidth : (vertical ? barSize : Math.max(12, label.implicitWidth + scaledHorizontalMargin * 2))
+  implicitWidth: fixedWidth > 0 ? fixedWidth : (vertical ? barSize : Math.max(12, contentWidth + scaledHorizontalMargin * 2))
   implicitHeight: fixedHeight > 0 ? fixedHeight : (vertical ? Math.max(12, label.implicitHeight + scaledVerticalPadding * 2) : barSize)
 
   Behavior on opacity {
     NumberAnimation { duration: Theme.duration(140); easing.type: Easing.OutCubic }
   }
 
+  TextMetrics {
+    id: iconMetrics
+    font.family: root.fontFamily
+    font.pixelSize: root.fontSize
+    text: root.leadingIcon
+  }
+
+  Row {
+    id: iconRow
+    visible: root.showLeadingIcon && root.labelVisible
+    anchors.centerIn: parent
+    spacing: 0
+
+    Item {
+      // Match the price line. A fallback glyph (the double-struck X) has a
+      // taller line box, and letting that set the row height lifts the label.
+      width: root.iconBoxWidth
+      height: valueLabel.implicitHeight
+
+      Text {
+        id: iconGlyph
+        anchors.left: parent.left
+        anchors.verticalCenter: parent.verticalCenter
+        textFormat: Text.PlainText
+        text: root.leadingIcon
+        color: root.labelColor
+        font.family: root.fontFamily
+        font.pixelSize: root.fontSize
+        renderType: Text.NativeRendering
+
+        Behavior on color {
+          enabled: !root.bar || root.bar.foregroundAnimationEnabled
+          ColorAnimation { duration: Theme.duration(160) }
+        }
+      }
+    }
+
+    Item {
+      width: root.iconGap
+      height: 1
+    }
+
+    Text {
+      id: valueLabel
+      textFormat: Text.PlainText
+      text: root.text
+      color: root.labelColor
+      font.family: root.fontFamily
+      font.pixelSize: root.fontSize
+      renderType: Text.NativeRendering
+
+      Behavior on color {
+        enabled: !root.bar || root.bar.foregroundAnimationEnabled
+        ColorAnimation { duration: Theme.duration(160) }
+      }
+    }
+  }
+
   Text {
     id: label
     textFormat: Text.PlainText
-    visible: root.labelVisible
+    visible: root.labelVisible && !root.showLeadingIcon
     anchors.centerIn: parent
     text: root.text
-    color: root.active && root.useActiveColor ? root.activeColor : root.foreground
+    color: root.labelColor
     font.family: root.fontFamily
     font.pixelSize: root.fontSize
     renderType: Text.NativeRendering

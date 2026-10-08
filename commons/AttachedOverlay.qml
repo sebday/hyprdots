@@ -87,7 +87,20 @@ Item {
     onAnchorItemChanged: if (opened) Qt.callLater(applyHostScreen)
     onAnchorWindowChanged: if (opened) Qt.callLater(applyHostScreen)
     onContentWidthChanged: if (opened) Qt.callLater(reposition)
-    onContentHeightChanged: if (opened) Qt.callLater(reposition)
+    onContentHeightChanged: {
+        if (!opened)
+            return
+        // Clearing or hiding a row shrinks the panel under the cursor.
+        // That hover-leave would dismiss it before the click is useful.
+        resizeHoldTimer.restart()
+        Qt.callLater(reposition)
+    }
+
+    Timer {
+        id: resizeHoldTimer
+        interval: 350
+        repeat: false
+    }
     onHostScreenChanged: if (opened) Qt.callLater(applyHostScreen)
 
     PanelWindow {
@@ -108,7 +121,9 @@ Item {
         }
 
         // Leave the bar strip to the bar, so an icon click still toggles.
-        // Everywhere else on this screen closes the panel.
+        // Leave the panel rectangle too: this surface is mapped above the
+        // panel, and a click on Clear or a row button would otherwise land
+        // here and dismiss the panel.
         mask: Region {
             x: 0
             y: 0
@@ -121,6 +136,16 @@ Item {
                 y: root.barOnBottom ? Math.max(0, dismissWindow.height - Theme.barHeight) : 0
                 width: dismissWindow.width
                 height: Theme.barHeight
+            }
+
+            Region {
+                intersection: Intersection.Subtract
+                x: root.boxX
+                y: root.barOnBottom
+                    ? Math.max(0, dismissWindow.height - root.contentHeight - (Theme.barHeight + root.screenEdgeOffset))
+                    : (Theme.barHeight + root.screenEdgeOffset)
+                width: root.contentWidth
+                height: root.contentHeight
             }
         }
 
@@ -231,17 +256,29 @@ Item {
                 if (hovered) {
                     root.hoverEntered()
                     root.revealedHoverEntered()
-                } else
+                } else if (!resizeHoldTimer.running) {
                     root.hoverLeft()
+                }
             }
         }
 
+        // Behind the panel content. Left clicks on Clear, hide, and remove
+        // belong to those controls. This only sees presses that miss them,
+        // and it must not dismiss the panel.
         MouseArea {
             anchors.fill: revealHost
-            z: 50
-            acceptedButtons: Qt.RightButton
+            z: -1
+            acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
             enabled: root.opened && root.revealed
-            onClicked: root.pinPressed()
+            onPressed: function(mouse) {
+                if (root.shell && typeof root.shell.popupHoverEnter === "function")
+                    root.shell.popupHoverEnter()
+                mouse.accepted = true
+            }
+            onClicked: function(mouse) {
+                if (mouse.button === Qt.RightButton)
+                    root.pinPressed()
+            }
         }
 
         Shortcut {

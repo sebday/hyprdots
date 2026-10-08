@@ -210,6 +210,81 @@ function historyEntry(value, normalUrgency) {
   }
 }
 
+// The history panel reads the same fields as the toast file. hidden and read
+// are panel state the toast replay ignores.
+function panelHistoryEntry(value) {
+  var e = historyEntry(value, 1)
+  return {
+    key: imageStem(e),
+    summary: String(e.summary || ""),
+    body: String(e.body || ""),
+    app: String(e.app || ""),
+    appIcon: String(e.appIcon || ""),
+    image: String(e.image || ""),
+    glyph: String(e.glyph || ""),
+    execArgv: String(e.execArgv || ""),
+    id: e.id || 0,
+    originalId: e.originalId || e.id || 0,
+    urgency: e.urgency,
+    timestamp: Number(e.timestamp || 0),
+    hidden: value && value.hidden === true,
+    read: value && value.read === true
+  }
+}
+
+function panelHistoryEntries(raw, limit) {
+  var max = limit === undefined || limit === null ? 10 : Number(limit)
+  if (isNaN(max)) max = 10
+  max = Math.max(0, max)
+  var lines = String(raw || "").split("\n")
+  var entries = []
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i].trim()
+    if (!line) continue
+    try {
+      var value = JSON.parse(line)
+      if (value && typeof value === "object") entries.push(panelHistoryEntry(value))
+    } catch (err) {
+      // Torn write — skip the line.
+    }
+  }
+  entries.sort(function(a, b) { return (b.timestamp || 0) - (a.timestamp || 0) })
+  return entries.slice(0, max)
+}
+
+function copyPanelEntry(row, patch) {
+  var out = {}
+  var src = row || {}
+  for (var key in src) out[key] = src[key]
+  var extra = patch || {}
+  for (var name in extra) out[name] = extra[name]
+  return out
+}
+
+function historyRecordFromPanel(entry) {
+  var e = entry || {}
+  return {
+    id: e.id || 0,
+    originalId: e.originalId || e.id || 0,
+    app: e.app || "",
+    appIcon: e.appIcon || "",
+    summary: e.summary || "",
+    body: e.body || "",
+    image: e.image || "",
+    glyph: e.glyph || "",
+    execArgv: e.execArgv || "",
+    urgency: typeof e.urgency === "number" ? e.urgency : 1,
+    expireTimeout: 0,
+    timestamp: e.timestamp || 0,
+    hidden: e.hidden === true,
+    read: e.read === true
+  }
+}
+
+function serializeHistoryRecord(entry) {
+  return JSON.stringify(historyRecordFromPanel(entry))
+}
+
 // notifications.json holds nothing but the last-set DND preference now that
 // history is a directory of files. Older versions kept `pending`/`past`
 // (and, older still, `entries`) arrays in there; their presence is reported

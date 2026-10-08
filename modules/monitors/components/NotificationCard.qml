@@ -1,6 +1,5 @@
-// Notification card. Pure presentational — no service, Notification, or
-// ListModel references. The popup container drives lifetime; the history
-// panel drives static rendering. Both use the same component.
+// On-screen toast. Pure presentational — no service, Notification, or
+// ListModel references. The history panel uses its own row.
 
 import QtQuick
 import QtQuick.Layouts

@@ -17,17 +17,19 @@ Item {
     signal unhideRequested(var entry)
 
     readonly property var notifService: host && host.notifService ? host.notifService : null
-    readonly property bool logEntry: {
-        var src = entry && entry.source ? String(entry.source) : ""
-        return src === "shell" || src === "journal"
+    readonly property string rowTitle: {
+        var summary = String((entry && entry.summary) || "").trim()
+        var body = String((entry && entry.body) || "").trim()
+        var line = body ? String(body.split("\n")[0] || "").trim() : ""
+        if (!summary)
+            return line || "Notification"
+        if (!line || line === summary)
+            return summary
+        return summary + " · " + line
     }
-    readonly property string entrySubtitle: {
-        if (!logEntry)
-            return ""
-        var raw = String(entry.body || "").trim()
-        if (!raw)
-            return ""
-        return raw.split("\n")[0]
+    readonly property string rowGlyph: {
+        var glyph = String((entry && entry.glyph) || "")
+        return glyph || "󰂚"
     }
 
     Layout.fillWidth: true
@@ -74,7 +76,7 @@ Item {
             Text {
                 anchors.centerIn: parent
                 visible: !host || host.entryArtSource(entry) === "" || entryArt.status !== Image.Ready
-                text: host ? host.sourceIcon(entry.source) : "󰂚"
+                text: root.rowGlyph
                 color: Theme.accent
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.fontSizeXl
@@ -89,7 +91,7 @@ Item {
 
             Text {
                 Layout.fillWidth: true
-                text: String(entry.title || "Notification")
+                text: root.rowTitle
                 color: Theme.foreground
                 font.family: Theme.fontFamily
                 font.pixelSize: host ? host.titleFont : Theme.fontSizeM
@@ -97,24 +99,11 @@ Item {
                 elide: Text.ElideRight
                 maximumLineCount: 1
             }
-
-            Text {
-                Layout.fillWidth: true
-                visible: root.logEntry && root.entrySubtitle !== ""
-                text: root.entrySubtitle
-                color: Theme.foreground
-                font.family: Theme.fontFamily
-                font.pixelSize: Theme.fontSizeS
-                font.bold: Theme.fontBold
-                opacity: Theme.opacityMuted
-                elide: Text.ElideRight
-                maximumLineCount: 1
-            }
         }
 
         NotificationMetaPill {
             Layout.alignment: Qt.AlignVCenter
-            text: host ? host.formatTime(entry.at) : ""
+            text: host ? host.formatTime(entry.timestamp) : ""
             active: false
             inactiveFill: Theme.foregroundGhost
             inactiveText: Theme.foreground
@@ -174,7 +163,7 @@ Item {
     MouseArea {
         anchors.fill: parent
         z: -1
-        cursorShape: entry.openUrl ? Qt.PointingHandCursor : Qt.ArrowCursor
+        cursorShape: entry.execArgv ? Qt.PointingHandCursor : Qt.ArrowCursor
         onClicked: {
             root.markRead()
             root.openRequested(entry)

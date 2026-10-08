@@ -20,29 +20,13 @@ Item {
 
     property string filterSource: "system"
 
-    function isWebEntry(item) {
-        var src = String((item && item.source) || "")
-        if (src === "web")
-            return true
-        var blob = (String((item && item.app) || "") + "\n" + String((item && item.appIcon) || "")).toLowerCase()
-        return blob.indexOf("chrom") >= 0 || blob.indexOf("brave") >= 0
-            || blob.indexOf("vivaldi") >= 0 || blob.indexOf("microsoft-edge") >= 0
-            || blob.indexOf("opera") >= 0
-    }
-
-    function isMessageEntry(item) {
-        var src = String((item && item.source) || "")
-        if (src === "telegram" || src === "android")
-            return true
-        var blob = (String((item && item.app) || "") + "\n" + String((item && item.appIcon) || "")).toLowerCase()
-        return blob.indexOf("telegram") >= 0
-    }
-
-    function isSystemEntry(item) {
-        if (!item || isWebEntry(item) || isMessageEntry(item))
+    function isListed(item, filter) {
+        if (!item)
             return false
-        var src = String(item.source || "")
-        return src === "" || src === "system" || src === "shell" || src === "journal"
+        var hidden = item.hidden === true
+        if (String(filter || "system") === "hidden")
+            return hidden
+        return !hidden
     }
 
     readonly property var filteredEntries: {
@@ -50,17 +34,8 @@ Item {
         var filter = String(filterSource || "system")
         for (var i = 0; i < historyEntries.length; i++) {
             var item = historyEntries[i]
-            if (!item)
-                continue
-            var hidden = item.hidden === true
-            if (filter === "hidden") {
-                if (hidden && isSystemEntry(item))
-                    out.push(item)
-                continue
-            }
-            if (hidden || !isSystemEntry(item))
-                continue
-            out.push(item)
+            if (isListed(item, filter))
+                out.push(item)
         }
         return out
     }
@@ -79,16 +54,8 @@ Item {
         var id = String(filter || "system")
         var n = 0
         for (var i = 0; i < historyEntries.length; i++) {
-            var item = historyEntries[i]
-            if (!item || !isSystemEntry(item))
-                continue
-            var hidden = item.hidden === true
-            if (id === "hidden") {
-                if (hidden)
-                    n++
-            } else if (!hidden) {
+            if (isListed(historyEntries[i], id))
                 n++
-            }
         }
         return n
     }
@@ -99,16 +66,18 @@ Item {
     implicitHeight: column.implicitHeight
 
     function onActivated() {
+        if (notifService && typeof notifService.markAllRead === "function")
+            notifService.markAllRead()
     }
 
     function onDeactivated() {
     }
 
-    function formatTime(iso) {
-        var raw = String(iso || "")
-        if (!raw)
+    function formatTime(timestamp) {
+        var ms = Number(timestamp || 0)
+        if (!isFinite(ms) || ms <= 0)
             return ""
-        var d = new Date(raw)
+        var d = new Date(ms)
         if (isNaN(d.getTime()))
             return ""
         var now = new Date()
@@ -120,14 +89,12 @@ Item {
         return Qt.formatDateTime(d, "ddd HH:mm")
     }
 
-    function sourceIcon(source) {
-        if (notifService && typeof notifService.sourceIcon === "function")
-            return notifService.sourceIcon(source)
-        return "󰂚"
-    }
-
     function entryArtSource(item) {
-        var art = item && item.art ? String(item.art) : ""
+        var art = ""
+        if (item && item.image)
+            art = String(item.image)
+        else if (item && item.appIcon)
+            art = String(item.appIcon)
         if (!art)
             return ""
         if (art.toLowerCase() === "evoshell" || art.indexOf("evoshell.svg") !== -1)

@@ -180,6 +180,15 @@ function marketTooltip(name, data) {
   return name + " " + formatted
 }
 
+function barAmount(name, data) {
+  if (!data || !data.quote) return ""
+  var price = data.quote.price
+  if (price === undefined || price === null) return ""
+  var formatted = name === "SPCX" ? fmtUsdWhole(price) : fmtUsd(price)
+  if (formatted === "—") return ""
+  return plain(formatted, 24)
+}
+
 function barPrice(name, data) {
   return plain(barPricePart(name, data), 32)
 }
@@ -227,12 +236,9 @@ function parseNewsPayload(raw) {
 }
 
 function barPricePart(name, data) {
-  if (!data || !data.quote) return ""
-  var price = data.quote.price
-  if (price === undefined || price === null) return ""
-  var formatted = name === "SPCX" ? fmtUsdWhole(price) : fmtUsd(price)
-  if (formatted === "—") return ""
-  return marketSymbolIcon(name) + " " + formatted
+  var amount = barAmount(name, data)
+  if (!amount) return ""
+  return marketSymbolIcon(name) + " " + amount
 }
 
 function barPrices(btcData, spcxData) {

@@ -108,8 +108,19 @@ Item {
   ListModel { id: popupModel }
 
   // How many notifications the history directory keeps, and therefore how
-  // many `showHistory` can replay.
+  // many `showHistory` can replay. The history panel reads the same files.
   readonly property int historyLimit: 10
+  property var historyEntries: []
+  readonly property int unreadCount: {
+    var n = 0
+    var rows = historyEntries || []
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i]
+      if (row && row.read !== true && row.hidden !== true)
+        n++
+    }
+    return n
+  }
 
   readonly property int lowPopupDuration: 3000
   readonly property int normalPopupDuration: 5000
@@ -530,6 +541,10 @@ Item {
       startHistoryRead()
       return
     }
+    if (job.panel) {
+      startPanelHistoryRead()
+      return
+    }
 
     popupFileProc.payload = job.stdin || ""
     popupFileProc.stdinEnabled = popupFileProc.payload !== ""
@@ -587,7 +602,7 @@ Item {
       "archive",
       NotificationLogic.popupFileName(row),
       String(historyLimit)
-    ]))
+    ]), function() { service.requestPanelHistory() })
   }
 
   // Record a notification that never made it to the screen (DND silenced it),
@@ -613,11 +628,16 @@ Item {
     ])
     for (var i = 0; i < persistable.copies.length; i++)
       command.push(persistable.copies[i].from, persistable.copies[i].to)
-    enqueuePopupFileJob(command, done, NotificationLogic.serializePopup(persistable.entry, NotificationUrgency.Normal))
+    enqueuePopupFileJob(command, function() {
+      service.requestPanelHistory()
+      if (done) done()
+    }, NotificationLogic.serializePopup(persistable.entry, NotificationUrgency.Normal))
   }
 
   function clearHistory() {
-    enqueuePopupFileJob(filesHelperCmd.concat(["clear-history"]))
+    enqueuePopupFileJob(filesHelperCmd.concat(["clear-history"]), function() {
+      service.requestPanelHistory()
+    })
   }
 
   // A restart can kill a queued job between its copy and its JSON write,
@@ -637,7 +657,17 @@ Item {
     // Let the file queue go again, whatever the read did — a failed or empty
     // read must not leave archives and clears parked behind it forever.
     onExited: {
-      service.replayHistory(stdoutBuf)
+      var purpose = service.historyReadPurpose
+      var buf = stdoutBuf
+      stdoutBuf = ""
+      if (purpose === "panel")
+        service.applyPanelHistory(buf)
+      else
+        service.replayHistory(buf)
+      if (service.panelHistoryStale) {
+        service.panelHistoryStale = false
+        service.requestPanelHistory()
+      }
       service.runNextPopupFileJob()
     }
     stdout: SplitParser {
@@ -660,6 +690,9 @@ Item {
   // Set from the moment a read is queued until it starts, so a second
   // showHistory while one is still waiting its turn doesn't queue another.
   property bool historyReadQueued: false
+  property string historyReadPurpose: "replay"
+  property bool panelHistoryReadQueued: false
+  property bool panelHistoryStale: false
 
   // Re-show what's in historyDir as toasts. The read goes through the file
   // queue and its own subprocess, so the replay lands in replayHistory once
@@ -674,7 +707,117 @@ Item {
 
   function startHistoryRead() {
     service.historyReadQueued = false
+    service.historyReadPurpose = "replay"
     readHistoryProc.running = true
+  }
+
+  function startPanelHistoryRead() {
+    service.panelHistoryReadQueued = false
+    service.historyReadPurpose = "panel"
+    readHistoryProc.running = true
+  }
+
+  // Reload the history panel from disk. A read already queued or in flight
+  // is left to finish; panelHistoryStale asks for one more pass afterwards
+  // so an archive that landed during the read is not missed.
+  function requestPanelHistory() {
+    if (service.panelHistoryReadQueued || readHistoryProc.running) {
+      service.panelHistoryStale = true
+      return
+    }
+    service.panelHistoryReadQueued = true
+    popupFileQueue = popupFileQueue.concat([{ panel: true }])
+    runNextPopupFileJob()
+  }
+
+  function applyPanelHistory(raw) {
+    service.historyEntries = NotificationLogic.panelHistoryEntries(raw, service.historyLimit)
+  }
+
+  function patchHistoryEntry(key, patch) {
+    var stem = String(key || "")
+    var rows = service.historyEntries || []
+    var next = []
+    var found = null
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i]
+      if (!row || String(row.key) !== stem) {
+        next.push(row)
+        continue
+      }
+      found = NotificationLogic.copyPanelEntry(row, patch)
+      next.push(found)
+    }
+    if (!found) return
+    service.historyEntries = next
+    var record = NotificationLogic.historyRecordFromPanel(found)
+    enqueuePopupFileJob(
+      filesHelperCmd.concat(["write-history", NotificationLogic.popupFileName(record), String(historyLimit)]),
+      function() { service.requestPanelHistory() },
+      NotificationLogic.serializeHistoryRecord(record)
+    )
+  }
+
+  function hideHistoryEntry(key) {
+    patchHistoryEntry(key, { hidden: true })
+  }
+
+  function unhideHistoryEntry(key) {
+    patchHistoryEntry(key, { hidden: false })
+  }
+
+  function markEntryRead(key) {
+    patchHistoryEntry(key, { read: true })
+  }
+
+  function markAllRead() {
+    var rows = service.historyEntries || []
+    var next = []
+    var changed = false
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i]
+      if (!row || row.read === true || row.hidden === true) {
+        next.push(row)
+        continue
+      }
+      changed = true
+      var updated = NotificationLogic.copyPanelEntry(row, { read: true })
+      next.push(updated)
+      var record = NotificationLogic.historyRecordFromPanel(updated)
+      enqueuePopupFileJob(
+        filesHelperCmd.concat(["write-history", NotificationLogic.popupFileName(record), String(historyLimit)]),
+        null,
+        NotificationLogic.serializeHistoryRecord(record)
+      )
+    }
+    if (!changed) return
+    service.historyEntries = next
+    requestPanelHistory()
+  }
+
+  function removeHistoryEntry(key) {
+    var stem = String(key || "")
+    if (!/^[0-9]{1,16}-[0-9]{1,16}$/.test(stem)) return
+    var rows = service.historyEntries || []
+    var next = []
+    for (var i = 0; i < rows.length; i++) {
+      if (!rows[i] || String(rows[i].key) !== stem)
+        next.push(rows[i])
+    }
+    service.historyEntries = next
+    enqueuePopupFileJob(filesHelperCmd.concat(["delete-history", stem]), function() {
+      service.requestPanelHistory()
+    })
+  }
+
+  function openHistoryEntry(item) {
+    if (!item) return
+    var argv = NotificationLogic.parseExecArgv(item.execArgv || "")
+    if (argv) {
+      Util.execArgv(argv)
+      return
+    }
+    focusApp(item)
   }
 
   // Copy the on-screen rows out of the model. The placeholder from an earlier
@@ -908,6 +1051,7 @@ Item {
     // Safe beside the restore read: it only re-persists entries whose
     // JSON exists, exactly the images the sweep keeps.
     sweepOrphanImages()
+    requestPanelHistory()
   }
 
   // ---------------------------------------------------- IPC

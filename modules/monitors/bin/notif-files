@@ -309,6 +309,12 @@ def cmd_clear_history(history_fd, images_fd):
         unlink_stem_images(images_fd, name[: -len(".json")])
 
 
+def cmd_delete_history(history_fd, images_fd, stem):
+    stem = require_stem(stem)
+    unlink_if_present(history_fd, stem + ".json")
+    unlink_stem_images(images_fd, stem)
+
+
 def cmd_sweep(popup_fd, history_fd, images_fd):
     live = set()
     for name in json_names(popup_fd):
@@ -362,6 +368,8 @@ def main(argv):
             cmd_write_history(history_fd, images_fd, argv[2], argv[3], argv[4:])
         elif op == "clear-history":
             cmd_clear_history(history_fd, images_fd)
+        elif op == "delete-history":
+            cmd_delete_history(history_fd, images_fd, argv[2])
         elif op == "sweep":
             cmd_sweep(popup_fd, history_fd, images_fd)
         elif op == "read-popups":

@@ -171,6 +171,27 @@ def art_names(root, path):
     return names
 
 
+def open_library_state(music):
+    """Scrobbles sit in <library>/.evoplayer. The library root may be a symlink."""
+    parts = [part for part in music.split("/") if part]
+    if (
+        not music.startswith("/")
+        or len(music) > PATH_MAX
+        or any(c in music for c in "\n\r\0")
+        or not parts
+        or any(part in (".", "..") for part in parts)
+    ):
+        raise PermissionError("music root")
+    root_fd = os.open(music, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
+    try:
+        st = os.fstat(root_fd)
+        if not stat.S_ISDIR(st.st_mode) or st.st_uid != os.geteuid():
+            raise PermissionError("music root")
+        return open_chain(root_fd, [".evoplayer"])
+    finally:
+        os.close(root_fd)
+
+
 def music_root(text, fallback):
     section = ""
     for line in text.splitlines():
@@ -262,6 +283,7 @@ def tally_and_recent(raw, root, art_fd):
 def main():
     home, home_fd = open_home()
     state_fd = None
+    library_fd = None
     config_fd = None
     art_fd = None
     try:
@@ -292,7 +314,12 @@ def main():
                 pass
 
         raw = b""
-        if state_fd is not None:
+        try:
+            library_fd = open_library_state(music)
+            raw = read_file(library_fd, "scrobble.jsonl")
+        except OSError:
+            raw = b""
+        if not raw and state_fd is not None:
             try:
                 raw = read_file(state_fd, "scrobble.jsonl")
             except OSError:
@@ -305,7 +332,7 @@ def main():
             "recent": recent,
         }, ensure_ascii=True))
     finally:
-        for fd in (art_fd, config_fd, state_fd, home_fd):
+        for fd in (art_fd, config_fd, library_fd, state_fd, home_fd):
             if fd is not None:
                 os.close(fd)
 
