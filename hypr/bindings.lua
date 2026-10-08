@@ -33,6 +33,7 @@ bindd("SUPER + F5", "Restart evoshell", hl.dsp.exec_cmd(evo .. " system restart"
 bindd("SUPER + S", "Looks", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.sys.menu '{\"mode\":\"power\",\"tab\":\"looks\"}'"))
 bindd("SUPER + I", "Colour Picker", hl.dsp.exec_cmd("hyprpicker -al"))
 bindd("SUPER + P", "Packages", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.sys.menu '{\"mode\":\"power\",\"tab\":\"packages\"}'"))
+bindd("SUPER + C", "Calculator", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.calculator"))
 bindd("SUPER + V", "Clipboard history", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.side.clipboard"))
 bindd("SUPER + ALT + S", "Shopify", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.shopify"))
 bindd("SUPER + ALT + E", "Evoplayer", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.panels.player"))
