@@ -40,6 +40,7 @@ for dir in hypr bash nvim ghostty fastfetch imv lazygit mise; do
 done
 
 link_path "${home_config}/brave-flags.conf" "${config_src}/brave-flags.conf"
+link_path "${home_config}/electron42-flags.conf" "${config_src}/electron42-flags.conf"
 link_path "${HOME}/.bashrc" "${root}/.bashrc"
 link_path "${home_config}/evoshell/wallpapers" "${config_src}/evoshell/wallpapers"
 
