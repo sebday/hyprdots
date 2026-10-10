@@ -26,16 +26,15 @@ fi
 
 notify "GitHub" "Agent committing in ${name}…"
 
-(
-  cd -- "$dir"
-  : "${XDG_RUNTIME_DIR:?}"
-  log=$(mktemp -p "$XDG_RUNTIME_DIR" evo-github-agent.XXXXXX)
-  trap 'rm -f -- "$log"' EXIT
-  if /usr/bin/timeout -k 5 900 bash "$_bin_dir/agent-prompt" "$prompt" >"$log" 2>&1; then
-    notify "GitHub" "Commit finished in ${name}" 8000
-  else
-    err=$(tail -n 3 "$log" | tr -d '<>&' | tr '\n' ' ' | sed 's/[[:space:]]\+/ /g; s/^ //; s/ $//')
-    [[ -n $err ]] || err="agent exited with an error"
-    notify "GitHub" "Agent commit failed in ${name}: ${err}" 10000
-  fi
-) &
+cd -- "$dir"
+: "${XDG_RUNTIME_DIR:?}"
+log=$(mktemp -p "$XDG_RUNTIME_DIR" evo-github-agent.XXXXXX)
+trap 'rm -f -- "$log"' EXIT
+if /usr/bin/timeout -k 5 900 bash "$_bin_dir/agent-prompt" "$prompt" >"$log" 2>&1; then
+  notify "GitHub" "Commit finished in ${name}" 8000
+else
+  err=$(tail -n 3 "$log" | tr -d '<>&' | tr '\n' ' ' | sed 's/[[:space:]]\+/ /g; s/^ //; s/ $//')
+  [[ -n $err ]] || err="agent exited with an error"
+  notify "GitHub" "Agent commit failed in ${name}: ${err}" 10000
+  exit 1
+fi

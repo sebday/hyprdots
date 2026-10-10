@@ -114,6 +114,7 @@ Panel {
       || root.configuredRepoRoots.length > 0 || root.repoSetupCandidates.length > 0)
   readonly property string repoCleanMessage: Model.repoCleanMessage(root.configuredRepoRoots)
   property string expandedRepoPath: ""
+  property string committingRepoPath: ""
   readonly property var repoTotals: Model.repoTotals(root.repoList)
   readonly property int dirtyRepoCount: repoTotals.dirtyRepos
   readonly property int unpushedRepoCount: repoTotals.unpushedRepos
@@ -287,6 +288,14 @@ Panel {
     Quickshell.execDetached(["env", agentEnv(), "bash", script, dir])
   }
 
+  function commitRepo(path) {
+    var dir = path ? String(path) : ""
+    if (!dir || !repoCommitScript || repoCommitProc.running) return
+    committingRepoPath = dir
+    repoCommitProc.command = ["env", agentEnv(), "bash", repoCommitScript, dir]
+    repoCommitProc.running = true
+  }
+
   function commitAllRepos() {
     if (!repoCommitAllScript || repoCommitAllProc.running) return
     var command = ["env", agentEnv(), "bash", repoCommitAllScript]
@@ -441,6 +450,14 @@ Panel {
         root.repoSetupCandidates = parsed.candidates
       if (String(stderrBuf || "").trim() !== "")
           root.repoSetupError = String(stderrBuf || "").trim()
+    }
+  }
+
+  Process {
+    id: repoCommitProc
+    onExited: {
+      root.committingRepoPath = ""
+      root.refreshRepos(true)
     }
   }
 
@@ -1051,10 +1068,12 @@ Panel {
 
                           RepoIconButton {
                             icon: "󰜘"
-                            tooltip: "Commit with agent"
+                            tooltip: root.committingRepoPath === modelData.path
+                              ? "Committing…"
+                              : "Commit with agent"
                             visible: modelData.unstaged === true
                             iconColor: root.urgent
-                            onClicked: root.runRepoAction(root.repoCommitScript, modelData.path)
+                            onClicked: root.commitRepo(modelData.path)
                           }
 
                           RepoIconButton {
