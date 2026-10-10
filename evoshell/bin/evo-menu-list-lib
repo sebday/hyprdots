@@ -1,0 +1,369 @@
+#!/usr/bin/env bash
+# Shared helpers for evo-menu-list (shell and icons modes).
+set -euo pipefail
+
+_menu_list_shorten_path() {
+    local home="$1" p="$2"
+    if [[ "$p" == "$home/"* || "$p" == "$home" ]]; then
+        printf '~%s' "${p#$home}"
+    else
+        printf '%s' "$p"
+    fi
+}
+
+_menu_list_join_files() {
+    local home="$1"
+    shift
+    local -A seen=()
+    local out=() short
+    for p in "$@"; do
+        [[ -n "$p" ]] || continue
+        short="$(_menu_list_shorten_path "$home" "$p")"
+        [[ -n "$short" && -z "${seen[$short]+x}" ]] || continue
+        seen["$short"]=1
+        out+=("$short")
+    done
+    local IFS='|'
+    printf '%s' "${out[*]}"
+}
+
+# Returns plugin id lines: id<TAB>path<TAB>servicePath (from shell.qml, matching python)
+_menu_list_plugin_table_tsv() {
+    local evoshell="$1"
+    local shell_qml="$evoshell/shell.qml"
+    [[ -f "$shell_qml" ]] || return 0
+    awk '
+    {
+        pos = 1
+        while (match(substr($0, pos), /"([^"]+)":\s*\{([^}]+)\}/, m)) {
+            block = m[2]
+            path = ""
+            service = ""
+            if (match(block, /path:[[:space:]]*"([^"]+)"/, pm))
+                path = pm[1]
+            if (match(block, /servicePath:[[:space:]]*"([^"]+)"/, sm))
+                service = sm[1]
+            print m[1] "\t" path "\t" service
+            pos += RSTART + RLENGTH - 1
+        }
+    }
+    ' "$shell_qml" 2>/dev/null || true
+}
+
+_menu_list_plugin_paths() {
+    local evoshell="$1" plugin_id="$2"
+    local table
+    table="$(_menu_list_plugin_table_tsv "$evoshell")"
+    [[ -n "$table" ]] || return 0
+    local id path service
+    while IFS=$'\t' read -r id path service; do
+        [[ "$id" == "$plugin_id" ]] || continue
+        [[ -n "$path" ]] && printf '%s/%s\n' "$evoshell" "$path"
+        [[ -n "$service" ]] && printf '%s/%s\n' "$evoshell" "$service"
+        return 0
+    done <<< "$table"
+}
+
+menu_list_shell() {
+    local home="$1" script_dir="$2"
+    local ipc="evo ipc"
+    local evoshell="${EVOSHELL_ROOT:-$home/projects/hyprdots/evoshell}"
+    local bin="${EVOSHELL_BIN:-$home/.local/lib/evoshell/bin}"
+    local ipc_bin="${bin}/_ipc"
+    local corpus="" chunk path bn
+
+    _menu_list_read_text() {
+        [[ -f "$1" ]] && cat "$1" || true
+    }
+
+    corpus="$(_menu_list_read_text "$home/.config/hypr/bindings.lua")"
+    corpus+=$'\n'"$(_menu_list_read_text "$evoshell/modules/menu/MenuEntries.js")"
+    while IFS= read -r path; do
+        [[ -n "$path" ]] || continue
+        corpus+=$'\n'"$(_menu_list_read_text "$path")"
+    done < <(find "$evoshell/modules/bar/widgets" -maxdepth 1 -name '*.qml' 2>/dev/null | sort)
+    while IFS= read -r path; do
+        [[ -n "$path" ]] || continue
+        bn="$(basename "$path")"
+        [[ "$bn" == "evo-menu-list" || "$bn" == "evo-menu-list-lib" || "$bn" == "_ipc" ]] && continue
+        corpus+=$'\n'"$(_menu_list_read_text "$path")"
+    done < <(find "$script_dir" -maxdepth 1 -name 'evo-*' 2>/dev/null | sort)
+
+    local shell_qml="$(_menu_list_read_text "$evoshell/shell.qml")"
+    for marker in toggleSystemMenu \
+        'openDashboardOnly("evo.panels.player"'; do
+        [[ "$shell_qml" == *"$marker"* ]] && corpus+=$'\n'"$marker"
+    done
+
+    _menu_list_used() {
+        local needle
+        for needle in "$@"; do
+            [[ "$corpus" == *"$needle"* ]] && return 0
+        done
+        return 1
+    }
+
+    _menu_list_plugin_used() {
+        local plugin="$1"
+        if [[ "$plugin" == "evo.sys.menu" ]]; then
+            _menu_list_used toggleSystemMenu 'toggle("evo.sys.menu"' "toggle evo.sys.menu"
+            return
+        fi
+        _menu_list_used \
+            "shell toggle $plugin" \
+            "toggle $plugin" \
+            "toggle(\"$plugin\"" \
+            "toggle('$plugin'" \
+            "summon $plugin" \
+            "hide $plugin"
+    }
+
+    _menu_list_dashboard_used() {
+        local plugin="$1"
+        _menu_list_used "openDashboard $plugin" "openDashboardOnly(\"$plugin\""
+    }
+
+    _menu_list_related_files_for_shell() {
+        local command="$1"
+        local -a files=("$ipc_bin")
+        local cmd="${command#"${command%%[![:space:]]*}"}"
+        cmd="${cmd%"${cmd##*[![:space:]]}"}"
+
+        if [[ "$cmd" =~ ^evo[[:space:]]+ipc[[:space:]]+(evo\.[^[:space:]]+) ]]; then
+            while IFS= read -r p; do
+                [[ -n "$p" ]] && files+=("$p")
+            done < <(_menu_list_plugin_paths "$evoshell" "${BASH_REMATCH[1]}")
+        fi
+
+        if [[ "$cmd" =~ [[:space:]]shell[[:space:]] ]] || [[ "$cmd" == shell* ]]; then
+            files+=("$evoshell/shell.qml")
+        fi
+
+        if [[ "$cmd" == *toggleSystemMenu* ]]; then
+            while IFS= read -r p; do
+                [[ -n "$p" ]] && files+=("$p")
+            done < <(_menu_list_plugin_paths "$evoshell" "evo.sys.menu")
+        else
+            local pat plugin
+            for pat in \
+                'shell toggle[[:space:]]+([^[:space:]]+)' \
+                'shell summon[[:space:]]+([^[:space:]]+)' \
+                'shell hide[[:space:]]+([^[:space:]]+)' \
+                'shell openDashboard[[:space:]]+([^[:space:]]+)' \
+                'shell call[[:space:]]+([^[:space:]]+)'; do
+                if [[ "$cmd" =~ $pat ]]; then
+                    plugin="${BASH_REMATCH[1]}"
+                    while IFS= read -r p; do
+                        [[ -n "$p" ]] && files+=("$p")
+                    done < <(_menu_list_plugin_paths "$evoshell" "$plugin")
+                    break
+                fi
+            done
+        fi
+
+        _menu_list_join_files "$home" "${files[@]}"
+    }
+
+    _menu_list_emit() {
+        local name="$1" command="$2" internal="$3" detail="${4:-}"
+        local files
+        files="$(_menu_list_related_files_for_shell "$command")"
+        printf '%s\t%s\t%s\t%s\t%s\n' "$name" "$command" "$detail" "$files" "$([[ "$internal" == true ]] && echo 1 || echo 0)"
+    }
+
+    _menu_list_plugin_detail() {
+        case "$1" in
+        evo.sys.menu) echo "Shows or hides the system menu overlay." ;;
+        evo.calculator) echo "Shows or hides the calculator overlay." ;;
+        evo.panels.network.stats) echo "Shows or hides the network status overlay." ;;
+        evo.panels.notifications) echo "Shows or hides the notification history overlay." ;;
+        evo.sys.themes) echo "Shows or hides the theme switcher overlay." ;;
+        evo.sys.wallpaper) echo "Shows or hides the wallpaper switcher overlay." ;;
+        evo.side.clipboard) echo "Shows or hides the clipboard history overlay." ;;
+        *) echo "Shows or hides the $1 overlay via shell IPC." ;;
+        esac
+    }
+
+    _menu_list_dashboard_detail() {
+        case "$1" in
+        evo.panels.player) echo "Opens the music player dashboard in full-screen dashboard mode." ;;
+        *) echo "Opens the $1 dashboard." ;;
+        esac
+    }
+
+    local -a plugins=() dashboards=(evo.panels.player)
+    local modules_json id kind
+    declare -A plugin_seen=() dashboard_seen=([evo.panels.player]=1)
+    modules_json="$("$bin/evo-modules" list 2>/dev/null || printf '%s' '{}')"
+    while IFS=$'\t' read -r id kind; do
+        [[ -n "$id" && -n "$kind" ]] || continue
+        case "$kind" in
+        dashboard)
+            [[ -n "${dashboard_seen[$id]+x}" ]] && continue
+            dashboard_seen[$id]=1
+            dashboards+=("$id")
+            ;;
+        menu|panel|overlay|bar-widget)
+            [[ "$id" == "evo.bar" ]] && continue
+            [[ -n "${plugin_seen[$id]+x}" ]] && continue
+            plugin_seen[$id]=1
+            plugins+=("$id")
+            ;;
+        esac
+    done < <(jq -r 'to_entries[] | .key as $id | .value.manifest.kinds[]? | [$id, .] | @tsv' <<<"$modules_json")
+
+    _menu_list_emit "Ping shell" "$ipc shell ping" "$(_menu_list_used 'shell ping' && echo true || echo false)" \
+        "Checks whether evo ipc can reach the running Quickshell process."
+    _menu_list_emit "Reload shell config" "$ipc shell reloadConfig" "$(_menu_list_used 'shell reloadConfig' && echo true || echo false)" \
+        "Reloads evoshell Quickshell configuration without restarting the session."
+    _menu_list_emit "List plugins" "$ipc shell listPlugins" false \
+        "Lists registered evoshell plugin ids available over IPC."
+    _menu_list_emit "Toggle system menu" "$ipc shell toggleSystemMenu" "$(_menu_list_used toggleSystemMenu && echo true || echo false)" \
+        "Opens or closes this system menu overlay."
+    _menu_list_emit "Summon overlay" "$ipc shell summon <plugin> [json]" false \
+        "Shows a plugin overlay without toggling it off if already visible."
+    _menu_list_emit "Toggle overlay" "$ipc shell toggle <plugin> [json]" false \
+        "Shows or hides a plugin overlay; optional JSON passes launch payload."
+    _menu_list_emit "Hide overlay" "$ipc shell hide <plugin>" false \
+        "Hides a plugin overlay if it is currently visible."
+    _menu_list_emit "Open dashboard" "$ipc shell openDashboard <plugin>" false \
+        "Opens a plugin in full-screen dashboard mode."
+    _menu_list_emit "Call plugin method" "$ipc shell call <plugin> <method> [arg]" false \
+        "Invokes a plugin RPC method with an optional JSON argument."
+    _menu_list_emit "Volume up" "$ipc evo.sys.media.audio stepUp" "$(_menu_list_used 'evo.sys.media.audio stepUp' '.stepUp()' && echo true || echo false)" \
+        "Increases system volume by one step via PipeWire."
+    _menu_list_emit "Volume down" "$ipc evo.sys.media.audio stepDown" "$(_menu_list_used 'evo.sys.media.audio stepDown' '.stepDown()' && echo true || echo false)" \
+        "Decreases system volume by one step via PipeWire."
+    _menu_list_emit "Toggle mute" "$ipc evo.sys.media.audio toggleMute" "$(_menu_list_used 'evo.sys.media.audio toggleMute' '.toggleMute()' && echo true || echo false)" \
+        "Toggles system audio mute state."
+    _menu_list_emit "Lock screen" "$ipc evo.sys.lock-screen.lock lock" "$(_menu_list_used 'evo.sys.lock-screen.lock lock' '_system lock' && echo true || echo false)" \
+        "Locks the screen immediately."
+    _menu_list_emit "Lock status" "$ipc evo.sys.lock-screen.lock isLocked" "$(_menu_list_used 'evo.sys.lock-screen.lock isLocked' && echo true || echo false)" \
+        "Reports whether the screen is currently locked."
+    _menu_list_emit "Idle status" "$ipc evo.sys.lock-screen.idle status" "$(_menu_list_used 'evo.sys.lock-screen.idle status' && echo true || echo false)" \
+        "Reports idle inhibitor and lock timer state."
+    _menu_list_emit "Next wallpaper" "$ipc evo.sys.wallpaper next" "$(_menu_list_used 'evo.sys.wallpaper next' 'evo.sys.wallpaper "$cmd"' && echo true || echo false)" \
+        "Advances through the current theme wallpapers, then continues into the next theme."
+    _menu_list_emit "Previous wallpaper" "$ipc evo.sys.wallpaper prev" "$(_menu_list_used 'evo.sys.wallpaper prev' 'evo.sys.wallpaper "$cmd"' && echo true || echo false)" \
+        "Goes back through the current theme wallpapers, then into the previous theme."
+    _menu_list_emit "Refresh wallpaper" "$ipc evo.sys.wallpaper refresh" "$(_menu_list_used 'evo.sys.wallpaper refresh' && echo true || echo false)" \
+        "Re-applies the current wallpaper (useful after theme or monitor changes)."
+
+    local plugin
+    for plugin in "${plugins[@]}"; do
+        _menu_list_emit "Toggle $plugin" "$ipc shell toggle $plugin" "$(_menu_list_plugin_used "$plugin" && echo true || echo false)" \
+            "$(_menu_list_plugin_detail "$plugin")"
+    done
+
+    for plugin in "${dashboards[@]}"; do
+        _menu_list_emit "Open $plugin dashboard" "$ipc shell openDashboard $plugin" \
+            "$(_menu_list_dashboard_used "$plugin" && echo true || echo false)" \
+            "$(_menu_list_dashboard_detail "$plugin")"
+    done
+}
+
+menu_list_icons() {
+    local home="$1" theme="$2"
+    local -a roots=(
+        "$home/.local/share/icons/$theme"
+        "/usr/share/icons/Papirus-Dark"
+        "/usr/share/icons/Papirus"
+        "$home/.local/share/icons/hicolor"
+    )
+    local -a sizes=(48x48 64x64 scalable 32x32 128x128 256x256)
+    local -a categories=(apps devices status places mimetypes)
+    local -a exts=(.svg .png)
+    local -a app_dirs=(
+        "$home/.local/share/applications"
+        "/usr/share/applications"
+        "/var/lib/flatpak/exports/share/applications"
+        "$home/.local/share/flatpak/exports/share/applications"
+    )
+    declare -A seen_ids=()
+    declare -A icon_cache=()
+
+    _menu_list_resolve_icon() {
+        local icon="$1"
+        icon="${icon#"${icon%%[![:space:]]*}"}"
+        icon="${icon%"${icon##*[![:space:]]}"}"
+        [[ -n "$icon" ]] || { printf ''; return; }
+        [[ -n "${icon_cache[$icon]+x}" ]] && { printf '%s' "${icon_cache[$icon]}"; return; }
+
+        local base size category ext path candidate
+        if [[ "$icon" == /* ]]; then
+            path="$icon"
+            [[ -f "$path" ]] || path="$home/${icon#/}"
+            if [[ -f "$path" ]]; then
+                icon_cache[$icon]="file://$path"
+                printf '%s' "${icon_cache[$icon]}"
+                return
+            fi
+            icon_cache[$icon]=""
+            printf ''
+            return
+        fi
+
+        for base in "${roots[@]}"; do
+            [[ -d "$base" ]] || continue
+            for size in "${sizes[@]}"; do
+                for category in "${categories[@]}"; do
+                    for ext in "${exts[@]}"; do
+                        candidate="$base/$size/$category/$icon$ext"
+                        if [[ -f "$candidate" ]]; then
+                            icon_cache[$icon]="file://$candidate"
+                            printf '%s' "${icon_cache[$icon]}"
+                            return
+                        fi
+                    done
+                done
+            done
+        done
+        icon_cache[$icon]=""
+        printf ''
+    }
+
+    _menu_list_parse_desktop() {
+        local file="$1"
+        local type="" nodisplay="" hidden="" icon="" key value
+        [[ -f "$file" ]] || return 1
+        while IFS= read -r line || [[ -n "$line" ]]; do
+            line="${line#"${line%%[![:space:]]*}"}"
+            line="${line%"${line##*[![:space:]]}"}"
+            [[ -n "$line" && "$line" != \#* && "$line" != '[Desktop Entry]' ]] || continue
+            [[ "$line" == *"="* ]] || continue
+            key="${line%%=*}"
+            value="${line#*=}"
+            case "$key" in
+            Type) type="$value" ;;
+            NoDisplay) nodisplay="$value" ;;
+            Hidden) hidden="$value" ;;
+            Icon) icon="$value" ;;
+            esac
+        done < "$file"
+        [[ "$type" == Application ]] || return 1
+        if [[ "${nodisplay,,}" == true || "${hidden,,}" == true ]]; then
+            printf 'hidden'
+            return 0
+        fi
+        _menu_list_resolve_icon "$icon"
+    }
+
+    local app_dir name desktop_id icon_url data
+    for app_dir in "${app_dirs[@]}"; do
+        [[ -d "$app_dir" ]] || continue
+        while IFS= read -r name; do
+            [[ "$name" == *.desktop ]] || continue
+            desktop_id="${name%.desktop}"
+            [[ -z "${seen_ids[$desktop_id]+x}" ]] || continue
+            icon_url="$(_menu_list_parse_desktop "$app_dir/$name")" || continue
+            if [[ "$icon_url" == hidden ]]; then
+                seen_ids[$desktop_id]=1
+                continue
+            fi
+            [[ -n "$icon_url" ]] || continue
+            seen_ids[$desktop_id]=1
+            printf '%s\t%s\n' "$desktop_id" "$icon_url"
+        done < <(find "$app_dir" -maxdepth 1 -name '*.desktop' -printf '%f\n' 2>/dev/null | LC_ALL=C sort)
+    done
+}
+

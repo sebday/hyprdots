@@ -3,7 +3,7 @@
 set -euo pipefail
 
 TRADING_ROOT="${TRADING_ROOT:-${HOME}/projects/tradingbot}"
-EVOSHELL_ROOT="${EVOSHELL_ROOT:-${HOME}/projects/hyprdots}"
+EVOSHELL_ROOT="${EVOSHELL_ROOT:-${HOME}/projects/hyprdots/evoshell}"
 VENDOR_LINK="${EVOSHELL_ROOT}/vendor/trading"
 
 if [[ ! -f "${TRADING_ROOT}/manifest.json" ]]; then

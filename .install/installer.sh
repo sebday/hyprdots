@@ -174,8 +174,8 @@ install_hypr_bin() {
 
 link_evoshell() {
     log "Linking evoshell..."
-    if [[ ! -f "${EVOSHELL_ROOT}/shell.qml" ]]; then
-        echo "evoshell not found at ${EVOSHELL_ROOT}"
+    if [[ ! -f "${EVOSHELL_ROOT}/evoshell/shell.qml" ]]; then
+        echo "evoshell not found at ${EVOSHELL_ROOT}/evoshell"
         exit 1
     fi
     bash "${EVOSHELL_ROOT}/scripts/install"
@@ -334,9 +334,9 @@ main() {
     configure_ufw
     configure_google_ads_editor
 
-    if [[ -x "${EVOSHELL_ROOT}/bin/evo-font" ]]; then
+    if [[ -x "${EVOSHELL_ROOT}/evoshell/bin/evo-font" ]]; then
         log "Applying default font..."
-        "${EVOSHELL_ROOT}/bin/evo-font" apply
+        "${EVOSHELL_ROOT}/evoshell/bin/evo-font" apply
     fi
 
     log "Setup complete! Please reboot your system."

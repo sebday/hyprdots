@@ -262,3 +262,12 @@ hl.on("window.title", function(win)
 	evict_non_dashboard_from_ws10(win)
 	route_dashboard_window(win)
 end)
+
+-- Calculator is a normal toplevel so it can be dragged. Title is set by
+-- evoshell/modules/calculator/Calculator.qml. center applies once, on map.
+hl.window_rule({
+	name = "evo-calculator",
+	match = { title = "^Calculator$" },
+	float = true,
+	center = true,
+})

@@ -1,0 +1,283 @@
+#!/bin/bash
+set -euo pipefail
+# Write live Cursor colour overrides from the active colors.toml.
+# workbench.colorCustomizations updates an open window. A fixed extension
+# name does not, so this script no longer rewrites local.evoshell-theme.
+#
+# USAGE:
+#   evo-theme-cursor apply
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "$SCRIPT_DIR/evo-theme-lib"
+
+STALE_THEME_LABEL="Evoshell"
+SETTINGS_PATH="${HOME}/.config/Cursor/User/settings.json"
+BASE_DARK_THEME="Cursor Dark"
+BASE_LIGHT_THEME="Cursor Light"
+
+apply_cursor_theme() {
+    local current="${CURRENT_PATH:-$THEME_DIR/current}"
+    local toml="$current/colors.toml"
+
+    [[ -f "$toml" ]] || return 0
+
+    python3 - "$toml" "$SETTINGS_PATH" "$STALE_THEME_LABEL" "$BASE_DARK_THEME" "$BASE_LIGHT_THEME" <<'PY'
+import json
+import pathlib
+import sys
+import tomllib
+
+toml_path, settings_path, stale_label, base_dark, base_light = sys.argv[1:]
+settings_path = pathlib.Path(settings_path)
+
+raw = tomllib.loads(pathlib.Path(toml_path).read_text())
+colors = {key: value for key, value in raw.items() if isinstance(value, str)}
+
+def need(key, fallback):
+    value = colors.get(key) or fallback
+    if not str(value).startswith("#"):
+        value = "#" + str(value)
+    return value
+
+bg = need("background", "#1e1e2e")
+fg = need("foreground", "#cdd6f4")
+mantle = need("mantle", bg)
+accent = need("accent", "#89b4fa")
+cursor = need("cursor", fg)
+sel_bg = need("selection_background", accent)
+sel_fg = need("selection_foreground", bg)
+muted = need("color8", "#585b70")
+red = need("color1", "#f38ba8")
+green = need("color2", "#a6e3a1")
+yellow = need("color3", "#f9e2af")
+blue = need("color4", accent)
+magenta = need("color5", "#f5c2e7")
+cyan = need("color6", "#94e2d5")
+bright_red = need("color9", red)
+bright_green = need("color10", green)
+bright_yellow = need("color11", yellow)
+bright_blue = need("color12", blue)
+bright_magenta = need("color13", magenta)
+bright_cyan = need("color14", cyan)
+bright_fg = need("color15", fg)
+border = need("color0", muted)
+
+def lum(hex_color):
+    h = hex_color[1:]
+    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+ui_theme = "vs" if lum(bg) > 140 else "vs-dark"
+
+workbench_colors = {
+        "foreground": fg,
+        "disabledForeground": muted,
+        "focusBorder": accent + "80",
+        "selection.background": sel_bg + "80",
+        "descriptionForeground": muted,
+        "errorForeground": red,
+        "icon.foreground": fg,
+        "sash.hoverBorder": accent,
+        "textLink.foreground": blue,
+        "textLink.activeForeground": bright_blue,
+        "button.background": accent,
+        "button.foreground": bg,
+        "button.hoverBackground": bright_blue,
+        "input.background": mantle,
+        "input.foreground": fg,
+        "input.border": border,
+        "input.placeholderForeground": muted,
+        "dropdown.background": mantle,
+        "dropdown.foreground": fg,
+        "dropdown.border": border,
+        "list.activeSelectionBackground": accent + "30",
+        "list.activeSelectionForeground": fg,
+        "list.inactiveSelectionBackground": border,
+        "list.inactiveSelectionForeground": fg,
+        "list.hoverBackground": border + "80",
+        "list.hoverForeground": fg,
+        "list.focusForeground": fg,
+        "list.deemphasizedForeground": fg + "b3",
+        "list.focusOutline": accent,
+        "gitDecoration.addedResourceForeground": green,
+        "gitDecoration.modifiedResourceForeground": yellow,
+        "gitDecoration.deletedResourceForeground": red,
+        "gitDecoration.untrackedResourceForeground": green,
+        "gitDecoration.ignoredResourceForeground": fg + "b3",
+        "gitDecoration.conflictingResourceForeground": red,
+        "activityBar.background": mantle,
+        "activityBar.foreground": fg,
+        "activityBar.inactiveForeground": muted,
+        "activityBar.activeBorder": accent,
+        "activityBar.border": mantle,
+        "sideBar.background": mantle,
+        "sideBar.foreground": fg,
+        "sideBar.border": mantle,
+        "sideBarTitle.foreground": fg,
+        "sideBarSectionHeader.background": mantle,
+        "sideBarSectionHeader.foreground": fg,
+        "titleBar.activeBackground": mantle,
+        "titleBar.activeForeground": fg,
+        "titleBar.inactiveBackground": mantle,
+        "titleBar.inactiveForeground": muted,
+        "titleBar.border": mantle,
+        "tab.activeBackground": bg,
+        "tab.activeForeground": fg,
+        "tab.activeBorder": accent,
+        "tab.activeBorderTop": accent,
+        "tab.inactiveBackground": mantle,
+        "tab.inactiveForeground": muted,
+        "tab.hoverBackground": border,
+        "tab.border": mantle,
+        "editor.background": bg,
+        "editor.foreground": fg,
+        "editorCursor.foreground": cursor,
+        "editorCursor.background": bg,
+        "editor.selectionBackground": sel_bg + "60",
+        "editor.selectionForeground": sel_fg,
+        "editor.inactiveSelectionBackground": sel_bg + "30",
+        "editor.selectionHighlightBackground": accent + "20",
+        "editor.lineHighlightBackground": border + "55",
+        "editor.wordHighlightBackground": accent + "20",
+        "editor.findMatchBackground": yellow + "40",
+        "editor.findMatchHighlightBackground": yellow + "25",
+        "editorWidget.background": mantle,
+        "editorWidget.border": border,
+        "editorGroupHeader.tabsBackground": mantle,
+        "editorGutter.background": bg,
+        "panel.background": mantle,
+        "panel.border": border,
+        "panelTitle.activeForeground": fg,
+        "panelTitle.inactiveForeground": muted,
+        "statusBar.background": mantle,
+        "statusBar.foreground": fg,
+        "statusBar.border": mantle,
+        "statusBar.debuggingBackground": yellow,
+        "statusBar.debuggingForeground": bg,
+        "terminal.background": bg,
+        "terminal.foreground": fg,
+        "terminal.ansiBlack": border,
+        "terminal.ansiRed": red,
+        "terminal.ansiGreen": green,
+        "terminal.ansiYellow": yellow,
+        "terminal.ansiBlue": blue,
+        "terminal.ansiMagenta": magenta,
+        "terminal.ansiCyan": cyan,
+        "terminal.ansiWhite": fg,
+        "terminal.ansiBrightBlack": muted,
+        "terminal.ansiBrightRed": bright_red,
+        "terminal.ansiBrightGreen": bright_green,
+        "terminal.ansiBrightYellow": bright_yellow,
+        "terminal.ansiBrightBlue": bright_blue,
+        "terminal.ansiBrightMagenta": bright_magenta,
+        "terminal.ansiBrightCyan": bright_cyan,
+        "terminal.ansiBrightWhite": bright_fg,
+        "breadcrumb.background": bg,
+        "breadcrumb.foreground": muted,
+        "breadcrumb.focusForeground": fg,
+        "breadcrumb.activeSelectionForeground": fg,
+        "minimap.background": bg,
+        "peekView.border": accent,
+        "peekViewEditor.background": mantle,
+        "peekViewResult.background": mantle,
+        "notification.background": mantle,
+        "notification.foreground": fg,
+}
+
+token_colors = [
+    {"scope": ["comment", "punctuation.definition.comment"], "settings": {"foreground": muted, "fontStyle": "italic"}},
+    {"scope": ["string", "constant.other.symbol"], "settings": {"foreground": green}},
+    {"scope": ["constant.numeric", "constant.language"], "settings": {"foreground": yellow}},
+    {"scope": ["keyword", "storage", "storage.type"], "settings": {"foreground": magenta}},
+    {"scope": ["entity.name.function", "support.function"], "settings": {"foreground": blue}},
+    {"scope": ["entity.name.type", "entity.name.class", "support.type", "support.class"], "settings": {"foreground": yellow}},
+    {"scope": ["variable", "variable.other"], "settings": {"foreground": fg}},
+    {"scope": ["entity.name.tag", "punctuation.definition.tag"], "settings": {"foreground": red}},
+    {"scope": ["support.type.property-name", "entity.other.attribute-name"], "settings": {"foreground": cyan}},
+    {"scope": ["keyword.operator"], "settings": {"foreground": cyan}},
+    {"scope": ["punctuation", "meta.brace"], "settings": {"foreground": fg}},
+]
+semantic_tokens = {
+    "comment": {"foreground": muted, "fontStyle": "italic"},
+    "string": green,
+    "number": yellow,
+    "keyword": magenta,
+    "function": blue,
+    "method": blue,
+    "type": yellow,
+    "class": yellow,
+    "enum": yellow,
+    "interface": yellow,
+    "struct": yellow,
+    "typeParameter": yellow,
+    "enumMember": cyan,
+    "decorator": magenta,
+    "event": magenta,
+    "macro": magenta,
+    "modifier": magenta,
+    "regexp": red,
+    "namespace": fg,
+    "label": fg,
+    "operator": fg,
+    "punctuation": fg,
+    "variable": fg,
+    "parameter": cyan,
+    "property": cyan,
+}
+
+def semantic_rule(value):
+    if isinstance(value, str):
+        return value
+    rule = {}
+    if value.get("foreground"):
+        rule["foreground"] = value["foreground"]
+    style = str(value.get("fontStyle") or "")
+    if "italic" in style:
+        rule["italic"] = True
+    if "bold" in style:
+        rule["bold"] = True
+    return rule
+
+settings = {}
+if settings_path.is_file():
+    try:
+        loaded = json.loads(settings_path.read_text() or "{}")
+        if isinstance(loaded, dict):
+            settings = loaded
+    except json.JSONDecodeError as exc:
+        sys.stderr.write(f"evo-theme-cursor: {settings_path} is not JSON ({exc}); left unchanged\n")
+        sys.exit(1)
+
+base = base_light if ui_theme == "vs" else base_dark
+settings["workbench.colorTheme"] = base
+settings["workbench.preferredDarkColorTheme"] = base_dark
+if ui_theme == "vs" or settings.get("workbench.preferredLightColorTheme") == stale_label:
+    settings["workbench.preferredLightColorTheme"] = base_light
+settings["workbench.colorCustomizations"] = workbench_colors
+settings["editor.tokenColorCustomizations"] = {
+    "textMateRules": token_colors,
+    "comments": semantic_rule(semantic_tokens["comment"]),
+    "strings": semantic_rule(semantic_tokens["string"]),
+    "numbers": semantic_rule(semantic_tokens["number"]),
+    "keywords": semantic_rule(semantic_tokens["keyword"]),
+    "functions": semantic_rule(semantic_tokens["function"]),
+    "types": semantic_rule(semantic_tokens["type"]),
+    "variables": semantic_rule(semantic_tokens["variable"]),
+}
+settings["editor.semanticTokenColorCustomizations"] = {
+    "enabled": True,
+    "rules": {name: semantic_rule(value) for name, value in semantic_tokens.items()},
+}
+settings_path.parent.mkdir(parents=True, exist_ok=True)
+settings_path.write_text(json.dumps(settings, indent=4) + "\n")
+PY
+}
+
+case "${1:-apply}" in
+    apply) apply_cursor_theme ;;
+    *)
+        echo "usage: evo-theme-cursor apply" >&2
+        exit 1
+        ;;
+esac

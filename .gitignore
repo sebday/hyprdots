@@ -1,12 +1,11 @@
 .config/hypr/bin/
-.config/hypr/theme.lua
 .config/nvim/lua/theme-icons.lua
 .config/evoshell/environment
 .config/evoshell/modules/commons
 
-themes/current/
-themes/next/
-themes/.build-cache/
+evoshell/themes/current/
+evoshell/themes/next/
+evoshell/themes/.build-cache/
 vendor/
 .cache/
 .build/

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
-root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-export EVOSHELL_ROOT="$root"
-bash "${root}/scripts/link-runtime"
-bash "${root}/scripts/link-dotfiles"
-bash "${root}/scripts/link-evoplayer"
-bash "${root}/scripts/link-trading"
-"${root}/bin/evo-font" apply
+repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export EVOSHELL_ROOT="${repo}/evoshell"
+bash "${repo}/scripts/link-runtime"
+bash "${repo}/scripts/link-dotfiles"
+bash "${repo}/scripts/link-evoplayer"
+bash "${repo}/scripts/link-trading"
+"${EVOSHELL_ROOT}/bin/evo-font" apply

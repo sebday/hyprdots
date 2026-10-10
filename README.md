@@ -12,8 +12,8 @@ Thank you to [Bjarne](https://github.com/bjarneo) for some gorgeous themes.
 
 ## What's here
 
-- Hyprland config (`hypr/`)
-- Evoshell, the Quickshell desktop shell, at the repo root
+- Hyprland config (`.config/hypr`)
+- Evoshell, the Quickshell desktop shell, in `evoshell/`
 - App dotfiles (Ghostty, Brave flags, and related configs)
 
 ## Install
@@ -35,64 +35,64 @@ Evoshell needs Hyprland, quickshell, jq, and pass. Desktop packages are in [`.in
 In `brave://settings/` search for "fonts" and set the default to *Caskaydia*.
 In `brave://settings/appearance` set the theme to *GTK*.
 
-The [webtheme](modules/webtheme/README.md) extension themes websites in Brave.
+The [webtheme](evoshell/modules/webtheme/README.md) extension themes websites in Brave.
 
 ## Themes
 
 ### Catppuccin
-[![screenshot](themes/catppuccin/preview.png)](themes/catppuccin/preview.png)
+[![screenshot](evoshell/themes/catppuccin/preview.png)](evoshell/themes/catppuccin/preview.png)
 
 ### Dracula
-[![screenshot](themes/dracula/preview.png)](themes/dracula/preview.png)
+[![screenshot](evoshell/themes/dracula/preview.png)](evoshell/themes/dracula/preview.png)
 
 ### Everforest
-[![screenshot](themes/everforest/preview.png)](themes/everforest/preview.png)
+[![screenshot](evoshell/themes/everforest/preview.png)](evoshell/themes/everforest/preview.png)
 
 ### Gruvbox
-[![screenshot](themes/gruvbox/preview.png)](themes/gruvbox/preview.png)
+[![screenshot](evoshell/themes/gruvbox/preview.png)](evoshell/themes/gruvbox/preview.png)
 
 ### Hackerman
-[![screenshot](themes/hackerman/preview.png)](themes/hackerman/preview.png)
+[![screenshot](evoshell/themes/hackerman/preview.png)](evoshell/themes/hackerman/preview.png)
 
 ### Matte Black
-[![screenshot](themes/matte-black/preview.png)](themes/matte-black/preview.png)
+[![screenshot](evoshell/themes/matte-black/preview.png)](evoshell/themes/matte-black/preview.png)
 
 ### Miasma
-[![screenshot](themes/miasma/preview.png)](themes/miasma/preview.png)
+[![screenshot](evoshell/themes/miasma/preview.png)](evoshell/themes/miasma/preview.png)
 
 ### Nord
-[![screenshot](themes/nord/preview.png)](themes/nord/preview.png)
+[![screenshot](evoshell/themes/nord/preview.png)](evoshell/themes/nord/preview.png)
 
 ### Lumon
-[![screenshot](themes/lumon/preview.png)](themes/lumon/preview.png)
+[![screenshot](evoshell/themes/lumon/preview.png)](evoshell/themes/lumon/preview.png)
 
 ### Osaka Jade
-[![screenshot](themes/osaka-jade/preview.png)](themes/osaka-jade/preview.png)
+[![screenshot](evoshell/themes/osaka-jade/preview.png)](evoshell/themes/osaka-jade/preview.png)
 
 ### Tokyo Night
-[![screenshot](themes/tokyo-night/preview.png)](themes/tokyo-night/preview.png)
+[![screenshot](evoshell/themes/tokyo-night/preview.png)](evoshell/themes/tokyo-night/preview.png)
 
 ### Vanta Black
-[![screenshot](themes/vantablack/preview.png)](themes/vantablack/preview.png)
+[![screenshot](evoshell/themes/vantablack/preview.png)](evoshell/themes/vantablack/preview.png)
 
 ## Configuration
 
-`EVOSHELL_ROOT` is this checkout, recorded in `~/.config/evoshell/environment`.
+`EVOSHELL_ROOT` is `evoshell/` in this checkout, recorded in `~/.config/evoshell/environment`.
 
 | Layer | Path | Contents |
 |-------|------|----------|
-| Shell | `config/shell.json` | Bar layout and per-monitor placement, notifications, idle, dashboards, Shopify, wallpaper |
+| Shell | `evoshell/shell.json` | Bar layout and per-monitor placement, notifications, idle, dashboards, Shopify, wallpaper |
 | Settings | `$EVOSHELL_CONFIG/` (`~/.config/evoshell`) | `ui.json`, `font.json`, `hypr-looks.json` |
 | State | `$EVOSHELL_STATE/` (`~/.local/state/evoshell`) | Session, `theme.json`, wallpaper, notification history, weather location |
 | Cache | `$EVOSHELL_CACHE/` (`~/.cache/evoshell`) | Bar poller cache, menu thumbnails, chart history |
 | Secrets | `pass` | API tokens under `evoshell/` |
 
-`evo-config` writes `config/shell.json`. `evo-layout` writes bar and notification placement there, and UI scale into `ui.json`. Settings in the system menu edits the same files. Do not put tokens in JSON.
+`evo-config` writes `evoshell/shell.json`. `evo-layout` writes bar and notification placement there, and UI scale into `ui.json`. Settings in the system menu edits the same files. Do not put tokens in JSON.
 
 ## Dev
 
 ```bash
-EVOSHELL_BIN=$PWD/bin
+EVOSHELL_BIN=$PWD/evoshell/bin
 evo system restart
 journalctl --user -t evoshell -f
 ```

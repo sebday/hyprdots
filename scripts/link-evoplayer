@@ -3,7 +3,7 @@
 set -euo pipefail
 
 EVOPLAYER_ROOT="${EVOPLAYER_ROOT:-${HOME}/projects/evoplayer}"
-EVOSHELL_ROOT="${EVOSHELL_ROOT:-${HOME}/projects/hyprdots}"
+EVOSHELL_ROOT="${EVOSHELL_ROOT:-${HOME}/projects/hyprdots/evoshell}"
 VENDOR_LINK="${EVOSHELL_ROOT}/vendor/evoplayer"
 
 if [[ ! -f "${EVOPLAYER_ROOT}/scripts/install" ]]; then

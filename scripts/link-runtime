@@ -2,7 +2,8 @@
 # Symlink evoshell into runtime paths (private lib bin + public evo CLI).
 set -euo pipefail
 
-EVOSHELL_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+EVOSHELL_ROOT="${repo}/evoshell"
 export EVOSHELL_ROOT
 EVOSHELL_STATE="${EVOSHELL_STATE:-${XDG_STATE_HOME:-${HOME}/.local/state}/evoshell}"
 LOCAL_BIN="${HOME}/.local/bin"

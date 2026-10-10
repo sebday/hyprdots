@@ -13,7 +13,7 @@ jobs:
         run: |
           shopt -s nullglob
           fail=0
-          for script in bin/* scripts/* .install/installer.sh .install/bin/* modules/*/bin/* modules/*/*/bin/*; do
+          for script in evoshell/bin/* scripts/* .install/installer.sh .install/bin/* evoshell/modules/*/bin/* evoshell/modules/*/*/bin/*; do
             [[ -f "$script" && ! -L "$script" ]] || continue
             head -1 "$script" | grep -q bash || continue
             bash -n "$script" || fail=1
