@@ -49,8 +49,18 @@ Item {
   property double lastUnlockAt: 0
   property bool recoverMonitorsQueued: false
 
-  readonly property bool locked: lockRequested || sessionLock.locked || sessionLock.secure
+  // Not a binding named locked. That binding reads sessionLock.locked and
+  // keeps its own old value, so after unlock Super+L thinks the session is
+  // still locked and returns without showing anything. Restart then sees the
+  // stale flag and locks, which is the only time the screen appears.
+  property bool holdLock: false
   readonly property bool authenticating: authenticatingPassword || fingerprintAuthenticating
+
+  function syncHoldLock() {
+    var next = lockRequested || sessionLock.locked || sessionLock.secure
+    if (holdLock !== next)
+      holdLock = next
+  }
 
   function realScreenCount() {
     var screens = Quickshell.screens || []
@@ -98,7 +108,7 @@ Item {
     if (strandedLockResolved || strandedLockCheckProc.running) return
 
     // A lock this shell took is nobody's orphan.
-    if (locked || lockRequested) {
+    if (holdLock || lockRequested) {
       strandedLockResolved = true
       return
     }
@@ -107,7 +117,7 @@ Item {
   }
 
   function recoverStrandedLock() {
-    if (!strandedLock || locked || !passwordPamConfigured) return
+    if (!strandedLock || holdLock || !passwordPamConfigured) return
 
     strandedLock = false
     logEvent("lock-stranded: recovering")
@@ -170,7 +180,7 @@ Item {
   }
 
   function finishUnlock() {
-    if (!root.locked && !lockRequested) return
+    if (!root.holdLock && !lockRequested) return
 
     lockRequested = false
     pendingSessionLock = false
@@ -295,6 +305,7 @@ Item {
 
     onSecureStateChanged: {
       root.logEvent("secure=" + secure)
+      root.syncHoldLock()
       if (secure) {
         root.pendingSessionLock = false
         sessionLockStabilizeTimer.stop()
@@ -305,6 +316,7 @@ Item {
 
     onLockStateChanged: {
       root.logEvent("session-locked=" + locked)
+      root.syncHoldLock()
 
       if (locked) {
         root.pendingSessionLock = false
@@ -337,7 +349,7 @@ Item {
         failureMessage: root.failureMessage
         failedAttempts: root.failedAttempts
         inputEnabled: root.lockRequested
-        loadBackground: root.locked
+        loadBackground: root.holdLock
         displaysBlank: root.screenBlank(lockSurface.screen ? lockSurface.screen.name : "")
         passwordText: root.enteredPassword
         onPasswordTextEdited: function(password) { root.enteredPassword = password }
@@ -511,7 +523,7 @@ Item {
       root.strandedLockResolved = true
 
       // A lock taken while this was in flight is this shell's own.
-      root.strandedLock = exitCode === 0 && !root.locked && !root.lockRequested
+      root.strandedLock = exitCode === 0 && !root.holdLock && !root.lockRequested
       root.recoverStrandedLock()
     }
   }
@@ -558,7 +570,7 @@ Item {
     interval: 3000
     repeat: true
     triggeredOnStart: true
-    running: root.locked && root.videoBackground
+    running: root.holdLock && root.videoBackground
     onTriggered: {
       if (!monitorDpmsProcess.running) monitorDpmsProcess.running = true
     }
@@ -631,6 +643,8 @@ Item {
 
   // No lock before PAM is known good. An answer from before then may be stale --
   // the failsafe can be cleared from a TTY -- so re-ask rather than act on it.
+  onLockRequestedChanged: syncHoldLock()
+
   onPasswordPamConfiguredChanged: {
     if (!passwordPamConfigured) return
 
@@ -641,6 +655,7 @@ Item {
   }
 
   Component.onCompleted: {
+    syncHoldLock()
     refreshBackground()
     refreshFingerprintStatus()
     checkStrandedLock()
@@ -655,17 +670,21 @@ Item {
 
     function lock(): string {
       if (!root.passwordPamConfigured) return "missing-pam"
-      if (!root.locked && !root.beginLock()) return "failed"
+      // The compositor lock is the only reason to ignore a new request.
+      if (sessionLock.locked || sessionLock.secure) return "ok"
+      if (!root.beginLock()) return "failed"
       return "ok"
     }
 
     function isLocked(): string {
-      return root.locked ? "true" : "false"
+      root.syncHoldLock()
+      return root.holdLock ? "true" : "false"
     }
 
     function status(): string {
+      root.syncHoldLock()
       return JSON.stringify({
-        locked: root.locked,
+        locked: root.holdLock,
         requested: root.lockRequested,
         pending: root.pendingSessionLock,
         sessionLocked: sessionLock.locked,
