@@ -274,7 +274,11 @@ Panel {
   function openRepo(path) {
     var dir = path ? String(path) : ""
     if (!dir) return
-    Quickshell.execDetached(["xdg-terminal-exec", "--dir=" + dir])
+    Quickshell.execDetached([
+      "/usr/bin/ghostty",
+      "--gtk-single-instance=true",
+      "--working-directory=" + dir
+    ])
     root.close()
   }
 
