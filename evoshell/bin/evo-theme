@@ -193,6 +193,7 @@ activate_theme() {
     activate_gtk_files
     theme_timing_step "activate gtk_gsettings"
     themes_gtk_gsettings_force_reload "current"
+    themes_sync_color_scheme
     theme_timing_step "activate gtk_font"
     "$SCRIPT_DIR/evo-font" apply-gtk
     theme_timing_step "activate gtk_gsettings done"
