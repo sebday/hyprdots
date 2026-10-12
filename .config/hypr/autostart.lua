@@ -2,6 +2,7 @@ local home = os.getenv("HOME") or ""
 local evoshell_bin = os.getenv("EVOSHELL_BIN") or (home .. "/.local/lib/evoshell/bin")
 
 hl.on("hyprland.start", function()
+	hl.exec_cmd("systemctl --user set-environment XCURSOR_THEME=Vimix-cursors XCURSOR_SIZE=24")
 	hl.exec_cmd("systemctl --user start evoshell.service")
 	hl.exec_cmd("bash -c 'sleep 5 && " .. evoshell_bin .. "/evo-panel-hypr restore-dashboards'")
 	hl.exec_cmd("gnome-keyring-daemon --start --components=secrets")

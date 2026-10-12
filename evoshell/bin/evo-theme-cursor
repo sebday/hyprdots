@@ -63,12 +63,50 @@ bright_cyan = need("color14", cyan)
 bright_fg = need("color15", fg)
 border = need("color0", muted)
 
+def hex_rgb(value):
+    h = value[1:]
+    return (int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16))
+
+def rgb_hex(rgb):
+    return "#{:02x}{:02x}{:02x}".format(*rgb)
+
+def channel(c):
+    c = c / 255
+    return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+
+def rel_lum(rgb):
+    r, g, b = rgb
+    return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+
+def contrast(a, b):
+    hi, lo = max(rel_lum(a), rel_lum(b)), min(rel_lum(a), rel_lum(b))
+    return (hi + 0.05) / (lo + 0.05)
+
+def mix(a, b, t):
+    return tuple(round(a[i] * (1 - t) + b[i] * t) for i in range(3))
+
 def lum(hex_color):
-    h = hex_color[1:]
-    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    r, g, b = hex_rgb(hex_color)
     return 0.2126 * r + 0.7152 * g + 0.0722 * b
 
+# Primary buttons were dark text on a bright accent, which reads as black.
+# Keep the label on the theme foreground and darken the fill until it contrasts.
+def fill_for_label(label_hex, fill_hex, toward_hex):
+    label, fill, toward = hex_rgb(label_hex), hex_rgb(fill_hex), hex_rgb(toward_hex)
+    if contrast(label, fill) >= 4.5:
+        return fill_hex
+    chosen = fill_hex
+    for step in range(1, 21):
+        cand = mix(fill, toward, step / 20)
+        chosen = rgb_hex(cand)
+        if contrast(label, cand) >= 4.5:
+            return chosen
+    return chosen
+
 ui_theme = "vs" if lum(bg) > 140 else "vs-dark"
+button_fill = fill_for_label(fg, accent, bg)
+button_hover = fill_for_label(fg, bright_blue, bg)
+line_dim = rgb_hex(mix(hex_rgb(bg), hex_rgb(fg), 0.55))
 
 workbench_colors = {
         "foreground": fg,
@@ -81,9 +119,12 @@ workbench_colors = {
         "sash.hoverBorder": accent,
         "textLink.foreground": blue,
         "textLink.activeForeground": bright_blue,
-        "button.background": accent,
-        "button.foreground": bg,
-        "button.hoverBackground": bright_blue,
+        "button.background": button_fill,
+        "button.foreground": fg,
+        "button.hoverBackground": button_hover,
+        "button.secondaryBackground": border,
+        "button.secondaryForeground": fg,
+        "button.secondaryHoverBackground": button_hover,
         "input.background": mantle,
         "input.foreground": fg,
         "input.border": border,
@@ -146,6 +187,8 @@ workbench_colors = {
         "editorWidget.border": border,
         "editorGroupHeader.tabsBackground": mantle,
         "editorGutter.background": bg,
+        "editorLineNumber.foreground": line_dim,
+        "editorLineNumber.activeForeground": fg,
         "panel.background": mantle,
         "panel.border": border,
         "panelTitle.activeForeground": fg,

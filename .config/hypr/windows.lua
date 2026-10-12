@@ -98,11 +98,6 @@ hl.window_rule({
 	opacity = "1 override 1 override",
 })
 
--- Dashboard windows on workspace 10 (HDMI-A-1).
-
-local DASHBOARD_WS = "10"
-local EVICT_WS = "5"
-
 hl.window_rule({
 	name = "dashboard-no-initial-focus",
 	match = {
@@ -110,24 +105,6 @@ hl.window_rule({
 		title = "^evo%.panels%.[^%.]+$",
 	},
 	no_initial_focus = true,
-})
-
-hl.window_rule({
-	name = "dashboard-pinned-shopify-ws10",
-	match = {
-		class = "^(org%.quickshell)$",
-		title = "^evo%.shopify$",
-	},
-	workspace = DASHBOARD_WS,
-})
-
-hl.window_rule({
-	name = "dashboard-pinned-player-ws10",
-	match = {
-		class = "^(org%.quickshell)$",
-		title = "^evo%.player$",
-	},
-	workspace = DASHBOARD_WS,
 })
 
 local function window_size(win)
@@ -149,42 +126,6 @@ local function is_btop_window(win)
 		return false
 	end
 	return class == "TUI.tiled" or class == "com.mitchellh.ghostty"
-end
-
-local function is_dashboard_window(win)
-	if not win or win.class ~= "org.quickshell" then
-		return false
-	end
-	local title = win.title or ""
-	return title:match("^evo%.panels%.[^%.]+$") ~= nil
-		or title == "evo.shopify"
-		or title == "evo.player"
-end
-
-local function is_ws10_allowed_window(win)
-	return is_dashboard_window(win) or is_btop_window(win)
-end
-
-local function evict_non_dashboard_from_ws10(win)
-	if not win or not win.workspace or win.workspace.name ~= DASHBOARD_WS then
-		return
-	end
-	if is_ws10_allowed_window(win) then
-		return
-	end
-	hl.dispatch(hl.dsp.window.move({ workspace = EVICT_WS, window = win, follow = false }))
-end
-
-local function route_dashboard_window(win)
-	if not is_dashboard_window(win) then
-		return
-	end
-
-	if win.workspace and win.workspace.name == DASHBOARD_WS then
-		return
-	end
-
-	hl.dispatch(hl.dsp.window.move({ workspace = DASHBOARD_WS, window = win, follow = false }))
 end
 
 local function is_preserved_tui(win)
@@ -251,16 +192,8 @@ local function brave_app_to_floating(win)
 	end, { timeout = 1, type = "oneshot" })
 end
 
-local function on_window_open(win)
+hl.on("window.open", function(win)
 	brave_app_to_floating(win)
-	evict_non_dashboard_from_ws10(win)
-	route_dashboard_window(win)
-end
-
-hl.on("window.open", on_window_open)
-hl.on("window.title", function(win)
-	evict_non_dashboard_from_ws10(win)
-	route_dashboard_window(win)
 end)
 
 -- Calculator is a normal toplevel so it can be dragged. Title is set by

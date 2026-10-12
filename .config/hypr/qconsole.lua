@@ -1,7 +1,6 @@
 -- Quake-style console: dimmed special workspace over the active monitor.
 
 local SPECIAL_WS = "special:qconsole"
-local PINNED_DASHBOARD_WS = "10"
 local SHARE = 0.50
 local LAYOUT = "lua:dashboard_top"
 
@@ -134,28 +133,6 @@ local function fit()
 	cover(math.max(0, math.floor(usable * (1 - SHARE))))
 end
 
-local function is_pinned_dashboard_window(win)
-	if not win or win.class ~= "org.quickshell" then
-		return false
-	end
-	local title = win.title or ""
-	local dashboard = title:match("^evo%.panels%.[^%.]+$") ~= nil or title == "evo.shopify" or title == "evo.player"
-	local pinned = title == "evo.shopify" or title == "evo.player" or title == "evo.panels.player"
-	return dashboard and pinned
-end
-
-local function return_pinned_dashboards()
-	for _, win in ipairs(hl.get_windows({ class = "org.quickshell" })) do
-		if is_pinned_dashboard_window(win) and win.workspace and win.workspace.name == SPECIAL_WS then
-			hl.dispatch(hl.dsp.window.move({
-				workspace = PINNED_DASHBOARD_WS,
-				window = win,
-				follow = false,
-			}))
-		end
-	end
-end
-
 local function attach_to_host_monitor()
 	local monitor = qconsole_monitor()
 	if not monitor then
@@ -176,7 +153,6 @@ local function sync_active_monitor()
 	end
 	fit()
 	attach_to_host_monitor()
-	return_pinned_dashboards()
 	dedupe_qconsole_windows()
 	reflow_qconsole()
 end
@@ -187,7 +163,6 @@ local function on_open()
 		if not active or generation ~= open_generation or not special_visible_on_active_monitor() then
 			return
 		end
-		return_pinned_dashboards()
 		attach_to_host_monitor()
 		dedupe_qconsole_windows()
 		reflow_qconsole()
@@ -196,7 +171,6 @@ end
 
 local function on_close()
 	open_generation = open_generation + 1
-	return_pinned_dashboards()
 	active = false
 	host_monitor = nil
 end
