@@ -276,10 +276,6 @@ configure_google_ads_editor() {
 export WINEPREFIX="${prefix}"
 export WINEARCH=win64
 export WINEDEBUG=-all
-# Prefer Wine's Wayland driver so the editor fraction-scales on Hyprland.
-if [[ -n "\${WAYLAND_DISPLAY:-}" ]]; then
-    unset DISPLAY
-fi
 exec wine '${exe_path}' "\$@"
 EOF
     chmod +x "${launcher}"

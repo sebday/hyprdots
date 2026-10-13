@@ -274,9 +274,11 @@ Panel {
   function openRepo(path) {
     var dir = path ? String(path) : ""
     if (!dir) return
+    // A second launch with gtk-single-instance joins the running Ghostty and
+    // inherits that window's directory, ignoring --working-directory.
     Quickshell.execDetached([
       "/usr/bin/ghostty",
-      "--gtk-single-instance=true",
+      "--gtk-single-instance=false",
       "--working-directory=" + dir
     ])
     root.close()
