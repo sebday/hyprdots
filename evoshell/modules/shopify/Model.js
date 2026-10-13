@@ -468,6 +468,16 @@ function chartFigure(payload, metricId) {
   return ""
 }
 
+function chartCompare(payload, metricId) {
+  var p = asPayload(payload)
+  var period = p.period
+  var previous = null
+  if (metricId === "revenue") previous = period.prevRevenue
+  else if (metricId === "refunds") previous = period.prevRefunds
+  else return ""
+  return versusText(formatSeriesValue(metricId, previous, currency(p)))
+}
+
 function chartChange(payload, metricId) {
   if (metricId !== "revenue" && metricId !== "refunds") return { text: "", tone: "up" }
   var p = asPayload(payload)
@@ -508,11 +518,9 @@ function periodDays(p) {
   return 30
 }
 
-function seriesDelta(series) {
+function seriesPrevious(series) {
   if (!series || series.length < 2) return null
   var last = series[series.length - 1]
-  var current = last && last.value
-  if (typeof current !== "number" || !isFinite(current)) return null
   var previous = null
   var target = utcDay(last && last.date)
   if (isFinite(target)) {
@@ -527,7 +535,29 @@ function seriesDelta(series) {
     previous = series[series.length - 8].value
   }
   if (typeof previous !== "number" || !isFinite(previous)) return null
-  return pctDelta(current, previous)
+  return previous
+}
+
+function seriesDelta(series) {
+  if (!series || series.length < 2) return null
+  var last = series[series.length - 1]
+  var current = last && last.value
+  if (typeof current !== "number" || !isFinite(current)) return null
+  return pctDelta(current, seriesPrevious(series))
+}
+
+function formatSeriesValue(id, value, cur) {
+  if (typeof value !== "number" || !isFinite(value)) return ""
+  if (id === "revenue" || id === "spend" || id === "refunds" || id === "aov")
+    return formatRevenue(value, cur)
+  if (id === "orders" || id === "sessions") return formatInt(value)
+  if (id === "cvr" || id === "cos") return formatPct(value)
+  return ""
+}
+
+function versusText(formatted) {
+  if (!formatted) return ""
+  return "vs " + formatted
 }
 
 function todayPoint(detail, id) {
@@ -575,6 +605,7 @@ function kpiCells(payload, metricId) {
     var spec = specs[i]
     var series = withToday(barsFor(p, spec[0]), d, spec[0])
     var delta = seriesDelta(series)
+    var compare = versusText(formatSeriesValue(spec[0], seriesPrevious(series), cur))
     var higherIsWorse = spec[0] === "cos" || spec[0] === "spend" || spec[0] === "refunds"
     var tone = "up"
     if (delta !== null && Math.abs(delta) >= 0.05)
@@ -583,6 +614,7 @@ function kpiCells(payload, metricId) {
       id: spec[0],
       label: spec[1],
       value: spec[2],
+      compare: compare,
       spark: sparkValues(series),
       delta: formatDelta(delta),
       tone: tone,
@@ -635,9 +667,11 @@ function channelCards(payload) {
     var delta = pctDelta(value, specs[i][2])
     var tone = "flat"
     if (delta !== null && Math.abs(delta) >= 0.05) tone = delta > 0 ? "up" : "down"
+    var previous = specs[i][2]
     cards.push({
       label: specs[i][0],
       value: formatRevenue(value, cur),
+      compare: versusText(formatSeriesValue("revenue", typeof previous === "number" ? previous : NaN, cur)),
       delta: formatDelta(delta),
       tone: tone,
       spark: sparkValues(specs[i][3])

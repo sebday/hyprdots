@@ -23,6 +23,7 @@ Item {
   readonly property var chartBars: Model.barsFor(safePayload, metric)
   readonly property var compareBars: Model.compareBarsFor(safePayload, metric)
   readonly property string chartFigure: Model.chartFigure(safePayload, metric)
+  readonly property string chartCompare: Model.chartCompare(safePayload, metric)
   readonly property var chartChange: Model.chartChange(safePayload, metric)
   readonly property string chartStyle: Model.metricById(metric).chartStyle
   readonly property var channels: Model.channelCards(safePayload)
@@ -96,31 +97,56 @@ Item {
     mutedColor: root.mutedColor
     fontFamily: root.fontFamily
 
-    Text {
-      id: chartValue
+    Item {
+      id: chartHead
       anchors.left: parent.left
+      anchors.right: parent.right
       anchors.top: parent.top
+      height: chartValue.implicitHeight
       visible: root.chartFigure !== ""
-      textFormat: Text.PlainText
-      text: root.chartFigure
-      color: root.textColor
-      font.family: root.fontFamily
-      font.pixelSize: Theme.font.display
-      font.bold: true
-    }
+      readonly property int gap: Theme.space(6)
+      readonly property bool showCompare: root.chartCompare !== ""
+          && chartValue.implicitWidth + gap + chartCompare.implicitWidth
+             + (chartDelta.text !== "" ? gap + chartDelta.implicitWidth : 0) <= width
 
-    Text {
-      id: chartDelta
-      anchors.left: chartValue.right
-      anchors.leftMargin: Theme.space(6)
-      anchors.verticalCenter: chartValue.verticalCenter
-      visible: chartValue.visible && root.chartChange.text !== ""
-      textFormat: Text.PlainText
-      text: root.chartChange.text || ""
-      color: root.chartChange.tone === "down" ? root.warnColor : root.borderColor
-      font.family: root.fontFamily
-      font.pixelSize: Theme.font.caption
-      font.bold: true
+      Text {
+        id: chartValue
+        anchors.left: parent.left
+        anchors.top: parent.top
+        textFormat: Text.PlainText
+        text: root.chartFigure
+        color: root.textColor
+        font.family: root.fontFamily
+        font.pixelSize: Theme.font.display
+        font.bold: true
+      }
+
+      Text {
+        id: chartCompare
+        anchors.left: chartValue.right
+        anchors.leftMargin: chartHead.gap
+        anchors.baseline: chartValue.baseline
+        visible: chartHead.showCompare
+        textFormat: Text.PlainText
+        text: root.chartCompare
+        color: root.mutedColor
+        font.family: root.fontFamily
+        font.pixelSize: Theme.font.body
+      }
+
+      Text {
+        id: chartDelta
+        anchors.left: chartHead.showCompare ? chartCompare.right : chartValue.right
+        anchors.leftMargin: chartHead.gap
+        anchors.verticalCenter: chartValue.verticalCenter
+        visible: text !== ""
+        textFormat: Text.PlainText
+        text: root.chartChange.text || ""
+        color: root.chartChange.tone === "down" ? root.warnColor : root.borderColor
+        font.family: root.fontFamily
+        font.pixelSize: Theme.font.caption
+        font.bold: true
+      }
     }
 
     Text {
@@ -137,8 +163,8 @@ Item {
       anchors.left: parent.left
       anchors.right: parent.right
       anchors.bottom: parent.bottom
-      anchors.top: chartValue.visible ? chartValue.bottom : parent.top
-      anchors.topMargin: chartValue.visible ? Theme.space(6) : 0
+      anchors.top: chartHead.visible ? chartHead.bottom : parent.top
+      anchors.topMargin: chartHead.visible ? Theme.space(6) : 0
       visible: root.chartBars && root.chartBars.length > 0
       bars: root.chartBars
       compareBars: root.compareBars

@@ -68,38 +68,60 @@ Item {
               mutedColor: root.mutedColor
               fontFamily: root.fontFamily
 
-              Text {
-                id: valueText
+              Item {
+                id: figureRow
                 anchors.left: parent.left
                 anchors.top: parent.top
-                anchors.right: deltaText.left
-                anchors.rightMargin: Theme.space(2)
-                textFormat: Text.PlainText
-                text: modelData.value
-                color: root.textColor
-                font.family: root.fontFamily
-                font.pixelSize: Theme.font.heading
-                font.bold: true
-                elide: Text.ElideRight
-              }
-
-              Text {
-                id: deltaText
                 anchors.right: parent.right
-                anchors.verticalCenter: valueText.verticalCenter
-                visible: modelData.delta !== ""
-                textFormat: Text.PlainText
-                text: modelData.delta
-                color: root.toneColor(modelData.tone)
-                font.family: root.fontFamily
-                font.pixelSize: Theme.font.caption
-                font.bold: true
+                height: valueText.implicitHeight
+                readonly property int gap: Theme.space(4)
+                readonly property bool showCompare: compareText.text !== ""
+                    && valueText.implicitWidth + gap + compareText.implicitWidth
+                       + (deltaText.text !== "" ? gap + deltaText.implicitWidth : 0) <= width
+
+                Text {
+                  id: valueText
+                  anchors.left: parent.left
+                  anchors.top: parent.top
+                  textFormat: Text.PlainText
+                  text: modelData.value
+                  color: root.textColor
+                  font.family: root.fontFamily
+                  font.pixelSize: Theme.font.heading
+                  font.bold: true
+                }
+
+                Text {
+                  id: compareText
+                  anchors.left: valueText.right
+                  anchors.leftMargin: figureRow.gap
+                  anchors.baseline: valueText.baseline
+                  visible: figureRow.showCompare
+                  textFormat: Text.PlainText
+                  text: modelData.compare || ""
+                  color: root.mutedColor
+                  font.family: root.fontFamily
+                  font.pixelSize: Theme.font.caption
+                }
+
+                Text {
+                  id: deltaText
+                  anchors.right: parent.right
+                  anchors.verticalCenter: valueText.verticalCenter
+                  visible: text !== ""
+                  textFormat: Text.PlainText
+                  text: modelData.delta
+                  color: root.toneColor(modelData.tone)
+                  font.family: root.fontFamily
+                  font.pixelSize: Theme.font.caption
+                  font.bold: true
+                }
               }
 
               Sparkline {
                 anchors.left: parent.left
                 anchors.right: parent.right
-                anchors.top: valueText.bottom
+                anchors.top: figureRow.bottom
                 anchors.bottom: parent.bottom
                 anchors.topMargin: Theme.space(2)
                 visible: modelData.spark && modelData.spark.length > 1
