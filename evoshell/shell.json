@@ -137,13 +137,6 @@
     "apiUrl": "https://data.day.marketing",
     "stores": [
       {
-        "key": "DIY",
-        "title": "DIY",
-        "adminSlug": "diy-buildingsupplies",
-        "barPrefix": "D ",
-        "sqliteKey": "diy"
-      },
-      {
         "key": "TGS",
         "title": "TGS",
         "adminSlug": "thegoodsheet-uk",

@@ -30,10 +30,11 @@ Item {
     property real previewAreaMaxWidth: 1600
     property real previewAreaMaxHeight: 900
 
+    readonly property bool sessionMenuMode: submenu === "session"
     readonly property bool powerMenuMode: mode === "power" && !submenu
     readonly property bool previewTileMode: submenu === "themes" || submenu === "wallpaper"
     readonly property bool boxTileMode: previewTileMode
-    readonly property bool framedMode: !previewTileMode
+    readonly property bool framedMode: !previewTileMode && !sessionMenuMode
     readonly property bool powerSearchMode: powerMenuMode && filterText.trim() !== ""
     readonly property bool programsPanel: powerMenuMode && menuPanel === "programs" && !powerSearchMode
     readonly property bool programsListMode: programsPanel || powerSearchMode
@@ -48,7 +49,14 @@ Item {
     readonly property int powerHeaderHeight: 104
     readonly property int powerLogoFont: Theme.fontSize8xl * 2
     readonly property int powerTileIconSize: 52
+    readonly property int sessionTileWidth: 148
+    readonly property int sessionTileHeight: 132
+    readonly property int sessionTileGap: 16
     readonly property int tileSpacing: 24
+    readonly property int sessionRowWidth: {
+        var n = Math.max(visibleEntries.length, 1)
+        return n * sessionTileWidth + Math.max(0, n - 1) * sessionTileGap
+    }
     readonly property int tileIconSize: 64
     readonly property int previewTileWidth: 296
     readonly property int previewTileHeight: 204
@@ -520,6 +528,7 @@ Item {
                 return
         }
         if (previewTileMode) moveGridSelection(-1, 0)
+        else if (sessionMenuMode) moveSelection(-1)
     }
 
     function handlePreviewRight() {
@@ -528,6 +537,7 @@ Item {
                 return
         }
         if (previewTileMode) moveGridSelection(1, 0)
+        else if (sessionMenuMode) moveSelection(1)
     }
 
     function handlePreviewUp() {
@@ -538,6 +548,7 @@ Item {
             return
         }
         if (previewTileMode) moveGridSelection(0, -1)
+        else if (sessionMenuMode) moveSelection(-1)
         else if (framedMode) moveSelection(-1)
     }
 
@@ -549,6 +560,7 @@ Item {
             return
         }
         if (previewTileMode) moveGridSelection(0, 1)
+        else if (sessionMenuMode) moveSelection(1)
         else if (framedMode) moveSelection(1)
     }
 
@@ -568,7 +580,9 @@ Item {
     }
 
     function handleEscapeKey() {
-        if (submenu) {
+        if (sessionMenuMode) {
+            dismiss()
+        } else if (submenu) {
             submenu = ""
             dynamicEntries = []
             dynamicEntryKind = ""
@@ -821,6 +835,7 @@ Item {
                     kind: "command",
                     name: e.name,
                     command: e.command,
+                    keywords: e.keywords || [],
                     submenu: e.submenu,
                     preview: e.preview || "",
                     icon: e.icon || ""
@@ -1052,15 +1067,17 @@ Item {
             id: menuHost
             z: 1
             anchors.centerIn: parent
-            width: root.framedMode
-                ? root.framedMenuWidth
-                : root.boxRowWidth
-            height: root.framedMode
-                ? (root.fixedFramedMenuHeight
-                    ? root.powerMenuPanelHeight
-                    : framedColumn.implicitHeight)
-                : root.boxRowHeight
-            focus: root.opened && (root.previewTileMode || root.framedMode)
+            width: root.sessionMenuMode
+                ? root.sessionRowWidth
+                : (root.framedMode ? root.framedMenuWidth : root.boxRowWidth)
+            height: root.sessionMenuMode
+                ? root.sessionTileHeight
+                : (root.framedMode
+                    ? (root.fixedFramedMenuHeight
+                        ? root.powerMenuPanelHeight
+                        : framedColumn.implicitHeight)
+                    : root.boxRowHeight)
+            focus: root.opened && (root.previewTileMode || root.framedMode || root.sessionMenuMode)
 
             TextInput {
                 id: filterField
@@ -1348,13 +1365,77 @@ Item {
             }
 
             Text {
-                visible: root.dynamicLoading && !root.framedMode
+                visible: root.dynamicLoading && !root.framedMode && !root.sessionMenuMode
                 anchors.centerIn: parent
                 text: "Loading…"
                 color: Theme.foreground
                 font.family: Theme.fontFamily
                 font.pixelSize: root.listFontSize
                 font.bold: Theme.fontBold
+            }
+
+            Row {
+                id: sessionRow
+                visible: root.sessionMenuMode
+                anchors.centerIn: parent
+                spacing: root.sessionTileGap
+
+                Repeater {
+                    model: root.sessionMenuMode ? root.visibleEntries : []
+
+                    Rectangle {
+                        id: sessionTile
+                        required property var modelData
+                        required property int index
+                        width: root.sessionTileWidth
+                        height: root.sessionTileHeight
+                        radius: Theme.fieldsetCornerRadius
+                        color: index === root.selectedIndex || sessionMouse.containsMouse
+                            ? Theme.panelMantle
+                            : Theme.background
+                        border.width: index === root.selectedIndex ? 2 : 0
+                        border.color: Theme.accent
+
+                        Column {
+                            anchors.centerIn: parent
+                            spacing: Theme.spacingS
+                            width: parent.width - Theme.spacingL * 2
+
+                            Text {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: root.entryGlyphIcon(sessionTile.modelData)
+                                color: Theme.accent
+                                font.family: Theme.fontFamily
+                                font.pixelSize: 36
+                                font.bold: Theme.fontBold
+                            }
+
+                            Text {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                width: parent.width
+                                horizontalAlignment: Text.AlignHCenter
+                                text: sessionTile.modelData.name
+                                color: Theme.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSizeM
+                                font.bold: Theme.fontBold
+                                elide: Text.ElideRight
+                            }
+                        }
+
+                        MouseArea {
+                            id: sessionMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onEntered: root.selectedIndex = index
+                            onClicked: {
+                                root.selectedIndex = index
+                                root.activateEntry(modelData)
+                            }
+                        }
+                    }
+                }
             }
 
             Flow {
