@@ -138,7 +138,7 @@ Item {
         id: chartDelta
         anchors.left: chartHead.showCompare ? chartCompare.right : chartValue.right
         anchors.leftMargin: chartHead.gap
-        anchors.verticalCenter: chartValue.verticalCenter
+        anchors.baseline: chartHead.showCompare ? chartCompare.baseline : chartValue.baseline
         visible: text !== ""
         textFormat: Text.PlainText
         text: root.chartChange.text || ""
