@@ -169,9 +169,13 @@ Item {
       bars: root.chartBars
       compareBars: root.compareBars
       chartStyle: root.chartStyle
+      metric: root.metric
+      symbol: Model.currency(root.safePayload)
+      fontFamily: root.fontFamily
       accent: root.borderColor
       bright: root.brightColor
       muted: root.mutedColor
+      backgroundColor: root.backgroundColor
     }
   }
 }
