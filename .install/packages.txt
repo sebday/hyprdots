@@ -1,6 +1,5 @@
 # Base ######################
 greetd
-plymouth
 mkinitcpio
 
 # Hyprland ##################

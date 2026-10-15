@@ -125,16 +125,6 @@ install_aur_packages() {
     yay -Sy --noconfirm "${aur_packages[@]}"
 }
 
-# Set the Plymouth boot screen theme.
-set_boot_screen() {
-    log "Setting Plymouth boot screen theme..."
-    # Add plymouth to mkinitcpio hooks
-    if grep -q '^HOOKS=' /etc/mkinitcpio.conf && ! grep -q 'plymouth' /etc/mkinitcpio.conf; then
-        sudo sed -i '/^HOOKS=/s/\b\(udev\b\)/\1 plymouth/' /etc/mkinitcpio.conf
-    fi
-    sudo plymouth-set-default-theme -R spinner
-}
-
 # Configure darkhttpd for stylus theme hot-reloading
 configure_darkhttpd() {
     local user
@@ -326,7 +316,6 @@ main() {
     link_evoplayer
     configure_greetd
     install_mise_tools
-    set_boot_screen
     configure_darkhttpd
     configure_networking
     configure_timesync
