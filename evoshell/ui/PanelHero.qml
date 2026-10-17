@@ -8,6 +8,7 @@ Item {
   property string title: ""
   property string meta: ""
   property string detail: ""
+  property color detailColor: "transparent"
   property color foreground: Theme.foreground
   property string fontFamily: Theme.font.family
   property real iconSize: Theme.font.display
@@ -20,6 +21,7 @@ Item {
   property Component trailingControl: null
 
   readonly property color dim: Qt.darker(foreground, 1.4)
+  readonly property bool detailTinted: detailColor.a > 0.001
   readonly property real trailingInset: trailingLoader.item && trailingLoader.item.visible ? trailingLoader.width + Theme.space(12) : 0
 
   width: parent ? parent.width : implicitWidth
@@ -70,8 +72,10 @@ Item {
         implicitWidth: detailText.implicitWidth + Theme.space(10)
         implicitHeight: detailText.implicitHeight + Theme.space(4)
         anchors.verticalCenter: parent.verticalCenter
-        color: "transparent"
-        borderSpec: Border.controlSpec("normal", root.foreground, Theme.accent)
+        color: root.detailTinted ? Theme.withOpacity(root.detailColor, 0.14) : "transparent"
+        borderSpec: root.detailTinted
+          ? Border.flat(Theme.withOpacity(root.detailColor, 0.4), 1)
+          : Border.controlSpec("normal", root.foreground, Theme.accent)
         radius: Theme.cornerRadius
 
         Text {
@@ -79,7 +83,7 @@ Item {
           textFormat: Text.PlainText
           anchors.centerIn: parent
           text: root.detail
-          color: root.dim
+          color: root.detailTinted ? root.detailColor : root.dim
           font.family: root.fontFamily
           font.pixelSize: Theme.font.body
           font.bold: true
