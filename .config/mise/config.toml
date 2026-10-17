@@ -6,3 +6,5 @@ ruby = "latest"
 "npm:wrangler" = "latest"
 npm = "12.0.1"
 go = "latest"
+yt-dlp = { version = "latest", rename_exe = "yt-dlp" }
+deno = "latest"
