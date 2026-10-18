@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+# Toggle a gpu-screen-recorder capture of the focused window's rectangle.
+
+set -euo pipefail
+
+_bin_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "${_bin_dir}/evo-paths-lib"
+
+RUNTIME="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+PATH_FILE="${RUNTIME}/evo-screenrecord.path"
+OUT_DIR="${EVO_SCREENRECORD_DIR:-${HOME}/pictures/Screenshots}"
+NOTIFY="${_bin_dir}/evo-notification-send"
+
+usage() {
+  cat <<'EOF'
+usage: evo-screenrecord [toggle|stop]
+EOF
+}
+
+recording() {
+  # The kernel truncates the process name to 15 chars, so match the command line.
+  pgrep -f '^gpu-screen-recorder ' >/dev/null
+}
+
+stop_recording() {
+  local file=""
+  [[ -f "$PATH_FILE" ]] && file="$(<"$PATH_FILE")"
+
+  pkill -INT -f '^gpu-screen-recorder ' || true
+  for _ in $(seq 50); do
+    recording || break
+    sleep 0.1
+  done
+  rm -f "$PATH_FILE"
+
+  if [[ -n "$file" && -f "$file" ]]; then
+    "$NOTIFY" -g "󰕧" --exec "xdg-open $(printf '%q' "$file")" \
+      "Recording saved" "$(basename "$file")"
+  else
+    "$NOTIFY" -g "󰕧" "Recording stopped"
+  fi
+}
+
+start_recording() {
+  command -v gpu-screen-recorder >/dev/null || {
+    "$NOTIFY" -u critical -g "󰕧" "Screen recording" "gpu-screen-recorder is not installed"
+    exit 1
+  }
+
+  local region
+  region="$(hyprctl activewindow -j | jq -r 'if .size then "\(.size[0])x\(.size[1])+\(.at[0])+\(.at[1])" else empty end')"
+  if [[ -z "$region" ]]; then
+    "$NOTIFY" -g "󰕧" "Screen recording" "No focused window to record"
+    exit 1
+  fi
+
+  mkdir -p "$OUT_DIR"
+  local file
+  file="${OUT_DIR}/screenrecording-$(date +%Y-%m-%d_%H-%M-%S).mp4"
+  printf '%s' "$file" >"$PATH_FILE"
+
+  setsid -f gpu-screen-recorder -w region -region "$region" \
+    -c mp4 -k h264 -f 60 -q very_high -cursor yes -o "$file" \
+    >/dev/null 2>&1 </dev/null
+
+  "$NOTIFY" -t 2000 -g "󰕧" "Recording started" "Super+Print to stop"
+}
+
+case "${1:-toggle}" in
+  toggle)
+    if recording; then stop_recording; else start_recording; fi
+    ;;
+  stop)
+    if recording; then stop_recording; fi
+    ;;
+  -h|--help|help)
+    usage
+    ;;
+  *)
+    usage >&2
+    exit 2
+    ;;
+esac

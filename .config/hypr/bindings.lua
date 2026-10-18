@@ -62,6 +62,7 @@ bindd("XF86AudioNext", "Next media track", hl.dsp.exec_cmd(lib .. "/evo-media-ke
 bindd("XF86AudioPrev", "Previous media track", hl.dsp.exec_cmd(lib .. "/evo-media-keys prev"), { locked = true })
 
 bindd("PRINT", "Screenshot", hl.dsp.exec_cmd("omasnap"))
+bindd("SUPER + PRINT", "Record window", hl.dsp.exec_cmd(lib .. "/evo-screenrecord"))
 
 -- Desktop: programs and window management
 bindd("SUPER + Return", "Terminal", hl.dsp.exec_cmd(terminal))
