@@ -21,6 +21,24 @@ cmd_status() {
   jq -nc --arg host "$host" '{ok:false, error:("Can'\''t reach secmon on " + $host)}'
 }
 
+# Accept the latest snapshot as the baseline for each named target.
+cmd_accept() {
+  local host=${1:-zotac} t failed=()
+  shift || true
+  [[ $host =~ ^[A-Za-z0-9._-]+$ ]] || { jq -nc '{ok:false, error:"Invalid secmon host"}'; return 1; }
+  for t in "$@"; do
+    if [[ ! $t =~ ^[A-Za-z0-9_-]{1,64}$ ]] \
+      || ! timeout 30 ssh -o BatchMode=yes -o ConnectTimeout=5 "$host" "secmon baseline accept $t" >/dev/null 2>&1; then
+      failed+=("$t")
+    fi
+  done
+  if ((${#failed[@]})); then
+    jq -nc --arg t "${failed[*]}" '{ok:false, error:("Couldn'\''t accept changes for " + $t)}'
+    return 1
+  fi
+  jq -nc '{ok:true}'
+}
+
 cmd_cache() {
   [[ -f $SECMON_CACHE ]] || return 1
   cat "$SECMON_CACHE"
@@ -30,11 +48,15 @@ case "${1:-}" in
 status)
   cmd_status "${2:-}"
   ;;
+accept)
+  shift
+  cmd_accept "$@"
+  ;;
 cache)
   cmd_cache
   ;;
 *)
-  echo "usage: $0 status [host]|cache" >&2
+  echo "usage: $0 status [host]|accept host target...|cache" >&2
   exit 1
   ;;
 esac

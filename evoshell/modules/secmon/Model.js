@@ -143,6 +143,20 @@ function unhealthyTargets(data) {
   return out
 }
 
+function changedTargets(data) {
+  var rows = data && Array.isArray(data.targets) ? data.targets : []
+  var out = []
+  for (var i = 0; i < rows.length; i++) if (rows[i] && Number(rows[i].changes) > 0) out.push(String(rows[i].name))
+  return out
+}
+
+function changeCount(data) {
+  var rows = data && Array.isArray(data.targets) ? data.targets : []
+  var n = 0
+  for (var i = 0; i < rows.length; i++) n += Number(rows[i] && rows[i].changes) || 0
+  return n
+}
+
 function countsLine(data) {
   var c = data && data.counts ? data.counts : {}
   var parts = []
@@ -156,10 +170,10 @@ function countsLine(data) {
 function heroMeta(data, loading) {
   if (loading && !(data && data.generatedAt)) return "Loading…"
   if (!data || !data.generatedAt) return data && data.error ? data.error : "No data"
-  var n = openCount(data)
-  var line = n === 0 ? "all clear" : (n === 1 ? "open issue" : "open issues")
-  if (data.attacks24h > 0) line += " · " + formatCount(data.attacks24h) + " attack events 24h"
-  return line
+  var parts = []
+  if (openCount(data) === 0) parts.push("all clear")
+  if (data.attacks24h > 0) parts.push(formatCount(data.attacks24h) + " attack events 24h")
+  return parts.join(" · ")
 }
 
 function barTooltip(data, loading) {

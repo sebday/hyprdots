@@ -45,6 +45,11 @@ Panel {
   readonly property string findingsFooter: Model.findingsFooter(data, displayFindings.length)
   readonly property int openCount: Model.openCount(data)
   readonly property var displayTargets: Array.isArray(data.targets) ? data.targets : []
+  readonly property var changedTargets: Model.changedTargets(data)
+  readonly property int changeCount: Model.changeCount(data)
+  readonly property string glyphAccept: String.fromCodePoint(0xF012C)
+  property bool acceptArmed: false
+  property string acceptError: ""
 
   function severityColor(sev) {
     switch (String(sev || "")) {
@@ -69,6 +74,20 @@ Panel {
     if (!statusScript || statusProc.running) return
     statusProc.command = ["bash", statusScript, "status", root.host]
     statusProc.running = true
+  }
+
+  // First click arms, second click accepts, so a stray click can't bless a real change.
+  function acceptChanges() {
+    if (acceptProc.running || !root.changedTargets.length) return
+    if (!root.acceptArmed) {
+      root.acceptArmed = true
+      acceptDisarm.restart()
+      return
+    }
+    root.acceptArmed = false
+    root.acceptError = ""
+    acceptProc.command = ["bash", statusScript, "accept", root.host].concat(root.changedTargets)
+    acceptProc.running = true
   }
 
   function openReport(target) {
@@ -102,6 +121,8 @@ Panel {
     if (opened) {
       refresh()
       Qt.callLater(function() { keyCatcher.forceActiveFocus() })
+    } else {
+      acceptArmed = false
     }
   }
 
@@ -140,6 +161,26 @@ Panel {
     }
   }
 
+  Process {
+    id: acceptProc
+    property string stdoutBuf: ""
+    onStarted: stdoutBuf = ""
+    stdout: SplitParser {
+      splitMarker: ""
+      onRead: function(chunk) { acceptProc.stdoutBuf += chunk }
+    }
+    onExited: {
+      var res = Model.parsePayload(stdoutBuf)
+      root.acceptError = res.ok ? "" : res.error
+      root.refresh()
+    }
+  }
+
+  Timer {
+    id: acceptDisarm
+    interval: 4000
+    onTriggered: root.acceptArmed = false
+  }
   Timer {
     interval: root.opened ? root.openPollMs : root.backgroundPollMs
     repeat: true
@@ -206,10 +247,35 @@ Panel {
               }
 
               trailingControl: Component {
-                CountBadge {
-                  visible: root.hasData
-                  value: root.openCount
-                  fillColor: root.openCount > 0 ? root.severityColor(Model.worst(root.data)) : root.accent
+                Row {
+                  spacing: Theme.space(8)
+
+                  Item {
+                    visible: root.hasData && (root.changeCount > 0 || acceptProc.running)
+                    width: visible ? acceptButton.width : 0
+                    height: countBadge.height
+
+                    HeaderIconButton {
+                      id: acceptButton
+                      anchors.verticalCenter: parent.verticalCenter
+                      icon: root.glyphAccept
+                      tooltip: acceptProc.running
+                        ? "Accepting changes…"
+                        : (root.acceptArmed
+                          ? "Click again to accept " + root.changeCount + " change" + (root.changeCount === 1 ? "" : "s") + " on " + root.changedTargets.join(", ")
+                          : "Accept baseline changes (" + root.changeCount + ")")
+                      iconColor: root.acceptArmed ? root.urgent : root.dim
+                      hoverColor: root.acceptArmed ? root.urgent : root.accent
+                      onClicked: root.acceptChanges()
+                    }
+                  }
+
+                  CountBadge {
+                    id: countBadge
+                    visible: root.hasData
+                    value: root.openCount
+                    fillColor: root.openCount > 0 ? root.severityColor(Model.worst(root.data)) : root.accent
+                  }
                 }
               }
             }
@@ -219,7 +285,9 @@ Panel {
             textFormat: Text.PlainText
             width: parent.width
             visible: text !== ""
-            text: root.data.error ? root.data.error + (root.hasData ? " · showing the last result" : "") : ""
+            text: root.acceptError
+              ? root.acceptError
+              : (root.data.error ? root.data.error + (root.hasData ? " · showing the last result" : "") : "")
             color: root.urgent
             font.family: root.fontFamily
             font.pixelSize: Theme.font.bodySmall
@@ -346,6 +414,34 @@ Panel {
       anchors.rightMargin: Theme.space(12)
       anchors.topMargin: Theme.space(16)
       height: fieldset.contentHeight
+    }
+  }
+
+  component HeaderIconButton: MouseArea {
+    property string icon: ""
+    property string tooltip: ""
+    property color iconColor: root.dim
+    property color hoverColor: root.accent
+
+    width: iconText.implicitWidth + Theme.space(10)
+    height: iconText.implicitHeight + Theme.space(6)
+    hoverEnabled: true
+    cursorShape: Qt.PointingHandCursor
+
+    Text {
+      id: iconText
+      textFormat: Text.PlainText
+      anchors.centerIn: parent
+      text: parent.icon
+      color: parent.containsMouse ? parent.hoverColor : parent.iconColor
+      font.family: root.fontFamily
+      font.pixelSize: Theme.font.body
+    }
+
+    PanelToolTip {
+      visible: parent.containsMouse
+      text: parent.tooltip
+      fontFamily: root.fontFamily
     }
   }
 
