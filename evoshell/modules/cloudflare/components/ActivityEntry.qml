@@ -20,9 +20,18 @@ Item {
   readonly property string timeText: host ? host.activityTimeLabel(row) : ""
   readonly property color statusColor: host ? host.activityStatusColor(row) : accent
   readonly property bool clickable: host ? host.rowClickable(row) : false
+  readonly property bool selected: host ? host.entrySelected(row) : false
 
   implicitWidth: parent ? parent.width : 0
   implicitHeight: entryRow.implicitHeight + Theme.spacing.lg + (showDivider ? 1 : 0)
+
+  Rectangle {
+    anchors.fill: parent
+    anchors.bottomMargin: root.showDivider ? 1 : 0
+    radius: Theme.cornerRadius
+    visible: root.selected || entryMouse.containsMouse
+    color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, root.selected ? 0.10 : 0.05)
+  }
 
   RowLayout {
     id: entryRow
@@ -108,13 +117,14 @@ Item {
   }
 
   MouseArea {
+    id: entryMouse
     anchors.fill: parent
     enabled: root.clickable
     hoverEnabled: enabled
     cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
     onClicked: {
       if (host)
-        host.openRow(row)
+        host.selectRow(row)
     }
   }
 

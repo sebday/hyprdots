@@ -100,6 +100,39 @@ function scriptSubdomainUrl(acc, name) {
 }
 function graphqlUrl() { return API + "/graphql" }
 function purgeUrl(zoneId) { return API + "/zones/" + zoneId + "/purge_cache" }
+function zoneSettingsUrl(zoneId) { return API + "/zones/" + zoneId + "/settings" }
+function dnsRecordsUrl(zoneId) { return API + "/zones/" + zoneId + "/dns_records?per_page=200" }
+function dnssecUrl(zoneId) { return API + "/zones/" + zoneId + "/dnssec" }
+
+// ---------------------------------------------------------------- uptime
+
+// Probes every hostname given as an argument in parallel and prints one line
+// each: `<host> <curl exit> <http code> <seconds> <final url>`. Redirects are
+// followed so an Access-gated host lands on its login page and reads as up.
+// The hosts arrive as argv, never interpolated into the script.
+var healthScript = [
+  'probe() {',
+  '  local out rc',
+  '  out=$(curl -q -s -o /dev/null -L --max-redirs 5 --max-time 10 --proto "=https" --proto-redir "=http,https" \\',
+  '    -A "evoshell-uptime/1" -w "%{http_code} %{time_total} %{url_effective}" "https://$1/" 2>/dev/null)',
+  '  rc=$?',
+  '  printf "%s %s %s\\n" "$1" "$rc" "${out:-000 0 -}"',
+  '}',
+  'for h in "$@"; do probe "$h" & done',
+  'wait'
+].join("\n")
+
+function parseHealthLine(line) {
+  var parts = String(line || "").trim().split(/\s+/)
+  if (parts.length < 4) return null
+  return {
+    host: parts[0].toLowerCase(),
+    exitCode: parseInt(parts[1], 10) || 0,
+    httpCode: parseInt(parts[2], 10) || 0,
+    ms: Math.round((parseFloat(parts[3]) || 0) * 1000),
+    finalUrl: parts.length > 4 ? parts[4] : ""
+  }
+}
 
 // ---------------------------------------------------------------- graphql
 
@@ -145,27 +178,6 @@ function dashAccount(path, accountId) {
   accountId = String(accountId || "").trim()
   if (accountId !== "") return DASH + "/" + accountId + path
   return DASH + "/?to=/:account" + path
-}
-
-function dashUrlFor(row, accountId) {
-  if (!row) return DASH
-  switch (row.kind) {
-  case "worker":  return dashAccount("/workers/services/view/" + encodeURIComponent(row.name) + "/production", accountId)
-  case "pages":   return dashAccount("/pages/view/" + encodeURIComponent(row.name), accountId)
-  case "r2":      return dashAccount("/r2/default/buckets/" + encodeURIComponent(row.name), accountId)
-  case "d1":      return dashAccount("/workers/d1/databases/" + encodeURIComponent(row.id), accountId)
-  case "kv":      return dashAccount("/workers/kv/namespaces/" + encodeURIComponent(row.id), accountId)
-  case "queue":   return dashAccount("/workers/queues/view/" + encodeURIComponent(row.id), accountId)
-  case "zone":
-    accountId = String(accountId || "").trim()
-    if (accountId !== "") return DASH + "/" + accountId + "/" + encodeURIComponent(row.name)
-    return DASH + "/?to=/" + encodeURIComponent(row.name)
-  case "token":   return row.url
-  case "deploy":  return row.target === "pages"
-    ? dashAccount("/pages/view/" + encodeURIComponent(row.name), accountId)
-    : dashAccount("/workers/services/view/" + encodeURIComponent(row.name) + "/production", accountId)
-  }
-  return DASH
 }
 
 // Shortcuts to the pages that mint credentials. Every one of these is buried

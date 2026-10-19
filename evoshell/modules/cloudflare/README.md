@@ -2,7 +2,7 @@
 
 ![Bar panel](preview.png)
 
-Bar widget for Cloudflare account resources, usage meters, recent deploys, and quick links into the dashboard.
+Bar widget for Cloudflare account resources, usage meters, and recent deploys. The panel opens with the zones list showing in a detail pane to its right. Clicking a tile, the zone count, or a row switches what that pane shows: a tile lists every resource of that type, busiest first, with its numbers and up/down status as pills, and a resource shows its live host, traffic, last deploy, and other details. A zone also shows its security settings (SSL mode, minimum TLS, Always HTTPS, HSTS, DNSSEC, SPF, DMARC) and an uptime check for each of its hostnames. Proxied hosts are checked automatically; DNS-only hosts, often mail or verification records, are checked when clicked. The refresh button re-checks everything. Esc steps back from a resource to its list, then closes the pane, then closes the panel.
 
 This module ships with evoshell. The plugin id is `evo.cloudflare`.
 
@@ -53,4 +53,4 @@ Removing the module does not delete:
 
 - `pass` entry `evoshell/cloudflare/read-all`
 
-Network: https://api.cloudflare.com and https://dash.cloudflare.com.
+Network: https://api.cloudflare.com, plus one HTTPS request to each hostname shown in the uptime checks.

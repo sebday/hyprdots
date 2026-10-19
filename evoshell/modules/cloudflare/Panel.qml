@@ -189,36 +189,212 @@ Panel {
     })
   }
 
-  function openRow(row) {
-    if (!row || !cf)
+  // What the detail pane to the right of the card shows: every resource of
+  // `kind` when `name` is empty, otherwise that one resource. `from` is the
+  // list an item was opened from, so Esc can step back to it.
+  property var detail: null
+  // Last non-null detail, kept so the pane keeps its content while it collapses.
+  property var shownDetail: ({ kind: "", name: "", from: "" })
+  readonly property bool detailOpen: detail !== null
+  onDetailChanged: if (detail) shownDetail = detail
+
+  readonly property int mainWidth: panel.fittedContentWidth(Theme.space(380))
+  readonly property int detailGap: Theme.space(16)
+  readonly property int expandedWidth: panel.fittedContentWidth(mainWidth + detailGap + Theme.space(380))
+  readonly property int detailInnerWidth: Math.max(0, expandedWidth - mainWidth - detailGap)
+
+  readonly property var detailListRows: {
+    void root.rows
+    var d = root.shownDetail
+    if (!cf || !d.kind || d.name) return []
+    return Model.typeRows(d.kind, cf.resourceState(), cf.analytics)
+  }
+
+  readonly property var detailItem: {
+    void root.rows
+    var d = root.shownDetail
+    if (!cf || !d.kind || !d.name) return null
+    return Model.resourceFor(d.kind, d.name, cf.resourceState(), cf.analytics)
+  }
+
+  readonly property var detailFieldRows: {
+    if (!cf || !root.detailItem) return []
+    return Model.detailFields(root.detailItem, cf.resourceState(), cf.analytics, root.nowMs)
+  }
+
+  readonly property var detailListPills: {
+    if (!cf) return []
+    var rows = root.detailListRows
+    var out = []
+    for (var i = 0; i < rows.length; i++)
+      out.push(Model.listPills(rows[i], cf.analytics, cf.health, root.nowMs))
+    return out
+  }
+  readonly property var listColumnWidths: columnWidths(root.detailListPills)
+
+  readonly property var zoneInfoEntry: {
+    if (!cf || !root.detailItem || root.detailItem.kind !== "zone") return null
+    return cf.zoneInfo[root.detailItem.id] || null
+  }
+
+  readonly property var securityRows: root.detailItem && root.detailItem.kind === "zone"
+    ? Model.securityChecks(root.detailItem.raw, root.zoneInfoEntry) : []
+  readonly property int securityPillWidth: {
+    var rows = []
+    for (var i = 0; i < root.securityRows.length; i++) rows.push([root.securityRows[i].pill])
+    var widths = columnWidths(rows)
+    return widths.length ? widths[0] : 0
+  }
+
+  readonly property int securityLabelWidth: {
+    var widest = 0
+    for (var i = 0; i < root.securityRows.length; i++)
+      widest = Math.max(widest, Math.ceil(pillMetrics.advanceWidth(root.securityRows[i].label)))
+    var cell = (root.detailInnerWidth - Theme.spacing.lg) / 2
+    return Math.max(0, Math.min(widest, cell - root.securityPillWidth - Theme.spacing.md))
+  }
+
+  readonly property var detailHosts: {
+    var item = root.detailItem
+    if (!item) return []
+    if (item.kind === "zone") return Model.webHosts(item.raw, root.zoneInfoEntry ? root.zoneInfoEntry.dns : [])
+    if (item.kind === "pages") return Model.pagesHosts(item.raw)
+    if (item.kind === "worker" && item.liveHost) return [{ host: String(item.liveHost).toLowerCase(), proxied: true }]
+    return []
+  }
+
+  readonly property var hostPills: {
+    if (!cf) return []
+    var out = []
+    for (var i = 0; i < root.detailHosts.length; i++) {
+      var h = root.detailHosts[i]
+      var entry = cf.health[h.host]
+      var settled = entry && entry.state !== "checking"
+      out.push([
+        Model.pill(h.proxied ? "" : "dns only", ""),
+        Model.pill(settled && entry.ms > 0 ? entry.ms + " ms" : "", ""),
+        entry ? Model.healthPill(entry) : Model.pill("check", "info")
+      ])
+    }
+    return out
+  }
+  readonly property var hostColumnWidths: columnWidths(root.hostPills)
+
+  property FontMetrics pillMetrics: FontMetrics {
+    font.family: root.fontFamily
+    font.pixelSize: Theme.font.caption
+    font.bold: true
+  }
+  readonly property int pillPadding: Theme.space(7)
+
+  // Widest pill per column across every row, so the columns line up.
+  function columnWidths(pillRows) {
+    var widths = []
+    for (var r = 0; r < pillRows.length; r++) {
+      var row = pillRows[r] || []
+      for (var c = 0; c < row.length; c++) {
+        var text = row[c] ? row[c].text : ""
+        var w = text ? Math.ceil(pillMetrics.advanceWidth(text)) + pillPadding * 2 : 0
+        widths[c] = Math.max(widths[c] || 0, w)
+      }
+    }
+    return widths
+  }
+
+  function toneColor(tone) {
+    switch (tone) {
+    case "good": return themeGreen
+    case "warn": return themeYellow
+    case "bad": return urgent
+    case "info": return accent
+    }
+    return foreground
+  }
+
+  onDetailListRowsChanged: Qt.callLater(root.ensureDetailData)
+  onDetailItemChanged: Qt.callLater(root.ensureDetailData)
+  onDetailHostsChanged: Qt.callLater(root.ensureDetailData)
+
+  // Probes and zone lookups only run for what the pane is showing. DNS-only
+  // hosts are often mail or verification records, so they wait for a click.
+  function ensureDetailData() {
+    if (!cf || !root.opened || !root.detail) return
+    var hosts = []
+    var i
+    if (!root.detail.name) {
+      var rows = root.detailListRows
+      for (i = 0; i < rows.length; i++) if (rows[i].liveHost) hosts.push(rows[i].liveHost)
+      cf.checkHosts(hosts, false)
       return
-    if (row.kind === "usage")
-      cf.refreshAnalytics()
-    else if (row.kind === "empty" || row.kind === "note")
+    }
+    var item = root.detailItem
+    if (!item) return
+    if (item.kind === "zone") cf.loadZoneInfo(item.id, false)
+    for (i = 0; i < root.detailHosts.length; i++)
+      if (root.detailHosts[i].proxied) hosts.push(root.detailHosts[i].host)
+    cf.checkHosts(hosts, false)
+  }
+
+  function recheckAll() {
+    if (!cf) return
+    var hosts = []
+    for (var i = 0; i < root.detailHosts.length; i++) hosts.push(root.detailHosts[i].host)
+    cf.checkHosts(hosts, true)
+    if (root.detailItem && root.detailItem.kind === "zone") cf.loadZoneInfo(root.detailItem.id, true)
+  }
+
+  function rowKind(row) {
+    if (!row) return ""
+    if (row.kind === "usage") {
+      switch (String(row.id || "")) {
+      case "worker-requests":
+      case "worker-errors": return "worker"
+      case "r2-storage": return "r2"
+      case "d1-reads": return "d1"
+      }
+      return ""
+    }
+    if (row.kind === "group") return row.target === "token" ? "" : String(row.target || "")
+    if (row.kind === "deploy") return String(row.target || "")
+    if (row.kind === "empty" || row.kind === "note") return ""
+    return String(row.kind || "")
+  }
+
+  function kindSelected(kind) {
+    return !!root.detail && !root.detail.name && root.detail.kind === kind
+  }
+
+  function entrySelected(row) {
+    return !!root.detail && !!root.detail.name
+      && root.detail.kind === rowKind(row) && root.detail.name === String(row.name || "")
+  }
+
+  function showKind(kind) {
+    if (!kind) return
+    root.detail = kindSelected(kind) ? null : { kind: kind, name: "", from: "" }
+  }
+
+  function showItem(row, from) {
+    var kind = rowKind(row)
+    if (!kind) return
+    if (!from && entrySelected(row)) {
+      root.detail = null
       return
-    else if (row.kind === "group") {
-      if (row.target === "token")
-        cf.openUrl(Api.dashAccount("/api-tokens", cf.accountId))
-      else if (row.target === "worker")
-        cf.openUrl(Api.dashAccount("/workers", cf.accountId))
-      else if (row.target === "pages")
-        cf.openUrl(Api.dashAccount("/pages", cf.accountId))
-      else if (row.target === "r2")
-        cf.openUrl(Api.dashAccount("/r2", cf.accountId))
-      else if (row.target === "d1")
-        cf.openUrl(Api.dashAccount("/workers/d1", cf.accountId))
-      else if (row.target === "kv")
-        cf.openUrl(Api.dashAccount("/workers/kv", cf.accountId))
-      else if (row.target === "queue")
-        cf.openUrl(Api.dashAccount("/workers/queues", cf.accountId))
-      else if (row.target === "zone")
-        cf.openUrl(Api.dashAccount("/zones", cf.accountId))
-    } else if (row.kind === "deploy")
-      cf.openUrl(Api.dashUrlFor(row, cf.accountId))
-    else if (row.liveUrl)
-      cf.openUrl(row.liveUrl)
-    else
-      cf.openUrl(Api.dashUrlFor(row, cf.accountId))
+    }
+    root.detail = { kind: kind, name: String(row.name || ""), from: from || "" }
+  }
+
+  function selectRow(row) {
+    if (!row || !cf) return
+    if (row.kind === "usage" || row.kind === "group") showKind(rowKind(row))
+    else showItem(row, "")
+  }
+
+  function stepBack() {
+    if (!root.detail) return
+    root.detail = root.detail.name && root.detail.from
+      ? { kind: root.detail.from, name: "", from: "" }
+      : null
   }
 
   function rowGlyph(row) {
@@ -407,12 +583,6 @@ Panel {
       cf.refreshAnalytics()
   }
 
-  function openDashboard() {
-    if (cf && typeof cf.openUrl === "function")
-      cf.openUrl("https://dash.cloudflare.com")
-    root.close()
-  }
-
   function openFromHotkey() {
     root.controller.show()
     refresh()
@@ -425,8 +595,15 @@ Panel {
 
   Component.onCompleted: refresh()
 
+  // Off while the panel opens, so the default pane appears at full width
+  // instead of sliding open behind the open animation.
+  property bool animatePane: false
+
   onOpenedChanged: {
     if (opened) {
+      animatePane = false
+      detail = { kind: "zone", name: "", from: "" }
+      Qt.callLater(function() { root.animatePane = true })
       nowMs = Date.now()
       refresh()
       tickTimer.start()
@@ -464,13 +641,23 @@ Panel {
     bar: root.bar
     open: root.opened
     focusTarget: keyCatcher
-    contentWidth: panel.fittedContentWidth(Theme.space(380))
-    contentHeight: panel.fittedContentHeight(column.implicitHeight, Theme.space(520))
+    contentWidth: root.detailOpen ? root.expandedWidth : root.mainWidth
+    contentHeight: panel.fittedContentHeight(
+      Math.max(column.implicitHeight, root.detailOpen ? detailColumn.implicitHeight : 0),
+      Theme.space(root.detailOpen ? 820 : 520))
+
+    Behavior on contentWidth {
+      enabled: root.animatePane
+      NumberAnimation { duration: Theme.duration(160); easing.type: Easing.OutCubic }
+    }
 
     PanelKeyCatcher {
       id: keyCatcher
       anchors.fill: parent
-      onCloseRequested: root.close()
+      onCloseRequested: {
+        if (root.detailOpen) root.stepBack()
+        else root.close()
+      }
       onTabRequested: function(direction) {
         if (root.bar && typeof root.bar.switchPanelFrom === "function")
           root.bar.switchPanelFrom(root.barIdentity, direction)
@@ -478,7 +665,10 @@ Panel {
 
       Flickable {
         id: panelFlick
-        anchors.fill: parent
+        anchors.left: parent.left
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        width: Math.max(0, root.mainWidth - (panel.contentWidth - keyCatcher.width))
         contentWidth: width
         contentHeight: column.implicitHeight
         clip: true
@@ -516,7 +706,7 @@ Panel {
                 implicitWidth: zoneCount.implicitWidth + Theme.spacing.lg * 2
                 implicitHeight: zoneCount.implicitHeight + Theme.spacing.sm * 2
                 radius: implicitHeight / 2
-                color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.14)
+                color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, root.kindSelected("zone") ? 0.28 : 0.14)
 
                 Text {
                   id: zoneCount
@@ -532,7 +722,7 @@ Panel {
                 MouseArea {
                   anchors.fill: parent
                   cursorShape: Qt.PointingHandCursor
-                  onClicked: if (cf) cf.openUrl(Api.dashAccount("/zones", cf.accountId))
+                  onClicked: root.showKind("zone")
                 }
               }
             }
@@ -689,7 +879,8 @@ Panel {
                 label: root.statLabel(modelData)
                 valueColor: root.statValueColor(modelData)
                 clickable: root.rowClickable(modelData)
-                onClicked: root.openRow(modelData)
+                selected: root.kindSelected(root.rowKind(modelData))
+                onClicked: root.selectRow(modelData)
               }
             }
 
@@ -703,7 +894,8 @@ Panel {
               label: root.statLabel(root.workersGroup)
               valueColor: root.statValueColor(root.workersGroup)
               clickable: root.rowClickable(root.workersGroup)
-              onClicked: root.openRow(root.workersGroup)
+              selected: root.kindSelected("worker")
+              onClicked: root.selectRow(root.workersGroup)
             }
           }
 
@@ -724,7 +916,8 @@ Panel {
                 label: root.statLabel(modelData)
                 valueColor: root.statValueColor(modelData)
                 clickable: root.rowClickable(modelData)
-                onClicked: root.openRow(modelData)
+                selected: root.kindSelected(root.rowKind(modelData))
+                onClicked: root.selectRow(modelData)
               }
             }
           }
@@ -851,6 +1044,490 @@ Panel {
           }
         }
       }
+
+      Rectangle {
+        x: panelFlick.width + root.detailGap / 2
+        width: 1
+        height: parent.height
+        visible: detailPane.width > 0
+        color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.12)
+      }
+
+      Item {
+        id: detailPane
+        anchors.left: panelFlick.right
+        anchors.leftMargin: root.detailGap
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        width: Math.max(0, keyCatcher.width - panelFlick.width - root.detailGap)
+        visible: width > 0
+        clip: true
+
+        readonly property string kind: root.shownDetail.kind
+        readonly property bool itemMode: root.shownDetail.name !== ""
+        readonly property color tone: itemMode && root.detailItem && root.detailItem.alarming
+          ? root.urgent : root.statTone({ target: kind })
+
+        Flickable {
+          id: detailFlick
+          width: root.detailInnerWidth
+          height: parent.height
+          contentWidth: width
+          contentHeight: detailColumn.implicitHeight
+          clip: true
+          boundsBehavior: Flickable.StopAtBounds
+          flickableDirection: Flickable.VerticalFlick
+          interactive: contentHeight > height
+          ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+
+          Column {
+            id: detailColumn
+            width: detailFlick.width
+            spacing: Theme.space(12)
+
+            RowLayout {
+              width: parent.width
+              spacing: Theme.spacing.md
+
+              PaneButton {
+                visible: detailPane.itemMode && root.shownDetail.from !== ""
+                glyph: "\uf053"
+                onClicked: root.stepBack()
+              }
+
+              Item {
+                Layout.preferredWidth: 34
+                Layout.preferredHeight: 34
+
+                Rectangle {
+                  anchors.fill: parent
+                  radius: Theme.cornerRadius
+                  color: Qt.rgba(detailPane.tone.r, detailPane.tone.g, detailPane.tone.b, 0.14)
+                }
+
+                Text {
+                  anchors.centerIn: parent
+                  textFormat: Text.PlainText
+                  text: Model.glyphFor(detailPane.kind)
+                  color: detailPane.tone
+                  font.family: root.fontFamily
+                  font.pixelSize: Theme.font.title
+                  font.bold: true
+                }
+              }
+
+              ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 0
+
+                Text {
+                  Layout.fillWidth: true
+                  textFormat: Text.PlainText
+                  text: detailPane.itemMode ? root.shownDetail.name : Model.typeLabel(detailPane.kind)
+                  color: root.foreground
+                  font.family: root.fontFamily
+                  font.pixelSize: Theme.font.title
+                  font.bold: true
+                  elide: Text.ElideRight
+                }
+
+                Text {
+                  Layout.fillWidth: true
+                  textFormat: Text.PlainText
+                  text: detailPane.itemMode
+                    ? Model.typeName(detailPane.kind)
+                    : root.detailListRows.length + " total, busiest first"
+                  color: root.dim
+                  font.family: root.fontFamily
+                  font.pixelSize: Theme.font.caption
+                  font.bold: true
+                  elide: Text.ElideRight
+                }
+              }
+
+              PaneButton {
+                glyph: "\uf00d"
+                onClicked: root.detail = null
+              }
+            }
+
+            Column {
+              width: parent.width
+              spacing: 0
+              visible: !detailPane.itemMode
+
+              Repeater {
+                model: root.detailListRows
+
+                ResourceEntry {
+                  required property var modelData
+                  required property int index
+                  width: detailColumn.width
+                  row: modelData
+                  pills: root.detailListPills[index] || []
+                  showDivider: index < root.detailListRows.length - 1
+                }
+              }
+            }
+
+            Column {
+              width: parent.width
+              spacing: Theme.space(10)
+              visible: detailPane.itemMode
+
+              Repeater {
+                model: root.detailFieldRows
+
+                RowLayout {
+                  required property var modelData
+                  width: detailColumn.width
+                  spacing: Theme.spacing.md
+
+                  Text {
+                    Layout.preferredWidth: Theme.space(96)
+                    Layout.alignment: Qt.AlignTop
+                    textFormat: Text.PlainText
+                    text: modelData.label
+                    color: root.dim
+                    font.family: root.fontFamily
+                    font.pixelSize: Theme.font.caption
+                    font.bold: true
+                    elide: Text.ElideRight
+                  }
+
+                  Text {
+                    Layout.fillWidth: true
+                    Layout.alignment: Qt.AlignTop
+                    textFormat: Text.PlainText
+                    text: modelData.value
+                    color: modelData.alarming ? root.urgent : root.foreground
+                    font.family: root.fontFamily
+                    font.pixelSize: Theme.font.body
+                    wrapMode: Text.WrapAtWordBoundaryOrAnywhere
+                  }
+                }
+              }
+
+              Text {
+                width: parent.width
+                visible: root.detailFieldRows.length === 0
+                textFormat: Text.PlainText
+                text: root.detailItem ? "Nothing more to show" : "No longer exists"
+                color: root.dim
+                font.family: root.fontFamily
+                font.pixelSize: Theme.font.body
+              }
+            }
+
+            Column {
+              width: parent.width
+              spacing: Theme.space(8)
+              visible: detailPane.itemMode && detailPane.kind === "zone"
+
+              PanelSectionHeader {
+                width: parent.width
+                text: root.zoneInfoEntry && root.zoneInfoEntry.loading ? "SECURITY  \u2026" : "SECURITY"
+                foreground: root.foreground
+                fontFamily: root.fontFamily
+              }
+
+              Grid {
+                id: securityGrid
+                width: parent.width
+                columns: 2
+                columnSpacing: Theme.spacing.lg
+                rowSpacing: Theme.space(6)
+
+                Repeater {
+                  model: root.securityRows
+
+                  RowLayout {
+                    required property var modelData
+                    width: (securityGrid.width - securityGrid.columnSpacing) / 2
+                    spacing: Theme.spacing.md
+
+                    Text {
+                      Layout.preferredWidth: root.securityLabelWidth
+                      textFormat: Text.PlainText
+                      text: modelData.label
+                      color: root.dim
+                      font: root.pillMetrics.font
+                      elide: Text.ElideRight
+                    }
+
+                    PillRow {
+                      pills: [modelData.pill]
+                      widths: [root.securityPillWidth]
+                    }
+
+                    Item { Layout.fillWidth: true }
+                  }
+                }
+              }
+
+              Text {
+                width: parent.width
+                visible: !!(root.zoneInfoEntry && root.zoneInfoEntry.error)
+                textFormat: Text.PlainText
+                text: root.zoneInfoEntry ? root.zoneInfoEntry.error : ""
+                color: root.urgent
+                font.family: root.fontFamily
+                font.pixelSize: Theme.font.caption
+                wrapMode: Text.WordWrap
+              }
+            }
+
+            Column {
+              width: parent.width
+              spacing: 0
+              visible: detailPane.itemMode && root.detailHosts.length > 0
+
+              RowLayout {
+                width: parent.width
+                spacing: Theme.spacing.md
+
+                PanelSectionHeader {
+                  Layout.fillWidth: true
+                  text: "UPTIME"
+                  foreground: root.foreground
+                  fontFamily: root.fontFamily
+                }
+
+                PaneButton {
+                  glyph: "\uf021"
+                  onClicked: root.recheckAll()
+                }
+              }
+
+              Repeater {
+                model: root.detailHosts
+
+                HostEntry {
+                  required property var modelData
+                  required property int index
+                  width: detailColumn.width
+                  host: modelData.host
+                  proxied: modelData.proxied
+                  pills: root.hostPills[index] || []
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  component PaneButton: Rectangle {
+    id: paneButton
+    property string glyph: ""
+    signal clicked()
+
+    Layout.preferredWidth: 28
+    Layout.preferredHeight: 28
+    Layout.alignment: Qt.AlignVCenter
+    radius: Theme.cornerRadius
+    color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, buttonMouse.containsMouse ? 0.12 : 0.06)
+
+    Text {
+      anchors.centerIn: parent
+      textFormat: Text.PlainText
+      text: paneButton.glyph
+      color: root.foreground
+      font.family: root.fontFamily
+      font.pixelSize: Theme.font.caption
+    }
+
+    MouseArea {
+      id: buttonMouse
+      anchors.fill: parent
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      onClicked: paneButton.clicked()
+    }
+  }
+
+  component PillRow: Row {
+    id: pillRow
+    property var pills: []
+    property var widths: []
+    spacing: Theme.space(4)
+
+    Repeater {
+      model: pillRow.pills
+
+      Rectangle {
+        id: pillBox
+        required property var modelData
+        required property int index
+        readonly property color tone: root.toneColor(modelData.tone)
+        width: pillRow.widths[index] || 0
+        height: pillLabel.implicitHeight + Theme.space(4)
+        visible: width > 0
+        radius: Theme.cornerRadius
+        color: modelData.text === ""
+          ? "transparent"
+          : Qt.rgba(tone.r, tone.g, tone.b, modelData.tone ? 0.16 : 0.08)
+
+        Text {
+          id: pillLabel
+          anchors.centerIn: parent
+          textFormat: Text.PlainText
+          text: pillBox.modelData.text
+          color: pillBox.tone
+          opacity: pillBox.modelData.tone ? 1 : 0.75
+          font: root.pillMetrics.font
+        }
+      }
+    }
+  }
+
+  component HostEntry: Item {
+    id: hostEntry
+    property string host: ""
+    property bool proxied: true
+    property var pills: []
+
+    implicitHeight: hostLayout.implicitHeight + Theme.spacing.md
+
+    Rectangle {
+      anchors.fill: parent
+      radius: Theme.cornerRadius
+      visible: hostMouse.containsMouse
+      color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.05)
+    }
+
+    RowLayout {
+      id: hostLayout
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      spacing: Theme.spacing.md
+
+      Text {
+        Layout.fillWidth: true
+        textFormat: Text.PlainText
+        text: hostEntry.host
+        color: root.foreground
+        opacity: hostEntry.proxied ? 1 : 0.6
+        font.family: root.fontFamily
+        font.pixelSize: Theme.font.body
+        elide: Text.ElideMiddle
+      }
+
+      PillRow {
+        pills: hostEntry.pills
+        widths: root.hostColumnWidths
+      }
+    }
+
+    MouseArea {
+      id: hostMouse
+      anchors.fill: parent
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      onClicked: if (cf) cf.checkHosts([hostEntry.host], true)
+    }
+  }
+
+  component ResourceEntry: Item {
+    id: entry
+    property var row: null
+    property var pills: []
+    property bool showDivider: true
+    readonly property color tone: row && row.alarming ? root.urgent : root.statTone({ target: row ? row.kind : "" })
+    readonly property string subtitle: row && row.liveHost && row.liveHost !== row.name ? String(row.liveHost) : ""
+
+    implicitHeight: entryLayout.implicitHeight + Theme.spacing.lg + (showDivider ? 1 : 0)
+
+    Rectangle {
+      anchors.fill: parent
+      anchors.bottomMargin: entry.showDivider ? 1 : 0
+      radius: Theme.cornerRadius
+      visible: entryMouse.containsMouse
+      color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.05)
+    }
+
+    RowLayout {
+      id: entryLayout
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: parent.top
+      anchors.topMargin: Theme.spacing.sm
+      spacing: Theme.spacing.md
+
+      Item {
+        Layout.preferredWidth: 28
+        Layout.preferredHeight: 28
+        Layout.alignment: Qt.AlignVCenter
+
+        Rectangle {
+          anchors.fill: parent
+          radius: Theme.cornerRadius
+          color: Qt.rgba(entry.tone.r, entry.tone.g, entry.tone.b, 0.14)
+        }
+
+        Text {
+          anchors.centerIn: parent
+          textFormat: Text.PlainText
+          text: Model.glyphFor(entry.row ? entry.row.kind : "")
+          color: entry.tone
+          font.family: root.fontFamily
+          font.pixelSize: Theme.font.body
+          font.bold: true
+        }
+      }
+
+      ColumnLayout {
+        Layout.fillWidth: true
+        Layout.alignment: Qt.AlignVCenter
+        spacing: 0
+
+        Text {
+          Layout.fillWidth: true
+          textFormat: Text.PlainText
+          text: entry.row ? String(entry.row.name || "") : ""
+          color: entry.row && entry.row.alarming ? root.urgent : root.foreground
+          font.family: root.fontFamily
+          font.pixelSize: Theme.font.body
+          font.bold: true
+          elide: Text.ElideRight
+        }
+
+        Text {
+          Layout.fillWidth: true
+          visible: entry.subtitle !== ""
+          textFormat: Text.PlainText
+          text: entry.subtitle
+          color: root.dim
+          font.family: root.fontFamily
+          font.pixelSize: Theme.font.caption
+          elide: Text.ElideRight
+        }
+      }
+
+      PillRow {
+        Layout.alignment: Qt.AlignVCenter
+        pills: entry.pills
+        widths: root.listColumnWidths
+      }
+    }
+
+    Rectangle {
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.bottom: parent.bottom
+      visible: entry.showDivider
+      height: 1
+      color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.12)
+    }
+
+    MouseArea {
+      id: entryMouse
+      anchors.fill: parent
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      onClicked: root.showItem(entry.row, root.shownDetail.kind)
     }
   }
 
@@ -860,6 +1537,7 @@ Panel {
     property string label: ""
     property color valueColor: root.accent
     property bool clickable: false
+    property bool selected: false
 
     signal clicked()
 
@@ -872,8 +1550,8 @@ Panel {
       anchors.topMargin: legendChip.visible ? legendChip.height / 2 : 0
       color: "transparent"
       radius: Theme.space(8)
-      border.width: 1
-      border.color: Qt.rgba(root.dim.r, root.dim.g, root.dim.b, 0.9)
+      border.width: tile.selected ? 2 : 1
+      border.color: tile.selected ? tile.valueColor : Qt.rgba(root.dim.r, root.dim.g, root.dim.b, 0.9)
       antialiasing: true
     }
 

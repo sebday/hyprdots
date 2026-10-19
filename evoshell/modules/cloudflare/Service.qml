@@ -258,6 +258,14 @@ Item {
   Request { id: dotDevReq }
   Request { id: graphqlReq }
   Request { id: purgeReq }
+  Request { id: zoneInfoReq }
+
+  // zone id -> { loading, error, settings: {id: value}, dns: [], dnssec, loadedMs }
+  property var zoneInfo: ({})
+  property var _zoneInfoQueue: []
+  // hostname -> Model.classifyHealth result plus { ms, checkedMs }
+  property var health: ({})
+  property var _healthQueue: []
 
   property int _pending: 0
 
@@ -565,12 +573,6 @@ Item {
     Quickshell.execDetached(["notify-send", Model.plain(title, 80), Model.plain(body || "", 180)])
   }
 
-  function openUrl(url) {
-    var u = String(url || "")
-    if (!/^https:\/\/[A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=%-]+$/.test(u)) return
-    Quickshell.execDetached(["xdg-open", u])
-  }
-
   function validWorkerName(name) {
     return /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(String(name || ""))
   }
@@ -674,6 +676,137 @@ Item {
         root.flashStatus("Purge failed: " + env.error)
       }
     })
+  }
+
+  function setZoneInfo(zoneId, info) {
+    var next = {}
+    for (var key in root.zoneInfo) next[key] = root.zoneInfo[key]
+    next[zoneId] = info
+    root.zoneInfo = next
+  }
+
+  function loadZoneInfo(zoneId, force) {
+    var id = String(zoneId || "")
+    if (!/^[0-9a-f]{32}$/.test(id)) return
+    if (!ensureToken()) return
+    var prior = root.zoneInfo[id]
+    if (prior && prior.loading) return
+    if (!force && prior && Date.now() - prior.loadedMs < 300000) return
+    root.setZoneInfo(id, {
+      loading: true, error: "",
+      settings: prior ? prior.settings : {}, dns: prior ? prior.dns : [],
+      dnssec: prior ? prior.dnssec : null, loadedMs: prior ? prior.loadedMs : 0
+    })
+    root._zoneInfoQueue = root._zoneInfoQueue.concat([id])
+    root.drainZoneInfo()
+  }
+
+  // Three calls in sequence on one slot. Each step hands off through
+  // callLater because Request clears its handler after calling it.
+  function drainZoneInfo() {
+    if (zoneInfoReq.running || root._zoneInfoQueue.length === 0) return
+    var queue = root._zoneInfoQueue.slice()
+    var id = queue.shift()
+    root._zoneInfoQueue = queue
+    var info = { loading: true, error: "", settings: {}, dns: [], dnssec: null, loadedMs: 0 }
+
+    function step(url, assign, next) {
+      zoneInfoReq.send(url, "", function(exitCode, text, errorText) {
+        if (exitCode !== 0) {
+          info.error = errorText || "curl exited " + exitCode
+        } else {
+          var env = Api.parseEnvelope(text)
+          if (env.ok) assign(env.result)
+          else info.error = env.error
+        }
+        Qt.callLater(next)
+      })
+    }
+
+    step(Api.zoneSettingsUrl(id), function(result) {
+      var list = asArray(result)
+      for (var i = 0; i < list.length; i++) info.settings[String(list[i].id)] = list[i].value
+    }, function() {
+      step(Api.dnsRecordsUrl(id), function(result) { info.dns = asArray(result) }, function() {
+        step(Api.dnssecUrl(id), function(result) { info.dnssec = result || null }, function() {
+          info.loading = false
+          info.loadedMs = Date.now()
+          root.setZoneInfo(id, info)
+          root.drainZoneInfo()
+        })
+      })
+    })
+  }
+
+  function validHost(host) {
+    return /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/.test(String(host || ""))
+  }
+
+  function setHealth(updates) {
+    var next = {}
+    for (var key in root.health) next[key] = root.health[key]
+    for (var host in updates) next[host] = updates[host]
+    root.health = next
+  }
+
+  // Results younger than a minute are reused unless `force` is set, so
+  // reopening a list does not re-probe everything in it.
+  function checkHosts(hosts, force) {
+    var now = Date.now()
+    var pending = {}
+    var added = []
+    for (var i = 0; i < hosts.length; i++) {
+      var host = String(hosts[i] || "").toLowerCase()
+      if (!validHost(host) || pending[host]) continue
+      var prior = root.health[host]
+      if (prior && prior.state === "checking") continue
+      if (!force && prior && now - prior.checkedMs < 60000) continue
+      pending[host] = { state: "checking", label: "\u2026", ms: prior ? prior.ms : 0, checkedMs: prior ? prior.checkedMs : 0 }
+      added.push(host)
+    }
+    if (added.length === 0) return
+    root.setHealth(pending)
+    root._healthQueue = root._healthQueue.concat(added)
+    root.drainHealth()
+  }
+
+  function drainHealth() {
+    if (healthProc.running || root._healthQueue.length === 0) return
+    var batch = root._healthQueue.slice(0, 24)
+    root._healthQueue = root._healthQueue.slice(24)
+    healthProc.batch = batch
+    healthProc.command = ["bash", "-c", Api.healthScript, "_"].concat(batch)
+    healthProc.running = true
+  }
+
+  Process {
+    id: healthProc
+    property var batch: []
+    stdout: SplitParser {
+      onRead: function(line) {
+        var result = Api.parseHealthLine(line)
+        if (!result || healthProc.batch.indexOf(result.host) < 0) return
+        var update = {}
+        var verdict = Model.classifyHealth(result.exitCode, result.httpCode, result.finalUrl, result.host)
+        verdict.ms = result.ms
+        verdict.code = result.httpCode
+        verdict.checkedMs = Date.now()
+        update[result.host] = verdict
+        root.setHealth(update)
+      }
+    }
+    onExited: {
+      var update = {}
+      for (var i = 0; i < healthProc.batch.length; i++) {
+        var host = healthProc.batch[i]
+        var entry = root.health[host]
+        if (entry && entry.state === "checking")
+          update[host] = { state: "down", label: "no answer", ms: 0, code: 0, checkedMs: Date.now() }
+      }
+      root.setHealth(update)
+      healthProc.batch = []
+      Qt.callLater(root.drainHealth)
+    }
   }
 
   Timer {
