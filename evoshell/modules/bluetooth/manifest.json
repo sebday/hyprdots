@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "evo.bluetooth",
+  "name": "Bluetooth",
+  "version": "1.0.0",
+  "author": "seb",
+  "description": "Bluetooth power and devices",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Bluetooth",
+    "description": "Adapter power, paired devices, and nearby devices",
+    "category": "System",
+    "allowMultiple": false,
+    "defaultSection": "center"
+  }
+}

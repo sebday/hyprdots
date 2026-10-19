@@ -40,6 +40,10 @@
           "id": "evo.cursor"
         },
         {
+          "id": "evo.cloudflare",
+          "analyticsIntervalSec": 900
+        },
+        {
           "id": "evo.github",
           "repoRoots": [
             {
@@ -51,10 +55,6 @@
               "label": "work"
             }
           ]
-        },
-        {
-          "id": "evo.cloudflare",
-          "analyticsIntervalSec": 900
         },
         {
           "id": "evo.panels.notifications",
@@ -69,6 +69,9 @@
         },
         {
           "id": "evo.monitors"
+        },
+        {
+          "id": "evo.bluetooth"
         },
         {
           "id": "evo.now-playing"
