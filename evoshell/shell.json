@@ -57,9 +57,7 @@
           ]
         },
         {
-          "id": "evo.panels.notifications",
-          "trayMode": true,
-          "onHover": "evo.panels.notifications"
+          "id": "evo.secmon"
         },
         {
           "id": "evo.panels.network.stats",

@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "id": "evo.secmon",
+  "name": "Security",
+  "version": "1.0.0",
+  "author": "seb",
+  "description": "Homelab security findings from secmon",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Security",
+    "description": "Open secmon findings and host health",
+    "category": "Status",
+    "allowMultiple": false,
+    "defaultSection": "center",
+    "defaults": {
+      "host": "zotac",
+      "refreshIntervalSec": 300
+    },
+    "schema": [
+      {
+        "key": "host",
+        "type": "string",
+        "label": "SSH host running secmon",
+        "defaultValue": "zotac"
+      },
+      {
+        "key": "refreshIntervalSec",
+        "type": "integer",
+        "label": "Refresh interval (seconds)",
+        "min": 60,
+        "max": 3600,
+        "step": 60,
+        "defaultValue": 300
+      }
+    ]
+  }
+}

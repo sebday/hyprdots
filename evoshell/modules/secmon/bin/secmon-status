@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# secmon summary for the evo.secmon bar widget, fetched from the engine host over SSH.
+set -euo pipefail
+
+_paths_lib="${EVOSHELL_LIB:-$HOME/.local/lib/evoshell/bin}/evo-paths-lib"
+# shellcheck source=/dev/null
+[[ -r $_paths_lib ]] && source "$_paths_lib"
+EVOSHELL_CACHE="${EVOSHELL_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/evoshell}"
+SECMON_CACHE="${SECMON_CACHE:-${EVOSHELL_CACHE}/secmon/status.json}"
+
+cmd_status() {
+  local host=${1:-zotac} out
+  if out="$(timeout 20 ssh -o BatchMode=yes -o ConnectTimeout=5 "$host" 'secmon status --json' 2>/dev/null)" \
+    && jq -e '.ok == true' <<<"$out" >/dev/null 2>&1; then
+    mkdir -p -m 700 "$(dirname "$SECMON_CACHE")"
+    printf '%s\n' "$out" >"$SECMON_CACHE.tmp"
+    mv -f "$SECMON_CACHE.tmp" "$SECMON_CACHE"
+    printf '%s\n' "$out"
+    return
+  fi
+  jq -nc --arg host "$host" '{ok:false, error:("Can'\''t reach secmon on " + $host)}'
+}
+
+cmd_cache() {
+  [[ -f $SECMON_CACHE ]] || return 1
+  cat "$SECMON_CACHE"
+}
+
+case "${1:-}" in
+status)
+  cmd_status "${2:-}"
+  ;;
+cache)
+  cmd_cache
+  ;;
+*)
+  echo "usage: $0 status [host]|cache" >&2
+  exit 1
+  ;;
+esac

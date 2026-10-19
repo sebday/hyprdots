@@ -17,7 +17,7 @@ Item {
     property int contentMargin: Theme.hoverPanelMargin
     property int minContentHeight: 0
 
-    readonly property int contentTopPad: Theme.hoverPanelTopPad
+    readonly property int contentTopPad: contentMargin
     readonly property int contentBottomPad: contentMargin
     readonly property int contentInset: root.contentMargin + Theme.hoverPanelBorderWidth
 

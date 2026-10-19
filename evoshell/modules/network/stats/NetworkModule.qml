@@ -3,6 +3,7 @@ import Quickshell.Io
 import QtQuick
 import QtQuick.Layouts
 import qs.commons
+import qs.ui
 
 Item {
     id: root
@@ -53,6 +54,16 @@ Item {
         if (info.duplex)
             label += " " + info.duplex
         return label
+    }
+
+    readonly property bool isWifi: String(info.type || "") === "wifi"
+    readonly property string heroMeta: {
+        if (root.loading && !info.iface)
+            return "Loading…"
+        if (!info.iface)
+            return "Offline"
+        var kind = info.type ? String(info.type) : "connected"
+        return info.gateway ? kind + " · gateway " + info.gateway : kind
     }
 
     readonly property var networkStatRow1: {
@@ -348,16 +359,30 @@ Item {
         width: root.hoverPanelWidth
         spacing: Theme.hoverPanelSectionSpacing
 
-        SectionPanel {
-            label: ""
+        PanelHero {
             Layout.fillWidth: true
-            visible: !root.loading || !!(root.info && root.info.iface)
+            title: "Network"
+            meta: root.heroMeta
+            foreground: Theme.foreground
+            fontFamily: Theme.fontFamily
+            iconOpacity: root.info.iface ? 1 : 0.5
 
-            HoverPanelLabelPill {
-                text: "Network"
-                icon: "󰖩"
-                fontSize: Theme.font.caption
+            iconComponent: Component {
+                Text {
+                    textFormat: Text.PlainText
+                    text: root.isWifi ? "󰖩" : "󰈀"
+                    color: Theme.foreground
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.font.display
+                    opacity: 0.92
+                }
             }
+        }
+
+        ColumnLayout {
+            Layout.fillWidth: true
+            spacing: Theme.hoverPanelSectionSpacing
+            visible: !root.loading || !!(root.info && root.info.iface)
 
             GridLayout {
                 Layout.fillWidth: true
