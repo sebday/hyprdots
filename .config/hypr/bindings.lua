@@ -30,7 +30,7 @@ bindd("SUPER + ALT + equal", "Next theme", hl.dsp.exec_cmd(lib .. "/evo-theme ne
 bindd("SUPER + Home", "Theme picker", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.sys.menu '{\"view\":\"themes\"}'"))
 bindd("SUPER + L", "Lock Screen", hl.dsp.exec_cmd(evo .. " system lock"))
 bindd("SUPER + F5", "Restart evoshell", hl.dsp.exec_cmd(evo .. " system restart"))
-bindd("SUPER + space", "Looks", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.sys.menu '{\"view\":\"looks\"}'"))
+bindd("SUPER + Prior", "Looks", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.sys.menu '{\"view\":\"looks\"}'"))
 bindd("SUPER + I", "Colour Picker", hl.dsp.exec_cmd("hyprpicker -al"))
 bindd("SUPER + C", "Calculator", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.sys.menu '{\"view\":\"calc\"}'"))
 bindd("SUPER + V", "Clipboard history", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.sys.menu '{\"view\":\"clipboard\"}'"))

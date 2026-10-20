@@ -10,11 +10,34 @@ function runCount(counts, id) {
     return parseInt(n, 10) || 0
 }
 
-function tag(list, section) {
+function markGroups(list) {
+    var last = ""
+    for (var i = 0; i < list.length; i++) {
+        var entry = list[i]
+        if (!entry)
+            continue
+        var group = String(entry.group || "")
+        entry.showGroup = group !== "" && group !== last
+        if (group !== "")
+            last = group
+    }
+    return list
+}
+
+function tag(list, group) {
     var out = []
     for (var i = 0; i < list.length; i++) {
-        list[i].section = section
-        out.push(list[i])
+        var src = list[i]
+        if (!src)
+            continue
+        var copy = {}
+        for (var key in src) {
+            if (key === "section")
+                continue
+            copy[key] = src[key]
+        }
+        copy.group = group
+        out.push(copy)
     }
     return out
 }
@@ -119,15 +142,6 @@ function settingsActions(state) {
             name: "Opacity",
             icon: "󰂎",
             keywords: ["opacity", "transparency", "transparent", "active", "inactive", "looks"],
-            view: "looks",
-            section: "Settings"
-        },
-        {
-            kind: "setting",
-            id: "font",
-            name: "Font",
-            icon: "󰛖",
-            keywords: ["font", "family", "typeface", "looks"],
             view: "looks",
             section: "Settings"
         }
@@ -265,7 +279,7 @@ function calculatorEntry(query) {
         accessory: q,
         expr: q,
         result: text,
-        section: "Calculator"
+        group: "Calculator"
     }
 }
 
@@ -273,10 +287,10 @@ function buildRoot(query, apps, counts, commands, settings, themes, wallpapers) 
     var q = String(query || "").trim()
     var out = []
     if (!q) {
-        out = out.concat(tag(MenuEntries.viewEntries(), "Views"))
         out = out.concat(tag(sortByUse(apps || [], counts), "Apps"))
+        out = out.concat(tag(MenuEntries.viewEntries(), "Views"))
         out = out.concat(tag(commands || [], "Commands"))
-        return out
+        return markGroups(out)
     }
     var calc = calculatorEntry(q)
     if (calc)
@@ -287,7 +301,7 @@ function buildRoot(query, apps, counts, commands, settings, themes, wallpapers) 
     out = out.concat(tag(take(sortByScore(themes || [], q, null), 6), "Themes"))
     out = out.concat(tag(take(sortByScore(wallpapers || [], q, null), 6), "Wallpapers"))
     out = out.concat(tag(sortByScore(MenuEntries.viewEntries(), q, null), "Views"))
-    return out
+    return markGroups(out)
 }
 
 function filterEntries(entries, query) {
@@ -403,7 +417,7 @@ function actionsFor(entry) {
     case "app":
         return [
             { id: "launch", label: "Open" },
-            { id: "launch-terminal", label: "Open in terminal" }
+            { id: "launch-terminal", label: "Open in terminal", key: "t" }
         ]
     case "theme":
         return [{ id: "apply", label: "Apply" }]
@@ -412,13 +426,13 @@ function actionsFor(entry) {
     case "clipboard":
         return [
             { id: "copy", label: "Copy" },
-            { id: "pin", label: entry.pinned ? "Unpin" : "Pin" },
-            { id: "delete", label: "Delete" }
+            { id: "pin", label: entry.pinned ? "Unpin" : "Pin", key: "p" },
+            { id: "delete", label: "Delete", key: "backspace" }
         ]
     case "emoji":
         return [
             { id: "copy", label: "Copy" },
-            { id: "type", label: "Type" }
+            { id: "type", label: "Type", key: "t" }
         ]
     case "calc":
         return [{ id: "copy", label: "Copy result" }]

@@ -20,9 +20,25 @@ function commandEntries(home, binOverride, extensionPanels) {
         { name: "Reboot", icon: "󰐥", keywords: ["reboot", "restart", "system"], command: evo + " system reboot" },
         { name: "Shutdown", icon: "󰐥", keywords: ["shutdown", "poweroff", "off", "power"], command: evo + " system shutdown" }
     ]
+    var insertAt = raw.length
+    for (var m = 0; m < raw.length; m++) {
+        if (raw[m].name === "Music") {
+            insertAt = m + 1
+            break
+        }
+    }
     if (extensionPanels && extensionPanels.length) {
-        for (var i = 0; i < extensionPanels.length; i++)
-            raw.push(extensionPanels[i])
+        for (var i = 0; i < extensionPanels.length; i++) {
+            var panel = extensionPanels[i]
+            if (!panel)
+                continue
+            if (String(panel.name || "") === "Shopify") {
+                raw.splice(insertAt, 0, panel)
+                insertAt++
+            } else {
+                raw.push(panel)
+            }
+        }
     }
     return raw.map(mapEntry)
 }
@@ -34,7 +50,7 @@ function viewEntries() {
         { kind: "view", name: "Wallpapers", icon: "󰏘", keywords: ["wallpaper", "wallpapers", "background"], view: "wallpapers", section: "Views" },
         { kind: "view", name: "Clipboard", icon: "󰅍", keywords: ["clipboard", "copy", "paste", "history", "clip"], view: "clipboard", section: "Views" },
         { kind: "view", name: "Emoji", icon: "󰞅", keywords: ["emoji", "emoticon", "glyph", "smiley"], view: "emoji", section: "Views" },
-        { kind: "view", name: "Looks", icon: "󰒠", keywords: ["looks", "settings", "appearance", "font", "gaps", "opacity"], view: "looks", section: "Views" },
+        { kind: "view", name: "Looks", icon: "󰒠", keywords: ["looks", "settings", "appearance", "gaps", "opacity"], view: "looks", section: "Views" },
         { kind: "view", name: "Power", icon: "󰐥", keywords: ["power", "session", "shutdown", "reboot", "lock"], view: "session", section: "Views" }
     ]
 }
@@ -47,6 +63,7 @@ function sessionEntries(home, binOverride) {
         if (!want[all[i].name])
             continue
         all[i].section = ""
+        all[i].group = ""
         out.push(all[i])
     }
     return out

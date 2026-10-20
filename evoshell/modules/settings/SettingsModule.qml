@@ -169,6 +169,8 @@ Item {
         if (item.enabled !== false && root.isEffectivelyVisible(item)) {
             if (item.settingsNavInput !== undefined)
                 out.push({ kind: "input", target: item, input: item.settingsNavInput })
+            else if (item.settingsNavActivate === true && item.keyboardSelected !== undefined)
+                out.push({ kind: "activate", target: item })
             else if (typeof item.toggled === "function" && item.keyboardSelected !== undefined)
                 out.push({ kind: "toggle", target: item })
             else if (typeof item.valueCommitted === "function" && item.maximum !== undefined)
@@ -292,6 +294,8 @@ Item {
             return
         if (entry.kind === "toggle")
             entry.target.toggled()
+        else if (entry.kind === "activate" && typeof entry.target.clicked === "function")
+            entry.target.clicked()
         else if (entry.kind === "input" && entry.input)
             entry.input.forceActiveFocus()
     }

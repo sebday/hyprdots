@@ -45,6 +45,8 @@ Panel {
   readonly property string findingsFooter: Model.findingsFooter(data, displayFindings.length)
   readonly property int openCount: Model.openCount(data)
   readonly property var displayTargets: Array.isArray(data.targets) ? data.targets : []
+  readonly property var appsTarget: Model.appsBox(data)
+  readonly property int statCount: displayTargets.length + (appsTarget ? 1 : 0)
   readonly property var changedTargets: Model.changedTargets(data)
   readonly property int changeCount: Model.changeCount(data)
   readonly property string glyphAccept: String.fromCodePoint(0xF012C)
@@ -304,9 +306,15 @@ Panel {
 
               TargetTile {
                 required property var modelData
-                width: (column.width - Theme.space(12) * (root.displayTargets.length - 1)) / Math.max(1, root.displayTargets.length)
+                width: (column.width - Theme.space(12) * (root.statCount - 1)) / Math.max(1, root.statCount)
                 target: modelData
               }
+            }
+
+            TargetTile {
+              visible: !!root.appsTarget
+              width: visible ? (column.width - Theme.space(12) * (root.statCount - 1)) / Math.max(1, root.statCount) : 0
+              target: root.appsTarget
             }
           }
 
@@ -554,7 +562,7 @@ Panel {
         x: Theme.space(4)
         anchors.verticalCenter: parent.verticalCenter
         textFormat: Text.PlainText
-        text: Model.plain(tile.target && tile.target.name, 24)
+        text: Model.targetLabel(tile.target && tile.target.name)
         color: root.dim
         font.family: root.fontFamily
         font.pixelSize: Theme.font.caption
@@ -584,14 +592,16 @@ Panel {
       anchors.fill: parent
       hoverEnabled: true
       cursorShape: Qt.PointingHandCursor
-      onClicked: root.openReport(tile.target ? tile.target.name : "")
+      onClicked: root.openReport(tile.target && tile.target.report ? tile.target.report : (tile.target ? tile.target.name : ""))
     }
 
     PanelToolTip {
       visible: tileMouse.containsMouse
-      text: tile.down
-        ? "Can't collect: " + Model.plain(tile.target && tile.target.error, 160)
-        : (tile.target && tile.target.lastSuccess ? "Last collected " + Model.formatAgo(tile.target.lastSuccess) : "Never collected")
+      text: tile.target && tile.target.hint
+        ? String(tile.target.hint)
+        : (tile.down
+          ? "Can't collect: " + Model.plain(tile.target && tile.target.error, 160)
+          : (tile.target && tile.target.lastSuccess ? "Last collected " + Model.formatAgo(tile.target.lastSuccess) : "Never collected"))
       fontFamily: root.fontFamily
     }
   }

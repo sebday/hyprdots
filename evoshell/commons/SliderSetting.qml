@@ -42,8 +42,8 @@ Item {
         valueEdited(next)
     }
 
-    implicitWidth: column.implicitWidth
-    implicitHeight: column.implicitHeight + rowPad * 2
+    implicitWidth: line.implicitWidth
+    implicitHeight: line.implicitHeight + rowPad * 2
     opacity: root.enabled ? 1 : Theme.opacityDisabled
 
     readonly property int rowPad: Theme.settingsNavRowPad
@@ -56,41 +56,30 @@ Item {
         opacity: 0.85
     }
 
-    ColumnLayout {
-        id: column
+    RowLayout {
+        id: line
         anchors.fill: parent
         anchors.margins: root.rowPad
-        spacing: Theme.spacingS
+        spacing: Theme.spacingL
 
-        RowLayout {
+        Text {
             visible: root.showHeader
-            Layout.fillWidth: true
-            spacing: Theme.spacingM
-
-            Text {
-                Layout.fillWidth: true
-                text: root.label
-                color: Theme.foreground
-                font.family: Theme.fontFamily
-                font.pixelSize: Theme.fontSizeM
-                font.bold: Theme.fontBold
-                elide: Text.ElideRight
-            }
-
-            Text {
-                text: root.activeValue + root.valueSuffix
-                color: Theme.accent
-                font.family: Theme.fontFamily
-                font.pixelSize: Theme.fontSizeM
-                font.bold: Theme.fontBold
-                horizontalAlignment: Text.AlignRight
-                Layout.minimumWidth: 28
-            }
+            text: root.label
+            color: Theme.foreground
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontSizeS
+            font.bold: Theme.fontBold
+            elide: Text.ElideRight
+            Layout.alignment: Qt.AlignVCenter
+            Layout.maximumWidth: parent.width * 0.45
         }
 
         Item {
+            id: sliderBox
             Layout.fillWidth: true
-            Layout.preferredHeight: 20
+            Layout.preferredHeight: 24
+            Layout.minimumWidth: 80
+            Layout.alignment: Qt.AlignVCenter
 
             Rectangle {
                 id: track
@@ -159,6 +148,17 @@ Item {
                     root.setDragValue(dragStartValue)
                 }
             }
+        }
+
+        Text {
+            text: root.activeValue + root.valueSuffix
+            color: Theme.accent
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontSizeS
+            font.bold: Theme.fontBold
+            horizontalAlignment: Text.AlignRight
+            Layout.alignment: Qt.AlignVCenter
+            Layout.minimumWidth: 36
         }
     }
 }

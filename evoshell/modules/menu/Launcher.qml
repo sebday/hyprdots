@@ -84,7 +84,10 @@ Item {
     }
     readonly property var actionItems: {
         if (view === "calc")
-            return [{ id: "copy", label: "Copy result" }, { id: "clear", label: "Clear history" }]
+            return [
+                { id: "copy", label: "Copy result" },
+                { id: "clear", label: "Clear history", key: "backspace" }
+            ]
         if (view === "looks")
             return [{ id: "toggle", label: "Toggle" }]
         return LauncherSources.actionsFor(selectedEntry)
@@ -321,6 +324,28 @@ Item {
             return
         }
         actionIndex = (actionIndex + 1) % count
+    }
+
+    function actionIndexForEvent(event, fieldText) {
+        var items = actionItems
+        var empty = String(fieldText || "").length === 0
+        var alt = (event.modifiers & Qt.AltModifier) !== 0
+        var shift = (event.modifiers & Qt.ShiftModifier) !== 0
+        var ctrl = (event.modifiers & Qt.ControlModifier) !== 0
+        if (!items || ctrl)
+            return -1
+        for (var i = 0; i < items.length; i++) {
+            var key = items[i] && items[i].key ? String(items[i].key) : ""
+            if (!key)
+                continue
+            if (key === "backspace" && event.key === Qt.Key_Backspace)
+                return empty ? i : -1
+            if (key.length === 1 && !shift && event.text && String(event.text).toLowerCase() === key) {
+                if (empty || alt)
+                    return i
+            }
+        }
+        return -1
     }
 
     function runVisibleAction(index) {
@@ -663,6 +688,7 @@ Item {
 
     function rebuildAppCache() {
         var list = []
+        var indexByName = {}
         try {
             var values = DesktopEntries.applications.values || []
             for (var i = 0; i < values.length; i++) {
@@ -677,15 +703,24 @@ Item {
                 var keywords = entry.keywords || []
                 for (var k = 0; k < keywords.length; k++)
                     words.push(String(keywords[k]))
-                list.push({
+                var item = {
                     kind: "app",
                     name: String(entry.name || entry.id),
                     id: entry.id,
                     entryRef: entry,
                     keywords: words,
+                    iconName: String(entry.icon || ""),
                     iconSource: appIconMap[entry.id] || Util.iconSourceForName(String(entry.icon || "")) || "",
                     section: "Apps"
-                })
+                }
+                var key = item.name.trim().toLowerCase()
+                var existing = indexByName[key]
+                if (existing === undefined) {
+                    indexByName[key] = list.length
+                    list.push(item)
+                } else if (!list[existing].iconName && item.iconName) {
+                    list[existing] = item
+                }
             }
         } catch (e) {
             console.warn("launcher app list failed:", e)
@@ -1105,6 +1140,12 @@ Item {
                                         event.accepted = true
                                         return
                                     }
+                                    var shortcut = root.actionIndexForEvent(event, text)
+                                    if (shortcut >= 0) {
+                                        root.runVisibleAction(shortcut)
+                                        event.accepted = true
+                                        return
+                                    }
                                     if (event.key === Qt.Key_Backspace && text.length === 0
                                             && root.view !== "root" && !root.actionsOpen) {
                                         root.goBack()
@@ -1287,6 +1328,14 @@ Item {
                             readonly property bool armed: root.actionsOpen
                                 ? index === root.actionIndex
                                 : index === 0
+                            readonly property string keyText: {
+                                if (index === 0)
+                                    return "⏎"
+                                var key = modelData && modelData.key ? String(modelData.key) : ""
+                                if (key === "backspace")
+                                    return "⌫"
+                                return key
+                            }
                             width: chipRow.implicitWidth
                             height: chipRow.implicitHeight
 
@@ -1295,9 +1344,9 @@ Item {
                                 spacing: 4
 
                                 Text {
-                                    visible: actionChip.armed
+                                    visible: actionChip.keyText !== ""
                                     anchors.verticalCenter: parent.verticalCenter
-                                    text: "⏎"
+                                    text: actionChip.keyText
                                     color: Theme.accent
                                     font.family: Theme.fontFamily
                                     font.pixelSize: Theme.fontSizeS

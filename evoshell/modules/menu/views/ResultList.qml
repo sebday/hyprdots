@@ -21,32 +21,41 @@ ListView {
             positionViewAtIndex(selectedIndex, ListView.Contain)
     }
 
-    section.property: "section"
-    section.criteria: ViewSection.FullString
-    section.delegate: Item {
-        required property string section
-        width: list.width
-        height: section === "" ? 0 : Theme.fontSizeXs + Theme.spacingM
-
-        Text {
-            anchors.left: parent.left
-            anchors.bottom: parent.bottom
-            anchors.bottomMargin: 2
-            visible: section !== ""
-            text: section
-            color: Theme.foreground
-            opacity: Theme.opacityMuted
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontSizeXs
-            font.bold: Theme.fontBold
-        }
-    }
-
-    delegate: Rectangle {
+    delegate: Item {
         id: row
         required property var modelData
         required property int index
         width: list.width
+        height: header.height + Theme.launcherRowHeight
+
+        readonly property string groupName: modelData ? String(modelData.group || "") : ""
+        readonly property bool showHeader: !!(modelData && modelData.showGroup)
+
+        Item {
+            id: header
+            width: parent.width
+            height: row.showHeader ? Theme.fontSizeXs + Theme.spacingM : 0
+            clip: true
+            visible: row.showHeader
+
+            Text {
+                anchors.left: parent.left
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: 2
+                visible: row.showHeader
+                text: row.groupName
+                color: Theme.foreground
+                opacity: Theme.opacityMuted
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSizeXs
+                font.bold: Theme.fontBold
+            }
+        }
+
+        Rectangle {
+        id: card
+        anchors.top: header.bottom
+        width: parent.width
         height: Theme.launcherRowHeight
         radius: Theme.cornerRadius
         color: index === list.selectedIndex || rowMouse.containsMouse
@@ -134,6 +143,7 @@ ListView {
                 list.indexMoved(index)
                 list.activated(row.modelData)
             }
+        }
         }
     }
 }

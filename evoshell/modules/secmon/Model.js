@@ -3,6 +3,11 @@
 var SEVERITIES = ["info", "low", "medium", "high", "critical"]
 var STALE_SEC = 3 * 3600
 
+function targetLabel(name) {
+  var n = String(name == null ? "" : name)
+  return n === "cloudflare" ? "cf" : plain(n, 24)
+}
+
 function plain(value, maxLen) {
   var s = String(value == null ? "" : value)
   var max = maxLen || 240
@@ -31,6 +36,7 @@ function emptyData() {
     counts: { critical: 0, high: 0, medium: 0, low: 0, info: 0 },
     attacks24h: 0,
     targets: [],
+    apps: null,
     findings: []
   }
 }
@@ -58,7 +64,28 @@ function parsePayload(raw) {
     },
     attacks24h: Number(json.attacks24h) || 0,
     targets: Array.isArray(json.targets) ? json.targets : [],
+    apps: parseApps(json.apps),
     findings: Array.isArray(json.findings) ? json.findings : []
+  }
+}
+
+function parseApps(apps) {
+  if (!apps || typeof apps !== "object" || !Array.isArray(apps.hosts) || !apps.hosts.length) return null
+  var hosts = []
+  for (var i = 0; i < apps.hosts.length; i++) {
+    var h = apps.hosts[i]
+    if (!h || !h.name) continue
+    hosts.push({
+      name: plain(h.name, 40),
+      open: Number(h.open) || 0,
+      worst: String(h.worst || "info")
+    })
+  }
+  if (!hosts.length) return null
+  return {
+    open: Number(apps.open) || 0,
+    worst: String(apps.worst || "info"),
+    hosts: hosts
   }
 }
 
@@ -148,6 +175,31 @@ function changedTargets(data) {
   var out = []
   for (var i = 0; i < rows.length; i++) if (rows[i] && Number(rows[i].changes) > 0) out.push(String(rows[i].name))
   return out
+}
+
+function appsBox(data) {
+  var apps = data && data.apps
+  if (!apps || !Array.isArray(apps.hosts) || !apps.hosts.length) return null
+  var last = ""
+  var targets = data.targets || []
+  for (var i = 0; i < targets.length; i++) {
+    if (targets[i] && targets[i].name === "cloudflare" && targets[i].lastSuccess) last = String(targets[i].lastSuccess)
+  }
+  var parts = []
+  for (var j = 0; j < apps.hosts.length; j++) {
+    var h = apps.hosts[j]
+    parts.push(h.name + " " + (Number(h.open) || 0))
+  }
+  return {
+    name: "apps",
+    open: Number(apps.open) || 0,
+    worst: apps.worst || "info",
+    failures: 0,
+    lastSuccess: last,
+    error: null,
+    report: "cloudflare",
+    hint: parts.join(" · ")
+  }
 }
 
 function changeCount(data) {
