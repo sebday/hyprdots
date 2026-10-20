@@ -136,6 +136,20 @@ function scoreText(text, query) {
     return fuzzyScore(value, needle)
 }
 
+function literalScore(text, query) {
+    var value = String(text || "").toLowerCase()
+    var needle = String(query || "").toLowerCase()
+    if (!value || !needle)
+        return 0
+    if (value === needle)
+        return 1000
+    if (value.indexOf(needle) === 0)
+        return 800
+    if (value.indexOf(needle) >= 0)
+        return 500
+    return 0
+}
+
 function entryMatchScore(entry, query) {
     if (!query || !entry)
         return 0
@@ -144,7 +158,9 @@ function entryMatchScore(entry, query) {
     best = Math.max(best, scoreText(entry.id, query))
     best = Math.max(best, scoreText(entry.accessory, query))
     best = Math.max(best, scoreText(entry.detail, query))
-    best = Math.max(best, scoreText(entry.command, query))
+    // Commands and wallpaper paths are long. Fuzzy matching them pulls in
+    // unrelated files whenever the letters happen to appear in order.
+    best = Math.max(best, literalScore(entry.command, query))
     if (entry.keywords) {
         for (var i = 0; i < entry.keywords.length; i++)
             best = Math.max(best, scoreText(entry.keywords[i], query))

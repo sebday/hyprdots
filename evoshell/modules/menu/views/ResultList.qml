@@ -11,6 +11,7 @@ ListView {
     signal indexMoved(int index)
 
     model: entries
+    reuseItems: false
     currentIndex: selectedIndex
     clip: true
     boundsBehavior: Flickable.StopAtBounds
@@ -21,41 +22,11 @@ ListView {
             positionViewAtIndex(selectedIndex, ListView.Contain)
     }
 
-    delegate: Item {
-        id: row
+    delegate: Rectangle {
+        id: card
         required property var modelData
         required property int index
         width: list.width
-        height: header.height + Theme.launcherRowHeight
-
-        readonly property string groupName: modelData ? String(modelData.group || "") : ""
-        readonly property bool showHeader: !!(modelData && modelData.showGroup)
-
-        Item {
-            id: header
-            width: parent.width
-            height: row.showHeader ? Theme.fontSizeXs + Theme.spacingM : 0
-            clip: true
-            visible: row.showHeader
-
-            Text {
-                anchors.left: parent.left
-                anchors.bottom: parent.bottom
-                anchors.bottomMargin: 2
-                visible: row.showHeader
-                text: row.groupName
-                color: Theme.foreground
-                opacity: Theme.opacityMuted
-                font.family: Theme.fontFamily
-                font.pixelSize: Theme.fontSizeXs
-                font.bold: Theme.fontBold
-            }
-        }
-
-        Rectangle {
-        id: card
-        anchors.top: header.bottom
-        width: parent.width
         height: Theme.launcherRowHeight
         radius: Theme.cornerRadius
         color: index === list.selectedIndex || rowMouse.containsMouse
@@ -83,16 +54,16 @@ ListView {
                     sourceSize: Qt.size(Theme.launcherIconSize * 2, Theme.launcherIconSize * 2)
 
                     readonly property string iconSource: {
-                        if (!row.modelData)
+                        if (!card.modelData)
                             return ""
-                        return String(row.modelData.iconSource || "")
+                        return String(card.modelData.iconSource || "")
                     }
                 }
 
                 Text {
                     anchors.centerIn: parent
-                    visible: row.modelData && String(row.modelData.iconSource || "") === ""
-                    text: row.modelData && row.modelData.icon ? row.modelData.icon : "󰍉"
+                    visible: card.modelData && String(card.modelData.iconSource || "") === ""
+                    text: card.modelData && card.modelData.icon ? card.modelData.icon : "󰍉"
                     color: Theme.accent
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.launcherIconSize
@@ -103,7 +74,7 @@ ListView {
             Text {
                 Layout.fillWidth: true
                 Layout.alignment: Qt.AlignVCenter
-                text: row.modelData ? row.modelData.name : ""
+                text: card.modelData ? card.modelData.name : ""
                 color: Theme.foreground
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.fontSizeS
@@ -123,12 +94,12 @@ ListView {
                 elide: Text.ElideLeft
 
                 readonly property string accessory: {
-                    if (!row.modelData)
+                    if (!card.modelData)
                         return ""
-                    if (row.modelData.accessory)
-                        return String(row.modelData.accessory)
-                    if (row.modelData.detail)
-                        return String(row.modelData.detail)
+                    if (card.modelData.accessory)
+                        return String(card.modelData.accessory)
+                    if (card.modelData.detail)
+                        return String(card.modelData.detail)
                     return ""
                 }
             }
@@ -141,9 +112,8 @@ ListView {
             onEntered: list.indexMoved(index)
             onClicked: {
                 list.indexMoved(index)
-                list.activated(row.modelData)
+                list.activated(card.modelData)
             }
-        }
         }
     }
 }

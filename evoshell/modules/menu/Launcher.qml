@@ -1080,7 +1080,7 @@ Item {
                                 clip: true
                                 selectByMouse: true
                                 focus: root.opened
-                                onTextEdited: root.setQuery(text)
+                                onTextEdited: function() { root.setQuery(searchField.text) }
 
                                 Keys.onEscapePressed: function(event) {
                                     root.handleEscape()
@@ -1100,8 +1100,10 @@ Item {
                                         event.accepted = true
                                         return
                                     }
-                                    if (!root.gridNav || cursorPosition !== 0)
+                                    if (!root.gridNav || cursorPosition !== 0) {
+                                        event.accepted = false
                                         return
+                                    }
                                     root.moveHorizontal(-1)
                                     event.accepted = true
                                 }
@@ -1111,8 +1113,10 @@ Item {
                                         event.accepted = true
                                         return
                                     }
-                                    if (!root.gridNav || cursorPosition !== text.length)
+                                    if (!root.gridNav || cursorPosition !== text.length) {
+                                        event.accepted = false
                                         return
+                                    }
                                     root.moveHorizontal(1)
                                     event.accepted = true
                                 }
@@ -1128,11 +1132,13 @@ Item {
                                     if (root.view === "wallpapers")
                                         root.cycleWallpaperFilter(1)
                                     event.accepted = true
+                                    return
                                 }
                                 Keys.onBacktabPressed: function(event) {
                                     if (root.view === "wallpapers")
                                         root.cycleWallpaperFilter(-1)
                                     event.accepted = true
+                                    return
                                 }
                                 Keys.onPressed: function(event) {
                                     if ((event.modifiers & Qt.ControlModifier) && event.key === Qt.Key_K) {
@@ -1150,7 +1156,9 @@ Item {
                                             && root.view !== "root" && !root.actionsOpen) {
                                         root.goBack()
                                         event.accepted = true
+                                        return
                                     }
+                                    event.accepted = false
                                 }
                             }
                         }
