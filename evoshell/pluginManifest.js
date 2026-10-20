@@ -19,12 +19,8 @@ var plugins = {
 
 var panelPluginIds = [
     "evo.sys.menu",
-    "evo.calculator",
     "evo.panels.network.stats",
-    "evo.panels.notifications",
-    "evo.sys.themes",
-    "evo.sys.wallpaper",
-    "evo.side.clipboard"
+    "evo.panels.notifications"
 ]
 
 var dashboardIds = ["evo.panels.player"]

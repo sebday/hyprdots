@@ -71,8 +71,8 @@ Item {
             id: frameRect
             anchors.fill: parent
             color: root.filled ? root.fillColor : "transparent"
-            border.color: root.filled ? "transparent" : root.frameBorder
-            border.width: root.filled ? 0 : 1
+            border.color: root.frameBorder
+            border.width: 1
             radius: root.cornerRadius
             antialiasing: true
         }

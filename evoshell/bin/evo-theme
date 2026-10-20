@@ -277,7 +277,7 @@ fi
 case "$COMMAND" in
     wallpaper)
         trap - EXIT
-        exec "$SCRIPT_DIR/_ipc" shell toggle evo.sys.wallpaper
+        exec "$SCRIPT_DIR/_ipc" shell toggle evo.sys.menu '{"view":"wallpapers"}'
         ;;
 
     next|prev)

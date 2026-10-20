@@ -87,7 +87,7 @@ The [webtheme](evoshell/modules/webtheme/README.md) extension themes websites in
 | Cache | `$EVOSHELL_CACHE/` (`~/.cache/evoshell`) | Bar poller cache, menu thumbnails, chart history |
 | Secrets | `pass` | API tokens under `evoshell/` |
 
-`evo-config` writes `evoshell/shell.json`. `evo-layout` writes bar and notification placement there, and UI scale into `ui.json`. Settings in the system menu edits the same files. Do not put tokens in JSON.
+`evo-config` writes `evoshell/shell.json`. `evo-layout` writes bar and notification placement there, and UI scale into `ui.json`. Settings in the launcher edit the same files. Do not put tokens in JSON.
 
 ## Dev
 

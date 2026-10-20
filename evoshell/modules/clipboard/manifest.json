@@ -4,14 +4,12 @@
   "name": "Clipboard",
   "version": "1.0.0",
   "author": "seb",
-  "description": "Clipboard history",
+  "description": "Clipboard history watcher",
   "kinds": [
-    "menu",
     "service"
   ],
   "keepLoaded": true,
   "entryPoints": {
-    "menu": "Clipboard.qml",
     "service": "Service.qml"
   }
 }

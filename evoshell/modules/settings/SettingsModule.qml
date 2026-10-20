@@ -27,7 +27,6 @@ Item {
         var dir = shell && shell.shellDir ? String(shell.shellDir) : String(Quickshell.shellDir)
         return dir + "/modules/weather/bin/weather-location"
     }
-    readonly property string packagesScript: Util.evoshellScript(Quickshell.env("HOME"), shell, "evo-system-packages")
     readonly property string fontStatePath: Util.configPath(home, "font.json")
     readonly property string themeNamePath: Quickshell.env("HOME") + "/.themes/current/.theme-name"
     readonly property string themeListScript: Util.evoshellScript(Quickshell.env("HOME"), shell, "evo-menu-list")
@@ -99,12 +98,6 @@ Item {
     property int weatherLocationPopupWidth: 0
     property var secretsStatus: ({})
     property bool secretsReady: false
-    property bool packagesLoading: false
-    property bool packagesReady: false
-    property string packagesError: ""
-    property var packagesSummary: ({})
-    property var packagesCategories: []
-    property var packagesOrphans: []
     property int idleLockMin: 15
     property bool idleReady: false
     property var trayWidgets: ({})
@@ -127,6 +120,10 @@ Item {
     Keys.onEscapePressed: {
         if (root.weatherLocationPickerOpen) {
             root.weatherLocationPickerOpen = false
+            return
+        }
+        if (root.focusInTextInput()) {
+            root.releaseTextFocus()
             return
         }
         if (host)
@@ -207,23 +204,18 @@ Item {
         var item = root.activeFocusItem
         if (item && item.focus !== undefined)
             item.focus = false
-        root.forceActiveFocus()
+        if (host && typeof host.focusSearch === "function")
+            host.focusSearch()
+        else
+            root.forceActiveFocus()
     }
 
     function activeTabContent() {
-        switch (settingsTabs.currentIndex) {
-        case 0: return looksTab
-        case 1: return packagesTabColumn
-        default: return null
-        }
+        return looksTab
     }
 
     function activeTabFlickable() {
-        switch (settingsTabs.currentIndex) {
-        case 0: return looksTabScroll
-        case 1: return packagesTabScroll
-        default: return null
-        }
+        return looksTabScroll
     }
 
     function rebuildSettingsNav() {
@@ -407,15 +399,21 @@ Item {
     }
 
     function openThemePicker() {
-        if (!shell)
+        if (host && typeof host.openView === "function") {
+            host.openView("themes")
             return
-        shell.toggle("evo.sys.themes")
+        }
+        if (shell)
+            shell.toggle("evo.sys.menu", "{\"view\":\"themes\"}")
     }
 
     function openWallpaperPicker() {
-        if (!shell)
+        if (host && typeof host.openView === "function") {
+            host.openView("wallpapers")
             return
-        shell.toggle("evo.sys.wallpaper")
+        }
+        if (shell)
+            shell.toggle("evo.sys.menu", "{\"view\":\"wallpapers\"}")
     }
 
     function parseThemeList(raw) {
@@ -487,7 +485,8 @@ Item {
         runJsonScript([themeListScript, "wallpapers"], function(text) { root.parseWallpaperList(text) })
         refresh()
         Qt.callLater(function() {
-            root.forceActiveFocus()
+            if (!(host && host.keepSearchFocus))
+                root.forceActiveFocus()
             root.rebuildSettingsNav()
         })
     }
@@ -496,7 +495,7 @@ Item {
     onCurrentWallpaperPathChanged: syncWallpaperPreview()
 
     onActiveChanged: {
-        if (active)
+        if (active && !(host && host.keepSearchFocus))
             Qt.callLater(function() { root.forceActiveFocus() })
     }
 
@@ -669,41 +668,6 @@ Item {
             weatherSearchResults = Array.isArray(data.results) ? data.results : []
         } catch (e) {
             weatherSearchResults = []
-        }
-    }
-
-    function loadPackagesBreakdown() {
-        if (packagesLoading)
-            return
-        packagesLoading = true
-        packagesReady = false
-        packagesError = ""
-        runJsonScript(["bash", packagesScript, "breakdown"], function(text) { root.parsePackagesBreakdown(text) })
-    }
-
-    function parsePackagesBreakdown(raw) {
-        packagesLoading = false
-        try {
-            var data = JSON.parse(String(raw || "{}"))
-            if (data.ok !== true) {
-                packagesError = String(data.error || "Could not load packages")
-                packagesSummary = ({})
-                packagesCategories = []
-                packagesOrphans = []
-                packagesReady = false
-                return
-            }
-            packagesError = ""
-            packagesSummary = data.summary && typeof data.summary === "object" ? data.summary : ({})
-            packagesCategories = Array.isArray(data.categories) ? data.categories : []
-            packagesOrphans = Array.isArray(data.orphans) ? data.orphans : []
-            packagesReady = true
-        } catch (e) {
-            packagesError = "Could not load packages"
-            packagesSummary = ({})
-            packagesCategories = []
-            packagesOrphans = []
-            packagesReady = false
         }
     }
 
@@ -1056,8 +1020,7 @@ Item {
     }
 
     readonly property var looksTabModel: [
-        { label: "Looks", icon: "󰒠" },
-        { label: "Packages", icon: "󰏖" }
+        { label: "Looks", icon: "󰒠" }
     ]
 
     implicitHeight: parent && parent.height > 0 ? parent.height : settingsLayout.implicitHeight
@@ -1091,217 +1054,22 @@ Item {
             Layout.fillHeight: true
             spacing: 0
 
-        Connections {
-            target: settingsTabs
-            function onCurrentIndexChanged() {
-                root.settingsKeyIndex = 0
-                Qt.callLater(root.rebuildSettingsNav)
-                if (settingsTabs.currentIndex === 1)
-                    root.loadPackagesBreakdown()
-            }
-        }
-
-        StackLayout {
-            id: settingsStack
+        Flickable {
+            id: looksTabScroll
             Layout.fillWidth: true
             Layout.fillHeight: true
-            Layout.alignment: Qt.AlignTop
-            currentIndex: settingsTabs.currentIndex
+            clip: true
+            boundsBehavior: Flickable.StopAtBounds
+            contentWidth: width
+            contentHeight: looksTab.implicitHeight
 
-            Flickable {
-                id: looksTabScroll
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                clip: true
-                boundsBehavior: Flickable.StopAtBounds
-                contentWidth: width
-                contentHeight: looksTab.implicitHeight
-
-                LooksTab {
-                    id: looksTab
-                    width: parent.width
-                    module: root
-                }
+            LooksTab {
+                id: looksTab
+                width: parent.width
+                module: root
             }
-
-
-            Flickable {
-                id: packagesTabScroll
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                clip: true
-                boundsBehavior: Flickable.StopAtBounds
-                contentWidth: width
-                contentHeight: packagesTabContent.implicitHeight
-
-                Item {
-                    id: packagesTabContent
-                    width: parent.width
-                    implicitHeight: packagesTabColumn.implicitHeight
-                    clip: true
-
-                    ColumnLayout {
-                        id: packagesTabColumn
-                        width: parent.width
-                        spacing: Theme.hoverPanelSectionSpacing
-
-                        Text {
-                            Layout.fillWidth: true
-                            visible: root.packagesLoading
-                            text: "Loading packages…"
-                            color: Theme.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontSizeS
-                            opacity: Theme.opacityMuted
-                        }
-
-                        Text {
-                            Layout.fillWidth: true
-                            visible: !root.packagesLoading && root.packagesError !== ""
-                            text: root.packagesError
-                            color: Theme.urgent
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontSizeS
-                            wrapMode: Text.WordWrap
-                        }
-
-                        SectionPanel {
-                            visible: !root.packagesLoading && root.packagesReady
-                                && root.sectionFilterVisible("Summary")
-                            Layout.fillWidth: true
-                            notchLegend: true
-                            legendText: "Summary"
-                            legendIcon: "󰋼"
-                            legendBackground: Theme.background
-                            label: ""
-
-                            RowLayout {
-                                Layout.fillWidth: true
-                                spacing: Theme.spacingS
-
-                                Repeater {
-                                    model: [
-                                        { label: "total", text: String(root.packagesSummary.total || 0) + " total" },
-                                        { label: "explicit", text: String(root.packagesSummary.explicit || 0) + " explicit" },
-                                        { label: "foreign", text: String(root.packagesSummary.foreign || 0) + " AUR" },
-                                        { label: "orphans", text: String(root.packagesSummary.orphans || 0) + " orphans" },
-                                        { label: "mise", text: String(root.packagesSummary.mise || 0) + " mise" }
-                                    ]
-
-                                    HoverPanelLabelPill {
-                                        required property var modelData
-                                        text: modelData.text
-                                        fontSize: Theme.fontSizeS
-                                        fieldsetLegend: false
-                                    }
-                                }
-
-                                Item { Layout.fillWidth: true }
-                            }
-                        }
-
-                        Repeater {
-                            model: root.packagesCategories
-
-                            SectionPanel {
-                                required property var modelData
-                                visible: !root.packagesLoading && root.packagesReady
-                                    && root.sectionFilterVisible(modelData.name)
-                                Layout.fillWidth: true
-                                notchLegend: true
-                                legendText: modelData.name + " (" + (modelData.packages ? modelData.packages.length : 0) + ")"
-                                legendIcon: "󰏖"
-                                legendBackground: Theme.background
-                                label: ""
-
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 4
-
-                                    Repeater {
-                                        model: modelData.packages || []
-
-                                        RowLayout {
-                                            required property var modelData
-                                            Layout.fillWidth: true
-                                            spacing: Theme.spacingM
-
-                                            Text {
-                                                Layout.fillWidth: true
-                                                text: String(modelData.name || "")
-                                                color: Theme.foreground
-                                                font.family: Theme.fontFamily
-                                                font.pixelSize: Theme.fontSizeS
-                                                elide: Text.ElideRight
-                                            }
-
-                                            Text {
-                                                visible: modelData.source === "aur"
-                                                text: "AUR"
-                                                color: Theme.accent
-                                                font.family: Theme.fontFamily
-                                                font.pixelSize: Theme.fontSizeXs
-                                                font.bold: Theme.fontBold
-                                            }
-
-                                            Text {
-                                                Layout.preferredWidth: Math.min(180, implicitWidth)
-                                                text: String(modelData.version || "")
-                                                color: Theme.foreground
-                                                font.family: Theme.fontFamily
-                                                font.pixelSize: Theme.fontSizeXs
-                                                opacity: Theme.opacityMuted
-                                                horizontalAlignment: Text.AlignRight
-                                                elide: Text.ElideLeft
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        SectionPanel {
-                            visible: !root.packagesLoading && root.packagesReady && root.packagesOrphans.length > 0
-                                && root.sectionFilterVisible("Orphans")
-                            Layout.fillWidth: true
-                            notchLegend: true
-                            legendText: "Orphans"
-                            legendIcon: "󰀨"
-                            legendBackground: Theme.background
-                            label: ""
-
-                            Text {
-                                Layout.fillWidth: true
-                                text: "Unused dependencies (pacman -Qdt)"
-                                color: Theme.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.fontSizeXs
-                                opacity: Theme.opacityMuted
-                                wrapMode: Text.WordWrap
-                            }
-
-                            Flow {
-                                Layout.fillWidth: true
-                                spacing: Theme.spacingS
-
-                                Repeater {
-                                    model: root.packagesOrphans
-
-                                    HoverPanelLabelPill {
-                                        required property string modelData
-                                        text: modelData
-                                        fontSize: Theme.fontSizeXs
-                                        fieldsetLegend: false
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
         }
+
         }
     }
-
 }

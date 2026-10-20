@@ -540,13 +540,37 @@ ShellRoot {
         }
     }
 
-    function summon(id, payloadJson) {
+    function redirectLauncherTarget(id, payloadJson) {
         var pluginId = canonicalPluginId(id)
+        var payload = payloadJson || ""
         if (pluginId === "evo.sys.settings") {
             pluginId = "evo.sys.menu"
-            if (!payloadJson)
-                payloadJson = '{"mode":"power","tab":"looks"}'
+            if (!payload)
+                payload = "{\"view\":\"looks\"}"
+        } else if (pluginId === "evo.sys.themes") {
+            pluginId = "evo.sys.menu"
+            if (!payload)
+                payload = "{\"view\":\"themes\"}"
+        } else if (pluginId === "evo.sys.wallpaper") {
+            pluginId = "evo.sys.menu"
+            if (!payload)
+                payload = "{\"view\":\"wallpapers\"}"
+        } else if (pluginId === "evo.calculator") {
+            pluginId = "evo.sys.menu"
+            if (!payload)
+                payload = "{\"view\":\"calc\"}"
+        } else if (pluginId === "evo.side.clipboard") {
+            pluginId = "evo.sys.menu"
+            if (!payload)
+                payload = "{\"view\":\"clipboard\"}"
         }
+        return { id: pluginId, payload: payload }
+    }
+
+    function summon(id, payloadJson) {
+        var redirected = redirectLauncherTarget(id, payloadJson)
+        var pluginId = redirected.id
+        payloadJson = redirected.payload
         var dash = dashboardLoaderFor(pluginId)
         if (dash)
             return requestDashboardOpen(pluginId)
@@ -572,7 +596,7 @@ ShellRoot {
     }
 
     function hide(id) {
-        var pluginId = canonicalPluginId(id)
+        var pluginId = redirectLauncherTarget(id, "").id
         unpinHoverPanel(pluginId)
         var dash = dashboardLoaderFor(pluginId)
         if (dash && dash.item && typeof dash.item.close === "function") {
@@ -753,12 +777,9 @@ ShellRoot {
     }
 
     function toggle(id, payloadJson) {
-        var pluginId = canonicalPluginId(id)
-        if (pluginId === "evo.sys.settings") {
-            pluginId = "evo.sys.menu"
-            if (!payloadJson)
-                payloadJson = '{"mode":"power","tab":"looks"}'
-        }
+        var redirected = redirectLauncherTarget(id, payloadJson)
+        var pluginId = redirected.id
+        payloadJson = redirected.payload
         var dash = dashboardLoaderFor(pluginId)
         if (dash && dash.item) {
             if (dash.item.opened) {

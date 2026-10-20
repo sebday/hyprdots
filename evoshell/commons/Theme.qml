@@ -350,7 +350,17 @@ Singleton {
     }
     readonly property int settingsPanelWidth: systemPanelWidth
     readonly property int systemMenuWidth: systemMenuPanelWidth
-    readonly property int clipboardPanelWidth: Math.round(systemPanelWidth / 2)
+    readonly property int launcherWidth: 780
+    readonly property int launcherHeight: 520
+    readonly property int launcherSearchHeight: 44
+    readonly property int launcherFooterHeight: 36
+    readonly property int launcherRowHeight: 40
+    readonly property int launcherIconSize: 22
+    readonly property int launcherPad: 12
+    readonly property int launcherPreviewTileWidth: 156
+    readonly property int launcherPreviewTileHeight: 100
+    readonly property int launcherDetailWidth: 248
+    readonly property int launcherEmojiCell: 72
     readonly property int barHeight: 28
     readonly property int barPaddingX: 16
     readonly property int barGap: 8

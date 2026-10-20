@@ -195,12 +195,3 @@ end
 hl.on("window.open", function(win)
 	brave_app_to_floating(win)
 end)
-
--- Calculator is a normal toplevel so it can be dragged. Title is set by
--- evoshell/modules/calculator/Calculator.qml. center applies once, on map.
-hl.window_rule({
-	name = "evo-calculator",
-	match = { title = "^Calculator$" },
-	float = true,
-	center = true,
-})

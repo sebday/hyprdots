@@ -25,13 +25,13 @@ Resolved in [`evoshell/bin/evo-paths-lib`](evoshell/bin/evo-paths-lib) and [`evo
 | `evoshell/commons/` | `Theme`, panels, charts. Colours, type, and spacing go through `Theme.*` |
 | `evoshell/vendor/evoplayer/plugin/panel/` | Evoplayer dashboard |
 
-Plugin ids use `evo.bar.*`, `evo.panels.*`, `evo.side.*`, and `evo.sys.*`. Settings opens inside the system menu: IPC for `evo.sys.settings` is redirected to `evo.sys.menu`.
+Plugin ids use `evo.bar.*`, `evo.panels.*`, `evo.side.*`, and `evo.sys.*`. The launcher is `evo.sys.menu`. IPC for `evo.sys.settings`, `evo.sys.themes`, and `evo.sys.wallpaper` is redirected there (`looks`, `themes`, and `wallpapers` views).
 
 | Kind | Examples |
 |------|----------|
 | `service` | `evo.sys.media.audio`, `evo.sys.notifications` |
 | `bar` | `evo.bar` |
-| `menu` | `evo.sys.menu`, `evo.calculator` |
+| `menu` | `evo.sys.menu` |
 | `panel` | `evo.osd` |
 | `dashboard` | `evo.panels.player` |
 

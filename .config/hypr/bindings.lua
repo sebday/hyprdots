@@ -16,25 +16,24 @@ local function bindd(keys, description, dispatcher, flags)
 end
 
 -- Evoshell panels and system
-bindd("SUPER + D", "System menu", hl.dsp.global("evoshell:systemMenu"))
+bindd("SUPER + D", "Launcher", hl.dsp.global("evoshell:systemMenu"))
 bindd(
 	"SUPER + Escape",
-	"Shutdown menu",
-	hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.sys.menu \'{"mode":"power","submenu":"session"}\'')
+	"Power",
+	hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.sys.menu \'{"view":"session"}\'')
 )
-bindd("SUPER + Insert", "Wallpaper switcher", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.sys.wallpaper"))
+bindd("SUPER + Insert", "Wallpaper switcher", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.sys.menu '{\"view\":\"wallpapers\"}'"))
 bindd("SUPER + minus", "Previous wallpaper", hl.dsp.exec_cmd(lib .. "/evo-wallpaper prev"))
 bindd("SUPER + equal", "Next wallpaper", hl.dsp.exec_cmd(lib .. "/evo-wallpaper next"))
 bindd("SUPER + ALT + minus", "Previous theme", hl.dsp.exec_cmd(lib .. "/evo-theme prev"))
 bindd("SUPER + ALT + equal", "Next theme", hl.dsp.exec_cmd(lib .. "/evo-theme next"))
-bindd("SUPER + Home", "Theme picker", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.sys.themes"))
+bindd("SUPER + Home", "Theme picker", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.sys.menu '{\"view\":\"themes\"}'"))
 bindd("SUPER + L", "Lock Screen", hl.dsp.exec_cmd(evo .. " system lock"))
 bindd("SUPER + F5", "Restart evoshell", hl.dsp.exec_cmd(evo .. " system restart"))
-bindd("SUPER + space", "Looks", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.sys.menu '{\"mode\":\"power\",\"tab\":\"looks\"}'"))
+bindd("SUPER + space", "Looks", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.sys.menu '{\"view\":\"looks\"}'"))
 bindd("SUPER + I", "Colour Picker", hl.dsp.exec_cmd("hyprpicker -al"))
-bindd("SUPER + P", "Packages", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.sys.menu '{\"mode\":\"power\",\"tab\":\"packages\"}'"))
-bindd("SUPER + C", "Calculator", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.calculator"))
-bindd("SUPER + V", "Clipboard history", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.side.clipboard"))
+bindd("SUPER + C", "Calculator", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.sys.menu '{\"view\":\"calc\"}'"))
+bindd("SUPER + V", "Clipboard history", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.sys.menu '{\"view\":\"clipboard\"}'"))
 bindd("SUPER + ALT + S", "Shopify", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.shopify"))
 bindd("SUPER + ALT + E", "Evoplayer", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.panels.player"))
 

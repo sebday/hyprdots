@@ -173,13 +173,13 @@ menu_list_shell() {
 
     _menu_list_plugin_detail() {
         case "$1" in
-        evo.sys.menu) echo "Shows or hides the system menu overlay." ;;
-        evo.calculator) echo "Shows or hides the calculator overlay." ;;
+        evo.sys.menu) echo "Shows or hides the launcher." ;;
+        evo.calculator) echo "Opens the calculator in the launcher." ;;
         evo.panels.network.stats) echo "Shows or hides the network status overlay." ;;
         evo.panels.notifications) echo "Shows or hides the notification history overlay." ;;
-        evo.sys.themes) echo "Shows or hides the theme switcher overlay." ;;
-        evo.sys.wallpaper) echo "Shows or hides the wallpaper switcher overlay." ;;
-        evo.side.clipboard) echo "Shows or hides the clipboard history overlay." ;;
+        evo.sys.themes) echo "Opens the theme grid in the launcher." ;;
+        evo.sys.wallpaper) echo "Opens the wallpaper grid in the launcher." ;;
+        evo.side.clipboard) echo "Opens clipboard history in the launcher." ;;
         *) echo "Shows or hides the $1 overlay via shell IPC." ;;
         esac
     }
@@ -219,7 +219,7 @@ menu_list_shell() {
     _menu_list_emit "List plugins" "$ipc shell listPlugins" false \
         "Lists registered evoshell plugin ids available over IPC."
     _menu_list_emit "Toggle system menu" "$ipc shell toggleSystemMenu" "$(_menu_list_used toggleSystemMenu && echo true || echo false)" \
-        "Opens or closes this system menu overlay."
+        "Opens or closes the launcher."
     _menu_list_emit "Summon overlay" "$ipc shell summon <plugin> [json]" false \
         "Shows a plugin overlay without toggling it off if already visible."
     _menu_list_emit "Toggle overlay" "$ipc shell toggle <plugin> [json]" false \
