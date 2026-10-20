@@ -66,44 +66,44 @@ Item {
         return info.gateway ? kind + " · gateway " + info.gateway : kind
     }
 
-    readonly property var networkStatRow1: {
-        if (root.loading) {
-            return [
-                { label: "Link", value: "…" },
-                { label: "Gateway", value: "…" },
-                { label: "Internet", value: "…" }
-            ]
-        }
-        if (!info.iface) {
-            return [
-                { label: "Link", value: "—" },
-                { label: "Gateway", value: "—" },
-                { label: "Internet", value: "—" }
-            ]
-        }
-        return [
-            { label: "Link", value: root.linkSpeedLabel },
-            { label: "Gateway", value: root.formatPing(root.info.router_ping_ms, root.hasPingStats) },
-            { label: "Internet", value: root.formatPing(root.info.internet_ping_ms, root.hasPingStats) }
-        ]
+    readonly property string internetPing: {
+        if (root.loading && !info.iface)
+            return "…"
+        if (!info.iface)
+            return "—"
+        return root.formatPing(root.info.internet_ping_ms, root.hasPingStats)
     }
 
-    readonly property var networkStatRow2: {
+    readonly property var networkStats: {
+        var down = { label: "download", value: root.hasTransferStats ? root.formatRate(root.networkDownloadRate) : "--", color: Theme.ansiFallback("green") }
+        var up = { label: "upload", value: root.hasTransferStats ? root.formatRate(root.networkUploadRate) : "--", color: Theme.urgent }
         if (root.loading) {
             return [
                 { label: "Interface", value: "…" },
-                { label: "IP", value: "…" }
+                { label: "IP", value: "…" },
+                { label: "Link", value: "…" },
+                { label: "Gateway", value: "…" },
+                down,
+                up
             ]
         }
         if (!info.iface) {
             return [
                 { label: "Interface", value: "Offline" },
-                { label: "IP", value: "—" }
+                { label: "IP", value: "—" },
+                { label: "Link", value: "—" },
+                { label: "Gateway", value: "—" },
+                down,
+                up
             ]
         }
         return [
             { label: "Interface", value: String(info.iface) },
-            { label: "IP", value: info.ip ? String(info.ip) : "—" }
+            { label: "IP", value: info.ip ? String(info.ip) : "—" },
+            { label: "Link", value: root.linkSpeedLabel },
+            { label: "Gateway", value: root.formatPing(root.info.router_ping_ms, root.hasPingStats) },
+            down,
+            up
         ]
     }
 
@@ -377,69 +377,30 @@ Item {
                     opacity: 0.92
                 }
             }
+
+            trailingControl: Component {
+                PingBadge {
+                    value: root.internetPing
+                    fillColor: root.internetPing === "Timeout" ? Theme.urgent : Theme.accent
+                }
+            }
         }
 
-        ColumnLayout {
+        GridLayout {
             Layout.fillWidth: true
-            spacing: Theme.hoverPanelSectionSpacing
             visible: !root.loading || !!(root.info && root.info.iface)
+            columns: 3
+            columnSpacing: 8
+            rowSpacing: Theme.hoverPanelSectionSpacing
 
-            GridLayout {
-                Layout.fillWidth: true
-                columns: 3
-                columnSpacing: 8
-
-                Repeater {
-                    model: root.networkStatRow1
-
-                    HoverPanelStatBox {
-                        required property var modelData
-                        required property int index
-                        value: String(modelData.value)
-                        label: modelData.label
-                        valueFontSize: Theme.fontSizeXl
-                        special: index === 2
-                    }
-                }
-            }
-
-            GridLayout {
-                Layout.fillWidth: true
-                columns: 2
-                columnSpacing: 8
-
-                Repeater {
-                    model: root.networkStatRow2
-
-                    HoverPanelStatBox {
-                        required property var modelData
-                        value: String(modelData.value)
-                        label: modelData.label
-                        valueFontSize: Theme.fontSizeXl
-                    }
-                }
-            }
-
-            GridLayout {
-                Layout.fillWidth: true
-                columns: 2
-                columnSpacing: 8
+            Repeater {
+                model: root.networkStats
 
                 HoverPanelStatBox {
-                    value: root.hasTransferStats
-                        ? root.formatRate(root.networkDownloadRate)
-                        : "--"
-                    label: "download"
-                    valueColor: Theme.ansiFallback("green")
-                    valueFontSize: Theme.fontSizeXl
-                }
-
-                HoverPanelStatBox {
-                    value: root.hasTransferStats
-                        ? root.formatRate(root.networkUploadRate)
-                        : "--"
-                    label: "upload"
-                    valueColor: Theme.urgent
+                    required property var modelData
+                    value: String(modelData.value)
+                    label: modelData.label
+                    valueColor: modelData.color || Theme.accent
                     valueFontSize: Theme.fontSizeXl
                 }
             }
@@ -511,6 +472,27 @@ Item {
                     }
                 }
             }
+        }
+    }
+
+    component PingBadge: Rectangle {
+        property string value: ""
+        property color fillColor: Theme.accent
+
+        implicitWidth: pingText.implicitWidth + Theme.spacing.lg * 2
+        implicitHeight: pingText.implicitHeight + Theme.spacing.sm * 2
+        radius: implicitHeight / 2
+        color: Qt.rgba(fillColor.r, fillColor.g, fillColor.b, 0.14)
+
+        Text {
+            id: pingText
+            anchors.centerIn: parent
+            textFormat: Text.PlainText
+            text: parent.value
+            color: parent.fillColor
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.font.displayLarge
+            font.bold: true
         }
     }
 }
