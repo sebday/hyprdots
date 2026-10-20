@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Launch Grok Bot with an evoshell stylesheet injected over a localhost DevTools port.
+set -euo pipefail
+
+PORT="${GROK_THEME_PORT:-9339}"
+BIN_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+SHARE="${BIN_DIR}/../share/grok-bot"
+APP="${GROK_BOT_BIN:-${HOME}/.local/opt/Grok Bot/grok-bot}"
+LOG="${XDG_STATE_HOME:-${HOME}/.local/state}/grok-bot-theme.log"
+INJECT="${SHARE}/inject.mjs"
+
+usage() {
+  cat <<'EOF'
+usage: evo-grok-bot [grok-bot args...]
+       evo-grok-bot retheme
+
+Starts Grok Bot with Chromium remote debugging on 127.0.0.1 and injects
+the evoshell palette. retheme updates a running themed instance and
+does nothing if that debug port is closed.
+EOF
+}
+
+cmd="${1:-}"
+case "$cmd" in
+  -h|--help|help)
+    usage
+    exit 0
+    ;;
+  retheme)
+    exec node "$INJECT" --once --wait=400
+    ;;
+esac
+
+if [[ ! -x "$APP" ]]; then
+  echo "evo-grok-bot: ${APP} not found" >&2
+  exit 1
+fi
+
+setsid "$APP" --ozone-platform=wayland --enable-features=WaylandWindowDecorations,WaylandFractionalScaleV1 \
+  --remote-debugging-port="$PORT" --remote-debugging-address=127.0.0.1 \
+  --remote-allow-origins="http://127.0.0.1:${PORT}" "$@" \
+  >/tmp/grok-bot-themed.out 2>&1 </dev/null &
+
+exec node "$INJECT" >"$LOG" 2>&1

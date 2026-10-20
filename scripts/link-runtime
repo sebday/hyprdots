@@ -123,6 +123,10 @@ migrate_themes_dir() {
 link_core_binaries
 link_path "${LOCAL_BIN}/evo" "${EVOSHELL_ROOT}/bin/evo"
 link_path "${LOCAL_BIN}/clean" "${EVOSHELL_ROOT}/bin/clean"
+link_path "${LOCAL_BIN}/grok-bot-themed" "${EVOSHELL_ROOT}/bin/evo-grok-bot"
+if [[ -x "${HOME}/.local/opt/Grok Bot/grok-bot" ]]; then
+  link_path "${HOME}/.local/share/applications/grok-bot.desktop" "${EVOSHELL_ROOT}/share/grok-bot/grok-bot.desktop"
+fi
 
 # Remove legacy public symlinks.
 rm -f "${LOCAL_BIN}/evoshell"

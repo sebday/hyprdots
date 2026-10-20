@@ -209,6 +209,9 @@ activate_theme() {
     theme_timing_step "activate cursor"
     "$SCRIPT_DIR/evo-theme-cursor" apply
 
+    theme_timing_step "activate grok"
+    "$SCRIPT_DIR/evo-grok-bot" retheme || true
+
     theme_timing_step "activate done"
 }
 
