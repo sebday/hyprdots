@@ -10,21 +10,7 @@ function runCount(counts, id) {
     return parseInt(n, 10) || 0
 }
 
-function markGroups(list) {
-    var last = ""
-    for (var i = 0; i < list.length; i++) {
-        var entry = list[i]
-        if (!entry)
-            continue
-        var group = String(entry.group || "")
-        entry.showGroup = group !== "" && group !== last
-        if (group !== "")
-            last = group
-    }
-    return list
-}
-
-function tag(list, group) {
+function tag(list) {
     var out = []
     for (var i = 0; i < list.length; i++) {
         var src = list[i]
@@ -32,11 +18,10 @@ function tag(list, group) {
             continue
         var copy = {}
         for (var key in src) {
-            if (key === "section")
+            if (key === "section" || key === "group" || key === "showGroup")
                 continue
             copy[key] = src[key]
         }
-        copy.group = group
         out.push(copy)
     }
     return out
@@ -278,8 +263,7 @@ function calculatorEntry(query) {
         icon: "󰪚",
         accessory: q,
         expr: q,
-        result: text,
-        group: "Calculator"
+        result: text
     }
 }
 
@@ -287,21 +271,21 @@ function buildRoot(query, apps, counts, commands, settings, themes, wallpapers) 
     var q = String(query || "").trim()
     var out = []
     if (!q) {
-        out = out.concat(tag(sortByUse(apps || [], counts), "Apps"))
-        out = out.concat(tag(MenuEntries.viewEntries(), "Views"))
-        out = out.concat(tag(commands || [], "Commands"))
-        return markGroups(out)
+        out = out.concat(tag(sortByUse(apps || [], counts)))
+        out = out.concat(tag(MenuEntries.viewEntries()))
+        out = out.concat(tag(commands || []))
+        return out
     }
     var calc = calculatorEntry(q)
     if (calc)
         out.push(calc)
-    out = out.concat(tag(sortByScore(apps || [], q, counts), "Apps"))
-    out = out.concat(tag(sortByScore(commands || [], q, counts), "Commands"))
-    out = out.concat(tag(sortByScore(settingsActions(settings), q, null), "Settings"))
-    out = out.concat(tag(take(sortByScore(themes || [], q, null), 6), "Themes"))
-    out = out.concat(tag(take(sortByScore(wallpapers || [], q, null), 6), "Wallpapers"))
-    out = out.concat(tag(sortByScore(MenuEntries.viewEntries(), q, null), "Views"))
-    return markGroups(out)
+    out = out.concat(tag(sortByScore(apps || [], q, counts)))
+    out = out.concat(tag(sortByScore(commands || [], q, counts)))
+    out = out.concat(tag(sortByScore(settingsActions(settings), q, null)))
+    out = out.concat(tag(take(sortByScore(themes || [], q, null), 6)))
+    out = out.concat(tag(take(sortByScore(wallpapers || [], q, null), 6)))
+    out = out.concat(tag(sortByScore(MenuEntries.viewEntries(), q, null)))
+    return out
 }
 
 function filterEntries(entries, query) {

@@ -4,13 +4,7 @@ function evoBin(home) {
     return String(home || "") + "/.local/bin/evo"
 }
 
-function evoshellLib(home, binOverride) {
-    if (binOverride && String(binOverride).trim() !== "")
-        return String(binOverride).trim()
-    return String(home || "") + "/.local/lib/evoshell/bin"
-}
-
-function commandEntries(home, binOverride, extensionPanels) {
+function commandEntries(home, extensionPanels) {
     var evo = evoBin(home)
     var raw = [
         { name: "Music", icon: "󰎈", keywords: ["music", "player", "mpv"], command: evo + " ipc shell toggle evo.panels.player" },
@@ -55,15 +49,14 @@ function viewEntries() {
     ]
 }
 
-function sessionEntries(home, binOverride) {
-    var all = commandEntries(home, binOverride, [])
+function sessionEntries(home) {
+    var all = commandEntries(home, [])
     var want = { "Lock": true, "Reboot": true, "Shutdown": true }
     var out = []
     for (var i = 0; i < all.length; i++) {
         if (!want[all[i].name])
             continue
         all[i].section = ""
-        all[i].group = ""
         out.push(all[i])
     }
     return out
@@ -166,25 +159,4 @@ function entryMatchScore(entry, query) {
             best = Math.max(best, scoreText(entry.keywords[i], query))
     }
     return best
-}
-
-function matchesQuery(entry, query) {
-    if (!query)
-        return true
-    return entryMatchScore(entry, query) > 0
-}
-
-function bestMatchIndex(list, query) {
-    if (!query || !list || list.length === 0)
-        return 0
-    var bestIdx = 0
-    var bestScore = 0
-    for (var i = 0; i < list.length; i++) {
-        var score = entryMatchScore(list[i], query)
-        if (score > bestScore) {
-            bestScore = score
-            bestIdx = i
-        }
-    }
-    return bestIdx
 }

@@ -333,23 +333,14 @@ Singleton {
     readonly property int hoverPanelWidthWide: 580
     readonly property int overlayPanelWidth: 600
     readonly property int systemPanelWidth: 800
-    readonly property int systemMenuPanelWidth: 480
-    readonly property real menuPanelHeightRatio: 0.5
     readonly property int menuPanelWidthPx: 400
     readonly property int settingsSideTabWidth: 152
     readonly property int settingsSideTabIconWidth: 24
-    readonly property int systemMenuPanelHeight: 600
-
-    function menuPanelHeight(screenHeight) {
-        var h = screenHeight > 0 ? screenHeight : 1080
-        return Math.max(320, Math.round(h * menuPanelHeightRatio))
-    }
 
     function menuPanelWidth(screenWidth) {
         return menuPanelWidthPx
     }
     readonly property int settingsPanelWidth: systemPanelWidth
-    readonly property int systemMenuWidth: systemMenuPanelWidth
     readonly property int launcherWidth: 780
     readonly property int launcherHeight: 520
     readonly property int launcherSearchHeight: 44

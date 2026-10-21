@@ -4,7 +4,6 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import qs.commons
-import "../../pluginManifest.js" as PluginManifest
 import "."
 
 Item {
@@ -21,18 +20,9 @@ Item {
 
     readonly property string hyprScript: Util.evoshellScript(Quickshell.env("HOME"), shell, "evo-hyprland")
     readonly property string barScript: Util.evoshellScript(Quickshell.env("HOME"), shell, "evo-layout")
-    readonly property string fontScript: Util.evoshellScript(Quickshell.env("HOME"), shell, "evo-font")
-    readonly property string configScript: Util.evoshellScript(Quickshell.env("HOME"), shell, "evo-config")
-    readonly property string weatherScript: {
-        var dir = shell && shell.shellDir ? String(shell.shellDir) : String(Quickshell.shellDir)
-        return dir + "/modules/weather/bin/weather-location"
-    }
-    readonly property string fontStatePath: Util.configPath(home, "font.json")
     readonly property string themeNamePath: Quickshell.env("HOME") + "/.themes/current/.theme-name"
     readonly property string themeListScript: Util.evoshellScript(Quickshell.env("HOME"), shell, "evo-menu-list")
     readonly property string home: Quickshell.env("HOME")
-    // Empty until vendor/evoplayer settings exist. A direct type import
-    // fails the whole settings module, which takes the system menu with it.
     readonly property string wallpaperStatePath: Util.statePath(home, "wallpaper")
 
     property var themeEntries: []
@@ -80,48 +70,14 @@ Item {
     property int activeOpacityPercent: 97
     property int inactiveOpacityPercent: 88
     property bool fieldsetRoundingOn: true
-    property string fontFamily: "CaskaydiaMono Nerd Font"
-    property var fontFamilies: []
     property bool hyprReady: false
     property bool uiReady: false
-    property bool fontReady: false
-    property string weatherLocation: ""
-    property string personalWallpaperDir: ""
-    property bool weatherReady: false
-    property bool personalWallpaperReady: false
-    property bool weatherLocationPickerOpen: false
-    property string weatherSearchQuery: ""
-    property var weatherSearchResults: []
-    property bool weatherSearchBusy: false
-    property int weatherLocationPopupX: 0
-    property int weatherLocationPopupY: 0
-    property int weatherLocationPopupWidth: 0
-    property var secretsStatus: ({})
-    property bool secretsReady: false
-    property int idleLockMin: 15
-    property bool idleReady: false
-    property var trayWidgets: ({})
-    property var trayWidgetOrderIds: []
-    property var barChromeWidgets: ({})
-    property var barChromeOrderIds: []
-    property var barWidgetOrderIds: []
-    property bool trayReady: false
-    readonly property bool ready: hyprReady && fontReady
-    readonly property bool fontBusy: fontSetProc.running
-    readonly property bool settingsBusy: fontBusy || hyprToggleProc.running || hyprSetProc.running
+    readonly property bool settingsBusy: hyprToggleProc.running || hyprSetProc.running
         || uiToggleProc.running
-        || weatherSetProc.running
-        || wallpaperPersonalDirSetProc.running || wallpaperPersonalDirPickProc.running
-        || idleSetProc.running
-        || trayToggleProc.running || trayOrderSetProc.running
     readonly property bool active: host && host.opened
         && (host.activeModule === "settings" || host.settingsEmbedded === true)
 
     Keys.onEscapePressed: {
-        if (root.weatherLocationPickerOpen) {
-            root.weatherLocationPickerOpen = false
-            return
-        }
         if (root.focusInTextInput()) {
             root.releaseTextFocus()
             return
@@ -351,14 +307,7 @@ Item {
             root.parseHyprState(text)
             Theme.reloadLooks()
         })
-        runJsonScript(["bash", fontScript, "get"], function(text) { root.parseFontState(text) })
-        runJsonScript(["bash", fontScript, "list"], function(text) { root.parseFontList(text) })
         runJsonScript(["bash", barScript, "ui", "get"], function(text) { root.parseUiState(text) })
-        runJsonScript(["bash", weatherScript, "settings", "get"], function(text) { root.parseWeatherSettings(text) })
-        runJsonScript(["bash", configScript, "wallpaper", "get"], function(text) { root.parseWallpaperConfig(text) })
-        runJsonScript(["bash", configScript, "secrets", "status", "--json"], function(text) { root.parseSecretsStatus(text) })
-        runJsonScript(["bash", configScript, "idle", "get"], function(text) { root.parseIdleState(text) })
-        runJsonScript(["bash", configScript, "tray", "get"], function(text) { root.parseTrayState(text) })
     }
 
     function toggleHypr(key) {
@@ -377,29 +326,6 @@ Item {
     function toggleFieldsetRounding() {
         if (!uiReady || settingsBusy) return
         uiToggleProc.running = true
-    }
-
-    function setFont(key, value) {
-        if (!fontReady || settingsBusy) return
-        fontSetProc.key = key
-        fontSetProc.value = String(value)
-        fontSetProc.running = true
-    }
-
-    function dismissHostForExternalDialog() {
-        if (host && typeof host.dismiss === "function")
-            host.dismiss()
-        else if (shell)
-            shell.hide("evo.sys.menu")
-    }
-
-    function startExternalPicker(pickProc) {
-        if (!pickProc)
-            return
-        dismissHostForExternalDialog()
-        Qt.callLater(function() {
-            pickProc.running = true
-        })
     }
 
     function openThemePicker() {
@@ -527,356 +453,6 @@ Item {
         }
     }
 
-    function parseFontState(raw) {
-        try {
-            var data = JSON.parse(String(raw || "{}"))
-            if (data.family)
-                root.fontFamily = String(data.family)
-            root.fontReady = true
-        } catch (e) {
-            root.fontReady = false
-        }
-    }
-
-    function parseFontList(raw) {
-        try {
-            var data = JSON.parse(String(raw || "{}"))
-            root.fontFamilies = Array.isArray(data.families) ? data.families : []
-        } catch (e) {
-            root.fontFamilies = []
-        }
-    }
-
-    function setWeatherLocation(query) {
-        if (!weatherReady || settingsBusy)
-            return
-        weatherSetProc.query = String(query || "")
-        weatherSetProc.running = true
-    }
-
-    function setPersonalWallpaperDir(path) {
-        if (!personalWallpaperReady || settingsBusy)
-            return
-        var next = String(path || "").trim()
-        if (next === personalWallpaperDir)
-            return
-        wallpaperPersonalDirSetProc.path = next
-        wallpaperPersonalDirSetProc.running = true
-    }
-
-    function pickPersonalWallpaperDir() {
-        if (!personalWallpaperReady || settingsBusy)
-            return
-        startExternalPicker(wallpaperPersonalDirPickProc)
-    }
-
-    function trayWidgetLabel(name) {
-        return PluginManifest.trayWidgetSettingsLabel(name, shell ? shell.pluginOverlay : ({}))
-    }
-
-    function trayWidgetIcon(name) {
-        return PluginManifest.trayWidgetSettingsIcon(name, shell ? shell.pluginOverlay : ({}))
-    }
-
-    function trayWidgetShowSecret(name) {
-        return PluginManifest.trayWidgetHasSecret(name)
-    }
-
-    function isBarChromeWidget(name) {
-        return PluginManifest.isBarChromeWidgetId(name)
-    }
-
-    function barWidgetLabel(name) {
-        if (isBarChromeWidget(name))
-            return PluginManifest.barChromeWidgetSettingsLabel(name)
-        return trayWidgetLabel(name)
-    }
-
-    function barWidgetIcon(name) {
-        if (isBarChromeWidget(name))
-            return PluginManifest.barChromeWidgetSettingsIcon(name)
-        return trayWidgetIcon(name)
-    }
-
-    function barWidgetEnabled(name) {
-        if (isBarChromeWidget(name)) {
-            var chrome = root.barChromeWidgets[name]
-            return !chrome || chrome.enabled !== false
-        }
-        return trayWidgetEnabled(name)
-    }
-
-    function toggleBarWidget(name, enabled) {
-        if (!trayReady || settingsBusy)
-            return
-        trayToggleProc.widget = isBarChromeWidget(name)
-            ? String(name)
-            : PluginManifest.normalizeTrayWidgetId(name)
-        trayToggleProc.enabled = enabled
-        trayToggleProc.running = true
-    }
-
-    function openWeatherLocationPicker() {
-        if (!weatherReady || settingsBusy)
-            return
-        weatherLocationPickerOpen = true
-        weatherSearchQuery = weatherLocation
-        weatherSearchResults = []
-        repositionWeatherLocationPopup()
-        Qt.callLater(function() {
-            repositionWeatherLocationPopup()
-            weatherLocationSearchInput.forceActiveFocus()
-            weatherSearchDebounce.restart()
-        })
-    }
-
-    function repositionWeatherLocationPopup() {
-        if (!weatherLocationPickerOpen || !weatherLocationRow)
-            return
-        var pos = weatherLocationRow.mapToItem(root, 0, weatherLocationRow.height + 4)
-        weatherLocationPopupX = pos.x
-        weatherLocationPopupY = pos.y
-        weatherLocationPopupWidth = weatherLocationRow.width
-    }
-
-    function closeWeatherLocationPicker() {
-        weatherLocationPickerOpen = false
-    }
-
-    function pickWeatherLocation(result) {
-        if (!result)
-            return
-        var query = String(result.query || result.name || "")
-        closeWeatherLocationPicker()
-        setWeatherLocation(query)
-    }
-
-    function queueWeatherSearch() {
-        if (!weatherLocationPickerOpen)
-            return
-        weatherSearchDebounce.restart()
-    }
-
-    function runWeatherSearch() {
-        if (!weatherLocationPickerOpen || settingsBusy)
-            return
-        weatherSearchBusy = true
-        weatherSearchProc.query = String(weatherSearchQuery || "")
-        weatherSearchProc.running = true
-    }
-
-    function parseWeatherSearch(raw) {
-        weatherSearchBusy = false
-        try {
-            var data = JSON.parse(String(raw || "{}"))
-            weatherSearchResults = Array.isArray(data.results) ? data.results : []
-        } catch (e) {
-            weatherSearchResults = []
-        }
-    }
-
-    function setIdleLockMin(lockMin) {
-        if (!idleReady || settingsBusy)
-            return
-        idleSetProc.lockMin = lockMin
-        idleSetProc.running = true
-    }
-
-    function trayWidgetEnabled(name) {
-        var key = PluginManifest.normalizeTrayWidgetId(name)
-        if (key === "volume" || key === "media") {
-            var audio = root.trayWidgets.audio
-            if (audio && audio.enabled === false)
-                return false
-        }
-        var w = root.trayWidgets[key]
-        return !w || w.enabled !== false
-    }
-
-    function moveBarWidget(from, to) {
-        if (settingsBusy || from === to)
-            return
-        if (from < 0 || to < 0 || from >= barWidgetOrderIds.length || to >= barWidgetOrderIds.length)
-            return
-        var next = barWidgetOrderIds.slice()
-        var item = next.splice(from, 1)[0]
-        next.splice(to, 0, item)
-        barWidgetOrderIds = next
-        trayOrderSetProc.orderJson = JSON.stringify(next)
-        trayOrderSetProc.running = true
-    }
-
-    function syncTrayWidgetOrderFallback() {
-        if (trayWidgetOrderIds.length > 0)
-            return
-        if (shell && shell.trayWidgetOrder)
-            trayWidgetOrderIds = shell.trayWidgetOrder.slice()
-    }
-
-    function syncBarChromeOrderFallback() {
-        if (barChromeOrderIds.length > 0)
-            return
-        barChromeOrderIds = PluginManifest.defaultBarChromeWidgetOrder()
-    }
-
-    function syncBarWidgetOrderFallback() {
-        if (barWidgetOrderIds.length > 0)
-            return
-        if (trayWidgetOrderIds.length > 0) {
-            barWidgetOrderIds = trayWidgetOrderIds.slice()
-            return
-        }
-        if (shell && shell.trayWidgetOrder && shell.trayWidgetOrder.length > 0) {
-            barWidgetOrderIds = shell.trayWidgetOrder.slice()
-            return
-        }
-        barWidgetOrderIds = PluginManifest.defaultTrayWidgetOrder(
-            shell ? shell.pluginOverlay : ({}))
-    }
-
-    function toggleTrayWidget(name, enabled) {
-        if (!trayReady || settingsBusy)
-            return
-        trayToggleProc.widget = PluginManifest.normalizeTrayWidgetId(name)
-        trayToggleProc.enabled = enabled
-        trayToggleProc.running = true
-    }
-
-    function parseWeatherSettings(raw) {
-        try {
-            var data = JSON.parse(String(raw || "{}"))
-            root.weatherLocation = data.ok === true ? String(data.name || "") : ""
-            root.weatherReady = true
-        } catch (e) {
-            root.weatherLocation = ""
-            root.weatherReady = false
-        }
-    }
-
-    function parseWallpaperConfig(raw) {
-        try {
-            var data = JSON.parse(String(raw || "{}"))
-            root.personalWallpaperDir = String(data.personalDir || "")
-            root.personalWallpaperReady = true
-        } catch (e) {
-            root.personalWallpaperDir = ""
-            root.personalWallpaperReady = false
-        }
-    }
-
-    function secretEntryDetail(entry) {
-        if (!secretsReady || !entry)
-            return ""
-        return entry.configured ? "Configured" : "Missing"
-    }
-
-    function secretDetail(name) {
-        if (!secretsReady)
-            return ""
-        var data = secretsStatus
-        if (name === "github")
-            return secretEntryDetail(data.github)
-        if (name === "cursor")
-            return secretEntryDetail(data.cursor)
-        if (name === "cloudflare")
-            return secretEntryDetail(data.cloudflare)
-        return ""
-    }
-
-    function parseSecretsStatus(raw) {
-        try {
-            var data = JSON.parse(String(raw || "{}"))
-            root.secretsStatus = data && typeof data === "object" ? data : ({})
-            root.secretsReady = true
-        } catch (e) {
-            root.secretsStatus = ({})
-            root.secretsReady = false
-        }
-    }
-
-    function parseIdleState(raw) {
-        try {
-            var data = JSON.parse(String(raw || "{}"))
-            var lock = parseInt(data.lock, 10)
-            root.idleLockMin = isNaN(lock) ? 15 : Math.max(0, Math.round(lock / 60))
-            root.idleReady = true
-        } catch (e) {
-            root.idleReady = false
-        }
-    }
-
-    function parseTrayState(raw) {
-        try {
-            var data = JSON.parse(String(raw || "{}"))
-            if (!data || typeof data !== "object")
-                throw new Error("invalid tray state")
-            if (Array.isArray(data.order))
-                root.trayWidgetOrderIds = data.order.slice()
-            if (data.barChrome && typeof data.barChrome === "object")
-                root.barChromeWidgets = data.barChrome
-            if (Array.isArray(data.barChromeOrder))
-                root.barChromeOrderIds = data.barChromeOrder.slice()
-            if (Array.isArray(data.barWidgetOrder))
-                root.barWidgetOrderIds = data.barWidgetOrder.slice()
-            else if (Array.isArray(data.order))
-                root.barWidgetOrderIds = data.order.slice()
-            else
-                root.barWidgetOrderIds = []
-            var widgets = data.widgets && typeof data.widgets === "object" ? data.widgets : data
-            var keys = Object.keys(widgets)
-            var looksLikeSingleWidget = keys.length > 0
-                && keys.indexOf("enabled") >= 0
-                && keys.indexOf("weather") < 0
-                && keys.indexOf("github") < 0
-                && keys.indexOf("order") < 0
-            if (looksLikeSingleWidget && trayToggleProc.widget) {
-                if (root.isBarChromeWidget(trayToggleProc.widget)) {
-                    var chromeNext = {}
-                    var chromeKey
-                    for (chromeKey in root.barChromeWidgets)
-                        chromeNext[chromeKey] = root.barChromeWidgets[chromeKey]
-                    chromeNext[trayToggleProc.widget] = widgets
-                    root.barChromeWidgets = chromeNext
-                } else {
-                    var next = {}
-                    var existingKey
-                    for (existingKey in root.trayWidgets)
-                        next[existingKey] = root.trayWidgets[existingKey]
-                    next[trayToggleProc.widget] = widgets
-                    root.trayWidgets = next
-                }
-            } else {
-                root.trayWidgets = widgets
-            }
-            root.syncTrayWidgetOrderFallback()
-            root.syncBarChromeOrderFallback()
-            root.syncBarWidgetOrderFallback()
-            root.trayReady = true
-        } catch (e) {
-            root.trayWidgets = ({})
-            root.trayWidgetOrderIds = []
-            root.barChromeWidgets = ({})
-            root.barChromeOrderIds = []
-            root.barWidgetOrderIds = []
-            root.trayReady = false
-        }
-        if (root.compactLayout)
-            Qt.callLater(root.rebuildSettingsNav)
-    }
-
-    function splitCsv(text) {
-        return String(text || "").split(",").map(function(s) { return s.trim() }).filter(function(s) { return s !== "" })
-    }
-
-    FileView {
-        id: fontStateFile
-        path: root.fontStatePath
-        watchChanges: true
-        printErrors: false
-        onLoaded: root.parseFontState(fontStateFile.text())
-        onFileChanged: reload()
-    }
-
     FileView {
         id: themeNameFile
         path: root.themeNamePath
@@ -937,92 +513,6 @@ Item {
         onExited: Theme.reloadUi()
     }
 
-    Process {
-        id: fontSetProc
-        property string key: ""
-        property string value: ""
-        command: ["bash", root.fontScript, "set", fontSetProc.key, fontSetProc.value]
-        stdout: StdioCollector {
-            onStreamFinished: root.parseFontState(text)
-        }
-    }
-
-    Process {
-        id: weatherSetProc
-        property string query: ""
-        command: ["bash", root.weatherScript, "settings", "set", weatherSetProc.query]
-        stdout: StdioCollector {
-            onStreamFinished: root.parseWeatherSettings(text)
-        }
-    }
-
-    Process {
-        id: wallpaperPersonalDirSetProc
-        property string path: ""
-        command: ["bash", root.configScript, "wallpaper", "set-personal-dir", wallpaperPersonalDirSetProc.path]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                root.parseWallpaperConfig(text)
-                root.runJsonScript([root.themeListScript, "wallpapers"], function(raw) { root.parseWallpaperList(raw) })
-            }
-        }
-    }
-
-    Process {
-        id: wallpaperPersonalDirPickProc
-        command: ["bash", root.configScript, "wallpaper", "pick-personal-dir"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                root.parseWallpaperConfig(text)
-                root.runJsonScript([root.themeListScript, "wallpapers"], function(raw) { root.parseWallpaperList(raw) })
-            }
-        }
-    }
-
-    Process {
-        id: weatherSearchProc
-        property string query: ""
-        command: ["bash", root.weatherScript, "settings", "search", weatherSearchProc.query]
-        stdout: StdioCollector {
-            onStreamFinished: root.parseWeatherSearch(text)
-        }
-    }
-
-    Timer {
-        id: weatherSearchDebounce
-        interval: 300
-        repeat: false
-        onTriggered: root.runWeatherSearch()
-    }
-
-    Process {
-        id: idleSetProc
-        property int lockMin: root.idleLockMin
-        command: ["bash", root.configScript, "idle", "set-fields", String(idleSetProc.lockMin)]
-        stdout: StdioCollector {
-            onStreamFinished: root.parseIdleState(text)
-        }
-    }
-
-    Process {
-        id: trayToggleProc
-        property string widget: ""
-        property bool enabled: true
-        command: ["bash", root.configScript, "tray", "set", trayToggleProc.widget, "enabled", trayToggleProc.enabled ? "on" : "off"]
-        stdout: StdioCollector {
-            onStreamFinished: root.parseTrayState(text)
-        }
-    }
-
-    Process {
-        id: trayOrderSetProc
-        property string orderJson: JSON.stringify(root.barWidgetOrderIds)
-        command: ["bash", root.configScript, "tray", "order", "set", trayOrderSetProc.orderJson]
-        stdout: StdioCollector {
-            onStreamFinished: root.parseTrayState(text)
-        }
-    }
-
     readonly property var looksTabModel: [
         { label: "Looks", icon: "󰒠" }
     ]
@@ -1033,7 +523,6 @@ Item {
             ? host.width
             : Theme.menuPanelWidth(Quickshell.screens.length > 0 ? Quickshell.screens[0].width : 1920))
         : Theme.settingsPanelWidth
-    readonly property int looksTabContentHeight: looksTab.implicitHeight
 
     RowLayout {
         id: settingsLayout
@@ -1058,22 +547,21 @@ Item {
             Layout.fillHeight: true
             spacing: 0
 
-        Flickable {
-            id: looksTabScroll
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            clip: true
-            boundsBehavior: Flickable.StopAtBounds
-            contentWidth: width
-            contentHeight: looksTab.implicitHeight
+            Flickable {
+                id: looksTabScroll
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
+                boundsBehavior: Flickable.StopAtBounds
+                contentWidth: width
+                contentHeight: looksTab.implicitHeight
 
-            LooksTab {
-                id: looksTab
-                width: parent.width
-                module: root
+                LooksTab {
+                    id: looksTab
+                    width: parent.width
+                    module: root
+                }
             }
-        }
-
         }
     }
 }

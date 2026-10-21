@@ -23,7 +23,6 @@ Item {
 
     property var cachedApps: []
     property var appIconMap: ({})
-    property int appIconEpoch: 0
     property var programRunCounts: ({})
     property var themeEntries: []
     property var wallpaperEntries: []
@@ -33,7 +32,6 @@ Item {
     property string currentWallpaperPath: ""
 
     readonly property string home: Quickshell.env("HOME")
-    readonly property string evoshellBin: shell ? shell.evoshellBin : Util.evoshellBinPath(home, null)
     readonly property string hyprScript: Util.evoshellScript(home, shell, "evo-hyprland")
     readonly property string programRunsPath: Util.statePath(home, "menu-program-runs.json")
     readonly property string emojiRecentsPath: Util.statePath(home, "launcher-emoji-recents.json")
@@ -50,11 +48,11 @@ Item {
         roundingOn: embeddedSettings.roundingOn,
         fieldsetRoundingOn: embeddedSettings.fieldsetRoundingOn
     })
-    readonly property var commandList: MenuEntries.commandEntries(home, evoshellBin, extensionPanels)
+    readonly property var commandList: MenuEntries.commandEntries(home, extensionPanels)
     readonly property var rootResults: LauncherSources.buildRoot(
         query, cachedApps, programRunCounts, commandList, settingsState, themeEntries, wallpaperEntries)
     readonly property var sessionResults: LauncherSources.filterEntries(
-        MenuEntries.sessionEntries(home, evoshellBin), query)
+        MenuEntries.sessionEntries(home), query)
     readonly property var themeResults: LauncherSources.filterThemes(themeEntries, query, currentThemeName)
     readonly property var wallpaperResults: LauncherSources.filterWallpapers(
         wallpaperEntries, query, wallpaperFilter, currentThemeName, currentWallpaperPath)
@@ -710,8 +708,7 @@ Item {
                     entryRef: entry,
                     keywords: words,
                     iconName: String(entry.icon || ""),
-                    iconSource: appIconMap[entry.id] || Util.iconSourceForName(String(entry.icon || "")) || "",
-                    section: "Apps"
+                    iconSource: appIconMap[entry.id] || Util.iconSourceForName(String(entry.icon || "")) || ""
                 }
                 var key = item.name.trim().toLowerCase()
                 var existing = indexByName[key]
@@ -759,12 +756,10 @@ Item {
                 id: app.id,
                 entryRef: app.entryRef,
                 keywords: app.keywords,
-                iconSource: (app.id && map[app.id]) ? map[app.id] : (app.iconSource || ""),
-                section: "Apps"
+                iconSource: (app.id && map[app.id]) ? map[app.id] : (app.iconSource || "")
             })
         }
         cachedApps = rebuilt
-        appIconEpoch++
     }
 
     function refreshCatalogs() {
