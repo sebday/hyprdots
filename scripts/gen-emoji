@@ -38,6 +38,14 @@ for line in text.splitlines():
             words.append(word)
     items.append({"c": char, "n": name, "k": words})
 
+by_name = {item["n"].lower(): item for item in items}
+drop = set()
+for item in items:
+    name = item["n"].lower()
+    if name.startswith("black ") and ("white " + name[len("black "):]) in by_name:
+        drop.add(item["c"])
+items = [item for item in items if item["c"] not in drop]
+
 path = pathlib.Path(out)
 path.write_text(json.dumps(items, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 print(f"wrote {len(items)} emoji to {path}")

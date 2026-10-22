@@ -400,8 +400,7 @@ function actionsFor(entry) {
     switch (entry.kind) {
     case "app":
         return [
-            { id: "launch", label: "Open" },
-            { id: "launch-terminal", label: "Open in terminal", key: "t" }
+            { id: "launch", label: "Open" }
         ]
     case "theme":
         return [{ id: "apply", label: "Apply" }]

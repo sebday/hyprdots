@@ -20,51 +20,8 @@ Item {
 
     readonly property string hyprScript: Util.evoshellScript(Quickshell.env("HOME"), shell, "evo-hyprland")
     readonly property string barScript: Util.evoshellScript(Quickshell.env("HOME"), shell, "evo-layout")
-    readonly property string themeNamePath: Quickshell.env("HOME") + "/.themes/current/.theme-name"
-    readonly property string themeListScript: Util.evoshellScript(Quickshell.env("HOME"), shell, "evo-menu-list")
-    readonly property string home: Quickshell.env("HOME")
-    readonly property string wallpaperStatePath: Util.statePath(home, "wallpaper")
-
-    property var themeEntries: []
-    property string currentThemePreview: ""
-    property var wallpaperEntries: []
-    property string currentWallpaperPath: ""
-    property string currentWallpaperPreview: ""
-
-    readonly property string themePreviewSource: {
-        if (currentThemePreview !== "")
-            return currentThemePreview
-        var name = String(currentThemeName || "").trim()
-        if (!name)
-            return ""
-        return home + "/.themes/" + name + "/preview.png"
-    }
-
-    readonly property string themeDisplayName: {
-        var name = String(currentThemeName || "").trim()
-        return name !== "" ? name : "Theme"
-    }
-
-    readonly property string wallpaperPreviewSource: {
-        if (currentWallpaperPreview !== "")
-            return currentWallpaperPreview
-        return String(currentWallpaperPath || "").trim()
-    }
-
-    readonly property string wallpaperDisplayName: {
-        var path = String(currentWallpaperPath || "").trim()
-        if (!path)
-            return "Wallpaper"
-        for (var i = 0; i < wallpaperEntries.length; i++) {
-            if (String(wallpaperEntries[i].command || "").indexOf(path) >= 0)
-                return String(wallpaperEntries[i].name || "")
-        }
-        var parts = path.split("/")
-        return parts.length ? parts[parts.length - 1] : "Wallpaper"
-    }
 
     property bool roundingOn: false
-    property string currentThemeName: ""
     property bool gapsOn: false
     property bool animationsOn: false
     property int activeOpacityPercent: 97
@@ -328,91 +285,7 @@ Item {
         uiToggleProc.running = true
     }
 
-    function openThemePicker() {
-        if (host && typeof host.openView === "function") {
-            host.openView("themes")
-            return
-        }
-        if (shell)
-            shell.toggle("evo.sys.menu", "{\"view\":\"themes\"}")
-    }
-
-    function openWallpaperPicker() {
-        if (host && typeof host.openView === "function") {
-            host.openView("wallpapers")
-            return
-        }
-        if (shell)
-            shell.toggle("evo.sys.menu", "{\"view\":\"wallpapers\"}")
-    }
-
-    function parseThemeList(raw) {
-        var lines = String(raw || "").split("\n")
-        var out = []
-        for (var i = 0; i < lines.length; i++) {
-            var line = lines[i].trim()
-            if (!line)
-                continue
-            var parts = line.split("\t")
-            out.push({
-                name: parts[0] || "",
-                command: parts[1] || "",
-                preview: parts[2] || ""
-            })
-        }
-        themeEntries = out
-        syncThemePreview()
-    }
-
-    function syncThemePreview() {
-        currentThemePreview = ""
-        var name = String(currentThemeName || "").trim()
-        if (!name)
-            return
-        for (var i = 0; i < themeEntries.length; i++) {
-            if (String(themeEntries[i].name) === name) {
-                currentThemePreview = String(themeEntries[i].preview || "")
-                return
-            }
-        }
-    }
-
-    function parseWallpaperList(raw) {
-        var lines = String(raw || "").split("\n")
-        var out = []
-        for (var i = 0; i < lines.length; i++) {
-            var line = lines[i].trim()
-            if (!line)
-                continue
-            var parts = line.split("\t")
-            out.push({
-                name: parts[0] || "",
-                command: parts[1] || "",
-                preview: parts[2] || ""
-            })
-        }
-        wallpaperEntries = out
-        syncWallpaperPreview()
-    }
-
-    function syncWallpaperPreview() {
-        currentWallpaperPreview = ""
-        var path = String(currentWallpaperPath || "").trim()
-        if (!path)
-            return
-        for (var i = 0; i < wallpaperEntries.length; i++) {
-            if (String(wallpaperEntries[i].command || "").indexOf(path) >= 0) {
-                currentWallpaperPreview = String(wallpaperEntries[i].preview || "")
-                return
-            }
-        }
-    }
-
     function onActivated() {
-        themeNameFile.reload()
-        wallpaperStateFile.reload()
-        runJsonScript([themeListScript, "themes"], function(text) { root.parseThemeList(text) })
-        runJsonScript([themeListScript, "wallpapers"], function(text) { root.parseWallpaperList(text) })
         refresh()
         Qt.callLater(function() {
             if (!(host && host.keepSearchFocus))
@@ -420,9 +293,6 @@ Item {
             root.rebuildSettingsNav()
         })
     }
-
-    onCurrentThemeNameChanged: syncThemePreview()
-    onCurrentWallpaperPathChanged: syncWallpaperPreview()
 
     onActiveChanged: {
         if (active && !(host && host.keepSearchFocus))
@@ -451,30 +321,6 @@ Item {
         } catch (e) {
             root.uiReady = false
         }
-    }
-
-    FileView {
-        id: themeNameFile
-        path: root.themeNamePath
-        watchChanges: true
-        printErrors: false
-        onLoaded: {
-            root.currentThemeName = String(themeNameFile.text() || "").trim()
-            root.syncThemePreview()
-        }
-        onFileChanged: reload()
-    }
-
-    FileView {
-        id: wallpaperStateFile
-        path: root.wallpaperStatePath
-        watchChanges: true
-        printErrors: false
-        onLoaded: {
-            root.currentWallpaperPath = String(wallpaperStateFile.text() || "").trim()
-            root.syncWallpaperPreview()
-        }
-        onFileChanged: reload()
     }
 
     Process {

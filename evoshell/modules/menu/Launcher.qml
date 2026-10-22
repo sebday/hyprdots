@@ -57,9 +57,12 @@ Item {
     readonly property var wallpaperResults: LauncherSources.filterWallpapers(
         wallpaperEntries, query, wallpaperFilter, currentThemeName, currentWallpaperPath)
     readonly property var emojiResults: view === "emoji"
-        ? LauncherSources.filterEmoji(emojiAll, query, emojiRecents)
+        ? LauncherSources.filterEmoji(emojiAll, "", emojiRecents)
         : []
+    readonly property bool searching: String(query).trim() !== ""
     readonly property var currentEntries: {
+        if (searching)
+            return rootResults
         if (view === "session")
             return sessionResults
         if (view === "themes")
@@ -81,16 +84,16 @@ Item {
         return list[selectedIndex]
     }
     readonly property var actionItems: {
-        if (view === "calc")
+        if (!searching && view === "calc")
             return [
                 { id: "copy", label: "Copy result" },
                 { id: "clear", label: "Clear history", key: "backspace" }
             ]
-        if (view === "looks")
+        if (!searching && view === "looks")
             return [{ id: "toggle", label: "Toggle" }]
         return LauncherSources.actionsFor(selectedEntry)
     }
-    readonly property bool gridNav: view === "themes" || view === "wallpapers" || view === "emoji"
+    readonly property bool gridNav: !searching && (view === "themes" || view === "wallpapers" || view === "emoji")
     readonly property int gridColumns: {
         if (view === "emoji")
             return emojiGrid.columnCount
@@ -98,80 +101,34 @@ Item {
             return previewGrid.columnCount
         return 1
     }
-    readonly property string viewLabel: {
-        if (view === "themes")
-            return "Themes"
-        if (view === "wallpapers")
-            return "Wallpapers · " + wallpaperFilterLabel
-        if (view === "clipboard")
-            return "Clipboard"
-        if (view === "emoji")
-            return "Emoji"
-        if (view === "looks")
-            return "Looks"
-        if (view === "session")
-            return "Power"
-        if (view === "calc")
-            return "Calculator"
-        return "Launcher"
+    readonly property var sectionPills: [
+        { id: "root", label: "Apps" },
+        { id: "clipboard", label: "Clipboard" },
+        { id: "calc", label: "Calculator" },
+        { id: "emoji", label: "Emoji" },
+        { id: "looks", label: "Looks" },
+        { id: "themes", label: "Themes" },
+        { id: "wallpapers", label: "Wallpapers" },
+        { id: "session", label: "Power" }
+    ]
+    readonly property string sectionLabel: {
+        for (var i = 0; i < sectionPills.length; i++) {
+            if (sectionPills[i].id === view)
+                return sectionPills[i].label
+        }
+        return "Apps"
     }
-    readonly property string legendTitle: {
-        if (view === "themes")
-            return "Themes"
-        if (view === "wallpapers")
-            return "Wallpapers"
-        return viewLabel
-    }
-    readonly property string viewIcon: {
-        if (view === "themes")
-            return "󰸌"
-        if (view === "wallpapers")
-            return "󰏘"
-        if (view === "clipboard")
-            return "󰅍"
-        if (view === "emoji")
-            return "󰞅"
-        if (view === "looks")
-            return "󰒠"
-        if (view === "session")
-            return "󰐥"
-        if (view === "calc")
-            return "󰪚"
-        return "󰍉"
-    }
-    readonly property string footerHint: view === "wallpapers" ? wallpaperFilterLabel : ""
-    readonly property string wallpaperFilterLabel: {
-        if (wallpaperFilter === "all")
-            return "All"
-        if (wallpaperFilter === "personal")
-            return "Personal"
-        return "Current theme"
-    }
-    readonly property string placeholder: {
-        if (view === "themes")
-            return "Search themes…"
-        if (view === "wallpapers")
-            return "Search wallpapers…"
-        if (view === "clipboard")
-            return "Search clipboard…"
-        if (view === "emoji")
-            return "Search emoji…"
-        if (view === "looks")
-            return "Filter looks…"
-        if (view === "session")
-            return "Lock, reboot, or shut down…"
-        if (view === "calc")
-            return "Calculate…"
-        return "Search apps, commands, themes…"
-    }
+    readonly property string placeholder: "Search apps, commands, themes…"
     readonly property string primaryLabel: {
-        if (view === "looks")
+        if (!searching && view === "looks")
             return "Toggle"
-        if (view === "calc")
+        if (!searching && view === "calc")
             return "Copy"
         return LauncherSources.primaryHint(selectedEntry)
     }
-    readonly property bool showEmpty: view !== "looks" && view !== "clipboard" && view !== "calc" && currentEntries.length === 0
+    readonly property bool showEmpty: searching
+        ? rootResults.length === 0
+        : view !== "looks" && view !== "clipboard" && view !== "calc" && currentEntries.length === 0
 
     function parsePayload(payloadJson) {
         var viewName = "root"
@@ -232,6 +189,33 @@ Item {
         Qt.callLater(root.syncBackdrop)
     }
 
+    function selectSection(sectionId) {
+        var next = String(sectionId || "root")
+        if (view === next && query === "")
+            return
+        applyView(next, "")
+        Qt.callLater(function() { searchField.forceActiveFocus() })
+    }
+
+    function cycleSection(direction) {
+        var pills = sectionPills
+        if (!pills || pills.length === 0)
+            return
+        var index = -1
+        for (var i = 0; i < pills.length; i++) {
+            if (pills[i].id === view) {
+                index = i
+                break
+            }
+        }
+        var next = 0
+        if (index < 0)
+            next = direction < 0 ? pills.length - 1 : 0
+        else
+            next = (index + direction + pills.length) % pills.length
+        selectSection(pills[next].id)
+    }
+
     function open(payloadJson) {
         var next = parsePayload(payloadJson)
         opened = true
@@ -288,12 +272,6 @@ Item {
 
     function setQuery(text) {
         var next = String(text || "")
-        if (view === "root" && next.charAt(0) === ":") {
-            view = "emoji"
-            next = next.slice(1)
-            if (searchField.text !== next)
-                searchField.text = next
-        }
         if (query !== next)
             query = next
         selectedIndex = 0
@@ -351,11 +329,11 @@ Item {
         if (!action)
             return
         actionsOpen = false
-        if (view === "calc") {
+        if (!searching && view === "calc") {
             runCalcAction(action.id)
             return
         }
-        if (view === "looks") {
+        if (!searching && view === "looks") {
             embeddedSettings.activateSettingsFocus()
             return
         }
@@ -369,6 +347,10 @@ Item {
             if (count <= 0)
                 return
             actionIndex = (actionIndex + delta + count) % count
+            return
+        }
+        if (searching) {
+            moveSelection(delta)
             return
         }
         if (view === "looks") {
@@ -441,15 +423,6 @@ Item {
         selectedIndex = target
     }
 
-    function cycleWallpaperFilter(direction) {
-        var modes = ["current", "all", "personal"]
-        var idx = modes.indexOf(wallpaperFilter)
-        if (idx < 0)
-            idx = 0
-        wallpaperFilter = modes[(idx + direction + modes.length) % modes.length]
-        selectedIndex = 0
-    }
-
     function applyCalcRecall(text) {
         var next = String(text || "")
         if (searchField.text !== next)
@@ -487,11 +460,11 @@ Item {
             runVisibleAction(actionIndex)
             return
         }
-        if (view === "calc") {
+        if (!searching && view === "calc") {
             submitCalc()
             return
         }
-        if (view === "looks") {
+        if (!searching && view === "looks") {
             embeddedSettings.activateSettingsFocus()
             return
         }
@@ -530,10 +503,7 @@ Item {
         }
         if (entry.kind === "app") {
             recordProgramRun(entry.id)
-            if (action === "launch-terminal")
-                launchInTerminal(entry)
-            else
-                launchDesktopEntry(entry)
+            launchDesktopEntry(entry)
             dismiss()
             return
         }
@@ -595,17 +565,6 @@ Item {
             entryRef.execute()
         else
             Quickshell.execDetached(["gtk-launch", String(entry.id)])
-    }
-
-    function launchInTerminal(entry) {
-        var term = String(Quickshell.env("TERMINAL") || "ghostty")
-        var cmd = ""
-        if (entry.entryRef && entry.entryRef.execString)
-            cmd = String(entry.entryRef.execString).replace(/%[a-zA-Z]/g, " ").replace(/\s+/g, " ").trim()
-        if (!cmd)
-            Quickshell.execDetached([term, "-e", "gtk-launch", String(entry.id)])
-        else
-            Quickshell.execDetached([term, "-e", "bash", "-lc", cmd])
     }
 
     function programRunCount(id) {
@@ -1090,7 +1049,7 @@ Item {
                                     event.accepted = true
                                 }
                                 Keys.onLeftPressed: function(event) {
-                                    if (root.view === "looks" && !embeddedSettings.focusInTextInput()) {
+                                    if (!root.searching && root.view === "looks" && !embeddedSettings.focusInTextInput()) {
                                         embeddedSettings.adjustSettingsNavHorizontal(-1)
                                         event.accepted = true
                                         return
@@ -1103,7 +1062,7 @@ Item {
                                     event.accepted = true
                                 }
                                 Keys.onRightPressed: function(event) {
-                                    if (root.view === "looks" && !embeddedSettings.focusInTextInput()) {
+                                    if (!root.searching && root.view === "looks" && !embeddedSettings.focusInTextInput()) {
                                         embeddedSettings.adjustSettingsNavHorizontal(1)
                                         event.accepted = true
                                         return
@@ -1124,16 +1083,12 @@ Item {
                                     event.accepted = true
                                 }
                                 Keys.onTabPressed: function(event) {
-                                    if (root.view === "wallpapers")
-                                        root.cycleWallpaperFilter(1)
+                                    root.cycleSection(1)
                                     event.accepted = true
-                                    return
                                 }
                                 Keys.onBacktabPressed: function(event) {
-                                    if (root.view === "wallpapers")
-                                        root.cycleWallpaperFilter(-1)
+                                    root.cycleSection(-1)
                                     event.accepted = true
-                                    return
                                 }
                                 Keys.onPressed: function(event) {
                                     if ((event.modifiers & Qt.ControlModifier) && event.key === Qt.Key_K) {
@@ -1160,6 +1115,56 @@ Item {
                     }
                 }
 
+                Row {
+                    id: sectionPillRow
+                    Layout.fillWidth: true
+                    spacing: Theme.spacingS
+
+                    Repeater {
+                        model: root.sectionPills
+
+                        delegate: Item {
+                            id: sectionPill
+                            required property var modelData
+                            required property int index
+                            readonly property bool selected: !root.searching && root.view === String(modelData.id || "")
+                            width: sectionPillBox.implicitWidth
+                            height: sectionPillBox.implicitHeight
+
+                            Rectangle {
+                                id: sectionPillBox
+                                radius: height / 2
+                                color: sectionPill.selected
+                                    ? Theme.accent
+                                    : (sectionPillMouse.containsMouse
+                                        ? Theme.foregroundHoverWash
+                                        : Theme.foregroundWash)
+                                implicitWidth: sectionPillLabel.implicitWidth + 16
+                                implicitHeight: sectionPillLabel.implicitHeight + 8
+
+                                Text {
+                                    id: sectionPillLabel
+                                    anchors.centerIn: parent
+                                    text: sectionPill.modelData ? String(sectionPill.modelData.label || "") : ""
+                                    color: sectionPill.selected ? Theme.mantle : Theme.foreground
+                                    opacity: sectionPill.selected ? 1 : Theme.opacitySecondary
+                                    font.family: Theme.fontFamily
+                                    font.pixelSize: Theme.fontSizeS
+                                    font.bold: Theme.fontBold
+                                }
+                            }
+
+                            MouseArea {
+                                id: sectionPillMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.selectSection(sectionPill.modelData ? sectionPill.modelData.id : "root")
+                            }
+                        }
+                    }
+                }
+
             SectionPanel {
                 id: mainFrame
                 Layout.fillWidth: true
@@ -1173,9 +1178,8 @@ Item {
                 sectionSpacing: Theme.spacingS
 
                 HoverPanelLabelPill {
-                    text: root.legendTitle
-                    icon: root.viewIcon
-                    fontSize: Theme.fontSizeS
+                    text: root.searching ? "" : root.sectionLabel
+                    fontSize: Theme.font.caption
                 }
 
                 Item {
@@ -1186,8 +1190,8 @@ Item {
                     ResultList {
                         id: resultList
                         anchors.fill: parent
-                        visible: root.view === "root" || root.view === "session"
-                        entries: root.view === "session" ? root.sessionResults : root.rootResults
+                        visible: root.searching || root.view === "root" || root.view === "session"
+                        entries: root.searching || root.view === "root" ? root.rootResults : root.sessionResults
                         selectedIndex: root.selectedIndex
                         onIndexMoved: function(index) { root.selectedIndex = index }
                         onActivated: function(entry) { root.runAction(entry, "") }
@@ -1196,7 +1200,7 @@ Item {
                     PreviewGrid {
                         id: previewGrid
                         anchors.fill: parent
-                        visible: root.view === "themes" || root.view === "wallpapers"
+                        visible: !root.searching && (root.view === "themes" || root.view === "wallpapers")
                         entries: root.view === "wallpapers" ? root.wallpaperResults : root.themeResults
                         selectedIndex: root.selectedIndex
                         showDetail: true
@@ -1207,9 +1211,9 @@ Item {
                     ClipboardView {
                         id: clipboardView
                         anchors.fill: parent
-                        visible: root.view === "clipboard"
+                        visible: !root.searching && root.view === "clipboard"
                         shell: root.shell
-                        query: root.view === "clipboard" ? root.query : ""
+                        query: ""
                         selectedIndex: root.selectedIndex
                         onIndexMoved: function(index) { root.selectedIndex = index }
                         onActivated: function(entry) { root.runAction(entry, "copy") }
@@ -1218,7 +1222,7 @@ Item {
                     EmojiGrid {
                         id: emojiGrid
                         anchors.fill: parent
-                        visible: root.view === "emoji"
+                        visible: !root.searching && root.view === "emoji"
                         model: root.emojiResults
                         selectedIndex: root.selectedIndex
                         onIndexMoved: function(index) { root.selectedIndex = index }
@@ -1228,19 +1232,19 @@ Item {
                     CalcView {
                         id: calcView
                         anchors.fill: parent
-                        visible: root.view === "calc"
+                        visible: !root.searching && root.view === "calc"
                         shell: root.shell
-                        expression: root.view === "calc" ? root.query : ""
+                        expression: ""
                         onRecalled: function(text) { root.applyCalcRecall(text) }
                     }
 
                     SettingsModule {
                         id: embeddedSettings
                         anchors.fill: parent
-                        visible: root.view === "looks"
+                        visible: !root.searching && root.view === "looks"
                         showTabBar: false
                         tabIndex: 0
-                        menuFilterText: root.view === "looks" ? root.query : ""
+                        menuFilterText: ""
                         host: settingsHost
                         shell: root.shell
                     }
@@ -1267,42 +1271,6 @@ Item {
                 y: mainFrame.mapToItem(launcherPanel, 0, mainFrame.height).y - height / 2
                 width: mainFrame.width
                 height: hintRow.implicitHeight
-
-                Rectangle {
-                    visible: filterHintRow.visible
-                    x: filterHintRow.x - 4
-                    y: filterHintRow.y - 2
-                    width: filterHintRow.width + 8
-                    height: filterHintRow.height + 4
-                    color: Theme.background
-                }
-
-                Row {
-                    id: filterHintRow
-                    visible: root.footerHint !== ""
-                    anchors.left: parent.left
-                    anchors.leftMargin: 12
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: 4
-
-                    Text {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: "Tab"
-                        color: Theme.accent
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSizeS
-                        font.bold: Theme.fontBold
-                    }
-
-                    Text {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: root.footerHint
-                        color: Theme.foreground
-                        opacity: Theme.opacityMuted
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSizeS
-                    }
-                }
 
                 Rectangle {
                     visible: hintRow.visible
