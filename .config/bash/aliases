@@ -4,7 +4,7 @@ alias ll='eza -al --icons'
 alias lt='eza -alr --sort=mod --tree --level=1 --icons'
 alias df='/usr/bin/df -hT -xtmpfs -xdevtmpfs -xefivarfs'
 alias lock='fusermount3 -u /mnt/secure'
-alias unlock='gocryptfs /mnt/external/.crypt /mnt/secure'
+alias unlock='gocryptfs /mnt/external/.cryptt /mnt/secure'
 
 # Tools
 alias ff='fastfetch'

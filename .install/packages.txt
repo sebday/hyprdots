@@ -2,6 +2,13 @@
 greetd
 mkinitcpio
 
+# Firmware ##################
+linux-firmware-amdgpu
+linux-firmware-intel
+linux-firmware-mediatek
+linux-firmware-other
+linux-firmware-whence
+
 # Hyprland ##################
 hyprland
 xorg-xwayland
@@ -47,7 +54,6 @@ thunar
 thunar-archive-plugin
 thunar-media-tags-plugin
 tumbler
-poppler
 webp-pixbuf-loader
 xarchiver
 7zip
@@ -69,7 +75,6 @@ alsa-utils
 playerctl
 imv
 mpv
-imagemagick
 transmission-cli
 
 # Games ######################
@@ -83,3 +88,7 @@ python
 lazygit
 nano
 obsidian
+
+# Models ####################
+ollama
+ollama-vulkan

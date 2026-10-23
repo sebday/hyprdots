@@ -5,8 +5,8 @@
   },
   "notifications": {
     "durationMs": 3000,
-    "position": "top",
-    "output": "DP-1",
+    "position": "bottom",
+    "output": "HDMI-A-1",
     "align": "center"
   },
   "bar": {
@@ -66,10 +66,10 @@
           "iconOnly": true
         },
         {
-          "id": "evo.monitors"
+          "id": "evo.bluetooth"
         },
         {
-          "id": "evo.bluetooth"
+          "id": "evo.monitors"
         },
         {
           "id": "evo.now-playing"
@@ -115,8 +115,8 @@
     ],
     "notificationPlacements": [
       {
-        "output": "DP-1",
-        "position": "top",
+        "output": "HDMI-A-1",
+        "position": "bottom",
         "align": "center"
       }
     ],
