@@ -8,7 +8,7 @@ This module ships with evoshell. The plugin id is `evo.weather`.
 
 ## Requirements
 
-- `python3`, `curl`, `jq`, `bash`, and ImageMagick (`magick`) on PATH
+- `python3`, `curl`, `jq`, and `bash` on PATH
 
 Location is `$EVOSHELL_STATE/weather/location.json` (`~/.local/state/evoshell/weather/location.json`).
 

@@ -5,12 +5,13 @@ import json
 import os
 import re
 import stat
-import subprocess
+import struct
 import sys
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import zlib
 
 MAPS_URL = "https://api.rainviewer.com/public/weather-maps.json"
 HOST_SUFFIX = ".rainviewer.com"
@@ -206,37 +207,98 @@ def cache_write(dirfd, payload, name=CACHE_NAME, limit=OUT_MAX):
         os.close(fd)
 
 
+def paeth(left, up, up_left):
+    estimate = left + up - up_left
+    dist_left = abs(estimate - left)
+    dist_up = abs(estimate - up)
+    dist_up_left = abs(estimate - up_left)
+    if dist_left <= dist_up and dist_left <= dist_up_left:
+        return left
+    if dist_up <= dist_up_left:
+        return up
+    return up_left
+
+
+def decode_png_rgba(png):
+    if not png.startswith(b"\x89PNG\r\n\x1a\n"):
+        raise ValueError("bad png")
+    offset = 8
+    width = height = None
+    compressed = []
+    while offset + 8 <= len(png):
+        length = struct.unpack(">I", png[offset:offset + 4])[0]
+        kind = png[offset + 4:offset + 8]
+        end = offset + 12 + length
+        if end > len(png):
+            raise ValueError("bad png")
+        chunk = png[offset + 8:offset + 8 + length]
+        offset = end
+        if kind == b"IHDR":
+            if length != 13:
+                raise ValueError("bad png")
+            width, height, bit, color, comp, filt, inter = struct.unpack(">IIBBBBB", chunk)
+            if bit != 8 or color != 6 or comp != 0 or filt != 0 or inter != 0:
+                raise ValueError("bad png")
+            if width < GRID or height < GRID or width > 2048 or height > 2048:
+                raise ValueError("bad png")
+        elif kind == b"IDAT":
+            compressed.append(chunk)
+        elif kind == b"IEND":
+            break
+    if width is None or not compressed:
+        raise ValueError("bad png")
+    try:
+        raw = zlib.decompress(b"".join(compressed))
+    except zlib.error as exc:
+        raise ValueError("bad png") from exc
+    stride = width * 4
+    if len(raw) < (stride + 1) * height:
+        raise ValueError("bad png")
+    out = bytearray(stride * height)
+    prev = bytearray(stride)
+    src = 0
+    for y in range(height):
+        filt = raw[src]
+        src += 1
+        row = bytearray(raw[src:src + stride])
+        src += stride
+        if filt == 1:
+            for x in range(stride):
+                left = row[x - 4] if x >= 4 else 0
+                row[x] = (row[x] + left) & 255
+        elif filt == 2:
+            for x in range(stride):
+                row[x] = (row[x] + prev[x]) & 255
+        elif filt == 3:
+            for x in range(stride):
+                left = row[x - 4] if x >= 4 else 0
+                row[x] = (row[x] + ((left + prev[x]) // 2)) & 255
+        elif filt == 4:
+            for x in range(stride):
+                left = row[x - 4] if x >= 4 else 0
+                up = prev[x]
+                up_left = prev[x - 4] if x >= 4 else 0
+                row[x] = (row[x] + paeth(left, up, up_left)) & 255
+        elif filt != 0:
+            raise ValueError("bad png")
+        out[y * stride:(y + 1) * stride] = row
+        prev = row
+    return width, height, out
+
+
 def downsample(png):
-    proc = subprocess.run(
-        [
-            "/usr/bin/magick",
-            "png:-",
-            "-filter",
-            "Point",
-            "-resize",
-            f"{GRID}x{GRID}!",
-            "-depth",
-            "8",
-            "RGBA:-",
-        ],
-        input=png,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.DEVNULL,
-        timeout=8,
-        check=False,
-    )
-    if proc.returncode != 0:
-        raise ValueError("magick failed")
-    raw = proc.stdout
-    if len(raw) != GRID * GRID * 4:
-        raise ValueError("bad raster")
+    width, height, raw = decode_png_rgba(png)
     cells = []
-    for i in range(0, len(raw), 4):
-        r, g, b, a = raw[i], raw[i + 1], raw[i + 2], raw[i + 3]
-        if a < WEAK_ALPHA:
-            cells.append([0, 0, 0, 0])
-        else:
-            cells.append([int(r), int(g), int(b), int(a)])
+    for gy in range(GRID):
+        sy = min(height - 1, ((gy * 2 + 1) * height) // (GRID * 2))
+        for gx in range(GRID):
+            sx = min(width - 1, ((gx * 2 + 1) * width) // (GRID * 2))
+            i = (sy * width + sx) * 4
+            r, g, b, a = raw[i], raw[i + 1], raw[i + 2], raw[i + 3]
+            if a < WEAK_ALPHA:
+                cells.append([0, 0, 0, 0])
+            else:
+                cells.append([int(r), int(g), int(b), int(a)])
     return cells
 
 
@@ -410,7 +472,7 @@ def build_nowcast_from_tiles(host, maps, lat, lon, started):
         try:
             cells = fetch_frame_cells(host, item, lat, lon, min(8, left))
             frames.append({"time": item["time"], "cells": sparse_cells(cells)})
-        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, ValueError, subprocess.TimeoutExpired, OSError):
+        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, ValueError, OSError):
             continue
     return frames
 
@@ -429,7 +491,7 @@ def build_nowcast_advected(host, maps, lat, lon, started):
                 "time": item["time"],
                 "cells": fetch_frame_cells(host, item, lat, lon, min(8, left)),
             })
-        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, ValueError, subprocess.TimeoutExpired, OSError):
+        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, ValueError, OSError):
             continue
     if not history:
         return []
@@ -506,7 +568,7 @@ def main():
         except OSError:
             pass
         emit(payload)
-    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, ValueError, json.JSONDecodeError, subprocess.TimeoutExpired, OSError):
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, ValueError, json.JSONDecodeError, OSError):
         fail("unavailable")
     finally:
         os.close(dirfd)
