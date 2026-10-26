@@ -141,6 +141,79 @@ function openFindings(data) {
   return out
 }
 
+function copyFields(src) {
+  var out = {}
+  for (var k in src) out[k] = src[k]
+  return out
+}
+
+// Drop one occurrence from the snapshot so the row leaves before the next poll.
+function withoutFinding(data, fingerprint, firstSeen) {
+  if (!data || !data.generatedAt) return data
+  var fp = String(fingerprint || "")
+  var seen = String(firstSeen || "")
+  var rows = Array.isArray(data.findings) ? data.findings : []
+  var findings = []
+  var removed = null
+  for (var i = 0; i < rows.length; i++) {
+    var row = rows[i]
+    if (!removed && row && row.fingerprint === fp && row.firstSeen === seen) removed = row
+    else findings.push(row)
+  }
+  if (!removed) return data
+  var sev = String(removed.severity || "")
+  var counts = copyFields(data.counts || {})
+  if (counts[sev]) counts[sev] = Math.max(0, Number(counts[sev]) - 1)
+  var targets = []
+  var list = Array.isArray(data.targets) ? data.targets : []
+  for (var t = 0; t < list.length; t++) {
+    var target = list[t]
+    if (!target || target.name !== removed.target) {
+      targets.push(target)
+      continue
+    }
+    var copy = copyFields(target)
+    if (sev !== "info") copy.open = Math.max(0, (Number(copy.open) || 0) - 1)
+    if (fp.indexOf(":change:") !== -1) copy.changes = Math.max(0, (Number(copy.changes) || 0) - 1)
+    targets.push(copy)
+  }
+  var apps = data.apps
+  var parts = fp.split(":")
+  if (apps && parts[0] === "cloudflare" && String(parts[1] || "").indexOf("app-") === 0 && parts[2]) {
+    var short = String(parts[2]).replace(/\.day\.technology$/, "")
+    var hosts = []
+    var matched = false
+    var appRows = Array.isArray(apps.hosts) ? apps.hosts : []
+    for (var h = 0; h < appRows.length; h++) {
+      var host = appRows[h]
+      if (!matched && host && host.name === short) {
+        var hostCopy = copyFields(host)
+        hostCopy.open = Math.max(0, (Number(hostCopy.open) || 0) - 1)
+        hosts.push(hostCopy)
+        matched = true
+      } else {
+        hosts.push(host)
+      }
+    }
+    apps = {
+      open: Math.max(0, (Number(apps.open) || 0) - (matched ? 1 : 0)),
+      worst: apps.worst,
+      hosts: hosts
+    }
+  }
+  return {
+    ok: data.ok,
+    error: "",
+    generatedAt: data.generatedAt,
+    reportUrl: data.reportUrl,
+    counts: counts,
+    attacks24h: data.attacks24h,
+    targets: targets,
+    apps: apps,
+    findings: findings
+  }
+}
+
 function findingsFooter(data, shown) {
   var c = data && data.counts ? data.counts : {}
   var parts = []

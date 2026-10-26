@@ -50,8 +50,11 @@ Panel {
   readonly property var changedTargets: Model.changedTargets(data)
   readonly property int changeCount: Model.changeCount(data)
   readonly property string glyphAccept: String.fromCodePoint(0xF012C)
+  readonly property string glyphHide: String.fromCodePoint(0xF0208)
   property bool acceptArmed: false
   property string acceptError: ""
+  property string hideError: ""
+  property var pendingHides: []
 
   function severityColor(sev) {
     switch (String(sev || "")) {
@@ -90,6 +93,24 @@ Panel {
     root.acceptError = ""
     acceptProc.command = ["bash", statusScript, "accept", root.host].concat(root.changedTargets)
     acceptProc.running = true
+  }
+
+  function hideFinding(finding) {
+    var fp = String(finding && finding.fingerprint ? finding.fingerprint : "")
+    var seen = String(finding && finding.firstSeen ? finding.firstSeen : "")
+    if (!fp || !seen) return
+    root.hideError = ""
+    root.data = Model.withoutFinding(root.data, fp, seen)
+    root.pendingHides = root.pendingHides.concat([{ fingerprint: fp, firstSeen: seen }])
+    pumpHides()
+  }
+
+  function pumpHides() {
+    if (hideProc.running || !root.pendingHides.length) return
+    var next = root.pendingHides[0]
+    root.pendingHides = root.pendingHides.slice(1)
+    hideProc.command = ["bash", statusScript, "hide", root.host, next.fingerprint, next.firstSeen]
+    hideProc.running = true
   }
 
   function openReport(target) {
@@ -160,6 +181,30 @@ Panel {
       var raw = String(stdoutBuf || "").trim()
       if (raw) root.applyPayload(raw)
       else root.loading = false
+    }
+  }
+
+  Process {
+    id: hideProc
+    property string stdoutBuf: ""
+    onStarted: stdoutBuf = ""
+    stdout: SplitParser {
+      splitMarker: ""
+      onRead: function(chunk) { hideProc.stdoutBuf += chunk }
+    }
+    onExited: {
+      var res = Model.parsePayload(stdoutBuf)
+      if (!res.ok) {
+        root.hideError = res.error || "Couldn't hide that finding"
+        root.pendingHides = []
+        root.refresh()
+        return
+      }
+      if (root.pendingHides.length) {
+        root.pumpHides()
+        return
+      }
+      root.refresh()
     }
   }
 
@@ -289,7 +334,9 @@ Panel {
             visible: text !== ""
             text: root.acceptError
               ? root.acceptError
-              : (root.data.error ? root.data.error + (root.hasData ? " · showing the last result" : "") : "")
+              : (root.hideError
+                ? root.hideError
+                : (root.data.error ? root.data.error + (root.hasData ? " · showing the last result" : "") : ""))
             color: root.urgent
             font.family: root.fontFamily
             font.pixelSize: Theme.font.bodySmall
@@ -479,7 +526,7 @@ Panel {
     property var finding: null
     readonly property color sevColor: root.severityColor(finding ? finding.severity : "")
 
-    implicitHeight: findingDetails.implicitHeight
+    implicitHeight: Math.max(findingDetails.implicitHeight, hideButton.height)
 
     Rectangle {
       id: sevBar
@@ -493,7 +540,8 @@ Panel {
       id: findingDetails
       anchors.left: sevBar.right
       anchors.leftMargin: Theme.spacing.sm
-      anchors.right: parent.right
+      anchors.right: hideButton.left
+      anchors.rightMargin: Theme.spacing.sm
       spacing: Theme.spacing.labelGap
 
       Text {
@@ -519,10 +567,22 @@ Panel {
 
     MouseArea {
       id: findingMouse
-      anchors.fill: parent
+      anchors.left: parent.left
+      anchors.right: hideButton.left
+      anchors.top: parent.top
+      anchors.bottom: parent.bottom
       hoverEnabled: true
       cursorShape: Qt.PointingHandCursor
       onClicked: root.openReport(findingRow.finding ? findingRow.finding.target : "")
+    }
+
+    HeaderIconButton {
+      id: hideButton
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      icon: root.glyphHide
+      tooltip: "Hide this occurrence. It shows again if it comes back."
+      onClicked: root.hideFinding(findingRow.finding)
     }
   }
 
