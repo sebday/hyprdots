@@ -16,7 +16,8 @@ local function bindd(keys, description, dispatcher, flags)
 end
 
 -- Evoshell panels and system
-bindd("SUPER + D", "Launcher", hl.dsp.global("evoshell:systemMenu"))
+bindd("SUPER + space", "Launcher", hl.dsp.global("evoshell:systemMenu"))
+bindd("SUPER + D", "Dock", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.dock"))
 bindd(
 	"SUPER + Escape",
 	"Power",

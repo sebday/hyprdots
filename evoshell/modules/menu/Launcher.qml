@@ -217,6 +217,8 @@ Item {
     }
 
     function open(payloadJson) {
+        if (shell)
+            shell.hide("evo.dock")
         var next = parsePayload(payloadJson)
         opened = true
         syncMenuSpecial(true)

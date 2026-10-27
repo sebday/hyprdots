@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "evo.dock",
+  "name": "Dock",
+  "version": "1.0.0",
+  "author": "seb",
+  "description": "Pinned apps that slide up from the bottom of the screen",
+  "kinds": [
+    "panel"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "panel": "Dock.qml"
+  }
+}
