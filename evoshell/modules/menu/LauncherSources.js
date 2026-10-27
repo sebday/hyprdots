@@ -267,11 +267,38 @@ function calculatorEntry(query) {
     }
 }
 
-function buildRoot(query, apps, counts, commands, settings, themes, wallpapers) {
+// Flag pinned apps and, without a query, lift them to the top in pin order.
+function withPins(apps, pinnedIds, lift) {
+    var order = {}
+    var ids = pinnedIds || []
+    for (var i = 0; i < ids.length; i++) {
+        if (ids[i] && order[ids[i]] === undefined)
+            order[ids[i]] = i
+    }
+    var pinned = []
+    var rest = []
+    for (var j = 0; j < apps.length; j++) {
+        var copy = {}
+        for (var key in apps[j])
+            copy[key] = apps[j][key]
+        var id = String(copy.id || "").replace(/\.desktop$/i, "")
+        copy.pinned = order[id] !== undefined
+        copy.pinOrder = copy.pinned ? order[id] : -1
+        if (copy.pinned && lift) {
+            pinned.push(copy)
+            continue
+        }
+        rest.push(copy)
+    }
+    pinned.sort(function(a, b) { return a.pinOrder - b.pinOrder })
+    return pinned.concat(rest)
+}
+
+function buildRoot(query, apps, counts, commands, settings, themes, wallpapers, pinnedIds) {
     var q = String(query || "").trim()
     var out = []
     if (!q) {
-        out = out.concat(tag(sortByUse(apps || [], counts)))
+        out = out.concat(tag(withPins(sortByUse(apps || [], counts), pinnedIds, true)))
         out = out.concat(tag(MenuEntries.viewEntries()))
         out = out.concat(tag(commands || []))
         return out
@@ -279,7 +306,7 @@ function buildRoot(query, apps, counts, commands, settings, themes, wallpapers) 
     var calc = calculatorEntry(q)
     if (calc)
         out.push(calc)
-    out = out.concat(tag(sortByScore(apps || [], q, counts)))
+    out = out.concat(tag(withPins(sortByScore(apps || [], q, counts), pinnedIds, false)))
     out = out.concat(tag(sortByScore(commands || [], q, counts)))
     out = out.concat(tag(sortByScore(settingsActions(settings), q, null)))
     out = out.concat(tag(take(sortByScore(themes || [], q, null), 6)))
@@ -400,7 +427,8 @@ function actionsFor(entry) {
     switch (entry.kind) {
     case "app":
         return [
-            { id: "launch", label: "Open" }
+            { id: "launch", label: "Open" },
+            { id: "pin", label: entry.pinned ? "Unpin" : "Pin", key: "p", alt: true }
         ]
     case "theme":
         return [{ id: "apply", label: "Apply" }]
@@ -409,7 +437,7 @@ function actionsFor(entry) {
     case "clipboard":
         return [
             { id: "copy", label: "Copy" },
-            { id: "pin", label: entry.pinned ? "Unpin" : "Pin", key: "p" },
+            { id: "pin", label: entry.pinned ? "Unpin" : "Pin", key: "p", alt: true },
             { id: "delete", label: "Delete", key: "backspace" }
         ]
     case "emoji":

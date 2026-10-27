@@ -98,6 +98,16 @@ hl.window_rule({
 	opacity = "1 override 1 override",
 })
 
+-- Title is set by evoshell/modules/calculator/Calculator.qml. center applies
+-- once, on map, so the window can still be dragged.
+hl.window_rule({
+	name = "evo-calculator",
+	match = { title = "^Calculator$" },
+	float = true,
+	center = true,
+	size = { 300, 275 },
+})
+
 hl.window_rule({
 	name = "dashboard-no-initial-focus",
 	match = {

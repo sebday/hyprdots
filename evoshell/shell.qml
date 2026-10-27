@@ -555,10 +555,6 @@ ShellRoot {
             pluginId = "evo.sys.menu"
             if (!payload)
                 payload = "{\"view\":\"wallpapers\"}"
-        } else if (pluginId === "evo.calculator") {
-            pluginId = "evo.sys.menu"
-            if (!payload)
-                payload = "{\"view\":\"calc\"}"
         } else if (pluginId === "evo.side.clipboard") {
             pluginId = "evo.sys.menu"
             if (!payload)

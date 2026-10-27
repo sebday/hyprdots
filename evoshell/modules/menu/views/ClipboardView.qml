@@ -92,7 +92,7 @@ Item {
                 image: image,
                 pinned: pinned,
                 icon: pinned ? "󰐃" : (image ? "󰋩" : "󰅍"),
-                accessory: pinned ? "Pinned" : "",
+                accessory: "",
                 section: ""
             })
         }
@@ -285,7 +285,7 @@ Item {
             Text {
                 anchors.centerIn: parent
                 visible: !root.selectedEntry
-                text: "Clipboard is empty"
+                text: String(root.query || "").trim() === "" ? "Clipboard is empty" : "No matches"
                 color: Theme.foreground
                 opacity: Theme.opacityMuted
                 font.family: Theme.fontFamily

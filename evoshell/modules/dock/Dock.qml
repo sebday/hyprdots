@@ -1,7 +1,6 @@
 import QtQuick
 import Quickshell
 import Quickshell.Hyprland
-import Quickshell.Io
 import Quickshell.Wayland
 import qs.commons
 import qs.ui
@@ -15,91 +14,90 @@ Item {
 
   property var shell: null
   property bool opened: false
-  property var pins: []
-  property var entries: []
   property int selectedIndex: 0
   property var hostScreen: null
   property bool focusPrimed: false
   // 1 is parked below the screen, 0 is the resting dock.
   property real slide: 1
 
-  readonly property int iconSize: Theme.space(72)
-  readonly property int cellWidth: Theme.space(104)
+  readonly property int iconSize: Theme.space(48)
+  readonly property int cellWidth: Theme.space(84)
   readonly property int cellHeight: iconSize + Theme.space(6) + Theme.fontSizeS + Theme.space(8)
   readonly property int barPad: Theme.space(12)
   // Hyprland general:border_size. Drawn on the top and sides only.
   readonly property int windowBorder: 2
   readonly property int slideDistance: Theme.space(220)
-  readonly property string pinsPath: {
-    var dir = shell && shell.shellDir ? String(shell.shellDir) : String(Quickshell.shellDir)
-    return dir + "/modules/dock/pins.json"
+  readonly property int cellSpacing: Theme.space(8)
+  readonly property real dragThreshold: Theme.space(4)
+
+  // Index into `entries` of the icon being dragged, -1 when idle.
+  property int dragIndex: -1
+  property int dropIndex: -1
+  property bool dropAfter: false
+  property real dragX: 0
+  property real dragY: 0
+
+  readonly property var entries: {
+    var ids = DockPins.resolvedIds
+    var next = []
+    for (var i = 0; i < ids.length; i++) {
+      if (!ids[i])
+        continue
+      var entry = DockPins.lookupEntry(ids[i])
+      if (!entry)
+        continue
+      next.push({
+        id: String(entry.id || ids[i]),
+        name: String(entry.name || ids[i]),
+        iconSource: Util.iconSourceForName(String(entry.icon || "")) || "",
+        pinIndex: i
+      })
+    }
+    return next
   }
 
   Behavior on slide {
     NumberAnimation { duration: Theme.duration(180); easing.type: Easing.OutCubic }
   }
 
-  function pinKey(id) {
-    var key = String(id || "").trim()
-    if (key.toLowerCase().endsWith(".desktop"))
-      key = key.slice(0, -8)
-    return key
+  onEntriesChanged: {
+    if (selectedIndex < 0 || selectedIndex >= entries.length)
+      selectedIndex = 0
   }
 
-  function lookupEntry(pin) {
-    var key = pinKey(pin)
-    if (!key)
-      return null
-    var direct = DesktopEntries.byId(key)
-    if (direct)
-      return direct
-    var withSuffix = DesktopEntries.byId(key + ".desktop")
-    if (withSuffix)
-      return withSuffix
-    var guessed = DesktopEntries.heuristicLookup(key)
-    if (guessed)
-      return guessed
-    var values = DesktopEntries.applications.values || []
-    var want = key.toLowerCase()
-    for (var i = 0; i < values.length; i++) {
-      var entry = values[i]
-      if (entry && pinKey(entry.id).toLowerCase() === want)
-        return entry
-    }
-    return null
-  }
-
-  function applyPins(raw) {
-    var next = []
-    try {
-      var data = JSON.parse(String(raw || "").trim() || "[]")
-      if (Array.isArray(data))
-        next = data
-    } catch (e) {
-      next = []
-    }
-    pins = next
-    if (opened)
-      rebuildEntries()
-  }
-
-  function rebuildEntries() {
-    var next = []
-    for (var i = 0; i < pins.length; i++) {
-      var entry = lookupEntry(pins[i])
-      if (!entry)
-        continue
-      next.push({
-        id: String(entry.id || pins[i]),
-        name: String(entry.name || pins[i]),
-        iconSource: Util.iconSourceForName(String(entry.icon || "")) || ""
-      })
-    }
-    entries = next
+  // Slot under a point in iconRow coordinates. Cells share one width, so the
+  // slot falls out of the x position.
+  function dropAt(rowX) {
     if (entries.length === 0)
-      selectedIndex = 0
-    else if (selectedIndex < 0 || selectedIndex >= entries.length)
-      selectedIndex = 0
+      return null
+    var stride = cellWidth + cellSpacing
+    var slot = Math.floor(rowX / stride)
+    slot = Math.max(0, Math.min(entries.length - 1, slot))
+    var within = rowX - slot * stride
+    return { index: slot, after: within > cellWidth / 2 }
+  }
+
+  function clearDrag() {
+    dragIndex = -1
+    dropIndex = -1
+    dropAfter = false
+  }
+
+  function finishDrag() {
+    var from = dragIndex
+    var target = dropIndex
+    var after = dropAfter
+    clearDrag()
+    if (from < 0 || target < 0 || from >= entries.length || target >= entries.length)
+      return
+    var movedId = entries[from].id
+    DockPins.movePin(entries[from].pinIndex, entries[target].pinIndex, after)
+    for (var i = 0; i < entries.length; i++) {
+      if (entries[i].id === movedId) {
+        selectedIndex = i
+        break
+      }
+    }
   }
 
   function focusedScreen() {
@@ -121,9 +119,10 @@ Item {
   }
 
   function open(payloadJson) {
-    if (shell)
+    if (shell) {
       shell.hide("evo.sys.menu")
-    rebuildEntries()
+      shell.hide("evo.power")
+    }
     hostScreen = focusedScreen()
     var wasOpen = opened
     opened = true
@@ -142,6 +141,7 @@ Item {
       return
     opened = false
     slide = 1
+    clearDrag()
     focusPrimeTimer.stop()
     focusPrimed = false
   }
@@ -168,7 +168,7 @@ Item {
     if (index < 0 || index >= entries.length)
       return
     var item = entries[index]
-    var entry = lookupEntry(item.id)
+    var entry = DockPins.lookupEntry(item.id)
     if (entry && entry.runInTerminal)
       Quickshell.execDetached(["gtk-launch", String(entry.id)])
     else if (entry && typeof entry.execute === "function")
@@ -186,23 +186,6 @@ Item {
     id: focusPrimeTimer
     interval: 75
     onTriggered: if (root.opened) root.focusPrimed = true
-  }
-
-  FileView {
-    id: pinsFile
-    path: root.pinsPath
-    watchChanges: true
-    printErrors: false
-    onLoaded: root.applyPins(text())
-    onLoadFailed: root.applyPins("[]")
-  }
-
-  Connections {
-    target: DesktopEntries
-    function onApplicationsChanged() {
-      if (root.opened)
-        root.rebuildEntries()
-    }
   }
 
   Variants {
@@ -291,7 +274,7 @@ Item {
           id: iconRow
           x: root.barPad
           y: root.barPad
-          spacing: Theme.space(8)
+          spacing: root.cellSpacing
 
           Repeater {
             model: root.entries
@@ -300,24 +283,94 @@ Item {
               id: cell
               required property var modelData
               required property int index
+              readonly property bool dragSource: root.dragIndex === index
 
               implicitWidth: root.cellWidth
               implicitHeight: root.cellHeight
               radius: Theme.cornerRadius
-              color: index === root.selectedIndex || iconMouse.containsMouse
+              color: root.dragIndex < 0 && (index === root.selectedIndex || iconMouse.containsMouse)
                 ? Theme.panelMantle
                 : "transparent"
 
+              Rectangle {
+                visible: root.dropIndex === cell.index && root.dragIndex >= 0
+                width: 2
+                height: parent.height
+                x: root.dropAfter
+                  ? parent.width + root.cellSpacing / 2 - width / 2
+                  : -root.cellSpacing / 2 - width / 2
+                color: Theme.accent
+                z: 3
+              }
+
               MouseArea {
                 id: iconMouse
+
+                property bool dragging: false
+                property bool suppressClick: false
+                property real pressedX: 0
+                property real pressedY: 0
+
                 anchors.fill: parent
                 hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onEntered: root.selectedIndex = index
-                onClicked: root.launchIndex(index)
+                preventStealing: true
+                cursorShape: dragging ? Qt.SizeHorCursor : Qt.PointingHandCursor
+                onEntered: if (root.dragIndex < 0) root.selectedIndex = index
+
+                onPressed: function(mouse) {
+                  dragging = false
+                  suppressClick = false
+                  pressedX = mouse.x
+                  pressedY = mouse.y
+                  root.clearDrag()
+                }
+
+                onPositionChanged: function(mouse) {
+                  if (!(mouse.buttons & Qt.LeftButton) || root.entries.length < 2)
+                    return
+                  var distance = Math.abs(mouse.x - pressedX) + Math.abs(mouse.y - pressedY)
+                  if (distance >= root.dragThreshold && !dragging) {
+                    dragging = true
+                    suppressClick = true
+                    root.dragIndex = index
+                  }
+                  if (!dragging)
+                    return
+                  var scenePoint = cell.mapToItem(null, mouse.x, mouse.y)
+                  root.dragX = scenePoint.x
+                  root.dragY = scenePoint.y
+                  var rowPoint = cell.mapToItem(iconRow, mouse.x, mouse.y)
+                  var drop = root.dropAt(rowPoint.x)
+                  root.dropIndex = drop ? drop.index : -1
+                  root.dropAfter = drop ? drop.after : false
+                }
+
+                onReleased: function(mouse) {
+                  var wasDragging = dragging
+                  dragging = false
+                  if (wasDragging)
+                    root.finishDrag()
+                  else
+                    root.clearDrag()
+                }
+
+                onCanceled: {
+                  dragging = false
+                  suppressClick = false
+                  root.clearDrag()
+                }
+
+                onClicked: {
+                  if (suppressClick) {
+                    suppressClick = false
+                    return
+                  }
+                  root.launchIndex(index)
+                }
               }
 
               Column {
+                opacity: cell.dragSource ? 0.22 : 1
                 anchors.centerIn: parent
                 spacing: Theme.space(6)
                 width: root.cellWidth - Theme.space(8)
@@ -348,7 +401,7 @@ Item {
                     }
                     color: Theme.accent
                     font.family: Theme.fontFamily
-                    font.pixelSize: Theme.space(28)
+                    font.pixelSize: Theme.space(20)
                     font.bold: Theme.fontBold
                   }
                 }
@@ -369,6 +422,23 @@ Item {
             }
           }
         }
+      }
+
+      Image {
+        readonly property var dragged: root.dragIndex >= 0 && root.dragIndex < root.entries.length
+          ? root.entries[root.dragIndex]
+          : null
+        z: 2
+        visible: dragged !== null && panel.showHere && source !== ""
+        x: Math.round(root.dragX - width / 2)
+        y: Math.round(root.dragY - height / 2)
+        width: root.iconSize
+        height: root.iconSize
+        source: dragged ? Util.normalizeIconSource(dragged.iconSource) : ""
+        fillMode: Image.PreserveAspectFit
+        sourceSize: Qt.size(root.iconSize * 2, root.iconSize * 2)
+        smooth: true
+        opacity: 0.9
       }
 
       PanelKeyCatcher {

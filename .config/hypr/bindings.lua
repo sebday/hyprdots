@@ -18,11 +18,7 @@ end
 -- Evoshell panels and system
 bindd("SUPER + space", "Launcher", hl.dsp.global("evoshell:systemMenu"))
 bindd("SUPER + D", "Dock", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.dock"))
-bindd(
-	"SUPER + Escape",
-	"Power",
-	hl.dsp.exec_cmd(shell_ipc .. ' shell toggle evo.sys.menu \'{"view":"session"}\'')
-)
+bindd("SUPER + Escape", "Power", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.power"))
 bindd("SUPER + Insert", "Wallpaper switcher", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.sys.menu '{\"view\":\"wallpapers\"}'"))
 bindd("SUPER + minus", "Previous wallpaper", hl.dsp.exec_cmd(lib .. "/evo-wallpaper prev"))
 bindd("SUPER + equal", "Next wallpaper", hl.dsp.exec_cmd(lib .. "/evo-wallpaper next"))
@@ -33,7 +29,7 @@ bindd("SUPER + L", "Lock Screen", hl.dsp.exec_cmd(evo .. " system lock"))
 bindd("SUPER + F5", "Restart evoshell", hl.dsp.exec_cmd(evo .. " system restart"))
 bindd("SUPER + Prior", "Looks", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.sys.menu '{\"view\":\"looks\"}'"))
 bindd("SUPER + I", "Colour Picker", hl.dsp.exec_cmd("hyprpicker -al"))
-bindd("SUPER + C", "Calculator", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.sys.menu '{\"view\":\"calc\"}'"))
+bindd("SUPER + C", "Calculator", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.calculator"))
 bindd("SUPER + V", "Clipboard history", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.sys.menu '{\"view\":\"clipboard\"}'"))
 bindd("SUPER + ALT + S", "Shopify", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.shopify"))
 bindd("SUPER + ALT + E", "Evoplayer", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.panels.player"))

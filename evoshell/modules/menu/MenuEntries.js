@@ -8,6 +8,7 @@ function commandEntries(home, extensionPanels) {
     var evo = evoBin(home)
     var raw = [
         { name: "Music", icon: "󰎈", keywords: ["music", "player", "mpv"], command: evo + " ipc shell toggle evo.panels.player" },
+        { name: "Calculator", icon: "󰪚", keywords: ["calc", "calculator", "math"], command: evo + " ipc shell toggle evo.calculator" },
         { name: "Screenshot", icon: "󰆴", keywords: ["screenshot", "capture", "omasnap"], command: "omasnap" },
         { name: "Lock", icon: "󰌾", keywords: ["lock", "screen"], command: evo + " system lock" },
         { name: "Restart shell", icon: "󰑐", keywords: ["evo", "shell", "bar", "quickshell", "refresh", "restart"], command: evo + " system restart" },
@@ -39,27 +40,12 @@ function commandEntries(home, extensionPanels) {
 
 function viewEntries() {
     return [
-        { kind: "view", name: "Calculator", icon: "󰪚", keywords: ["calc", "calculator", "math"], view: "calc", section: "Views" },
         { kind: "view", name: "Themes", icon: "󰸌", keywords: ["theme", "themes", "colours", "colors", "gtk", "appearance"], view: "themes", section: "Views" },
         { kind: "view", name: "Wallpapers", icon: "󰏘", keywords: ["wallpaper", "wallpapers", "background"], view: "wallpapers", section: "Views" },
         { kind: "view", name: "Clipboard", icon: "󰅍", keywords: ["clipboard", "copy", "paste", "history", "clip"], view: "clipboard", section: "Views" },
         { kind: "view", name: "Emoji", icon: "󰞅", keywords: ["emoji", "emoticon", "glyph", "smiley"], view: "emoji", section: "Views" },
-        { kind: "view", name: "Looks", icon: "󰒠", keywords: ["looks", "settings", "appearance", "gaps", "opacity"], view: "looks", section: "Views" },
-        { kind: "view", name: "Power", icon: "󰐥", keywords: ["power", "session", "shutdown", "reboot", "lock"], view: "session", section: "Views" }
+        { kind: "view", name: "Looks", icon: "󰒠", keywords: ["looks", "settings", "appearance", "gaps", "opacity"], view: "looks", section: "Views" }
     ]
-}
-
-function sessionEntries(home) {
-    var all = commandEntries(home, [])
-    var want = { "Lock": true, "Reboot": true, "Shutdown": true }
-    var out = []
-    for (var i = 0; i < all.length; i++) {
-        if (!want[all[i].name])
-            continue
-        all[i].section = ""
-        out.push(all[i])
-    }
-    return out
 }
 
 function mapEntry(entry) {

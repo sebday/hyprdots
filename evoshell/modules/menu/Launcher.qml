@@ -51,16 +51,17 @@ Item {
     })
     readonly property var commandList: MenuEntries.commandEntries(home, extensionPanels)
     readonly property var rootResults: LauncherSources.buildRoot(
-        query, cachedApps, programRunCounts, commandList, settingsState, themeEntries, wallpaperEntries)
-    readonly property var sessionResults: LauncherSources.filterEntries(
-        MenuEntries.sessionEntries(home), query)
+        query, cachedApps, programRunCounts, commandList, settingsState, themeEntries, wallpaperEntries,
+        DockPins.resolvedIds)
     readonly property var themeResults: LauncherSources.filterThemes(themeEntries, query, currentThemeName)
     readonly property var wallpaperResults: LauncherSources.filterWallpapers(
         wallpaperEntries, query, wallpaperFilter, currentThemeName, currentWallpaperPath)
     readonly property var emojiResults: view === "emoji"
-        ? LauncherSources.filterEmoji(emojiAll, "", emojiRecents)
+        ? LauncherSources.filterEmoji(emojiAll, query, emojiRecents)
         : []
-    readonly property bool searching: String(query).trim() !== ""
+    // Only the Apps tab searches the whole launcher. Every other tab filters
+    // its own list, so typing in Clipboard never leaves Clipboard.
+    readonly property bool searching: view === "root" && String(query).trim() !== ""
     readonly property string themeColorsPath: {
         if (view !== "themes" || searching || !selectedEntry || selectedEntry.kind !== "theme")
             return ""
@@ -72,8 +73,6 @@ Item {
     readonly property var currentEntries: {
         if (searching)
             return rootResults
-        if (view === "session")
-            return sessionResults
         if (view === "themes")
             return themeResults
         if (view === "wallpapers")
@@ -93,11 +92,6 @@ Item {
         return list[selectedIndex]
     }
     readonly property var actionItems: {
-        if (!searching && view === "calc")
-            return [
-                { id: "copy", label: "Copy result" },
-                { id: "clear", label: "Clear history", key: "backspace" }
-            ]
         if (!searching && view === "looks")
             return [{ id: "toggle", label: "Toggle" }]
         return LauncherSources.actionsFor(selectedEntry)
@@ -113,12 +107,10 @@ Item {
     readonly property var sectionPills: [
         { id: "root", label: "Apps" },
         { id: "clipboard", label: "Clipboard" },
-        { id: "calc", label: "Calculator" },
         { id: "emoji", label: "Emoji" },
         { id: "looks", label: "Looks" },
         { id: "themes", label: "Themes" },
-        { id: "wallpapers", label: "Wallpapers" },
-        { id: "session", label: "Power" }
+        { id: "wallpapers", label: "Wallpapers" }
     ]
     readonly property string sectionLabel: {
         for (var i = 0; i < sectionPills.length; i++) {
@@ -127,17 +119,33 @@ Item {
         }
         return "Apps"
     }
-    readonly property string placeholder: "Search apps, commands, themes…"
+    readonly property string placeholder: {
+        if (view === "clipboard")
+            return "Search clipboard…"
+        if (view === "emoji")
+            return "Search emoji…"
+        if (view === "looks")
+            return "Search looks…"
+        if (view === "themes")
+            return "Search themes…"
+        if (view === "wallpapers")
+            return "Search wallpapers…"
+        return "Search apps…"
+    }
     readonly property string primaryLabel: {
         if (!searching && view === "looks")
             return "Toggle"
-        if (!searching && view === "calc")
-            return "Copy"
         return LauncherSources.primaryHint(selectedEntry)
     }
-    readonly property bool showEmpty: searching
-        ? rootResults.length === 0
-        : view !== "looks" && view !== "clipboard" && view !== "calc" && currentEntries.length === 0
+    readonly property bool showEmpty: {
+        if (view === "clipboard")
+            return false
+        if (view === "looks")
+            return String(query).trim() !== "" && embeddedSettings.settingsNavItems.length === 0
+        if (searching)
+            return rootResults.length === 0
+        return currentEntries.length === 0
+    }
 
     function parsePayload(payloadJson) {
         var viewName = "root"
@@ -146,8 +154,6 @@ Item {
             var payload = JSON.parse(payloadJson || "{}")
             if (payload.view)
                 viewName = String(payload.view)
-            else if (String(payload.submenu || "") === "session")
-                viewName = "session"
             else if (String(payload.submenu || "") === "themes")
                 viewName = "themes"
             else if (String(payload.submenu || "") === "wallpaper" || String(payload.submenu || "") === "wallpapers")
@@ -170,9 +176,7 @@ Item {
             wallpapers: true,
             clipboard: true,
             emoji: true,
-            looks: true,
-            session: true,
-            calc: true
+            looks: true
         }
         if (!allowed[viewName])
             viewName = "root"
@@ -223,8 +227,6 @@ Item {
             })
         } else if (nextView === "clipboard") {
             clipboardView.refresh()
-        } else if (nextView === "calc") {
-            calcView.refresh()
         }
         Qt.callLater(root.syncBackdrop)
     }
@@ -257,8 +259,10 @@ Item {
     }
 
     function open(payloadJson) {
-        if (shell)
+        if (shell) {
             shell.hide("evo.dock")
+            shell.hide("evo.power")
+        }
         var next = parsePayload(payloadJson)
         opened = true
         syncMenuSpecial(true)
@@ -359,7 +363,7 @@ Item {
             if (key === "backspace" && event.key === Qt.Key_Backspace)
                 return empty ? i : -1
             if (key.length === 1 && !shift && event.text && String(event.text).toLowerCase() === key) {
-                if (empty || alt)
+                if (alt || (empty && !items[i].alt))
                     return i
             }
         }
@@ -371,10 +375,6 @@ Item {
         if (!action)
             return
         actionsOpen = false
-        if (!searching && view === "calc") {
-            runCalcAction(action.id)
-            return
-        }
         if (!searching && view === "looks") {
             embeddedSettings.activateSettingsFocus()
             return
@@ -399,10 +399,6 @@ Item {
             if (embeddedSettings.focusInTextInput())
                 return
             embeddedSettings.moveSettingsFocus(delta)
-            return
-        }
-        if (view === "calc") {
-            calcView.recall(delta)
             return
         }
         if (gridNav) {
@@ -465,45 +461,9 @@ Item {
         selectedIndex = target
     }
 
-    function applyCalcRecall(text) {
-        var next = String(text || "")
-        if (searchField.text !== next)
-            searchField.text = next
-        query = next
-        searchField.cursorPosition = searchField.text.length
-        actionsOpen = false
-    }
-
-    function submitCalc() {
-        var live = LauncherSources.calculatorEntry(query)
-        if (!live)
-            return
-        copyText(live.result)
-        var notif = shell ? shell.serviceFor("evo.sys.notifications") : null
-        if (notif && typeof notif.showBrief === "function")
-            notif.showBrief("Calculator", "Copied " + live.result)
-        calcView.remember(live.expr, live.result)
-        if (searchField.text !== live.result)
-            searchField.text = live.result
-        query = live.result
-        searchField.cursorPosition = searchField.text.length
-    }
-
-    function runCalcAction(actionId) {
-        if (actionId === "clear") {
-            calcView.clearHistory()
-            return
-        }
-        submitCalc()
-    }
-
     function activateSelection() {
         if (actionsOpen) {
             runVisibleAction(actionIndex)
-            return
-        }
-        if (!searching && view === "calc") {
-            submitCalc()
             return
         }
         if (!searching && view === "looks") {
@@ -544,6 +504,11 @@ Item {
             return
         }
         if (entry.kind === "app") {
+            if (action === "pin") {
+                DockPins.toggle(entry.id)
+                selectApp(entry.id)
+                return
+            }
             recordProgramRun(entry.id)
             launchDesktopEntry(entry)
             dismiss()
@@ -576,6 +541,39 @@ Item {
         if (entry.command)
             runCommand(entry.command)
         dismiss()
+    }
+
+    function selectApp(appId) {
+        var list = currentEntries
+        for (var i = 0; i < list.length; i++) {
+            if (list[i] && list[i].kind === "app" && list[i].id === appId) {
+                selectedIndex = i
+                return
+            }
+        }
+    }
+
+    readonly property bool pinsReorderable: !searching && view === "root"
+
+    function isPinnedRow(index) {
+        var list = currentEntries
+        return index >= 0 && index < list.length && list[index]
+            && list[index].kind === "app" && list[index].pinned === true
+    }
+
+    function movePinnedRow(fromIndex, targetIndex, after) {
+        if (!pinsReorderable || !isPinnedRow(fromIndex) || !isPinnedRow(targetIndex))
+            return
+        var movedId = currentEntries[fromIndex].id
+        DockPins.moveApp(movedId, currentEntries[targetIndex].id, after)
+        selectApp(movedId)
+    }
+
+    function moveSelectedPin(delta) {
+        var target = selectedIndex + delta
+        if (!isPinnedRow(selectedIndex) || !isPinnedRow(target))
+            return
+        movePinnedRow(selectedIndex, target, delta > 0)
     }
 
     function runCommand(cmd) {
@@ -1050,8 +1048,13 @@ Item {
                 anchors.margins: Theme.hoverPanelContentPad
                 spacing: Theme.hoverPanelContentPad
 
+                RowLayout {
+                Layout.fillWidth: true
+                spacing: Theme.spacingM
+
                 Rectangle {
                     Layout.fillWidth: true
+                    Layout.minimumWidth: Theme.space(160)
                     Layout.preferredHeight: Theme.launcherSearchHeight
                     radius: Theme.cornerRadius
                     color: panelPalette.panelMantle
@@ -1084,6 +1087,8 @@ Item {
 
                             Text {
                                 anchors.verticalCenter: parent.verticalCenter
+                                width: parent.width
+                                elide: Text.ElideRight
                                 visible: searchField.text.length === 0
                                 text: root.placeholder
                                 color: panelPalette.foreground
@@ -1111,11 +1116,17 @@ Item {
                                     event.accepted = true
                                 }
                                 Keys.onUpPressed: function(event) {
-                                    root.moveVertical(-1)
+                                    if ((event.modifiers & Qt.ControlModifier) && root.pinsReorderable)
+                                        root.moveSelectedPin(-1)
+                                    else
+                                        root.moveVertical(-1)
                                     event.accepted = true
                                 }
                                 Keys.onDownPressed: function(event) {
-                                    root.moveVertical(1)
+                                    if ((event.modifiers & Qt.ControlModifier) && root.pinsReorderable)
+                                        root.moveSelectedPin(1)
+                                    else
+                                        root.moveVertical(1)
                                     event.accepted = true
                                 }
                                 Keys.onLeftPressed: function(event) {
@@ -1187,7 +1198,7 @@ Item {
 
                 Row {
                     id: sectionPillRow
-                    Layout.fillWidth: true
+                    Layout.alignment: Qt.AlignVCenter
                     spacing: Theme.spacingS
 
                     Repeater {
@@ -1234,6 +1245,7 @@ Item {
                         }
                     }
                 }
+                }
 
             SectionPanel {
                 id: mainFrame
@@ -1263,11 +1275,13 @@ Item {
                     ResultList {
                         id: resultList
                         anchors.fill: parent
-                        visible: root.searching || root.view === "root" || root.view === "session"
-                        entries: root.searching || root.view === "root" ? root.rootResults : root.sessionResults
+                        visible: root.searching || root.view === "root"
+                        entries: root.rootResults
                         selectedIndex: root.selectedIndex
+                        reorderable: root.pinsReorderable
                         onIndexMoved: function(index) { root.selectedIndex = index }
                         onActivated: function(entry) { root.runAction(entry, "") }
+                        onReorderRequested: function(from, target, after) { root.movePinnedRow(from, target, after) }
                     }
 
                     PreviewGrid {
@@ -1292,7 +1306,7 @@ Item {
                         anchors.fill: parent
                         visible: !root.searching && root.view === "clipboard"
                         shell: root.shell
-                        query: ""
+                        query: root.query
                         selectedIndex: root.selectedIndex
                         onIndexMoved: function(index) { root.selectedIndex = index }
                         onActivated: function(entry) { root.runAction(entry, "copy") }
@@ -1308,22 +1322,13 @@ Item {
                         onActivated: function(entry) { root.runAction(entry, "copy") }
                     }
 
-                    CalcView {
-                        id: calcView
-                        anchors.fill: parent
-                        visible: !root.searching && root.view === "calc"
-                        shell: root.shell
-                        expression: ""
-                        onRecalled: function(text) { root.applyCalcRecall(text) }
-                    }
-
                     SettingsModule {
                         id: embeddedSettings
                         anchors.fill: parent
                         visible: !root.searching && root.view === "looks"
                         showTabBar: false
                         tabIndex: 0
-                        menuFilterText: ""
+                        menuFilterText: root.query
                         host: settingsHost
                         shell: root.shell
                     }
@@ -1384,6 +1389,8 @@ Item {
                                 var key = modelData && modelData.key ? String(modelData.key) : ""
                                 if (key === "backspace")
                                     return "⌫"
+                                if (key && modelData.alt)
+                                    return "alt+" + key
                                 return key
                             }
                             width: chipRow.implicitWidth

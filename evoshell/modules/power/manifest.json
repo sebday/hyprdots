@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "evo.power",
+  "name": "Power",
+  "version": "1.0.0",
+  "author": "seb",
+  "description": "Lock, reboot, and shutdown in a floating menu centred on the screen",
+  "kinds": [
+    "panel"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "panel": "Power.qml"
+  }
+}
