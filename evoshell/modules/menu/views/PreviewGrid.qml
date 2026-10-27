@@ -8,6 +8,12 @@ Item {
     property var entries: []
     property int selectedIndex: 0
     property bool showDetail: false
+    property color ink: Theme.foreground
+    property color paper: Theme.background
+    property color accentColor: Theme.accent
+    property color surface: Theme.overlaySurface
+    property color divider: Theme.foregroundDivider
+    signal stepped(int delta)
     readonly property int columnCount: Math.max(1, grid.width > 0
         ? Math.floor(grid.width / Theme.launcherPreviewTileWidth)
         : 1)
@@ -54,11 +60,11 @@ Item {
                     anchors.horizontalCenter: parent.horizontalCenter
                     anchors.top: parent.top
                     radius: Theme.cornerRadius
-                    color: Theme.overlaySurface
+                    color: root.surface
                     border.width: index === root.selectedIndex || cellMouse.containsMouse ? 2 : 1
                     border.color: index === root.selectedIndex
-                        ? Theme.accent
-                        : Theme.foregroundDivider
+                        ? root.accentColor
+                        : root.divider
                     clip: true
 
                     Image {
@@ -77,7 +83,7 @@ Item {
                         anchors.centerIn: parent
                         visible: !cell.modelData || !cell.modelData.preview || preview.status === Image.Error
                         text: cell.modelData && cell.modelData.icon ? cell.modelData.icon : "󰸌"
-                        color: Theme.accent
+                        color: root.accentColor
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontSize6xl
                         font.bold: Theme.fontBold
@@ -91,7 +97,7 @@ Item {
                         width: 8
                         height: 8
                         radius: 4
-                        color: Theme.accent
+                        color: root.accentColor
                     }
                 }
 
@@ -102,7 +108,7 @@ Item {
                     anchors.right: tile.right
                     horizontalAlignment: Text.AlignHCenter
                     text: cell.modelData ? cell.modelData.name : ""
-                    color: Theme.foreground
+                    color: root.ink
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeXs
                     font.bold: Theme.fontBold
@@ -132,7 +138,7 @@ Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 radius: Theme.cornerRadius
-                color: Theme.overlaySurface
+                color: root.surface
                 clip: true
 
                 Image {
@@ -145,13 +151,67 @@ Item {
                     cache: true
                     smooth: true
                 }
+
+                Rectangle {
+                    visible: root.entries.length > 1
+                    anchors.left: parent.left
+                    anchors.leftMargin: 8
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 32
+                    height: 32
+                    radius: Theme.cornerRadius
+                    color: Theme.withOpacity(root.paper, 0.78)
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: "󰅁"
+                        color: root.ink
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeL
+                        font.bold: Theme.fontBold
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        anchors.margins: -6
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.stepped(-1)
+                    }
+                }
+
+                Rectangle {
+                    visible: root.entries.length > 1
+                    anchors.right: parent.right
+                    anchors.rightMargin: 8
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 32
+                    height: 32
+                    radius: Theme.cornerRadius
+                    color: Theme.withOpacity(root.paper, 0.78)
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: "󰅂"
+                        color: root.ink
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSizeL
+                        font.bold: Theme.fontBold
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        anchors.margins: -6
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.stepped(1)
+                    }
+                }
             }
 
             Text {
                 Layout.fillWidth: true
                 horizontalAlignment: Text.AlignHCenter
                 text: root.selectedEntry ? root.selectedEntry.name : ""
-                color: Theme.foreground
+                color: root.ink
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.fontSizeS
                 font.bold: Theme.fontBold

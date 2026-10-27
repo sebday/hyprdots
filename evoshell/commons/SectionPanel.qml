@@ -11,6 +11,7 @@ Item {
     property int contentPad: Theme.hoverPanelContentPad
     property int legendPad: -1
     property color legendBackground: Theme.background
+    property color frameBorder: Theme.foregroundBorder
     property bool filled: false
     property color fillColor: Theme.panelMantle
     property real labelOpacity: 0.72
@@ -133,6 +134,7 @@ Item {
         contentPad: root.contentPad
         legendPad: root.legendPad
         labelBackground: root.legendBackground
+        frameBorder: root.frameBorder
         filled: root.filled
         fillColor: root.fillColor
         labelOpacity: root.labelOpacity

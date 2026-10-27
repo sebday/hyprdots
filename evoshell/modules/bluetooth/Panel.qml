@@ -522,6 +522,7 @@ Panel {
                 busy: root.powerBusy
                 hasCursor: root.headerHasCursor
                 foreground: root.foreground
+                onColor: Theme.green
                 onHovered: function(on) { if (on) { root.cursorActive = true; root.focusSection = "header"; root.actionFocused = false } }
                 onToggled: root.toggleBluetooth()
 

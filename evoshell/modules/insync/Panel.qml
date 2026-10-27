@@ -334,6 +334,7 @@ Panel {
                 checked: !root.data.paused
                 busy: actionProc.running
                 foreground: hero.foreground
+                onColor: Theme.green
                 onToggled: root.togglePaused()
 
                 PanelToolTip {

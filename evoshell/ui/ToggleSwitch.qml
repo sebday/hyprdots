@@ -42,6 +42,9 @@ Item {
   property bool rounded: Theme.cornerRadius > 0
   property color foreground: Theme.foreground
   property color accent: Theme.accent
+  // Solid on-track color. Unset keeps the normal foreground wash.
+  property color onColor: "transparent"
+  readonly property bool hasOnColor: onColor.a > 0
 
   signal toggled()
   signal hovered(bool isHovered)
@@ -80,9 +83,11 @@ Item {
     anchors.centerIn: parent
     radius: root.rounded ? height / 2 : 0
     color: root.checked
-      ? Theme.selectedFillFor(root.foreground, root.accent)
+      ? (root.hasOnColor ? root.onColor : Theme.selectedFillFor(root.foreground, root.accent))
       : Theme.normalFillFor(root.foreground, root.accent)
-    borderSpec: Border.controlSpec(root.checked ? "selected" : "normal", root.foreground, root.accent)
+    borderSpec: root.checked && root.hasOnColor
+      ? Border.none()
+      : Border.controlSpec(root.checked ? "selected" : "normal", root.foreground, root.accent)
 
     Behavior on color { ColorAnimation { duration: Theme.duration(120) } }
 
@@ -92,7 +97,9 @@ Item {
       radius: root.rounded ? height / 2 : 0
       x: root.checked ? track.width - width - root.knobInset : root.knobInset
       anchors.verticalCenter: parent.verticalCenter
-      color: root.checked ? Theme.selectedStateColor(root.foreground, root.accent) : Qt.darker(root.foreground, 1.25)
+      color: root.checked
+        ? (root.hasOnColor ? Theme.mantle : Theme.selectedStateColor(root.foreground, root.accent))
+        : Qt.darker(root.foreground, 1.25)
 
       Behavior on x { NumberAnimation { duration: Theme.duration(120); easing.type: Easing.OutCubic } }
       Behavior on color { ColorAnimation { duration: Theme.duration(120) } }

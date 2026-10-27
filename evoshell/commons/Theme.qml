@@ -65,6 +65,38 @@ Singleton {
         }
     }
 
+    // ANSI green from the active theme pack. Named `green` wins over color2.
+    property color green: ansiFallback("green")
+
+    function applyPaletteFile(raw) {
+        var named = ""
+        var ansi = ""
+        var lines = String(raw || "").split("\n")
+        for (var i = 0; i < lines.length; i++) {
+            var match = lines[i].match(/^\s*(green|color2)\s*=\s*["']?(#[0-9A-Fa-f]{6})/)
+            if (!match)
+                continue
+            if (match[1] === "green")
+                named = match[2]
+            else if (!ansi)
+                ansi = match[2]
+        }
+        green = named || ansi || ansiFallback("green")
+    }
+
+    FileView {
+        id: paletteFile
+        path: root.currentThemePath + "/colors.toml"
+        watchChanges: false
+        printErrors: false
+        onLoaded: root.applyPaletteFile(text())
+    }
+
+    Connections {
+        target: root
+        function onThemeDataChanged() { paletteFile.reload() }
+    }
+
     function applyLooksFile() {
         var text = looksFile.text() || ""
         if (!text.trim()) {

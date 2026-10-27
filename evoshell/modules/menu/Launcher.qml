@@ -27,6 +27,7 @@ Item {
     property var themeEntries: []
     property var wallpaperEntries: []
     property var emojiAll: []
+    property var themePreview: ({ valid: false })
     property var emojiRecents: []
     property string currentThemeName: ""
     property string currentWallpaperPath: ""
@@ -60,6 +61,14 @@ Item {
         ? LauncherSources.filterEmoji(emojiAll, "", emojiRecents)
         : []
     readonly property bool searching: String(query).trim() !== ""
+    readonly property string themeColorsPath: {
+        if (view !== "themes" || searching || !selectedEntry || selectedEntry.kind !== "theme")
+            return ""
+        var name = String(selectedEntry.name || "").trim()
+        if (!name || name.indexOf("/") >= 0 || name.indexOf("..") >= 0)
+            return ""
+        return home + "/.themes/" + name + "/colors.toml"
+    }
     readonly property var currentEntries: {
         if (searching)
             return rootResults
@@ -168,6 +177,37 @@ Item {
         if (!allowed[viewName])
             viewName = "root"
         return { view: viewName, query: nextQuery }
+    }
+
+    function applyThemeColors(raw) {
+        var found = {}
+        var lines = String(raw || "").split("\n")
+        for (var i = 0; i < lines.length; i++) {
+            var line = lines[i].trim()
+            if (!line || line.charAt(0) === "#")
+                continue
+            var eq = line.indexOf("=")
+            if (eq < 0)
+                continue
+            var key = line.slice(0, eq).trim()
+            if (key !== "foreground" && key !== "background" && key !== "accent" && key !== "mantle")
+                continue
+            var value = line.slice(eq + 1).trim()
+            if (value.length >= 2 && value.charAt(0) === "\"" && value.charAt(value.length - 1) === "\"")
+                value = value.slice(1, -1)
+            found[key] = value
+        }
+        if (!found.background || !found.foreground) {
+            themePreview = { valid: false }
+            return
+        }
+        themePreview = {
+            valid: true,
+            foreground: found.foreground,
+            background: found.background,
+            accent: found.accent || found.foreground,
+            mantle: found.mantle || found.background
+        }
     }
 
     function applyView(nextView, nextQuery) {
@@ -798,6 +838,34 @@ Item {
     }
 
     FileView {
+        id: themeColorsFile
+        path: root.themeColorsPath
+        watchChanges: false
+        printErrors: false
+        onLoaded: root.applyThemeColors(text())
+        onLoadFailed: root.themePreview = ({ valid: false })
+    }
+
+    QtObject {
+        id: panelPalette
+        readonly property bool live: root.view === "themes" && !root.searching && root.themePreview.valid
+        readonly property color foreground: live ? root.themePreview.foreground : Theme.foreground
+        readonly property color background: live ? root.themePreview.background : Theme.background
+        readonly property color accent: live ? root.themePreview.accent : Theme.accent
+        readonly property color mantle: live ? root.themePreview.mantle : Theme.mantle
+        readonly property color panelMantle: live
+            ? Theme.mixColors(mantle, foreground, Theme.panelMantleLift)
+            : Theme.panelMantle
+        readonly property color surface: live
+            ? Theme.withOpacity(mantle, Theme.surfaceOpacity)
+            : Theme.overlaySurface
+        readonly property color foregroundWash: Theme.withOpacity(foreground, 0.06)
+        readonly property color foregroundHoverWash: Theme.withOpacity(foreground, 0.1)
+        readonly property color foregroundDivider: Theme.withOpacity(foreground, 0.14)
+        readonly property color foregroundBorder: Theme.withOpacity(foreground, 0.32)
+    }
+
+    FileView {
         id: themeNameFile
         path: root.home + "/.themes/current/.theme-name"
         watchChanges: true
@@ -968,7 +1036,7 @@ Item {
             Rectangle {
                 anchors.fill: parent
                 radius: Theme.fieldsetCornerRadius
-                color: Theme.background
+                color: panelPalette.background
             }
 
             MouseArea {
@@ -986,7 +1054,7 @@ Item {
                     Layout.fillWidth: true
                     Layout.preferredHeight: Theme.launcherSearchHeight
                     radius: Theme.cornerRadius
-                    color: Theme.panelMantle
+                    color: panelPalette.panelMantle
 
                     RowLayout {
                         anchors.fill: parent
@@ -997,7 +1065,7 @@ Item {
                         Text {
                             visible: root.view !== "root"
                             text: "󰅁"
-                            color: Theme.accent
+                            color: panelPalette.accent
                             font.family: Theme.fontFamily
                             font.pixelSize: Theme.fontSizeL
                             font.bold: Theme.fontBold
@@ -1018,7 +1086,7 @@ Item {
                                 anchors.verticalCenter: parent.verticalCenter
                                 visible: searchField.text.length === 0
                                 text: root.placeholder
-                                color: Theme.foreground
+                                color: panelPalette.foreground
                                 opacity: Theme.opacityMuted
                                 font.family: Theme.fontFamily
                                 font.pixelSize: Theme.fontSizeS
@@ -1029,7 +1097,7 @@ Item {
                                 id: searchField
                                 anchors.fill: parent
                                 verticalAlignment: TextInput.AlignVCenter
-                                color: Theme.foreground
+                                color: panelPalette.foreground
                                 font.family: Theme.fontFamily
                                 font.pixelSize: Theme.fontSizeS
                                 font.bold: Theme.fontBold
@@ -1137,10 +1205,10 @@ Item {
                                 id: sectionPillBox
                                 radius: height / 2
                                 color: sectionPill.selected
-                                    ? Theme.accent
+                                    ? panelPalette.accent
                                     : (sectionPillMouse.containsMouse
-                                        ? Theme.foregroundHoverWash
-                                        : Theme.foregroundWash)
+                                        ? panelPalette.foregroundHoverWash
+                                        : panelPalette.foregroundWash)
                                 implicitWidth: sectionPillLabel.implicitWidth + 16
                                 implicitHeight: sectionPillLabel.implicitHeight + 8
 
@@ -1148,7 +1216,7 @@ Item {
                                     id: sectionPillLabel
                                     anchors.centerIn: parent
                                     text: sectionPill.modelData ? String(sectionPill.modelData.label || "") : ""
-                                    color: sectionPill.selected ? Theme.mantle : Theme.foreground
+                                    color: sectionPill.selected ? panelPalette.mantle : panelPalette.foreground
                                     opacity: sectionPill.selected ? 1 : Theme.opacitySecondary
                                     font.family: Theme.fontFamily
                                     font.pixelSize: Theme.fontSizeS
@@ -1173,8 +1241,9 @@ Item {
                 Layout.fillHeight: true
                 fillHeight: true
                 filled: true
-                fillColor: Theme.background
-                legendBackground: Theme.background
+                fillColor: panelPalette.background
+                legendBackground: panelPalette.background
+                frameBorder: panelPalette.foregroundBorder
                 label: ""
                 contentPad: Theme.launcherPad
                 sectionSpacing: Theme.spacingS
@@ -1182,6 +1251,8 @@ Item {
                 HoverPanelLabelPill {
                     text: root.searching ? "" : root.sectionLabel
                     fontSize: Theme.font.caption
+                    textColor: panelPalette.foreground
+                    fieldsetFill: panelPalette.background
                 }
 
                 Item {
@@ -1206,6 +1277,12 @@ Item {
                         entries: root.view === "wallpapers" ? root.wallpaperResults : root.themeResults
                         selectedIndex: root.selectedIndex
                         showDetail: true
+                        ink: panelPalette.foreground
+                        paper: panelPalette.background
+                        accentColor: panelPalette.accent
+                        surface: panelPalette.surface
+                        divider: panelPalette.foregroundDivider
+                        onStepped: function(delta) { root.moveGrid(delta, 0) }
                         onIndexMoved: function(index) { root.selectedIndex = index }
                         onActivated: function(entry) { root.runAction(entry, "") }
                     }
@@ -1255,7 +1332,7 @@ Item {
                         anchors.centerIn: parent
                         visible: root.showEmpty
                         text: root.query.trim() === "" ? "Nothing here" : "No matches"
-                        color: Theme.foreground
+                        color: panelPalette.foreground
                         opacity: Theme.opacityMuted
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontSizeS
@@ -1280,7 +1357,7 @@ Item {
                     y: hintRow.y - 2
                     width: hintRow.width + 8
                     height: hintRow.height + 4
-                    color: Theme.background
+                    color: panelPalette.background
                 }
 
                 Row {
@@ -1320,7 +1397,7 @@ Item {
                                     visible: actionChip.keyText !== ""
                                     anchors.verticalCenter: parent.verticalCenter
                                     text: actionChip.keyText
-                                    color: Theme.accent
+                                    color: panelPalette.accent
                                     font.family: Theme.fontFamily
                                     font.pixelSize: Theme.fontSizeS
                                     font.bold: Theme.fontBold
@@ -1331,7 +1408,7 @@ Item {
                                     text: actionChip.modelData
                                         ? String(actionChip.modelData.label || "").toLowerCase()
                                         : ""
-                                    color: Theme.foreground
+                                    color: panelPalette.foreground
                                     opacity: actionChip.armed ? Theme.opacitySecondary : Theme.opacityMuted
                                     font.family: Theme.fontFamily
                                     font.pixelSize: Theme.fontSizeS
