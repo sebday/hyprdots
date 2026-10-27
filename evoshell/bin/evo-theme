@@ -212,7 +212,16 @@ activate_theme() {
     theme_timing_step "activate grok"
     "$SCRIPT_DIR/evo-grok-bot" retheme || true
 
+    theme_timing_step "activate webthemes"
+    webthemes_sync
+
     theme_timing_step "activate done"
+}
+
+webthemes_sync() {
+    local setup="${WEBTHEMES_SETUP:-$HOME/projects/webthemes/setup}"
+    [[ -x $setup ]] || return 0
+    "$setup" sync || true
 }
 
 notify_nvim_theme() {
