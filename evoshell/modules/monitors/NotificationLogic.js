@@ -84,6 +84,72 @@ function glyphFromHints(hints) {
   return stringHint(hints, "evoshell-glyph")
 }
 
+// Volume, brightness and download popups identify the one card they keep
+// rewriting. replaces_id is a different mechanism and is not always set.
+function stackTagFromHints(hints) {
+  return stringHint(hints, "x-dunst-stack-tag") || stringHint(hints, "x-canonical-private-synchronous")
+}
+
+function hintNumber(hints, name) {
+  try {
+    if (!hints || hints[name] === undefined || hints[name] === null || hints[name] === "") return null
+    var n = Number(hints[name])
+    return isFinite(n) ? n : null
+  } catch (e) {
+    return null
+  }
+}
+
+// Freedesktop `value` is a fraction or a 0–100 percentage. -1 means unset.
+function progressFromHints(hints) {
+  var n = hintNumber(hints, "value")
+  if (n === null) return -1
+  if (n > 1 && n <= 100) n = n / 100
+  if (n < 0) n = 0
+  if (n > 1) n = 1
+  return n
+}
+
+// Non-default actions only. "default" is the card click, not a button.
+// Stored as JSON because a ListModel role cannot hold the live action objects.
+function actionRecords(notification) {
+  var actions = notification && notification.actions
+  if (!actions || !actions.length) return ""
+  var out = []
+  for (var i = 0; i < actions.length; i++) {
+    var action = actions[i]
+    if (!action) continue
+    var id = String(action.identifier || "")
+    if (!id || id === "default") continue
+    var text = String(action.text || "").replace(/^\s+|\s+$/g, "")
+    if (!text) text = id
+    out.push({ identifier: id, text: text })
+  }
+  return out.length ? JSON.stringify(out) : ""
+}
+
+function parseActionRecords(raw) {
+  var text = String(raw || "")
+  if (!text) return []
+  try {
+    var parsed = JSON.parse(text)
+    if (!Array.isArray(parsed)) return []
+    var out = []
+    for (var i = 0; i < parsed.length; i++) {
+      var action = parsed[i]
+      if (!action) continue
+      var id = String(action.identifier || "")
+      if (!id || id === "default") continue
+      var label = String(action.text || "").replace(/^\s+|\s+$/g, "")
+      if (!label) label = id
+      out.push({ identifier: id, text: label })
+    }
+    return out
+  } catch (e) {
+    return []
+  }
+}
+
 // The click action is a JSON argv. evo-notification-send stores it as
 // evoshell-exec-argv. Carried as data so a toast restored after a shell
 // restart stays clickable (a libnotify action can't — its sender is gone).
@@ -138,6 +204,9 @@ function snapshotOf(notification, timestamp) {
     image: n.image || "",
     glyph: glyphFromHints(n.hints),
     execArgv: execArgvFromHints(n.hints),
+    stackTag: stackTagFromHints(n.hints),
+    value: progressFromHints(n.hints),
+    actions: actionRecords(n),
     urgency: n.urgency,
     expireTimeout: expireTimeout,
     timestamp: timestamp === undefined ? Date.now() : timestamp
@@ -146,7 +215,7 @@ function snapshotOf(notification, timestamp) {
 
 // Everything the popup card draws, and therefore everything an in-place
 // update has to write through to the row and its file.
-var POPUP_ROLES = ["app", "appIcon", "summary", "body", "image", "glyph", "execArgv", "urgency", "expireTimeout"]
+var POPUP_ROLES = ["app", "appIcon", "summary", "body", "image", "glyph", "execArgv", "stackTag", "value", "actions", "urgency", "expireTimeout"]
 
 function popupRoles() {
   return POPUP_ROLES
@@ -204,6 +273,9 @@ function historyEntry(value, normalUrgency) {
     image: e.image || "",
     glyph: e.glyph || "",
     execArgv: e.execArgv || "",
+    stackTag: e.stackTag || "",
+    value: typeof e.value === "number" && isFinite(e.value) ? e.value : -1,
+    actions: e.actions || "",
     urgency: typeof e.urgency === "number" ? e.urgency : normalUrgency,
     expireTimeout: 0,
     timestamp: e.timestamp || 0
@@ -223,6 +295,9 @@ function panelHistoryEntry(value) {
     image: String(e.image || ""),
     glyph: String(e.glyph || ""),
     execArgv: String(e.execArgv || ""),
+    stackTag: String(e.stackTag || ""),
+    value: typeof e.value === "number" && isFinite(e.value) ? e.value : -1,
+    actions: String(e.actions || ""),
     id: e.id || 0,
     originalId: e.originalId || e.id || 0,
     urgency: e.urgency,
@@ -273,6 +348,9 @@ function historyRecordFromPanel(entry) {
     image: e.image || "",
     glyph: e.glyph || "",
     execArgv: e.execArgv || "",
+    stackTag: e.stackTag || "",
+    value: typeof e.value === "number" && isFinite(e.value) ? e.value : -1,
+    actions: e.actions || "",
     urgency: typeof e.urgency === "number" ? e.urgency : 1,
     expireTimeout: 0,
     timestamp: e.timestamp || 0,

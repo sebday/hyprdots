@@ -67,6 +67,14 @@ Item {
       LayoutModel.readBarPlacements(shell && shell.barConfig ? shell.barConfig : {}),
       Quickshell.screens))
 
+  // Stack-tagged toasts whose insert is still deferred. A second notification
+  // with the same tag has to rewrite this one, because the row is not in
+  // popupModel yet and a search there would miss it.
+  property var pendingStacks: ({})
+  // The notification object a stack adoption just dismissed. Its close must
+  // not archive the card the new notification took over.
+  property var suppressedCloses: ({})
+
   // Live Notification objects by originalId, kept OUT of the ListModels: a
   // QObject stored in a model role becomes a dangling C++ pointer when the
   // server destroys the notification (sender close, DND untrack, dismiss),
@@ -125,6 +133,8 @@ Item {
   readonly property int lowPopupDuration: 3000
   readonly property int normalPopupDuration: 5000
   readonly property int maxPopupDuration: 30000
+  // Newest cards stay on screen. The rest wait behind a count and still expire.
+  readonly property int maxVisiblePopups: 5
 
   function durationFor(urgency, expireTimeout) {
     switch (urgency) {
@@ -180,23 +190,127 @@ Item {
     return transient || NotificationLogic.isEphemeralApp(String(notification.appName || ""))
   }
 
+  function findStackIndex(tag) {
+    if (!tag) return -1
+    for (var i = 0; i < popupModel.count; i++) {
+      var row = popupModel.get(i)
+      if (row && row.stackTag === tag) return i
+    }
+    return -1
+  }
+
+  function closeKey(originalId, timestamp) {
+    return String(originalId) + ":" + String(timestamp)
+  }
+
+  function suppressClose(notification, originalId, timestamp) {
+    if (!notification) return
+    var next = Object.assign({}, suppressedCloses)
+    next[closeKey(originalId, timestamp)] = notification
+    suppressedCloses = next
+  }
+
+  function closeIsSuppressed(notification, originalId, timestamp) {
+    var key = closeKey(originalId, timestamp)
+    if (suppressedCloses[key] !== notification) return false
+    var next = Object.assign({}, suppressedCloses)
+    delete next[key]
+    suppressedCloses = next
+    return true
+  }
+
+  function bindClosed(notification, originalId, timestamp) {
+    notification.closed.connect(function(reason) {
+      if (service.liveRefs[originalId] === notification)
+        delete service.liveRefs[originalId]
+      if (service.closeIsSuppressed(notification, originalId, timestamp)) return
+      // The sender withdrew it (CloseNotification). Nothing else would take a
+      // critical toast down.
+      if (reason === NotificationCloseReason.CloseRequested)
+        Qt.callLater(function() { service.removeClosedPopup(originalId, timestamp) })
+    })
+  }
+
+  function dismissPrevious(notification, originalId, timestamp) {
+    if (!notification) return
+    suppressClose(notification, originalId, timestamp)
+    try {
+      if (notification.tracked) notification.dismiss()
+    } catch (e) {
+      // Already gone. The card now belongs to the notification that arrived.
+    }
+  }
+
+  function rememberPending(tag, notification, snapshot) {
+    var next = Object.assign({}, pendingStacks)
+    next[tag] = {
+      generation: closeKey(snapshot.originalId, snapshot.timestamp),
+      notification: notification,
+      snapshot: snapshot
+    }
+    pendingStacks = next
+  }
+
+  function clearPending(tag, generation) {
+    var pending = pendingStacks[tag]
+    if (!pending || pending.generation !== generation) return
+    var next = Object.assign({}, pendingStacks)
+    delete next[tag]
+    pendingStacks = next
+  }
+
+  // A new notification that carries the same stack tag rewrites the card
+  // already on screen. The file identity stays with the first toast so a
+  // restart still restores one card, not a trail of volume steps.
+  function adoptStack(notification, index) {
+    var row = popupModel.get(index)
+    if (!row) return
+    var keptId = row.originalId
+    var keptTime = row.timestamp
+    var previous = liveRefs[keptId]
+    liveRefs[keptId] = notification
+    if (previous && previous !== notification)
+      dismissPrevious(previous, keptId, keptTime)
+    delete service.restoredPopups[NotificationLogic.popupFileName(row)]
+    bindClosed(notification, keptId, keptTime)
+    var updated = NotificationLogic.replacementSnapshot(notification, keptId, keptTime)
+    watchForUpdates(notification, updated)
+    var roles = NotificationLogic.popupRoles()
+    for (var r = 0; r < roles.length; r++)
+      popupModel.setProperty(index, roles[r], updated[roles[r]])
+    if (index !== 0) popupModel.move(index, 0, 1)
+    persistPopupFile(updated)
+  }
+
   function handleNotification(notification) {
     // Without `tracked = true` the Notification object is destroyed as soon
     // as this signal handler returns, which would null out the `ref` we just
     // captured for the popup card.
     notification.tracked = true
     var snapshot = snapshotOf(notification)
+    var stackIndex = findStackIndex(snapshot.stackTag)
+    if (stackIndex >= 0) {
+      adoptStack(notification, stackIndex)
+      return
+    }
+    var pending = snapshot.stackTag ? pendingStacks[snapshot.stackTag] : null
+    if (pending) {
+      var kept = NotificationLogic.replacementSnapshot(
+        notification, pending.snapshot.originalId, pending.snapshot.timestamp)
+      var previousPending = pending.notification
+      liveRefs[kept.originalId] = notification
+      if (previousPending && previousPending !== notification)
+        dismissPrevious(previousPending, kept.originalId, kept.timestamp)
+      bindClosed(notification, kept.originalId, kept.timestamp)
+      rememberPending(snapshot.stackTag, notification, kept)
+      persistPopupFile(kept)
+      watchForUpdates(notification, kept)
+      return
+    }
     liveRefs[snapshot.originalId] = notification
     // Guard the delete: a newer notification may have reused this originalId
     // (freedesktop replaces_id) and taken over the map slot.
-    notification.closed.connect(function(reason) {
-      if (service.liveRefs[snapshot.originalId] === notification)
-        delete service.liveRefs[snapshot.originalId]
-      // The sender withdrew it (CloseNotification). Nothing else would take a
-      // critical toast down.
-      if (reason === NotificationCloseReason.CloseRequested)
-        Qt.callLater(function() { service.removeClosedPopup(snapshot.originalId, snapshot.timestamp) })
-    })
+    bindClosed(notification, snapshot.originalId, snapshot.timestamp)
 
     // DND bypass rules: chat apps abuse urgency=critical to force
     // visibility, so critical alone isn't enough — we also require the
@@ -214,18 +328,30 @@ Item {
       return
     }
 
+    var stackTag = snapshot.stackTag
+    var generation = closeKey(snapshot.originalId, snapshot.timestamp)
+    if (stackTag) rememberPending(stackTag, notification, snapshot)
     persistPopupFile(snapshot)
     watchForUpdates(notification, snapshot)
     // Qt.callLater avoids "QV4::Object::insertMember" crashes when a
     // Repeater is mid-incubation while we mutate its model.
     Qt.callLater(function() {
-      removePopupsByOriginalId(snapshot.originalId, NotificationLogic.popupFileName(snapshot))
-      removeDuplicatePopups(service.currentContent(notification, snapshot))
-      popupModel.insert(0, snapshot)
+      var current = snapshot
+      var currentNotification = notification
+      if (stackTag) {
+        var held = pendingStacks[stackTag]
+        if (!held || held.generation !== generation) return
+        current = held.snapshot
+        currentNotification = held.notification
+        clearPending(stackTag, generation)
+      }
+      removePopupsByOriginalId(current.originalId, NotificationLogic.popupFileName(current))
+      removeDuplicatePopups(service.currentContent(currentNotification, current))
+      popupModel.insert(0, current)
       // An update that arrived while the insert was deferred found no row to
       // write to, and a property that already changed will not change again.
       // Reading the object once the row exists catches up on it.
-      service.refreshPopup(notification, snapshot.originalId, snapshot.timestamp)
+      service.refreshPopup(currentNotification, current.originalId, current.timestamp)
     })
   }
 
@@ -266,7 +392,8 @@ Item {
   // about after the popup exists.
   readonly property var updateSignals: [
     "summaryChanged", "bodyChanged", "appNameChanged", "appIconChanged",
-    "imageChanged", "urgencyChanged", "expireTimeoutChanged", "hintsChanged"
+    "imageChanged", "urgencyChanged", "expireTimeoutChanged", "hintsChanged",
+    "actionsChanged"
   ]
 
   // A client that updates a notification through replaces_id does not produce
@@ -483,6 +610,28 @@ Item {
     // focus their window. Fall back to focusing the sending app by class so
     // that click-to-jump actually works.
     if (!invoked) focusApp(entry)
+    dismissPopup(index)
+  }
+
+  function invokePopupAction(index, identifier) {
+    if (index < 0 || index >= popupModel.count) return
+    var entry = popupModel.get(index)
+    var id = String(identifier || "")
+    if (!id || isRestoredRow(entry)) return
+    var ref = entry ? liveRefs[entry.originalId] : null
+    try {
+      if (ref && ref.actions) {
+        for (var i = 0; i < ref.actions.length; i++) {
+          var action = ref.actions[i]
+          if (action && action.identifier === id) {
+            action.invoke()
+            break
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("invoke action failed:", e)
+    }
     dismissPopup(index)
   }
 
@@ -840,6 +989,9 @@ Item {
         image: row.image,
         glyph: row.glyph || "",
         execArgv: row.execArgv || "",
+        stackTag: row.stackTag || "",
+        value: typeof row.value === "number" ? row.value : -1,
+        actions: row.actions || "",
         urgency: row.urgency,
         timestamp: row.timestamp
       }, imagesDir).entry)
@@ -864,6 +1016,9 @@ Item {
         image: "",
         glyph: "󰂚",
         execArgv: "",
+        stackTag: "",
+        value: -1,
+        actions: "",
         urgency: NotificationUrgency.Low,
         expireTimeout: 0,
         timestamp: Date.now()
@@ -1221,14 +1376,20 @@ Item {
             required property string body
             required property string image
             required property string glyph
+            required property string stackTag
+            required property real value
+            required property string actions
             required property int urgency
             required property double expireTimeout
             required property double timestamp
             required property double originalId
 
-            Layout.preferredWidth: card.implicitWidth
+            readonly property bool shown: index < service.maxVisiblePopups
+            visible: shown
+            Layout.preferredWidth: shown ? card.implicitWidth : 0
+            Layout.preferredHeight: shown ? card.implicitHeight : 0
             Layout.alignment: popupWindow.columnAlignment
-            implicitHeight: card.implicitHeight
+            implicitHeight: shown ? card.implicitHeight : 0
 
             readonly property string rowKey: NotificationLogic.imageStem({ timestamp: cardSlot.timestamp, originalId: cardSlot.originalId })
             readonly property real lifetime: service.durationFor(cardSlot.urgency, cardSlot.expireTimeout)
@@ -1240,6 +1401,7 @@ Item {
             onSummaryChanged: cardSlot.remainingLifetime = 1.0
             onBodyChanged: cardSlot.remainingLifetime = 1.0
             onImageChanged: cardSlot.remainingLifetime = 1.0
+            onValueChanged: cardSlot.remainingLifetime = 1.0
 
             Timer {
               interval: 50
@@ -1270,6 +1432,8 @@ Item {
               cornerRadius: service.cornerRadius
               fontFamily: service.shell && service.shell.bar ? service.shell.bar.fontFamily : ""
               glyph: cardSlot.glyph
+              progress: cardSlot.value
+              actionsJson: cardSlot.actions
 
               onHoveredChanged: {
                 if (hovered === cardSlot.hoverCounted) return
@@ -1278,7 +1442,30 @@ Item {
               }
               onCloseRequested: service.dismissPopup(cardSlot.index)
               onCardClicked: service.invokePopupDefault(cardSlot.index)
+              onActionInvoked: function(identifier) { service.invokePopupAction(cardSlot.index, identifier) }
             }
+          }
+        }
+
+        Rectangle {
+          visible: popupModel.count > service.maxVisiblePopups
+          Layout.alignment: popupWindow.columnAlignment
+          Layout.preferredWidth: moreLabel.implicitWidth + Theme.space(16)
+          Layout.preferredHeight: moreLabel.implicitHeight + Theme.space(8)
+          radius: Theme.space(8)
+          color: Theme.notifications.background
+          border.width: 1
+          border.color: Theme.notifications.border
+
+          Text {
+            id: moreLabel
+            anchors.centerIn: parent
+            textFormat: Text.PlainText
+            text: (popupModel.count - service.maxVisiblePopups) + " more"
+            color: Theme.notifications.text
+            font.family: service.shell && service.shell.bar ? service.shell.bar.fontFamily : Theme.font.family
+            font.pixelSize: Theme.font.caption
+            font.letterSpacing: 1
           }
         }
       }

@@ -336,7 +336,7 @@ Panel {
                 ? (parent.width - parent.spacing * (root.usageStatTileCount - 1)) / root.usageStatTileCount
                 : parent.width
               loading: root.loading
-              value: Model.formatTokens(root.detail.tokensTotal || 0)
+              value: Model.formatTokensStat(root.detail.tokensTotal || 0)
               label: "tokens"
               foreground: root.foreground
               dim: root.dim
@@ -839,8 +839,10 @@ Panel {
         font.family: tileRoot.fontFamily
         font.pixelSize: Theme.font.display
         font.bold: true
+        fontSizeMode: Text.HorizontalFit
+        minimumPixelSize: Theme.font.title
         horizontalAlignment: Text.AlignHCenter
-        elide: Text.ElideRight
+        elide: Text.ElideNone
       }
     }
   }

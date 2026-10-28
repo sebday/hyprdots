@@ -24,7 +24,42 @@ Panel {
   readonly property var barIdentity: hostWidget || root
 
   readonly property color foreground: Theme.foreground
+  readonly property color accent: Theme.accent
   readonly property string fontFamily: bar ? bar.fontFamily : Theme.font.family
+  property color themeYellow: Theme.ansiFallback("yellow")
+  property color themeOrange: Theme.ansiFallback("orange")
+  property color themeGreen: Theme.ansiFallback("green")
+  property color themeMagenta: Theme.ansiFallback("magenta")
+  property color themePink: Theme.ansiFallback("magenta")
+
+  function loadThemeColors(raw) {
+    var found = {}
+    var lines = String(raw || "").split("\n")
+    for (var i = 0; i < lines.length; i++) {
+      var match = lines[i].match(/^\s*(yellow|orange|green|magenta|pink|mauve|color[0-9]+)\s*=\s*["']?(#[0-9A-Fa-f]{6})/)
+      if (match) found[match[1]] = match[2]
+    }
+    themeYellow = found.yellow || found.color3 || Theme.ansiFallback("yellow")
+    themeOrange = found.orange || found.color11 || Theme.ansiFallback("orange")
+    themeGreen = found.green || found.color2 || Theme.ansiFallback("green")
+    themeMagenta = found.magenta || found.mauve || found.color5 || Theme.ansiFallback("magenta")
+    themePink = found.pink || found.color13 || themeMagenta
+  }
+
+  property FileView themeColorsFile: FileView {
+    path: Theme.currentThemePath + "/colors.toml"
+    watchChanges: false
+    printErrors: false
+    onLoaded: root.loadThemeColors(text())
+  }
+
+  Connections {
+    target: Theme
+    function onThemeDataChanged() { root.themeColorsFile.reload() }
+    function onForegroundChanged() { root.themeColorsFile.reload() }
+    function onAccentChanged() { root.themeColorsFile.reload() }
+    function onBackgroundChanged() { root.themeColorsFile.reload() }
+  }
 
   function open() {
     openedFromHotkey = false
@@ -198,9 +233,23 @@ Panel {
   readonly property string reportLocation:  configuredLocation || wttrLocation || (areaInfo && areaInfo.areaName && areaInfo.areaName[0] ? areaInfo.areaName[0].value : "")
   readonly property string reportTempNum:   current ? String(useImperial ? current.temp_F : current.temp_C) : ""
   readonly property string tempUnit:        "°" + (useImperial ? "F" : "C")
-  readonly property string reportFeels:     current ? formatTemp(useImperial ? current.FeelsLikeF : current.FeelsLikeC) : ""
-  readonly property string reportWind:      current ? (useImperial ? (current.windspeedMiles + " mph") : (current.windspeedKmph + " km/h")) : ""
+  readonly property string reportFeelsNum: {
+    if (!current) return ""
+    var v = useImperial ? current.FeelsLikeF : current.FeelsLikeC
+    if (v === undefined || v === null || v === "") return ""
+    return String(v)
+  }
+  readonly property string reportWindNum: {
+    if (!current) return ""
+    var v = useImperial ? current.windspeedMiles : current.windspeedKmph
+    if (v === undefined || v === null || v === "") return ""
+    return String(v)
+  }
+  readonly property string reportWindUnit: useImperial ? "mph" : "km/h"
   readonly property string reportHumidity:  current ? (current.humidity + "%") : ""
+  readonly property var sunTimes: Model.sunTimes(dailyForecastReport, report, Qt.formatDate(new Date(), "yyyy-MM-dd")) || ({ sunrise: "", sunset: "" })
+  readonly property string reportSunrise: sunTimes.sunrise || ""
+  readonly property string reportSunset: sunTimes.sunset || ""
 
   function refresh() {
     // Each full refresh cycle gets a fresh retry budget, so an earlier
@@ -301,7 +350,7 @@ Panel {
     var url = "https://api.open-meteo.com/v1/forecast"
       + "?latitude=" + encodeURIComponent(String(lat))
       + "&longitude=" + encodeURIComponent(String(lon))
-      + "&daily=weather_code,temperature_2m_max,temperature_2m_min"
+      + "&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset"
       + "&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code,is_day"
       + "&forecast_days=4"
       + "&timezone=auto"
@@ -756,35 +805,65 @@ Panel {
           width: weatherScroll.width
           spacing: Theme.space(14)
 
-      PanelHero {
-        id: weatherHero
+      Item {
+        id: todayCard
         width: parent.width
-        title: root.current ? ((root.reportTempNum || "—") + root.tempUnit) : "Weather"
-        meta: root.editingLocation ? "" : (root.reportLocation || "")
-        foreground: root.foreground
-        fontFamily: root.fontFamily
+        readonly property int legendBand: todayLegend.height / 2
+        implicitHeight: todayColumn.implicitHeight + todayCard.legendBand + Theme.space(26)
+        height: implicitHeight
 
-        iconComponent: Component {
+        Rectangle {
+          anchors.fill: parent
+          anchors.topMargin: todayCard.legendBand
+          color: "transparent"
+          radius: Theme.space(8)
+          border.width: 1
+          border.color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.28)
+          antialiasing: true
+        }
+
+        Item {
+          id: todayLegend
+          x: Theme.space(14)
+          y: 0
+          width: Math.min(todayLegendText.implicitWidth + Theme.space(8), Math.max(Theme.space(24), parent.width - Theme.space(20)))
+          height: Math.max(1, todayLegendText.implicitHeight)
+
+          Rectangle {
+            anchors.fill: parent
+            color: Theme.popups.background
+          }
+
           Text {
+            id: todayLegendText
+            x: Theme.space(4)
+            width: Math.max(1, parent.width - Theme.space(8))
+            anchors.verticalCenter: parent.verticalCenter
             textFormat: Text.PlainText
-            text: root.label || "—"
-            color: root.foreground
+            text: "TODAY"
+            color: Qt.darker(root.foreground, 1.4)
             font.family: root.fontFamily
-            font.pixelSize: Theme.font.display
+            font.pixelSize: Theme.font.caption
+            font.bold: true
+            elide: Text.ElideRight
           }
         }
 
-        TapHandler {
-          onTapped: if (!root.editingLocation) root.startEditingLocation()
-        }
-        HoverHandler {
-          cursorShape: root.editingLocation ? Qt.ArrowCursor : Qt.PointingHandCursor
-        }
-      }
+        Column {
+          id: todayColumn
+          y: todayCard.legendBand + Theme.space(14)
+          width: parent.width
+          spacing: Theme.space(12)
 
-      Row {
+      Item {
         visible: root.editingLocation
         width: parent.width
+        height: locationEditRow.implicitHeight
+
+      Row {
+        id: locationEditRow
+        x: Theme.space(12)
+        width: parent.width - Theme.space(24)
         spacing: Theme.space(6)
 
         TextField {
@@ -847,86 +926,74 @@ Panel {
           }
         }
       }
+      }
 
-      Row {
-        id: weatherStats
+      Grid {
+        id: todayGrid
         visible: !!root.current
         width: parent.width
-        spacing: Theme.space(8)
+        columns: 3
+        columnSpacing: forecastRow.spacing
+        rowSpacing: Theme.space(12)
+        readonly property real colWidth: (width - columnSpacing * 2) / 3
 
-        Column {
-          width: (weatherStats.width - weatherStats.spacing * 2) / 3
-          spacing: Theme.space(2)
-          Text {
-            textFormat: Text.PlainText
-            width: parent.width
-            text: "FEELS"
-            color: Qt.darker(root.foreground, 1.5)
-            font.family: root.fontFamily
-            font.pixelSize: Theme.font.caption
-            font.letterSpacing: 1
-            elide: Text.ElideRight
-          }
-          Text {
-            textFormat: Text.PlainText
-            width: parent.width
-            text: root.reportFeels
-            color: root.foreground
-            font.family: root.fontFamily
-            font.pixelSize: Theme.font.body
-            font.bold: true
-            elide: Text.ElideRight
-          }
+        WeatherStat {
+          width: todayGrid.colWidth
+          label: root.reportLocation || "NOW"
+          value: root.reportTempNum || "—"
+          unit: root.reportTempNum ? root.tempUnit : ""
+          glyph: root.label
+          locationTrigger: true
+          valueColor: root.accent
         }
-
-        Column {
-          width: (weatherStats.width - weatherStats.spacing * 2) / 3
-          spacing: Theme.space(2)
-          Text {
-            textFormat: Text.PlainText
-            width: parent.width
-            text: "WIND"
-            color: Qt.darker(root.foreground, 1.5)
-            font.family: root.fontFamily
-            font.pixelSize: Theme.font.caption
-            font.letterSpacing: 1
-            elide: Text.ElideRight
-          }
-          Text {
-            textFormat: Text.PlainText
-            width: parent.width
-            text: root.reportWind
-            color: root.foreground
-            font.family: root.fontFamily
-            font.pixelSize: Theme.font.body
-            font.bold: true
-            elide: Text.ElideRight
-          }
+        WeatherStat {
+          width: todayGrid.colWidth
+          label: "FEELS"
+          value: root.reportFeelsNum || "—"
+          unit: root.reportFeelsNum ? root.tempUnit : ""
+          valueColor: root.themeOrange
         }
+        WeatherStat {
+          width: todayGrid.colWidth
+          label: "WIND"
+          value: root.reportWindNum || "—"
+          unit: root.reportWindNum ? root.reportWindUnit : ""
+          valueColor: root.themeGreen
+        }
+        WeatherStat {
+          width: todayGrid.colWidth
+          label: "HUMID"
+          value: root.reportHumidity
+          valueSize: Theme.font.body
+          valueColor: root.themeMagenta
+        }
+        WeatherStat {
+          width: todayGrid.colWidth
+          label: "SUNRISE"
+          value: root.reportSunrise || "—"
+          valueSize: Theme.font.body
+          valueColor: root.themeYellow
+        }
+        WeatherStat {
+          width: todayGrid.colWidth
+          label: "SUNSET"
+          value: root.reportSunset || "—"
+          valueSize: Theme.font.body
+          valueColor: root.themePink
+        }
+      }
 
-        Column {
-          width: (weatherStats.width - weatherStats.spacing * 2) / 3
-          spacing: Theme.space(2)
-          Text {
-            textFormat: Text.PlainText
-            width: parent.width
-            text: "HUMID"
-            color: Qt.darker(root.foreground, 1.5)
-            font.family: root.fontFamily
-            font.pixelSize: Theme.font.caption
-            font.letterSpacing: 1
-            elide: Text.ElideRight
-          }
-          Text {
-            textFormat: Text.PlainText
-            width: parent.width
-            text: root.reportHumidity
-            color: root.foreground
-            font.family: root.fontFamily
-            font.pixelSize: Theme.font.body
-            font.bold: true
-            elide: Text.ElideRight
-          }
+      Text {
+        visible: !root.current
+        x: Theme.space(12)
+        width: parent.width - Theme.space(24)
+        textFormat: Text.PlainText
+        text: "Fetching forecast…"
+        color: Qt.darker(root.foreground, 1.5)
+        font.family: root.fontFamily
+        font.pixelSize: Theme.font.bodySmall
+        font.italic: true
+      }
         }
       }
 
@@ -983,25 +1050,6 @@ Panel {
         }
       }
 
-      Text {
-        visible: !root.current
-        textFormat: Text.PlainText
-        text: "Fetching forecast…"
-        color: Qt.darker(root.foreground, 1.5)
-        font.family: root.fontFamily
-        font.pixelSize: Theme.font.bodySmall
-        font.italic: true
-      }
-
-      // ---- Divider between current conditions and forecast.
-      Rectangle {
-        visible: root.forecastDays.length > 0
-        width: parent.width
-        height: Theme.spacing.hairline
-        color: root.foreground
-        opacity: 0.12
-      }
-
       Row {
         id: forecastRow
         visible: root.forecastDays.length > 0
@@ -1027,25 +1075,67 @@ Panel {
         id: radarWrap
         visible: root.radarCells.length > 0 || root.radarLoading || (root.radarData && root.radarData.error)
         width: parent.width
-        height: radarBox.height
+        readonly property int legendBand: radarLegend.height / 2
         readonly property real cellSize: radarMap.width / root.radarGrid
         readonly property int cross: Math.max(8, Math.round(cellSize))
+        implicitHeight: radarColumn.implicitHeight + legendBand + Theme.space(26)
+        height: implicitHeight
+
+        Rectangle {
+          anchors.fill: parent
+          anchors.topMargin: radarWrap.legendBand
+          color: "transparent"
+          radius: Theme.space(8)
+          border.width: 1
+          border.color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.28)
+          antialiasing: true
+        }
+
+        Item {
+          id: radarLegend
+          x: Theme.space(14)
+          y: 0
+          width: Math.min(radarLegendText.implicitWidth + Theme.space(8), Math.max(Theme.space(24), parent.width - Theme.space(20)))
+          height: Math.max(1, radarLegendText.implicitHeight)
+
+          Rectangle {
+            anchors.fill: parent
+            color: Theme.popups.background
+          }
+
+          Text {
+            id: radarLegendText
+            x: Theme.space(4)
+            width: Math.max(1, parent.width - Theme.space(8))
+            anchors.verticalCenter: parent.verticalCenter
+            textFormat: Text.PlainText
+            text: "RADAR"
+            color: Qt.darker(root.foreground, 1.4)
+            font.family: root.fontFamily
+            font.pixelSize: Theme.font.caption
+            font.bold: true
+            elide: Text.ElideRight
+          }
+        }
 
         Column {
-          id: radarBox
-          width: parent.width
-          spacing: Theme.space(4)
+          id: radarColumn
+          x: Theme.space(12)
+          y: radarWrap.legendBand + Theme.space(14)
+          width: parent.width - Theme.space(24)
+          spacing: Theme.space(6)
 
           Item {
             id: radarMap
             width: parent.width
-            height: width
+            height: Math.round(width * 3 / 4)
+            clip: true
             readonly property real originLat: root.radarData && root.radarData.ok ? root.radarData.lat : NaN
             readonly property real originLon: root.radarData && root.radarData.ok ? root.radarData.lon : NaN
             readonly property var rings: Model.radarRingRadii(originLat, width, root.radarZoom)
             readonly property var towns: Model.radarTowns(
               originLat, originLon, width, root.radarZoom,
-              root.reportLocation, originLat, originLon)
+              root.reportLocation, originLat, originLon, height)
             readonly property color ink: root.foreground
             readonly property string mapFont: root.fontFamily
 
@@ -1060,7 +1150,7 @@ Panel {
               contextType: "2d"
               readonly property var paths: Model.radarCoastPaths(
                 Coast.RINGS, radarMap.originLat, radarMap.originLon,
-                width, root.radarZoom)
+                width, root.radarZoom, height)
               readonly property color landFill: Qt.rgba(
                 radarMap.ink.r, radarMap.ink.g, radarMap.ink.b, 0.04)
               readonly property color shore: Qt.rgba(
@@ -1121,6 +1211,9 @@ Panel {
                 var n = rainCanvas.grid
                 var w = width
                 var h = height
+                // The sample is square. Draw it at the same scale as the width
+                // and let the shorter view crop the top and bottom.
+                var yOff = (h - w) / 2
                 // "copy" replaces the pixel, including turning it transparent.
                 // clearRect does not, once the painter is scaled for the screen.
                 ctx.globalCompositeOperation = "copy"
@@ -1131,8 +1224,11 @@ Panel {
                   return
                 }
                 for (var row = 0; row < n; row++) {
-                  var y0 = Math.floor(row * h / n)
-                  var y1 = row === n - 1 ? Math.ceil(h) + 1 : Math.floor((row + 1) * h / n)
+                  var y0 = Math.floor(yOff + row * w / n)
+                  var y1 = row === n - 1 ? Math.ceil(yOff + w) : Math.floor(yOff + (row + 1) * w / n)
+                  if (y1 <= 0 || y0 >= h) continue
+                  if (y0 < 0) y0 = 0
+                  if (y1 > Math.ceil(h) + 1) y1 = Math.ceil(h) + 1
                   for (var col = 0; col < n; col++) {
                     var c = rain[row * n + col]
                     var x0 = Math.floor(col * w / n)
@@ -1276,6 +1372,89 @@ Panel {
   }
   }
 
+  component WeatherStat: Column {
+    id: stat
+    property string label: ""
+    property string value: ""
+    property string unit: ""
+    property int valueSize: Theme.font.display
+    property color valueColor: root.foreground
+    property string glyph: ""
+    property bool locationTrigger: false
+    spacing: Theme.space(2)
+
+    Text {
+      textFormat: Text.PlainText
+      width: parent.width
+      text: stat.label.toUpperCase()
+      color: Qt.darker(root.foreground, 1.5)
+      font.family: root.fontFamily
+      font.pixelSize: Theme.font.caption
+      font.letterSpacing: 1
+      horizontalAlignment: Text.AlignHCenter
+      elide: Text.ElideRight
+    }
+
+    Item {
+      width: parent.width
+      height: valueLine.implicitHeight
+
+      Row {
+        id: valueLine
+        anchors.horizontalCenter: parent.horizontalCenter
+        spacing: stat.glyph !== "" ? Theme.space(4) : 0
+
+        Text {
+          id: glyphText
+          visible: stat.glyph !== ""
+          textFormat: Text.PlainText
+          text: stat.glyph
+          color: stat.valueColor
+          font.family: root.fontFamily
+          font.pixelSize: Theme.font.display
+        }
+
+        Item {
+          implicitWidth: valueText.implicitWidth + (unitText.visible ? unitText.implicitWidth + unitText.anchors.leftMargin : 0)
+          implicitHeight: valueText.implicitHeight
+
+          Text {
+            id: valueText
+            textFormat: Text.PlainText
+            text: stat.value
+            color: stat.valueColor
+            font.family: root.fontFamily
+            font.pixelSize: stat.valueSize
+            font.bold: true
+          }
+
+          Text {
+            id: unitText
+            visible: stat.unit !== ""
+            anchors.left: valueText.right
+            anchors.leftMargin: stat.unit.indexOf("°") === 0 ? 0 : Theme.space(3)
+            anchors.baseline: valueText.baseline
+            textFormat: Text.PlainText
+            text: stat.unit
+            color: stat.valueColor
+            font.family: root.fontFamily
+            font.pixelSize: Theme.font.body
+            font.bold: true
+          }
+        }
+      }
+    }
+
+    TapHandler {
+      enabled: stat.locationTrigger
+      onTapped: if (!root.editingLocation) root.startEditingLocation()
+    }
+    HoverHandler {
+      enabled: stat.locationTrigger && !root.editingLocation
+      cursorShape: Qt.PointingHandCursor
+    }
+  }
+
   component ForecastTile: Item {
     id: tile
     property string day: ""
@@ -1334,7 +1513,7 @@ Panel {
         textFormat: Text.PlainText
         width: parent.width
         text: tile.icon || "—"
-        color: root.foreground
+        color: root.accent
         font.family: root.fontFamily
         font.pixelSize: Theme.font.display
         horizontalAlignment: Text.AlignHCenter
@@ -1352,7 +1531,7 @@ Panel {
           Text {
             textFormat: Text.PlainText
             text: tile.high
-            color: root.foreground
+            color: root.accent
             font.family: root.fontFamily
             font.pixelSize: Theme.font.title
             font.bold: true
@@ -1360,7 +1539,7 @@ Panel {
           Text {
             textFormat: Text.PlainText
             text: tile.low
-            color: Qt.darker(root.foreground, 1.5)
+            color: root.themeMagenta
             font.family: root.fontFamily
             font.pixelSize: Theme.font.title
             font.bold: true

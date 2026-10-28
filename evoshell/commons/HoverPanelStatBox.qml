@@ -44,10 +44,13 @@ Item {
     signal toggleClicked()
 
     readonly property int legendHang: fieldsetLabel ? Math.round(Theme.font.caption / 2) : 0
+    // 0 keeps the box as tall as its text. A set height matches the stat
+    // tiles on the other panels (Theme.font.heading + Theme.space(56)).
+    property int boxHeight: 0
 
     Layout.fillWidth: true
     implicitWidth: panel.implicitWidth
-    implicitHeight: panel.implicitHeight + legendHang
+    implicitHeight: boxHeight > 0 ? boxHeight : panel.implicitHeight + legendHang
 
     SectionPanel {
         id: panel
@@ -56,6 +59,7 @@ Item {
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         anchors.topMargin: root.legendHang
+        fillHeight: root.boxHeight > 0
         label: ""
         notchLegend: false
         legendText: ""
@@ -70,6 +74,7 @@ Item {
 
         ColumnLayout {
             Layout.fillWidth: true
+            Layout.fillHeight: root.boxHeight > 0
             spacing: Theme.spacing2
 
             RowLayout {
@@ -223,8 +228,10 @@ Item {
 
             Text {
                 Layout.fillWidth: true
+                Layout.fillHeight: root.boxHeight > 0
                 visible: !root.hasIcon
                 horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
                 text: root.value
                 color: root.special ? Theme.accent : root.valueColor
                 font.family: Theme.fontFamily

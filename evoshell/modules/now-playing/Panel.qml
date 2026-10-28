@@ -346,6 +346,7 @@ Panel {
   }
 
   Timer {
+    id: refreshTimer
     interval: 1000
     running: root.opened && root.playerPlaying
     repeat: true
@@ -354,6 +355,17 @@ Panel {
         root.activePlayer.positionChanged()
       root.positionTick = Date.now()
     }
+  }
+
+  IpcHandler {
+    enabled: !!root.hostWidget && root.hostWidget.ownsIpc
+    target: root.ipcTarget
+
+    function open(): void { root.openFromHotkey() }
+    function close(): void { root.close() }
+    function show(): void { root.openFromHotkey() }
+    function hide(): void { root.close() }
+    function toggle(): void { root.toggle() }
   }
 
   KeyboardPanel {
@@ -612,12 +624,9 @@ Panel {
           }
         }
 
-        PanelSectionHeader {
+        SectionFieldset {
           Layout.fillWidth: true
-          text: "HISTORY"
-          foreground: root.foreground
-          fontFamily: root.fontFamily
-        }
+          legend: "HISTORY"
 
         Text {
           textFormat: Text.PlainText
@@ -759,8 +768,61 @@ Panel {
           }
         }
         }
+        }
       }
       }
+    }
+  }
+
+  component SectionFieldset: Item {
+    id: fieldset
+    property string legend: ""
+    default property alias contentData: fieldColumn.data
+
+    readonly property int legendBand: legendChip.height / 2
+    implicitHeight: fieldColumn.implicitHeight + legendBand + Theme.space(26)
+
+    Rectangle {
+      anchors.fill: parent
+      anchors.topMargin: fieldset.legendBand
+      color: "transparent"
+      radius: Theme.space(8)
+      border.width: 1
+      border.color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.28)
+      antialiasing: true
+    }
+
+    Item {
+      id: legendChip
+      x: Theme.space(14)
+      y: 0
+      width: legendText.implicitWidth + Theme.space(8)
+      height: Math.max(1, legendText.implicitHeight)
+
+      Rectangle {
+        anchors.fill: parent
+        color: Theme.popups.background
+      }
+
+      Text {
+        id: legendText
+        x: Theme.space(4)
+        anchors.verticalCenter: parent.verticalCenter
+        textFormat: Text.PlainText
+        text: fieldset.legend
+        color: Qt.darker(root.foreground, 1.4)
+        font.family: root.fontFamily
+        font.pixelSize: Theme.font.caption
+        font.bold: true
+      }
+    }
+
+    ColumnLayout {
+      id: fieldColumn
+      x: Theme.space(12)
+      y: fieldset.legendBand + Theme.space(14)
+      width: parent.width - Theme.space(24)
+      spacing: Theme.space(4)
     }
   }
 }

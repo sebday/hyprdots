@@ -101,6 +101,20 @@ function formatTokens(n) {
   return String(Math.round(v))
 }
 
+// The three stat tiles share one display-sized line. "523.45M" is wider
+// than the tile and elides to "523. ...". Drop decimals once they no
+// longer fit, and keep the unit.
+function formatTokensStat(n) {
+  var v = Number(n) || 0
+  if (v >= 1e9) {
+    var billions = v / 1e9
+    return (billions >= 10 ? String(Math.round(billions)) : (Math.round(billions * 10) / 10)) + "B"
+  }
+  if (v >= 100e6) return String(Math.round(v / 1e6)) + "M"
+  if (v >= 10e6) return String(Math.round(v / 1e5) / 10) + "M"
+  return formatTokens(v)
+}
+
 function formatTokensNearestM(n) {
   return Math.round((Number(n) || 0) / 1e6) + "M"
 }

@@ -21,6 +21,10 @@ BorderSurface {
   // notifications` etc.) show their bell/lock/etc. glyph without leaking
   // into the summary text.
   property string glyph: ""
+  // 0–1 progress from the freedesktop `value` hint. Negative means unset.
+  property real progress: -1
+  // JSON [{identifier, text}] of non-default actions. Empty when the sender is gone.
+  property string actionsJson: ""
   // NotificationUrgency: Low=0, Normal=1, Critical=2 (upstream).
   property int urgency: 1
   property double timestamp: 0
@@ -33,6 +37,9 @@ BorderSurface {
 
   signal closeRequested()
   signal cardClicked()
+  signal actionInvoked(string identifier)
+
+  readonly property var actionItems: NotificationLogic.parseActionRecords(actionsJson)
   // Prefer per-notification media/avatar data, then fall back to the app icon.
   // The `check` flag avoids Qt's missing-texture placeholder for unknown names.
   readonly property string smallIconSource: image.length > 0 ? image : iconSource(appIcon)
@@ -180,6 +187,76 @@ BorderSurface {
           wrapMode: Text.WordWrap
           elide: Text.ElideRight
           maximumLineCount: 3
+        }
+      }
+    }
+
+    Row {
+      visible: root.actionItems.length > 0
+      Layout.fillWidth: true
+      Layout.leftMargin: Theme.space(12)
+      Layout.rightMargin: Theme.space(12)
+      Layout.bottomMargin: Theme.space(8)
+      spacing: Theme.space(6)
+
+      Repeater {
+        model: root.actionItems
+
+        Rectangle {
+          required property var modelData
+          implicitWidth: actionLabel.implicitWidth + Theme.space(16)
+          implicitHeight: actionLabel.implicitHeight + Theme.space(6)
+          radius: Theme.space(4)
+          color: actionArea.containsMouse
+            ? Qt.rgba(root.accentColor.r, root.accentColor.g, root.accentColor.b, 0.28)
+            : Qt.rgba(root.accentColor.r, root.accentColor.g, root.accentColor.b, 0.14)
+
+          Text {
+            id: actionLabel
+            anchors.centerIn: parent
+            textFormat: Text.PlainText
+            text: modelData.text
+            color: root.accentColor
+            font.family: root.fontFamily || Theme.font.family
+            font.pixelSize: Theme.font.caption
+            font.bold: true
+          }
+
+          MouseArea {
+            id: actionArea
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.actionInvoked(modelData.identifier)
+          }
+        }
+      }
+    }
+
+    Item {
+      // A layout child with only a preferred height can collapse to nothing,
+      // so the bar owns an explicit height and sits inside the text inset.
+      visible: root.progress >= 0
+      Layout.fillWidth: true
+      Layout.leftMargin: Theme.space(12)
+      Layout.rightMargin: Theme.space(12)
+      Layout.bottomMargin: Theme.space(10)
+      implicitHeight: Theme.space(4)
+      Layout.preferredHeight: implicitHeight
+
+      Rectangle {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        height: parent.height
+        radius: height / 2
+        color: Qt.rgba(root.accentColor.r, root.accentColor.g, root.accentColor.b, 0.22)
+
+        Rectangle {
+          width: parent.width * Math.max(0, Math.min(1, root.progress))
+          height: parent.height
+          radius: height / 2
+          color: root.accentColor
         }
       }
     }

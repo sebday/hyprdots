@@ -344,26 +344,13 @@ Panel {
           }
 
           // ---------- Text size ----------
-          PanelSeparator {
-            foreground: root.bar.foreground
-          }
-
-          Column {
+          SectionFieldset {
             width: parent.width
-            spacing: Theme.space(6)
+            legend: "TEXT SIZE"
 
             Item {
               width: parent.width
-              implicitHeight: Math.max(textSizeHeader.implicitHeight, textSizePx.implicitHeight)
-
-              PanelSectionHeader {
-                id: textSizeHeader
-                text: "TEXT SIZE"
-                foreground: root.bar.foreground
-                fontFamily: root.bar.fontFamily
-                anchors.left: parent.left
-                anchors.verticalCenter: parent.verticalCenter
-              }
+              implicitHeight: textSizePx.implicitHeight
 
               Text {
                 textFormat: Text.PlainText
@@ -376,7 +363,6 @@ Panel {
                 font.pixelSize: Theme.font.caption
                 font.bold: true
                 anchors.right: parent.right
-                anchors.rightMargin: Theme.space(6)
                 anchors.verticalCenter: parent.verticalCenter
               }
             }
@@ -411,44 +397,27 @@ Panel {
           }
 
           // ---------- Layout ----------
-          PanelSeparator {
-            visible: Quickshell.screens.length > 1
-            foreground: root.bar.foreground
-          }
-
-          Column {
+          SectionFieldset {
             width: parent.width
-            spacing: 0
+            legend: "LAYOUT"
             visible: Quickshell.screens.length > 1
 
             Item {
               width: parent.width
-              implicitHeight: layoutHeaderRow.implicitHeight
+              implicitHeight: layoutReset.implicitHeight
 
-              PanelSectionHeader {
-                id: layoutHeaderRow
-                text: "LAYOUT"
-                foreground: root.bar.foreground
-                fontFamily: root.bar.fontFamily
-                anchors.left: parent.left
-                anchors.verticalCenter: parent.verticalCenter
-              }
-
-              Row {
+              Button {
+                id: layoutReset
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: Theme.spacing.xs
-
-                Button {
-                  iconText: "󰑐"
-                  tooltipText: "Reset defaults (bar on top, notifications top-right on this screen)"
-                  fontSize: Theme.font.caption
-                  foreground: root.bar.foreground
-                  fontFamily: root.bar.fontFamily
-                  horizontalPadding: Theme.spacing.sm
-                  verticalPadding: Theme.spacing.controlPaddingY
-                  onClicked: root.resetLayoutDefaults()
-                }
+                iconText: "󰑐"
+                tooltipText: "Reset defaults (bar on top, notifications top-right on this screen)"
+                fontSize: Theme.font.caption
+                foreground: root.bar.foreground
+                fontFamily: root.bar.fontFamily
+                horizontalPadding: Theme.spacing.sm
+                verticalPadding: Theme.spacing.controlPaddingY
+                onClicked: root.resetLayoutDefaults()
               }
             }
 
@@ -475,6 +444,59 @@ Panel {
           }
         }
       }
+    }
+  }
+
+  component SectionFieldset: Item {
+    id: fieldset
+    property string legend: ""
+    default property alias contentData: fieldColumn.data
+
+    readonly property int legendBand: legendChip.height / 2
+    implicitHeight: fieldColumn.implicitHeight + legendBand + Theme.space(26)
+    height: implicitHeight
+
+    Rectangle {
+      anchors.fill: parent
+      anchors.topMargin: fieldset.legendBand
+      color: "transparent"
+      radius: Theme.space(8)
+      border.width: 1
+      border.color: Qt.rgba(root.bar.foreground.r, root.bar.foreground.g, root.bar.foreground.b, 0.28)
+      antialiasing: true
+    }
+
+    Item {
+      id: legendChip
+      x: Theme.space(14)
+      y: 0
+      width: legendText.implicitWidth + Theme.space(8)
+      height: Math.max(1, legendText.implicitHeight)
+
+      Rectangle {
+        anchors.fill: parent
+        color: Theme.popups.background
+      }
+
+      Text {
+        id: legendText
+        x: Theme.space(4)
+        anchors.verticalCenter: parent.verticalCenter
+        textFormat: Text.PlainText
+        text: fieldset.legend
+        color: Qt.darker(root.bar.foreground, 1.4)
+        font.family: root.bar.fontFamily
+        font.pixelSize: Theme.font.caption
+        font.bold: true
+      }
+    }
+
+    Column {
+      id: fieldColumn
+      x: Theme.space(12)
+      y: fieldset.legendBand + Theme.space(14)
+      width: parent.width - Theme.space(24)
+      spacing: Theme.space(8)
     }
   }
 }

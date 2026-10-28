@@ -17,15 +17,24 @@ Item {
     signal unhideRequested(var entry)
 
     readonly property var notifService: host && host.notifService ? host.notifService : null
-    readonly property string rowTitle: {
+    readonly property string rowApp: String((entry && entry.app) || "").trim()
+    readonly property string rowSummary: {
         var summary = String((entry && entry.summary) || "").trim()
+        if (summary)
+            return summary
         var body = String((entry && entry.body) || "").trim()
         var line = body ? String(body.split("\n")[0] || "").trim() : ""
+        return line || "Notification"
+    }
+    readonly property string rowBody: {
+        var summary = String((entry && entry.summary) || "").trim()
         if (!summary)
-            return line || "Notification"
+            return ""
+        var body = String((entry && entry.body) || "").trim()
+        var line = body ? String(body.split("\n")[0] || "").trim() : ""
         if (!line || line === summary)
-            return summary
-        return summary + " · " + line
+            return ""
+        return line
     }
     readonly property string rowGlyph: {
         var glyph = String((entry && entry.glyph) || "")
@@ -91,13 +100,39 @@ Item {
 
             Text {
                 Layout.fillWidth: true
-                text: root.rowTitle
+                visible: root.rowApp !== ""
+                text: root.rowApp
+                color: Theme.foreground
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSizeS
+                font.bold: true
+                font.letterSpacing: 0.6
+                elide: Text.ElideRight
+                maximumLineCount: 1
+                opacity: Theme.opacityMuted
+            }
+
+            Text {
+                Layout.fillWidth: true
+                text: root.rowSummary
                 color: Theme.foreground
                 font.family: Theme.fontFamily
                 font.pixelSize: host ? host.titleFont : Theme.fontSizeM
                 font.bold: Theme.fontBold
                 elide: Text.ElideRight
                 maximumLineCount: 1
+            }
+
+            Text {
+                Layout.fillWidth: true
+                visible: root.rowBody !== ""
+                text: root.rowBody
+                color: Theme.foreground
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSizeS
+                elide: Text.ElideRight
+                maximumLineCount: 1
+                opacity: Theme.opacityMuted
             }
         }
 

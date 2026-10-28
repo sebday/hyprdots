@@ -402,6 +402,7 @@ Item {
                     label: modelData.label
                     valueColor: modelData.color || Theme.accent
                     valueFontSize: Theme.fontSizeXl
+                    boxHeight: Theme.font.heading + Theme.space(56)
                 }
             }
         }

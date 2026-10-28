@@ -38,7 +38,6 @@ Panel {
   readonly property var discoveredDevices: deviceGroups.discovered || []
   readonly property bool scanning: !!(adapter && adapter.enabled && adapter.discovering)
   readonly property var sections: Model.visibleSections(deviceGroups, scanning)
-  readonly property var scrollRows: Model.scrollRows(deviceGroups, scanning)
 
   readonly property string iconGlyph: {
     if (!adapter || !adapter.enabled) return "󰂲"
@@ -156,26 +155,6 @@ Panel {
     if (index < 0 || index >= list.length)
       return null
     return list[index]
-  }
-
-  function scrollSectionTitle(index) {
-    var rows = scrollRows
-    if (index < 0 || index >= rows.length)
-      return ""
-    if (index > 0 && rows[index - 1].section === rows[index].section)
-      return ""
-    return rows[index].section === "known" ? "Paired" : "Available"
-  }
-
-  readonly property int scrollRowIndex: {
-    if (focusSection !== "known" && focusSection !== "discovered")
-      return -1
-    var i
-    for (i = 0; i < scrollRows.length; i++) {
-      if (scrollRows[i].section === focusSection && scrollRows[i].indexInSection === selectedIndex)
-        return i
-    }
-    return -1
   }
 
   function clampCursor() {
@@ -537,24 +516,17 @@ Panel {
 
           PanelSeparator { foreground: root.foreground }
 
-          Column {
-            id: connectedList
-            visible: root.connectedDevices.length > 0
+          SectionFieldset {
             width: parent.width
-            spacing: Theme.space(8)
-
-            PanelSectionHeader {
-              text: "Connected"
-              foreground: root.foreground
-              fontFamily: root.fontFamily
-            }
+            visible: root.connectedDevices.length > 0
+            legend: "Connected"
 
             Repeater {
               model: root.connectedDevices
               DeviceRow {
                 required property var modelData
                 required property int index
-                width: connectedList.width
+                width: parent.width
                 dev: modelData
                 rowIndex: index
                 sectionName: "connected"
@@ -563,70 +535,75 @@ Panel {
             }
           }
 
-          PanelSeparator {
-            visible: root.connectedDevices.length > 0 && root.scrollRows.length > 0
-            foreground: root.foreground
+          SectionFieldset {
+            width: parent.width
+            visible: root.knownDevices.length > 0
+            legend: "Paired"
+
+            ListView {
+              id: pairedList
+              width: parent.width
+              implicitHeight: Math.min(contentHeight, Theme.space(400))
+              height: implicitHeight
+              spacing: Theme.space(8)
+              clip: true
+              boundsBehavior: Flickable.StopAtBounds
+              interactive: contentHeight > height
+              model: root.knownDevices
+              currentIndex: root.focusSection === "known" ? root.selectedIndex : -1
+              onCurrentIndexChanged: if (currentIndex >= 0) Qt.callLater(function() {
+                pairedList.positionViewAtIndex(pairedList.currentIndex, ListView.Contain)
+              })
+              ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+
+              delegate: DeviceRow {
+                required property var modelData
+                required property int index
+                width: pairedList.width
+                dev: modelData
+                rowIndex: index
+                sectionName: "known"
+                isDiscovered: false
+              }
+            }
           }
 
-          ListView {
-            id: deviceListView
-            visible: root.scrollRows.length > 0
+          SectionFieldset {
             width: parent.width
-            height: Math.min(contentHeight, Theme.space(400))
-            spacing: Theme.space(8)
-            clip: true
-            boundsBehavior: Flickable.StopAtBounds
-            interactive: contentHeight > height
-            model: root.scrollRows
-            currentIndex: root.scrollRowIndex
-            onCurrentIndexChanged: if (currentIndex >= 0) Qt.callLater(keepCurrentVisible)
-            function keepCurrentVisible() {
-              if (currentIndex >= 0)
-                positionViewAtIndex(currentIndex, ListView.Contain)
-            }
-            ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+            visible: root.scanning && root.discoveredDevices.length > 0
+            legend: "Available"
 
-            delegate: Item {
-              required property var modelData
-              required property int index
-              readonly property string sectionTitle: root.scrollSectionTitle(index)
+            ListView {
+              id: availableList
+              width: parent.width
+              implicitHeight: Math.min(contentHeight, Theme.space(400))
+              height: implicitHeight
+              spacing: Theme.space(8)
+              clip: true
+              boundsBehavior: Flickable.StopAtBounds
+              interactive: contentHeight > height
+              model: root.discoveredDevices
+              currentIndex: root.focusSection === "discovered" ? root.selectedIndex : -1
+              onCurrentIndexChanged: if (currentIndex >= 0) Qt.callLater(function() {
+                availableList.positionViewAtIndex(availableList.currentIndex, ListView.Contain)
+              })
+              ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
 
-              width: ListView.view.width
-              height: delegateColumn.implicitHeight
-
-              Column {
-                id: delegateColumn
-                width: parent.width
-                spacing: Theme.space(8)
-
-                PanelSeparator {
-                  visible: index > 0 && sectionTitle !== ""
-                  height: visible ? implicitHeight : 0
-                  foreground: root.foreground
-                }
-
-                PanelSectionHeader {
-                  visible: sectionTitle !== ""
-                  height: visible ? implicitHeight : 0
-                  text: sectionTitle
-                  foreground: root.foreground
-                  fontFamily: root.fontFamily
-                }
-
-                DeviceRow {
-                  width: parent.width
-                  dev: modelData.dev
-                  rowIndex: modelData.indexInSection
-                  sectionName: modelData.section
-                  isDiscovered: modelData.section === "discovered"
-                }
+              delegate: DeviceRow {
+                required property var modelData
+                required property int index
+                width: availableList.width
+                dev: modelData
+                rowIndex: index
+                sectionName: "discovered"
+                isDiscovered: true
               }
             }
           }
 
           Text {
             textFormat: Text.PlainText
-            visible: root.connectedDevices.length === 0 && root.scrollRows.length === 0
+            visible: root.connectedDevices.length === 0 && root.knownDevices.length === 0 && !(root.scanning && root.discoveredDevices.length > 0)
             text: "No devices"
             color: Qt.darker(root.foreground, 1.5)
             font.family: root.fontFamily
@@ -790,6 +767,59 @@ Panel {
           root.forgetAddress(row.dev.address)
         }
       }
+    }
+  }
+
+  component SectionFieldset: Item {
+    id: fieldset
+    property string legend: ""
+    default property alias contentData: fieldColumn.data
+
+    readonly property int legendBand: legendChip.height / 2
+    implicitHeight: fieldColumn.implicitHeight + legendBand + Theme.space(26)
+    height: implicitHeight
+
+    Rectangle {
+      anchors.fill: parent
+      anchors.topMargin: fieldset.legendBand
+      color: "transparent"
+      radius: Theme.space(8)
+      border.width: 1
+      border.color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.28)
+      antialiasing: true
+    }
+
+    Item {
+      id: legendChip
+      x: Theme.space(14)
+      y: 0
+      width: legendText.implicitWidth + Theme.space(8)
+      height: Math.max(1, legendText.implicitHeight)
+
+      Rectangle {
+        anchors.fill: parent
+        color: Theme.popups.background
+      }
+
+      Text {
+        id: legendText
+        x: Theme.space(4)
+        anchors.verticalCenter: parent.verticalCenter
+        textFormat: Text.PlainText
+        text: fieldset.legend
+        color: Qt.darker(root.foreground, 1.4)
+        font.family: root.fontFamily
+        font.pixelSize: Theme.font.caption
+        font.bold: true
+      }
+    }
+
+    Column {
+      id: fieldColumn
+      x: Theme.space(12)
+      y: fieldset.legendBand + Theme.space(14)
+      width: parent.width - Theme.space(24)
+      spacing: Theme.space(8)
     }
   }
 }

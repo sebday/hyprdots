@@ -136,6 +136,82 @@ function dayName(dateString, formatter) {
   return ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][d.getDay()]
 }
 
+function pad2(value) {
+  var n = parseInt(value, 10)
+  if (isNaN(n)) return ""
+  return (n < 10 ? "0" : "") + n
+}
+
+// Open-Meteo local ISO ("2026-10-28T07:42") and wttr clock strings ("7:42 AM").
+function clockTime(value) {
+  var raw = String(value == null ? "" : value).replace(/^\s+|\s+$/g, "")
+  if (!raw) return ""
+  var iso = raw.match(/T(\d{1,2}):(\d{2})/)
+  if (iso) return pad2(iso[1]) + ":" + iso[2]
+  var twelve = raw.match(/^(\d{1,2}):(\d{2})\s*([AaPp][Mm])$/)
+  if (twelve) {
+    var h = parseInt(twelve[1], 10)
+    if (isNaN(h) || h < 1 || h > 12) return ""
+    var ap = twelve[3].toLowerCase()
+    if (ap === "am") {
+      if (h === 12) h = 0
+    } else if (h !== 12) {
+      h += 12
+    }
+    return pad2(h) + ":" + twelve[2]
+  }
+  var twenty = raw.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/)
+  if (!twenty) return ""
+  var hour = parseInt(twenty[1], 10)
+  if (isNaN(hour) || hour < 0 || hour > 23) return ""
+  return pad2(hour) + ":" + twenty[2]
+}
+
+function sunIndex(times, todayString) {
+  if (!times || !times.length) return -1
+  var today = String(todayString || "").slice(0, 10)
+  if (!today) return 0
+  for (var i = 0; i < times.length; i++) {
+    if (String(times[i]).slice(0, 10) === today) return i
+  }
+  return -1
+}
+
+function sunPair(sunrise, sunset) {
+  var rise = clockTime(sunrise)
+  var set = clockTime(sunset)
+  if (!rise && !set) return null
+  return { sunrise: rise, sunset: set }
+}
+
+function openMeteoSunTimes(dailyForecastReport, todayString) {
+  var daily = dailyForecastReport && dailyForecastReport.daily ? dailyForecastReport.daily : null
+  if (!daily) return null
+  var idx = sunIndex(daily.time, todayString)
+  if (idx < 0) return null
+  return sunPair(daily.sunrise ? daily.sunrise[idx] : "", daily.sunset ? daily.sunset[idx] : "")
+}
+
+function wttrSunTimes(report, todayString) {
+  var days = report && report.weather ? report.weather : []
+  var idx = -1
+  var today = String(todayString || "").slice(0, 10)
+  for (var i = 0; i < days.length; i++) {
+    if (!today || String(days[i] && days[i].date || "").slice(0, 10) === today) {
+      idx = i
+      if (today) break
+    }
+  }
+  if (idx < 0) return null
+  var astro = days[idx].astronomy && days[idx].astronomy[0] ? days[idx].astronomy[0] : null
+  if (!astro) return null
+  return sunPair(astro.sunrise, astro.sunset)
+}
+
+function sunTimes(dailyForecastReport, report, todayString) {
+  return openMeteoSunTimes(dailyForecastReport, todayString) || wttrSunTimes(report, todayString)
+}
+
 function openMeteoForecastDays(dailyForecastReport, todayString) {
   var daily = dailyForecastReport && dailyForecastReport.daily ? dailyForecastReport.daily : null
   if (!daily || !daily.time) return []
@@ -389,10 +465,18 @@ function latToTile(lat, zoom) {
   return ((1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2) * Math.pow(2, zoom)
 }
 
-function radarProject(lat, lon, originLat, originLon, viewSize, zoom) {
+function radarViewHeight(viewSize, viewHeight) {
+  var h = parseFloat(viewHeight)
+  return h > 0 ? h : viewSize
+}
+
+// viewSize is the pixel width of one radar tile. viewHeight crops that tile
+// vertically and keeps the same scale, with the origin in the middle.
+function radarProject(lat, lon, originLat, originLon, viewSize, zoom, viewHeight) {
+  var h = radarViewHeight(viewSize, viewHeight)
   return {
     x: (lonToTile(lon, zoom) - lonToTile(originLon, zoom)) * viewSize + viewSize / 2,
-    y: (latToTile(lat, zoom) - latToTile(originLat, zoom)) * viewSize + viewSize / 2
+    y: (latToTile(lat, zoom) - latToTile(originLat, zoom)) * viewSize + h / 2
   }
 }
 
@@ -408,8 +492,9 @@ function radarRingRadii(originLat, viewSize, zoom) {
   return out
 }
 
-function radarTowns(originLat, originLon, viewSize, zoom, homeName, homeLat, homeLon) {
+function radarTowns(originLat, originLon, viewSize, zoom, homeName, homeLat, homeLon, viewHeight) {
   if (!viewSize || isNaN(originLat) || isNaN(originLon)) return []
+  var h = radarViewHeight(viewSize, viewHeight)
   var pad = 20
   var seen = {}
   var list = RADAR_TOWNS.slice()
@@ -422,8 +507,8 @@ function radarTowns(originLat, originLon, viewSize, zoom, homeName, homeLat, hom
     var label = plain(place.name, 24)
     if (!label) continue
     var key = label.toLowerCase()
-    var pt = radarProject(place.lat, place.lon, originLat, originLon, viewSize, zoom)
-    if (pt.x < pad || pt.x > viewSize - pad || pt.y < pad || pt.y > viewSize - pad)
+    var pt = radarProject(place.lat, place.lon, originLat, originLon, viewSize, zoom, h)
+    if (pt.x < pad || pt.x > viewSize - pad || pt.y < pad || pt.y > h - pad)
       continue
     if (seen[key]) {
       if (place.home === true) {
@@ -442,8 +527,9 @@ function radarTowns(originLat, originLon, viewSize, zoom, homeName, homeLat, hom
   return out
 }
 
-function radarCoastPaths(rings, originLat, originLon, viewSize, zoom) {
+function radarCoastPaths(rings, originLat, originLon, viewSize, zoom, viewHeight) {
   if (!rings || !viewSize || isNaN(originLat) || isNaN(originLon)) return []
+  var h = radarViewHeight(viewSize, viewHeight)
   var margin = viewSize * 0.2
   var out = []
   for (var i = 0; i < rings.length; i++) {
@@ -452,9 +538,9 @@ function radarCoastPaths(rings, originLat, originLon, viewSize, zoom) {
     var path = []
     var visible = false
     for (var j = 0; j < ring.length; j++) {
-      var pt = radarProject(ring[j][0], ring[j][1], originLat, originLon, viewSize, zoom)
+      var pt = radarProject(ring[j][0], ring[j][1], originLat, originLon, viewSize, zoom, h)
       path.push(pt)
-      if (pt.x > -margin && pt.x < viewSize + margin && pt.y > -margin && pt.y < viewSize + margin)
+      if (pt.x > -margin && pt.x < viewSize + margin && pt.y > -margin && pt.y < h + margin)
         visible = true
     }
     if (visible)
@@ -508,6 +594,10 @@ if (typeof module !== "undefined") {
     countryUsesImperial: countryUsesImperial,
     shouldUseImperial: shouldUseImperial,
     dayName: dayName,
+    clockTime: clockTime,
+    openMeteoSunTimes: openMeteoSunTimes,
+    wttrSunTimes: wttrSunTimes,
+    sunTimes: sunTimes,
     openMeteoForecastDays: openMeteoForecastDays,
     openMeteoCurrentCondition: openMeteoCurrentCondition,
     currentIcon: currentIcon,
