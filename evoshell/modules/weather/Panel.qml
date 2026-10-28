@@ -26,24 +26,18 @@ Panel {
   readonly property color foreground: Theme.foreground
   readonly property color accent: Theme.accent
   readonly property string fontFamily: bar ? bar.fontFamily : Theme.font.family
-  property color themeYellow: Theme.ansiFallback("yellow")
   property color themeOrange: Theme.ansiFallback("orange")
   property color themeGreen: Theme.ansiFallback("green")
-  property color themeMagenta: Theme.ansiFallback("magenta")
-  property color themePink: Theme.ansiFallback("magenta")
 
   function loadThemeColors(raw) {
     var found = {}
     var lines = String(raw || "").split("\n")
     for (var i = 0; i < lines.length; i++) {
-      var match = lines[i].match(/^\s*(yellow|orange|green|magenta|pink|mauve|color[0-9]+)\s*=\s*["']?(#[0-9A-Fa-f]{6})/)
+      var match = lines[i].match(/^\s*(orange|green|color[0-9]+)\s*=\s*["']?(#[0-9A-Fa-f]{6})/)
       if (match) found[match[1]] = match[2]
     }
-    themeYellow = found.yellow || found.color3 || Theme.ansiFallback("yellow")
     themeOrange = found.orange || found.color11 || Theme.ansiFallback("orange")
     themeGreen = found.green || found.color2 || Theme.ansiFallback("green")
-    themeMagenta = found.magenta || found.mauve || found.color5 || Theme.ansiFallback("magenta")
-    themePink = found.pink || found.color13 || themeMagenta
   }
 
   property FileView themeColorsFile: FileView {
@@ -965,21 +959,18 @@ Panel {
           label: "HUMID"
           value: root.reportHumidity
           valueSize: Theme.font.body
-          valueColor: root.themeMagenta
         }
         WeatherStat {
           width: todayGrid.colWidth
           label: "SUNRISE"
           value: root.reportSunrise || "—"
           valueSize: Theme.font.body
-          valueColor: root.themeYellow
         }
         WeatherStat {
           width: todayGrid.colWidth
           label: "SUNSET"
           value: root.reportSunset || "—"
           valueSize: Theme.font.body
-          valueColor: root.themePink
         }
       }
 
@@ -1513,7 +1504,7 @@ Panel {
         textFormat: Text.PlainText
         width: parent.width
         text: tile.icon || "—"
-        color: root.accent
+        color: root.foreground
         font.family: root.fontFamily
         font.pixelSize: Theme.font.display
         horizontalAlignment: Text.AlignHCenter
@@ -1531,7 +1522,7 @@ Panel {
           Text {
             textFormat: Text.PlainText
             text: tile.high
-            color: root.accent
+            color: root.foreground
             font.family: root.fontFamily
             font.pixelSize: Theme.font.title
             font.bold: true
@@ -1539,7 +1530,7 @@ Panel {
           Text {
             textFormat: Text.PlainText
             text: tile.low
-            color: root.themeMagenta
+            color: Qt.darker(root.foreground, 1.5)
             font.family: root.fontFamily
             font.pixelSize: Theme.font.title
             font.bold: true
