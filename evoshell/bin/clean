@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Remove trash, thumbnails, your temp files, clipboard history, rebuildable caches,
 # and Cursor resume chats from before today.
+# Shader caches stay: Mesa, RADV, and Qt rebuild them on the next launch, and
+# games then recompile Vulkan shaders every start.
 # clean -f also vacuums the journal to 7 days and deletes older core dumps (sudo).
 set -euo pipefail
 
@@ -245,15 +247,6 @@ add "/tmp (your files)" tmp /tmp "$(tmp_size /tmp)"
 add "/var/tmp (your files)" tmp /var/tmp "$(tmp_size /var/tmp)"
 add "clipboard (pins kept)" clipboard clipboard "$(clipboard_size)"
 add "$cache/yay" dir "$cache/yay" "$(dir_size "$cache/yay")"
-add "$cache/mesa_shader_cache" dir "$cache/mesa_shader_cache" "$(dir_size "$cache/mesa_shader_cache")"
-add "$cache/radv_builtin_shaders" dir "$cache/radv_builtin_shaders" "$(dir_size "$cache/radv_builtin_shaders")"
-
-shopt -s nullglob
-for path in "$cache"/qtshadercache-*; do
-  add "$path" dir "$path" "$(dir_size "$path")"
-done
-shopt -u nullglob
-
 add "$cache/fontconfig" dir "$cache/fontconfig" "$(dir_size "$cache/fontconfig")"
 collect_cursor_chats
 if (( force )); then
