@@ -173,13 +173,15 @@ menu_list_shell() {
 
     _menu_list_plugin_detail() {
         case "$1" in
-        evo.sys.menu) echo "Shows or hides the launcher." ;;
-        evo.calculator) echo "Opens the calculator in the launcher." ;;
+        evo.sys.menu) echo "Shows or hides the system menu." ;;
+        evo.sys.clipboard) echo "Shows or hides clipboard history and the emoji picker." ;;
+        evo.sys.runner) echo "Shows or hides the runner." ;;
+        evo.calculator) echo "Opens the calculator." ;;
         evo.panels.network.stats) echo "Shows or hides the network status overlay." ;;
         evo.panels.notifications) echo "Shows or hides the notification history overlay." ;;
-        evo.sys.themes) echo "Opens the theme grid in the launcher." ;;
-        evo.sys.wallpaper) echo "Opens the wallpaper grid in the launcher." ;;
-        evo.side.clipboard) echo "Opens clipboard history in the launcher." ;;
+        evo.sys.themes) echo "Opens the theme grid in the system menu." ;;
+        evo.sys.wallpaper) echo "Opens the wallpaper grid in the system menu." ;;
+        evo.side.clipboard) echo "Opens clipboard history." ;;
         *) echo "Shows or hides the $1 overlay via shell IPC." ;;
         esac
     }

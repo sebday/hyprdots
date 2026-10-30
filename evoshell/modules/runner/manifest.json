@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "evo.sys.runner",
+  "name": "Runner",
+  "version": "1.0.0",
+  "author": "seb",
+  "description": "Floating runner for apps, commands, and binaries",
+  "kinds": [
+    "menu"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "menu": "Runner.qml"
+  }
+}

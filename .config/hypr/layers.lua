@@ -3,7 +3,7 @@
 hl.layer_rule({ match = { namespace = "evo-bar" }, no_anim = true, animation = "none", blur = true, ignore_alpha = 0.5 })
 hl.layer_rule({
 	match = {
-		namespace = "^(evo-sys-menu|evo-sys-wallpaper(?:-scrim)?|evo-panels-[a-z0-9-]+|evo-sys-themes(?:-scrim)?|evo-notifications|evo-osd)$",
+		namespace = "^(evo-sys-menu|evo-sys-clipboard|evo-sys-runner|evo-sys-wallpaper(?:-scrim)?|evo-panels-[a-z0-9-]+|evo-sys-themes(?:-scrim)?|evo-notifications|evo-osd)$",
 	},
 	no_anim = true,
 	animation = "none",

@@ -540,9 +540,19 @@ ShellRoot {
         }
     }
 
+    function payloadView(payloadJson) {
+        try {
+            var payload = JSON.parse(payloadJson || "{}")
+            return String(payload.view || "")
+        } catch (e) {
+            return ""
+        }
+    }
+
     function redirectLauncherTarget(id, payloadJson) {
         var pluginId = canonicalPluginId(id)
         var payload = payloadJson || ""
+        var view = payloadView(payload)
         if (pluginId === "evo.sys.settings") {
             pluginId = "evo.sys.menu"
             if (!payload)
@@ -556,9 +566,11 @@ ShellRoot {
             if (!payload)
                 payload = "{\"view\":\"wallpapers\"}"
         } else if (pluginId === "evo.side.clipboard") {
-            pluginId = "evo.sys.menu"
+            pluginId = "evo.sys.clipboard"
             if (!payload)
                 payload = "{\"view\":\"clipboard\"}"
+        } else if (pluginId === "evo.sys.menu" && (view === "clipboard" || view === "emoji")) {
+            pluginId = "evo.sys.clipboard"
         }
         return { id: pluginId, payload: payload }
     }
@@ -970,7 +982,7 @@ ShellRoot {
     }
 
     function toggleSystemMenu() {
-        return toggle("evo.sys.menu", '{"mode":"power"}')
+        return toggle("evo.sys.menu", "{}")
     }
 
     GlobalShortcut {

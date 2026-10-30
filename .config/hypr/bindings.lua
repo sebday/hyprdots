@@ -16,7 +16,7 @@ local function bindd(keys, description, dispatcher, flags)
 end
 
 -- Evoshell panels and system
-bindd("SUPER + space", "Launcher", hl.dsp.global("evoshell:systemMenu"))
+bindd("SUPER + space", "System menu", hl.dsp.global("evoshell:systemMenu"))
 bindd("SUPER + D", "Dock", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.dock"))
 bindd("SUPER + Escape", "Power", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.power"))
 bindd("SUPER + Insert", "Wallpaper switcher", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.sys.menu '{\"view\":\"wallpapers\"}'"))
@@ -30,7 +30,8 @@ bindd("SUPER + F5", "Restart evoshell", hl.dsp.exec_cmd(evo .. " system restart"
 bindd("SUPER + Prior", "Looks", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.sys.menu '{\"view\":\"looks\"}'"))
 bindd("SUPER + I", "Colour Picker", hl.dsp.exec_cmd("hyprpicker -al"))
 bindd("SUPER + C", "Calculator", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.calculator"))
-bindd("SUPER + V", "Clipboard history", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.sys.menu '{\"view\":\"clipboard\"}'"))
+bindd("SUPER + V", "Clipboard", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.sys.clipboard"))
+bindd("SUPER + R", "Runner", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.sys.runner"))
 bindd("SUPER + ALT + S", "Shopify", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.shopify"))
 bindd("SUPER + ALT + E", "Evoplayer", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.panels.player"))
 

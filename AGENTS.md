@@ -25,13 +25,13 @@ Resolved in [`evoshell/bin/evo-paths-lib`](evoshell/bin/evo-paths-lib) and [`evo
 | `evoshell/commons/` | `Theme`, panels, charts. Colours, type, and spacing go through `Theme.*` |
 | `evoshell/vendor/evoplayer/plugin/panel/` | Evoplayer dashboard |
 
-Plugin ids use `evo.bar.*`, `evo.panels.*`, `evo.side.*`, and `evo.sys.*`. The launcher is `evo.sys.menu`. IPC for `evo.sys.settings`, `evo.sys.themes`, and `evo.sys.wallpaper` is redirected there (`looks`, `themes`, and `wallpapers` views).
+Plugin ids use `evo.bar.*`, `evo.panels.*`, `evo.side.*`, and `evo.sys.*`. Super+Space opens the system menu `evo.sys.menu` (Looks, Themes, Wallpapers). Super+V opens `evo.sys.clipboard` (Clipboard, Emoji). Super+R opens the runner `evo.sys.runner`. IPC for `evo.sys.settings`, `evo.sys.themes`, and `evo.sys.wallpaper` is redirected to the system menu. `evo.side.clipboard` is redirected to `evo.sys.clipboard`.
 
 | Kind | Examples |
 |------|----------|
 | `service` | `evo.sys.media.audio`, `evo.sys.notifications` |
 | `bar` | `evo.bar` |
-| `menu` | `evo.sys.menu` |
+| `menu` | `evo.sys.menu`, `evo.sys.clipboard`, `evo.sys.runner` |
 | `panel` | `evo.osd` |
 | `dashboard` | `evo.panels.player` |
 

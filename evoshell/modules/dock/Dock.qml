@@ -121,6 +121,8 @@ Item {
   function open(payloadJson) {
     if (shell) {
       shell.hide("evo.sys.menu")
+      shell.hide("evo.sys.clipboard")
+      shell.hide("evo.sys.runner")
       shell.hide("evo.power")
     }
     hostScreen = focusedScreen()

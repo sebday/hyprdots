@@ -55,16 +55,13 @@ Item {
 
                 Rectangle {
                     id: tile
+                    readonly property bool picked: index === root.selectedIndex
                     width: Math.min(Theme.launcherPreviewTileWidth, cell.width - Theme.spacingS)
                     height: Theme.launcherPreviewTileHeight
                     anchors.horizontalCenter: parent.horizontalCenter
                     anchors.top: parent.top
                     radius: Theme.cornerRadius
                     color: root.surface
-                    border.width: index === root.selectedIndex || cellMouse.containsMouse ? 2 : 1
-                    border.color: index === root.selectedIndex
-                        ? root.accentColor
-                        : root.divider
                     clip: true
 
                     Image {
@@ -88,17 +85,25 @@ Item {
                         font.pixelSize: Theme.fontSize6xl
                         font.bold: Theme.fontBold
                     }
+                }
 
-                    Rectangle {
-                        visible: cell.modelData && cell.modelData.current === true
-                        anchors.right: parent.right
-                        anchors.top: parent.top
-                        anchors.margins: 6
-                        width: 8
-                        height: 8
-                        radius: 4
-                        color: root.accentColor
-                    }
+                Rectangle {
+                    anchors.fill: tile
+                    color: "transparent"
+                    radius: tile.radius
+                    border.width: tile.picked ? 3 : (cellMouse.containsMouse ? 2 : 1)
+                    border.color: tile.picked || cellMouse.containsMouse ? root.accentColor : root.divider
+                }
+
+                Rectangle {
+                    visible: cell.modelData && cell.modelData.current === true
+                    anchors.right: tile.right
+                    anchors.top: tile.top
+                    anchors.margins: 6
+                    width: 8
+                    height: 8
+                    radius: 4
+                    color: root.accentColor
                 }
 
                 Text {
@@ -108,7 +113,7 @@ Item {
                     anchors.right: tile.right
                     horizontalAlignment: Text.AlignHCenter
                     text: cell.modelData ? cell.modelData.name : ""
-                    color: root.ink
+                    color: tile.picked ? root.accentColor : root.ink
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSizeXs
                     font.bold: Theme.fontBold
@@ -119,7 +124,6 @@ Item {
                     id: cellMouse
                     anchors.fill: parent
                     hoverEnabled: true
-                    onEntered: root.indexMoved(index)
                     onClicked: {
                         root.indexMoved(index)
                         root.activated(cell.modelData)

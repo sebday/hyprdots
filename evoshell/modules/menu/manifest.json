@@ -4,12 +4,12 @@
   "name": "Menu",
   "version": "1.0.0",
   "author": "seb",
-  "description": "Launcher for apps, commands, themes, and wallpapers",
+  "description": "System menu for looks, themes, and wallpapers",
   "kinds": [
     "menu"
   ],
   "keepLoaded": true,
   "entryPoints": {
-    "menu": "Launcher.qml"
+    "menu": "SystemMenu.qml"
   }
 }

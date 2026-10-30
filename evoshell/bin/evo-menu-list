@@ -89,8 +89,23 @@ shell)
 icons)
     menu_list_icons "$home" "${EVO_ICON_THEME:-evo-current}"
     ;;
+bins)
+    # First executable of each basename wins, matching $PATH order.
+    {
+        declare -A seen=()
+        IFS=':' read -ra path_dirs <<< "${PATH:-}"
+        for dir in "${path_dirs[@]}"; do
+            [[ -d "$dir" ]] || continue
+            while IFS= read -r name; do
+                [[ -n "$name" && -z "${seen[$name]+x}" ]] || continue
+                seen[$name]=1
+                printf '%s\n' "$name"
+            done < <(find "$dir" -maxdepth 1 \( -type f -o -type l \) -executable -printf '%f\n' 2>/dev/null)
+        done
+    } | sort
+    ;;
 *)
-    echo "usage: $0 themes|wallpapers|shell|icons" >&2
+    echo "usage: $0 themes|wallpapers|shell|icons|bins" >&2
     exit 1
     ;;
 esac

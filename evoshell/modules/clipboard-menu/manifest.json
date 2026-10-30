@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "evo.sys.clipboard",
+  "name": "Clipboard",
+  "version": "1.0.0",
+  "author": "seb",
+  "description": "Clipboard history and emoji picker",
+  "kinds": [
+    "menu"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "menu": "ClipboardMenu.qml"
+  }
+}

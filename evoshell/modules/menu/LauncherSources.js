@@ -294,24 +294,96 @@ function withPins(apps, pinnedIds, lift) {
     return pinned.concat(rest)
 }
 
-function buildRoot(query, apps, counts, commands, settings, themes, wallpapers, pinnedIds) {
+function filterBins(bins, query, skipNames) {
     var q = String(query || "").trim()
-    var out = []
-    if (!q) {
-        out = out.concat(tag(withPins(sortByUse(apps || [], counts), pinnedIds, true)))
-        out = out.concat(tag(MenuEntries.viewEntries()))
-        out = out.concat(tag(commands || []))
-        return out
+    if (!q)
+        return []
+    var decorated = []
+    var list = bins || []
+    for (var i = 0; i < list.length; i++) {
+        var entry = list[i]
+        if (!entry)
+            continue
+        var name = String(entry.name || "")
+        if (skipNames && skipNames[name.toLowerCase()])
+            continue
+        var score = MenuEntries.literalScore(name, q)
+        if (score <= 0)
+            continue
+        decorated.push({ entry: entry, score: score })
     }
+    decorated.sort(function(a, b) {
+        if (a.score !== b.score)
+            return b.score - a.score
+        return String(a.entry.name || "").localeCompare(String(b.entry.name || ""))
+    })
+    var out = []
+    var limit = Math.min(8, decorated.length)
+    for (var j = 0; j < limit; j++)
+        out.push(decorated[j].entry)
+    return out
+}
+
+function fallbackEntry(query) {
+    var q = String(query || "").trim()
+    if (!q)
+        return null
+    return {
+        kind: "run",
+        name: "Run " + q,
+        command: q,
+        icon: "󰘳",
+        section: "Run"
+    }
+}
+
+function exactHit(entries, query) {
+    var needle = String(query || "").trim().toLowerCase()
+    if (!needle)
+        return false
+    for (var i = 0; i < entries.length; i++) {
+        var entry = entries[i]
+        if (!entry)
+            continue
+        if (String(entry.name || "").toLowerCase() === needle)
+            return true
+        var id = String(entry.id || "").replace(/\.desktop$/i, "").toLowerCase()
+        if (id && id === needle)
+            return true
+    }
+    return false
+}
+
+// Ranked runner results. Empty query returns nothing: the runner shows only the input.
+function buildRoot(query, apps, counts, commands, settings, themes, wallpapers, pinnedIds, bins, home) {
+    var q = String(query || "").trim()
+    if (!q)
+        return []
+    var out = []
     var calc = calculatorEntry(q)
     if (calc)
         out.push(calc)
-    out = out.concat(tag(withPins(sortByScore(apps || [], q, counts), pinnedIds, false)))
+    var appHits = tag(withPins(sortByScore(apps || [], q, counts), pinnedIds, false))
+    out = out.concat(appHits)
     out = out.concat(tag(sortByScore(commands || [], q, counts)))
     out = out.concat(tag(sortByScore(settingsActions(settings), q, null)))
     out = out.concat(tag(take(sortByScore(themes || [], q, null), 6)))
     out = out.concat(tag(take(sortByScore(wallpapers || [], q, null), 6)))
-    out = out.concat(tag(sortByScore(MenuEntries.viewEntries(), q, null)))
+    out = out.concat(tag(sortByScore(MenuEntries.viewEntries(home), q, null)))
+    var taken = {}
+    for (var i = 0; i < appHits.length; i++)
+        taken[String(appHits[i].name || "").toLowerCase()] = true
+    out = out.concat(tag(filterBins(bins, q, taken)))
+    if (out.length > 8)
+        out = out.slice(0, 8)
+    if (!calc && !exactHit(out, q)) {
+        var fallback = fallbackEntry(q)
+        if (fallback) {
+            if (out.length >= 8)
+                out = out.slice(0, 7)
+            out.push(fallback)
+        }
+    }
     return out
 }
 
@@ -447,6 +519,12 @@ function actionsFor(entry) {
         ]
     case "calc":
         return [{ id: "copy", label: "Copy result" }]
+    case "bin":
+    case "run":
+        return [
+            { id: "terminal", label: "Run in terminal" },
+            { id: "detach", label: "Run detached", key: "d", alt: true }
+        ]
     case "setting":
         return [{ id: "run", label: entry.view ? "Open" : "Toggle" }]
     case "view":
@@ -473,6 +551,25 @@ function wallpaperPath(command) {
     if (tail.length >= 2 && tail.charAt(0) === "'" && tail.charAt(tail.length - 1) === "'")
         tail = tail.slice(1, -1).replace(/'\\''/g, "'")
     return tail
+}
+
+function parseBins(raw) {
+    var lines = String(raw || "").split("\n")
+    var out = []
+    for (var i = 0; i < lines.length; i++) {
+        var name = lines[i].trim()
+        if (!name)
+            continue
+        out.push({
+            kind: "bin",
+            name: name,
+            command: name,
+            icon: "󰆍",
+            keywords: [name],
+            section: "Binaries"
+        })
+    }
+    return out
 }
 
 function parseCatalog(raw, kind) {
