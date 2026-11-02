@@ -1,4 +1,5 @@
 import QtQuick
+import Quickshell.Services.SystemTray
 import qs.commons
 import qs.ui
 import "Model.js" as Model
@@ -44,10 +45,43 @@ BarWidget {
     if (panelLoader.item) panelLoader.item.closeForPopoutSwitch()
   }
 
-  readonly property bool iconError: panelLoader.item ? panelLoader.item.iconError === true : false
-  readonly property bool iconBusy: panelLoader.item ? panelLoader.item.iconBusy === true : false
-  readonly property bool iconMuted: panelLoader.item ? panelLoader.item.iconMuted === true : false
-  readonly property string tooltip: panelLoader.item ? panelLoader.item.barTooltip : "Insync"
+  // Insync's tray icon changes as soon as sync state changes. The panel only
+  // polls while it is open, so the bar follows the tray item instead.
+  readonly property var trayItem: {
+    var values = SystemTray.items.values || []
+    for (var i = 0; i < values.length; i++) {
+      var item = values[i]
+      if (!item)
+        continue
+      var id = String(item.id || "").toLowerCase()
+      var title = String(item.title || "").toLowerCase()
+      if (id === "insync" || title.indexOf("insync") === 0)
+        return item
+    }
+    return null
+  }
+  readonly property string trayIconName: trayItem ? String(trayItem.icon || "").toLowerCase() : ""
+  readonly property bool trayLive: trayIconName !== ""
+
+  readonly property bool iconError: trayLive
+    ? (trayIconName.indexOf("alert") >= 0 || trayIconName.indexOf("error") >= 0 || trayItem.status === Status.NeedsAttention)
+    : (panelLoader.item ? panelLoader.item.iconError === true : false)
+  readonly property bool iconBusy: trayLive
+    ? trayIconName.indexOf("syncing") >= 0
+    : (panelLoader.item ? panelLoader.item.iconBusy === true : false)
+  readonly property bool iconMuted: trayLive
+    ? (trayIconName.indexOf("paused") >= 0 || trayIconName.indexOf("offline") >= 0)
+    : (panelLoader.item ? panelLoader.item.iconMuted === true : false)
+  readonly property string tooltip: {
+    if (trayLive) {
+      if (trayIconName.indexOf("syncing") >= 0) return "Syncing"
+      if (trayIconName.indexOf("paused") >= 0) return "Paused"
+      if (trayIconName.indexOf("offline") >= 0) return "Offline"
+      if (iconError) return "Sync error"
+      if (trayIconName.indexOf("synced") >= 0) return "Synced"
+    }
+    return panelLoader.item ? panelLoader.item.barTooltip : "Insync"
+  }
 
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight

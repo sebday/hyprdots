@@ -21,7 +21,6 @@ hl.layout.register("dashboard_top", {
 	end,
 })
 local terminal = os.getenv("EVOSHELL_TERMINAL") or "ghostty"
-local seed = "[workspace special:qconsole silent] " .. terminal
 
 local active = false
 local host_monitor = nil
@@ -118,9 +117,15 @@ local function cover(bottom)
 		gaps_out = { top = 0, right = 0, bottom = bottom, left = 0 },
 		no_border = true,
 		layout = LAYOUT,
-		on_created_empty = seed,
 	})
 end
+
+hl.on("workspace.created", function(ws)
+	if not ws or ws.name ~= SPECIAL_WS or not ws.is_empty then
+		return
+	end
+	hl.dispatch(hl.dsp.exec_cmd(terminal, { workspace = SPECIAL_WS .. " silent" }))
+end)
 
 local function fit()
 	local monitor = qconsole_monitor()

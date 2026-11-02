@@ -366,14 +366,12 @@ Panel {
   onOpenedChanged: if (opened) {
     refreshGithub(true)
     refreshRepos(true)
-    refreshTimer.start()
     revealProgress = 0
     revealAnimation.restart()
     animateTodayCountTo(hasData ? (data.today || 0) : 0, true)
     Qt.callLater(function() { keyCatcher.forceActiveFocus() })
   } else {
     expandedRepoPath = ""
-    refreshTimer.stop()
   }
 
   JsonPollRunner {
@@ -400,6 +398,7 @@ Panel {
     id: refreshTimer
     interval: root.refreshMinutes * 60 * 1000
     repeat: true
+    running: true
     onTriggered: root.refresh()
   }
 

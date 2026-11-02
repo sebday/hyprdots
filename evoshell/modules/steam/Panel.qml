@@ -86,10 +86,7 @@ Panel {
   onOpenedChanged: {
     if (opened) {
       refresh()
-      pollTimer.start()
       Qt.callLater(function() { keyCatcher.forceActiveFocus() })
-    } else {
-      pollTimer.stop()
     }
   }
 
@@ -138,6 +135,7 @@ Panel {
     id: pollTimer
     interval: root.pollMs
     repeat: true
+    running: true
     onTriggered: root.refresh()
   }
 

@@ -736,11 +736,9 @@ Panel {
   onOpenedChanged: {
     if (!root.opened) {
       root.radarFrameIndex = -1
-      refreshTimer.stop()
     } else {
       root.refresh()
       root.refreshRadar()
-      refreshTimer.start()
     }
   }
 
@@ -748,6 +746,7 @@ Panel {
     id: refreshTimer
     interval: root.refreshMinutes * 60 * 1000
     repeat: true
+    running: true
     onTriggered: root.refresh()
   }
 

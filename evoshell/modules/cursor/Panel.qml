@@ -178,11 +178,8 @@ Panel {
     shownCursorPercent = 0
     shownOtherPercent = 0
     refresh()
-    refreshTimer.start()
     if (hasData) syncAnimatedStats(true)
     Qt.callLater(function() { keyCatcher.forceActiveFocus() })
-  } else {
-    refreshTimer.stop()
   }
 
   Process {
@@ -227,6 +224,7 @@ Panel {
     id: refreshTimer
     interval: root.refreshIntervalSec * 1000
     repeat: true
+    running: true
     onTriggered: root.refresh()
   }
 
