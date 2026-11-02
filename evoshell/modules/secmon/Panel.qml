@@ -77,8 +77,7 @@ Panel {
 
   function refresh() {
     if (!statusScript || statusProc.running) return
-    statusProc.command = ["bash", statusScript, "status", root.host]
-    statusProc.running = true
+    statusProc.run(["bash", statusScript, "status", root.host])
   }
 
   // First click arms, second click accepts, so a stray click can't bless a real change.
@@ -91,8 +90,7 @@ Panel {
     }
     root.acceptArmed = false
     root.acceptError = ""
-    acceptProc.command = ["bash", statusScript, "accept", root.host].concat(root.changedTargets)
-    acceptProc.running = true
+    acceptProc.run(["bash", statusScript, "accept", root.host].concat(root.changedTargets))
   }
 
   function hideFinding(finding) {
@@ -135,50 +133,33 @@ Panel {
   }
 
   Component.onCompleted: {
-    cacheProc.command = ["bash", statusScript, "cache"]
-    cacheProc.running = true
+    cacheProc.run(["bash", statusScript, "cache"])
     refresh()
   }
 
   onOpenedChanged: {
-    if (opened) {
-      refresh()
+    if (opened)
       Qt.callLater(function() { keyCatcher.forceActiveFocus() })
-    } else {
+    else
       acceptArmed = false
-    }
   }
 
-  Process {
+  JsonPollRunner {
     id: cacheProc
-    property string stdoutBuf: ""
-    onStarted: stdoutBuf = ""
-    stdout: SplitParser {
-      splitMarker: ""
-      onRead: function(chunk) { cacheProc.stdoutBuf += chunk }
-    }
-    onExited: {
-      var raw = String(stdoutBuf || "").trim()
+    active: false
+    autoStart: false
+    onExited: function(exitCode, stdoutText) {
+      var raw = String(stdoutText || "").trim()
       if (raw && !root.hasData) root.applyPayload(raw)
     }
   }
 
-  Process {
+  JsonPollRunner {
     id: statusProc
-    property string stdoutBuf: ""
-    onStarted: stdoutBuf = ""
-    stdout: SplitParser {
-      splitMarker: ""
-      onRead: function(chunk) {
-        statusProc.stdoutBuf += chunk
-        if (statusProc.stdoutBuf.length > 262144) {
-          statusProc.signal(15)
-          statusProc.stdoutBuf = ""
-        }
-      }
-    }
-    onExited: {
-      var raw = String(stdoutBuf || "").trim()
+    active: false
+    autoStart: false
+    onExited: function(exitCode, stdoutText) {
+      var raw = String(stdoutText || "").trim()
       if (raw) root.applyPayload(raw)
       else root.loading = false
     }
@@ -208,16 +189,12 @@ Panel {
     }
   }
 
-  Process {
+  JsonPollRunner {
     id: acceptProc
-    property string stdoutBuf: ""
-    onStarted: stdoutBuf = ""
-    stdout: SplitParser {
-      splitMarker: ""
-      onRead: function(chunk) { acceptProc.stdoutBuf += chunk }
-    }
-    onExited: {
-      var res = Model.parsePayload(stdoutBuf)
+    active: false
+    autoStart: false
+    onExited: function(exitCode, stdoutText) {
+      var res = Model.parsePayload(stdoutText)
       root.acceptError = res.ok ? "" : res.error
       root.refresh()
     }
@@ -228,11 +205,11 @@ Panel {
     interval: 4000
     onTriggered: root.acceptArmed = false
   }
-  Timer {
-    interval: root.opened ? root.openPollMs : root.backgroundPollMs
-    repeat: true
-    running: true
-    onTriggered: root.refresh()
+  PollTimer {
+    open: root.opened
+    closedMs: root.backgroundPollMs
+    openMs: root.openPollMs
+    onPoll: root.refresh()
   }
 
   KeyboardPanel {

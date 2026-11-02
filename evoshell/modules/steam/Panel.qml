@@ -54,8 +54,7 @@ Panel {
   function refresh() {
     if (!statusScript || statusProc.running) return
     if (!data.ok) loading = true
-    statusProc.command = [statusScript, "popup"]
-    statusProc.running = true
+    statusProc.run([statusScript, "popup"])
   }
 
   function launchGame(appid) {
@@ -84,45 +83,21 @@ Panel {
   Component.onCompleted: refresh()
 
   onOpenedChanged: {
-    if (opened) {
-      refresh()
+    if (opened)
       Qt.callLater(function() { keyCatcher.forceActiveFocus() })
-    }
   }
 
-  Process {
+  JsonPollRunner {
     id: statusProc
-    onStarted: { stdoutBuf = ""; stderrBuf = "" }
-
-    property string stdoutBuf: ""
-    property string stderrBuf: ""
-    stdout: SplitParser {
-      splitMarker: ""
-      onRead: function(chunk) {
-        statusProc.stdoutBuf += chunk
-        if (statusProc.stdoutBuf.length > 262144) {
-          statusProc.signal(15)
-          statusProc.stdoutBuf = ""
-        }
+    active: false
+    autoStart: false
+    onExited: function(exitCode, stdoutText) {
+      var raw = String(stdoutText || "").trim()
+      if (!raw) {
+        root.loading = false
+        return
       }
-    }
-    stderr: SplitParser {
-      splitMarker: ""
-      onRead: function(chunk) {
-        statusProc.stderrBuf += chunk
-        if (statusProc.stderrBuf.length > 4096) {
-          statusProc.signal(15)
-          statusProc.stderrBuf = ""
-        }
-      }
-    }
-    onExited: function(exitCode) {
-      var raw = String(stdoutBuf || "").trim()
-        if (!raw) {
-          root.loading = false
-          return
-        }
-        root.applyPayload(raw)
+      root.applyPayload(raw)
       root.loading = false
     }
   }
@@ -131,12 +106,11 @@ Panel {
     id: actionProc
   }
 
-  Timer {
-    id: pollTimer
-    interval: root.pollMs
-    repeat: true
-    running: true
-    onTriggered: root.refresh()
+  PollTimer {
+    open: root.opened
+    closedMs: 10000
+    openMs: root.pollMs
+    onPoll: root.refresh()
   }
 
 

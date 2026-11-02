@@ -205,11 +205,8 @@ Panel {
     if (!script)
       return
     historyLoading = true
-    historyProc.stdoutBuf = ""
-    historyProc.overflow = false
-    historyProc.environment = historyEnv()
-    historyProc.command = ["/usr/bin/timeout", "-k", "2", "8", "/usr/bin/python3", "-I", script]
-    historyProc.running = true
+    historyProc.processEnvironment = historyEnv()
+    historyProc.run(["/usr/bin/timeout", "-k", "2", "8", "/usr/bin/python3", "-I", script])
   }
 
   function playHistory(index) {
@@ -304,44 +301,31 @@ Panel {
     }
   }
 
-  Process {
+  JsonPollRunner {
     id: historyProc
+    active: false
+    autoStart: false
     clearEnvironment: true
-    property string stdoutBuf: ""
-    property bool overflow: false
-    stdout: SplitParser {
-      splitMarker: ""
-      onRead: function(chunk) {
-        if (historyProc.overflow)
-          return
-        historyProc.stdoutBuf += String(chunk || "")
-        if (historyProc.stdoutBuf.length > 131072) {
-          historyProc.overflow = true
-          historyProc.stdoutBuf = ""
-          historyProc.signal(15)
-        }
-      }
-    }
-    onExited: {
+    maxStdoutBytes: 131072
+    onExited: function(exitCode, stdoutText) {
       root.historyLoading = false
-      if (!historyProc.overflow) {
-        try {
-          var data = JSON.parse(historyProc.stdoutBuf || "{}")
-          var recent = data && Array.isArray(data.recent) ? data.recent.slice(0, 4) : []
-          var dir = data && typeof data.artDir === "string" ? data.artDir : ""
-          root.artDir = dir.slice(-14) === "/evoplayer/art" ? dir : ""
-          root.recentRows = recent
-          root.dash = data && data.totals && typeof data.totals === "object" ? data.totals : {}
-          root.dashReady = true
-        } catch (e) {
-          root.recentRows = []
-          root.dashReady = false
-        }
-      } else {
+      var raw = String(stdoutText || "").trim()
+      if (!raw) {
+        root.dashReady = false
+        return
+      }
+      try {
+        var data = JSON.parse(raw)
+        var recent = data && Array.isArray(data.recent) ? data.recent.slice(0, 4) : []
+        var dir = data && typeof data.artDir === "string" ? data.artDir : ""
+        root.artDir = dir.slice(-14) === "/evoplayer/art" ? dir : ""
+        root.recentRows = recent
+        root.dash = data && data.totals && typeof data.totals === "object" ? data.totals : {}
+        root.dashReady = true
+      } catch (e) {
+        root.recentRows = []
         root.dashReady = false
       }
-      historyProc.stdoutBuf = ""
-      historyProc.overflow = false
     }
   }
 

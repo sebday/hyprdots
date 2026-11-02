@@ -108,15 +108,13 @@ Panel {
 
   function bootstrapFromCache() {
     if (!statusScript || cacheProc.running) return
-    cacheProc.command = ["bash", statusScript, "account-cache"]
-    cacheProc.running = true
+    cacheProc.run(["bash", statusScript, "account-cache"])
   }
 
   function refresh() {
     if (!statusScript || statusProc.running) return
     if (!data.ok && displayAccounts.length === 0) loading = true
-    statusProc.command = ["bash", statusScript, "popup"]
-    statusProc.running = true
+    statusProc.run(["bash", statusScript, "popup"])
   }
 
   function runAction(subcmd) {
@@ -172,82 +170,32 @@ Panel {
   }
 
   onOpenedChanged: {
-    if (opened) {
-      refresh()
-      pollTimer.start()
+    if (opened)
       Qt.callLater(function() { keyCatcher.forceActiveFocus() })
-    } else {
-      pollTimer.stop()
-    }
   }
 
-  Process {
+  JsonPollRunner {
     id: cacheProc
-    onStarted: { stdoutBuf = ""; stderrBuf = "" }
-
-    property string stdoutBuf: ""
-    property string stderrBuf: ""
-    stdout: SplitParser {
-      splitMarker: ""
-      onRead: function(chunk) {
-        cacheProc.stdoutBuf += chunk
-        if (cacheProc.stdoutBuf.length > 262144) {
-          cacheProc.signal(15)
-          cacheProc.stdoutBuf = ""
-        }
-      }
-    }
-    stderr: SplitParser {
-      splitMarker: ""
-      onRead: function(chunk) {
-        cacheProc.stderrBuf += chunk
-        if (cacheProc.stderrBuf.length > 4096) {
-          cacheProc.signal(15)
-          cacheProc.stderrBuf = ""
-        }
-      }
-    }
-      onExited: function(exitCode) {
-      var raw = String(stdoutBuf || "").trim()
-        if (!raw) return
-        root.applyPayload(raw, true)
+    active: false
+    autoStart: false
+    onExited: function(exitCode, stdoutText) {
+      var raw = String(stdoutText || "").trim()
+      if (!raw) return
+      root.applyPayload(raw, true)
     }
   }
 
-  Process {
+  JsonPollRunner {
     id: statusProc
-    onStarted: { stdoutBuf = ""; stderrBuf = "" }
-
-    property string stdoutBuf: ""
-    property string stderrBuf: ""
-    stdout: SplitParser {
-      splitMarker: ""
-      onRead: function(chunk) {
-        statusProc.stdoutBuf += chunk
-        if (statusProc.stdoutBuf.length > 262144) {
-          statusProc.signal(15)
-          statusProc.stdoutBuf = ""
-        }
+    active: false
+    autoStart: false
+    onExited: function(exitCode, stdoutText) {
+      var raw = String(stdoutText || "").trim()
+      if (!raw) {
+        root.loading = false
+        return
       }
-    }
-    stderr: SplitParser {
-      splitMarker: ""
-      onRead: function(chunk) {
-        statusProc.stderrBuf += chunk
-        if (statusProc.stderrBuf.length > 4096) {
-          statusProc.signal(15)
-          statusProc.stderrBuf = ""
-        }
-      }
-    }
-    onExited: {
-      var raw = String(stdoutBuf || "").trim()
-        if (!raw) {
-          root.loading = false
-          return
-        }
-        root.applyPayload(raw, false)
-
+      root.applyPayload(raw, false)
       root.loading = false
     }
   }
@@ -257,11 +205,11 @@ Panel {
     onExited: root.refresh()
   }
 
-  Timer {
-    id: pollTimer
-    interval: root.pollMs
-    repeat: true
-    onTriggered: root.refresh()
+  PollTimer {
+    open: root.opened
+    closedMs: 0
+    openMs: root.pollMs
+    onPoll: root.refresh()
   }
 
   IpcHandler {

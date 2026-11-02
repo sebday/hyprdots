@@ -734,20 +734,14 @@ Panel {
   Component.onCompleted: root.refresh()
 
   onOpenedChanged: {
-    if (!root.opened) {
+    if (!root.opened)
       root.radarFrameIndex = -1
-    } else {
-      root.refresh()
-      root.refreshRadar()
-    }
   }
 
-  Timer {
-    id: refreshTimer
-    interval: root.refreshMinutes * 60 * 1000
-    repeat: true
-    running: true
-    onTriggered: root.refresh()
+  PollTimer {
+    open: root.opened
+    closedMs: root.refreshMinutes * 60 * 1000
+    onPoll: root.refresh()
   }
 
   IpcHandler {

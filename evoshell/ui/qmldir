@@ -2,6 +2,7 @@ module qs.ui
 singleton Border 1.0 Border.qml
 BarIconButton 1.0 BarIconButton.qml
 BarWidget 1.0 BarWidget.qml
+PanelHost 1.0 PanelHost.qml
 BorderSurface 1.0 BorderSurface.qml
 Button 1.0 Button.qml
 OpticalGlyph 1.0 OpticalGlyph.qml

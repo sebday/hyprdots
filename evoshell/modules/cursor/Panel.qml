@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Controls
 import Quickshell
-import Quickshell.Io
 import qs.commons
 import qs.ui
 import "Model.js" as Model
@@ -125,8 +124,7 @@ Panel {
   function refresh(force) {
     if (!statusScript || statusProc.running) return
     if (!hasData) loading = true
-    statusProc.command = force === true ? ["bash", statusScript, "--force"] : ["bash", statusScript]
-    statusProc.running = true
+    statusProc.run(force === true ? ["bash", statusScript, "--force"] : ["bash", statusScript])
   }
 
   function openDashboard() {
@@ -177,55 +175,30 @@ Panel {
     breakdownOpen = false
     shownCursorPercent = 0
     shownOtherPercent = 0
-    refresh()
     if (hasData) syncAnimatedStats(true)
     Qt.callLater(function() { keyCatcher.forceActiveFocus() })
   }
 
-  Process {
+  JsonPollRunner {
     id: statusProc
-    onStarted: { stdoutBuf = ""; stderrBuf = "" }
-
-    property string stdoutBuf: ""
-    property string stderrBuf: ""
-    stdout: SplitParser {
-      splitMarker: ""
-      onRead: function(chunk) {
-        statusProc.stdoutBuf += chunk
-        if (statusProc.stdoutBuf.length > 262144) {
-          statusProc.signal(15)
-          statusProc.stdoutBuf = ""
-        }
+    active: false
+    autoStart: false
+    onExited: function(exitCode, stdoutText) {
+      var raw = String(stdoutText || "").trim()
+      if (!raw) {
+        root.loading = false
+        if (!root.hasData) root.applyPayload('{"class":"error","message":"No data"}')
+        return
       }
-    }
-    stderr: SplitParser {
-      splitMarker: ""
-      onRead: function(chunk) {
-        statusProc.stderrBuf += chunk
-        if (statusProc.stderrBuf.length > 4096) {
-          statusProc.signal(15)
-          statusProc.stderrBuf = ""
-        }
-      }
-    }
-    onExited: function(exitCode) {
-      var raw = String(stdoutBuf || "").trim()
-        if (!raw) {
-          root.loading = false
-          if (!root.hasData) root.applyPayload('{"class":"error","message":"No data"}')
-          return
-        }
-        root.applyPayload(raw)
+      root.applyPayload(raw)
       root.loading = false
     }
   }
 
-  Timer {
-    id: refreshTimer
-    interval: root.refreshIntervalSec * 1000
-    repeat: true
-    running: true
-    onTriggered: root.refresh()
+  PollTimer {
+    open: root.opened
+    closedMs: root.refreshIntervalSec * 1000
+    onPoll: root.refresh()
   }
 
   KeyboardPanel {

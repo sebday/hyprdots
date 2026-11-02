@@ -10,6 +10,7 @@ SliderSetting 1.0 SliderSetting.qml
 ToggleRow 1.0 ToggleRow.qml
 SparklineChart 1.0 SparklineChart.qml
 JsonPollRunner 1.0 JsonPollRunner.qml
+PollTimer 1.0 PollTimer.qml
 CenteredOverlay 1.0 CenteredOverlay.qml
 AttachedOverlay 1.0 AttachedOverlay.qml
 BarHoverOverlay 1.0 BarHoverOverlay.qml

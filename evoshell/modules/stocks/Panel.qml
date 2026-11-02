@@ -87,19 +87,13 @@ Panel {
   function refreshBtc() {
     if (!btcScript || btcProc.running) return
     btcLoading = true
-    btcProc.stdoutBuf = ""
-    btcProc.stderrBuf = ""
-    btcProc.command = ["bash", btcScript, String(chartHistoryDays)]
-    btcProc.running = true
+    btcProc.run(["bash", btcScript, String(chartHistoryDays)])
   }
 
   function refreshSpcx() {
     if (!spcxScript || spcxProc.running) return
     spcxLoading = true
-    spcxProc.stdoutBuf = ""
-    spcxProc.stderrBuf = ""
-    spcxProc.command = ["bash", spcxScript, String(chartHistoryDays)]
-    spcxProc.running = true
+    spcxProc.run(["bash", spcxScript, String(chartHistoryDays)])
   }
 
   function retryPrice() {
@@ -168,91 +162,45 @@ Panel {
 
   onMarketChanged: Qt.callLater(root.ensureStarted)
 
-  onOpenedChanged: if (opened) {
-    refresh()
+  onOpenedChanged: if (opened)
     Qt.callLater(function() { keyCatcher.forceActiveFocus() })
-  }
 
-  Process {
+  JsonPollRunner {
     id: btcProc
-
-    property string stdoutBuf: ""
-    property string stderrBuf: ""
-    stdout: SplitParser {
-      splitMarker: ""
-      onRead: function(chunk) {
-        btcProc.stdoutBuf += chunk
-        if (btcProc.stdoutBuf.length > 262144) {
-          btcProc.signal(15)
-          btcProc.stdoutBuf = ""
-        }
+    active: false
+    autoStart: false
+    onExited: function(exitCode, stdoutText) {
+      var raw = String(stdoutText || "").trim()
+      if (!raw) {
+        root.btcLoading = false
+        root.retryPrice()
+        return
       }
-    }
-    stderr: SplitParser {
-      splitMarker: ""
-      onRead: function(chunk) {
-        btcProc.stderrBuf += chunk
-        if (btcProc.stderrBuf.length > 4096) {
-          btcProc.signal(15)
-          btcProc.stderrBuf = ""
-        }
-      }
-    }
-      onExited: function(exitCode) {
-      var raw = String(stdoutBuf || "").trim()
-        if (!raw) {
-          root.btcLoading = false
-          root.retryPrice()
-          return
-        }
-        root.priceAttempts = 0
-        root.applyBtcPayload(raw)
+      root.priceAttempts = 0
+      root.applyBtcPayload(raw)
     }
   }
 
-  Process {
+  JsonPollRunner {
     id: spcxProc
-
-    property string stdoutBuf: ""
-    property string stderrBuf: ""
-    stdout: SplitParser {
-      splitMarker: ""
-      onRead: function(chunk) {
-        spcxProc.stdoutBuf += chunk
-        if (spcxProc.stdoutBuf.length > 262144) {
-          spcxProc.signal(15)
-          spcxProc.stdoutBuf = ""
-        }
+    active: false
+    autoStart: false
+    onExited: function(exitCode, stdoutText) {
+      var raw = String(stdoutText || "").trim()
+      if (!raw) {
+        root.spcxLoading = false
+        root.retryPrice()
+        return
       }
-    }
-    stderr: SplitParser {
-      splitMarker: ""
-      onRead: function(chunk) {
-        spcxProc.stderrBuf += chunk
-        if (spcxProc.stderrBuf.length > 4096) {
-          spcxProc.signal(15)
-          spcxProc.stderrBuf = ""
-        }
-      }
-    }
-      onExited: function(exitCode) {
-      var raw = String(stdoutBuf || "").trim()
-        if (!raw) {
-          root.spcxLoading = false
-          root.retryPrice()
-          return
-        }
-        root.priceAttempts = 0
-        root.applySpcxPayload(raw)
+      root.priceAttempts = 0
+      root.applySpcxPayload(raw)
     }
   }
 
-  Timer {
-    id: refreshTimer
-    interval: root.refreshSeconds * 1000
-    running: true
-    repeat: true
-    onTriggered: root.refresh()
+  PollTimer {
+    open: root.opened
+    closedMs: root.refreshSeconds * 1000
+    onPoll: root.refresh()
   }
 
 

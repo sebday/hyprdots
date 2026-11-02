@@ -5,41 +5,11 @@ import qs.commons
 import qs.ui
 import "Model.js" as Model
 
-BarWidget {
+PanelHost {
   id: root
   moduleName: "evo.now-playing"
-
-  function injectPanel() {
-    var target = panelLoader.item
-    if (!target) return
-    if ("bar" in target) target.bar = root.bar
-    if ("settings" in target) target.settings = root.settings
-    if ("anchorItem" in target) target.anchorItem = button
-    if ("hostWidget" in target) target.hostWidget = root
-  }
-
-  function refresh() {
-    if (panelLoader.item && panelLoader.item.refresh) panelLoader.item.refresh()
-  }
-
-  function togglePanel() {
-    if (panelLoader.item && panelLoader.item.toggle) panelLoader.item.toggle()
-  }
-
-  function open() {
-    if (panelLoader.item && panelLoader.item.openFromHotkey) panelLoader.item.openFromHotkey()
-  }
-
-  function close() {
-    if (panelLoader.item && panelLoader.item.close) panelLoader.item.close()
-  }
-
-  readonly property bool opened: panelLoader.item ? panelLoader.item.opened === true : false
-  readonly property bool popoutSwitchClosing: panelLoader.item ? panelLoader.item.popoutSwitchClosing === true : false
-
-  function closeForPopoutSwitch() {
-    if (panelLoader.item) panelLoader.item.closeForPopoutSwitch()
-  }
+  panelUrl: Qt.resolvedUrl("Panel.qml")
+  anchor: button
 
   readonly property var sink: Pipewire.defaultAudioSink
   readonly property var source: Pipewire.defaultAudioSource
@@ -47,10 +17,10 @@ BarWidget {
   readonly property bool outputMuted: sink && sink.audio ? sink.audio.muted : false
   readonly property bool hasOutput: !!(sink && sink.audio)
 
-  readonly property bool iconError: panelLoader.item ? panelLoader.item.iconError === true : false
-  readonly property bool iconBusy: panelLoader.item ? panelLoader.item.iconBusy === true : false
-  readonly property bool iconMuted: panelLoader.item ? panelLoader.item.iconMuted === true : false
-  readonly property string tooltip: panelLoader.item ? panelLoader.item.barTooltip : "Now playing"
+  readonly property bool iconError: panel ? panel.iconError === true : false
+  readonly property bool iconBusy: panel ? panel.iconBusy === true : false
+  readonly property bool iconMuted: panel ? panel.iconMuted === true : false
+  readonly property string tooltip: panel ? panel.barTooltip : "Now playing"
 
   function showVolumeOsd(volume, muted) {
     var shell = bar && bar.shell
@@ -89,26 +59,12 @@ BarWidget {
   width: implicitWidth
   height: implicitHeight
 
-  onBarChanged: injectPanel()
-  onSettingsChanged: injectPanel()
-
   PwObjectTracker {
     objects: {
       var list = []
       if (root.sink) list.push(root.sink)
       if (root.source) list.push(root.source)
       return list
-    }
-  }
-
-  Loader {
-    id: panelLoader
-    active: true
-    source: Qt.resolvedUrl("Panel.qml")
-    visible: false
-    onLoaded: {
-      root.injectPanel()
-      Qt.callLater(root.injectPanel)
     }
   }
 

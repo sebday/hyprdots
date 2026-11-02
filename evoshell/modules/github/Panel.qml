@@ -364,8 +364,6 @@ Panel {
   }
 
   onOpenedChanged: if (opened) {
-    refreshGithub(true)
-    refreshRepos(true)
     revealProgress = 0
     revealAnimation.restart()
     animateTodayCountTo(hasData ? (data.today || 0) : 0, true)
@@ -394,12 +392,10 @@ Panel {
     }
   }
 
-  Timer {
-    id: refreshTimer
-    interval: root.refreshMinutes * 60 * 1000
-    repeat: true
-    running: true
-    onTriggered: root.refresh()
+  PollTimer {
+    open: root.opened
+    closedMs: root.refreshMinutes * 60 * 1000
+    onPoll: root.refresh()
   }
 
   JsonPollRunner {

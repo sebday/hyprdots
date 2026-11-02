@@ -9,9 +9,11 @@ import "Model.js" as Model
 //
 // Left click reveals the calendar — asking "what is the date?" is what a
 // click on a clock means — and right click walks the common label formats.
-BarWidget {
+PanelHost {
   id: root
   moduleName: "evo.clock"
+  panelUrl: Qt.resolvedUrl("Panel.qml")
+  anchor: button
 
   property date displayDate: clock.date
 
@@ -34,10 +36,7 @@ BarWidget {
   readonly property string displayText: formatted(displayDate)
   readonly property var verticalLines: displayText.split("\n")
 
-  function refresh() {
-    displayDate = new Date()
-    if (panelLoader.item && panelLoader.item.refresh) panelLoader.item.refresh()
-  }
+  onBeforeRefresh: displayDate = new Date()
 
   function cycleFormat() {
     var current = String(configuredFormat)
@@ -59,25 +58,9 @@ BarWidget {
     return Qt.formatDateTime(date, activeFormat.replace(/ww/g, Model.isoWeekLiteral(date.getFullYear(), date.getMonth(), date.getDate())))
   }
 
-  // ---- Calendar popup. Shape contract for shell.summon/hide/toggle
-  //      routing: Bar.findPanelWidget requires open/close/opened on the
-  //      bar-widget root.
-  readonly property bool opened: panelLoader.item ? panelLoader.item.opened === true : false
-
-  function open() {
-    if (panelLoader.item) panelLoader.item.open()
-  }
-
-  function close() {
-    if (panelLoader.item) panelLoader.item.close()
-  }
-
-  function togglePanel() {
-    if (panelLoader.item) panelLoader.item.toggle()
-  }
-
   function toggleWeekStart() {
-    if (panelLoader.item) panelLoader.item.toggleWeekStart()
+    if (panel)
+      panel.toggleWeekStart()
   }
 
   // The clock fills more slot than it paints a mark for, at both
@@ -88,45 +71,13 @@ BarWidget {
   readonly property real openPanelIndicatorWidth: button.labelWidth
   readonly property real openPanelIndicatorHeight: Math.max(Theme.space(10), Math.round(Theme.bar.iconSlot * 0.55))
 
-  // Forwarded so this widget can stand in for the panel as the bar's popout
-  // identity: Bar.requestPopout prefers closeForPopoutSwitch over close, and
-  // KeyboardPanel reads popoutSwitchClosing back off its owner.
-  readonly property bool popoutSwitchClosing: panelLoader.item ? panelLoader.item.popoutSwitchClosing === true : false
-
-  function closeForPopoutSwitch() {
-    if (panelLoader.item) panelLoader.item.closeForPopoutSwitch()
-  }
-
-  function injectPanel() {
-    var target = panelLoader.item
-    if (!target) return
-    if ("bar" in target) target.bar = root.bar
-    if ("settings" in target) target.settings = root.settings
-    if ("anchorItem" in target) target.anchorItem = button
-    if ("hostWidget" in target) target.hostWidget = root
-  }
-
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
-
-  onBarChanged: injectPanel()
-  onSettingsChanged: injectPanel()
 
   SystemClock {
     id: clock
     precision: root.showsSeconds ? SystemClock.Seconds : SystemClock.Minutes
     onDateChanged: root.displayDate = date
-  }
-
-  Loader {
-    id: panelLoader
-    active: true
-    source: Qt.resolvedUrl("Panel.qml")
-    visible: false
-    onLoaded: {
-      root.injectPanel()
-      Qt.callLater(root.injectPanel)
-    }
   }
 
   IpcHandler {

@@ -17,6 +17,9 @@ Item {
     property string cacheKey: ""
     property bool keepStale: true
     property int maxStdoutBytes: 262144
+    // Opt-in sandbox. Left unset, the process keeps the shell environment.
+    property bool clearEnvironment: false
+    property var processEnvironment: ({})
     readonly property bool running: proc.running
 
     signal polled(var json)
@@ -25,6 +28,10 @@ Item {
     function run(command) {
         if (!command || command.length === 0 || proc.running)
             return false
+        if (root.clearEnvironment) {
+            proc.clearEnvironment = true
+            proc.environment = root.processEnvironment
+        }
         proc.execCommand = command
         startPollWatchdog()
         proc.running = true
