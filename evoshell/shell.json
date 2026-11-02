@@ -21,6 +21,9 @@
         {
           "id": "evo.stocks",
           "market": "spcx"
+        },
+        {
+          "id": "evo.trading"
         }
       ],
       "center": [
