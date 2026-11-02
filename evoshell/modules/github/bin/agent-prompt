@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Run one headless coding agent turn in the current directory.
 # EVO_GITHUB_AGENT picks the agent (bar setting `agent`); default cursor-agent.
+# Cursor commits use Composer 2.5 Fast, not the CLI selected model.
 set -euo pipefail
 
 (($# > 0)) || {
@@ -11,7 +12,7 @@ prompt="$*"
 agent="${EVO_GITHUB_AGENT:-cursor-agent}"
 
 case "$agent" in
-cursor-agent) command=(cursor-agent --print --force --trust --output-format text -- "$prompt") ;;
+cursor-agent) command=(cursor-agent --print --force --trust --output-format text --model composer-2.5-fast -- "$prompt") ;;
 claude) command=(claude -p --permission-mode acceptEdits --allowedTools "Bash(git:*)" -- "$prompt") ;;
 codex) command=(codex exec --full-auto -- "$prompt") ;;
 opencode) command=(opencode run -- "$prompt") ;;
