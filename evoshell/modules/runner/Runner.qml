@@ -14,6 +14,8 @@ Item {
 
     property var shell: null
     property bool opened: false
+    // 1 is parked above the screen, 0 is the resting card.
+    property real slide: 1
     property string query: ""
     property int selectedIndex: 0
     property bool actionsOpen: false
@@ -82,6 +84,10 @@ Item {
         return screens.length > 0 ? screens[0] : null
     }
 
+    Behavior on slide {
+        NumberAnimation { duration: Theme.duration(180); easing.type: Easing.OutCubic }
+    }
+
     function hideSiblings() {
         if (!shell)
             return
@@ -102,6 +108,7 @@ Item {
         } catch (e) {
             nextQuery = ""
         }
+        var wasOpen = opened
         opened = true
         actionsOpen = false
         selectedIndex = 0
@@ -109,7 +116,12 @@ Item {
         if (searchField.text !== nextQuery)
             searchField.text = nextQuery
         refreshCatalogs()
+        if (!wasOpen && slide > 0.98)
+            slide = 1
         Qt.callLater(function() {
+            if (!root.opened)
+                return
+            root.slide = 0
             searchField.forceActiveFocus()
         })
     }
@@ -118,6 +130,7 @@ Item {
         if (!opened)
             return
         opened = false
+        slide = 1
         actionsOpen = false
         query = ""
         selectedIndex = 0
@@ -595,14 +608,20 @@ Item {
 
     PanelWindow {
         id: panel
-        visible: root.opened
+        visible: root.opened || root.slide < 0.98
         screen: root.openScreen
         anchors { top: true; bottom: true; left: true; right: true }
         color: "transparent"
         WlrLayershell.namespace: "evo-sys-runner"
         WlrLayershell.layer: WlrLayer.Overlay
-        WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
+        WlrLayershell.keyboardFocus: root.opened ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
         exclusionMode: ExclusionMode.Ignore
+        // Drop the input region as soon as the runner closes so the slide-up
+        // does not eat clicks meant for the windows underneath.
+        mask: Region {
+            width: root.opened ? panel.width : 0
+            height: root.opened ? panel.height : 0
+        }
 
         MouseArea {
             anchors.fill: parent
@@ -613,11 +632,15 @@ Item {
             id: card
             z: 1
             width: Theme.hoverPanelWidthWide
-            anchors.horizontalCenter: parent.horizontalCenter
-            y: Math.max(Theme.space(48), Math.round(parent.height * 0.22) - height / 2)
+            anchors.centerIn: parent
             height: cardColumn.implicitHeight + Theme.launcherPad * 2
-            radius: Theme.fieldsetCornerRadius
+            transform: Translate {
+                y: -root.slide * (card.parent.height / 2 + card.height / 2)
+            }
+            radius: Theme.cornerRadius
             color: Theme.background
+            border.width: 2
+            border.color: Theme.accent
 
             MouseArea {
                 anchors.fill: parent

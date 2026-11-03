@@ -6,7 +6,7 @@ import qs.commons
 import qs.ui
 
 // Pinned-app dock. Super+D toggles it through `evo ipc shell toggle evo.dock`.
-// The bar lives on the focused monitor and slides up from below the screen.
+// The bar lives in the middle of the focused monitor and slides up from below.
 // `opened` drops as soon as close starts, so a second Super+D is not swallowed
 // by the slide-down.
 Item {
@@ -24,9 +24,8 @@ Item {
   readonly property int cellWidth: Theme.space(84)
   readonly property int cellHeight: iconSize + Theme.space(6) + Theme.fontSizeS + Theme.space(8)
   readonly property int barPad: Theme.space(12)
-  // Hyprland general:border_size. Drawn on the top and sides only.
+  // Hyprland general:border_size, drawn on every edge.
   readonly property int windowBorder: 2
-  readonly property int slideDistance: Theme.space(220)
   readonly property int cellSpacing: Theme.space(8)
   readonly property real dragThreshold: Theme.space(4)
 
@@ -244,23 +243,16 @@ Item {
       Item {
         id: dockBar
         z: 1
-        clip: true
         anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottom: parent.bottom
+        anchors.verticalCenter: parent.verticalCenter
         width: iconRow.implicitWidth + root.barPad * 2
         height: Math.max(iconRow.implicitHeight, root.cellHeight) + root.barPad * 2
         transform: Translate {
-          y: root.slide * Math.max(dockBar.height, root.slideDistance)
+          y: root.slide * (dockBar.parent.height / 2 + dockBar.height / 2)
         }
 
-        // The fill is taller than the dock so the clip cuts off the bottom
-        // border and the bottom corner radius. What remains matches a Hyprland
-        // window border on the top and sides, with a square bottom edge.
         Rectangle {
-          anchors.left: parent.left
-          anchors.right: parent.right
-          anchors.top: parent.top
-          height: parent.height + Theme.cornerRadius + root.windowBorder
+          anchors.fill: parent
           radius: Theme.cornerRadius
           color: Theme.background
           border.width: root.windowBorder
