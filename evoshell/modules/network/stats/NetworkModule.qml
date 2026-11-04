@@ -16,7 +16,6 @@ Item {
 
     readonly property string script: Util.evoshellScript(Quickshell.env("HOME"), shell, "evo-bar-network")
     readonly property bool active: host && host.opened === true
-    readonly property var barSource: shell ? shell.popupAnchorItem : null
     readonly property int bodyFont: Theme.fontSize3xl
     readonly property int hintFont: Theme.fontSizeL
     readonly property int statFont: Theme.fontSizeXl
@@ -37,6 +36,10 @@ Item {
     property var lastDownloadProcess: null
     property bool processesLoading: false
     readonly property int maxProcessRows: 1
+    property var torrents: []
+    property real lastRxBytes: -1
+    property real lastTxBytes: -1
+    property real lastByteSampleMs: 0
 
     readonly property var topDownloadProcess: root.topDown.length > 0 ? root.topDown[0] : null
 
@@ -66,13 +69,8 @@ Item {
         return info.gateway ? kind + " · gateway " + info.gateway : kind
     }
 
-    readonly property string internetPing: {
-        if (root.loading && !info.iface)
-            return "…"
-        if (!info.iface)
-            return "—"
-        return root.formatPing(root.info.internet_ping_ms, root.hasPingStats)
-    }
+    readonly property string heroDownload: root.hasTransferStats ? root.formatRate(root.networkDownloadRate) : "--"
+    readonly property string heroUpload: root.hasTransferStats ? root.formatRate(root.networkUploadRate) : "--"
 
     readonly property var networkStats: {
         var down = { label: "download", value: root.hasTransferStats ? root.formatRate(root.networkDownloadRate) : "--", color: Theme.ansiFallback("green") }
@@ -113,38 +111,48 @@ Item {
             loading = true
         refreshVerbose()
         refreshProcesses()
+        refreshTransfers()
         pollTimer.start()
         processTimer.start()
+    }
+
+    function historyHasSignal(series) {
+        if (!Array.isArray(series))
+            return false
+        for (var i = 0; i < series.length; i++) {
+            var value = parseFloat(series[i] && series[i].value)
+            if (isFinite(value) && value > 0)
+                return true
+        }
+        return false
     }
 
     function applyThroughputCache(data) {
         if (!data || typeof data !== "object")
             return
+        var downRate = NaN
+        var upRate = NaN
         if (data.network_download_bps !== undefined || data.network_upload_bps !== undefined) {
-            networkDownloadRate = parseFloat(data.network_download_bps) || 0
-            networkUploadRate = parseFloat(data.network_upload_bps) || 0
-            hasTransferStats = data.connected === true || !!info.iface
+            downRate = parseFloat(data.network_download_bps)
+            upRate = parseFloat(data.network_upload_bps)
         } else if (data.download_bps !== undefined || data.upload_bps !== undefined) {
-            networkDownloadRate = parseFloat(data.download_bps) || 0
-            networkUploadRate = parseFloat(data.upload_bps) || 0
-            hasTransferStats = data.connected === true || !!info.iface
+            downRate = parseFloat(data.download_bps)
+            upRate = parseFloat(data.upload_bps)
         }
-        if (Array.isArray(data.downHistory) && data.downHistory.length > 0)
+        if ((isFinite(downRate) && downRate > 0) || (isFinite(upRate) && upRate > 0)) {
+            networkDownloadRate = isFinite(downRate) ? downRate : 0
+            networkUploadRate = isFinite(upRate) ? upRate : 0
+            hasTransferStats = true
+        }
+        if (historyHasSignal(data.downHistory))
             downHistory = data.downHistory.slice()
-        if (Array.isArray(data.upHistory) && data.upHistory.length > 0)
+        if (historyHasSignal(data.upHistory))
             upHistory = data.upHistory.slice()
     }
 
     function syncFromBar() {
-        var item = barSource
-        if (item && Array.isArray(item.downHistory) && item.downHistory.length > 0) {
-            downHistory = item.downHistory.slice()
-            upHistory = item.upHistory.slice()
-            networkDownloadRate = item.networkDownloadRate || 0
-            networkUploadRate = item.networkUploadRate || 0
-            hasTransferStats = item.networkConnected === true
+        if (lastByteSampleMs > 0)
             return
-        }
         if (shell)
             applyThroughputCache(Util.hoverPanelCacheRead(shell, cacheKey))
     }
@@ -167,13 +175,12 @@ Item {
     function publishCache(data) {
         if (!shell || !data || typeof data !== "object" || !data.iface)
             return
-        var bar = barSource
-        if (bar) {
-            data.network_download_bps = bar.networkDownloadRate
-            data.network_upload_bps = bar.networkUploadRate
-            data.downHistory = bar.downHistory
-            data.upHistory = bar.upHistory
-            data.connected = bar.networkConnected
+        if (hasTransferStats && lastByteSampleMs > 0) {
+            data.network_download_bps = networkDownloadRate
+            data.network_upload_bps = networkUploadRate
+            data.downHistory = downHistory
+            data.upHistory = upHistory
+            data.connected = true
         } else {
             var existing = Util.hoverPanelCacheRead(shell, cacheKey)
             if (existing && typeof existing === "object") {
@@ -197,6 +204,11 @@ Item {
         processTimer.stop()
         if (processesProc.running)
             processesProc.running = false
+        if (transfersProc.running)
+            transfersProc.running = false
+        lastRxBytes = -1
+        lastTxBytes = -1
+        lastByteSampleMs = 0
     }
 
     function zeroHistory() {
@@ -235,6 +247,113 @@ Item {
         return Math.round(v) + " ms"
     }
 
+    function appendHistory(series, value) {
+        var next = []
+        var src = series || []
+        var start = src.length >= maxHistory ? src.length - maxHistory + 1 : 0
+        for (var i = start; i < src.length; i++)
+            next.push(src[i])
+        next.push({ value: value })
+        return next
+    }
+
+    function noteThroughput(next) {
+        var rx = parseFloat(next && next.rx_bytes)
+        var tx = parseFloat(next && next.tx_bytes)
+        var now = Date.now()
+        if (!isFinite(rx) || !isFinite(tx))
+            return
+        if (lastRxBytes >= 0 && lastTxBytes >= 0 && lastByteSampleMs > 0 && now > lastByteSampleMs) {
+            var dt = (now - lastByteSampleMs) / 1000
+            if (dt >= 0.4 && dt <= 20 && rx >= lastRxBytes && tx >= lastTxBytes) {
+                var down = (rx - lastRxBytes) / dt
+                var up = (tx - lastTxBytes) / dt
+                networkDownloadRate = down
+                networkUploadRate = up
+                hasTransferStats = true
+                downHistory = appendHistory(downHistory, down)
+                upHistory = appendHistory(upHistory, up)
+            }
+        }
+        lastRxBytes = rx
+        lastTxBytes = tx
+        lastByteSampleMs = now
+    }
+
+    function formatPercent(value) {
+        var n = Number(value)
+        if (!isFinite(n) || n < 0)
+            return ""
+        if (n > 100)
+            n = 100
+        var rounded = Math.round(n * 10) / 10
+        var text = Math.abs(rounded - Math.round(rounded)) < 0.05
+            ? String(Math.round(rounded))
+            : rounded.toFixed(1)
+        return text + "%"
+    }
+
+    function formatEta(seconds) {
+        var s = Number(seconds)
+        if (!isFinite(s) || s < 0)
+            return ""
+        s = Math.round(s)
+        if (s < 60)
+            return s + "s"
+        if (s < 3600)
+            return Math.round(s / 60) + " min"
+        var hours = Math.floor(s / 3600)
+        var mins = Math.round((s % 3600) / 60)
+        if (mins === 60) {
+            hours += 1
+            mins = 0
+        }
+        if (mins === 0)
+            return hours + "h"
+        return hours + "h " + mins + "m"
+    }
+
+    function torrentMeta(entry) {
+        if (!entry)
+            return ""
+        if (entry.status === 3)
+            return "Queued"
+        var pct = formatPercent(entry.percent)
+        var eta = formatEta(entry.eta)
+        if (pct && eta)
+            return pct + " · " + eta
+        return pct || eta
+    }
+
+    function parseTransfers(raw) {
+        var lines = String(raw || "").split("\n")
+        var ok = false
+        var list = []
+        for (var i = 0; i < lines.length; i++) {
+            var line = lines[i]
+            if (!line)
+                continue
+            if (line === "transfers_ok") {
+                ok = true
+                continue
+            }
+            var parts = line.split("\t")
+            if (parts[0] !== "torrent" || parts.length < 5)
+                continue
+            list.push({
+                name: parts[1] || "download",
+                percent: parseFloat(parts[2]) || 0,
+                down: parseFloat(parts[3]) || 0,
+                up: parseFloat(parts[4]) || 0,
+                eta: parts.length > 5 ? parseFloat(parts[5]) : -1,
+                status: parts.length > 6 ? (parseInt(parts[6], 10) || 0) : 0
+            })
+        }
+        if (!ok)
+            return
+        torrents = list.slice(0, 6)
+    }
+
     function parseProcesses(raw) {
         var down = []
         var up = []
@@ -261,19 +380,32 @@ Item {
             processesProc.running = true
     }
 
+    function refreshTransfers() {
+        if (!transfersProc.running)
+            transfersProc.running = true
+    }
+
     function applyVerbose(raw) {
+        var text = String(raw || "")
+        if (!text.trim())
+            return
         loading = false
-        var next = parseVerbose(raw)
+        var next = parseVerbose(text)
         info = next
-        publishCache(next)
 
         if (next.router_ping_ms !== undefined || next.internet_ping_ms !== undefined)
             hasPingStats = true
 
-        if (next.iface)
-            hasTransferStats = true
+        if (!next.iface) {
+            hasTransferStats = false
+            lastRxBytes = -1
+            lastTxBytes = -1
+            lastByteSampleMs = 0
+            return
+        }
 
-        syncFromBar()
+        noteThroughput(next)
+        publishCache(next)
     }
 
     function refreshVerbose() {
@@ -287,8 +419,10 @@ Item {
         repeat: true
         running: false
         onTriggered: {
-            if (root.active)
-                root.refreshVerbose()
+            if (!root.active)
+                return
+            root.refreshVerbose()
+            root.refreshTransfers()
         }
     }
 
@@ -307,6 +441,7 @@ Item {
         id: processesProc
         command: ["bash", root.script, "processes"]
         stdout: StdioCollector {
+            waitForEnd: true
             onStreamFinished: {
                 root.processesLoading = false
                 root.parseProcesses(text)
@@ -322,9 +457,19 @@ Item {
     }
 
     Process {
+        id: transfersProc
+        command: ["bash", root.script, "transfers"]
+        stdout: StdioCollector {
+            waitForEnd: true
+            onStreamFinished: root.parseTransfers(text)
+        }
+    }
+
+    Process {
         id: verboseProc
         command: ["bash", root.script, "verbose"]
         stdout: StdioCollector {
+            waitForEnd: true
             onStreamFinished: root.applyVerbose(text)
         }
         onExited: function(code) {
@@ -338,21 +483,6 @@ Item {
         upHistory = zeroHistory()
         bootstrapFromCache()
     }
-
-    readonly property real barNetworkDownloadRate: root.barSource ? (root.barSource.networkDownloadRate || 0) : 0
-    readonly property real barNetworkUploadRate: root.barSource ? (root.barSource.networkUploadRate || 0) : 0
-    readonly property var barDownHistory: root.barSource ? root.barSource.downHistory : null
-    readonly property var barUpHistory: root.barSource ? root.barSource.upHistory : null
-
-    function syncFromBarRates() {
-        if (root.active)
-            root.syncFromBar()
-    }
-
-    onBarNetworkDownloadRateChanged: syncFromBarRates()
-    onBarNetworkUploadRateChanged: syncFromBarRates()
-    onBarDownHistoryChanged: syncFromBarRates()
-    onBarUpHistoryChanged: syncFromBarRates()
 
     ColumnLayout {
         id: column
@@ -379,9 +509,9 @@ Item {
             }
 
             trailingControl: Component {
-                PingBadge {
-                    value: root.internetPing
-                    fillColor: root.internetPing === "Timeout" ? Theme.urgent : Theme.accent
+                ThroughputBadge {
+                    downText: root.heroDownload
+                    upText: root.heroUpload
                 }
             }
         }
@@ -437,10 +567,52 @@ Item {
                     }
                 }
 
+                Repeater {
+                    model: root.torrents
+
+                    RowLayout {
+                        required property var modelData
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingM
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: modelData.name
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.hintFont
+                            elide: Text.ElideRight
+                            verticalAlignment: Text.AlignVCenter
+                            opacity: 0.9
+                        }
+
+                        Text {
+                            text: root.torrentMeta(modelData)
+                            color: Theme.foreground
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.hintFont
+                            verticalAlignment: Text.AlignVCenter
+                            opacity: 0.55
+                            visible: text !== ""
+                        }
+
+                        Text {
+                            text: root.formatRate(modelData.down)
+                            color: Theme.accent
+                            font.family: Theme.fontFamily
+                            font.pixelSize: root.hintFont
+                            font.bold: Theme.fontBold
+                            verticalAlignment: Text.AlignVCenter
+                            opacity: modelData.down > 0 ? 1 : 0.45
+                        }
+                    }
+                }
+
                 Item {
                     Layout.fillWidth: true
                     Layout.preferredHeight: root.hintFont + 6
                     Layout.minimumHeight: root.hintFont + 6
+                    visible: root.torrents.length === 0
 
                     RowLayout {
                         anchors.fill: parent
@@ -476,23 +648,41 @@ Item {
         }
     }
 
-    component PingBadge: Rectangle {
-        property string value: ""
-        property color fillColor: Theme.accent
+    component ThroughputBadge: Rectangle {
+        id: badge
 
-        implicitWidth: pingText.implicitWidth + Theme.spacing.lg * 2
-        implicitHeight: pingText.implicitHeight + Theme.spacing.sm * 2
-        radius: implicitHeight / 2
-        color: Qt.rgba(fillColor.r, fillColor.g, fillColor.b, 0.14)
+        property string downText: "--"
+        property string upText: "--"
+
+        implicitWidth: Math.max(downLabel.implicitWidth, upLabel.implicitWidth) + Theme.spacing.lg * 2
+        implicitHeight: downLabel.implicitHeight + upLabel.implicitHeight + Theme.spacing.sm * 2
+        radius: Theme.cornerRadius
+        color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.14)
 
         Text {
-            id: pingText
-            anchors.centerIn: parent
+            id: downLabel
+            anchors.right: parent.right
+            anchors.rightMargin: Theme.spacing.lg
+            anchors.top: parent.top
+            anchors.topMargin: Theme.spacing.sm
             textFormat: Text.PlainText
-            text: parent.value
-            color: parent.fillColor
+            text: "↓ " + badge.downText
+            color: Theme.ansiFallback("green")
             font.family: Theme.fontFamily
-            font.pixelSize: Theme.font.displayLarge
+            font.pixelSize: Theme.font.heading
+            font.bold: true
+        }
+
+        Text {
+            id: upLabel
+            anchors.right: parent.right
+            anchors.rightMargin: Theme.spacing.lg
+            anchors.top: downLabel.bottom
+            textFormat: Text.PlainText
+            text: "↑ " + badge.upText
+            color: Theme.urgent
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.font.heading
             font.bold: true
         }
     }

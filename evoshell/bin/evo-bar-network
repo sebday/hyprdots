@@ -258,6 +258,95 @@ print_bar() {
         }'
 }
 
+print_transfers() {
+    # Active transmission-cli / transmission-daemon downloads. The marker is
+    # printed even when the session is down so the panel can clear stale rows.
+    printf 'transfers_ok\n'
+
+    command -v curl >/dev/null 2>&1 || return 0
+    command -v jq >/dev/null 2>&1 || return 0
+
+    local settings="${HOME}/.config/transmission/settings.json"
+    local port=9091
+    local path="/transmission/rpc"
+    local user=""
+    local pass=""
+    local auth=false
+
+    if [[ -r "$settings" ]]; then
+        local enabled
+        enabled=$(jq -r '.["rpc-enabled"] // true' "$settings")
+        if [[ "$enabled" == "false" ]]; then
+            return 0
+        fi
+        port=$(jq -r '.["rpc-port"] // 9091' "$settings")
+        [[ "$port" =~ ^[0-9]+$ ]] || port=9091
+        local rpc_url
+        rpc_url=$(jq -r '.["rpc-url"] // "/transmission/"' "$settings")
+        [[ -n "$rpc_url" ]] || rpc_url="/transmission/"
+        [[ "$rpc_url" == /* ]] || rpc_url="/${rpc_url}"
+        if [[ "$rpc_url" != */rpc ]]; then
+            rpc_url="${rpc_url%/}/rpc"
+        fi
+        path="$rpc_url"
+        if [[ "$(jq -r '.["rpc-authentication-required"] // false' "$settings")" == "true" ]]; then
+            auth=true
+            user=$(jq -r '.["rpc-username"] // ""' "$settings")
+            pass=$(jq -r '.["rpc-password"] // ""' "$settings")
+        fi
+    fi
+
+    local url="http://127.0.0.1:${port}${path}"
+    local hdr netrc=""
+    local curl_args=()
+    hdr=$(mktemp) || return 0
+    if [[ "$auth" == "true" ]]; then
+        netrc=$(mktemp) || { rm -f "$hdr"; return 0; }
+        chmod 600 "$netrc"
+        printf 'machine 127.0.0.1\nlogin %s\npassword %s\n' "$user" "$pass" >"$netrc"
+        curl_args=(--netrc-file "$netrc")
+    fi
+
+    curl -s --max-time 1 -D "$hdr" -o /dev/null "${curl_args[@]}" "$url" || true
+    local sid
+    sid=$(awk 'tolower($1) == "x-transmission-session-id:" { print $2; exit }' "$hdr" | tr -d '\r')
+    if [[ -z "$sid" ]]; then
+        rm -f "$hdr"
+        [[ -n "$netrc" ]] && rm -f "$netrc"
+        return 0
+    fi
+
+    local payload='{"method":"torrent-get","arguments":{"fields":["name","percentDone","status","rateDownload","rateUpload","eta"]}}'
+    local json
+    json=$(curl -s --max-time 2 \
+        -H "X-Transmission-Session-Id: ${sid}" \
+        -H "Content-Type: application/json" \
+        "${curl_args[@]}" \
+        -d "$payload" \
+        "$url") || json=""
+    rm -f "$hdr"
+    [[ -n "$netrc" ]] && rm -f "$netrc"
+    [[ -n "$json" ]] || return 0
+
+    jq -r '
+        [ .arguments.torrents[]?
+          | select(.status == 3 or .status == 4 or ((.rateDownload // 0) > 0))
+        ]
+        | sort_by(-(.rateDownload // 0))
+        | .[]
+        | [
+            "torrent",
+            ((.name // "download") | gsub("[\t\r\n]"; " ")),
+            ((.percentDone // 0) * 100),
+            (.rateDownload // 0),
+            (.rateUpload // 0),
+            (if .eta == null then -1 else .eta end),
+            (.status // 0)
+          ]
+        | @tsv
+    ' <<<"$json" || true
+}
+
 print_top_processes() {
     local interval=1
     local sample_a sample_b
@@ -308,8 +397,9 @@ bar) print_bar ;;
 status) print_status ;;
 verbose) print_verbose ;;
 processes) print_top_processes ;;
+transfers) print_transfers ;;
 *)
-    echo "usage: evo-bar-network bar|status|verbose|processes" >&2
+    echo "usage: evo-bar-network bar|status|verbose|processes|transfers" >&2
     exit 2
     ;;
 esac

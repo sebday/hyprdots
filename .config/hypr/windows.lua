@@ -20,13 +20,16 @@ hl.window_rule({
 	tag = "+floating-window",
 })
 
+-- Thunar's transfer dialog is an xdg dialog (class "thunar", not "Thunar").
+-- Keep it off the floating-window tag so it is not stretched to 1600x900.
 hl.window_rule({
-	name = "tag-floating-window-thunar-progress",
+	name = "thunar-file-operation-progress",
 	match = {
-		class = "^Thunar$",
+		class = "^[Tt]hunar$",
 		title = "^File Operation Progress$",
 	},
-	tag = "+floating-window",
+	float = true,
+	center = true,
 })
 
 hl.window_rule({
