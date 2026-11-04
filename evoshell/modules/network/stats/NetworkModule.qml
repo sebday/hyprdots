@@ -69,12 +69,16 @@ Item {
         return info.gateway ? kind + " · gateway " + info.gateway : kind
     }
 
-    readonly property string heroDownload: root.hasTransferStats ? root.formatRate(root.networkDownloadRate) : "--"
-    readonly property string heroUpload: root.hasTransferStats ? root.formatRate(root.networkUploadRate) : "--"
+    readonly property string heroThroughput: root.hasTransferStats
+        ? root.formatRate(root.networkDownloadRate + root.networkUploadRate)
+        : "--"
 
     readonly property var networkStats: {
-        var down = { label: "download", value: root.hasTransferStats ? root.formatRate(root.networkDownloadRate) : "--", color: Theme.ansiFallback("green") }
-        var up = { label: "upload", value: root.hasTransferStats ? root.formatRate(root.networkUploadRate) : "--", color: Theme.urgent }
+        var downParts = root.hasTransferStats ? root.rateParts(root.networkDownloadRate) : { value: "--", unit: "" }
+        var upParts = root.hasTransferStats ? root.rateParts(root.networkUploadRate) : { value: "--", unit: "" }
+        var ping = root.pingParts(root.info.router_ping_ms, root.hasPingStats)
+        var down = { label: "download", value: downParts.value, unit: downParts.unit, kpi: true, color: Theme.ansiFallback("green") }
+        var up = { label: "upload", value: upParts.value, unit: upParts.unit, kpi: true, color: Theme.urgent }
         if (root.loading) {
             return [
                 { label: "Interface", value: "…" },
@@ -99,7 +103,7 @@ Item {
             { label: "Interface", value: String(info.iface) },
             { label: "IP", value: info.ip ? String(info.ip) : "—" },
             { label: "Link", value: root.linkSpeedLabel },
-            { label: "Gateway", value: root.formatPing(root.info.router_ping_ms, root.hasPingStats) },
+            { label: "Gateway", value: ping.value, unit: ping.unit, kpi: true },
             down,
             up
         ]
@@ -231,20 +235,27 @@ Item {
         return out
     }
 
-    function formatRate(bytesPerSec) {
+    function rateParts(bytesPerSec) {
         var n = Number(bytesPerSec) || 0
-        if (n < 1024) return Math.round(n) + " B/s"
-        if (n < 1048576) return (n / 1024).toFixed(1) + " KB/s"
-        if (n < 1073741824) return (n / 1048576).toFixed(1) + " MB/s"
-        return (n / 1073741824).toFixed(2) + " GB/s"
+        if (n < 1024) return { value: String(Math.round(n)), unit: "B/s" }
+        if (n < 1048576) return { value: (n / 1024).toFixed(1), unit: "KB/s" }
+        if (n < 1073741824) return { value: (n / 1048576).toFixed(1), unit: "MB/s" }
+        return { value: (n / 1073741824).toFixed(2), unit: "GB/s" }
     }
 
-    function formatPing(ms, hasSamples) {
-        if (!hasSamples) return "--"
+    function formatRate(bytesPerSec) {
+        var parts = root.rateParts(bytesPerSec)
+        if (!parts.unit)
+            return parts.value
+        return parts.value + " " + parts.unit
+    }
+
+    function pingParts(ms, hasSamples) {
+        if (!hasSamples) return { value: "--", unit: "" }
         var v = parseFloat(ms)
-        if (!isFinite(v) || v < 0) return "Timeout"
-        if (v > 0 && v < 10) return v.toFixed(1) + " ms"
-        return Math.round(v) + " ms"
+        if (!isFinite(v) || v < 0) return { value: "Timeout", unit: "" }
+        if (v > 0 && v < 10) return { value: v.toFixed(1), unit: "ms" }
+        return { value: String(Math.round(v)), unit: "ms" }
     }
 
     function appendHistory(series, value) {
@@ -510,8 +521,7 @@ Item {
 
             trailingControl: Component {
                 ThroughputBadge {
-                    downText: root.heroDownload
-                    upText: root.heroUpload
+                    text: root.heroThroughput
                 }
             }
         }
@@ -529,9 +539,11 @@ Item {
                 HoverPanelStatBox {
                     required property var modelData
                     value: String(modelData.value)
+                    unit: modelData.unit ? String(modelData.unit) : ""
                     label: modelData.label
                     valueColor: modelData.color || Theme.accent
-                    valueFontSize: Theme.fontSizeXl
+                    valueFontSize: modelData.kpi ? Theme.font.display : Theme.fontSizeXl
+                    unitFontSize: Theme.font.body
                     boxHeight: Theme.font.heading + Theme.space(56)
                 }
             }
@@ -651,36 +663,19 @@ Item {
     component ThroughputBadge: Rectangle {
         id: badge
 
-        property string downText: "--"
-        property string upText: "--"
+        property string text: "--"
 
-        implicitWidth: Math.max(downLabel.implicitWidth, upLabel.implicitWidth) + Theme.spacing.lg * 2
-        implicitHeight: downLabel.implicitHeight + upLabel.implicitHeight + Theme.spacing.sm * 2
-        radius: Theme.cornerRadius
+        implicitWidth: rateText.implicitWidth + Theme.spacing.lg * 2
+        implicitHeight: rateText.implicitHeight + Theme.spacing.sm * 2
+        radius: implicitHeight / 2
         color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.14)
 
         Text {
-            id: downLabel
-            anchors.right: parent.right
-            anchors.rightMargin: Theme.spacing.lg
-            anchors.top: parent.top
-            anchors.topMargin: Theme.spacing.sm
+            id: rateText
+            anchors.centerIn: parent
             textFormat: Text.PlainText
-            text: "↓ " + badge.downText
-            color: Theme.ansiFallback("green")
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.font.heading
-            font.bold: true
-        }
-
-        Text {
-            id: upLabel
-            anchors.right: parent.right
-            anchors.rightMargin: Theme.spacing.lg
-            anchors.top: downLabel.bottom
-            textFormat: Text.PlainText
-            text: "↑ " + badge.upText
-            color: Theme.urgent
+            text: badge.text
+            color: Theme.accent
             font.family: Theme.fontFamily
             font.pixelSize: Theme.font.heading
             font.bold: true

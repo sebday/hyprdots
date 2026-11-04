@@ -12,6 +12,8 @@ Item {
     property bool customFill: false
     property color customFillColor: Theme.panelMantle
     property int valueFontSize: Theme.fontSize5xl
+    property string unit: ""
+    property int unitFontSize: Theme.font.body
     property int iconFontSize: Theme.fontSize6xl
     property int labelFontSize: Theme.fontSizeS
     property int contentPad: Theme.panelContentPad
@@ -229,7 +231,7 @@ Item {
             Text {
                 Layout.fillWidth: true
                 Layout.fillHeight: root.boxHeight > 0
-                visible: !root.hasIcon
+                visible: !root.hasIcon && root.unit === ""
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
                 text: root.value
@@ -238,6 +240,44 @@ Item {
                 font.pixelSize: root.valueFontSize
                 font.bold: Theme.fontBold
                 elide: Text.ElideRight
+            }
+
+            Item {
+                Layout.fillWidth: true
+                Layout.fillHeight: root.boxHeight > 0
+                visible: !root.hasIcon && root.unit !== ""
+
+                Item {
+                    anchors.centerIn: parent
+                    width: Math.min(parent.width, valueText.implicitWidth + unitText.implicitWidth + unitText.anchors.leftMargin)
+                    height: valueText.implicitHeight
+
+                    Text {
+                        id: valueText
+                        width: Math.max(1, parent.width - unitText.implicitWidth - unitText.anchors.leftMargin)
+                        text: root.value
+                        color: root.special ? Theme.accent : root.valueColor
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.valueFontSize
+                        font.bold: Theme.fontBold
+                        fontSizeMode: Text.HorizontalFit
+                        minimumPixelSize: Theme.font.body
+                        horizontalAlignment: Text.AlignRight
+                        elide: Text.ElideRight
+                    }
+
+                    Text {
+                        id: unitText
+                        anchors.left: valueText.right
+                        anchors.leftMargin: Theme.space(3)
+                        anchors.baseline: valueText.baseline
+                        text: root.unit
+                        color: root.special ? Theme.accent : root.valueColor
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.unitFontSize
+                        font.bold: Theme.fontBold
+                    }
+                }
             }
 
             Text {
