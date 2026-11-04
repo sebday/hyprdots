@@ -238,7 +238,12 @@ Item {
     function rateParts(bytesPerSec) {
         var n = Number(bytesPerSec) || 0
         if (n < 1024) return { value: String(Math.round(n)), unit: "B/s" }
-        if (n < 1048576) return { value: (n / 1024).toFixed(1), unit: "KB/s" }
+        if (n < 1048576) {
+            var kb = Math.round(n / 1024)
+            if (kb >= 1024)
+                return { value: (n / 1048576).toFixed(1), unit: "MB/s" }
+            return { value: String(kb), unit: "KB/s" }
+        }
         if (n < 1073741824) return { value: (n / 1048576).toFixed(1), unit: "MB/s" }
         return { value: (n / 1073741824).toFixed(2), unit: "GB/s" }
     }
