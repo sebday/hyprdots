@@ -1,4 +1,5 @@
 module qs.ui
+ActionsMenu 1.0 ActionsMenu.qml
 singleton Border 1.0 Border.qml
 BarIconButton 1.0 BarIconButton.qml
 BarWidget 1.0 BarWidget.qml
@@ -14,6 +15,7 @@ PanelKeyCatcher 1.0 PanelKeyCatcher.qml
 PanelSectionHeader 1.0 PanelSectionHeader.qml
 PanelSeparator 1.0 PanelSeparator.qml
 PanelSlider 1.0 PanelSlider.qml
+SlideLifecycle 1.0 SlideLifecycle.qml
 PanelToolTip 1.0 PanelToolTip.qml
 PopupCard 1.0 PopupCard.qml
 TextField 1.0 TextField.qml

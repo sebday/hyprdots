@@ -5,6 +5,7 @@ import Quickshell.Wayland
 import QtQuick
 import QtQuick.Layouts
 import qs.commons
+import qs.ui
 import "../settings"
 import "LauncherSources.js" as LauncherSources
 import "views"
@@ -21,8 +22,9 @@ Item {
     property string query: ""
     property int themeIndex: 0
     property int wallpaperIndex: 0
-    property bool actionsOpen: false
-    property int actionIndex: 0
+    ActionsMenu { id: actions }
+    readonly property alias actionsOpen: actions.open
+    readonly property alias actionIndex: actions.index
 
     property var themeEntries: []
     property var wallpaperEntries: []
@@ -138,7 +140,7 @@ Item {
         query = String(nextQuery || "")
         themeIndex = 0
         wallpaperIndex = 0
-        actionsOpen = false
+        actions.reset()
         if (String(query).trim() === "")
             Qt.callLater(root.focusCurrentTheme)
         if (nextView === "looks") {
@@ -155,7 +157,7 @@ Item {
             return
         view = next
         lastView = next
-        actionsOpen = false
+        actions.reset()
         if (next === "looks")
             Qt.callLater(function() { embeddedSettings.rebuildSettingsNav() })
         Qt.callLater(root.syncBackdrop)
@@ -251,7 +253,7 @@ Item {
             return
         opened = false
         syncMenuSpecial(false)
-        actionsOpen = false
+        actions.reset()
         query = ""
         backdrop.clear()
     }
@@ -288,12 +290,12 @@ Item {
             query = next
         themeIndex = 0
         wallpaperIndex = 0
-        actionsOpen = false
+        actions.reset()
     }
 
     function handleEscape() {
         if (actionsOpen) {
-            actionsOpen = false
+            actions.reset()
             return
         }
         if (view === "looks" && embeddedSettings.focusInTextInput()) {
@@ -304,15 +306,7 @@ Item {
     }
 
     function toggleActions() {
-        var count = actionItems.length
-        if (count <= 0)
-            return
-        if (!actionsOpen) {
-            actionIndex = count > 1 ? 1 : 0
-            actionsOpen = true
-            return
-        }
-        actionIndex = (actionIndex + 1) % count
+        actions.toggle(actionItems.length)
     }
 
     function actionIndexForEvent(event, fieldText) {
@@ -341,7 +335,7 @@ Item {
         var action = actionItems[index]
         if (!action)
             return
-        actionsOpen = false
+        actions.reset()
         if (view === "looks") {
             embeddedSettings.activateSettingsFocus()
             return
@@ -372,10 +366,7 @@ Item {
 
     function moveVertical(delta) {
         if (actionsOpen) {
-            var count = actionItems.length
-            if (count <= 0)
-                return
-            actionIndex = (actionIndex + delta + count) % count
+            actions.move(delta, actionItems.length)
             return
         }
         if (view === "looks") {

@@ -5,6 +5,7 @@ import Quickshell.Wayland
 import QtQuick
 import QtQuick.Layouts
 import qs.commons
+import qs.ui
 import "../menu/MenuEntries.js" as MenuEntries
 import "../menu/LauncherSources.js" as LauncherSources
 import "../menu/views"
@@ -13,14 +14,22 @@ Item {
     id: root
 
     property var shell: null
-    property bool opened: false
-    // 1 is parked above the screen, 0 is the resting card.
-    property real slide: 1
     property bool pointerSettled: false
+
+    SlideLifecycle {
+        id: life
+        primeFocus: false
+        durationMs: Theme.duration(180)
+        onSettled: root.settlePointer()
+    }
+    readonly property bool opened: life.opened
+    // 1 is parked above the screen, 0 is the resting card.
+    readonly property real slide: 1 - life.progress
     property string query: ""
     property int selectedIndex: 0
-    property bool actionsOpen: false
-    property int actionIndex: 0
+    ActionsMenu { id: actions }
+    readonly property alias actionsOpen: actions.open
+    readonly property alias actionIndex: actions.index
     property var openScreen: null
 
     property var cachedApps: []
@@ -85,15 +94,6 @@ Item {
         return screens.length > 0 ? screens[0] : null
     }
 
-    Behavior on slide {
-        NumberAnimation { duration: Theme.duration(180); easing.type: Easing.OutCubic }
-    }
-
-    onSlideChanged: {
-        if (opened && slide <= 0.001)
-            settlePointer()
-    }
-
     // Snapshot the pointer once the card has landed. Hover stays off until
     // that position actually changes.
     function settlePointer() {
@@ -124,25 +124,18 @@ Item {
         } catch (e) {
             nextQuery = ""
         }
-        var wasOpen = opened
-        opened = true
         pointerSettled = false
         resultList.disarmPointer()
-        actionsOpen = false
+        actions.reset()
         selectedIndex = 0
         query = nextQuery
         if (searchField.text !== nextQuery)
             searchField.text = nextQuery
         refreshCatalogs()
-        if (!wasOpen && slide > 0.98)
-            slide = 1
+        life.show()
         Qt.callLater(function() {
             if (!root.opened)
                 return
-            var parked = root.slide > 0.001
-            root.slide = 0
-            if (!parked)
-                root.settlePointer()
             searchField.forceActiveFocus()
         })
     }
@@ -150,11 +143,10 @@ Item {
     function close() {
         if (!opened)
             return
-        opened = false
-        slide = 1
+        life.hide()
         pointerSettled = false
         resultList.disarmPointer()
-        actionsOpen = false
+        actions.reset()
         query = ""
         selectedIndex = 0
         if (searchField.text !== "")
@@ -193,19 +185,11 @@ Item {
         if (query !== next)
             query = next
         selectedIndex = 0
-        actionsOpen = false
+        actions.reset()
     }
 
     function toggleActions() {
-        var count = actionItems.length
-        if (count <= 0)
-            return
-        if (!actionsOpen) {
-            actionIndex = count > 1 ? 1 : 0
-            actionsOpen = true
-            return
-        }
-        actionIndex = (actionIndex + 1) % count
+        actions.toggle(actionItems.length)
     }
 
     function actionIndexForEvent(event, fieldText) {
@@ -234,17 +218,14 @@ Item {
         var action = actionItems[index]
         if (!action)
             return
-        actionsOpen = false
+        actions.reset()
         if (selectedEntry)
             runAction(selectedEntry, action.id)
     }
 
     function moveSelection(delta) {
         if (actionsOpen) {
-            var count = actionItems.length
-            if (count <= 0)
-                return
-            actionIndex = (actionIndex + delta + count) % count
+            actions.move(delta, actionItems.length)
             return
         }
         var count = results.length
@@ -631,13 +612,13 @@ Item {
 
     PanelWindow {
         id: panel
-        visible: root.opened || root.slide < 0.98
+        visible: life.mapped
         screen: root.openScreen
         anchors { top: true; bottom: true; left: true; right: true }
         color: "transparent"
         WlrLayershell.namespace: "evo-sys-runner"
         WlrLayershell.layer: WlrLayer.Overlay
-        WlrLayershell.keyboardFocus: root.opened ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+        WlrLayershell.keyboardFocus: life.focusMode
         exclusionMode: ExclusionMode.Ignore
         // Drop the input region as soon as the runner closes so the slide-up
         // does not eat clicks meant for the windows underneath.
@@ -740,7 +721,7 @@ Item {
 
                             Keys.onEscapePressed: function(event) {
                                 if (root.actionsOpen) {
-                                    root.actionsOpen = false
+                                    root.actions.reset()
                                     event.accepted = true
                                     return
                                 }

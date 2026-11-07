@@ -5,6 +5,7 @@ import Quickshell.Wayland
 import QtQuick
 import QtQuick.Layouts
 import qs.commons
+import qs.ui
 import "../menu/LauncherSources.js" as LauncherSources
 import "views"
 
@@ -18,8 +19,9 @@ Item {
     property string view: "clipboard"
     property string query: ""
     property int selectedIndex: 0
-    property bool actionsOpen: false
-    property int actionIndex: 0
+    ActionsMenu { id: actions }
+    readonly property alias actionsOpen: actions.open
+    readonly property alias actionIndex: actions.index
 
     property var emojiAll: []
     property var emojiRecents: []
@@ -78,7 +80,7 @@ Item {
         lastView = nextView
         query = String(nextQuery || "")
         selectedIndex = 0
-        actionsOpen = false
+        actions.reset()
         if (searchField.text !== query)
             searchField.text = query
         if (nextView === "clipboard")
@@ -142,7 +144,7 @@ Item {
         if (!opened)
             return
         opened = false
-        actionsOpen = false
+        actions.reset()
         query = ""
         if (searchField.text !== "")
             searchField.text = ""
@@ -173,27 +175,19 @@ Item {
         if (query !== next)
             query = next
         selectedIndex = 0
-        actionsOpen = false
+        actions.reset()
     }
 
     function handleEscape() {
         if (actionsOpen) {
-            actionsOpen = false
+            actions.reset()
             return
         }
         dismiss()
     }
 
     function toggleActions() {
-        var count = actionItems.length
-        if (count <= 0)
-            return
-        if (!actionsOpen) {
-            actionIndex = count > 1 ? 1 : 0
-            actionsOpen = true
-            return
-        }
-        actionIndex = (actionIndex + 1) % count
+        actions.toggle(actionItems.length)
     }
 
     function actionIndexForEvent(event, fieldText) {
@@ -222,17 +216,14 @@ Item {
         var action = actionItems[index]
         if (!action)
             return
-        actionsOpen = false
+        actions.reset()
         if (selectedEntry)
             runAction(selectedEntry, action.id)
     }
 
     function moveVertical(delta) {
         if (actionsOpen) {
-            var count = actionItems.length
-            if (count <= 0)
-                return
-            actionIndex = (actionIndex + delta + count) % count
+            actions.move(delta, actionItems.length)
             return
         }
         if (gridNav) {

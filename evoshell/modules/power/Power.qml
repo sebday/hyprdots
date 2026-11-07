@@ -11,12 +11,16 @@ Item {
   id: root
 
   property var shell: null
-  property bool opened: false
   property int selectedIndex: 0
   property var hostScreen: null
-  property bool focusPrimed: false
+
+  SlideLifecycle {
+    id: life
+    durationMs: Theme.duration(160)
+  }
+  readonly property bool opened: life.opened
   // 0 is hidden, 1 is fully shown.
-  property real reveal: 0
+  readonly property real reveal: life.progress
 
   readonly property string evo: Quickshell.env("HOME") + "/.local/bin/evo"
   readonly property int iconSize: Theme.space(48)
@@ -32,10 +36,6 @@ Item {
     { name: "Reboot", icon: "󰜉", command: [evo, "system", "reboot"] },
     { name: "Shutdown", icon: "󰐥", command: [evo, "system", "shutdown"] }
   ]
-
-  Behavior on reveal {
-    NumberAnimation { duration: Theme.duration(160); easing.type: Easing.OutCubic }
-  }
 
   function focusedScreen() {
     var screens = Quickshell.screens
@@ -64,22 +64,13 @@ Item {
     }
     hostScreen = focusedScreen()
     selectedIndex = 0
-    opened = true
-    focusPrimed = false
-    focusPrimeTimer.restart()
-    Qt.callLater(function() {
-      if (root.opened)
-        root.reveal = 1
-    })
+    life.show()
   }
 
   function close() {
     if (!opened)
       return
-    opened = false
-    reveal = 0
-    focusPrimeTimer.stop()
-    focusPrimed = false
+    life.hide()
   }
 
   function dismiss() {
@@ -103,12 +94,6 @@ Item {
     Quickshell.execDetached(command)
   }
 
-  Timer {
-    id: focusPrimeTimer
-    interval: 75
-    onTriggered: if (root.opened) root.focusPrimed = true
-  }
-
   Variants {
     model: Quickshell.screens
 
@@ -130,14 +115,12 @@ Item {
       }
 
       screen: modelData
-      visible: showHere && (root.opened || root.reveal > 0.02)
+      visible: showHere && life.mapped
       color: "transparent"
       exclusionMode: ExclusionMode.Ignore
       WlrLayershell.namespace: "evo-panels-power"
       WlrLayershell.layer: WlrLayer.Overlay
-      WlrLayershell.keyboardFocus: showHere && root.opened
-        ? (root.focusPrimed ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.Exclusive)
-        : WlrKeyboardFocus.None
+      WlrLayershell.keyboardFocus: showHere ? life.focusMode : WlrKeyboardFocus.None
       anchors { top: true; bottom: true; left: true; right: true }
       mask: Region {
         width: root.opened && panel.showHere ? panel.width : 0

@@ -14,13 +14,17 @@ Item {
   id: root
 
   property var shell: null
-  property bool opened: false
   property int selectedIndex: 0
   property string query: ""
   property var hostScreen: null
-  property bool focusPrimed: false
+
+  SlideLifecycle {
+    id: life
+    durationMs: Theme.duration(180)
+  }
+  readonly property bool opened: life.opened
   // 1 is parked below the screen, 0 is the resting dock.
-  property real slide: 1
+  readonly property real slide: 1 - life.progress
 
   readonly property int iconSize: Theme.space(48)
   readonly property int cellWidth: Theme.space(84)
@@ -55,10 +59,6 @@ Item {
       })
     }
     return next
-  }
-
-  Behavior on slide {
-    NumberAnimation { duration: Theme.duration(180); easing.type: Easing.OutCubic }
   }
 
   onEntriesChanged: {
@@ -184,17 +184,11 @@ Item {
     } catch (e) {
       initialQuery = ""
     }
-    var wasOpen = opened
-    opened = true
     clearQuery()
-    focusPrimed = false
-    focusPrimeTimer.restart()
-    if (!wasOpen && slide > 0.98)
-      slide = 1
+    life.show()
     Qt.callLater(function() {
       if (!root.opened)
         return
-      root.slide = 0
       if (initialQuery !== "") {
         root.query = initialQuery
         root.selectBestMatch()
@@ -205,12 +199,9 @@ Item {
   function close() {
     if (!opened)
       return
-    opened = false
-    slide = 1
+    life.hide()
     clearQuery()
     clearDrag()
-    focusPrimeTimer.stop()
-    focusPrimed = false
   }
 
   function dismiss() {
@@ -249,12 +240,6 @@ Item {
     launchIndex(selectedIndex)
   }
 
-  Timer {
-    id: focusPrimeTimer
-    interval: 75
-    onTriggered: if (root.opened) root.focusPrimed = true
-  }
-
   Variants {
     model: Quickshell.screens
 
@@ -276,14 +261,12 @@ Item {
       }
 
       screen: modelData
-      visible: showHere && (root.opened || root.slide < 0.98)
+      visible: showHere && life.mapped
       color: "transparent"
       exclusionMode: ExclusionMode.Ignore
       WlrLayershell.namespace: "evo-panels-dock"
       WlrLayershell.layer: WlrLayer.Overlay
-      WlrLayershell.keyboardFocus: showHere && root.opened
-        ? (root.focusPrimed ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.Exclusive)
-        : WlrKeyboardFocus.None
+      WlrLayershell.keyboardFocus: showHere ? life.focusMode : WlrKeyboardFocus.None
       anchors { top: true; bottom: true; left: true; right: true }
       // Drop the input region as soon as the dock closes so the slide-down
       // does not eat clicks meant for the windows underneath.

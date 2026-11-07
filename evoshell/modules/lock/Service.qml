@@ -56,6 +56,45 @@ Item {
   property bool holdLock: false
   readonly property bool authenticating: authenticatingPassword || fingerprintAuthenticating
 
+  // Derived from the flags above. It does not drive transitions; it only names
+  // the combination they are in, and warns when that combination skips a step.
+  readonly property string phase: {
+    if (lockRequested && (sessionLock.locked || sessionLock.secure))
+      return authenticating ? "authenticating" : "locked"
+    if (lockRequested)
+      return "pending"
+    if (recoverAfterUnlockTimer.running)
+      return "recovering"
+    return "idle"
+  }
+  property string lastPhase: ""
+
+  function legalPhaseStep(from, to) {
+    if (from === "idle")
+      return to === "pending"
+    if (from === "pending")
+      return to === "locked" || to === "idle"
+    if (from === "locked")
+      return to === "authenticating" || to === "recovering" || to === "idle"
+    if (from === "authenticating")
+      return to === "locked" || to === "recovering" || to === "idle"
+    if (from === "recovering")
+      return to === "idle" || to === "pending"
+    return false
+  }
+
+  onPhaseChanged: {
+    // The first value is the binding settling, not a transition.
+    if (lastPhase === "") {
+      lastPhase = phase
+      return
+    }
+    if (!legalPhaseStep(lastPhase, phase))
+      console.warn("evo lock: unexpected phase " + lastPhase + " -> " + phase)
+    logEvent("phase " + lastPhase + " -> " + phase)
+    lastPhase = phase
+  }
+
   function syncHoldLock() {
     var next = lockRequested || sessionLock.locked || sessionLock.secure
     if (holdLock !== next)
@@ -693,6 +732,7 @@ Item {
         passwordPam: root.passwordPamConfigured,
         fingerprint: root.fingerprintConfigured,
         authenticating: root.authenticating,
+        phase: root.phase,
         lastEvent: root.lastEvent,
         lastEventAt: root.lastEventAt
       })

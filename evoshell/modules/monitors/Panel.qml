@@ -230,7 +230,14 @@ Panel {
   }
 
   // Writes uiBaseSize. Theme watches ui.json and picks up the new base size.
-  Process { id: textScaleProc }
+  // A failed write drops the preview so the slider follows the live size again.
+  Process {
+    id: textScaleProc
+    onExited: function(exitCode) {
+      if (exitCode !== 0)
+        root.textSizePreviewIndex = -1
+    }
+  }
 
   // Clears the hover-suppression flag once the reflow triggered by a text-size
   // change has settled.
@@ -244,6 +251,15 @@ Panel {
   // Once Style's base-size catches up to the pending choice, drop the preview
   // so the slider tracks the live value again. The change itself reflows the
   // panel, so suppress hover for a beat while it lands.
+  Connections {
+    target: Theme.font
+    function onBaseSizeChanged() {
+      if (root.textSizePreviewIndex >= 0
+          && root.nearestTextStop(Theme.font.baseSize) === root.textSizePreviewIndex)
+        root.textSizePreviewIndex = -1
+    }
+  }
+
   BarIconButton {
     id: button
     anchors.fill: parent
