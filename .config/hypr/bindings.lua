@@ -18,7 +18,6 @@ end
 -- Evoshell panels and system
 bindd("SUPER + D", "Dock", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.dock"))
 bindd("SUPER + Escape", "Power", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.power"))
-bindd("SUPER + Insert", "Wallpaper switcher", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.sys.menu '{\"view\":\"wallpapers\"}'"))
 bindd("SUPER + minus", "Previous wallpaper", hl.dsp.exec_cmd(lib .. "/evo-wallpaper prev"))
 bindd("SUPER + equal", "Next wallpaper", hl.dsp.exec_cmd(lib .. "/evo-wallpaper next"))
 bindd("SUPER + ALT + minus", "Previous theme", hl.dsp.exec_cmd(lib .. "/evo-theme prev"))

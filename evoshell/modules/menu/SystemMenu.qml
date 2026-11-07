@@ -45,12 +45,10 @@ Item {
         var entry = list[index]
         return entry ? String(entry.name || "") : currentThemeName
     }
-    // An empty search shows the highlighted theme's wallpapers. A query searches all of them.
-    readonly property string wallpaperScope: String(query || "").trim() === "" ? "current" : "all"
+    // Highlighted theme's wallpapers come first, then every other theme.
+    // A query searches across all of them by score.
     readonly property var wallpaperResults: LauncherSources.filterWallpapers(
-        wallpaperEntries, query, wallpaperScope,
-        wallpaperScope === "current" ? previewThemeName : "",
-        currentWallpaperPath)
+        wallpaperEntries, query, "all", previewThemeName, currentWallpaperPath)
     readonly property var selectedEntry: {
         var list = view === "wallpapers" ? wallpaperResults : themeResults
         var index = view === "wallpapers" ? wallpaperIndex : themeIndex
@@ -189,9 +187,14 @@ Item {
         if (String(query).trim() !== "")
             return
         var list = wallpaperResults
+        var theme = String(previewThemeName || "")
         var next = 0
         for (var i = 0; i < list.length; i++) {
-            if (list[i] && list[i].current) {
+            var entry = list[i]
+            if (!entry || !entry.current)
+                continue
+            var label = String(entry.name || "")
+            if (theme && label.split("/")[0] === theme) {
                 next = i
                 break
             }

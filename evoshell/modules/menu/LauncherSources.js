@@ -430,6 +430,23 @@ function filterWallpapers(entries, query, filter, currentTheme, currentPath) {
         scoped.push(entry)
     }
     var matched = filterEntries(scoped, query)
+    // With no query, the highlighted theme stays in front and every other
+    // theme follows. A query keeps the score order across all of them.
+    var q = String(query || "").trim()
+    if (!q && theme && mode !== "current" && mode !== "personal") {
+        var first = []
+        var rest = []
+        for (var j = 0; j < matched.length; j++) {
+            var item = matched[j]
+            var label = String(item.name || "")
+            var itemTheme = label.split("/")[0]
+            if (label.indexOf("personal/") !== 0 && itemTheme === theme)
+                first.push(item)
+            else
+                rest.push(item)
+        }
+        matched = first.concat(rest)
+    }
     return withCurrent(matched, function(entry) {
         var entryPath = String(entry.path || "")
         if (!path || !entryPath)
