@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Remove trash, thumbnails, your temp files, clipboard history, rebuildable caches,
-# and Cursor resume chats from before today.
+# Remove trash, thumbnails, your temp files, clipboard history, bash history,
+# Ghostty scrollback, rebuildable caches, and Cursor resume chats from before today.
 # Shader caches stay: Mesa, RADV, and Qt rebuild them on the next launch, and
 # games then recompile Vulkan shaders every start.
 # clean -f also vacuums the journal to 7 days and deletes older core dumps (sudo).
@@ -28,6 +28,7 @@ bytes=()
 chat_dirs=()
 chat_busy_skipped=0
 coredump_files=()
+ghostty_ptys=()
 
 add() {
   local label=$1 kind=$2 path=$3 size=$4
@@ -62,6 +63,58 @@ tmp_size() {
     sum=$((sum + ${size:-0}))
   done < <(find "$path" -mindepth 1 -maxdepth 1 -user "$USER" -print0 2>/dev/null)
   echo "$sum"
+}
+
+# HISTFILE is unset here, so this is bash's default history path.
+bash_history_file() {
+  printf '%s\n' "${HISTFILE:-$HOME/.bash_history}"
+}
+
+bash_history_size() {
+  local file
+  file=$(bash_history_file)
+  [[ -f $file ]] || {
+    echo 0
+    return
+  }
+  wc -c <"$file" | tr -d ' '
+}
+
+clear_bash_history() {
+  local file
+  file=$(bash_history_file)
+  [[ -f $file ]] || return 0
+  : >"$file" || printf 'warning: could not clear %s\n' "$file" >&2
+}
+
+# Ghostty keeps scrollback in the terminal process. CSI 3 J on the pty slave
+# drops it and leaves the visible screen in place. Direct children own the
+# surfaces Ghostty spawned (shells, and commands started with -e).
+collect_ghostty_ptys() {
+  local gpid child tty dev
+  local -A seen=()
+  ghostty_ptys=()
+  while read -r gpid; do
+    [[ -n $gpid ]] || continue
+    while read -r child; do
+      [[ -n $child ]] || continue
+      tty=$(ps -o tty= -p "$child" 2>/dev/null || true)
+      tty=${tty//[[:space:]]/}
+      [[ $tty == pts/* ]] || continue
+      dev=/dev/$tty
+      [[ -w $dev ]] || continue
+      [[ -n ${seen[$dev]:-} ]] && continue
+      seen[$dev]=1
+      ghostty_ptys+=("$dev")
+    done < <(pgrep -P "$gpid" 2>/dev/null || true)
+  done < <(pgrep -x ghostty 2>/dev/null || true)
+}
+
+clear_ghostty_scrollback() {
+  local dev
+  for dev in "${ghostty_ptys[@]}"; do
+    printf '\033[3J' >"$dev" || printf 'warning: could not clear scrollback on %s\n' "$dev" >&2
+  done
 }
 
 # cliphist holds history. evo-clipboard clear wipes it and puts pins back.
@@ -246,6 +299,18 @@ add "$HOME/.thumbnails" dir "$HOME/.thumbnails" "$(dir_size "$HOME/.thumbnails")
 add "/tmp (your files)" tmp /tmp "$(tmp_size /tmp)"
 add "/var/tmp (your files)" tmp /var/tmp "$(tmp_size /var/tmp)"
 add "clipboard (pins kept)" clipboard clipboard "$(clipboard_size)"
+add "$(bash_history_file)" history "$(bash_history_file)" "$(bash_history_size)"
+collect_ghostty_ptys
+if (( ${#ghostty_ptys[@]} > 0 )); then
+  if (( ${#ghostty_ptys[@]} == 1 )); then
+    labels+=("ghostty scrollback (1 terminal)")
+  else
+    labels+=("ghostty scrollback (${#ghostty_ptys[@]} terminals)")
+  fi
+  kinds+=(scrollback)
+  paths+=("-")
+  bytes+=(0)
+fi
 add "$cache/yay" dir "$cache/yay" "$(dir_size "$cache/yay")"
 add "$cache/fontconfig" dir "$cache/fontconfig" "$(dir_size "$cache/fontconfig")"
 collect_cursor_chats
@@ -273,7 +338,11 @@ done
 
 echo "clean:"
 for i in "${!labels[@]}"; do
-  printf '  %8s  %s\n' "$(human "${bytes[$i]}")" "${labels[$i]}"
+  if [[ ${kinds[$i]} == scrollback ]]; then
+    printf '  %8s  %s\n' "" "${labels[$i]}"
+  else
+    printf '  %8s  %s\n' "$(human "${bytes[$i]}")" "${labels[$i]}"
+  fi
 done
 printf '  %8s  total\n' "$(human "$total")"
 
@@ -314,6 +383,8 @@ for i in "${!labels[@]}"; do
     ;;
   tmp) empty_tmp "${paths[$i]}" ;;
   clipboard) clear_clipboard ;;
+  history) clear_bash_history ;;
+  scrollback) clear_ghostty_scrollback ;;
   chats) remove_cursor_chats ;;
   journal) vacuum_journal ;;
   coredumps) remove_old_coredumps ;;
