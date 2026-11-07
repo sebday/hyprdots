@@ -44,7 +44,7 @@ function ipcToggle(home, id, view) {
 
 function viewEntries(home) {
     return [
-        { kind: "command", name: "Looks", icon: "󰒠", keywords: ["looks", "settings", "appearance", "gaps", "opacity"], command: ipcToggle(home, "evo.sys.menu", "looks"), section: "Views" },
+        { kind: "command", name: "Settings", icon: "󰒠", keywords: ["looks", "settings", "appearance", "gaps", "opacity"], command: ipcToggle(home, "evo.sys.menu", "looks"), section: "Views" },
         { kind: "command", name: "Themes", icon: "󰸌", keywords: ["theme", "themes", "colours", "colors", "gtk", "appearance"], command: ipcToggle(home, "evo.sys.menu", "themes"), section: "Views" },
         { kind: "command", name: "Wallpapers", icon: "󰏘", keywords: ["wallpaper", "wallpapers", "background"], command: ipcToggle(home, "evo.sys.menu", "wallpapers"), section: "Views" },
         { kind: "command", name: "Clipboard", icon: "󰅍", keywords: ["clipboard", "copy", "paste", "history", "clip"], command: ipcToggle(home, "evo.sys.clipboard", "clipboard"), section: "Views" },

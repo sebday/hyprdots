@@ -26,6 +26,61 @@ ListView {
     property real dragY: 0
     property real dragOffsetY: 0
 
+    // The card opens by sliding under a pointer that has not moved. Qt still
+    // delivers a hover enter for whatever row lands there. Ignore that until
+    // the pointer moves on its own.
+    property bool pointerReady: false
+    property bool pointerLive: false
+    property bool pointerAnchored: false
+    property real anchorX: 0
+    property real anchorY: 0
+    property real pointerReadyAt: 0
+    readonly property real pointerSlop: 2
+    // Hover events flushed as the card lands are not a pointer move.
+    readonly property real pointerSettleMs: 50
+
+    function disarmPointer() {
+        pointerReady = false
+        pointerLive = false
+        pointerAnchored = false
+    }
+
+    function readyPointer() {
+        pointerLive = false
+        pointerAnchored = false
+        pointerReady = true
+        pointerReadyAt = Date.now()
+    }
+
+    function anchorAt(x, y) {
+        anchorX = x
+        anchorY = y
+        pointerAnchored = true
+        pointerLive = false
+    }
+
+    // True once the pointer has moved far enough from the anchor to count.
+    function notePointer(x, y) {
+        if (!pointerReady || pointerLive)
+            return pointerLive
+        if (Date.now() - pointerReadyAt < pointerSettleMs) {
+            anchorX = x
+            anchorY = y
+            pointerAnchored = true
+            return false
+        }
+        if (!pointerAnchored) {
+            anchorX = x
+            anchorY = y
+            pointerAnchored = true
+            return false
+        }
+        if (Math.abs(x - anchorX) < pointerSlop && Math.abs(y - anchorY) < pointerSlop)
+            return false
+        pointerLive = true
+        return true
+    }
+
     function clearDrag() {
         dragIndex = -1
         dropIndex = -1
@@ -113,7 +168,7 @@ ListView {
         width: list.width
         height: Theme.launcherRowHeight
         radius: Theme.cornerRadius
-        color: list.dragIndex < 0 && (index === list.selectedIndex || rowMouse.containsMouse)
+        color: list.dragIndex < 0 && index === list.selectedIndex
             ? Theme.panelMantle
             : "transparent"
 
@@ -223,7 +278,10 @@ ListView {
             hoverEnabled: true
             preventStealing: card.draggable
             cursorShape: dragging ? Qt.SizeVerCursor : Qt.ArrowCursor
-            onEntered: if (list.dragIndex < 0) list.indexMoved(index)
+            onEntered: {
+                if (list.pointerLive && list.dragIndex < 0)
+                    list.indexMoved(index)
+            }
 
             onPressed: function(mouse) {
                 dragging = false
@@ -234,6 +292,9 @@ ListView {
             }
 
             onPositionChanged: function(mouse) {
+                var global = mapToGlobal(mouse.x, mouse.y)
+                if (list.notePointer(global.x, global.y) && list.dragIndex < 0 && !dragging)
+                    list.indexMoved(index)
                 if (!card.draggable || list.pinnedCount < 2 || !(mouse.buttons & Qt.LeftButton))
                     return
                 var distance = Math.abs(mouse.x - pressedX) + Math.abs(mouse.y - pressedY)
@@ -267,6 +328,14 @@ ListView {
                 dragging = false
                 suppressClick = false
                 list.clearDrag()
+            }
+
+            Connections {
+                target: list
+                function onPointerLiveChanged() {
+                    if (list.pointerLive && rowMouse.containsMouse && list.dragIndex < 0)
+                        list.indexMoved(card.index)
+                }
             }
 
             onClicked: {

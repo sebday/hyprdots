@@ -4,6 +4,7 @@ import Quickshell.Hyprland
 import Quickshell.Wayland
 import qs.commons
 import qs.ui
+import "../menu/MenuEntries.js" as MenuEntries
 
 // Pinned-app dock. Super+D toggles it through `evo ipc shell toggle evo.dock`.
 // The bar lives in the middle of the focused monitor and slides up from below.
@@ -15,6 +16,7 @@ Item {
   property var shell: null
   property bool opened: false
   property int selectedIndex: 0
+  property string query: ""
   property var hostScreen: null
   property bool focusPrimed: false
   // 1 is parked below the screen, 0 is the resting dock.
@@ -60,7 +62,56 @@ Item {
   }
 
   onEntriesChanged: {
-    if (selectedIndex < 0 || selectedIndex >= entries.length)
+    if (query !== "")
+      selectBestMatch()
+    else if (selectedIndex < 0 || selectedIndex >= entries.length)
+      selectedIndex = 0
+  }
+
+  function clearQuery() {
+    query = ""
+  }
+
+  function typeQuery(text, modifiers) {
+    if (modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier))
+      return
+    var ch = String(text || "")
+    if (ch.length !== 1)
+      return
+    var code = ch.charCodeAt(0)
+    if (code < 32 || code === 127)
+      return
+    query += ch
+    selectBestMatch()
+  }
+
+  function popQuery() {
+    if (query.length === 0)
+      return
+    query = query.substring(0, query.length - 1)
+    if (query.length > 0)
+      selectBestMatch()
+  }
+
+  // Highest name score wins. Equal scores keep the earlier pin.
+  function selectBestMatch() {
+    if (entries.length === 0) {
+      selectedIndex = 0
+      return
+    }
+    var best = -1
+    var bestScore = 0
+    for (var i = 0; i < entries.length; i++) {
+      var label = String(entries[i].name || entries[i].id || "")
+      var score = MenuEntries.scoreText(label, query)
+      if (score > bestScore) {
+        bestScore = score
+        best = i
+      }
+    }
+    if (best >= 0)
+      selectedIndex = best
+    else if (selectedIndex < 0 || selectedIndex >= entries.length)
       selectedIndex = 0
   }
 
@@ -125,15 +176,29 @@ Item {
       shell.hide("evo.power")
     }
     hostScreen = focusedScreen()
+    var initialQuery = ""
+    try {
+      var payload = JSON.parse(payloadJson || "{}")
+      if (payload && payload.query)
+        initialQuery = String(payload.query)
+    } catch (e) {
+      initialQuery = ""
+    }
     var wasOpen = opened
     opened = true
+    clearQuery()
     focusPrimed = false
     focusPrimeTimer.restart()
     if (!wasOpen && slide > 0.98)
       slide = 1
     Qt.callLater(function() {
-      if (root.opened)
-        root.slide = 0
+      if (!root.opened)
+        return
+      root.slide = 0
+      if (initialQuery !== "") {
+        root.query = initialQuery
+        root.selectBestMatch()
+      }
     })
   }
 
@@ -142,6 +207,7 @@ Item {
       return
     opened = false
     slide = 1
+    clearQuery()
     clearDrag()
     focusPrimeTimer.stop()
     focusPrimed = false
@@ -282,7 +348,7 @@ Item {
               implicitWidth: root.cellWidth
               implicitHeight: root.cellHeight
               radius: Theme.cornerRadius
-              color: root.dragIndex < 0 && (index === root.selectedIndex || iconMouse.containsMouse)
+              color: root.dragIndex < 0 && (index === root.selectedIndex || (root.query === "" && iconMouse.containsMouse))
                 ? Theme.panelMantle
                 : "transparent"
 
@@ -309,7 +375,7 @@ Item {
                 hoverEnabled: true
                 preventStealing: true
                 cursorShape: dragging ? Qt.SizeHorCursor : Qt.PointingHandCursor
-                onEntered: if (root.dragIndex < 0) root.selectedIndex = index
+                onEntered: if (root.dragIndex < 0 && root.query === "") root.selectedIndex = index
 
                 onPressed: function(mouse) {
                   dragging = false
@@ -407,7 +473,7 @@ Item {
                   maximumLineCount: 1
                   text: cell.modelData ? cell.modelData.name : ""
                   color: Theme.foreground
-                  opacity: index === root.selectedIndex || iconMouse.containsMouse ? 1 : Theme.opacitySecondary
+                  opacity: index === root.selectedIndex || (root.query === "" && iconMouse.containsMouse) ? 1 : Theme.opacitySecondary
                   font.family: Theme.fontFamily
                   font.pixelSize: Theme.fontSizeS
                   font.bold: Theme.fontBold
@@ -440,9 +506,13 @@ Item {
         width: 1
         height: 1
         enabled: panel.showHere && root.opened
+        typing: true
         onMoveRequested: function(dx, dy) { root.moveSelection(dx) }
         onActivateRequested: root.activateSelection()
         onCloseRequested: root.dismiss()
+        onTextKey: function(text, modifiers) { root.typeQuery(text, modifiers) }
+        onBackspaceRequested: root.popQuery()
+        onDeleteRequested: root.clearQuery()
       }
     }
   }

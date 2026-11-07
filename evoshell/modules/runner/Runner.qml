@@ -16,6 +16,7 @@ Item {
     property bool opened: false
     // 1 is parked above the screen, 0 is the resting card.
     property real slide: 1
+    property bool pointerSettled: false
     property string query: ""
     property int selectedIndex: 0
     property bool actionsOpen: false
@@ -88,6 +89,21 @@ Item {
         NumberAnimation { duration: Theme.duration(180); easing.type: Easing.OutCubic }
     }
 
+    onSlideChanged: {
+        if (opened && slide <= 0.001)
+            settlePointer()
+    }
+
+    // Snapshot the pointer once the card has landed. Hover stays off until
+    // that position actually changes.
+    function settlePointer() {
+        if (pointerSettled)
+            return
+        pointerSettled = true
+        resultList.readyPointer()
+        pointerGate.captureAnchor()
+    }
+
     function hideSiblings() {
         if (!shell)
             return
@@ -110,6 +126,8 @@ Item {
         }
         var wasOpen = opened
         opened = true
+        pointerSettled = false
+        resultList.disarmPointer()
         actionsOpen = false
         selectedIndex = 0
         query = nextQuery
@@ -121,7 +139,10 @@ Item {
         Qt.callLater(function() {
             if (!root.opened)
                 return
+            var parked = root.slide > 0.001
             root.slide = 0
+            if (!parked)
+                root.settlePointer()
             searchField.forceActiveFocus()
         })
     }
@@ -131,6 +152,8 @@ Item {
             return
         opened = false
         slide = 1
+        pointerSettled = false
+        resultList.disarmPointer()
         actionsOpen = false
         query = ""
         selectedIndex = 0
@@ -621,6 +644,29 @@ Item {
         mask: Region {
             width: root.opened ? panel.width : 0
             height: root.opened ? panel.height : 0
+        }
+
+        HoverHandler {
+            id: pointerGate
+
+            function captureAnchor() {
+                if (!hovered || !parent)
+                    return
+                var g = parent.mapToGlobal(point.position.x, point.position.y)
+                resultList.anchorAt(g.x, g.y)
+            }
+
+            function track() {
+                if (!hovered || !parent)
+                    return
+                var g = parent.mapToGlobal(point.position.x, point.position.y)
+                resultList.notePointer(g.x, g.y)
+            }
+
+            readonly property real cursorX: point.position.x
+            readonly property real cursorY: point.position.y
+            onCursorXChanged: track()
+            onCursorYChanged: track()
         }
 
         MouseArea {

@@ -37,6 +37,9 @@ Item {
   // Panels that let items be reordered set this, and Ctrl+Up/Down (or
   // Ctrl+k/j) then asks to move the current item instead of the cursor.
   property bool reorderable: false
+  // Letters and Backspace become text instead of hjkl/x commands, so a
+  // panel can build a search query. Arrows, Enter, Space, and Escape stay.
+  property bool typing: false
 
   signal moveRequested(int dx, int dy)
   signal reorderRequested(int dy)
@@ -47,6 +50,7 @@ Item {
   signal tabRequested(int direction)
   // The held modifiers ride along, so a panel can tell Alt+T from T.
   signal textKey(string text, int modifiers)
+  signal backspaceRequested()
 
   focus: true
   Keys.priority: Keys.BeforeItem
@@ -55,6 +59,9 @@ Item {
 
     if (event.key === Qt.Key_Escape) {
       closeRequested(); event.accepted = true; return
+    }
+    if (typing && event.key === Qt.Key_Backspace) {
+      backspaceRequested(); event.accepted = true; return
     }
     if (event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab) {
       tabRequested((event.modifiers & Qt.ShiftModifier) || event.key === Qt.Key_Backtab ? -1 : 1)
@@ -68,16 +75,16 @@ Item {
         reorderRequested(down ? 1 : -1); event.accepted = true; return
       }
     }
-    if (event.key === Qt.Key_Down || event.text === "j") {
+    if (event.key === Qt.Key_Down || (!typing && event.text === "j")) {
       moveRequested(0, 1); event.accepted = true; return
     }
-    if (event.key === Qt.Key_Up || event.text === "k") {
+    if (event.key === Qt.Key_Up || (!typing && event.text === "k")) {
       moveRequested(0, -1); event.accepted = true; return
     }
-    if (event.key === Qt.Key_Right || event.text === "l") {
+    if (event.key === Qt.Key_Right || (!typing && event.text === "l")) {
       moveRequested(1, 0); event.accepted = true; return
     }
-    if (event.key === Qt.Key_Left || event.text === "h") {
+    if (event.key === Qt.Key_Left || (!typing && event.text === "h")) {
       moveRequested(-1, 0); event.accepted = true; return
     }
     if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
@@ -87,11 +94,13 @@ Item {
     if (event.key === Qt.Key_Space) {
       activateRequested(); event.accepted = true; return
     }
-    if (event.key === Qt.Key_Delete || event.text === "x" || event.text === "X") {
+    if (event.key === Qt.Key_Delete || (!typing && (event.text === "x" || event.text === "X"))) {
       deleteRequested(); event.accepted = true; return
     }
     if (event.text && event.text.length === 1) {
       textKey(event.text, event.modifiers)
+      if (typing)
+        event.accepted = true
     }
   }
 }

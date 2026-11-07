@@ -16,7 +16,6 @@ local function bindd(keys, description, dispatcher, flags)
 end
 
 -- Evoshell panels and system
-bindd("SUPER + space", "System menu", hl.dsp.global("evoshell:systemMenu"))
 bindd("SUPER + D", "Dock", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.dock"))
 bindd("SUPER + Escape", "Power", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.power"))
 bindd("SUPER + Insert", "Wallpaper switcher", hl.dsp.exec_cmd(shell_ipc .. " shell toggle evo.sys.menu '{\"view\":\"wallpapers\"}'"))
@@ -66,7 +65,7 @@ bindd("SUPER + Return", "Terminal", hl.dsp.exec_cmd(terminal))
 bindd("SUPER + grave", "Toggle quake console", function()
 	require("qconsole").toggle()
 end)
-bindd("SUPER + T", "GUI File Manager", hl.dsp.exec_cmd("thunar"))
+bindd("SUPER + space", "GUI File Manager", hl.dsp.exec_cmd("thunar"))
 bindd("SUPER + W", "Close Active Window", hl.dsp.window.close())
 bindd("SUPER + E", "Editor", hl.dsp.exec_cmd(editor))
 bindd("SUPER + F", "Toggle Floating Window", hl.dsp.window.float({ action = "toggle" }))

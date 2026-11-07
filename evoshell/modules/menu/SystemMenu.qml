@@ -61,7 +61,6 @@ Item {
             return [{ id: "toggle", label: "Toggle" }]
         return LauncherSources.actionsFor(selectedEntry)
     }
-    readonly property bool mediaNav: view === "themes" || view === "wallpapers"
     readonly property int wallpaperColumns: Math.max(1, wallpaperGrid.columnCount)
     readonly property bool looksFilteredEmpty: String(query || "").trim() !== ""
         && embeddedSettings.settingsNavItems.length === 0
@@ -140,8 +139,6 @@ Item {
         themeIndex = 0
         wallpaperIndex = 0
         actionsOpen = false
-        if (searchField.text !== query)
-            searchField.text = query
         if (String(query).trim() === "")
             Qt.callLater(root.focusCurrentTheme)
         if (nextView === "looks") {
@@ -162,7 +159,7 @@ Item {
         if (next === "looks")
             Qt.callLater(function() { embeddedSettings.rebuildSettingsNav() })
         Qt.callLater(root.syncBackdrop)
-        Qt.callLater(function() { searchField.forceActiveFocus() })
+        Qt.callLater(function() { keyCatcher.forceActiveFocus() })
     }
 
     function cycleSection(direction) {
@@ -245,7 +242,7 @@ Item {
         refreshCatalogs()
         embeddedSettings.refresh()
         Qt.callLater(function() {
-            searchField.forceActiveFocus()
+            keyCatcher.forceActiveFocus()
         })
     }
 
@@ -256,8 +253,6 @@ Item {
         syncMenuSpecial(false)
         actionsOpen = false
         query = ""
-        if (searchField.text !== "")
-            searchField.text = ""
         backdrop.clear()
     }
 
@@ -282,7 +277,7 @@ Item {
             return false
         applyView(next.view, next.query)
         Qt.callLater(function() {
-            searchField.forceActiveFocus()
+            keyCatcher.forceActiveFocus()
         })
         return true
     }
@@ -724,127 +719,83 @@ Item {
                 onClicked: {}
             }
 
+            Item {
+                id: keyCatcher
+                width: 0
+                height: 0
+                focus: root.opened
+
+                Keys.onEscapePressed: function(event) {
+                    root.handleEscape()
+                    event.accepted = true
+                }
+                Keys.onUpPressed: function(event) {
+                    root.moveVertical(-1)
+                    event.accepted = true
+                }
+                Keys.onDownPressed: function(event) {
+                    root.moveVertical(1)
+                    event.accepted = true
+                }
+                Keys.onLeftPressed: function(event) {
+                    if (root.view === "looks" && !embeddedSettings.focusInTextInput()) {
+                        embeddedSettings.adjustSettingsNavHorizontal(-1)
+                        event.accepted = true
+                        return
+                    }
+                    root.moveHorizontal(-1)
+                    event.accepted = true
+                }
+                Keys.onRightPressed: function(event) {
+                    if (root.view === "looks" && !embeddedSettings.focusInTextInput()) {
+                        embeddedSettings.adjustSettingsNavHorizontal(1)
+                        event.accepted = true
+                        return
+                    }
+                    root.moveHorizontal(1)
+                    event.accepted = true
+                }
+                Keys.onReturnPressed: function(event) {
+                    root.activateSelection()
+                    event.accepted = true
+                }
+                Keys.onEnterPressed: function(event) {
+                    root.activateSelection()
+                    event.accepted = true
+                }
+                Keys.onTabPressed: function(event) {
+                    root.cycleSection(1)
+                    event.accepted = true
+                }
+                Keys.onBacktabPressed: function(event) {
+                    root.cycleSection(-1)
+                    event.accepted = true
+                }
+                Keys.onPressed: function(event) {
+                    if ((event.modifiers & Qt.ControlModifier) && event.key === Qt.Key_K) {
+                        root.toggleActions()
+                        event.accepted = true
+                        return
+                    }
+                    var shortcut = root.actionIndexForEvent(event, "")
+                    if (shortcut >= 0) {
+                        root.runVisibleAction(shortcut)
+                        event.accepted = true
+                        return
+                    }
+                    if (event.key === Qt.Key_Backspace && !root.actionsOpen) {
+                        root.dismiss()
+                        event.accepted = true
+                        return
+                    }
+                    event.accepted = true
+                }
+            }
+
             ColumnLayout {
                 anchors.fill: parent
                 anchors.margins: Theme.hoverPanelContentPad
                 spacing: Theme.hoverPanelContentPad
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: Theme.spacingM
-
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.minimumWidth: Theme.space(160)
-                        Layout.preferredHeight: Theme.launcherSearchHeight
-                        radius: Theme.cornerRadius
-                        color: panelPalette.panelMantle
-
-                        TextInput {
-                            id: searchField
-                            anchors.fill: parent
-                            anchors.leftMargin: 12
-                            anchors.rightMargin: 12
-                            verticalAlignment: TextInput.AlignVCenter
-                            color: panelPalette.foreground
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontSizeS
-                            font.bold: Theme.fontBold
-                            clip: true
-                            selectByMouse: true
-                            focus: root.opened
-                            onTextEdited: function() { root.setQuery(searchField.text) }
-
-                            Text {
-                                anchors.verticalCenter: parent.verticalCenter
-                                width: parent.width
-                                elide: Text.ElideRight
-                                visible: searchField.text.length === 0
-                                text: "Search appearance…"
-                                color: panelPalette.foreground
-                                opacity: Theme.opacityMuted
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.fontSizeS
-                                font.bold: Theme.fontBold
-                            }
-
-                            Keys.onEscapePressed: function(event) {
-                                root.handleEscape()
-                                event.accepted = true
-                            }
-                            Keys.onUpPressed: function(event) {
-                                root.moveVertical(-1)
-                                event.accepted = true
-                            }
-                            Keys.onDownPressed: function(event) {
-                                root.moveVertical(1)
-                                event.accepted = true
-                            }
-                            Keys.onLeftPressed: function(event) {
-                                if (root.view === "looks" && !embeddedSettings.focusInTextInput()) {
-                                    embeddedSettings.adjustSettingsNavHorizontal(-1)
-                                    event.accepted = true
-                                    return
-                                }
-                                if (!root.mediaNav || cursorPosition !== 0) {
-                                    event.accepted = false
-                                    return
-                                }
-                                root.moveHorizontal(-1)
-                                event.accepted = true
-                            }
-                            Keys.onRightPressed: function(event) {
-                                if (root.view === "looks" && !embeddedSettings.focusInTextInput()) {
-                                    embeddedSettings.adjustSettingsNavHorizontal(1)
-                                    event.accepted = true
-                                    return
-                                }
-                                if (!root.mediaNav || cursorPosition !== text.length) {
-                                    event.accepted = false
-                                    return
-                                }
-                                root.moveHorizontal(1)
-                                event.accepted = true
-                            }
-                            Keys.onReturnPressed: function(event) {
-                                root.activateSelection()
-                                event.accepted = true
-                            }
-                            Keys.onEnterPressed: function(event) {
-                                root.activateSelection()
-                                event.accepted = true
-                            }
-                            Keys.onTabPressed: function(event) {
-                                root.cycleSection(1)
-                                event.accepted = true
-                            }
-                            Keys.onBacktabPressed: function(event) {
-                                root.cycleSection(-1)
-                                event.accepted = true
-                            }
-                            Keys.onPressed: function(event) {
-                                if ((event.modifiers & Qt.ControlModifier) && event.key === Qt.Key_K) {
-                                    root.toggleActions()
-                                    event.accepted = true
-                                    return
-                                }
-                                var shortcut = root.actionIndexForEvent(event, text)
-                                if (shortcut >= 0) {
-                                    root.runVisibleAction(shortcut)
-                                    event.accepted = true
-                                    return
-                                }
-                                if (event.key === Qt.Key_Backspace && text.length === 0 && !root.actionsOpen) {
-                                    root.dismiss()
-                                    event.accepted = true
-                                    return
-                                }
-                                event.accepted = false
-                            }
-                        }
-                    }
-
-                }
 
                 RowLayout {
                     id: bodyRow
@@ -988,7 +939,7 @@ Item {
                         sectionSpacing: Theme.spacingS
 
                         HoverPanelLabelPill {
-                            text: "Looks"
+                            text: "Settings"
                             fontSize: Theme.font.caption
                             textColor: panelPalette.foreground
                             fieldsetFill: panelPalette.background
@@ -1125,7 +1076,7 @@ Item {
             root.applyView(name, "")
         }
         function focusSearch() {
-            searchField.forceActiveFocus()
+            keyCatcher.forceActiveFocus()
         }
     }
 }

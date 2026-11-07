@@ -14,7 +14,7 @@ Item {
         if (!module)
             return true
         var q = String(module.menuFilterText || "").trim()
-        if (q === "" || module.sectionFilterVisible("Looks"))
+        if (q === "" || module.sectionFilterVisible("Settings") || module.sectionFilterVisible("Looks"))
             return true
         for (var i = 0; i < labels.length; i++) {
             if (module.sectionFilterVisible(labels[i]))

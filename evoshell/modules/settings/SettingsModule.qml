@@ -360,7 +360,7 @@ Item {
     }
 
     readonly property var looksTabModel: [
-        { label: "Looks", icon: "󰒠" }
+        { label: "Settings", icon: "󰒠" }
     ]
 
     implicitHeight: parent && parent.height > 0 ? parent.height : settingsLayout.implicitHeight
