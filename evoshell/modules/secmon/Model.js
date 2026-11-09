@@ -323,7 +323,6 @@ function targetAnchor(reportUrl, target) {
   var base = String(reportUrl || "https://monitor.day.technology/security").replace(/\/+$/, "")
   var t = String(target || "").replace(/[^A-Za-z0-9_-]/g, "")
   if (!t) return base
-  if (base.indexOf("secmon.day.marketing") >= 0) return base + "/#t-" + t
   return base + "/t/" + t
 }
 

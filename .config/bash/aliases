@@ -9,6 +9,7 @@ alias unlock='gocryptfs /mnt/external/.cryptt /mnt/secure'
 # Tools
 alias ff='fastfetch'
 alias lg='lazygit'
+alias tc='transmission-cli'
 
 # Projects
 alias pub='(cd /home/seb/work/ecommerce-sites && npm run publish)'

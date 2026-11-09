@@ -60,6 +60,8 @@ Item {
     }
 
     readonly property bool isWifi: String(info.type || "") === "wifi"
+    readonly property bool downloadHot: hasTransferStats && networkDownloadRate > 1048576
+    property real heroFlash: 1
     readonly property string heroMeta: {
         if (root.loading && !info.iface)
             return "Loading…"
@@ -429,6 +431,27 @@ Item {
             verboseProc.running = true
     }
 
+    SequentialAnimation on heroFlash {
+        running: root.downloadHot
+        loops: Animation.Infinite
+
+        NumberAnimation {
+            from: Theme.barIconPulseMin
+            to: Theme.barIconPulseMax
+            duration: Theme.barIconPulseDuration
+            easing.type: Easing.InOutSine
+        }
+
+        NumberAnimation {
+            from: Theme.barIconPulseMax
+            to: Theme.barIconPulseMin
+            duration: Theme.barIconPulseDuration
+            easing.type: Easing.InOutSine
+        }
+    }
+
+    onDownloadHotChanged: if (!downloadHot) heroFlash = 1
+
     Timer {
         id: pollTimer
         interval: 1500
@@ -517,10 +540,10 @@ Item {
                 Text {
                     textFormat: Text.PlainText
                     text: root.isWifi ? "󰖩" : "󰈀"
-                    color: Theme.foreground
+                    color: root.downloadHot ? Theme.green : Theme.foreground
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.font.display
-                    opacity: 0.92
+                    opacity: root.downloadHot ? root.heroFlash : 0.92
                 }
             }
 

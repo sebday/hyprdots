@@ -211,6 +211,17 @@ print_verbose() {
     print_ping_samples "$gw"
 }
 
+print_rx() {
+    local iface rx_path
+    iface=$(active_iface)
+    rx_path="/sys/class/net/${iface}/statistics/rx_bytes"
+    if [[ -z "$iface" || ! -r "$rx_path" ]]; then
+        printf 'rx_bytes\t\n'
+        return 0
+    fi
+    printf 'rx_bytes\t%s\n' "$(cat "$rx_path")"
+}
+
 print_bar() {
     local sample_secs=1
     local line kind rest iface speed icon tooltip label connected download_bps upload_bps ip link
@@ -394,12 +405,13 @@ print_top_processes() {
 
 case "${1:-}" in
 bar) print_bar ;;
+rx) print_rx ;;
 status) print_status ;;
 verbose) print_verbose ;;
 processes) print_top_processes ;;
 transfers) print_transfers ;;
 *)
-    echo "usage: evo-bar-network bar|status|verbose|processes|transfers" >&2
+    echo "usage: evo-bar-network bar|rx|status|verbose|processes|transfers" >&2
     exit 2
     ;;
 esac
