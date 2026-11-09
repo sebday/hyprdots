@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# Open an interactive Cursor agent to review open secmon findings and accept intentional baseline changes.
+set -euo pipefail
+
+host=${1:-}
+[[ $host =~ ^[A-Za-z0-9._-]+$ ]] || {
+  printf '%s\n' "Invalid secmon host" >&2
+  exit 1
+}
+
+agent=
+if command -v cursor-agent >/dev/null 2>&1; then
+  agent=cursor-agent
+elif command -v agent >/dev/null 2>&1; then
+  agent=agent
+else
+  printf '%s\n' "cursor-agent not found" >&2
+  exit 127
+fi
+
+workspace=$HOME
+for dir in \
+  "$HOME/work/daytechnology-secmon" \
+  "$HOME/projects/secmon"
+do
+  if [[ -d $dir ]]; then
+    workspace=$dir
+    break
+  fi
+done
+cd -- "$workspace"
+
+prompt=$(cat <<'EOF'
+Review the open, unhidden secmon findings on SSH host __HOST__ and commit the intentional ones to the baseline.
+
+Talk to the engine only through SSH:
+  ssh -o BatchMode=yes -o ConnectTimeout=5 __HOST__ 'secmon ...'
+Do not copy secmon state off the host.
+
+1. Run `secmon status --json`. The findings array is the open, unhidden, unmuted list. Hidden rows are already excluded.
+2. A baseline change has `:change:` in its fingerprint, shaped target:change:facet:key. Anything else (attacks, exposed ports, vulnerabilities, auth failures) is not a baseline. Leave those open and list them. Do not run `secmon hide`.
+3. For each target that still has open change findings, run `secmon baseline show <target>` and read every before/now line.
+4. Accept a facet only when every diff on that facet is an intentional configuration update. Command: `secmon baseline accept <target> <facet>`. One facet at a time. Do not accept a whole target when another facet on it looks hostile.
+5. Leave the facet unaccepted, and say why, when a diff adds an account member, API token, public exposure, tunnel, or anything you cannot explain as recent intentional work.
+6. Run `secmon status --json` again. Summarize the facets you accepted and the findings still open.
+EOF
+)
+prompt=${prompt//__HOST__/$host}
+
+# Trust the secmon repo. Do not auto-trust the whole home directory.
+args=(-- "$prompt")
+if [[ $workspace != "$HOME" ]]; then
+  args=(--trust --workspace "$workspace" -- "$prompt")
+fi
+
+set +e
+"$agent" "${args[@]}"
+status=$?
+set -e
+printf '\n[agent exited %s] press Enter to close\n' "$status"
+read -r _
+exit "$status"

@@ -23,6 +23,7 @@ Panel {
   readonly property string fontFamily: bar ? bar.fontFamily : Theme.font.family
 
   readonly property string statusScript: Qt.resolvedUrl("bin/secmon-status").toString().replace("file://", "")
+  readonly property string agentScript: Qt.resolvedUrl("bin/secmon-baseline-agent").toString().replace("file://", "")
   readonly property string host: String(setting("host", "zotac"))
   readonly property int backgroundPollMs: Math.max(60, parseInt(setting("refreshIntervalSec", 300), 10) || 300) * 1000
   readonly property int openPollMs: 60000
@@ -44,15 +45,12 @@ Panel {
   readonly property var displayFindings: Model.openFindings(data).slice(0, maxRows)
   readonly property string findingsFooter: Model.findingsFooter(data, displayFindings.length)
   readonly property int openCount: Model.openCount(data)
+  readonly property int issueCount: Model.issueCount(data)
   readonly property var displayTargets: Array.isArray(data.targets) ? data.targets : []
   readonly property var appsTarget: Model.appsBox(data)
   readonly property int statCount: displayTargets.length + (appsTarget ? 1 : 0)
-  readonly property var changedTargets: Model.changedTargets(data)
-  readonly property int changeCount: Model.changeCount(data)
-  readonly property string glyphAccept: String.fromCodePoint(0xF012C)
+  readonly property string glyphAgent: String.fromCodePoint(0xF06A9)
   readonly property string glyphHide: String.fromCodePoint(0xF0208)
-  property bool acceptArmed: false
-  property string acceptError: ""
   property string hideError: ""
   property var pendingHides: []
 
@@ -80,17 +78,15 @@ Panel {
     statusProc.run(["bash", statusScript, "status", root.host])
   }
 
-  // First click arms, second click accepts, so a stray click can't bless a real change.
-  function acceptChanges() {
-    if (acceptProc.running || !root.changedTargets.length) return
-    if (!root.acceptArmed) {
-      root.acceptArmed = true
-      acceptDisarm.restart()
-      return
-    }
-    root.acceptArmed = false
-    root.acceptError = ""
-    acceptProc.run(["bash", statusScript, "accept", root.host].concat(root.changedTargets))
+  // A terminal agent reads the live open list and accepts only the facets that look intentional.
+  function openBaselineAgent() {
+    if (!agentScript || !root.host) return
+    Quickshell.execDetached([
+      "/usr/bin/ghostty",
+      "--gtk-single-instance=false",
+      "-e", "bash", agentScript, root.host
+    ])
+    root.close()
   }
 
   function hideFinding(finding) {
@@ -137,12 +133,7 @@ Panel {
     refresh()
   }
 
-  onOpenedChanged: {
-    if (opened)
-      Qt.callLater(function() { keyCatcher.forceActiveFocus() })
-    else
-      acceptArmed = false
-  }
+  onOpenedChanged: if (opened) Qt.callLater(function() { keyCatcher.forceActiveFocus() })
 
   JsonPollRunner {
     id: cacheProc
@@ -189,22 +180,6 @@ Panel {
     }
   }
 
-  JsonPollRunner {
-    id: acceptProc
-    active: false
-    autoStart: false
-    onExited: function(exitCode, stdoutText) {
-      var res = Model.parsePayload(stdoutText)
-      root.acceptError = res.ok ? "" : res.error
-      root.refresh()
-    }
-  }
-
-  Timer {
-    id: acceptDisarm
-    interval: 4000
-    onTriggered: root.acceptArmed = false
-  }
   PollTimer {
     open: root.opened
     closedMs: root.backgroundPollMs
@@ -275,22 +250,18 @@ Panel {
                   spacing: Theme.space(8)
 
                   Item {
-                    visible: root.hasData && (root.changeCount > 0 || acceptProc.running)
-                    width: visible ? acceptButton.width : 0
+                    visible: root.hasData && root.issueCount > 0
+                    width: visible ? agentButton.width : 0
                     height: countBadge.height
 
                     HeaderIconButton {
-                      id: acceptButton
+                      id: agentButton
                       anchors.verticalCenter: parent.verticalCenter
-                      icon: root.glyphAccept
-                      tooltip: acceptProc.running
-                        ? "Accepting changes…"
-                        : (root.acceptArmed
-                          ? "Click again to accept " + root.changeCount + " change" + (root.changeCount === 1 ? "" : "s") + " on " + root.changedTargets.join(", ")
-                          : "Accept baseline changes (" + root.changeCount + ")")
-                      iconColor: root.acceptArmed ? root.urgent : root.dim
-                      hoverColor: root.acceptArmed ? root.urgent : root.accent
-                      onClicked: root.acceptChanges()
+                      icon: root.glyphAgent
+                      tooltip: "Review open issues with an agent and commit them to the baseline"
+                      iconColor: root.dim
+                      hoverColor: root.accent
+                      onClicked: root.openBaselineAgent()
                     }
                   }
 
@@ -309,11 +280,9 @@ Panel {
             textFormat: Text.PlainText
             width: parent.width
             visible: text !== ""
-            text: root.acceptError
-              ? root.acceptError
-              : (root.hideError
-                ? root.hideError
-                : (root.data.error ? root.data.error + (root.hasData ? " · showing the last result" : "") : ""))
+            text: root.hideError
+              ? root.hideError
+              : (root.data.error ? root.data.error + (root.hasData ? " · showing the last result" : "") : "")
             color: root.urgent
             font.family: root.fontFamily
             font.pixelSize: Theme.font.bodySmall
