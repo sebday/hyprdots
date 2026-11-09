@@ -32,7 +32,7 @@ function emptyData() {
     ok: false,
     error: "",
     generatedAt: "",
-    reportUrl: "https://secmon.day.marketing",
+    reportUrl: "https://monitor.day.technology/security",
     counts: { critical: 0, high: 0, medium: 0, low: 0, info: 0 },
     attacks24h: 0,
     targets: [],
@@ -54,7 +54,7 @@ function parsePayload(raw) {
     ok: true,
     error: "",
     generatedAt: String(json.generatedAt || ""),
-    reportUrl: String(json.reportUrl || "https://secmon.day.marketing"),
+    reportUrl: String(json.reportUrl || "https://monitor.day.technology/security"),
     counts: {
       critical: Number(counts.critical) || 0,
       high: Number(counts.high) || 0,
@@ -320,9 +320,11 @@ function findingMeta(f) {
 }
 
 function targetAnchor(reportUrl, target) {
-  var base = String(reportUrl || "https://secmon.day.marketing").replace(/\/+$/, "")
+  var base = String(reportUrl || "https://monitor.day.technology/security").replace(/\/+$/, "")
   var t = String(target || "").replace(/[^A-Za-z0-9_-]/g, "")
-  return t ? base + "/#t-" + t : base
+  if (!t) return base
+  if (base.indexOf("secmon.day.marketing") >= 0) return base + "/#t-" + t
+  return base + "/t/" + t
 }
 
 function formatCount(n) {
