@@ -79,11 +79,13 @@ Panel {
   }
 
   // A terminal agent reads the live open list and accepts only the facets that look intentional.
+  // Class TUI.float is the Hyprland floating-window tag: float, center, 1600x900.
   function openBaselineAgent() {
     if (!agentScript || !root.host) return
     Quickshell.execDetached([
       "/usr/bin/ghostty",
       "--gtk-single-instance=false",
+      "--class=TUI.float",
       "-e", "bash", agentScript, root.host
     ])
     root.close()
