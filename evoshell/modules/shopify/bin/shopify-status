@@ -5,7 +5,7 @@
 # Config (evoshell shell config `shopify` block, see evo_shopify_config):
 #   apiUrl    — HTTPS Worker base URL
 #   timezone, stores, pollIntervalMinutes
-#   token via pass (evoshell/ecommerce-data/api-token)
+#   token via pass (evoshell/daymarketing-data/api-token)
 #
 # Worker routes used:
 #   GET  /v1/sites
@@ -610,7 +610,7 @@ build_one_store() {
     [[ -z "$tz_name" ]] && tz_name="$DEFAULT_TZ"
 
     if ! api_ready; then
-        json_text "Shopify: set shopify.apiUrl and pass insert evoshell/ecommerce-data/api-token"
+        json_text "Shopify: set shopify.apiUrl and pass insert evoshell/daymarketing-data/api-token"
         return 0
     fi
 

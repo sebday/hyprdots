@@ -13,7 +13,7 @@ evo ipc shell toggle evo.shopify
 ## Requirements
 
 - `jq` and `curl` on `PATH`
-- `pass show evoshell/ecommerce-data/api-token`
+- `pass show evoshell/daymarketing-data/api-token`
 
 ### Worker API
 
@@ -29,7 +29,7 @@ evo ipc shell toggle evo.shopify
 }
 ```
 
-`apiUrl` points at the Worker and must be `https://`. Auth is bearer-only from `pass show evoshell/ecommerce-data/api-token`.
+`apiUrl` points at the Worker and must be `https://`. Auth is bearer-only from `pass show evoshell/daymarketing-data/api-token`.
 
 On each refresh `shopify-status` posts `/v1/sync/today` (1-day Shopify/Ads/GA4, at most every 4 minutes), then reads `GET /v1/sites/:site/kpi/summary`. Stores come from `GET /v1/sites` when `stores` is omitted.
 
@@ -52,6 +52,6 @@ Removing the module does not delete:
 
 - `~/.cache/evoshell/shopify/bar/`
 - `~/.cache/evoshell/shopify/icons/`
-- `pass` entry `evoshell/ecommerce-data/api-token`
+- `pass` entry `evoshell/daymarketing-data/api-token`
 
 Network: the configured HTTPS worker origin.

@@ -482,7 +482,7 @@ Item {
           width: Math.min(parent.width - Theme.space(48), Theme.space(520))
           wrapMode: Text.WordWrap
           textFormat: Text.PlainText
-          text: "Set shopify.apiUrl in evoshell config and pass insert evoshell/ecommerce-data/api-token."
+          text: "Set shopify.apiUrl in evoshell config and pass insert evoshell/daymarketing-data/api-token."
           color: root.colMuted
           font.family: root.fontFamily
           font.pixelSize: Theme.font.body
