@@ -12,7 +12,7 @@ alias lg='lazygit'
 alias tc='transmission-cli'
 
 # Projects
-alias pub='(cd /home/seb/work/ecommerce-sites && npm run publish)'
+alias pub='(cd /home/seb/work/daytechnology-monitor && npm run publish)'
 
 # Git
 alias gcm='git commit -m'
