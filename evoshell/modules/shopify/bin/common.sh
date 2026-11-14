@@ -23,7 +23,7 @@ evo_shopify_config() {
     printf '%s' "$EVO_SHOPIFY_CONFIG"
     return 0
   fi
-  local base="${EVOSHELL_ROOT:-$HOME/projects/hyprdots/evoshell}/shell.json"
+  local base="${EVOSHELL_ROOT:-$HOME/Projects/hyprdots/evoshell}/shell.json"
   if [[ -f "$base" ]]; then
     /usr/bin/jq -c '{shopify: (.shopify // {})}' "$base" 2>/dev/null || echo '{}'
   else

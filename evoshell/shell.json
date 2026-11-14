@@ -47,11 +47,11 @@
           "id": "evo.github",
           "repoRoots": [
             {
-              "path": "/home/seb/projects",
+              "path": "/home/seb/Projects",
               "label": "projects"
             },
             {
-              "path": "/home/seb/work",
+              "path": "/home/seb/Work",
               "label": "work"
             }
           ]

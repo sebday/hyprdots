@@ -19,7 +19,7 @@ find_webtheme() {
     candidate="$plugin_dir/bin/webtheme"
     [[ -x $candidate ]] && { printf '%s' "$candidate"; return 0; }
   fi
-  candidate="$HOME/projects/hyprdots/modules/webtheme/bin/webtheme"
+  candidate="$HOME/Projects/hyprdots/modules/webtheme/bin/webtheme"
   [[ -x $candidate ]] && { printf '%s' "$candidate"; return 0; }
   here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
   candidate="$here/bin/webtheme"

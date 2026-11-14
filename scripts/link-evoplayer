@@ -2,8 +2,8 @@
 # Symlink evoplayer into evoshell source tree.
 set -euo pipefail
 
-EVOPLAYER_ROOT="${EVOPLAYER_ROOT:-${HOME}/projects/evoplayer}"
-EVOSHELL_ROOT="${EVOSHELL_ROOT:-${HOME}/projects/hyprdots/evoshell}"
+EVOPLAYER_ROOT="${EVOPLAYER_ROOT:-${HOME}/Projects/evoplayer}"
+EVOSHELL_ROOT="${EVOSHELL_ROOT:-${HOME}/Projects/hyprdots/evoshell}"
 VENDOR_LINK="${EVOSHELL_ROOT}/vendor/evoplayer"
 
 if [[ ! -f "${EVOPLAYER_ROOT}/scripts/install" ]]; then

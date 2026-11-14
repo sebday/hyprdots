@@ -67,7 +67,7 @@ _menu_list_plugin_paths() {
 menu_list_shell() {
     local home="$1" script_dir="$2"
     local ipc="evo ipc"
-    local evoshell="${EVOSHELL_ROOT:-$home/projects/hyprdots/evoshell}"
+    local evoshell="${EVOSHELL_ROOT:-$home/Projects/hyprdots/evoshell}"
     local bin="${EVOSHELL_BIN:-$home/.local/lib/evoshell/bin}"
     local ipc_bin="${bin}/_ipc"
     local corpus="" chunk path bn
