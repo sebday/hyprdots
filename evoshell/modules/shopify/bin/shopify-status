@@ -170,7 +170,10 @@ api_ready() {
 summary_to_store_payload() {
     local channel_daily=${2:-'{"rows":[]}'}
     local calendar_today=${3:-}
-    jq -c --argjson channelDaily "$channel_daily" --arg calendarToday "$calendar_today" '
+    local prev_from=${4:-}
+    local prev_to=${5:-}
+    jq -c --argjson channelDaily "$channel_daily" --arg calendarToday "$calendar_today" \
+        --arg prevFrom "$prev_from" --arg prevTo "$prev_to" '
       def num($v): ($v // 0) | tonumber? // 0;
       def money($v): ((num($v) * 100) | round) / 100;
       def is_leap($y): ($y % 4 == 0) and (($y % 100 != 0) or ($y % 400 == 0));
@@ -214,7 +217,12 @@ summary_to_store_payload() {
       | [ $factRows[]
           | select($curFrom != "" and (.dt // "") >= $curFrom and ($periodTo == "" or (.dt // "") <= $periodTo))
         ] as $curFacts
-      | [ $factRows[] | select($curFrom != "" and (.dt // "") != "" and (.dt // "") < $curFrom) ] as $prevFacts
+      | [ $factRows[]
+          | select(
+              $prevFrom != "" and $prevTo != ""
+              and (.dt // "") >= $prevFrom and (.dt // "") <= $prevTo
+            )
+        ] as $prevFacts
       | ([ $factRows[] | select($calendarToday != "" and (.dt // "") == $calendarToday) ] | last) as $liveRow
       | (($daily | map(select(.dt == $periodTo)) | last) // $daily[-1] // {}) as $periodEnd
       | ([ $factRows[] | select((.dt // "") == ($periodEnd.dt // "")) ] | last) as $endFact
@@ -322,31 +330,130 @@ summary_to_store_payload() {
     ' <<<"$1"
 }
 
-fetch_store_snapshot_api() {
-    local site_key=$1 days=$2 tz_name=$3
-    local calendar_today finished_to from url payload
-    site_key=$(printf '%s' "$site_key" | tr '[:upper:]' '[:lower:]')
+query_tz() {
+    local tz_name="${1:-${EVO_SHOPIFY_TZ:-$DEFAULT_TZ}}"
     tz_name="${tz_name// /}"
     [[ -z "$tz_name" ]] && tz_name="$DEFAULT_TZ"
-    if ! [[ "$days" =~ ^[0-9]+$ ]] || (( days < 1 )); then
-        days=14
+    printf '%s' "$tz_name"
+}
+
+iso_day() {
+    [[ "$1" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || return 1
+    [[ "$(date -u -d "$1" +%F 2>/dev/null || true)" == "$1" ]]
+}
+
+days_between() {
+    local a b
+    a=$(date -u -d "$1 00:00:00 UTC" +%s)
+    b=$(date -u -d "$2 00:00:00 UTC" +%s)
+    printf '%s' $(( (b - a) / 86400 + 1 ))
+}
+
+valid_range() {
+    local from=$1 to=$2 days
+    iso_day "$from" && iso_day "$to" || return 1
+    [[ "$from" < "$to" || "$from" == "$to" ]] || return 1
+    days=$(days_between "$from" "$to")
+    (( days >= 1 && days <= 366 ))
+}
+
+# The prior window matches the dashboard: the same length immediately before,
+# a week shifted by a week, a month shifted by a month, one day four weeks back.
+previous_range() {
+    local from=$1 to=$2 span prev_from prev_to dow monday
+    if [[ "$from" == "$to" ]]; then
+        prev_from=$(date -u -d "$from - 28 days" +%F)
+        printf '%s %s\n' "$prev_from" "$prev_from"
+        return
     fi
-    # Shopify "last 30 days" is the last 30 finished days, ending yesterday.
+    dow=$(date -u -d "$to" +%u)
+    monday=$(date -u -d "$to - $((dow - 1)) days" +%F)
+    if [[ "$from" == "$monday" ]]; then
+        printf '%s %s\n' "$(date -u -d "$from - 7 days" +%F)" "$(date -u -d "$to - 7 days" +%F)"
+        return
+    fi
+    if [[ "$from" == "${to:0:7}-01" ]]; then
+        prev_from=$(date -u -d "$from - 1 month" +%F)
+        span=$(( $(days_between "$from" "$to") - 1 ))
+        prev_to=$(date -u -d "$prev_from + ${span} days" +%F)
+        printf '%s %s\n' "$prev_from" "$prev_to"
+        return
+    fi
+    if [[ "$from" == "${to:0:4}-01-01" ]]; then
+        prev_from=$(date -u -d "$from - 1 year" +%F)
+        span=$(( $(days_between "$from" "$to") - 1 ))
+        prev_to=$(date -u -d "$prev_from + ${span} days" +%F)
+        printf '%s %s\n' "$prev_from" "$prev_to"
+        return
+    fi
+    prev_to=$(date -u -d "$from - 1 day" +%F)
+    span=$(( $(days_between "$from" "$to") - 1 ))
+    prev_from=$(date -u -d "$prev_to - ${span} days" +%F)
+    printf '%s %s\n' "$prev_from" "$prev_to"
+}
+
+default_from_to() {
+    local tz today to
+    tz=$(query_tz "$1")
+    today=$(TZ="$tz" date +%F)
+    to=$(TZ="$tz" date -d "${today} - 1 day" +%F)
+    printf '%s %s\n' "$(TZ="$tz" date -d "${to} - 29 days" +%F)" "$to"
+}
+
+range_is_default() {
+    local from=$1 to=$2 tz=$3 def
+    def=$(default_from_to "$tz")
+    [[ "$from $to" == "$def" ]]
+}
+
+range_store_key() {
+    printf 'shopify-%s-%s-%s_%s' "$(cache_key_slug)" "$1" "$2" "$3"
+}
+
+range_snapshot_key() {
+    printf 'shopify-%s-snapshot-%s_%s' "$(cache_key_slug)" "$1" "$2"
+}
+
+fetch_store_snapshot_between() {
+    local site_key=$1 from=$2 to=$3 tz_name=$4
+    local calendar_today url payload prev_from prev_to daily_to daily_url channel_daily channel_body
+    site_key=$(printf '%s' "$site_key" | tr '[:upper:]' '[:lower:]')
+    tz_name=$(query_tz "$tz_name")
+    valid_range "$from" "$to" || return 1
     calendar_today=$(TZ="$tz_name" date +%F)
-    finished_to=$(TZ="$tz_name" date -d "${calendar_today} - 1 day" +%F)
-    from=$(TZ="$tz_name" date -d "${finished_to} - $((days - 1)) days" +%F)
-    url="${API_URL}/v1/sites/${site_key}/kpi/summary?from=${from}&to=${finished_to}&tz=$(printf '%s' "$tz_name" | jq -sRr @uri)"
+    url="${API_URL}/v1/sites/${site_key}/kpi/summary?from=${from}&to=${to}&tz=$(printf '%s' "$tz_name" | jq -sRr @uri)"
     payload=$(evo_worker_curl "$url") || return 1
-    local prev_from daily_url channel_daily channel_body
-    prev_from=$(TZ="$tz_name" date -d "${from} - ${days} days" +%F)
-    daily_url="${API_URL}/v1/sites/${site_key}/kpi/daily?from=${prev_from}&to=${calendar_today}"
+    read -r prev_from prev_to < <(previous_range "$from" "$to")
+    # Today compares with the same weekday last week. Other single days stay
+    # four weeks back, matching the dashboard.
+    if [[ "$from" == "$to" && "$from" == "$calendar_today" ]]; then
+        prev_from=$(date -u -d "$from - 7 days" +%F)
+        prev_to=$prev_from
+    fi
+    daily_to=$calendar_today
+    [[ "$to" > "$daily_to" ]] && daily_to=$to
+    daily_url="${API_URL}/v1/sites/${site_key}/kpi/daily?from=${prev_from}&to=${daily_to}"
     channel_daily='{"rows":[]}'
     if channel_body=$(evo_worker_curl "$daily_url") && jq -e 'type == "object"' >/dev/null 2>&1 <<<"$channel_body"; then
         channel_daily=$channel_body
     fi
-    payload=$(summary_to_store_payload "$payload" "$channel_daily" "$calendar_today") || return 1
+    payload=$(summary_to_store_payload "$payload" "$channel_daily" "$calendar_today" "$prev_from" "$prev_to") || return 1
     payload_is_ok "$payload" || return 1
     printf '%s' "$payload"
+}
+
+fetch_store_snapshot_api() {
+    local site_key=$1 days=$2 tz_name=$3
+    local calendar_today finished_to from
+    tz_name=$(query_tz "$tz_name")
+    if ! [[ "$days" =~ ^[0-9]+$ ]] || (( days < 1 )); then
+        days=14
+    fi
+    # "Last N days" is the last N finished days, ending yesterday.
+    calendar_today=$(TZ="$tz_name" date +%F)
+    finished_to=$(TZ="$tz_name" date -d "${calendar_today} - 1 day" +%F)
+    from=$(TZ="$tz_name" date -d "${finished_to} - $((days - 1)) days" +%F)
+    fetch_store_snapshot_between "$site_key" "$from" "$finished_to" "$tz_name"
 }
 
 SYNC_TODAY_MIN_INTERVAL_SEC=240
@@ -477,14 +584,105 @@ stores_json() {
     fi
 }
 
+build_store_between() {
+    local store_prefix=$1 from=$2 to=$3
+    local tz_name api_payload sym today_sales_val cos_str label_text
+
+    tz_name=$(query_tz)
+    if ! find_store "$store_prefix"; then
+        json_text "Error: Store ${store_prefix} not found"
+        return 1
+    fi
+    api_payload=$(fetch_store_snapshot_between "$STORE_SITE_KEY" "$from" "$to" "$tz_name") || {
+        json_text "${STORE_DISPLAY}: API error"
+        return 1
+    }
+    sym=$(jq -r '.symbol // "£"' <<<"$api_payload")
+    today_sales_val=$(format_int_commas "$(jq -r '.todayDetail.revenue // 0' <<<"$api_payload")")
+    cos_str=$(jq -r '.cos // "—"' <<<"$api_payload")
+    label_text="${STORE_DISPLAY}${sym}${today_sales_val} | ${cos_str}"
+    jq -c --arg text "$label_text" --arg label "$label_text" \
+        '.text = $text | .label = $label' <<<"$api_payload"
+}
+
+cmd_range_cache() {
+    local from=$1 to=$2
+    local cached cached_count stores payloads_json key one snapshot cfg_count
+
+    cfg_count="$(merged_config | jq -r '(.shopify.stores // []) | length')"
+    if cached=$(evo_bar_cache_read "$(range_snapshot_key "$from" "$to")" "$CACHE_TTL_SEC" 2>/dev/null); then
+        cached_count="$(jq -r '(.stores // []) | length' <<<"$cached")"
+        if [[ "$cfg_count" -eq 0 || "$cached_count" -eq "$cfg_count" ]]; then
+            snapshot_with_icons "$cached"
+            return 0
+        fi
+    fi
+
+    stores=$(stores_json)
+    payloads_json='{}'
+    while IFS= read -r key; do
+        [[ -n "$key" ]] || continue
+        one=""
+        if one=$(evo_bar_cache_read_any "$(range_store_key "$key" "$from" "$to")" 2>/dev/null) && payload_is_ok "$one"; then
+            payloads_json=$(jq -c --arg k "$key" --argjson v "$one" '. + {($k): $v}' <<<"$payloads_json")
+        fi
+    done < <(jq -r '.[].key // empty' <<<"$stores")
+
+    if [[ "$payloads_json" == "{}" ]]; then
+        printf '%s\n' "$EMPTY_SNAPSHOT"
+        return 0
+    fi
+    snapshot=$(snapshot_with_icons "$(jq -c --argjson stores "$stores" '{stores: $stores, payloads: .}' <<<"$payloads_json")")
+    printf '%s\n' "$snapshot" | evo_bar_cache_write "$(range_snapshot_key "$from" "$to")"
+    printf '%s\n' "$snapshot"
+}
+
+cmd_range_refresh() {
+    local from=$1 to=$2
+    local stores payloads_json key one snapshot prev
+
+    evo_bar_load_heatmap_colors
+    if ! api_ready; then
+        cmd_range_cache "$from" "$to"
+        return 0
+    fi
+
+    maybe_run_sync_today
+    stores=$(stores_json)
+    payloads_json='{}'
+    while IFS= read -r key; do
+        [[ -n "$key" ]] || continue
+        if ! one=$(build_store_between "$key" "$from" "$to"); then
+            [[ -n "$one" ]] || one=$(json_text "Error: Store ${key} not found")
+            if prev=$(evo_bar_cache_read_any "$(range_store_key "$key" "$from" "$to")" 2>/dev/null) && payload_is_ok "$prev"; then
+                one="$prev"
+            fi
+        else
+            printf '%s\n' "$one" | evo_bar_cache_write "$(range_store_key "$key" "$from" "$to")"
+        fi
+        payloads_json=$(jq -c --arg k "$key" --argjson v "$one" '. + {($k): $v}' <<<"$payloads_json")
+    done < <(jq -r '.[].key // empty' <<<"$stores")
+
+    if [[ "$payloads_json" == "{}" && "$stores" == "[]" ]]; then
+        printf '%s\n' "$EMPTY_SNAPSHOT"
+        return 0
+    fi
+    snapshot=$(snapshot_with_icons "$(jq -c --argjson stores "$stores" '{stores: $stores, payloads: .}' <<<"$payloads_json")")
+    printf '%s\n' "$snapshot" | evo_bar_cache_write "$(range_snapshot_key "$from" "$to")"
+    printf '%s\n' "$snapshot"
+}
+
 cmd_cache() {
+    local from=${1:-} to=${2:-}
     local cached cached_count slug prefix f base key stores payloads_json one snapshot
     local cfg_count tz_name
 
     load_shopify_config
-    tz_name="${EVO_SHOPIFY_TZ:-$DEFAULT_TZ}"
-    tz_name="${tz_name// /}"
-    [[ -z "$tz_name" ]] && tz_name="$DEFAULT_TZ"
+    tz_name=$(query_tz)
+    if [[ -n "$from" && -n "$to" ]] && valid_range "$from" "$to" && ! range_is_default "$from" "$to" "$tz_name"; then
+        cmd_range_cache "$from" "$to"
+        return
+    fi
 
     cfg_count="$(merged_config | jq -r '(.shopify.stores // []) | length')"
 
@@ -557,8 +755,14 @@ cmd_cache() {
 }
 
 cmd_refresh() {
-    local stores payloads_json key one snapshot prev
+    local from=${1:-} to=${2:-}
+    local stores payloads_json key one snapshot prev tz_name
     load_shopify_config
+    tz_name=$(query_tz)
+    if [[ -n "$from" && -n "$to" ]] && valid_range "$from" "$to" && ! range_is_default "$from" "$to" "$tz_name"; then
+        cmd_range_refresh "$from" "$to"
+        return
+    fi
     evo_bar_load_heatmap_colors
 
     if ! api_ready; then
@@ -677,10 +881,10 @@ cmd_stores() {
 
 case "${1:-}" in
     cache)
-        cmd_cache
+        cmd_cache "${2:-}" "${3:-}"
         ;;
     refresh)
-        cmd_refresh
+        cmd_refresh "${2:-}" "${3:-}"
         ;;
     stores)
         cmd_stores

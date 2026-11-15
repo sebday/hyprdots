@@ -1,52 +1,94 @@
 import QtQuick
 import qs.commons
 
+// Current series as a filled line over the prior series as a plain line,
+// both on one scale.
 Canvas {
   id: root
 
   property var points: []
+  property var priorPoints: []
   property color strokeColor: Theme.ansiFallback("green")
+  property color priorColor: Theme.accent
 
-  readonly property real dpr: Math.max(1, Screen.devicePixelRatio)
 
-  canvasSize: Qt.size(Math.max(1, width * dpr), Math.max(1, height * dpr))
   antialiasing: true
 
   onPointsChanged: requestPaint()
+  onPriorPointsChanged: requestPaint()
   onStrokeColorChanged: requestPaint()
+  onPriorColorChanged: requestPaint()
   onWidthChanged: requestPaint()
   onHeightChanged: requestPaint()
-  onDprChanged: requestPaint()
   onVisibleChanged: if (visible) requestPaint()
+
+  function trace(ctx, pts) {
+    var open = false
+    for (var i = 0; i < pts.length; i++) {
+      if (!pts[i]) {
+        open = false
+        continue
+      }
+      if (open) ctx.lineTo(pts[i].x, pts[i].y)
+      else ctx.moveTo(pts[i].x, pts[i].y)
+      open = true
+    }
+  }
 
   onPaint: {
     var ctx = getContext("2d")
     if (ctx.reset) ctx.reset()
-    ctx.setTransform(root.dpr, 0, 0, root.dpr, 0, 0)
     ctx.clearRect(0, 0, width, height)
-    var series = root.points || []
-    var n = series.length
-    if (n < 2 || width < 4 || height < 4) return
+    var current = root.points || []
+    var prior = root.priorPoints || []
+    if (width < 4 || height < 4 || (current.length < 2 && prior.length < 2)) return
 
-    var minV = series[0]
-    var maxV = series[0]
-    for (var i = 1; i < n; i++) {
-      var v = typeof series[i] === "number" ? series[i] : 0
+    var minV = Infinity
+    var maxV = -Infinity
+    var all = current.concat(prior)
+    for (var i = 0; i < all.length; i++) {
+      var v = all[i]
+      if (typeof v !== "number" || !isFinite(v)) continue
       if (v < minV) minV = v
       if (v > maxV) maxV = v
     }
-    var span = maxV - minV
+    if (!isFinite(minV)) return
+    var span = maxV - minV || 1
     var pad = 1.5
     var plotW = width - pad * 2
     var plotH = height - pad * 2
-    var pts = []
-    for (var p = 0; p < n; p++) {
-      var value = typeof series[p] === "number" ? series[p] : 0
-      var x = pad + (n === 1 ? plotW / 2 : (p / (n - 1)) * plotW)
-      var y = span < 1e-9 ? pad + plotH / 2 : pad + plotH - ((value - minV) / span) * plotH
-      pts.push({ x: x, y: y })
+
+    function project(series) {
+      var out = []
+      var n = series.length
+      for (var p = 0; p < n; p++) {
+        var value = series[p]
+        if (typeof value !== "number" || !isFinite(value)) {
+          out.push(null)
+          continue
+        }
+        out.push({
+          x: pad + (n === 1 ? plotW / 2 : (p / (n - 1)) * plotW),
+          y: height - pad - ((value - minV) / span) * plotH
+        })
+      }
+      return out
     }
 
+    ctx.lineJoin = "round"
+    ctx.lineCap = "round"
+
+    if (prior.length > 1) {
+      ctx.beginPath()
+      root.trace(ctx, project(prior))
+      ctx.strokeStyle = root.priorColor
+      ctx.globalAlpha = 0.85
+      ctx.lineWidth = 1.4
+      ctx.stroke()
+    }
+
+    if (current.length < 2) return
+    var pts = project(current)
     ctx.beginPath()
     ctx.moveTo(pts[0].x, height - pad)
     for (var a = 0; a < pts.length; a++) ctx.lineTo(pts[a].x, pts[a].y)
@@ -57,13 +99,10 @@ Canvas {
     ctx.fill()
 
     ctx.beginPath()
-    ctx.moveTo(pts[0].x, pts[0].y)
-    for (var b = 1; b < pts.length; b++) ctx.lineTo(pts[b].x, pts[b].y)
+    root.trace(ctx, pts)
     ctx.strokeStyle = root.strokeColor
     ctx.globalAlpha = 1
     ctx.lineWidth = 1.6
-    ctx.lineJoin = "round"
-    ctx.lineCap = "round"
     ctx.stroke()
   }
 }

@@ -11,18 +11,17 @@ var KPI_ORDER = [
 ]
 
 var CHARTS = {
-  revenue: { id: "revenue", label: "revenue", valueKind: "currency", chartStyle: "line" },
-  orders: { id: "orders", label: "orders", valueKind: "integer", chartStyle: "bar" },
-  sessions: { id: "sessions", label: "sessions", valueKind: "integer", chartStyle: "line" },
-  cvr: { id: "cvr", label: "CVR", valueKind: "percent", chartStyle: "line" },
-  aov: { id: "aov", label: "AoV", valueKind: "currency", chartStyle: "line" },
-  cos: { id: "cos", label: "CoS", valueKind: "percent", chartStyle: "line" },
-  spend: { id: "spend", label: "ad spend", valueKind: "currency", chartStyle: "line" },
-  refunds: { id: "refunds", label: "refunds", valueKind: "currency", chartStyle: "line" },
-  periodPrev: { id: "periodPrev", label: "prev", valueKind: "currency", chartStyle: "bar" },
-  periodRevenue: { id: "periodRevenue", label: "revenue", valueKind: "currency", chartStyle: "bar" },
-  forecast: { id: "forecast", label: "forecast", valueKind: "currency", chartStyle: "bar" }
+  revenue: { id: "revenue", label: "revenue", valueKind: "currency" },
+  orders: { id: "orders", label: "orders", valueKind: "integer" },
+  sessions: { id: "sessions", label: "sessions", valueKind: "integer" },
+  cvr: { id: "cvr", label: "conversion rate", valueKind: "percent" },
+  aov: { id: "aov", label: "order value", valueKind: "currency" },
+  cos: { id: "cos", label: "cost of sale", valueKind: "percent" },
+  spend: { id: "spend", label: "ad spend", valueKind: "currency" },
+  refunds: { id: "refunds", label: "refunds", valueKind: "currency" }
 }
+
+var HIGHER_IS_WORSE = { cos: true, spend: true, refunds: true }
 
 var STORE_COLOR_NAMES = { DIY: "cyan", TGS: "blue" }
 var STORE_COLOR_FALLBACK = ["cyan", "bright_green", "blue", "yellow", "magenta"]
@@ -450,45 +449,138 @@ function compareBarsFor(payload, id) {
   return weekdayAlign(barsFor(payload, id), prevBarsFor(payload, id))
 }
 
+function seriesSum(series) {
+  var total = 0
+  var seen = false
+  for (var i = 0; i < (series || []).length; i++) {
+    var v = series[i] && series[i].value
+    if (typeof v !== "number" || !isFinite(v)) continue
+    total += v
+    seen = true
+  }
+  return seen ? total : null
+}
+
+function ratio(a, b) {
+  if (a === null || b === null || !isFinite(a) || !isFinite(b) || b <= 0) return null
+  return a / b
+}
+
+// Period totals. The prior period is summed from prevDaily where the API has
+// no total of its own.
+function periodTotals(p, previous) {
+  var period = p.period
+  var prev = p.prevDaily || emptyPrevDaily()
+  if (!previous) {
+    return {
+      revenue: period.revenue,
+      orders: period.orders,
+      sessions: period.sessions,
+      spend: period.spend,
+      refunds: period.refunds
+    }
+  }
+  // Today is compared with the weekday a week earlier, which the summary's
+  // own previous period does not use, so the prior day series wins.
+  if (showsToday(p)) {
+    return {
+      revenue: seriesSum(prev.revenue),
+      orders: seriesSum(prev.orders),
+      sessions: seriesSum(prev.sessions),
+      spend: seriesSum(prev.spend),
+      refunds: seriesSum(prev.refunds)
+    }
+  }
+  return {
+    revenue: period.prevRevenue > 0 ? period.prevRevenue : seriesSum(prev.revenue),
+    orders: seriesSum(prev.orders),
+    sessions: seriesSum(prev.sessions),
+    spend: seriesSum(prev.spend),
+    refunds: period.prevRefunds !== null ? period.prevRefunds : seriesSum(prev.refunds)
+  }
+}
+
+function periodValue(p, metricId, previous) {
+  var t = periodTotals(p, previous)
+  if (metricId === "aov") return ratio(t.revenue, t.orders)
+  if (metricId === "cos") return ratio(t.spend, t.revenue)
+  if (metricId === "cvr") return ratio(t.orders, t.sessions)
+  var v = t[metricId]
+  return typeof v === "number" && isFinite(v) ? v : null
+}
+
 function chartFigure(payload, metricId) {
   var p = asPayload(payload)
-  var cur = currency(p)
-  var period = p.period
-  if (metricId === "revenue") return formatRevenue(period.revenue, cur)
-  if (metricId === "orders") return formatInt(period.orders)
-  if (metricId === "sessions") return formatInt(period.sessions)
-  if (metricId === "spend") return formatMoney(period.spend, cur)
-  if (metricId === "aov")
-    return period.orders > 0 ? formatMoney(period.revenue / period.orders, cur) : "—"
-  if (metricId === "cos")
-    return period.revenue > 0 ? formatPct(period.spend / period.revenue) : "—"
-  if (metricId === "cvr")
-    return period.sessions > 0 ? formatPct(period.orders / period.sessions) : "—"
-  if (metricId === "refunds") return formatRefund(period.refunds, cur)
-  return ""
+  var value = periodValue(p, metricId, false)
+  return value === null ? "—" : formatSeriesValue(metricId, value, currency(p))
 }
 
 function chartCompare(payload, metricId) {
   var p = asPayload(payload)
-  var period = p.period
-  var previous = null
-  if (metricId === "revenue") previous = period.prevRevenue
-  else if (metricId === "refunds") previous = period.prevRefunds
-  else return ""
-  return versusText(formatSeriesValue(metricId, previous, currency(p)))
+  var previous = periodValue(p, metricId, true)
+  return previous === null ? "" : versusText(formatSeriesValue(metricId, previous, currency(p)))
 }
 
 function chartChange(payload, metricId) {
-  if (metricId !== "revenue" && metricId !== "refunds") return { text: "", tone: "up" }
   var p = asPayload(payload)
-  var current = metricId === "refunds" ? p.period.refunds : p.period.revenue
-  var previous = metricId === "refunds" ? p.period.prevRefunds : p.period.prevRevenue
-  var delta = pctDelta(current, previous)
-  var higherIsWorse = metricId === "refunds"
-  var tone = "up"
-  if (delta !== null && Math.abs(delta) >= 0.05)
-    tone = (higherIsWorse ? delta > 0 : delta < 0) ? "down" : "up"
-  return { text: formatDelta(delta), tone: tone }
+  var delta = pctDelta(periodValue(p, metricId, false), periodValue(p, metricId, true))
+  return { text: formatDelta(delta), tone: toneOf(delta, HIGHER_IS_WORSE[metricId] === true) }
+}
+
+function toneOf(delta, higherIsWorse) {
+  if (delta === null || !isFinite(delta) || Math.round(delta) === 0) return "flat"
+  return (higherIsWorse ? delta > 0 : delta < 0) ? "down" : "up"
+}
+
+function rangeText(series) {
+  if (!series || !series.length) return ""
+  var first = formatDay(series[0] && series[0].date)
+  var last = formatDay(series[series.length - 1] && series[series.length - 1].date)
+  if (!first || !last) return ""
+  return first === last ? first : first + " – " + last
+}
+
+function chartRanges(payload, metricId) {
+  var p = asPayload(payload)
+  var prev = (prevBarsFor(p, metricId) || []).slice()
+  prev.sort(function(a, b) {
+    return String(a && a.date || "").localeCompare(String(b && b.date || ""))
+  })
+  return { current: rangeText(barsFor(p, metricId)), previous: rangeText(prev) }
+}
+
+// Short axis labels: £12k, 1.2k, 3.5%.
+function axisValue(metricId, value, symbol) {
+  if (typeof value !== "number" || !isFinite(value)) return ""
+  var kind = metricById(metricId).valueKind
+  if (kind === "percent") {
+    var pct = value * 100
+    return (pct >= 10 ? String(Math.round(pct)) : trimZero(pct.toFixed(1))) + "%"
+  }
+  var abs = Math.abs(value)
+  var text
+  if (abs >= 1e6) text = trimZero((value / 1e6).toFixed(1)) + "M"
+  else if (abs >= 1e3) text = trimZero((value / 1e3).toFixed(abs >= 1e4 ? 0 : 1)) + "k"
+  else text = String(Math.round(value))
+  return kind === "currency" ? (symbol || "£") + text : text
+}
+
+function trimZero(s) {
+  return String(s).replace(/\.0$/, "")
+}
+
+// Rounds the axis top up to a tidy step for `ticks` gridlines.
+function niceCeil(value, ticks) {
+  if (!(value > 0)) return ticks
+  var raw = (value * 1.05) / ticks
+  var exp = Math.floor(Math.log(raw) / Math.LN10)
+  var fraction = raw / Math.pow(10, exp)
+  var steps = [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]
+  var nice = 10
+  for (var i = 0; i < steps.length; i++) {
+    if (fraction <= steps[i]) { nice = steps[i]; break }
+  }
+  return nice * Math.pow(10, exp) * ticks
 }
 
 function metricClickable(payload, id) {
@@ -585,39 +677,87 @@ function withToday(series, detail, id) {
   return base
 }
 
+function showsToday(payload) {
+  var p = asPayload(payload)
+  if (periodDays(p) > 1 || !p.bars || p.bars.length > 1) return false
+  var day = p.bars.length ? String(p.bars[0].date || "") : String(p.today.date || "")
+  var today = String(p.today.calendarDate || p.today.date || "")
+  return day !== "" && day === today
+}
+
 function kpiCells(payload, metricId) {
+  var p = asPayload(payload)
+  if (!p.ok) return []
+  if (showsToday(p)) return todayKpiCells(p, metricId)
+  return periodKpiCells(p, metricId)
+}
+
+function periodKpiCells(payload, metricId) {
+  var p = asPayload(payload)
+  var cur = currency(p)
+  var specs = [
+    ["revenue", "Revenue"],
+    ["orders", "Orders"],
+    ["cos", "Cost of sale"],
+    ["refunds", "Refunds"],
+    ["cvr", "CvR"],
+    ["aov", "AoV"],
+    ["sessions", "Sessions"],
+    ["spend", "Ad spend"]
+  ]
+  var out = []
+  for (var i = 0; i < specs.length; i++) {
+    var id = specs[i][0]
+    var current = periodValue(p, id, false)
+    var previous = periodValue(p, id, true)
+    var delta = pctDelta(current, previous)
+    out.push({
+      id: id,
+      label: specs[i][1],
+      value: current === null ? "—" : formatSeriesValue(id, current, cur),
+      compare: previous === null ? "" : versusText(formatSeriesValue(id, previous, cur)),
+      spark: sparkValues(barsFor(p, id)),
+      priorSpark: sparkValues(compareBarsFor(p, id), true),
+      delta: formatDelta(delta),
+      tone: toneOf(delta, HIGHER_IS_WORSE[id] === true),
+      selected: id === metricId,
+      clickable: metricClickable(p, id)
+    })
+  }
+  return out
+}
+
+function todayKpiCells(payload, metricId) {
   var p = asPayload(payload)
   if (!p.ok) return []
   var cur = currency(p)
   var d = p.today
   var specs = [
-    ["revenue", "Rev.", formatRevenue(d.revenue, cur)],
+    ["revenue", "Revenue", formatRevenue(d.revenue, cur)],
     ["orders", "Orders", formatInt(d.orders)],
-    ["cos", "CoS", dashIfEmpty(d.cos)],
+    ["cos", "Cost of sale", dashIfEmpty(d.cos)],
     ["refunds", "Refunds", formatRefund(d.refunds, cur)],
     ["cvr", "CvR", formatPct(d.cvr)],
     ["aov", "AoV", formatAov(d, cur)],
-    ["sessions", "Sess.", formatInt(d.sessions)],
-    ["spend", "Spend", formatMoney(d.spend, cur)]
+    ["sessions", "Sessions", formatInt(d.sessions)],
+    ["spend", "Ad spend", formatMoney(d.spend, cur)]
   ]
   var out = []
   for (var i = 0; i < specs.length; i++) {
     var spec = specs[i]
     var series = withToday(barsFor(p, spec[0]), d, spec[0])
-    var delta = seriesDelta(series)
-    var compare = versusText(formatSeriesValue(spec[0], seriesPrevious(series), cur))
-    var higherIsWorse = spec[0] === "cos" || spec[0] === "spend" || spec[0] === "refunds"
-    var tone = "up"
-    if (delta !== null && Math.abs(delta) >= 0.05)
-      tone = (higherIsWorse ? delta > 0 : delta < 0) ? "down" : "up"
+    var previous = periodValue(p, spec[0], true)
+    var delta = pctDelta(todayPoint(d, spec[0]), previous)
+    var compare = previous === null ? "" : versusText(formatSeriesValue(spec[0], previous, cur))
     out.push({
       id: spec[0],
       label: spec[1],
       value: spec[2],
       compare: compare,
       spark: sparkValues(series),
+      priorSpark: sparkValues(weekdayAlign(series, prevBarsFor(p, spec[0])), true),
       delta: formatDelta(delta),
-      tone: tone,
+      tone: toneOf(delta, HIGHER_IS_WORSE[spec[0]] === true),
       selected: spec[0] === metricId,
       clickable: metricClickable(p, spec[0])
     })
@@ -634,16 +774,18 @@ function pctDelta(current, previous) {
 
 function formatDelta(delta) {
   if (delta === null || !isFinite(delta)) return ""
-  var sign = delta > 0 ? "+" : ""
-  return sign + delta.toFixed(1) + "%"
+  var rounded = Math.round(delta)
+  if (rounded === 0) return "0%"
+  return (rounded > 0 ? "+" : "") + rounded + "%"
 }
 
-function sparkValues(series) {
+// keepGaps leaves missing points as null so a line can skip them.
+function sparkValues(series, keepGaps) {
   if (!series || !series.length) return []
   var out = []
   for (var i = 0; i < series.length; i++) {
     var v = series[i] && series[i].value
-    out.push(typeof v === "number" && isFinite(v) ? v : 0)
+    out.push(typeof v === "number" && isFinite(v) ? v : (keepGaps ? null : 0))
   }
   return out
 }
@@ -665,24 +807,179 @@ function channelCards(payload) {
     var value = finite(specs[i][1]) || 0
     total += value
     var delta = pctDelta(value, specs[i][2])
-    var tone = "flat"
-    if (delta !== null && Math.abs(delta) >= 0.05) tone = delta > 0 ? "up" : "down"
     var previous = specs[i][2]
     cards.push({
+      id: "",
       label: specs[i][0],
       value: formatRevenue(value, cur),
       compare: versusText(formatSeriesValue("revenue", typeof previous === "number" ? previous : NaN, cur)),
       delta: formatDelta(delta),
-      tone: tone,
-      spark: sparkValues(specs[i][3])
+      tone: toneOf(delta, false),
+      spark: sparkValues(specs[i][3]),
+      priorSpark: [],
+      selected: false,
+      clickable: false
     })
   }
   return { total: total, cards: cards }
 }
 
 function chartTitle(payload, metricId) {
-  var p = asPayload(payload)
-  var def = metricById(metricId)
-  return periodDays(p) + " day " + def.label
+  return "Daily " + metricById(metricId).label
+}
+
+function periodLabel(payload) {
+  return periodDays(asPayload(payload)) + " days"
+}
+
+var RANGE_PRESETS = [
+  { kind: "today", label: "Today" },
+  { kind: "last7Days", label: "Last 7 days" },
+  { kind: "last30Days", label: "Last 30 days" },
+  { kind: "last90Days", label: "Last 90 days" },
+  { kind: "lastWeek", label: "Last Week" },
+  { kind: "lastMonth", label: "Last Month" },
+  { kind: "thisWeek", label: "This Week" },
+  { kind: "thisMonth", label: "This Month" }
+]
+
+var MONTHS_LONG = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"
+]
+
+function pad2(n) {
+  return (n < 10 ? "0" : "") + n
+}
+
+function parseIso(value) {
+  var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ""))
+  if (!m) return ""
+  var y = Number(m[1])
+  var mo = Number(m[2])
+  var d = Number(m[3])
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) return ""
+  var dt = new Date(Date.UTC(y, mo - 1, d))
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== d) return ""
+  return m[0]
+}
+
+function isoToday() {
+  var d = new Date()
+  return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate())
+}
+
+function addDays(iso, days) {
+  var p = parseIso(iso)
+  if (!p) return ""
+  var parts = p.split("-")
+  var dt = new Date(Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])))
+  dt.setUTCDate(dt.getUTCDate() + Number(days))
+  return dt.getUTCFullYear() + "-" + pad2(dt.getUTCMonth() + 1) + "-" + pad2(dt.getUTCDate())
+}
+
+function addMonths(iso, months) {
+  var p = parseIso(iso)
+  if (!p) return ""
+  var parts = p.split("-")
+  var y = Number(parts[0])
+  var m = Number(parts[1]) - 1 + Number(months)
+  var day = Number(parts[2])
+  var dt = new Date(Date.UTC(y, m, 1))
+  var dim = new Date(Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth() + 1, 0)).getUTCDate()
+  dt.setUTCDate(Math.min(day, dim))
+  return dt.getUTCFullYear() + "-" + pad2(dt.getUTCMonth() + 1) + "-" + pad2(dt.getUTCDate())
+}
+
+function startOfMonth(iso) {
+  var p = parseIso(iso)
+  return p ? p.slice(0, 7) + "-01" : ""
+}
+
+function endOfMonth(iso) {
+  var start = startOfMonth(iso)
+  return start ? addDays(addMonths(start, 1), -1) : ""
+}
+
+function startOfWeek(iso) {
+  var p = parseIso(iso)
+  if (!p) return ""
+  var parts = p.split("-")
+  var dt = new Date(Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])))
+  return addDays(p, -((dt.getUTCDay() + 6) % 7))
+}
+
+function trailingRange(today, days) {
+  var to = addDays(today, -1)
+  return { from: addDays(to, -(days - 1)), to: to }
+}
+
+function rangeForPreset(kind, today) {
+  var now = parseIso(today) || isoToday()
+  if (kind === "today") return { from: now, to: now }
+  if (kind === "last7Days") return trailingRange(now, 7)
+  if (kind === "last30Days") return trailingRange(now, 30)
+  if (kind === "last90Days") return trailingRange(now, 90)
+  if (kind === "thisWeek") return { from: startOfWeek(now), to: now }
+  if (kind === "thisMonth") return { from: startOfMonth(now), to: now }
+  if (kind === "lastWeek") {
+    var monday = startOfWeek(now)
+    return { from: addDays(monday, -7), to: addDays(monday, -1) }
+  }
+  if (kind === "lastMonth") {
+    var from = addMonths(startOfMonth(now), -1)
+    return { from: from, to: endOfMonth(from) }
+  }
+  return trailingRange(now, 30)
+}
+
+function presetByKind(kind) {
+  for (var i = 0; i < RANGE_PRESETS.length; i++) {
+    if (RANGE_PRESETS[i].kind === kind) return RANGE_PRESETS[i]
+  }
+  return null
+}
+
+function formatDayLong(dateStr) {
+  var text = parseIso(dateStr)
+  if (!text) return ""
+  var months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+  return Number(text.slice(8, 10)) + " " + months[Number(text.slice(5, 7)) - 1] + " " + text.slice(0, 4)
+}
+
+function rangeButtonLabel(preset, from, to) {
+  var item = presetByKind(preset)
+  if (item) return item.label
+  var a = formatDayLong(from)
+  var b = formatDayLong(to)
+  if (!a || !b) return "Last 30 days"
+  return a === b ? a : a + " – " + b
+}
+
+function monthTitle(monthIso) {
+  var start = startOfMonth(monthIso)
+  if (!start) return ""
+  return MONTHS_LONG[Number(start.slice(5, 7)) - 1] + " " + start.slice(0, 4)
+}
+
+function calendarDays(monthIso, from, to, pending, today) {
+  var month = startOfMonth(monthIso)
+  var start = startOfWeek(month)
+  if (!month || !start) return []
+  var out = []
+  for (var i = 0; i < 42; i++) {
+    var day = addDays(start, i)
+    var picked = pending ? day === pending : (day >= from && day <= to)
+    out.push({
+      date: day,
+      label: String(Number(day.slice(8, 10))),
+      outside: day.slice(0, 7) !== month.slice(0, 7),
+      future: today !== "" && day > today,
+      today: day === today,
+      inRange: picked,
+      edge: pending ? day === pending : (day === from || day === to)
+    })
+  }
+  return out
 }
 

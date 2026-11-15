@@ -2,7 +2,7 @@
 
 ![Shopify panel](preview.png)
 
-Shopify store revenue. Today's KPIs and a dotted chart for every store in the data source.
+Shopify store revenue. Today's KPIs as dashboard cards and a daily chart against the prior period for every store in the data source. The date control is the dashboard's and starts on today. Choosing another range reloads the stat cards, channel cards, and chart for that range. Last 30 days stays the range the bar uses.
 
 This module ships with evoshell. Open it with Super+Alt+S, or:
 

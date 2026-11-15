@@ -24,6 +24,9 @@ Item {
   property var payloads: ({})
   property int storeIdx: 0
   property string metric: "revenue"
+  property string rangePreset: "today"
+  property string rangeFrom: Model.rangeForPreset("today").from
+  property string rangeTo: Model.rangeForPreset("today").to
   property bool loading: false
   property bool refreshing: false
   property string errorText: ""
@@ -39,8 +42,10 @@ Item {
   readonly property color colBg: Theme.background
   readonly property color colText: Theme.foreground
   readonly property color colMuted: Theme.muted
-  readonly property color colBright: Model.pickColor(palette.bright_foreground, Theme.foreground)
   readonly property color colWarn: Theme.urgent
+  readonly property color colGood: Model.pickColor(palette.bright_green, Theme.ansiFallback("green"))
+  readonly property color colInfo: Model.pickColor(palette.blue, Theme.accent)
+  readonly property color colCurrent: Theme.mixColors(Theme.urgent, Qt.color(String(Model.pickColor(palette.yellow, Theme.foreground))), 0.5)
   readonly property color fallbackAccent: Theme.accent
 
   readonly property string shopifyConfigJson: {
@@ -114,6 +119,22 @@ Item {
   function chooseMetric(id) {
     if (Model.metricById(id).id !== id) return
     root.metric = id
+  }
+
+  function activeRange() {
+    if (root.rangePreset) {
+      var presetRange = Model.rangeForPreset(root.rangePreset)
+      if (presetRange && presetRange.from && presetRange.to) return presetRange
+    }
+    return { from: root.rangeFrom, to: root.rangeTo }
+  }
+
+  function chooseRange(preset, from, to) {
+    if (!Model.parseIso(from) || !Model.parseIso(to) || from > to) return
+    root.rangePreset = String(preset || "")
+    root.rangeFrom = from
+    root.rangeTo = to
+    root.runSnapshot("refresh")
   }
 
   function stepMetric(dir) {
@@ -204,10 +225,18 @@ Item {
     snapshotProc.stdoutBuf = ""
     snapshotProc.stderrBuf = ""
     snapshotProc.environment = root.childEnv()
-    snapshotProc.command = [
+    var range = root.activeRange()
+    snapshotProc.rangeFrom = range.from || ""
+    snapshotProc.rangeTo = range.to || ""
+    var cmd = [
       "/usr/bin/python3", "-I", "-S", root.panelRun,
       "/usr/bin/bash", root.statusScript, mode
     ]
+    if (snapshotProc.rangeFrom && snapshotProc.rangeTo) {
+      cmd.push(snapshotProc.rangeFrom)
+      cmd.push(snapshotProc.rangeTo)
+    }
+    snapshotProc.command = cmd
     root.refreshing = true
     snapshotProc.running = true
   }
@@ -267,6 +296,8 @@ Item {
     property string stdoutBuf: ""
     property string stderrBuf: ""
     property string mode: ""
+    property string rangeFrom: ""
+    property string rangeTo: ""
     property int token: 0
     property bool overflow: false
 
@@ -302,6 +333,9 @@ Item {
       root.refreshing = false
       if (snapshotProc.token !== root.snapToken || !root.opened) return
       var mode = snapshotProc.mode
+      var current = root.activeRange()
+      var stale = snapshotProc.rangeFrom !== ""
+          && (snapshotProc.rangeFrom !== current.from || snapshotProc.rangeTo !== current.to)
       if (snapshotProc.overflow) {
         root.loading = false
         if (root.stores.length === 0) root.errorText = "Output exceeded the limit"
@@ -311,12 +345,13 @@ Item {
           var err = Model.plain(snapshotProc.stderrBuf, 160)
           root.errorText = err || "Could not load stores"
         }
-      } else {
+      } else if (!stale) {
         root.applySnapshot(snapshotProc.stdoutBuf, mode)
       }
 
       var follow = ""
-      if (mode === "cache" && root.opened && !snapshotProc.overflow) follow = "refresh"
+      if (stale) follow = "refresh"
+      else if (mode === "cache" && root.opened && !snapshotProc.overflow) follow = "refresh"
       else if (root.pendingRefresh) follow = "refresh"
       root.pendingRefresh = false
       if (follow) root.runSnapshot(follow)
@@ -431,6 +466,11 @@ Item {
       }
 
       Keys.onEscapePressed: function(event) {
+        if (rangePicker.open) {
+          rangePicker.open = false
+          event.accepted = true
+          return
+        }
         root.dismiss()
         event.accepted = true
       }
@@ -489,9 +529,49 @@ Item {
           horizontalAlignment: Text.AlignHCenter
         }
 
+        MouseArea {
+          anchors.fill: parent
+          visible: rangePicker.open
+          z: 4
+          onPressed: function(mouse) {
+            rangePicker.open = false
+            mouse.accepted = true
+          }
+        }
+
+        Item {
+          id: toolbar
+          z: 5
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.top: parent.top
+          height: rangePicker.implicitHeight
+          visible: root.columns.length > 0
+
+          RangePicker {
+            id: rangePicker
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            preset: root.rangePreset
+            from: root.rangeFrom
+            to: root.rangeTo
+            fillColor: Theme.mixColors(root.colBg, "#000000", 0.35)
+            surfaceColor: Theme.mantle
+            lineColor: Theme.foregroundDivider
+            textColor: root.colText
+            mutedColor: root.colMuted
+            accentColor: root.colInfo
+            fontFamily: root.fontFamily
+            onChosen: function(preset, from, to) { root.chooseRange(preset, from, to) }
+          }
+        }
+
         Item {
           id: cols
-          anchors.fill: parent
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.bottom: parent.bottom
+          anchors.top: parent.top
           visible: root.columns.length > 0
 
           readonly property int count: root.columns.length
@@ -502,31 +582,16 @@ Item {
           readonly property bool stacked: count > 1 && width < columnMin * count + gap
           // Each stacked store keeps the full side-by-side column height.
           readonly property int slot: height
-          // Titles are centred on the top border and paint into the window
-          // padding. Extend the clip up into it so they stay whole without
-          // moving the cards.
-          readonly property int legendOverhang: Math.min(
-            keyCatcher.panelPad,
-            Math.ceil(legendMetrics.height / 2) + 1
-          )
-
-          FontMetrics {
-            id: legendMetrics
-            font.family: root.fontFamily
-            font.pixelSize: Theme.font.bodySmall
-            font.bold: true
-          }
 
           onStackedChanged: if (!stacked) colScroll.contentY = 0
 
           Flickable {
             id: colScroll
             anchors.fill: parent
-            anchors.topMargin: -cols.legendOverhang
             clip: true
             contentWidth: width
             contentHeight: cols.stacked
-              ? cols.legendOverhang + cols.count * cols.slot + cols.gap * (cols.count - 1)
+              ? cols.count * cols.slot + cols.gap * (cols.count - 1)
               : height
             interactive: cols.stacked
             boundsBehavior: Flickable.StopAtBounds
@@ -547,19 +612,25 @@ Item {
                 readonly property int span: Math.max(1, cols.count)
 
                 x: cols.stacked ? 0 : index * (width + cols.gap)
-                y: cols.legendOverhang + (cols.stacked ? index * (cols.slot + cols.gap) : 0)
+                y: cols.stacked ? index * (cols.slot + cols.gap) : 0
                 width: cols.stacked
                   ? colScroll.width
                   : Math.max(1, Math.floor((colScroll.width - cols.gap * (span - 1)) / span))
                 height: cols.slot
+                title: modelData.store.title
+                headerRight: (cols.stacked ? index === 0 : index === span - 1)
+                    ? rangePicker.implicitWidth + Theme.space(16) : 0
                 payload: root.payloads[modelData.store.key] || null
                 metric: root.metric
-                borderColor: Model.storeColor(modelData.store.key, modelData.index, root.palette, root.fallbackAccent)
-                backgroundColor: root.colBg
+                storeColor: Model.storeColor(modelData.store.key, modelData.index, root.palette, root.fallbackAccent)
+                surfaceColor: Theme.mantle
+                lineColor: Theme.foregroundDivider
                 mutedColor: root.colMuted
                 textColor: root.colText
-                brightColor: root.colBright
-                warnColor: root.colWarn
+                upColor: root.colGood
+                downColor: root.colWarn
+                infoColor: root.colInfo
+                currentColor: root.colCurrent
                 fontFamily: root.fontFamily
                 onMetricChosen: function(id) { root.chooseMetric(id) }
               }
