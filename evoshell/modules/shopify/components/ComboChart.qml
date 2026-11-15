@@ -132,24 +132,41 @@ Canvas {
 
     var prior = root.compareBars || []
     ctx.strokeStyle = root.priorColor
+    ctx.fillStyle = root.priorColor
     ctx.lineWidth = 2
     ctx.lineJoin = "round"
     ctx.lineCap = "round"
     ctx.beginPath()
     var open = false
+    var priorCount = 0
+    var lone = null
     for (var p = 0; p < Math.min(n, prior.length); p++) {
       var pv = prior[p] && prior[p].value
       if (typeof pv !== "number" || !isFinite(pv)) {
         open = false
         continue
       }
+      priorCount++
       var px = root.xCenter(p)
       var py = root.yFor(pv)
+      lone = { x: px, y: py }
       if (open) ctx.lineTo(px, py)
       else ctx.moveTo(px, py)
       open = true
     }
-    ctx.stroke()
+    if (priorCount >= 2) {
+      ctx.stroke()
+    } else if (lone) {
+      ctx.setLineDash([4, 4])
+      ctx.beginPath()
+      ctx.moveTo(root.plotX, lone.y)
+      ctx.lineTo(root.plotX + root.plotW, lone.y)
+      ctx.stroke()
+      ctx.setLineDash([])
+      ctx.beginPath()
+      ctx.arc(lone.x, lone.y, 4, 0, Math.PI * 2)
+      ctx.fill()
+    }
 
     ctx.fillStyle = root.mutedColor
     ctx.textAlign = "center"

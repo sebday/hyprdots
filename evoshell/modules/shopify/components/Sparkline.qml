@@ -41,7 +41,7 @@ Canvas {
     ctx.clearRect(0, 0, width, height)
     var current = root.points || []
     var prior = root.priorPoints || []
-    if (width < 4 || height < 4 || (current.length < 2 && prior.length < 2)) return
+    if (width < 4 || height < 4 || (!current.length && !prior.length)) return
 
     var minV = Infinity
     var maxV = -Infinity
@@ -77,6 +77,23 @@ Canvas {
 
     ctx.lineJoin = "round"
     ctx.lineCap = "round"
+
+    function dots(pts, color, radius) {
+      ctx.fillStyle = color
+      ctx.globalAlpha = 1
+      for (var d = 0; d < pts.length; d++) {
+        if (!pts[d]) continue
+        ctx.beginPath()
+        ctx.arc(pts[d].x, pts[d].y, radius, 0, Math.PI * 2)
+        ctx.fill()
+      }
+    }
+
+    if (current.length < 2 && prior.length < 2) {
+      if (prior.length) dots(project(prior), root.priorColor, 2.2)
+      if (current.length) dots(project(current), root.strokeColor, 2.5)
+      return
+    }
 
     if (prior.length > 1) {
       ctx.beginPath()

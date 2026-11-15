@@ -10,21 +10,16 @@ EvoShell discovers `modules/github/manifest.json` at startup. Add `{ "id": "evo.
 
 ## Requirements
 
-- `curl`, `jq`, `git` and `bash`
-- GitHub auth via `gh` or `pass` (see below)
+- `gh`, `jq`, `git` and `bash`
+- GitHub auth via `gh` (`gh` comes from mise)
 - `cursor-agent` (or another supported agent) for the commit buttons
 
 ## Auth
 
-Resolution order:
-
-1. `gh auth token` (`gh` comes from mise and is on the session `PATH`)
-2. `pass show evoshell/github/token`
+The widget calls `gh api graphql`. `gh` is the mise shim when it is on `PATH` and logged in, otherwise the installed binary under the mise data directory.
 
 ```bash
 gh auth login
-# or
-pass insert evoshell/github/token
 ```
 
 ## Settings
@@ -79,6 +74,5 @@ bin/repo-settings detect
 ## Data
 
 - `$EVOSHELL_CACHE/github/github.json`, `$EVOSHELL_CACHE/github/repo-dirty.json`
-- `pass` entry `evoshell/github/token` (optional)
 
-Network: https://api.github.com/graphql.
+Network: https://api.github.com/graphql via `gh`.

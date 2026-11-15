@@ -480,8 +480,7 @@ function periodTotals(p, previous) {
       refunds: period.refunds
     }
   }
-  // Today is compared with the weekday a week earlier, which the summary's
-  // own previous period does not use, so the prior day series wins.
+  // The today cards do not use this. Their vs line is one day, seven days back.
   if (showsToday(p)) {
     return {
       revenue: seriesSum(prev.revenue),
@@ -509,21 +508,26 @@ function periodValue(p, metricId, previous) {
   return typeof v === "number" && isFinite(v) ? v : null
 }
 
+function chartSource(payload, metricId, previous) {
+  var p = asPayload(payload)
+  return showsToday(p) ? comparisonValue(p, metricId, previous) : periodValue(p, metricId, previous)
+}
+
 function chartFigure(payload, metricId) {
   var p = asPayload(payload)
-  var value = periodValue(p, metricId, false)
+  var value = chartSource(p, metricId, false)
   return value === null ? "—" : formatSeriesValue(metricId, value, currency(p))
 }
 
 function chartCompare(payload, metricId) {
   var p = asPayload(payload)
-  var previous = periodValue(p, metricId, true)
+  var previous = chartSource(p, metricId, true)
   return previous === null ? "" : versusText(formatSeriesValue(metricId, previous, currency(p)))
 }
 
 function chartChange(payload, metricId) {
   var p = asPayload(payload)
-  var delta = pctDelta(periodValue(p, metricId, false), periodValue(p, metricId, true))
+  var delta = pctDelta(chartSource(p, metricId, false), chartSource(p, metricId, true))
   return { text: formatDelta(delta), tone: toneOf(delta, HIGHER_IS_WORSE[metricId] === true) }
 }
 
@@ -679,10 +683,41 @@ function withToday(series, detail, id) {
 
 function showsToday(payload) {
   var p = asPayload(payload)
-  if (periodDays(p) > 1 || !p.bars || p.bars.length > 1) return false
-  var day = p.bars.length ? String(p.bars[0].date || "") : String(p.today.date || "")
-  var today = String(p.today.calendarDate || p.today.date || "")
-  return day !== "" && day === today
+  if (p.period.days !== 1) return false
+  var today = String(p.today.calendarDate || "")
+  if (today === "" || String(p.today.date || "") !== today) return false
+  var bars = p.bars || []
+  if (!bars.length) return false
+  return String(bars[bars.length - 1] && bars[bars.length - 1].date || "") === today
+}
+
+function pointOnDate(series, date) {
+  if (!date) return null
+  var rows = series || []
+  for (var i = 0; i < rows.length; i++) {
+    if (!rows[i] || rows[i].date !== date) continue
+    var v = rows[i].value
+    return typeof v === "number" && isFinite(v) ? v : null
+  }
+  return null
+}
+
+// Last 7 days against the previous 7. The chart uses this. Card headlines do not.
+function comparisonValue(p, id, previous) {
+  var revenue = seriesSum(previous ? prevBarsFor(p, "revenue") : barsFor(p, "revenue"))
+  var orders = seriesSum(previous ? prevBarsFor(p, "orders") : barsFor(p, "orders"))
+  var sessions = seriesSum(previous ? prevBarsFor(p, "sessions") : barsFor(p, "sessions"))
+  var spend = seriesSum(previous ? prevBarsFor(p, "spend") : barsFor(p, "spend"))
+  var refunds = seriesSum(previous ? prevBarsFor(p, "refunds") : barsFor(p, "refunds"))
+  if (id === "aov") return ratio(revenue, orders)
+  if (id === "cos") return ratio(spend, revenue)
+  if (id === "cvr") return ratio(orders, sessions)
+  if (id === "revenue") return revenue
+  if (id === "orders") return orders
+  if (id === "sessions") return sessions
+  if (id === "spend") return spend
+  if (id === "refunds") return refunds
+  return null
 }
 
 function kpiCells(payload, metricId) {
@@ -742,20 +777,21 @@ function todayKpiCells(payload, metricId) {
     ["sessions", "Sessions", formatInt(d.sessions)],
     ["spend", "Ad spend", formatMoney(d.spend, cur)]
   ]
+  var ago = addDays(String(d.date || ""), -7)
   var out = []
   for (var i = 0; i < specs.length; i++) {
     var spec = specs[i]
-    var series = withToday(barsFor(p, spec[0]), d, spec[0])
-    var previous = periodValue(p, spec[0], true)
-    var delta = pctDelta(todayPoint(d, spec[0]), previous)
+    var current = todayPoint(d, spec[0])
+    var previous = pointOnDate(prevBarsFor(p, spec[0]), ago)
+    var delta = pctDelta(current, previous)
     var compare = previous === null ? "" : versusText(formatSeriesValue(spec[0], previous, cur))
     out.push({
       id: spec[0],
       label: spec[1],
       value: spec[2],
       compare: compare,
-      spark: sparkValues(series),
-      priorSpark: sparkValues(weekdayAlign(series, prevBarsFor(p, spec[0])), true),
+      spark: sparkValues(barsFor(p, spec[0])),
+      priorSpark: sparkValues(compareBarsFor(p, spec[0]), true),
       delta: formatDelta(delta),
       tone: toneOf(delta, HIGHER_IS_WORSE[spec[0]] === true),
       selected: spec[0] === metricId,

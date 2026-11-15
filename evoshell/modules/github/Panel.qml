@@ -387,8 +387,6 @@ Panel {
         return
       }
       root.applyPayload(raw)
-      if (String(stderrText || "").trim() !== "" && !root.hasData)
-        root.applyPayload(String(stderrText || ""))
     }
   }
 

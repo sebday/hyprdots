@@ -13,7 +13,7 @@ CACHE_TTL="${GITHUB_CACHE_TTL:-300}"
 HEATMAP_DAYS=30
 FORCE_REFRESH=false
 [[ "${1:-}" == "--refresh" ]] && FORCE_REFRESH=true
-TOKEN=""
+GH_BIN=""
 
 declare -a GITHUB_COLORS=("#45475a" "#89b4fa" "#74c7ec" "#89dceb" "#cba6f7")
 
@@ -71,29 +71,26 @@ cache_write() {
   mv -f -T -- "$tmp" "$CACHE_PATH"
 }
 
-load_token() {
-  local value
+resolve_gh() {
+  local bin="" root candidate
   if command -v gh >/dev/null 2>&1; then
-    value="$(gh auth token 2>/dev/null || true)"
-    if [[ -n "$value" ]]; then
-      TOKEN="$value"
+    bin="$(command -v gh)"
+    if "$bin" auth status >/dev/null 2>&1; then
+      printf '%s' "$bin"
       return 0
     fi
   fi
-  command -v pass >/dev/null 2>&1 || return 1
-  local lib="${EVOSHELL_ROOT:-}/bin/evo-secrets-lib"
-  [[ -r "$lib" ]] || lib="${EVOSHELL_LIB:-$HOME/.local/lib/evoshell/bin}/evo-secrets-lib"
-  if [[ -r "$lib" ]]; then
-    # shellcheck source=/dev/null
-    source "$lib"
-    value="$(evo_secrets_get GITHUB_TOKEN 2>/dev/null || true)"
-  else
-    value="$(pass show evoshell/github/token 2>/dev/null || true)"
-  fi
-  if [[ -n "$value" ]]; then
-    TOKEN="$value"
-    return 0
-  fi
+  root="${MISE_DATA_DIR:-$HOME/.local/share/mise}/installs/gh"
+  shopt -s nullglob
+  for candidate in "$root"/latest/bin/gh "$root"/*/bin/gh "$root"/*/*/bin/gh; do
+    [[ -x "$candidate" ]] || continue
+    if "$candidate" auth status >/dev/null 2>&1; then
+      printf '%s' "$candidate"
+      shopt -u nullglob
+      return 0
+    fi
+  done
+  shopt -u nullglob
   return 1
 }
 
@@ -128,15 +125,10 @@ if [[ "$FORCE_REFRESH" != true ]] && cached=$(cache_read 2>/dev/null); then
   exit 0
 fi
 
-if ! load_token; then
-  json_error " Token Err" "Run gh auth login or pass insert evoshell/github/token"
+if ! GH_BIN="$(resolve_gh)"; then
+  json_error " Token Err" "Run gh auth login"
   exit 1
 fi
-case "$TOKEN" in *'"'*|*\\*|$'\n'*)
-  json_error " Token Err" "GitHub token contains unsupported characters."
-  exit 1
-  ;;
-esac
 
 GRAPHQL_QUERY_RAW='
 query GetViewerContributionCalendar {
@@ -155,28 +147,20 @@ query GetViewerContributionCalendar {
   }
 }
 '
-GRAPHQL_QUERY_ESCAPED=$(echo "$GRAPHQL_QUERY_RAW" | tr '\n' ' ' | sed 's/"/\\"/g')
-JSON_PAYLOAD=$(printf '{ "query": "%s" }' "$GRAPHQL_QUERY_ESCAPED")
 
 set -o pipefail
 MAX_BYTES=1048576
-RESPONSE=$(
-  printf '%s\n' \
-    "header = \"Authorization: bearer ${TOKEN}\"" \
-    'header = "Content-Type: application/json"' \
-    | /usr/bin/curl -q -sS --fail --config - \
-        --proto '=https' --proto-redir '=https' \
-        --max-time 20 --connect-timeout 5 --max-filesize "$MAX_BYTES" --noproxy '*' \
-        -X POST --data-binary "${JSON_PAYLOAD}" -- "https://api.github.com/graphql" \
-    | /usr/bin/head -c $((MAX_BYTES + 1))
-) || RESPONSE=""
+RESPONSE=""
+if ! RESPONSE="$("$GH_BIN" api graphql --hostname github.com -f query="$GRAPHQL_QUERY_RAW" 2>/dev/null)"; then
+  RESPONSE="${RESPONSE:-}"
+fi
 if [ ${#RESPONSE} -gt "$MAX_BYTES" ]; then
-  json_error " Curl Err" "GraphQL response exceeded limit."
+  json_error " GitHub Err" "GraphQL response exceeded limit."
   exit 1
 fi
 
 if [[ -z "$RESPONSE" ]]; then
-  json_error " Curl Err" "GraphQL request returned empty."
+  json_error " GitHub Err" "GitHub request returned empty. Run gh auth login."
   exit 1
 fi
 

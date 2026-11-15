@@ -424,9 +424,11 @@ fetch_store_snapshot_between() {
     url="${API_URL}/v1/sites/${site_key}/kpi/summary?from=${from}&to=${to}&tz=$(printf '%s' "$tz_name" | jq -sRr @uri)"
     payload=$(evo_worker_curl "$url") || return 1
     read -r prev_from prev_to < <(previous_range "$from" "$to")
-    # Today compares with the same weekday last week. Other single days stay
-    # four weeks back, matching the dashboard.
+    # Today keeps a one-day headline against the same day a week ago.
+    # Sparklines and the chart are the last 7 days against the 7 before that.
+    local today_range=0 week_payload=""
     if [[ "$from" == "$to" && "$from" == "$calendar_today" ]]; then
+        today_range=1
         prev_from=$(date -u -d "$from - 7 days" +%F)
         prev_to=$prev_from
     fi
@@ -438,6 +440,22 @@ fetch_store_snapshot_between() {
         channel_daily=$channel_body
     fi
     payload=$(summary_to_store_payload "$payload" "$channel_daily" "$calendar_today" "$prev_from" "$prev_to") || return 1
+    if (( today_range )); then
+        week_payload=$(fetch_store_snapshot_between "$site_key" "$(date -u -d "$from - 6 days" +%F)" "$from" "$tz_name" || true)
+        if [[ -n "$week_payload" ]] && payload_is_ok "$week_payload"; then
+            payload=$(jq -c --argjson week "$week_payload" '
+                .bars = $week.bars
+                | .orderBars = $week.orderBars
+                | .sessionBars = $week.sessionBars
+                | .spendBars = $week.spendBars
+                | .cvrBars = $week.cvrBars
+                | .aovBars = $week.aovBars
+                | .cosBars = $week.cosBars
+                | .refundBars = $week.refundBars
+                | .prevDaily = $week.prevDaily
+            ' <<<"$payload")
+        fi
+    fi
     payload_is_ok "$payload" || return 1
     printf '%s' "$payload"
 }

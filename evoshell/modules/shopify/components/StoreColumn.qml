@@ -38,9 +38,17 @@ Item {
   readonly property var ranges: Model.chartRanges(safePayload, metric)
 
   readonly property int gap: Theme.space(12)
+  readonly property int cardWidth: Math.max(1, Math.floor((width - gap * 3) / 4))
+  // One width for every spark, so the columns line up across both rows.
+  readonly property int sparkTrack: {
+    var track = Math.round(cardWidth * 0.38)
+    return Math.max(Theme.space(72), Math.min(Theme.space(160), track))
+  }
+  readonly property bool sparksBeside: cardWidth >= Theme.space(14) * 2 + Theme.space(16) + Theme.space(108) + sparkTrack
   readonly property int chartMin: Theme.space(220)
-  readonly property int cardMax: Theme.space(124)
-  readonly property int cardMin: Theme.space(84)
+  // Side-by-side only needs the text and the short spark. Stacked keeps room for the line underneath.
+  readonly property int cardMax: sparksBeside ? Theme.space(72) : Theme.space(124)
+  readonly property int cardMin: sparksBeside ? Theme.space(64) : Theme.space(84)
   readonly property int cardHeight: {
     var n = Math.max(1, rows.length)
     var room = height - header.height - gap - chartMin - gap * n
@@ -127,9 +135,11 @@ Item {
           StatCard {
             required property var modelData
 
-            width: Math.floor((cardRow.width - cardRow.spacing * 3) / 4)
+            width: root.cardWidth
             height: cardRow.height
             card: modelData
+            alignSpark: root.sparksBeside
+            sparkTrack: root.sparkTrack
             surfaceColor: root.surfaceColor
             textColor: root.textColor
             mutedColor: root.mutedColor

@@ -2,8 +2,8 @@
 # Symlink the trading desk into the shell vendor tree.
 set -euo pipefail
 
-TRADING_ROOT="${TRADING_ROOT:-${HOME}/projects/tradingbot}"
-EVOSHELL_ROOT="${EVOSHELL_ROOT:-${HOME}/projects/hyprdots/evoshell}"
+TRADING_ROOT="${TRADING_ROOT:-${HOME}/Projects/tradingbot}"
+EVOSHELL_ROOT="${EVOSHELL_ROOT:-${HOME}/Projects/hyprdots/evoshell}"
 VENDOR_LINK="${EVOSHELL_ROOT}/vendor/trading"
 
 if [[ ! -f "${TRADING_ROOT}/manifest.json" ]]; then

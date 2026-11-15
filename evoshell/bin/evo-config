@@ -223,9 +223,18 @@ cmd_secrets_status() {
         jq -n --arg label "$label" --arg path "${path:-}" --argjson configured "$configured" \
             '{label:$label,configured:$configured,passPath:$path}'
     }
+    check_github() {
+        local configured=false path="gh auth login"
+        if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+            configured=true
+            path="gh"
+        fi
+        jq -n --arg label "github" --arg path "$path" --argjson configured "$configured" \
+            '{label:$label,configured:$configured,passPath:$path}'
+    }
     local out
     out="$(jq -n \
-        --argjson github "$(check_one GITHUB_TOKEN github)" \
+        --argjson github "$(check_github)" \
         --argjson cursor "$(check_one CURSOR_ACCESS_TOKEN cursor)" \
         --argjson cloudflare "$(check_one CLOUDFLARE_API_TOKEN cloudflare)" \
         '{github:$github,cursor:$cursor,cloudflare:$cloudflare}')"
