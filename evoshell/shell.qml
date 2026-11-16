@@ -87,6 +87,10 @@ ShellRoot {
     property var shellConfig: builtinShellConfig
     property var _lastGoodShellConfig: builtinShellConfig
     property var barConfig: builtinShellConfig.bar
+    // The last config written from the shell. A late file read must not
+    // restore the previous bar output while this is set.
+    property var writtenShellConfig: null
+    property string writtenShellText: ""
     property bool defaultConfigReady: false
     property string _barLoaderKey: ""
     property bool _barReloadPending: false
@@ -217,12 +221,8 @@ ShellRoot {
         return null
     }
 
-    function applyShellConfig() {
-        var merged = Util.deepMerge(builtinShellConfig, {})
-        var repo = parseShellConfig(defaultConfigFile.text())
-        if (repo)
-            merged = Util.deepMerge(merged, repo)
-        if (merged.version === 1) {
+    function commitShellConfig(merged, scheduleDashboards) {
+        if (merged && merged.version === 1) {
             shellConfig = merged
             _lastGoodShellConfig = merged
         } else {
@@ -231,8 +231,22 @@ ShellRoot {
         barConfig = Util.isPlainObject(shellConfig.bar) ? shellConfig.bar : builtinShellConfig.bar
         syncServices()
         reloadBar()
-        if (defaultConfigReady)
+        if (scheduleDashboards && defaultConfigReady)
             scheduleStartupDashboards()
+    }
+
+    function applyShellConfig() {
+        if (writtenShellConfig && String(defaultConfigFile.text() || "") !== writtenShellText) {
+            commitShellConfig(writtenShellConfig, false)
+            return
+        }
+        writtenShellConfig = null
+        writtenShellText = ""
+        var merged = Util.deepMerge(builtinShellConfig, {})
+        var repo = parseShellConfig(defaultConfigFile.text())
+        if (repo)
+            merged = Util.deepMerge(merged, repo)
+        commitShellConfig(merged, true)
     }
 
     function scheduleStartupDashboards() {
@@ -312,10 +326,18 @@ ShellRoot {
     }
 
     function persistShellConfig(next) {
-        defaultConfigFile.setText(JSON.stringify(next, null, 2) + "\n")
+        var text = JSON.stringify(next, null, 2) + "\n"
+        // Kept until FileView's text matches, so a read that finishes late
+        // cannot put the bar back on the previous output.
+        writtenShellText = text
+        writtenShellConfig = next
+        defaultConfigFile.setText(text)
     }
 
     // Mutate a copy of the effective config and write it back to shell.json.
+    // The write is atomic, so the file watch usually fires while the save is
+    // still running and FileView skips the reload. Apply the copy here or the
+    // bar keeps the previous output and edge.
     function mutateShellConfig(mutator) {
         var copy = Util.cloneJson(shellConfig || builtinShellConfig)
         mutator(copy)
@@ -323,6 +345,13 @@ ShellRoot {
             copy = {}
         copy.version = 1
         persistShellConfig(copy)
+        Qt.callLater(shell.applyWrittenShellConfig)
+    }
+
+    function applyWrittenShellConfig() {
+        if (!writtenShellConfig)
+            return
+        commitShellConfig(writtenShellConfig, false)
     }
 
     // Replace the inline settings of the first bar layout entry with this id.
