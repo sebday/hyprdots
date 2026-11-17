@@ -61,6 +61,12 @@ bindd("SUPER + PRINT", "Record window", hl.dsp.exec_cmd(lib .. "/evo-screenrecor
 
 -- Desktop: programs and window management
 bindd("SUPER + Return", "Terminal", hl.dsp.exec_cmd(terminal))
+-- Class TUI.float is the floating-window tag: float, center, 1600x900.
+bindd(
+	"SUPER + ALT + Return",
+	"Floating terminal",
+	hl.dsp.exec_cmd(terminal .. " --gtk-single-instance=false --class=TUI.float")
+)
 bindd("SUPER + grave", "Toggle quake console", function()
 	require("qconsole").toggle()
 end)
