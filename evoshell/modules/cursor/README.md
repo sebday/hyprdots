@@ -15,10 +15,10 @@ EvoShell discovers `modules/cursor/manifest.json` at startup. Add `{ "id": "evo.
 
 Uses the session Cursor already stores on this machine:
 
-1. Cursor CLI: `~/.config/cursor/auth.json`
+1. Cursor CLI: `~/.config/cursor/auth.json`, or the keyring item `cursor-credentials` when that file says `storedIn` is `os-secret-store`
 2. Cursor IDE: `~/.config/Cursor/User/globalStorage/state.vscdb`
 
-The session cookie goes to `curl` on stdin, never in argv.
+IDE tokens stored as `cursor-safe-storage:v1:` are decrypted with the `application=cursor` libsecret password (`v11`) or the `v10` fallback. The session cookie goes to `curl` on stdin, never in argv.
 
 ## How it collects
 

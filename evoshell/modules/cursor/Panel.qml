@@ -82,6 +82,7 @@ Panel {
   readonly property string heroMeta: {
     if (loading) return "Refreshing…"
     if (isError) return data.error || "Unavailable"
+    if (detail.stale) return (detail.membership ? String(detail.membership) + " · " : "") + "last saved"
     if (detail.membership) return String(detail.membership)
     if (hasData) return (data.cursorPercent || 0) + "% cursor · " + (data.otherPercent || 0) + "% other"
     return ""

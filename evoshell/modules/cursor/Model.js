@@ -173,6 +173,7 @@ function barTooltip(data, loading) {
   }
   var cursor = parseInt(data.cursorPercent, 10)
   if (isNaN(cursor)) cursor = 0
+  if (data.detail && data.detail.stale) return plain(cursor + "% Cursor, last saved")
   return plain(cursor + "% Cursor")
 }
 
