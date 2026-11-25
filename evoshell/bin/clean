@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Remove trash, thumbnails, your temp files, clipboard history, bash history,
-# Ghostty scrollback, rebuildable caches, and Cursor resume chats from before today.
+# Ghostty scrollback, ~/.ollama, rebuildable caches, and Cursor resume chats
+# from before today.
 # Shader caches stay: Mesa, RADV, and Qt rebuild them on the next launch, and
 # games then recompile Vulkan shaders every start.
 # clean -f also vacuums the journal to 7 days and deletes older core dumps (sudo).
@@ -296,6 +297,7 @@ add "$trash/info" dir "$trash/info" "$(dir_size "$trash/info")"
 add "$trash/expunged" dir "$trash/expunged" "$(dir_size "$trash/expunged")"
 add "$cache/thumbnails" dir "$cache/thumbnails" "$(dir_size "$cache/thumbnails")"
 add "$HOME/.thumbnails" dir "$HOME/.thumbnails" "$(dir_size "$HOME/.thumbnails")"
+add "$HOME/.ollama" dir "$HOME/.ollama" "$(dir_size "$HOME/.ollama")"
 add "/tmp (your files)" tmp /tmp "$(tmp_size /tmp)"
 add "/var/tmp (your files)" tmp /var/tmp "$(tmp_size /var/tmp)"
 add "clipboard (pins kept)" clipboard clipboard "$(clipboard_size)"
