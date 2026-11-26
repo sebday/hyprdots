@@ -75,16 +75,26 @@ Item {
         ? root.formatRate(root.networkDownloadRate + root.networkUploadRate)
         : "--"
 
+    readonly property string interfaceName: {
+        if (info.iface)
+            return String(info.iface)
+        return root.loading ? "…" : "Offline"
+    }
+
+    readonly property string interfaceIp: {
+        if (info.iface)
+            return info.ip ? String(info.ip) : "—"
+        return root.loading ? "…" : "—"
+    }
+
     readonly property var networkStats: {
         var downParts = root.hasTransferStats ? root.rateParts(root.networkDownloadRate) : { value: "--", unit: "" }
         var upParts = root.hasTransferStats ? root.rateParts(root.networkUploadRate) : { value: "--", unit: "" }
         var ping = root.pingParts(root.info.router_ping_ms, root.hasPingStats)
         var down = { label: "download", value: downParts.value, unit: downParts.unit, kpi: true, color: Theme.ansiFallback("green") }
         var up = { label: "upload", value: upParts.value, unit: upParts.unit, kpi: true, color: Theme.urgent }
-        if (root.loading) {
+        if (root.loading && !info.iface) {
             return [
-                { label: "Interface", value: "…" },
-                { label: "IP", value: "…" },
                 { label: "Link", value: "…" },
                 { label: "Gateway", value: "…" },
                 down,
@@ -93,8 +103,6 @@ Item {
         }
         if (!info.iface) {
             return [
-                { label: "Interface", value: "Offline" },
-                { label: "IP", value: "—" },
                 { label: "Link", value: "—" },
                 { label: "Gateway", value: "—" },
                 down,
@@ -102,8 +110,6 @@ Item {
             ]
         }
         return [
-            { label: "Interface", value: String(info.iface) },
-            { label: "IP", value: info.ip ? String(info.ip) : "—" },
             { label: "Link", value: root.linkSpeedLabel },
             { label: "Gateway", value: ping.value, unit: ping.unit, kpi: true },
             down,
@@ -560,6 +566,18 @@ Item {
             columns: 3
             columnSpacing: 8
             rowSpacing: Theme.hoverPanelSectionSpacing
+
+            HoverPanelStatBox {
+                Layout.columnSpan: 2
+                Layout.fillWidth: true
+                value: root.interfaceName
+                detail: root.interfaceIp
+                label: "Interface"
+                valueColor: Theme.accent
+                valueFontSize: Theme.fontSizeXl
+                unitFontSize: Theme.font.body
+                boxHeight: Theme.font.heading + Theme.space(56)
+            }
 
             Repeater {
                 model: root.networkStats

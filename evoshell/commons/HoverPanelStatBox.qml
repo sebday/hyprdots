@@ -5,6 +5,7 @@ Item {
     id: root
 
     property string value: ""
+    property string detail: ""
     property string label: ""
     property string icon: ""
     property color valueColor: Theme.accent
@@ -231,7 +232,7 @@ Item {
             Text {
                 Layout.fillWidth: true
                 Layout.fillHeight: root.boxHeight > 0
-                visible: !root.hasIcon && root.unit === ""
+                visible: !root.hasIcon && root.unit === "" && root.detail === ""
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
                 text: root.value
@@ -240,6 +241,43 @@ Item {
                 font.pixelSize: root.valueFontSize
                 font.bold: Theme.fontBold
                 elide: Text.ElideRight
+            }
+
+            Item {
+                Layout.fillWidth: true
+                Layout.fillHeight: root.boxHeight > 0
+                implicitHeight: detailCol.implicitHeight
+                visible: !root.hasIcon && root.unit === "" && root.detail !== ""
+
+                Column {
+                    id: detailCol
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: Theme.spacing2
+
+                    Text {
+                        width: parent.width
+                        horizontalAlignment: Text.AlignHCenter
+                        text: root.value
+                        color: root.special ? Theme.accent : root.valueColor
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.valueFontSize
+                        font.bold: Theme.fontBold
+                        elide: Text.ElideRight
+                    }
+
+                    Text {
+                        width: parent.width
+                        horizontalAlignment: Text.AlignHCenter
+                        text: root.detail
+                        color: root.special ? Theme.accent : root.valueColor
+                        font.family: Theme.fontFamily
+                        font.pixelSize: root.valueFontSize
+                        font.bold: Theme.fontBold
+                        elide: Text.ElideRight
+                    }
+                }
             }
 
             Item {
