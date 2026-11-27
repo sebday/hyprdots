@@ -122,6 +122,14 @@ apply_live() {
     hyprctl eval "hl.config({ decoration = { rounding = ${rounding}, active_opacity = ${active_opacity}, inactive_opacity = ${inactive_opacity} }, general = { gaps_in = ${gaps_in}, gaps_out = ${gaps_out} }, animations = { enabled = ${animations} } })" >/dev/null
 }
 
+# owed reads animations:enabled when it starts and on Hyprland's
+# configreloaded event. This Hyprland does not emit that event for a live
+# keyword change, so restart the daemon when the toggle actually flips.
+notify_owe_animations() {
+    systemctl --user is-active owed.service >/dev/null 2>&1 || return 0
+    systemctl --user restart owed.service >/dev/null 2>&1 || true
+}
+
 bool_from_json() {
     jq -r --arg k "$1" 'if .[$k] then "true" else "false" end' <<<"$2"
 }
@@ -220,11 +228,13 @@ toggle)
     esac
     write_state "$rounding_on" "$gaps_on" "$animations_on" "$active_opacity" "$inactive_opacity"
     apply_live "$rounding_on" "$gaps_on" "$animations_on" "$active_opacity" "$inactive_opacity"
+    [[ "$key" == "animations" ]] && notify_owe_animations
     read_state
     ;;
 reset)
     write_state "false" "false" "true" "$DEFAULT_ACTIVE_OPACITY" "$DEFAULT_INACTIVE_OPACITY"
     apply_live "false" "false" "true" "$DEFAULT_ACTIVE_OPACITY" "$DEFAULT_INACTIVE_OPACITY"
+    notify_owe_animations
     read_state
     ;;
 menu-special)

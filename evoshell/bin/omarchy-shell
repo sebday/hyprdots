@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# Stand-in for omarchy-shell. owed uses it to hand the background layer
+# back and forth: video hides evoshell's still, a plain still shows it again.
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+ipc="${script_dir}/_ipc"
+
+suspend() {
+    local value="${1:-}"
+    case "$value" in
+    true|false) ;;
+    *)
+        echo "usage: omarchy-shell background setSuspended true|false" >&2
+        exit 1
+        ;;
+    esac
+    exec "$ipc" evo.sys.wallpaper setSuspended "$value"
+}
+
+case "${1:-}" in
+background)
+    [[ "${2:-}" == "setSuspended" ]] || {
+        echo "unsupported: $*" >&2
+        exit 1
+    }
+    suspend "${3:-}"
+    ;;
+shell)
+    # Older owed falls back to this when background setSuspended is missing.
+    # Enabling the shell background means the still is not suspended.
+    if [[ "${2:-}" == "setPluginEnabled" && "${3:-}" == "omarchy.background" ]]; then
+        case "${4:-}" in
+        true) suspend false ;;
+        false) suspend true ;;
+        *)
+            echo "usage: omarchy-shell shell setPluginEnabled omarchy.background true|false" >&2
+            exit 1
+            ;;
+        esac
+    fi
+    echo "unsupported: $*" >&2
+    exit 1
+    ;;
+*)
+    echo "unsupported: $*" >&2
+    exit 1
+    ;;
+esac

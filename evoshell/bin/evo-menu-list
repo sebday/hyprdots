@@ -17,9 +17,13 @@ source "$script_dir/evo-menu-list-lib"
 preview_path() {
     local src="$1" key="$2"
     local cached="$cache_root/$key"
-    if [[ -f "$cached" ]]; then
-        printf '%s' "$cached"
-        return
+    if [[ -f "$cached" && ! "$src" -nt "$cached" ]]; then
+        local bytes
+        bytes=$(stat -c '%s' "$cached" 2>/dev/null || echo 0)
+        if [[ "${bytes:-0}" -le "$MENU_THUMB_MAX_BYTES" ]]; then
+            printf '%s' "$cached"
+            return
+        fi
     fi
     if [[ -x "$thumb" ]]; then
         "$thumb" "$src" "$key"
@@ -40,9 +44,15 @@ list_wallpaper_files() {
 emit_wallpaper_entry() {
     local label="$1" file="$2" cache_key="$3"
     local p
-    p=$(preview_path "$file" "$cache_key")
-    printf '%s\t%s/evo-wallpaper set %q\t%s\n' "$label" "$EVOSHELL_BIN" "$file" "$p"
+    p=$(preview_path "$file" "$(menu_thumb_key "$cache_key")")
+    printf '%s\t%s/evo-wallpaper set %q\t%s\t%s\n' "$label" "$EVOSHELL_BIN" "$file" "$p" "$file"
 }
+
+case "$mode" in
+themes|wallpapers)
+    menu_cache_drop_legacy
+    ;;
+esac
 
 case "$mode" in
 themes)
@@ -52,8 +62,8 @@ themes)
             [[ -n "$name" ]] || continue
             src="$THEME_DIR/$name/preview.png"
             [[ -f "$src" ]] || continue
-            p=$(preview_path "$src" "themes/${name}.png")
-            printf '%s\t%s/evo-theme %s\t%s\n' "$name" "$EVOSHELL_BIN" "$name" "$p"
+            p=$(preview_path "$src" "$(menu_thumb_key "themes/${name}.png")")
+            printf '%s\t%s/evo-theme %s\t%s\t%s\n' "$name" "$EVOSHELL_BIN" "$name" "$p" "$src"
         done
     ;;
 wallpapers)

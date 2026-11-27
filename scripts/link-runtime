@@ -122,6 +122,7 @@ migrate_themes_dir() {
 
 link_core_binaries
 link_path "${LOCAL_BIN}/evo" "${EVOSHELL_ROOT}/bin/evo"
+link_path "${LOCAL_BIN}/omarchy-shell" "${EVOSHELL_ROOT}/bin/omarchy-shell"
 link_path "${LOCAL_BIN}/clean" "${EVOSHELL_ROOT}/bin/clean"
 
 # Remove legacy public symlinks.

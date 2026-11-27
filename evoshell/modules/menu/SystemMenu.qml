@@ -498,7 +498,8 @@ Item {
             return
         }
         var entry = selectedEntry
-        var path = entry && entry.preview ? String(entry.preview) : ""
+        // Tiles use the cached thumb. The backdrop is the one full image.
+        var path = entry ? String(entry.image || entry.preview || "") : ""
         if (!path) {
             backdrop.clear()
             return

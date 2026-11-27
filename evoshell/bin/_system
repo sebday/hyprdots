@@ -211,6 +211,7 @@ cmd_start() {
         source "${BIN}/evo-theme-lib" 2>/dev/null || true
         systemd-cat -t evoshell -- env \
             QS_NO_RELOAD_POPUP=1 \
+            QML_IMPORT_PATH="${QML_IMPORT_PATH:+$QML_IMPORT_PATH:}${HOME}/.local/lib/qt6/qml" \
             QS_ICON_THEME="${EVO_ICON_THEME:-evo-current}" \
             QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-wayland}" \
             quickshell -n -p "$EVOSHELL_ROOT" &

@@ -12,6 +12,8 @@ Item {
     property color divider: Theme.foregroundDivider
     readonly property int tileWidth: 136
     readonly property int tileHeight: 84
+    readonly property int thumbPxW: Math.round(tileWidth * Math.max(1, Screen.devicePixelRatio))
+    readonly property int thumbPxH: Math.round(tileHeight * Math.max(1, Screen.devicePixelRatio))
     signal activated(var entry)
     signal indexMoved(int index)
 
@@ -76,6 +78,8 @@ Item {
                     asynchronous: true
                     cache: true
                     smooth: true
+                    sourceSize.width: root.thumbPxW
+                    sourceSize.height: root.thumbPxH
                 }
 
                 Text {

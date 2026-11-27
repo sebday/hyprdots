@@ -429,7 +429,7 @@ install_theme_manifest() {
 theme_build_stamp() {
     local theme_name="$1"
     local toml="$THEME_DIR/$theme_name/colors.toml"
-    local toml_hash gtk_hash tmpl_hash
+    local toml_hash gtk_hash tmpl_hash loops_hash loops_dir
 
     [[ -f "$toml" ]] || return 1
     toml_hash=$(sha256sum "$toml" | awk '{print $1}')
@@ -445,7 +445,14 @@ theme_build_stamp() {
     else
         tmpl_hash="none"
     fi
-    printf '%s|%s|%s' "$toml_hash" "$gtk_hash" "$tmpl_hash"
+    loops_hash="none"
+    loops_dir="$THEME_DIR/$theme_name/wallpapers/loops"
+    if [[ -d "$loops_dir" ]]; then
+        loops_hash=$(find "$loops_dir" -type f 2>/dev/null \
+            | sort | xargs sha256sum 2>/dev/null | sha256sum | awk '{print $1}')
+        [[ -n "$loops_hash" ]] || loops_hash="none"
+    fi
+    printf '%s|%s|%s|%s' "$toml_hash" "$gtk_hash" "$tmpl_hash" "$loops_hash"
 }
 
 theme_build_cache_dir() {

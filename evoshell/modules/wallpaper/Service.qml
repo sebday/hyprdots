@@ -19,7 +19,15 @@ Item {
     property string displayedWallpaper: ""
     property string queuedWrite: ""
     property bool wallpaperSkipFade: false
+    property bool suspended: false
     property color backdropColor: Theme.background
+
+    readonly property string oweBackgroundLink: {
+        var stateHome = String(Quickshell.env("XDG_STATE_HOME") || "")
+        if (!stateHome)
+            stateHome = home + "/.local/state"
+        return stateHome + "/omarchy/current/background"
+    }
 
     function syncBackdropFromToml() {
         var text = String(currentColorsFile.text() || "")
@@ -125,8 +133,17 @@ Item {
         if (writeStateProc.running || !queuedWrite) return
         var path = queuedWrite
         queuedWrite = ""
-        writeStateProc.command = ["bash", "-c",
-            "mkdir -p \"$(dirname " + Util.shellQuote(statePath) + ")\" && printf '%s' " + Util.shellQuote(path) + " > " + Util.shellQuote(statePath)]
+        // Publish the still through a temp symlink and rename, so owed's
+        // inotify sees one atomic replacement of the background link.
+        writeStateProc.command = ["bash", "-c", [
+            "state=" + Util.shellQuote(statePath),
+            "path=" + Util.shellQuote(path),
+            "link=" + Util.shellQuote(oweBackgroundLink),
+            "mkdir -p \"$(dirname \"$state\")\" \"$(dirname \"$link\")\"",
+            "printf '%s' \"$path\" > \"$state\"",
+            "tmp=\"$(dirname \"$link\")/.background.owe.$$\"",
+            "ln -s \"$path\" \"$tmp\" && mv -Tf \"$tmp\" \"$link\""
+        ].join("\n")]
         writeStateProc.running = true
     }
 
@@ -173,6 +190,7 @@ Item {
         function refresh(): void { root.refreshWallpaper() }
         function set(path: string): void { root.setWallpaper(path, false) }
         function setInstant(path: string): void { root.setWallpaper(path, true) }
+        function setSuspended(value: bool): void { root.suspended = value }
         function next(): string { root.cycleWallpapers("next"); return "ok" }
         function prev(): string { root.cycleWallpapers("prev"); return "ok" }
     }
@@ -277,7 +295,7 @@ Item {
         PanelWindow {
             required property var modelData
             screen: modelData
-            visible: true
+            visible: !root.suspended
             anchors { top: true; bottom: true; left: true; right: true }
             color: root.backdropColor
             aboveWindows: false

@@ -17,6 +17,8 @@ Item {
     readonly property int columnCount: Math.max(1, grid.width > 0
         ? Math.floor(grid.width / Theme.launcherPreviewTileWidth)
         : 1)
+    readonly property int thumbPxW: Math.round(Theme.launcherPreviewTileWidth * Math.max(1, Screen.devicePixelRatio))
+    readonly property int thumbPxH: Math.round(Theme.launcherPreviewTileHeight * Math.max(1, Screen.devicePixelRatio))
     signal activated(var entry)
     signal indexMoved(int index)
 
@@ -74,6 +76,8 @@ Item {
                         asynchronous: true
                         cache: true
                         smooth: true
+                        sourceSize.width: root.thumbPxW
+                        sourceSize.height: root.thumbPxH
                     }
 
                     Text {

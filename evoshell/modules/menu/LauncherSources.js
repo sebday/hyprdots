@@ -606,6 +606,7 @@ function parseCatalog(raw, kind) {
             name: name,
             command: command,
             preview: parts[2] || "",
+            image: parts[3] || "",
             icon: icon,
             path: kind === "wallpaper" ? wallpaperPath(command) : "",
             keywords: name.split(/[\/._-]+/),
