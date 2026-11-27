@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jslay88/vdf"
 	"evoshell/modules/steam/internal/vdfbin"
+	"github.com/jslay88/vdf"
 )
 
 const (
@@ -241,28 +241,112 @@ func measureBinaryVDF(data []byte) (int, error) {
 
 const typeEndVDF = 0x08
 
+const (
+	magicAppInfoV42 = 0x0756442A
+	appTypeGame     = 1
+)
+
 func appInfoTypeMap(steamDir string) (map[uint32]string, error) {
-	path := filepath.Join(steamDir, "appcache", "appinfo.vdf")
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
+	types := map[uint32]string{}
+	data, err := os.ReadFile(filepath.Join(steamDir, "appcache", "appinfo.vdf"))
+	if err != nil && !os.IsNotExist(err) {
 		return nil, err
 	}
-	if len(data) < 8 {
-		return nil, nil
+	if err == nil && len(data) >= 8 {
+		parsed, err := parseLegacyAppInfo(data)
+		if err != nil {
+			return nil, err
+		}
+		for id, kind := range parsed {
+			types[id] = kind
+		}
 	}
 
-	magic := string(data[:4])
-	switch magic {
+	shards, err := appInfoShardTypes(filepath.Join(steamDir, "appcache", "appinfo"))
+	if err != nil {
+		return nil, err
+	}
+	for id, kind := range shards {
+		types[id] = kind
+	}
+	return types, nil
+}
+
+func parseLegacyAppInfo(data []byte) (map[uint32]string, error) {
+	switch string(data[:4]) {
 	case "(DV\x07":
 		return parseAppInfoV40(data)
 	case ")DV\x07":
 		return parseAppInfoV41(data)
 	default:
-		return nil, nil
+		return map[uint32]string{}, nil
 	}
+}
+
+// Steam replaced appinfo.vdf with 256 shards. Each index entry already stores
+// common/type, so the game count does not need the binary VDF body.
+func appInfoShardTypes(dir string) (map[uint32]string, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return map[uint32]string{}, nil
+		}
+		return nil, err
+	}
+	types := map[uint32]string{}
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || !strings.HasPrefix(name, "appinfo_") || !strings.HasSuffix(name, ".vdf") {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(dir, name))
+		if err != nil {
+			return nil, err
+		}
+		parsed, err := parseAppInfoShard(data)
+		if err != nil {
+			return nil, err
+		}
+		for id, kind := range parsed {
+			types[id] = kind
+		}
+	}
+	return types, nil
+}
+
+func parseAppInfoShard(data []byte) (map[uint32]string, error) {
+	types := map[uint32]string{}
+	if len(data) < 44 || binary.LittleEndian.Uint32(data[:4]) != magicAppInfoV42 {
+		return types, nil
+	}
+	count := int(binary.LittleEndian.Uint32(data[16:20]))
+	indexSize := int(binary.LittleEndian.Uint32(data[20:24]))
+	if count < 0 || indexSize < 0 || 44+indexSize > len(data) {
+		return nil, fmt.Errorf("appinfo shard header is truncated")
+	}
+	off := 44
+	end := 44 + indexSize
+	// Summary starts after app id, data offset, data size, and summary size.
+	// Type follows change number, last updated, PICS token, prerelease, and SHA-1.
+	const typeRel = 4 + 4 + 8 + 1 + 20
+	for range count {
+		if off+16 > end {
+			return nil, fmt.Errorf("appinfo shard index is truncated")
+		}
+		appid := binary.LittleEndian.Uint32(data[off : off+4])
+		summary := int(binary.LittleEndian.Uint32(data[off+12 : off+16]))
+		if summary < 0 || off+16+summary > end {
+			return nil, fmt.Errorf("appinfo shard entry is truncated")
+		}
+		if appid != 0 && summary >= typeRel+4 {
+			typ := binary.LittleEndian.Uint32(data[off+16+typeRel : off+16+typeRel+4])
+			if typ == appTypeGame {
+				types[appid] = "game"
+			}
+		}
+		off += 16 + summary
+	}
+	return types, nil
 }
 
 func parseAppInfoV40(data []byte) (map[uint32]string, error) {
