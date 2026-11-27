@@ -27,10 +27,11 @@ Item {
     property int activeOpacityPercent: 97
     property int inactiveOpacityPercent: 88
     property bool fieldsetRoundingOn: true
+    property bool wallpaperAnimationsOn: true
     property bool hyprReady: false
     property bool uiReady: false
     readonly property bool settingsBusy: hyprToggleProc.running || hyprSetProc.running
-        || uiToggleProc.running
+        || uiToggleProc.running || wallpaperToggleProc.running
     readonly property bool active: host && host.opened
         && (host.activeModule === "settings" || host.settingsEmbedded === true)
 
@@ -285,6 +286,11 @@ Item {
         uiToggleProc.running = true
     }
 
+    function toggleWallpaperAnimations() {
+        if (!uiReady || settingsBusy) return
+        wallpaperToggleProc.running = true
+    }
+
     function onActivated() {
         refresh()
         Qt.callLater(function() {
@@ -317,6 +323,7 @@ Item {
         try {
             var data = JSON.parse(String(raw || "{}"))
             root.fieldsetRoundingOn = data.fieldsetRounding !== false
+            root.wallpaperAnimationsOn = data.wallpaperAnimations !== false
             root.uiReady = true
         } catch (e) {
             root.uiReady = false
@@ -357,6 +364,14 @@ Item {
             onStreamFinished: root.parseUiState(text)
         }
         onExited: Theme.reloadUi()
+    }
+
+    Process {
+        id: wallpaperToggleProc
+        command: ["bash", root.barScript, "ui", "toggle", "wallpaperAnimations"]
+        stdout: StdioCollector {
+            onStreamFinished: root.parseUiState(text)
+        }
     }
 
     readonly property var looksTabModel: [

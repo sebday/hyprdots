@@ -101,13 +101,24 @@ Item {
 
             ToggleRow {
                 Layout.fillWidth: true
-                label: "Animations"
+                label: "Window animations"
                 labelFontSize: Theme.fontSizeS
                 detailFontSize: Theme.fontSizeS
-                visible: root.rowVisible(["Animations", "Window"])
+                visible: root.rowVisible(["Window animations", "Animations", "Window"])
                 checked: module.animationsOn
                 enabled: module.hyprReady && !module.settingsBusy
                 onToggled: module.toggleHypr("animations")
+            }
+
+            ToggleRow {
+                Layout.fillWidth: true
+                label: "Wallpaper animations"
+                labelFontSize: Theme.fontSizeS
+                detailFontSize: Theme.fontSizeS
+                visible: root.rowVisible(["Wallpaper animations", "Animations", "Wallpaper"])
+                checked: module.wallpaperAnimationsOn
+                enabled: module.uiReady && !module.settingsBusy
+                onToggled: module.toggleWallpaperAnimations()
             }
         }
     }

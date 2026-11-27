@@ -28,6 +28,9 @@ Item {
             stateHome = home + "/.local/state"
         return stateHome + "/omarchy/current/background"
     }
+    readonly property string oweStillDir: Util.statePath(home, "wallpaper-shown")
+    readonly property string uiConfigPath: Util.configPath(home, "ui.json")
+    property bool wallpaperAnimations: true
 
     function syncBackdropFromToml() {
         var text = String(currentColorsFile.text() || "")
@@ -85,6 +88,16 @@ Item {
     }
 
     FileView {
+        id: uiConfigFile
+        path: root.uiConfigPath
+        watchChanges: true
+        printErrors: false
+        onLoaded: root.applyWallpaperAnimations(uiConfigFile.text())
+        onLoadFailed: root.applyWallpaperAnimations("")
+        onFileChanged: reload()
+    }
+
+    FileView {
         id: wallpaperStateFile
         path: root.statePath
         watchChanges: true
@@ -124,6 +137,21 @@ Item {
             Qt.callLater(function() { root.wallpaperSkipFade = false })
     }
 
+    function applyWallpaperAnimations(text) {
+        var on = true
+        try {
+            var data = JSON.parse(String(text || "{}"))
+            if (data.wallpaperAnimations === false)
+                on = false
+        } catch (e) {
+        }
+        if (on === wallpaperAnimations)
+            return
+        wallpaperAnimations = on
+        if (currentWallpaper)
+            persistState(currentWallpaper)
+    }
+
     function persistState(path) {
         queuedWrite = path
         flushStateWrite()
@@ -133,16 +161,26 @@ Item {
         if (writeStateProc.running || !queuedWrite) return
         var path = queuedWrite
         queuedWrite = ""
-        // Publish the still through a temp symlink and rename, so owed's
-        // inotify sees one atomic replacement of the background link.
+        // Wallpaper animations off publishes a hardlink outside the theme
+        // tree, so owed finds no sibling loop. On publishes the real still.
         writeStateProc.command = ["bash", "-c", [
             "state=" + Util.shellQuote(statePath),
             "path=" + Util.shellQuote(path),
             "link=" + Util.shellQuote(oweBackgroundLink),
+            "shown=" + Util.shellQuote(oweStillDir),
+            "animate=" + Util.shellQuote(wallpaperAnimations ? "true" : "false"),
             "mkdir -p \"$(dirname \"$state\")\" \"$(dirname \"$link\")\"",
             "printf '%s' \"$path\" > \"$state\"",
+            "target=\"$path\"",
+            "if [[ \"$animate\" != true ]]; then",
+            "  mkdir -p \"$shown\"",
+            "  base=\"$(basename \"$path\")\"",
+            "  target=\"$shown/$base\"",
+            "  find \"$shown\" -mindepth 1 -maxdepth 1 ! -name \"$base\" -delete",
+            "  ln -f \"$path\" \"$target\" 2>/dev/null || cp -f \"$path\" \"$target\"",
+            "fi",
             "tmp=\"$(dirname \"$link\")/.background.owe.$$\"",
-            "ln -s \"$path\" \"$tmp\" && mv -Tf \"$tmp\" \"$link\""
+            "ln -s \"$target\" \"$tmp\" && mv -Tf \"$tmp\" \"$link\""
         ].join("\n")]
         writeStateProc.running = true
     }

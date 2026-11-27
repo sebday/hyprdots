@@ -43,6 +43,7 @@ Item {
     property bool animationsOn: false
     property bool roundingOn: false
     property bool fieldsetRoundingOn: true
+    property bool wallpaperAnimationsOn: true
 
     readonly property string home: Quickshell.env("HOME")
     readonly property string terminal: Quickshell.env("EVOSHELL_TERMINAL") || "ghostty"
@@ -57,7 +58,8 @@ Item {
         gapsOn: gapsOn,
         animationsOn: animationsOn,
         roundingOn: roundingOn,
-        fieldsetRoundingOn: fieldsetRoundingOn
+        fieldsetRoundingOn: fieldsetRoundingOn,
+        wallpaperAnimationsOn: wallpaperAnimationsOn
     })
     readonly property var results: LauncherSources.buildRoot(
         query, cachedApps, programRunCounts, commandList, settingsState,
@@ -270,6 +272,8 @@ Item {
                 toggleHypr(entry.arg)
             else if (entry.action === "toggleFieldsetRounding")
                 toggleFieldsetRounding()
+            else if (entry.action === "toggleWallpaperAnimations")
+                toggleWallpaperAnimations()
             dismiss()
             return
         }
@@ -505,6 +509,7 @@ Item {
         try {
             var data = JSON.parse(String(raw || "{}"))
             fieldsetRoundingOn = data.fieldsetRounding !== false
+            wallpaperAnimationsOn = data.wallpaperAnimations !== false
         } catch (e) {
         }
     }
@@ -518,6 +523,11 @@ Item {
     function toggleFieldsetRounding() {
         if (!uiToggleProc.running)
             uiToggleProc.running = true
+    }
+
+    function toggleWallpaperAnimations() {
+        if (!wallpaperToggleProc.running)
+            wallpaperToggleProc.running = true
     }
 
     onResultsChanged: {
@@ -593,6 +603,14 @@ Item {
     Process {
         id: uiToggleProc
         command: ["bash", root.barScript, "ui", "toggle", "fieldsetRounding"]
+        stdout: StdioCollector {
+            onStreamFinished: root.parseUiState(text)
+        }
+    }
+
+    Process {
+        id: wallpaperToggleProc
+        command: ["bash", root.barScript, "ui", "toggle", "wallpaperAnimations"]
         stdout: StdioCollector {
             onStreamFinished: root.parseUiState(text)
         }

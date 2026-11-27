@@ -464,6 +464,8 @@ Item {
                 embeddedSettings.toggleHypr(entry.arg)
             else if (entry.action === "toggleFieldsetRounding")
                 embeddedSettings.toggleFieldsetRounding()
+            else if (entry.action === "toggleWallpaperAnimations")
+                embeddedSettings.toggleWallpaperAnimations()
             return
         }
         if (entry.command)

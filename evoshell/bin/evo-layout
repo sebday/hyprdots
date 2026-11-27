@@ -54,7 +54,7 @@ set_notifications_layout() {
 }
 
 read_ui_state() {
-    jq -c '{fieldsetRounding: (.fieldsetRounding != false)}' <<<"$(read_ui_config_json)"
+    jq -c '{fieldsetRounding: (.fieldsetRounding != false), wallpaperAnimations: (.wallpaperAnimations != false)}' <<<"$(read_ui_config_json)"
 }
 
 write_ui_state() {
@@ -81,12 +81,24 @@ toggle_fieldset_rounding() {
     read_ui_state
 }
 
+toggle_wallpaper_animations() {
+    local current on
+    current="$(read_ui_state)"
+    on="$(jq -r 'if .wallpaperAnimations then "true" else "false" end' <<<"$current")"
+    if [[ "$on" == "true" ]]; then
+        merge_ui_config_json '.wallpaperAnimations = false'
+    else
+        merge_ui_config_json '.wallpaperAnimations = true'
+    fi
+    read_ui_state
+}
+
 usage() {
     cat >&2 <<'EOF'
 usage:
   evo-layout bar get|set <output> <top|bottom>|toggle|reset
   evo-layout notifications get|set <output> <top|bottom>|toggle
-  evo-layout ui get|toggle fieldsetRounding|set baseSize <px>
+  evo-layout ui get|toggle fieldsetRounding|toggle wallpaperAnimations|set baseSize <px>
 EOF
     exit 1
 }
@@ -184,6 +196,9 @@ ui)
         case "$key" in
         fieldsetRounding)
             toggle_fieldset_rounding
+            ;;
+        wallpaperAnimations)
+            toggle_wallpaper_animations
             ;;
         *)
             usage

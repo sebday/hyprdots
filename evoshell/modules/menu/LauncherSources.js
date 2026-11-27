@@ -91,12 +91,23 @@ function settingsActions(state) {
         {
             kind: "setting",
             id: "toggle-animations",
-            name: "Toggle animations",
+            name: "Toggle window animations",
             icon: "󰅁",
-            keywords: ["animations", "motion", "looks"],
+            keywords: ["animations", "motion", "window", "hyprland", "looks"],
             accessory: onOff(state.animationsOn === true),
             action: "toggleHypr",
             arg: "animations",
+            section: "Settings"
+        },
+        {
+            kind: "setting",
+            id: "toggle-wallpaper-animations",
+            name: "Toggle wallpaper animations",
+            icon: "󰸉",
+            keywords: ["animations", "wallpaper", "background", "loop", "motion", "looks"],
+            accessory: onOff(state.wallpaperAnimationsOn !== false),
+            action: "toggleWallpaperAnimations",
+            arg: "",
             section: "Settings"
         },
         {
